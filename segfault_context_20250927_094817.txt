@@ -1,0 +1,64 @@
+=== Core Dump Configuration ===
+ulimit -c: unlimited
+Core pattern: |/nix/store/3as4i1wrbc9nsdwn62rkdqwiig6db2hx-systemd/lib/systemd/systemd-coredump %P %u %g %s %t %c %h %d %F
+Core uses PID: 1
+
+=== Existing Core Dumps ===
+Core dump files found:
+  ./src/test/parser/cores.list
+  ./src/test/parser/core-xdp2.c
+  ./src/test/parser/core-xdp2opt_notcpopts.c
+  ./src/test/parser/core-null.c
+  ./src/test/parser/core-flowdis.c
+  ./src/test/parser/cores-nonopt.list
+  ./src/test/parser/core-xdp2opt.c
+  ./src/test/parser/cores.c
+  ./src/test/parser/core-parselite.c
+Latest core dump: ./src/test/parser/core-flowdis.c
+  Size: 9.1K
+  Modified: Sep 23 13:29
+  File type: ./src/test/parser/core-flowdis.c: C source, ASCII text
+
+=== GDB Analysis ===
+gdb available: /etc/profiles/per-user/das/bin/gdb
+gdb version: GNU gdb (GDB) 16.3
+Cannot run gdb analysis:
+  - xdp2-compiler not found
+
+=== System Log Analysis ===
+System logs not accessible
+
+=== Kernel Messages ===
+Recent kernel messages about segfaults:
+
+=== Memory Information ===
+Memory status:
+  MemTotal:       131747624 kB
+  MemFree:        50794636 kB
+  MemAvailable:   102971556 kB
+  SwapTotal:             0 kB
+  SwapFree:              0 kB
+
+=== Process Limits ===
+Current process limits:
+  real-time non-blocking time  (microseconds, -R) unlimited
+  core file size              (blocks, -c) unlimited
+  data seg size               (kbytes, -d) unlimited
+  scheduling priority                 (-e) 39
+  file size                   (blocks, -f) unlimited
+  pending signals                     (-i) 513953
+  max locked memory           (kbytes, -l) 4194304
+  max memory size             (kbytes, -m) unlimited
+  open files                          (-n) 524288
+  pipe size                (512 bytes, -p) 8
+  POSIX message queues         (bytes, -q) 819200
+  real-time priority                  (-r) 95
+  stack size                  (kbytes, -s) 16384
+  cpu time                   (seconds, -t) unlimited
+  max user processes                  (-u) 513953
+  virtual memory              (kbytes, -v) unlimited
+  file locks                          (-x) unlimited
+
+=== Debugging Tools Status ===
+xdp2-compiler binary not found for analysis
+

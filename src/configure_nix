@@ -1,8 +1,27 @@
 #!/bin/bash
+# DEBUGGING: Keep all debug code in place - adjust NIX_DEBUG level to control verbosity
 # configure based on on from iproute2
 #
 # This is not an autoconf generated configure
 #
+
+# Debug function for conditional logging
+debug_print() {
+    local level=$1
+    shift
+    if [ "${NIX_DEBUG:-0}" -ge "$level" ]; then
+        echo "[DEBUG-$level] $*" >&2
+    fi
+}
+
+# Print all environment variables at script start for immediate visibility
+debug_print 6 "=== CONFIGURE_NIX SCRIPT START ==="
+debug_print 6 "Script: $0"
+debug_print 6 "Arguments: $*"
+debug_print 6 "=== ALL ENVIRONMENT VARIABLES ==="
+env | sort
+debug_print 6 "=== END ENVIRONMENT VARIABLES ==="
+
 INCLUDE=${1:-"$PWD/include"}
 
 # Output file which is input to Makefile
@@ -50,6 +69,7 @@ EOF
 
 check_boostwave()
 {
+	debug_print 6 "Boost.Wave: Starting check"
 	cat >$TMPDIR/wavetest.cpp <<EOF
 #include <boost/wave.hpp>
 
@@ -61,19 +81,20 @@ int main(int argc, char **argv)
 	return (0);
 }
 EOF
-	$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/wavetest $TMPDIR/wavetest.cpp 		\
-						-lboost_system -lboost_wave
+	local cmd="$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/wavetest $TMPDIR/wavetest.cpp -lboost_system -lboost_wave"
+	debug_print 6 "Boost.Wave: Executing: $cmd"
+
+	$cmd
 	case $? in
-		0)	;;
-		*)	echo Boost.Wave missing or broken\! 1>&2
-			exit 1
-			;;
+		0)	debug_print 6 "Boost.Wave: Check PASSED";;
+		*)	debug_print 6 "Boost.Wave: Check FAILED"; echo Boost.Wave missing or broken\! 1>&2; exit 1;;
 	esac
 	rm -f $TMPDIR/wavetest.cpp $TMPDIR/wavetest
 }
 
 check_boostthread()
 {
+	debug_print 6 "Boost.Thread: Starting check"
 	cat >$TMPDIR/threadtest.cpp <<EOF
 #include <boost/thread.hpp>
 
@@ -85,19 +106,25 @@ int main(int argc, char **argv)
 	return (0);
 }
 EOF
-	$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/threadtest $TMPDIR/threadtest.cpp		\
-			-lboost_thread   -lboost_system >/dev/null 2>&1
+	local cmd="$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/threadtest $TMPDIR/threadtest.cpp -lboost_thread -lboost_system"
+	debug_print 6 "Boost.Thread: Executing: $cmd"
+
+	# DEBUGGING: Show compilation errors instead of hiding them
+	$cmd
 	case $? in
-		0)	;;
-		*)	echo Boost.Thread missing or broken\! 1>&2
-			exit 1
-			;;
+		0)	debug_print 6 "Boost.Thread: Check PASSED";;
+		*)	debug_print 6 "Boost.Thread: Check FAILED - compilation error shown above"; echo Boost.Thread missing or broken\! 1>&2; exit 1;;
 	esac
 	rm -f $TMPDIR/threadtest.cpp $TMPDIR/threadtest
 }
 
 check_boostsystem()
 {
+	debug_print 6 "Boost.System: Starting check"
+	debug_print 6 "Boost.System: HOST_CXX=$HOST_CXX"
+	debug_print 6 "Boost.System: NIX_BOOST_DEV=$NIX_BOOST_DEV"
+	debug_print 6 "Boost.System: NIX_BOOST_OUT=$NIX_BOOST_OUT"
+
 	cat >$TMPDIR/systemtest.cpp <<EOF
 #include <boost/system/error_code.hpp>
 
@@ -109,19 +136,22 @@ int main(int argc, char **argv)
 	return (0);
 }
 EOF
-	$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/systemtest $TMPDIR/systemtest.cpp		\
-					-lboost_system > /dev/null 2>&1
-	case $? in
-		0)	;;
-		*)	echo Boost.System missing or broken\! 1>&2
-			exit 1
-			;;
+	local cmd="$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/systemtest $TMPDIR/systemtest.cpp -lboost_system"
+	debug_print 6 "Boost.System: Executing: $cmd"
+
+	debug_print 6 "Boost.System: Executing command (showing output)..."
+	$cmd
+	local exit_code=$?
+	case $exit_code in
+		0)	debug_print 6 "Boost.System: Check PASSED";;
+		*)	debug_print 6 "Boost.System: Check FAILED (exit code: $exit_code)"; echo Boost.System missing or broken\! 1>&2; exit 1;;
 	esac
 	rm -f $TMPDIR/systemtest.cpp $TMPDIR/systemtest
 }
 
 check_boostfilesystem()
 {
+	debug_print 6 "Boost.Filesystem: Starting check"
 	cat >$TMPDIR/filesystemtest.cpp <<EOF
 #include <boost/filesystem/path.hpp>
 
@@ -133,19 +163,25 @@ int main(int argc, char **argv)
 	return (0);
 }
 EOF
-	$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/filesystemtest $TMPDIR/filesystemtest.cpp	\
-			-lboost_system -lboost_filesystem > /dev/null 2>&1
+	local cmd="$HOST_CXX ${NIX_BOOST_DEV:+-I$NIX_BOOST_DEV/include} ${NIX_BOOST_OUT:+-L$NIX_BOOST_OUT/lib} -o $TMPDIR/filesystemtest $TMPDIR/filesystemtest.cpp -lboost_system -lboost_filesystem"
+	debug_print 6 "Boost.Filesystem: Executing: $cmd"
+
+	# DEBUGGING: Show compilation errors instead of hiding them
+	$cmd
 	case $? in
-		0)	;;
-		*)	echo Boost.Filesystem missing or broken\! 1>&2
-			exit 1
-			;;
+		0)	debug_print 6 "Boost.Filesystem: Check PASSED";;
+		*)	debug_print 6 "Boost.Filesystem: Check FAILED - compilation error shown above"; echo Boost.Filesystem missing or broken\! 1>&2; exit 1;;
 	esac
 	rm -f $TMPDIR/filesystemtest.cpp $TMPDIR/filesystemtest
 }
 
 check_clang_lib()
 {
+	debug_print 6 "Clang.Lib: Starting check"
+	debug_print 6 "Clang.Lib: HOST_CXX=$HOST_CXX"
+	debug_print 6 "Clang.Lib: HOST_LLVM_CONFIG=$HOST_LLVM_CONFIG"
+	debug_print 6 "Clang.Lib: NIX_CLANG_INCLUDES=$NIX_CLANG_INCLUDES"
+
 	cat >$TMPDIR/clang_lib.cpp <<EOF
 #include <clang/Frontend/CompilerInstance.h>
 #include "clang/Frontend/FrontendActions.h"
@@ -162,13 +198,16 @@ int main(int argc, const char **argv)
 return 0;
 }
 EOF
+	local cmd="$HOST_CXX ${NIX_CLANG_INCLUDES:-} -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp \`$HOST_LLVM_CONFIG --ldflags --cxxflags\` -lclang -lLLVM -lclang-cpp"
+	debug_print 6 "Clang.Lib: Executing: $cmd"
+
+	# DEBUGGING: Show compilation errors instead of hiding them
+	# This helps us understand what's actually failing
 	$HOST_CXX ${NIX_CLANG_INCLUDES:-} -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp	\
-			 `$HOST_LLVM_CONFIG --ldflags --cxxflags` -lclang -lLLVM -lclang-cpp > /dev/null 2>&1
+			 `$HOST_LLVM_CONFIG --ldflags --cxxflags` -lclang -lLLVM -lclang-cpp
 	case $? in
-		0)	;;
-		*)	echo Clang library missing or broken\! 1>&2
-			exit 1
-			;;
+		0)	debug_print 6 "Clang.Lib: Check PASSED";;
+		*)	debug_print 6 "Clang.Lib: Check FAILED - compilation error shown above"; echo Clang library missing or broken\! 1>&2; exit 1;;
 	esac
 	rm -f $TMPDIR/clang_lib.cpp $TMPDIR/clang
 }
@@ -250,10 +289,16 @@ PLATFORMS=($(ls ../platforms))
 
 PLATFORM="default"
 
+# DEBUGGING: Keep debug code in place - controlled by NIX_DEBUG environment variable
+debug_print 6 "Platform Detection: Found platforms: ${PLATFORMS[*]}"
+
 if [ "$1" == "--platform" ]; then
 	PLATFORM=$2
 	PLATFORM_TEXT=$2
 	shift 2
+	debug_print 6 "Platform Detection: Selected platform from command line: $PLATFORM"
+else
+	debug_print 6 "Platform Detection: Using default platform: $PLATFORM"
 fi
 
 for i in ${PLATFORMS[@]}; do
@@ -285,6 +330,7 @@ usage()
         exit 1
 }
 
+debug_print 6 "Platform Detection: Sourcing ../platforms/$PLATFORM/src/configure"
 source ../platforms/$PLATFORM/src/configure
 
 init_platform
@@ -292,17 +338,21 @@ init_platform
 PROGNAME=$0
 COMPILER="gcc"
 
+# DEBUGGING: Keep debug code in place - controlled by NIX_DEBUG environment variable
+debug_print 6 "Command Line Parsing: Starting argument processing"
+
 while [ -n "$1" ]; do
+	debug_print 6 "Command Line Parsing: Processing argument: $1"
 	case $1 in
-		"--config-defines") CONFIG_DEFINES=$2; shift;;
-		"--ccarch") TARGET_ARCH=$2; shift;;
-		"--arch") ARCH=$2; shift;;
-		"--compiler") COMPILER=$2; shift;;
-		"--pkg-config-path") MY_PKG_CONFIG_PATH=$2; shift;;
-		"--installdir") INSTALLDIR=$2; shift;;
-		"--build-opt-parser") BUILD_OPT_PARSER="y";;
-		"--python-ver") PYTHON_VER=$2; shift;;
-		"--llvm-config") HOST_LLVM_CONFIG=$2; shift;;
+		"--config-defines") CONFIG_DEFINES=$2; shift; debug_print 6 "Command Line Parsing: Set CONFIG_DEFINES=$CONFIG_DEFINES";;
+		"--ccarch") TARGET_ARCH=$2; shift; debug_print 6 "Command Line Parsing: Set TARGET_ARCH=$TARGET_ARCH";;
+		"--arch") ARCH=$2; shift; debug_print 6 "Command Line Parsing: Set ARCH=$ARCH";;
+		"--compiler") COMPILER=$2; shift; debug_print 6 "Command Line Parsing: Set COMPILER=$COMPILER";;
+		"--pkg-config-path") MY_PKG_CONFIG_PATH=$2; shift; debug_print 6 "Command Line Parsing: Set MY_PKG_CONFIG_PATH=$MY_PKG_CONFIG_PATH";;
+		"--installdir") INSTALLDIR=$2; shift; debug_print 6 "Command Line Parsing: Set INSTALLDIR=$INSTALLDIR";;
+		"--build-opt-parser") BUILD_OPT_PARSER="y"; debug_print 6 "Command Line Parsing: Set BUILD_OPT_PARSER=y";;
+		"--python-ver") PYTHON_VER=$2; shift; debug_print 6 "Command Line Parsing: Set PYTHON_VER=$PYTHON_VER";;
+		"--llvm-config") HOST_LLVM_CONFIG=$2; shift; debug_print 6 "Command Line Parsing: Set HOST_LLVM_CONFIG=$HOST_LLVM_CONFIG";;
 		*) parse_platform_opts $1;;
 	esac
 	shift
@@ -346,14 +396,22 @@ CFLAGS_N=""
 LIBS_N=""
 LIBS_NL=""
 
+# DEBUGGING: Keep debug code in place - controlled by NIX_DEBUG environment variable
+debug_print 6 "Architecture Detection: Starting architecture detection"
+
 if [ -z "$ARCH" ]; then
 	# Architecture was not set from command line, try to determine
+	debug_print 6 "Architecture Detection: ARCH not set from command line, determining automatically"
 
 	if [ -n "$TARGET_ARCH" ]; then
 		ARCH="$TARGET_ARCH"
+		debug_print 6 "Architecture Detection: Using TARGET_ARCH: $ARCH"
 	else
 		ARCH="`uname -m`"
+		debug_print 6 "Architecture Detection: Using uname -m: $ARCH"
 	fi
+else
+	debug_print 6 "Architecture Detection: Using ARCH from command line: $ARCH"
 fi
 
 set_platform_opts
@@ -416,19 +474,30 @@ unlink ./include/arch 2>/dev/null
 if [ -d ../platform/src/include/arch/arch_$ARCH ]; then
 	ln -s ../../platform/src/include/arch/arch_$ARCH ./include/arch
 	echo "Architecture includes are ./include/arch_$ARCH"
+	debug_print 6 "Architecture Detection: Found specific architecture includes for $ARCH"
 	CFLAGS_N+=" -fcommon"
 else
 	ln -s ../../platform/src/include/arch/arch_generic ./include/arch
 	echo "Architecture includes for $ARCH not found, using generic"
+	debug_print 6 "Architecture Detection: Using generic architecture includes for $ARCH"
 fi
 
 echo "Target Architecture is $TARGET_ARCH"
 
 echo "COMPILER is $COMPILER"
 
+# DEBUGGING: Keep debug code in place - controlled by NIX_DEBUG environment variable
+debug_print 6 "Compiler Setup: Starting compiler configuration"
+
 : ${CC:="$CC_GCC $CFLAGS_N"}
 : ${CXX:="$CC_CXX $CFLAGS_N"}
 : ${LD:="$LD_GCC"}
+
+debug_print 6 "Compiler Setup: CC=$CC"
+debug_print 6 "Compiler Setup: CXX=$CXX"
+debug_print 6 "Compiler Setup: HOST_CC=$HOST_CC"
+debug_print 6 "Compiler Setup: HOST_CXX=$HOST_CXX"
+debug_print 6 "Compiler Setup: HOST_LLVM_CONFIG=$HOST_LLVM_CONFIG"
 
 if [ -z "$HOST_LLVM_CONFIG" ]; then
 	: ${HOST_LLVM_CONFIG:="${NIX_LLVM_CONFIG:-llvm-config}"}
@@ -446,6 +515,13 @@ echo "PYTHON := python$PYTHON_VER" >> $CONFIG
 # If we didn't get an architecture from the command line set it base
 # on the running host
 
+
+# DEBUGGING: Keep debug code in place - controlled by NIX_DEBUG environment variable
+debug_print 6 "Dependencies: Starting library checks"
+debug_print 6 "Dependencies: NIX_BOOST_DEV=$NIX_BOOST_DEV"
+debug_print 6 "Dependencies: NIX_BOOST_OUT=$NIX_BOOST_OUT"
+debug_print 6 "Dependencies: NIX_LLVM_CONFIG=$NIX_LLVM_CONFIG"
+debug_print 6 "Dependencies: NIX_CLANG_INCLUDES=$NIX_CLANG_INCLUDES"
 
 check_libpcap
 check_boostsystem

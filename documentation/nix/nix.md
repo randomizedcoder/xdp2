@@ -64,7 +64,7 @@ In this case, we are eseentially mapping the Debian packages to the nix version.
 | Debian Package | Nix Package | Purpose |
 |---|---|---|
 | `build-essential` | `stdenv.cc` (part of stdenv) | C/C++ compiler and build tools |
-| `gcc-multilib` | `gcc` (with multilib support) | Multi-architecture GCC support |
+| `gcc-multilib` | `gccMultiStdenv` | Multi-architecture GCC support |
 | `pkg-config` | `pkg-config` | Package configuration tool |
 | `bison` | `bison` | Parser generator |
 | `flex` | `flex` | Lexical analyzer generator |
@@ -267,6 +267,76 @@ The build system distinguishes between:
 - **Building the main XDP2 libraries** (`libxdp2.so`, `libcli.so`, etc.)
 - **Building test programs** and sample applications
 - **Building the final optimized parsers** (after xdp2-compiler processes them)
+
+### Script to find the files with compiler usage
+
+The script used to find compiler usage in this project is name: [./find_compiler_usage.bash](./find_compiler_usage.bash)
+
+### Compiler Usage by File/Directory
+
+| **Usage Type** | **Compiler** | **Compiler Used** | **Files/Directories** | **Line Number** | **Line Content** | **Purpose** |
+|---|---|---|---|---|---|---|
+| **Variable** | **HOST_CC** | `HOST_CC` | `src/tools/pmacro/Makefile` | Line 8 | `$(QUIET_HOST_CC)$(HOST_CC) $(SRC) -o $@` | Build utility tools that run during build |
+| **Variable** | **HOST_CC** | `HOST_CC` | `src/tools/packets/uet/Makefile` | Line 13 | `$(QUIET_CC)$(HOST_CC) $(CCOPTS) -I$(SRCDIR)/include $(CONFIG_DEFINES) $^ -o $@` | Build packet generation utilities |
+| **Variable** | **HOST_CC** | `HOST_CC` | `src/tools/packets/falcon/Makefile` | Line 13 | `$(QUIET_CC)$(HOST_CC) $(CCOPTS) -I$(SRCDIR)/include $(CONFIG_DEFINES) $^ -o $@` | Build packet generation utilities |
+| **Variable** | **HOST_CC** | `HOST_CC` | `src/tools/packets/sue/Makefile` | Line 13 | `$(QUIET_CC)$(HOST_CC) $(CCOPTS) -I$(SRCDIR)/include $(CONFIG_DEFINES) $^ -o $@` | Build packet generation utilities |
+| **Variable** | **HOST_CC** | `HOST_CC` | `src/test/bitmaps/Makefile` | Line 20 | `$(QUIET_LINK)$(HOST_CC) -o $@ $^` | Build bitmap test utilities |
+| **Variable** | **HOST_CXX** | `HOST_CXX` | `src/tools/compiler/Makefile` | Line 41 | `$(HOST_CXX) $^ -o $@ $(LLVM_LIBS) $(BOOST_LIBS) $(CLANG_LIBS) $(LDFLAGS_PYTHON) $(LIBS)` | Build XDP2 compiler with LLVM integration |
+| **Variable** | **HOST_CXX** | `HOST_CXX` | `src/tools/compiler/Makefile` | Line 44 | `$(HOST_CXX) $(TESTOBJS) -o $@ $(BOOST_LIBS) $(LDFLAGS_PYTHON)` | Build XDP2 compiler test |
+| **Variable** | **HOST_CXX** | `HOST_CXX` | `thirdparty/cppfront/Makefile` | Line 12 | `$(HOST_CXX) $(STD_FLAGS) $(SRC) -o $(TARGET)` | Build cppfront compiler (third-party) |
+| **Variable** | **CC** | `CC` | `src/lib/xdp2/Makefile` | Line 45 | `$(CC) -shared $^ -o $@ -lpcap` | Build main XDP2 library |
+| **Variable** | **CC** | `CC` | `src/lib/cli/Makefile` | Line 18 | `$(CC) $(LDLIBS) -shared $^ -o $@` | Build CLI library |
+| **Variable** | **CC** | `CC` | `src/lib/parselite/Makefile` | Line 16 | `$(CC) -shared $^ -o $@` | Build parser library |
+| **Variable** | **CC** | `CC` | `src/lib/siphash/Makefile` | Line 18 | `$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@` | Build hash library |
+| **Variable** | **CC** | `CC` | `src/lib/crc/Makefile` | Line 18 | `$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@` | Build CRC library |
+| **Variable** | **CC** | `CC` | `src/lib/flowdis/Makefile` | Line 18 | `$(CC) $(LDLIBS) -shared $^ -o $@` | Build flow dissector library |
+| **Variable** | **CC** | `CC` | `src/lib/lzf/Makefile` | Line 19 | `$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@` | Build compression library |
+| **Variable** | **CC** | `CC` | `src/lib/lzf/Makefile` | Line 25 | `$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@` | Build compression library |
+| **Variable** | **CC** | `CC` | `src/lib/murmur3hash/Makefile` | Line 17 | `$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@` | Build hash library |
+| **Variable** | **CC** | `CC` | `src/test/parser/Makefile` | Line 42 | `$(CC) $(LDFLAGS) -o test_parser $(OBJ) $(LIBS)` | Build parser test applications |
+| **Variable** | **CC** | `CC` | `src/test/tables/Makefile` | Line 21 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build table test applications |
+| **Variable** | **CC** | `CC` | `src/test/pvbuf/Makefile` | Line 15 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build pvbuf test applications |
+| **Variable** | **CC** | `CC` | `src/test/accelerator/Makefile` | Line 16 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build accelerator test applications |
+| **Variable** | **CC** | `CC` | `src/test/router/Makefile` | Line 19 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build router test applications |
+| **Variable** | **CC** | `CC` | `src/test/parse_dump/Makefile` | Line 22 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build parse dump test applications |
+| **Variable** | **CC** | `CC` | `src/test/parse_dump/Makefile` | Line 26 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build parse dump test applications |
+| **Variable** | **CC** | `CC` | `src/test/parse_dump/Makefile` | Line 29 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build parse dump test applications |
+| **Variable** | **CC** | `CC` | `src/test/timer/Makefile` | Line 14 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build timer test applications |
+| **Variable** | **CC** | `CC` | `src/test/switch/Makefile` | Line 13 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@` | Build switch test applications |
+| **Variable** | **CC** | `CC` | `src/test/bitmaps/Makefile` | Line 17 | `$(QUIET_LINK)$(CC) test_bitmap.o $(LDFLAGS) $(LDLIBS) -o $@` | Build bitmap test applications |
+| **Variable** | **CC** | `CC` | `src/test/vstructs/Makefile` | Line 17 | `$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@ $(LDLIBS_LOCAL)` | Build vstructs test applications |
+| **Direct Binary** | **gcc** | `CC= gcc` | `samples/parser/simple_parser/Makefile` | Line 12 | `CC= gcc` | Explicitly set CC to gcc binary |
+| **Variable** | **CC** | `CC` | `samples/parser/simple_parser/Makefile` | Line 33 | `$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash` | Use CC variable (set to gcc above) |
+| **Variable** | **CC** | `CC` | `samples/parser/simple_parser/Makefile` | Line 39 | `$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash` | Use CC variable (set to gcc above) |
+| **Direct Binary** | **gcc** | `CC= gcc` | `samples/parser/ports_parser/Makefile` | Line 12 | `CC= gcc` | Explicitly set CC to gcc binary |
+| **Variable** | **CC** | `CC` | `samples/parser/ports_parser/Makefile` | Line 31 | `$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash` | Use CC variable (set to gcc above) |
+| **Direct Binary** | **gcc** | `CC= gcc` | `samples/parser/offset_parser/Makefile` | Line 12 | `CC= gcc` | Explicitly set CC to gcc binary |
+| **Variable** | **CC** | `CC` | `samples/parser/offset_parser/Makefile` | Line 31 | `$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash` | Use CC variable (set to gcc above) |
+| **Direct Binary** | **clang** | `CC= clang` | `samples/xdp/flow_tracker_simple/Makefile` | Line 12 | `CC= clang # Use clang just to test it` | Explicitly set CC to clang binary |
+| **Variable** | **CC** | `CC` | `samples/xdp/flow_tracker_simple/Makefile` | Line 31 | `$(CC) -x c -target bpf $(CFLAGS) $(LDFLAGS) -c -o $@ $<` | Use CC variable (set to clang above) |
+| **Direct Binary** | **clang** | `CC= clang` | `samples/xdp/flow_tracker_tmpl/Makefile` | Line 12 | `CC= clang # Use clang just to test it` | Explicitly set CC to clang binary |
+| **Variable** | **CC** | `CC` | `samples/xdp/flow_tracker_tmpl/Makefile` | Line 31 | `$(CC) -x c -target bpf $(CFLAGS) $(LDFLAGS) -c -o $@ $<` | Use CC variable (set to clang above) |
+| **Direct Binary** | **clang** | `XCC= clang` | `samples/xdp/flow_tracker_tlvs/Makefile` | Line 12 | `XCC= clang` | Explicitly set XCC to clang binary |
+| **Variable** | **CC** | `CC` | `samples/xdp/flow_tracker_tlvs/Makefile` | Line 24 | `$(CC) -I$(INCDIR) -c -o parser.o $<` | Use CC variable for parser compilation |
+| **Variable** | **XCC** | `XCC` | `samples/xdp/flow_tracker_tlvs/Makefile` | Line 28 | `$(XCC) -save-temps -fverbose-asm -x c -target bpf $(XCFLAGS) $(XLDFLAGS) -c -o $@ $<` | Use XCC variable for BPF compilation |
+| **Direct Binary** | **clang** | `XCC= clang` | `samples/xdp/flow_tracker_combo/Makefile` | Line 12 | `XCC= clang` | Explicitly set XCC to clang binary |
+| **Direct Binary** | **gcc** | `CC= gcc` | `samples/xdp/flow_tracker_combo/Makefile` | Line 17 | `CC= gcc` | Explicitly set CC to gcc binary |
+| **Variable** | **XCC** | `XCC` | `samples/xdp/flow_tracker_combo/Makefile` | Line 32 | `$(XCC) -x c -target bpf -I$(INCDIR) $(XCFLAGS) $(XLDFLAGS) -c -o $@ $<` | Use XCC variable for BPF compilation |
+| **Variable** | **CC** | `CC` | `samples/xdp/flow_tracker_combo/Makefile` | Line 38 | `$(CC) $(CFLAGS) $(LDFLAGS) -o $@ flow_parser.c parser.p.c -lpcap -lxdp2 -lcli -lsiphash` | Use CC variable for final linking |
+| **Direct Binary** | **gcc** | `CC := gcc` | `src/Makefile` | Line 49 | `CC := gcc` | Default CC setting for main build |
+| **Direct Binary** | **gcc** | `CC := gcc` | `thirdparty/pcap-src/pcap/Makefile` | Line 43 | `CC := gcc` | Third-party pcap library build |
+| **Variable** | **CC** | `CC` | `thirdparty/pcap-src/pcap/libpcap/Makefile` | Line 30 | `$(QUIET_CC)$(CC) $(CFLAGS) -I $(CURRDIR)/include-linux/uapi\` | Third-party pcap library compilation |
+| **Variable** | **CC** | `CC` | `thirdparty/pcap-src/pcap/libpcap/Makefile` | Line 45 | `HOSTCC ?= $(CC)` | Third-party pcap library host compiler |
+| **Variable** | **CC** | `CC` | `src/Makefile` | Line 51 | `HOSTCC ?= $(CC)` | Main build system host compiler |
+| **Variable** | **CXX** | `CXX` | `thirdparty/json/test/Makefile` | Line 17 | `$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_json.cpp -o $@` | Third-party JSON fuzzer compilation |
+| **Variable** | **CXX** | `CXX` | `thirdparty/json/test/Makefile` | Line 20 | `$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_bson.cpp -o $@` | Third-party JSON fuzzer compilation |
+| **Variable** | **CXX** | `CXX` | `thirdparty/json/test/Makefile` | Line 23 | `$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_cbor.cpp -o $@` | Third-party JSON fuzzer compilation |
+| **Variable** | **CXX** | `CXX` | `thirdparty/json/test/Makefile` | Line 26 | `$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_msgpack.cpp -o $@` | Third-party JSON fuzzer compilation |
+| **Variable** | **CXX** | `CXX` | `thirdparty/json/test/Makefile` | Line 29 | `$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_ubjson.cpp -o $@` | Third-party JSON fuzzer compilation |
+| **Config Variable** | **HOST_LLVM_CONFIG** | `HOST_LLVM_CONFIG` | `src/tools/compiler/Makefile` | Line 21 | `LLVM_INCLUDE ?= -I\`$(HOST_LLVM_CONFIG) --includedir\`` | LLVM include path configuration |
+| **Config Variable** | **HOST_LLVM_CONFIG** | `HOST_LLVM_CONFIG` | `src/tools/compiler/Makefile` | Line 22 | `LLVM_LIBS ?= -L\`$(HOST_LLVM_CONFIG) --libdir\`` | LLVM library path configuration |
+| **Config Variable** | **XDP2_CLANG_VERSION** | `XDP2_CLANG_VERSION` | `src/tools/compiler/Makefile` | Line 19 | `CLANG_INFO ?= -DXDP2_CLANG_VERSION="$(XDP2_CLANG_VERSION)" -DXDP2_CLANG_RESOURCE_PATH="$(XDP2_CLANG_RESOURCE_PATH)"` | Clang version configuration |
+| **Config Variable** | **XDP2_CLANG_RESOURCE_PATH** | `XDP2_CLANG_RESOURCE_PATH` | `src/tools/compiler/Makefile` | Line 19 | `CLANG_INFO ?= -DXDP2_CLANG_VERSION="$(XDP2_CLANG_VERSION)" -DXDP2_CLANG_RESOURCE_PATH="$(XDP2_CLANG_RESOURCE_PATH)"` | Clang resource path configuration |
 
 ### Why They Don't Conflict
 

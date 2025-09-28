@@ -1,0 +1,57 @@
+=== Package Versions Analysis ===
+Generated: Sat Sep 27 09:43:21 AM PDT 2025
+Host: l
+OS: 
+
+=== Core Build Packages ===
+build-essential: NOT FOUND
+gcc: /etc/profiles/per-user/das/bin/gcc
+  Version: gcc (GCC) 14.3.0
+g++: /etc/profiles/per-user/das/bin/g++
+  Version: g++ (GCC) 14.3.0
+clang: NOT FOUND
+clang++: NOT FOUND
+make: /etc/profiles/per-user/das/bin/make
+cmake: NOT FOUND
+pkg-config: /etc/profiles/per-user/das/bin/pkg-config
+
+=== Development Libraries ===
+libboost-all-dev: NOT INSTALLED
+libpcap-dev: NOT INSTALLED
+libelf-dev: NOT INSTALLED
+libbpf-dev: NOT INSTALLED
+
+=== LLVM/Clang Packages ===
+llvm: NOT INSTALLED
+llvm-dev: NOT INSTALLED
+libclang-dev: NOT INSTALLED
+clang-tools: NOT INSTALLED
+
+=== Python Packages ===
+python3: /etc/profiles/per-user/das/bin/python3
+  Version: Python 3.13.7
+  Path: /etc/profiles/per-user/das/bin/python3
+  scapy: NOT AVAILABLE
+
+=== Kernel Tools ===
+Kernel version: 6.16.8
+linux-tools-6.16.8: NOT INSTALLED
+
+=== Additional Tools ===
+bison: NOT FOUND
+flex: NOT FOUND
+graphviz: NOT FOUND
+tar: /etc/profiles/per-user/das/bin/tar
+xz: /run/current-system/sw/bin/xz
+git: /etc/profiles/per-user/das/bin/git
+  Version: git version 2.51.0
+
+=== Library Search Paths ===
+LD_LIBRARY_PATH: /nix/store/6hgi659p2wn88nmbc3r1wv09xldsfv23-libdbusmenu-glib-16.04.0/lib:/nix/store/1msx6gm9xbg43bxi0ydhbc7j8ayrsl04-pipewire-1.4.7-jack/lib
+PKG_CONFIG_PATH: 'not set'
+
+=== System Information ===
+Architecture: x86_64
+Distribution: Unknown
+Release: Unknown
+Codename: Unknown

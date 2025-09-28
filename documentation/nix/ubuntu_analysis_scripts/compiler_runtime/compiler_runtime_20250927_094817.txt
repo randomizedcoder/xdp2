@@ -1,0 +1,5 @@
+=== xdp2-compiler Runtime Analysis ===
+Generated: Sat Sep 27 09:48:17 AM PDT 2025
+Host: l
+
+XDP2 project root: /home/das/Downloads/xdp2

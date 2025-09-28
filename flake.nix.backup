@@ -17,17 +17,31 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # nixDebug = false;
+        llvmP = pkgs.llvmPackages_20;
+
+        # nixDebug code will be left in place to allow for future debugging
+        # DEBUGGING: Keep all debug code in place - adjust nixDebug level to control verbosity
+        nixDebug = 6; # 0 = no debug, 7 max debug (like syslog level)
 
         # Package groups for clarity and maintainability
-        compilers = with pkgs; [ gcc clang ];
+        compilers = with pkgs; [ gcc llvmP.clang ];
         buildTools = with pkgs; [ gnumake pkg-config bison flex llvm.dev ];
         coreUtils = with pkgs; [ bash coreutils gnused gawk gnutar xz git ];
         runtimeLibs = with pkgs; [ boost boost.dev boost.out libpcap libelf libbpf python3 ];
         devTools = with pkgs; [ graphviz bpftools ];
 
+        # Comprehensive system libraries (build-essential equivalent)
+        systemLibs = with pkgs; [
+          # Core C system libraries
+          glibc glibc.dev glibc.static
+          # GCC runtime libraries and C++ Standard Library
+          gcc libgcc libgcc.lib gcc-unwrapped gcc-unwrapped.lib gcc-unwrapped.libgcc stdenv.cc
+          # LLVM 20 C++ Standard Library and runtime (consistent toolchain)
+          clangStdenv llvmP.libcxx llvmP.libcxx.dev
+        ];
+
         # Combined package list - include everything everywhere for simplicity
-        allPackages = compilers ++ buildTools ++ coreUtils ++ runtimeLibs ++ devTools;
+        allPackages = compilers ++ buildTools ++ coreUtils ++ runtimeLibs ++ devTools ++ systemLibs;
 
         xdp2-build = pkgs.stdenv.mkDerivation {
           name = "xdp2-build";
@@ -38,16 +52,46 @@
 
           patchPhase = ''
             cd src
-            substituteInPlace configure --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+            substituteInPlace configure_nix --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
             substituteInPlace test/parser/run-tests.sh --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
           '';
 
           configurePhase = ''
-            export HOST_LLVM_CONFIG=${pkgs.llvm.dev}/bin/llvm-config
-            export HOST_CXX=clang
-            export CPPFLAGS="-I${pkgs.boost.dev}/include"
-            export LDFLAGS="-L${pkgs.boost.out}/lib"
-            ./configure --build-opt-parser --installdir $out
+            export NIX_DEBUG=${toString nixDebug}
+            export HOST_LLVM_CONFIG=${llvmP.llvm.dev}/bin/llvm-config
+            export HOST_CXX=${llvmP.clang}/bin/clang
+            export CC=${pkgs.gcc}/bin/gcc
+            export CXX=${pkgs.gcc}/bin/g++
+            export HOST_CC=${pkgs.gcc}/bin/gcc
+            export PKG_CONFIG=${pkgs.pkg-config}/bin/pkg-config
+            export AR=${pkgs.binutils}/bin/ar
+            export NIX_BOOST_DEV=${pkgs.boost.dev}
+            export NIX_BOOST_OUT=${pkgs.boost.out}
+            export NIX_LLVM_CONFIG=${llvmP.llvm.dev}/bin/llvm-config
+            export NIX_CLANG_INCLUDES="-I${llvmP.clang}/include"
+
+            ${if nixDebug >= 1 then ''
+              echo "=== NIX_DEBUG Level ${toString nixDebug} ==="
+              echo "NIX_BOOST_DEV: ${pkgs.boost.dev}"
+              echo "NIX_BOOST_OUT: ${pkgs.boost.out}"
+              echo "NIX_LLVM_CONFIG: ${llvmP.llvm.dev}/bin/llvm-config"
+              echo "NIX_CLANG_INCLUDES: -I${llvmP.clang}/include"
+              echo "HOST_CXX: ${llvmP.clang}/bin/clang"
+              echo "CC: ${pkgs.gcc}/bin/gcc"
+              echo "CXX: ${pkgs.gcc}/bin/g++"
+            '' else ""}
+
+            ${if nixDebug >= 3 then ''
+              echo "=== Executing configure_nix ==="
+              echo "Command: ./configure_nix --build-opt-parser --installdir $out"
+            '' else ""}
+
+            ${if nixDebug >= 5 then ''
+              echo "=== Full Environment Dump ==="
+              env | grep -E "(NIX_|HOST_|CC|CXX)" | sort
+            '' else ""}
+
+            ./configure_nix --build-opt-parser --installdir $out
           '';
 
           buildPhase = ''
@@ -69,18 +113,29 @@
           buildInputs = allPackages;
 
           shellHook = ''
+            export NIX_DEBUG=${toString nixDebug}
             export XDP2DIR=${xdp2-build}
-            export CC=gcc
-            export CXX=g++
-            export HOST_CC=gcc
-            export HOST_CXX=clang
-            export HOST_LLVM_CONFIG=${pkgs.llvm}/bin/llvm-config
-            export XDP2_CLANG_VERSION=${pkgs.lib.getVersion pkgs.clang}
-            export XDP2_CLANG_RESOURCE_PATH=${pkgs.clang}/lib/clang/${pkgs.lib.getVersion pkgs.clang}
+            export CC=${pkgs.gcc}/bin/gcc
+            export CXX=${pkgs.gcc}/bin/g++
+            export HOST_CC=${pkgs.gcc}/bin/gcc
+            export HOST_CXX=${llvmP.clang}/bin/clang
+            export HOST_LLVM_CONFIG=${llvmP.llvm}/bin/llvm-config
+            export PKG_CONFIG=${pkgs.pkg-config}/bin/pkg-config
+            export AR=${pkgs.binutils}/bin/ar
+            export XDP2_CLANG_VERSION=${pkgs.lib.getVersion llvmP.clang}
+            export XDP2_CLANG_RESOURCE_PATH=${llvmP.clang}/lib/clang/${pkgs.lib.getVersion llvmP.clang}
             export BUILD_OPT_PARSER=y
             export PYTHON_VER=3
             export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" allPackages}
             export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath allPackages}
+
+            ${if nixDebug >= 1 then ''
+              echo "=== Development Shell Debug Level ${toString nixDebug} ==="
+              echo "NIX_DEBUG is set to: $NIX_DEBUG"
+              echo "HOST_CXX: ${llvmP.clang}/bin/clang"
+              echo "CC: ${pkgs.gcc}/bin/gcc"
+              echo "CXX: ${pkgs.gcc}/bin/g++"
+            '' else ""}
           '';
         };
       });

@@ -1,0 +1,194 @@
+[0;34m=== XDP2 Compiler Usage Finder ===[0m
+Searching for compiler usage patterns in the xdp2 project...
+
+[1;33m=== Direct Binary Usage: gcc ===[0m
+Searching for: gcc
+
+./thirdparty/pcap-src/pcap/libpcap/Makefile:10:#Prepare source and object lists for XDP2_RISCV64_SPIKE with riscv64-unknown-elf-gcc
+./thirdparty/pcap-src/pcap/Makefile:43:CC := gcc
+./samples/xdp/flow_tracker_combo/Makefile:17:CC= gcc
+./samples/parser/simple_parser/Makefile:12:CC= gcc
+./samples/parser/ports_parser/Makefile:12:CC= gcc
+./samples/parser/offset_parser/Makefile:12:CC= gcc
+./src/Makefile:49:CC := gcc
+[0;32mFound matches above[0m
+
+[1;33m=== Direct Binary Usage: clang ===[0m
+Searching for: clang
+
+./thirdparty/json/Makefile:71:	$(MAKE) parse_afl_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:79:	$(MAKE) parse_bson_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:87:	$(MAKE) parse_cbor_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:95:	$(MAKE) parse_msgpack_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:103:	$(MAKE) parse_ubjson_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:166:	for FILE in $(SRCS) $(AMALGAMATED_FILE) test/src/*.cpp test/src/*.hpp benchmarks/src/benchmarks.cpp doc/examples/*.cpp; do echo $$FILE; clang-format -i $$FILE; done
+./samples/xdp/flow_tracker_simple/Makefile:12:CC= clang # Use clang just to test it
+./samples/xdp/flow_tracker_tmpl/Makefile:12:CC= clang # Use clang just to test it
+./samples/xdp/flow_tracker_tlvs/Makefile:12:XCC= clang
+./samples/xdp/flow_tracker_combo/Makefile:12:XCC= clang
+./src/tools/compiler/Makefile:30:CLANG_LIBS ?= -lclang -lLLVM -lclang-cpp
+./src/tools/compiler/Makefile:63:	@find -iname *.cpp -o -iname *.h | xargs clang-format -i --verbose
+[0;32mFound matches above[0m
+
+[1;33m=== Direct Binary Usage: clang++ ===[0m
+Searching for: clang++
+
+./thirdparty/json/Makefile:71:	$(MAKE) parse_afl_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:79:	$(MAKE) parse_bson_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:87:	$(MAKE) parse_cbor_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:95:	$(MAKE) parse_msgpack_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:103:	$(MAKE) parse_ubjson_fuzzer -C test CXX=afl-clang++
+[0;32mFound matches above[0m
+
+[1;33m=== Direct Binary Usage: g++ ===[0m
+Searching for: g++
+
+./thirdparty/json/Makefile:71:	$(MAKE) parse_afl_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:79:	$(MAKE) parse_bson_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:87:	$(MAKE) parse_cbor_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:95:	$(MAKE) parse_msgpack_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:103:	$(MAKE) parse_ubjson_fuzzer -C test CXX=afl-clang++
+[0;32mFound matches above[0m
+
+[0;32m=== Variable Assignment: CC ===[0m
+Searching for variable assignments: CC
+
+./thirdparty/pcap-src/pcap/Makefile:43:CC := gcc
+./samples/xdp/flow_tracker_simple/Makefile:12:CC= clang # Use clang just to test it
+./samples/xdp/flow_tracker_tmpl/Makefile:12:CC= clang # Use clang just to test it
+./samples/xdp/flow_tracker_tlvs/Makefile:12:XCC= clang
+./samples/xdp/flow_tracker_combo/Makefile:12:XCC= clang
+./samples/xdp/flow_tracker_combo/Makefile:17:CC= gcc
+./samples/parser/simple_parser/Makefile:12:CC= gcc
+./samples/parser/ports_parser/Makefile:12:CC= gcc
+./samples/parser/offset_parser/Makefile:12:CC= gcc
+./src/Makefile:49:CC := gcc
+[0;32mFound variable assignments above[0m
+
+[0;32m=== Variable Assignment: CXX ===[0m
+Searching for variable assignments: CXX
+
+./thirdparty/json/Makefile:71:	$(MAKE) parse_afl_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:79:	$(MAKE) parse_bson_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:87:	$(MAKE) parse_cbor_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:95:	$(MAKE) parse_msgpack_fuzzer -C test CXX=afl-clang++
+./thirdparty/json/Makefile:103:	$(MAKE) parse_ubjson_fuzzer -C test CXX=afl-clang++
+[0;32mFound variable assignments above[0m
+
+[0;32m=== Variable Assignment: HOST_CC ===[0m
+Searching for variable assignments: HOST_CC
+
+[1;33mNo variable assignments found[0m
+
+[0;32m=== Variable Assignment: HOST_CXX ===[0m
+Searching for variable assignments: HOST_CXX
+
+[1;33mNo variable assignments found[0m
+
+[0;32m=== Variable Assignment: XCC ===[0m
+Searching for variable assignments: XCC
+
+./samples/xdp/flow_tracker_tlvs/Makefile:12:XCC= clang
+./samples/xdp/flow_tracker_combo/Makefile:12:XCC= clang
+[0;32mFound variable assignments above[0m
+
+[0;34m=== Variable Usage: CC ===[0m
+Searching for variable usage: $CC
+
+./thirdparty/pcap-src/pcap/libpcap/Makefile:30:	$(QUIET_CC)$(CC) $(CFLAGS) -I $(CURRDIR)/include-linux/uapi\
+./thirdparty/pcap-src/pcap/Makefile:45:HOSTCC ?= $(CC)
+./samples/xdp/flow_tracker_simple/Makefile:31:	$(CC) -x c -target bpf $(CFLAGS) $(LDFLAGS) -c -o $@ $<
+./samples/xdp/flow_tracker_tmpl/Makefile:31:	$(CC) -x c -target bpf $(CFLAGS) $(LDFLAGS) -c -o $@ $<
+./samples/xdp/flow_tracker_tlvs/Makefile:24:	$(CC) -I$(INCDIR) -c -o parser.o $<
+./samples/xdp/flow_tracker_combo/Makefile:38:	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ flow_parser.c parser.p.c -lpcap -lxdp2 -lcli -lsiphash
+./samples/parser/simple_parser/Makefile:33:	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash
+./samples/parser/simple_parser/Makefile:39:	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash
+./samples/parser/ports_parser/Makefile:31:	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash
+./samples/parser/offset_parser/Makefile:31:	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash
+./src/Makefile:51:HOSTCC ?= $(CC)
+./src/test/pvbuf/Makefile:15:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+./src/test/tables/Makefile:21:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+./src/test/accelerator/Makefile:16:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+./src/test/router/Makefile:19:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+./src/test/parser/Makefile:42:	$(CC) $(LDFLAGS) -o test_parser $(OBJ) $(LIBS)
+./src/test/parse_dump/Makefile:22:	$(QUIET_LINK)$(CC) $^  $(LDLIBS) -o $@
+./src/test/parse_dump/Makefile:26:	$(QUIET_LINK)$(CC) $^  $(LDLIBS) -o $@
+./src/test/parse_dump/Makefile:29:	$(QUIET_LINK)$(CC) $^  $(LDLIBS) -o $@
+./src/test/timer/Makefile:14:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+./src/test/switch/Makefile:13:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+./src/test/bitmaps/Makefile:17:	$(QUIET_LINK)$(CC) test_bitmap.o $(LDFLAGS) $(LDLIBS) -o $@
+./src/test/vstructs/Makefile:17:	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@ $(LDLIBS_LOCAL)
+./src/lib/murmur3hash/Makefile:17:	$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@
+./src/lib/siphash/Makefile:18:	$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@
+./src/lib/parselite/Makefile:16:	$(CC) -shared $^ -o $@
+./src/lib/cli/Makefile:18:	$(CC) $(LDLIBS) -shared $^ -o $@
+./src/lib/crc/Makefile:18:	$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@
+./src/lib/lzf/Makefile:19:	$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@
+./src/lib/lzf/Makefile:25:	$(QUIET_CC)$(CC) $(LDLIBS) -shared $^ -o $@
+./src/lib/xdp2/Makefile:45:	$(CC) -shared $^ -o $@ -lpcap
+./src/lib/flowdis/Makefile:18:	$(CC) $(LDLIBS) -shared $^ -o $@
+[0;32mFound variable usage above[0m
+
+[0;34m=== Variable Usage: CXX ===[0m
+Searching for variable usage: $CXX
+
+./thirdparty/json/test/Makefile:17:	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_json.cpp -o $@
+./thirdparty/json/test/Makefile:20:	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_bson.cpp -o $@
+./thirdparty/json/test/Makefile:23:	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_cbor.cpp -o $@
+./thirdparty/json/test/Makefile:26:	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_msgpack.cpp -o $@
+./thirdparty/json/test/Makefile:29:	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FUZZER_ENGINE) src/fuzzer-parse_ubjson.cpp -o $@
+[0;32mFound variable usage above[0m
+
+[0;34m=== Variable Usage: HOST_CC ===[0m
+Searching for variable usage: $HOST_CC
+
+./src/test/bitmaps/Makefile:20:	$(QUIET_LINK)$(HOST_CC) -o $@ $^
+./src/tools/packets/uet/Makefile:13:	$(QUIET_CC)$(HOST_CC) $(CCOPTS) -I$(SRCDIR)/include $(CONFIG_DEFINES) $^ -o $@
+./src/tools/packets/falcon/Makefile:13:	$(QUIET_CC)$(HOST_CC) $(CCOPTS) -I$(SRCDIR)/include $(CONFIG_DEFINES) $^ -o $@
+./src/tools/packets/sue/Makefile:13:	$(QUIET_CC)$(HOST_CC) $(CCOPTS) -I$(SRCDIR)/include $(CONFIG_DEFINES) $^ -o $@
+./src/tools/pmacro/Makefile:8:	$(QUIET_HOST_CC)$(HOST_CC) $(SRC) -o $@
+[0;32mFound variable usage above[0m
+
+[0;34m=== Variable Usage: HOST_CXX ===[0m
+Searching for variable usage: $HOST_CXX
+
+./thirdparty/cppfront/Makefile:12:	$(HOST_CXX) $(STD_FLAGS) $(SRC) -o $(TARGET)
+./src/tools/compiler/Makefile:41:	$(HOST_CXX) $^ -o $@ $(LLVM_LIBS) $(BOOST_LIBS) $(CLANG_LIBS) $(LDFLAGS_PYTHON) $(LIBS)
+./src/tools/compiler/Makefile:44:	$(HOST_CXX) $(TESTOBJS) -o $@ $(BOOST_LIBS) $(LDFLAGS_PYTHON)
+[0;32mFound variable usage above[0m
+
+[0;34m=== Variable Usage: XCC ===[0m
+Searching for variable usage: $XCC
+
+./samples/xdp/flow_tracker_tlvs/Makefile:28:	$(XCC) -save-temps -fverbose-asm -x c -target bpf $(XCFLAGS) $(XLDFLAGS) -c -o $@ $<
+./samples/xdp/flow_tracker_combo/Makefile:32:	$(XCC) -x c -target bpf -I$(INCDIR) $(XCFLAGS) $(XLDFLAGS) -c -o $@ $<
+[0;32mFound variable usage above[0m
+
+[0;31m=== Compiler Config Variable: HOST_LLVM_CONFIG ===[0m
+Searching for: HOST_LLVM_CONFIG
+
+./src/tools/compiler/Makefile:21:LLVM_INCLUDE ?= -I`$(HOST_LLVM_CONFIG) --includedir`
+./src/tools/compiler/Makefile:22:LLVM_LIBS ?= -L`$(HOST_LLVM_CONFIG) --libdir`
+[0;32mFound matches above[0m
+
+[0;31m=== Compiler Config Variable: XDP2_CLANG_VERSION ===[0m
+Searching for: XDP2_CLANG_VERSION
+
+./src/tools/compiler/Makefile:19:CLANG_INFO ?= -DXDP2_CLANG_VERSION="$(XDP2_CLANG_VERSION)" -DXDP2_CLANG_RESOURCE_PATH="$(XDP2_CLANG_RESOURCE_PATH)"
+[0;32mFound matches above[0m
+
+[0;31m=== Compiler Config Variable: XDP2_CLANG_RESOURCE_PATH ===[0m
+Searching for: XDP2_CLANG_RESOURCE_PATH
+
+./src/tools/compiler/Makefile:19:CLANG_INFO ?= -DXDP2_CLANG_VERSION="$(XDP2_CLANG_VERSION)" -DXDP2_CLANG_RESOURCE_PATH="$(XDP2_CLANG_RESOURCE_PATH)"
+[0;32mFound matches above[0m
+
+[0;34m=== Summary ===[0m
+Search completed. The results above show:
+1. Direct compiler binary usage (gcc, clang, etc.)
+2. Compiler variable assignments (CC=, HOST_CC=, etc.)
+3. Compiler variable usage ($(CC), $(HOST_CC), etc.)
+4. Compiler configuration variables
+
+Use this output to update the 'Compiler Usage by File/Directory' table in nix.md
+when the xdp2 project makes changes to compiler usage patterns.

@@ -1,0 +1,202 @@
+{
+  description = "XDP2 development environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        llvmP = pkgs.llvmPackages_20;
+
+        # nixDebug code will be left in place to allow for future debugging
+        # DEBUGGING: Keep all debug code in place - adjust nixDebug level to control verbosity
+        nixDebug = 6; # 0 = no debug, 7 max debug (like syslog level)
+
+        # Create a Python environment with scapy included.
+        # This is the idiomatic Nix way to handle Python dependencies.
+        pythonWithScapy = pkgs.python3.withPackages (ps: [ ps.scapy ]);
+
+        devPackages = with pkgs; [
+          # Build tools
+          gnumake pkg-config bison flex
+          # Core utilities
+          bash coreutils gnused gawk gnutar xz git
+          # Libraries
+          boost libpcap libelf libbpf pythonWithScapy
+          # Development tools
+          graphviz bpftools
+          # Compilers for the dual-toolchain environment
+          gcc llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
+        ];
+
+        xdp2-build = pkgs.stdenv.mkDerivation {
+          pname = "xdp2-build";
+          version = "dev";
+          src = ./.;
+
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            llvmP.clang # For HOST_CXX
+            llvmP.llvm.dev # For llvm-config
+          ];
+
+          buildInputs = with pkgs; [
+            # Core libraries
+            boost
+            libpcap
+            libelf
+            libbpf
+            zlib
+            ncurses
+            # Per nix_python_compile_errors.md, the build derivation needs a clean python3.
+            # The pythonWithScapy environment is only for the interactive dev shell.
+            # Consistent Python environment across all phases
+            pythonWithScapy
+            # CPython in nixpkgs, the C headers (Python.h) and python3-config are already in pkgs.python3. You don’t need a separate dev output (unlike many C libs)
+            python3
+            # Add LLVM and Clang libraries for linking during the clang check
+            llvmP.llvm
+            llvmP.clang-unwrapped
+          ];
+
+          patchPhase = ''
+            substituteInPlace src/configure --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+            substituteInPlace src/test/parser/run-tests.sh --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+
+            # Per nix_refactoring_flake.md, fix the configure script to use clang++ for HOST_CXX.
+            substituteInPlace src/configure --replace-fail 'echo "HOST_CXX := g++"' 'echo "HOST_CXX := clang++"'
+
+            # Per nix_refactoring_flake.md, fix the cppfront compiler build by adding missing headers.
+            # The strict Nix build environment requires them, even if other compilers are more lenient.
+            # `substituteInPlace` doesn't support `--prepend`, so we use `sed`.
+            sed -i '1i#include <functional>\n#include <unordered_map>\n' thirdparty/cppfront/include/cpp2util.h
+
+            # Per nix_refactoring_flake.md, fix the configure script to stop it from generating
+            # an invalid `--with-path` argument for pkg-config.
+            substituteInPlace src/configure --replace-fail 'echo "PATH_ARG=\"--with-path=$PKG_CONFIG_PATH\""' 'echo "PATH_ARG=\"\""'
+
+            # Per nix_python_compile_errors.md, fix C++ standard mismatch in src/main.cpp.
+            # std::experimental::optional is checked via boolean conversion, not .has_value().
+            substituteInPlace src/tools/compiler/src/main.cpp --replace-fail 'if (include_paths.has_value())' 'if (include_paths)'
+          '';
+
+          # Ensure configure uses the right compilers for the right jobs
+          configurePhase = ''
+            # The configure script must be run from within the 'src' directory
+            # because it uses relative paths (e.g., ../platforms).
+            # We will remain in this directory for all subsequent phases.
+            cd src
+
+            # DEBUGGING: Test unified compiler approach (Option 1: GCC for xdp2-compiler)
+            if [ ${toString nixDebug} -ge 1 ]; then
+              echo "=== Compiler Configuration Debug ==="
+              echo "Testing unified compiler approach: GCC for xdp2-compiler"
+              echo "Available compilers:"
+              echo "  gcc: $(command -v gcc) - $(gcc --version | head -1)"
+              echo "  g++: $(command -v g++) - $(g++ --version | head -1)"
+              echo "  clang: $(command -v clang) - $(clang --version | head -1)"
+              echo "  clang++: $(command -v clang++) - $(clang++ --version | head -1)"
+            fi
+
+            # Override HOST_CXX for xdp2-compiler compatibility (unified compiler approach)
+            # This should eliminate ABI incompatibility between clang-built xdp2-compiler and gcc-compiled object files
+            export HOST_CXX=g++
+            export HOST_CC=gcc
+            export HOST_LLVM_CONFIG=${llvmP.llvm.dev}/bin/llvm-config
+
+            if [ ${toString nixDebug} -ge 2 ]; then
+              echo "=== Compiler Variables Set ==="
+              echo "HOST_CXX: $HOST_CXX"
+              echo "HOST_CC: $HOST_CC"
+              echo "CC: $CC"
+              echo "CXX: $CXX"
+            fi
+
+            ./configure --build-opt-parser --installdir "$out"
+          '';
+
+          # The main 'make' command doesn't build the cppfront-compiler dependency first.
+          # We must build it explicitly after 'configure' and before the main 'buildPhase'.
+          # We are already in the 'src' directory from the previous phase.
+          preBuild = ''
+            ${if nixDebug >= 5 then ''
+              echo "=== Full Environment Dump ==="
+              env | sort
+            '' else ""}
+
+            # DEBUGGING: Python environment investigation
+            if [ ${toString nixDebug} -ge 1 ]; then
+              echo "=== Python Environment Debug Info ==="
+              echo "Python executable: $(which python3)"
+              echo "Python version: $(python3 --version)"
+              echo "Python path: $(python3 -c 'import sys; print(sys.executable)')"
+            fi
+
+            if [ ${toString nixDebug} -ge 2 ]; then
+              echo "=== Python Environment Variables ==="
+              echo "PYTHONPATH: $${PYTHONPATH:-not set}"
+              echo "PYTHONHOME: $${PYTHONHOME:-not set}"
+              echo "PYTHONSTARTUP: $${PYTHONSTARTUP:-not set}"
+              echo "PYTHONUSERBASE: $${PYTHONUSERBASE:-not set}"
+            fi
+
+            if [ ${toString nixDebug} -ge 3 ]; then
+              echo "=== Python Module Search Path ==="
+              python3 -c "import sys; print('\\n'.join(sys.path))"
+            fi
+
+            if [ ${toString nixDebug} -ge 4 ]; then
+              echo "=== Python Standard Library Test ==="
+              python3 -c "import textwrap, pathlib; print('Standard library modules available')"
+            fi
+
+            if [ ${toString nixDebug} -ge 5 ]; then
+              echo "=== Python C API Test ==="
+              python3 -c "import sys; print('Python C API version:', sys.api_version)"
+            fi
+
+            if [ ${toString nixDebug} -ge 6 ]; then
+              echo "=== Full Python Environment ==="
+              env | grep -i python || echo "No Python environment variables found"
+            fi
+
+            echo "--- Building cppfront-compiler dependency ---"
+            # The patchPhase ensures config.mk has the correct HOST_CXX, so a simple 'make' will work.
+            # Use the same unified compiler approach for cppfront-compiler
+            HOST_CXX=g++ HOST_CC=gcc make -C ../thirdparty/cppfront
+            # Ensure the compiler was actually built before proceeding.
+            test -f ../thirdparty/cppfront/cppfront-compiler || (echo "cppfront-compiler not found!"; exit 1)
+          '';
+
+          # By not overriding the 'buildPhase', we ensure that the default stdenv
+          # build logic is used. This logic correctly executes the 'preBuild' hook
+          # before running 'make', which is the default build command.
+
+          # The installPhase also runs from within the 'src' directory.
+          installPhase = ''
+            make install
+          '';
+        };
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = devPackages;
+
+          shellHook = ''
+            export XDP2DIR=${xdp2-build}
+            export BUILD_OPT_PARSER=y
+            export PYTHON_VER=3
+            export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
+
+            echo "=== XDP2 Development Shell ==="
+            echo "GCC and Clang are available in the environment."
+            echo "Testing unified compiler approach: GCC for xdp2-compiler"
+            echo "Run 'make' in 'src/' to build the project."
+          '';
+        };
+      });
+}

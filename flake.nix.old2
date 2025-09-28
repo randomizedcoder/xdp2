@@ -1,0 +1,111 @@
+{
+  description = "XDP2 development environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        llvmP = pkgs.llvmPackages_19;
+
+        nixDebug = 6;
+
+        devPackages = with pkgs; [
+          # Build tools
+          gnumake pkg-config bison flex
+          # Core utilities
+          bash coreutils gnused gawk gnutar xz git
+          # Libraries
+          boost libpcap libelf libbpf python3
+          # Development tools
+          graphviz bpftools
+          # NOTE: no gcc, no libgcc, no glibc.dev, no libcxx* here
+        ];
+
+        xdp2-build = llvmP.stdenv.mkDerivation {
+          pname = "xdp2-build";
+          version = "dev";
+          src = ./.;
+
+          # Keep dependencies simple & consistent with LLVM stdenv
+          nativeBuildInputs = with pkgs; [
+            llvmP.llvm.dev   # llvm-config
+            pkg-config
+          ];
+
+          buildInputs = with pkgs; [
+            boost
+            libpcap
+            libelf
+            libbpf
+            zlib
+            ncurses
+            python3
+          ];
+
+          # Keep Nix strict about what’s visible
+          strictDeps = true;
+
+          # Make sure the project’s scripts use the right shell
+          patchPhase = ''
+            cd src
+            substituteInPlace configure_nix --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+            substituteInPlace test/parser/run-tests.sh --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+          '';
+
+          # Ensure configure picks clang/clang++ from stdenv
+          configurePhase = ''
+            export NIX_DEBUG=${toString nixDebug}
+            export CC=${CC:-clang}
+            export CXX=${CXX:-clang++}
+            export BUILD_OPT_PARSER=y
+
+            ${if nixDebug >= 1 then ''
+              echo "=== NIX_DEBUG Level ${toString nixDebug} ==="
+              echo "Using LLVM stdenv"
+              echo "CC: $CC"
+              echo "CXX: $CXX"
+              which "$CC" || true
+              which "$CXX" || true
+            '' else ""}
+
+            ${if nixDebug >= 5 then ''
+              echo "=== Environment (filtered) ==="
+              env | grep -E '^(CC|CXX|NIX_|PATH)=' | sort
+            '' else ""}
+
+            ./configure_nix --build-opt-parser --installdir "$out"
+          '';
+
+          buildPhase = "make";
+          installPhase = "make install";
+
+          # If your build system reads this variable directly
+          BUILD_OPT_PARSER = "y";
+        };
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          # Use the same toolchain in the shell
+          packages = devPackages;
+
+          shellHook = ''
+            export NIX_DEBUG=${toString nixDebug}
+            export XDP2DIR=${xdp2-build}
+            export BUILD_OPT_PARSER=y
+            export PYTHON_VER=3
+
+            # Keep paths tidy: prefer pkg-config over LD_LIBRARY_PATH.
+            export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
+
+            echo "=== Development Shell Debug Level ${toString nixDebug} ==="
+            echo "CC: ${llvmP.stdenv.cc.targetPrefix}${llvmP.stdenv.cc.cc}/bin/cc (via stdenv)"
+            echo "CXX: ${llvmP.stdenv.cc.targetPrefix}${llvmP.stdenv.cc.cc}/bin/c++ (via stdenv)"
+          '';
+        };
+      });
+}

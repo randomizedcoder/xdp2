@@ -1,0 +1,27 @@
+=== xdp2-compiler Binary Analysis ===
+xdp2-compiler: NOT FOUND
+Expected location: /home/das/Downloads/xdp2/src/tools/compiler/xdp2-compiler
+
+=== Test Files Analysis ===
+Test parser directory found: src/test/parser
+No parser.c files found in test directory
+
+=== Runtime Environment Analysis ===
+Current working directory: /home/das/Downloads/xdp2
+PATH: /nix/store/wva46gy8q31kwqc8vsjn2yi00cjzc17r-glib-2.84.4-bin/bin:/run/wrappers/bin:/home/das/.nix-profile/bin:/nix/profile/bin:/home/das/.local/state/nix/profile/bin:/etc/profiles/per-user/das/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin:/nix/store/sq2miwkzr12xns1ik72h6c16s6wkivh9-ghostty-1.2.0/bin
+LD_LIBRARY_PATH: /nix/store/6hgi659p2wn88nmbc3r1wv09xldsfv23-libdbusmenu-glib-16.04.0/lib:/nix/store/1msx6gm9xbg43bxi0ydhbc7j8ayrsl04-pipewire-1.4.7-jack/lib
+PYTHONPATH: 'not set'
+
+=== Debugging Tools Availability ===
+gdb: /etc/profiles/per-user/das/bin/gdb
+  Version: GNU gdb (GDB) 16.3
+valgrind: NOT FOUND
+strace: /etc/profiles/per-user/das/bin/strace
+  Version: strace -- version 6.16
+ltrace: NOT FOUND
+
+=== Basic Functionality Test ===
+Cannot test xdp2-compiler functionality:
+  - xdp2-compiler not found or not executable
+  - No test parser files found
+

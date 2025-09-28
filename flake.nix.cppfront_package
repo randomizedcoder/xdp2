@@ -31,9 +31,8 @@
           graphviz bpftools
           # Compilers for the dual-toolchain environment
           gcc llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
-          # Debugging tools for linking analysis
-          glibc.bin  # Provides ldd for dynamic library inspection
-          # REMOVED: cppfront - we build cppfront v0.3.0 from source in preBuild
+          # Add cppfront for development shell
+          cppfront
         ];
 
         xdp2-build = pkgs.stdenv.mkDerivation {
@@ -64,7 +63,8 @@
             # Add LLVM and Clang libraries for linking during the clang check
             llvmP.llvm
             llvmP.clang-unwrapped
-            # REMOVED: cppfront package - we build cppfront v0.3.0 from source in preBuild
+            # Add official Nix cppfront package (v0.8.1) instead of building from source
+            cppfront
           ];
 
           patchPhase = ''
@@ -81,7 +81,16 @@
             # Keep essential C++ standard fix
             substituteInPlace src/tools/compiler/src/main.cpp --replace-fail 'if (include_paths.has_value())' 'if (include_paths)'
 
-            # REMOVED: Makefile patches for cppfront - we build cppfront v0.3.0 from source in preBuild
+            # NEW: Patch Makefile to use Nix cppfront package instead of building from source
+            # Replace the CPPFRONT variable and remove the dependency
+            substituteInPlace src/tools/compiler/Makefile \
+              --replace-fail "../../../thirdparty/cppfront/cppfront-compiler" \
+              "cppfront"
+
+            # Remove the dependency on $(CPPFRONT) since cppfront is now available via PATH
+            substituteInPlace src/tools/compiler/Makefile \
+              --replace-fail "gen-patterns-cpp: \$(CPPFRONT)" \
+              "gen-patterns-cpp:"
           '';
 
           # Option B: Simplified configure phase - more like Ubuntu approach
@@ -103,80 +112,12 @@
             echo "=== End config.mk ==="
           '';
 
-          # RESTORED: preBuild phase - build cppfront v0.3.0 from source
-          # This is the ONLY viable approach due to syntax incompatibilities with cppfront v0.8.1
-          preBuild = ''
-            echo "=== Building cppfront-compiler v0.3.0 with Nix-controlled toolchain ==="
+          # REMOVED: preBuild phase no longer needed
+          # We now use the official Nix cppfront package (v0.8.1) instead of building from source
+          # This is cleaner and more standard Nix practice
 
-            # Build cppfront-compiler using Nix-controlled versions (more reproducible than Ubuntu)
-            HOST_CXX=g++ HOST_CC=gcc make -C ../thirdparty/cppfront
-
-            # Verify it was built
-            test -f ../thirdparty/cppfront/cppfront-compiler || (echo "cppfront-compiler not found!"; exit 1)
-
-            # DEBUG: Check the version of the cppfront-compiler we just built
-            echo "=== cppfront-compiler version ==="
-            ../thirdparty/cppfront/cppfront-compiler -version || echo "Version check failed"
-            echo "=== End cppfront version ==="
-
-            # DEBUG: Analyze linking differences - Nix vs Ubuntu
-            echo "=== Linking Analysis: cppfront-compiler ==="
-            echo "File type:"
-            file ../thirdparty/cppfront/cppfront-compiler
-            echo "Dynamic library dependencies:"
-            ldd ../thirdparty/cppfront/cppfront-compiler || echo "ldd failed or static binary"
-            echo "=== End linking analysis ==="
-
-            echo "SUCCESS: cppfront-compiler v0.3.0 built with Nix toolchain"
-          '';
-
-          # Enhanced buildPhase with linking analysis
-          buildPhase = ''
-            runHook preBuild
-
-            echo "=== Starting main build with linking analysis ==="
-
-            # Run the main build
-            make
-
-            echo "=== Build completed - analyzing linking differences ==="
-
-            # DEBUG: Analyze linking of key binaries
-            echo "=== Linking Analysis: Key Binaries ==="
-
-            # Check xdp2-compiler if it exists
-            if [ -f tools/compiler/xdp2-compiler ]; then
-              echo "--- xdp2-compiler ---"
-              echo "File type:"
-              file tools/compiler/xdp2-compiler
-              echo "Dynamic library dependencies:"
-              ldd tools/compiler/xdp2-compiler || echo "ldd failed or static binary"
-            fi
-
-            # Check test binaries that might be causing segfault
-            if [ -f test/parse_dump/parse_dump ]; then
-              echo "--- parse_dump (test binary) ---"
-              echo "File type:"
-              file test/parse_dump/parse_dump
-              echo "Dynamic library dependencies:"
-              ldd test/parse_dump/parse_dump || echo "ldd failed or static binary"
-            fi
-
-            # Check other test binaries
-            for test_bin in test/*/test_*; do
-              if [ -f "$test_bin" ] && [ -x "$test_bin" ]; then
-                echo "--- $(basename "$test_bin") ---"
-                echo "File type:"
-                file "$test_bin"
-                echo "Dynamic library dependencies:"
-                ldd "$test_bin" || echo "ldd failed or static binary"
-              fi
-            done
-
-            echo "=== End linking analysis ==="
-
-            runHook postBuild
-          '';
+          # Let the default stdenv buildPhase handle the main build
+          # cppfront is now available via PATH from the Nix package
 
           # The installPhase also runs from within the 'src' directory.
           installPhase = ''

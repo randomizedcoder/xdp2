@@ -1,0 +1,143 @@
+#
+# Nix flake for xdp2
+#
+# To develop for xdp2 run:
+# nix develop
+#
+{
+  description = "XDP2 development environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+
+        # Use LLVM package set consistently
+        llvmP = pkgs.llvmPackages_19;
+
+        # nixDebug code will be left in place to allow for future debugging
+        # DEBUGGING: Keep all debug code in place - adjust nixDebug level to control verbosity
+        nixDebug = 6; # 0 = no debug, 7 max debug (like syslog level)
+
+        # Simple package list for development shell
+        devPackages = with pkgs; [
+          # Build tools
+          gnumake pkg-config bison flex
+          # Core utilities
+          bash coreutils gnused gawk gnutar xz git
+          # Libraries
+          boost boost.dev boost.out libpcap libelf libbpf python3
+          # Development tools
+          graphviz bpftools
+        ];
+
+        xdp2-build = pkgs.stdenv.mkDerivation {
+          name = "xdp2-build";
+          src = ./.;
+
+          # Use LLVM stdenv instead of clangStdenv for consistency
+          stdenv = llvmP.stdenv; # or maybe llvmP.libcxxStdenv;
+
+          # nativeBuildInputs are used for tools needed to run during the build itself
+          nativeBuildInputs = with pkgs; [
+            llvmP.llvm.dev  # This provides llvm-config in PATH
+          ];
+
+          # buildInputs are used for libraries and tools needed when building for the target platform
+          buildInputs = with pkgs; [
+            # Core libraries
+            boost boost.dev boost.out
+            libpcap libelf libbpf python3
+
+            # LLVM/Clang libraries
+            llvmP.clang #llvmP.clang.dev  # Clang C++ API headers and libraries
+            llvmP.llvm llvmP.llvm.dev    # LLVM libraries and headers
+
+            # Core C system libraries (glibc is standard on Linux, Clang uses it)
+            glibc glibc.dev glibc.static
+
+            # GCC runtime libraries, C++ Standard Library, and C++ headers
+            gcc                  # Provides gcc/g++ compilers, libgcc_s.so.1, and also libstdc++.so.*, libstdc++.a, libsupc++.a from its /lib subdir
+            libgcc libgcc.lib
+            gcc-unwrapped gcc-unwrapped.lib gcc-unwrapped.libgcc
+            stdenv.cc            # Its 'include/' dir should provide C/C++ headers for the standard compiler (GCC in this case)
+
+            # LLVM C++ Standard Library, compiler runtime, and unwind library
+            llvmP.libcxxStdenv
+            llvmP.libcxxClang
+            llvmP.libcxx          # Provides libc++.so, libc++.a (libraries)
+            llvmP.libcxx.dev      # Provides C++ headers
+
+            # Additional system libraries that might be needed
+            zlib ncurses
+          ];
+
+          patchPhase = ''
+            cd src
+            substituteInPlace configure_nix --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+            substituteInPlace test/parser/run-tests.sh --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
+          '';
+
+          configurePhase = ''
+            export NIX_DEBUG=${toString nixDebug}
+
+            ${if nixDebug >= 1 then ''
+              echo "=== NIX_DEBUG Level ${toString nixDebug} ==="
+              echo "Using clangStdenv - CC and CXX should be set automatically"
+              echo "CC: $CC"
+              echo "CXX: $CXX"
+            '' else ""}
+
+            ${if nixDebug >= 3 then ''
+              echo "=== Executing configure_nix ==="
+              echo "Command: ./configure_nix --build-opt-parser --installdir $out"
+            '' else ""}
+
+            ${if nixDebug >= 5 then ''
+              echo "=== Full Environment Dump ==="
+              env | grep -E "(CC|CXX|NIX_)" | sort
+            '' else ""}
+
+            ./configure_nix --build-opt-parser --installdir $out
+          '';
+
+          buildPhase = ''
+            make
+          '';
+
+          installPhase = ''
+            make install
+          '';
+
+          BUILD_OPT_PARSER = "y";
+        };
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          buildInputs = devPackages;
+
+          shellHook = ''
+            export NIX_DEBUG=${toString nixDebug}
+            export XDP2DIR=${xdp2-build}
+            export BUILD_OPT_PARSER=y
+            export PYTHON_VER=3
+            export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
+            export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath devPackages}
+
+            ${if nixDebug >= 1 then ''
+              echo "=== Development Shell Debug Level ${toString nixDebug} ==="
+              echo "NIX_DEBUG is set to: $NIX_DEBUG"
+              echo "CC: $CC"
+              echo "CXX: $CXX"
+            '' else ""}
+          '';
+        };
+      });
+}
+
+# end

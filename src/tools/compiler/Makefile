@@ -45,7 +45,7 @@ xdp2-define-test: $(TESTOBJS) $(TESTFILES)
 	for i in $(TESTFILES); \
 	do ./$@ $$i; done
 
-gen-patterns-cpp:
+gen-patterns-cpp: $(CPPFRONT)
 	$(CPPFRONT) $(PATTERNS_LLVM_CPP2) && $(CPPFRONT) $(PATTERNS_CLANG_AST_CPP2)
 
 all: $(TARGETS)
