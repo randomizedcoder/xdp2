@@ -1,0 +1,355 @@
+# Introduction
+
+This document describes how to use nix to develop for this project.
+
+This should make xdp2 very easy to get started with on many systems.
+
+## Background
+
+Nix is a package manager for Linux and other Unix-like operating systems
+that provides a high-level of isolation for packages and their dependencies.
+
+The intention is to allow users to quickly have a development environment
+for the project that will work across many different operating systems.
+
+Another major advnatgge is the exact versions of all the software are pinned
+by the flake.lock file, so all developers will be using EXACTLY the same version.
+
+## Quick Start
+
+If nix is already installed
+
+```bash
+git clone <repo>
+cd xdp2
+nix develop
+cd samples/parser/simple_parser
+make
+```
+
+## Quick Start ( with no nix yet )
+
+If you don't have nix
+
+1. Install nix
+
+Install nix for a single user, per https://nix.dev/manual/nix/2.24/installation/#single-user
+
+```bash
+bash <(curl -L https://nixos.org/nix/install) --no-daemon
+```
+
+2. Nix Develop
+
+Then run the "nix develop" command to enter the development environment shell.
+
+On first execution, nix will downlaod and build all the dependencies, which might take a moment.  On subsequent executions, nix will reuse the cached dependencies, so it will be essentially instantaneous.
+
+Please keep in mind that nix will not interact with any "system" packages you may already have installed.  The nix versions are isolated, and will effectively "disappear" when you exit the development shell.
+
+```bash
+nix develop
+```
+
+## How the nix development environment works
+
+The nix development environment is using a nix flake to define the development environment.  The flake.nix file is in the root of the project.
+
+The nix flake uses the nix packages versions of all the dependancies, rather than the Debian packages described in the [README.dm](../README.md)
+
+- All the nix packages are at https://github.com/NixOS/nixpkgs/ and are searchable here: https://search.nixos.org/packages?channel=unstable&
+
+In this case, we are eseentially mapping the Debian packages to the nix version.
+
+| Debian Package | Nix Package | Purpose |
+|---|---|---|
+| `build-essential` | `stdenv.cc` (part of stdenv) | C/C++ compiler and build tools |
+| `gcc-multilib` | `gcc` (with multilib support) | Multi-architecture GCC support |
+| `pkg-config` | `pkg-config` | Package configuration tool |
+| `bison` | `bison` | Parser generator |
+| `flex` | `flex` | Lexical analyzer generator |
+| `libboost-all-dev` | `boost` | C++ Boost libraries |
+| `libpcap-dev` | `libpcap` | Packet capture library |
+| `graphviz` | `graphviz` | Graph visualization software |
+| `libelf-dev` | `libelf` | ELF library development files |
+| `clang` | `clang` | LLVM C/C++ compiler |
+| `llvm` | `llvm` | LLVM compiler infrastructure |
+| `libbpf-dev` | `libbpf` | BPF library development files |
+| `linux-tools-$(uname -r)` | `linuxPackages.bpftool` | BPF tools (kernel version specific) |
+
+The flake.nix essentially setups an environment with all these packages available.  Please note that rather than being installed in /usr, like on traditional systems, all the packages are installed in to the /nix/store, and then environment variables are configure to point to the correct package.
+
+
+
+## Makefiles and Environment Variables.
+
+The xdp2 package contains many Makefiles, which are listed here.
+
+```
+[das@l:~/Downloads/xdp2]$ find ./ -name "Makefile"
+./platforms/default/src/include/arch/arch_generic/Makefile
+./thirdparty/pcap-src/pcap/libpcap/Makefile
+./thirdparty/pcap-src/pcap/Makefile
+./thirdparty/json/Makefile
+./thirdparty/json/test/Makefile
+./thirdparty/json/doc/Makefile
+./thirdparty/json/doc/mkdocs/Makefile
+./thirdparty/json/doc/docset/Makefile
+./thirdparty/cppfront/Makefile
+./samples/Makefile
+./samples/xdp/flow_tracker_simple/Makefile
+./samples/xdp/Makefile
+./samples/xdp/flow_tracker_tmpl/Makefile
+./samples/xdp/flow_tracker_tlvs/Makefile
+./samples/xdp/flow_tracker_combo/Makefile
+./samples/parser/Makefile
+./samples/parser/simple_parser/Makefile
+./samples/parser/ports_parser/Makefile
+./samples/parser/offset_parser/Makefile
+./src/Makefile
+./src/test/pvbuf/Makefile
+./src/test/Makefile
+./src/test/tables/Makefile
+./src/test/accelerator/Makefile
+./src/test/router/Makefile
+./src/test/parser/Makefile
+./src/test/parse_dump/Makefile
+./src/test/timer/Makefile
+./src/test/switch/Makefile
+./src/test/bitmaps/Makefile
+./src/test/vstructs/Makefile
+./src/lib/murmur3hash/Makefile
+./src/lib/siphash/Makefile
+./src/lib/Makefile
+./src/lib/parselite/Makefile
+./src/lib/cli/Makefile
+./src/lib/crc/Makefile
+./src/lib/lzf/Makefile
+./src/lib/xdp2/Makefile
+./src/lib/flowdis/Makefile
+./src/tools/Makefile
+./src/tools/packets/Makefile
+./src/tools/packets/uet/Makefile
+./src/tools/packets/falcon/Makefile
+./src/tools/packets/sue/Makefile
+./src/tools/compiler/Makefile
+./src/tools/pmacro/Makefile
+./src/include/murmur3hash/Makefile
+./src/include/siphash/Makefile
+./src/include/Makefile
+./src/include/parselite/Makefile
+./src/include/cli/Makefile
+./src/include/uet/Makefile
+./src/include/crc/Makefile
+./src/include/lzf/Makefile
+./src/include/falcon/Makefile
+./src/include/xdp2/Makefile
+./src/include/xdp2/proto_defs/Makefile
+./src/include/xdp2/parsers/Makefile
+./src/include/sue/Makefile
+
+[das@l:~/Downloads/xdp2]$
+```
+
+Having reviewed these Makefiles, the list of other tools used and their nix package equivlent is listed in the following table.  The nix flake also make sure all these tools are available ( these tools should probably be listed as requirements in the README.me).
+
+| Tool | Nix Package | Purpose |
+|---|---|---|
+| `gcc` | `gcc` | C compiler |
+| `clang` | `clang` | LLVM C/C++ compiler |
+| `clang++` | `clang` | LLVM C++ compiler |
+| `make` | `gnumake` | Build system |
+| `install` | `coreutils` | File installation utility |
+| `sed` | `gnused` | Stream editor |
+| `awk` | `gawk` | Text processing tool |
+| `cat` | `coreutils` | File concatenation |
+| `bison` | `bison` | Parser generator |
+| `flex` | `flex` | Lexical analyzer generator |
+| `llvm-config` | `llvm` | LLVM configuration tool |
+| `python3` | `python3` | Python interpreter for packet generation |
+| `tar` | `gnutar` | Archive utility |
+| `xz` | `xz` | Compression utility |
+| `clang-format` | `clang` | Code formatter |
+| `git` | `git` | Version control system |
+| `bash` | `bash` | Shell interpreter |
+| `sh` | `bash` | POSIX shell |
+| `cppfront-compiler` | Built from source | C++ front compiler (third-party) |
+
+## libboost-all-dev
+The build guide suggests installing `libboost-all-dev`, which includes many packages. However, XDP2 only uses a specific subset of Boost libraries, primarily in the XDP2 compiler tool.
+
+### Boost Libraries Actually Used
+
+Based on the codebase analysis, XDP2 uses these specific Boost libraries:
+
+| Boost Library | Nix Package | Purpose |
+|---|---|---|
+| `boost_wave` | `boost` | C++ preprocessor for template processing |
+| `boost_thread` | `boost` | Threading support |
+| `boost_filesystem` | `boost` | File system operations |
+| `boost_system` | `boost` | System error handling |
+| `boost_program_options` | `boost` | Command-line argument parsing |
+| `boost_graph` | `boost` | Graph algorithms and data structures |
+| `boost_range` | `boost` | Range-based algorithms |
+| `boost_io` | `boost` | I/O stream state management |
+
+### Usage Context
+
+- **XDP2 Compiler**: Uses Boost libraries for graph processing, command-line parsing, and C++ preprocessing
+- **Graph Processing**: Boost.Graph for parser graph analysis and optimization
+- **Template Processing**: Boost.Wave for C++ template preprocessing
+- **Build System**: Configure script checks for these specific Boost libraries
+
+The Nix `boost` package provides all these libraries as a single package, making it more efficient than installing individual Debian boost packages.
+
+## Environment variables
+
+The Makefiles make use of the following environment variables, and in particular the XDP2DIR variable must be set by the nix development shell to point to a directory where XDP2 has been built and installed. This enables users to run sample code after `git clone` and `nix develop` without additional setup.
+
+| Environment Variable | Purpose |
+|---|---|
+| `XDP2DIR` | **Primary variable** - Points to XDP2 installation directory where libraries, headers, and binaries are located (set by nix development environment) |
+| `INSTALLDIR` | Installation directory for make install targets |
+| `BUILD_OPT_PARSER` | Enable building of optimized parser (requires LLVM/Clang) |
+| `CC` | C compiler (default: gcc) |
+| `CXX` | C++ compiler (default: g++) |
+| `HOST_CC` | Host C compiler for cross-compilation |
+| `HOST_CXX` | Host C++ compiler for cross-compilation |
+| `CCOPTS` | C compiler options (e.g., -O3, -g) |
+| `CFLAGS` | C compiler flags |
+| `CXXFLAGS` | C++ compiler flags |
+| `XDP2_ARCH` | Target architecture (e.g., x86_64) |
+| `ARCH` | Architecture identifier |
+| `PYTHON_VER` | Python version (default: 3) |
+| `CFLAGS_PYTHON` | Python C API compiler flags |
+| `LDFLAGS_PYTHON` | Python C API linker flags |
+| `XDP2_CLANG_VERSION` | Clang version for compiler integration |
+| `XDP2_CLANG_RESOURCE_PATH` | Clang resource directory path |
+| `HOST_LLVM_CONFIG` | LLVM configuration tool path |
+| `LIBDIR` | Library installation directory (default: /lib) |
+| `BINDIR` | Binary installation directory (default: /bin) |
+| `HDRDIR` | Header installation directory (default: /include) |
+| `SBINDIR` | System binary directory (default: /sbin) |
+| `ETCDIR` | Configuration directory (default: /etc) |
+| `CONFDIR` | Configuration directory (default: /etc) |
+| `DATADIR` | Data directory (default: /share) |
+| `MANDIR` | Manual page directory (default: /share/man) |
+| `KERNEL_INCLUDE` | Kernel header directory (default: /usr/include) |
+| `KDIR` | Kernel source directory |
+| `VERBOSE` | Enable verbose make output |
+| `V` | Verbose flag (1 for verbose, 0 for quiet) |
+| `MAKEFLAGS` | Make flags for recursive calls |
+| `MFLAGS` | Make flags |
+| `LDFLAGS` | Linker flags |
+| `LDLIBS` | Libraries to link against |
+| `CPPFRONT` | Path to cppfront compiler |
+| `TEMPLATES_PATH` | Path to XDP2 templates directory |
+
+## Analysis of multiple compilers in the xdp2 project
+
+XDP2 uses a **two-stage compilation approach** with different compilers for different purposes. This design allows the project to leverage the strengths of different compiler toolchains.
+
+### Compiler Separation Architecture
+
+The build system distinguishes between:
+- **`HOST_CC`/`HOST_CXX`**: Used for building **tools** that run on the build machine
+- **`CC`/`CXX`**: Used for building the **final XDP2 libraries and applications**
+
+### Specific Compiler Usage Patterns
+
+#### **HOST_CC/HOST_CXX is used for:**
+- **Building the XDP2 compiler itself** (`xdp2-compiler`)
+- **Building utility tools** like `pmacro_gen`, packet generators
+- **Building code generation tools** that run during the build process
+- **Building the cppfront compiler** (third-party tool)
+
+#### **CC/CXX is used for:**
+- **Building the main XDP2 libraries** (`libxdp2.so`, `libcli.so`, etc.)
+- **Building test programs** and sample applications
+- **Building the final optimized parsers** (after xdp2-compiler processes them)
+
+### Why They Don't Conflict
+
+The compilers don't conflict because they're used for **different stages** of the build process:
+
+1. **Stage 1 - Tool Building**: `HOST_CC`/`HOST_CXX` builds tools that run on the build machine
+2. **Stage 2 - Code Generation**: The built tools (like `xdp2-compiler`) process source files
+3. **Stage 3 - Final Compilation**: `CC`/`CXX` compiles the generated code into final binaries
+
+### Example: Parser Optimization Workflow
+
+```makefile
+# Stage 1: Build the xdp2-compiler tool (using HOST_CXX)
+xdp2-compiler: $(OBJS)
+	$(HOST_CXX) $^ -o $@ $(LLVM_LIBS) $(BOOST_LIBS) $(CLANG_LIBS) ...
+
+# Stage 2: Use xdp2-compiler to generate optimized parser code
+$(OPT_PARSER_SRC): parser.c parser.o
+	$(XDP2_COMPILER) -I$(SRCDIR)/include -o $@ -i $<
+
+# Stage 3: Compile the generated code into final binary (using CC)
+$(TARGET): $(OBJ) $(OPT_PARSER_OBJ)
+	$(QUIET_LINK)$(CC) $^ $(LDLIBS) -o $@
+```
+
+### Why This Architecture?
+
+- **Cross-compilation support**: You can build XDP2 tools on one architecture and compile XDP2 programs for another
+- **Tool isolation**: Build tools don't need to be optimized for the target platform
+- **LLVM/Clang integration**: The XDP2 compiler uses LLVM/Clang libraries for AST parsing, but the final code can be compiled with GCC for better optimization
+- **Flexibility**: Different compilers can be used for different optimization goals
+
+### In Practice
+
+- **GCC** is typically used as the default `CC` for building the final libraries and applications
+- **Clang** (via `HOST_CXX`) is used for building the XDP2 compiler because it needs LLVM integration
+- The **xdp2-compiler** tool uses Clang's AST parsing capabilities to analyze C code and generate optimized parser code
+- The **generated code** is then compiled with GCC for maximum performance
+
+This design allows XDP2 to leverage the best of both worlds: Clang's excellent C++ tooling and AST manipulation for the compiler, and GCC's mature optimization for the final runtime code.
+
+## Nix Development Environment Implications
+
+Given the multiple compiler architecture, the Nix development environment must provide both compiler toolchains and ensure they work together properly.
+
+### Required Environment Variables
+
+The Nix flake must set up the following environment variables to support the dual-compiler architecture:
+
+| Environment Variable | Nix Package Source | Purpose |
+|---|---|---|
+| `CC` | `gcc` | Primary C compiler for final libraries/applications |
+| `CXX` | `gcc` (g++) | Primary C++ compiler for final libraries/applications |
+| `HOST_CC` | `gcc` | Host C compiler for building tools |
+| `HOST_CXX` | `clang` | Host C++ compiler for building XDP2 compiler (needs LLVM) |
+| `HOST_LLVM_CONFIG` | `llvm` | LLVM configuration tool for Clang integration |
+| `XDP2_CLANG_VERSION` | From `clang` package | Clang version for compiler integration |
+| `XDP2_CLANG_RESOURCE_PATH` | From `clang` package | Clang resource directory path |
+
+### Key Considerations
+
+1. **LLVM/Clang Integration**: The `HOST_CXX` must be Clang because the XDP2 compiler requires LLVM libraries for AST parsing
+2. **GCC Optimization**: The primary `CC`/`CXX` should be GCC for optimal performance of the final runtime code
+3. **Cross-compilation Ready**: The separation allows for future cross-compilation scenarios
+4. **Tool Chain Compatibility**: Both compilers must be able to produce compatible object files and libraries
+
+## SheBangs
+
+For detailed information about shebang issues and solutions, see [nix_shebang.md](nix_shebang.md).
+
+## Configure Script Challenges
+
+The configure script presents several challenges in the Nix environment. For detailed analysis and solutions, see [nix_configure.nix](nix_configure.nix).
+
+### Required Environment Variables
+
+### Nix Flake Configuration
+
+The flake.nix should ensure:
+- Both `gcc` and `clang` are available in the development environment
+- `HOST_LLVM_CONFIG` points to the correct LLVM configuration tool
+- Clang version and resource path are properly set for the XDP2 compiler
+- All necessary libraries (Boost, LLVM, libbpf, etc.) are available to both compiler toolchains
+
+This setup ensures that developers can build both the XDP2 compiler tools and the final XDP2 applications within the same Nix development environment.
+
