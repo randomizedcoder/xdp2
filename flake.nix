@@ -10,7 +10,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        llvmP = pkgs.llvmPackages_20;
+        llvmP = pkgs.llvmPackages_20;  #pkgs.llvmPackages_21 is available
 
         # nixDebug code will be left in place to allow for future debugging
         # DEBUGGING: Keep all debug code in place - adjust nixDebug level to control verbosity
@@ -26,13 +26,19 @@
           # Core utilities
           bash coreutils gnused gawk gnutar xz git
           # Libraries
-          boost libpcap libelf libbpf pythonWithScapy
+          boost
+          libpcap
+          libelf
+          libbpf
+          pythonWithScapy
           # Development tools
-          graphviz bpftools
+          graphviz
+          bpftools
           # Compilers for the dual-toolchain environment
-          gcc llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
+          gcc # https://search.nixos.org/packages?channel=unstable&query=gcc gcc15 is available
+          llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
           # Debugging tools for linking analysis
-          glibc.bin  # Provides ldd for dynamic library inspection
+          glibc_multi.bin # glibc.bin glibc_multi.bin # Provides ldd for dynamic library inspection
           # REMOVED: cppfront - we build cppfront v0.3.0 from source in preBuild
         ];
 
