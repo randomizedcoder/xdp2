@@ -151,6 +151,27 @@
 
             echo "=== Starting main build with linking analysis ==="
 
+            # Set up environment variables for Python and LLVM compilation
+            # These fix the build issues we identified during debugging
+            export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"
+            export LDFLAGS_PYTHON="$(pkg-config --libs python3-embed)"
+            export HOST_LLVM_CONFIG="${llvmP.llvm.dev}/bin/llvm-config"
+            export LLVM_LIBS="-L${llvmP.llvm}/lib"
+            export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_system -lboost_program_options"
+            export CLANG_LIBS="-lclang -lLLVM -lclang-cpp"
+            export LIBS="-lpthread -ldl -lutil"
+            export PATH_ARG=""
+
+            echo "=== Environment variables set ==="
+            echo "CFLAGS_PYTHON: $CFLAGS_PYTHON"
+            echo "LDFLAGS_PYTHON: $LDFLAGS_PYTHON"
+            echo "HOST_LLVM_CONFIG: $HOST_LLVM_CONFIG"
+            echo "LLVM_LIBS: $LLVM_LIBS"
+            echo "BOOST_LIBS: $BOOST_LIBS"
+            echo "CLANG_LIBS: $CLANG_LIBS"
+            echo "LIBS: $LIBS"
+            echo "PATH_ARG: $PATH_ARG"
+
             # Run the main build
             make
 
@@ -209,6 +230,17 @@
             export BUILD_OPT_PARSER=y
             export PYTHON_VER=3
             export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
+
+            # Set up environment variables for Python and LLVM compilation
+            # These fix the build issues we identified during debugging
+            export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"
+            export LDFLAGS_PYTHON="$(pkg-config --libs python3-embed)"
+            export HOST_LLVM_CONFIG="${llvmP.llvm.dev}/bin/llvm-config"
+            export LLVM_LIBS="-L${llvmP.llvm}/lib"
+            export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_system -lboost_program_options"
+            export CLANG_LIBS="-lclang -lLLVM -lclang-cpp"
+            export LIBS="-lpthread -ldl -lutil"
+            export PATH_ARG=""
 
             # DEBUGGING: Enable core dumps and debugging environment
             ulimit -c unlimited
