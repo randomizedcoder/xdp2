@@ -36,10 +36,8 @@ ifneq ($(SHARED_LIBS),y)
 DEFINES+= -DNO_SHARED_LIBS
 endif
 
-ifeq ($(BUILD_OPT_PARSER),y)
-DEFINES+= -DBUILD_OPT_PARSER
-endif
-
+# NOTE: BUILD_OPT_PARSER is not used in src/lib/xdp2/Makefile
+# The optimized parser generation is always enabled there (conditional logic is commented out)
 ifeq ($(BUILD_OPT_PARSER),y)
 DEFINES+= -DBUILD_OPT_PARSER
 endif

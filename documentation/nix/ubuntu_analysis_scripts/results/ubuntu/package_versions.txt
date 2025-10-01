@@ -1,0 +1,249 @@
+make: Entering directory '/home/das/xdp2/documentation/nix/ubuntu_analysis_scripts/package_versions'
+Running package versions analysis...
+Package versions analysis complete. Results saved to: package_versions_20250927_171201.txt
+=== Package Versions Analysis ===
+Generated: Sat Sep 27 05:12:01 PM UTC 2025
+Host: ubuntu2404
+OS: Ubuntu 24.04.3 LTS
+
+=== Core Build Packages ===
+build-essential: NOT FOUND
+gcc: /usr/bin/gcc
+  Version: gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+g++: /usr/bin/g++
+  Version: g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+clang: /usr/bin/clang
+  Version: Ubuntu clang version 18.1.3 (1ubuntu1)
+clang++: /usr/bin/clang++
+  Version: Ubuntu clang version 18.1.3 (1ubuntu1)
+make: /usr/bin/make
+cmake: NOT FOUND
+pkg-config: /usr/bin/pkg-config
+
+=== Development Libraries ===
+libboost-all-dev: 1.83.0.1ubuntu2
+libpcap-dev: 1.10.4-4.1ubuntu3
+libelf-dev: 0.190-1.1ubuntu0.1
+libbpf-dev: 1:1.3.0-2build2
+
+=== LLVM/Clang Packages ===
+llvm: 1:18.0-59~exp2
+llvm-dev: 1:18.0-59~exp2
+libclang-dev: 1:18.0-59~exp2
+clang-tools: 1:18.0-59~exp2
+
+=== Python Packages ===
+python3: /usr/bin/python3
+  Version: Python 3.12.3
+  Path: /usr/bin/python3
+  scapy: 2.5.0
+
+=== Kernel Tools ===
+Kernel version: 6.8.0-84-generic
+linux-tools-6.8.0-84-generic: 6.8.0-84.84
+
+=== Additional Tools ===
+bison: /usr/bin/bison
+  Version: bison (GNU Bison) 3.8.2
+flex: /usr/bin/flex
+  Version: flex 2.6.4
+graphviz: NOT FOUND
+tar: /usr/bin/tar
+xz: /usr/bin/xz
+git: /usr/bin/git
+  Version: git version 2.43.0
+
+=== Library Search Paths ===
+LD_LIBRARY_PATH: 'not set'
+PKG_CONFIG_PATH: 'not set'
+
+=== System Information ===
+Architecture: x86_64
+Distribution: Ubuntu
+Release: 24.04
+Codename: noble
+Running compiler configuration analysis...
+Compiler configuration analysis complete. Results saved to: compiler_config_20250927_171201.txt
+=== Compiler Configuration Analysis ===
+Generated: Sat Sep 27 05:12:01 PM UTC 2025
+Host: ubuntu2404
+
+=== Available Compilers ===
+gcc: /usr/bin/gcc
+  Version: gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+  Target: x86_64-linux-gnu
+  Sysroot: 
+g++: /usr/bin/g++
+  Version: g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+  Target: x86_64-linux-gnu
+  Sysroot: 
+clang: /usr/bin/clang
+  Version: Ubuntu clang version 18.1.3 (1ubuntu1)
+  Target: x86_64-pc-linux-gnu
+  Resource Dir: /usr/lib/llvm-18/lib/clang/18
+clang++: /usr/bin/clang++
+  Version: Ubuntu clang version 18.1.3 (1ubuntu1)
+  Target: x86_64-pc-linux-gnu
+  Resource Dir: /usr/lib/llvm-18/lib/clang/18
+
+=== Compiler Environment Variables ===
+CC: not set
+CXX: not set
+HOST_CC: not set
+HOST_CXX: not set
+CFLAGS: not set
+CXXFLAGS: not set
+CPPFLAGS: not set
+LDFLAGS: not set
+
+=== Include Paths ===
+GCC include paths:
+   /usr/libexec/gcc/x86_64-linux-gnu/13/cc1 -E -quiet -v -imultiarch x86_64-linux-gnu - -mtune=generic -march=x86-64 -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -dumpbase -
+   /usr/lib/gcc/x86_64-linux-gnu/13/include
+   /usr/local/include
+   /usr/include/x86_64-linux-gnu
+   /usr/include
+
+=== Library Paths ===
+GCC library paths:
+      /usr/lib/gcc/x86_64-linux-gnu/13/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/x86_64-linux-gnu/13/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/x86_64-linux-gnu/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/../lib/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/13/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/
+    /lib/x86_64-linux-gnu/13/
+    /lib/x86_64-linux-gnu/
+    /lib/../lib/
+    /usr/lib/x86_64-linux-gnu/13/
+    /usr/lib/x86_64-linux-gnu/
+    /usr/lib/../lib/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/
+    /usr/lib/gcc/x86_64-linux-gnu/13/../../../
+    /lib/
+    /usr/lib/
+
+=== LLVM/Clang Configuration ===
+llvm-config: /usr/bin/llvm-config
+  Version: 18.1.3
+  Prefix: /usr/lib/llvm-18
+  Include Dir: /usr/lib/llvm-18/include
+  Library Dir: /usr/lib/llvm-18/lib
+
+=== Python Development Configuration ===
+Python development paths:
+  Include dir: /usr/include/python3.12
+  Library dir: /usr/lib/python3.12
+  Config dir: /usr/local/lib/python3.12/dist-packages
+
+Running library paths analysis...
+Library paths analysis complete. Results saved to: library_paths_20250927_171202.txt
+=== Library Paths Analysis ===
+Generated: Sat Sep 27 05:12:02 PM UTC 2025
+Host: ubuntu2404
+
+=== System Library Paths ===
+/lib: 1 items
+/usr/lib: 105 items
+/usr/local/lib: 4 items
+
+=== Environment Library Paths ===
+LD_LIBRARY_PATH: 'not set'
+LIBRARY_PATH: 'not set'
+PKG_CONFIG_PATH: 'not set'
+
+=== Key Library Locations ===
+Searching for libboost...
+  /usr/lib/x86_64-linux-gnu/libboost_timer.so
+  /usr/lib/x86_64-linux-gnu/libboost_locale.a
+  /usr/lib/x86_64-linux-gnu/libboost_python312.a
+  /usr/lib/x86_64-linux-gnu/libboost_atomic.so.1.83.0
+  /usr/lib/x86_64-linux-gnu/cmake/boost_math_tr1f-1.83.0/libboost_math_tr1f-variant-static.cmake
+Searching for libpcap...
+  /usr/lib/python3/dist-packages/scapy/arch/__pycache__/libpcap.cpython-312.pyc
+  /usr/lib/python3/dist-packages/scapy/arch/libpcap.py
+  /usr/lib/x86_64-linux-gnu/libpcap.a
+  /usr/lib/x86_64-linux-gnu/libpcap.so
+  /usr/lib/x86_64-linux-gnu/libpcap.so.0.8
+Searching for libelf...
+  /usr/lib/x86_64-linux-gnu/pkgconfig/libelf.pc
+  /usr/lib/x86_64-linux-gnu/libelf.so.1
+  /usr/lib/x86_64-linux-gnu/libelf.a
+  /usr/lib/x86_64-linux-gnu/libelf-0.190.so
+  /usr/lib/x86_64-linux-gnu/libelf.so
+Searching for libbpf...
+  /usr/lib/x86_64-linux-gnu/libbpf.so
+  /usr/lib/x86_64-linux-gnu/libbpf.a
+  /usr/lib/x86_64-linux-gnu/pkgconfig/libbpf.pc
+  /usr/lib/x86_64-linux-gnu/libbpf.so.1
+  /usr/lib/x86_64-linux-gnu/libbpf.so.1.3.0
+Searching for libpython...
+  /usr/lib/python3.12/config-3.12-x86_64-linux-gnu/libpython3.12-pic.a
+  /usr/lib/python3.12/config-3.12-x86_64-linux-gnu/libpython3.12.a
+  /usr/lib/python3.12/config-3.12-x86_64-linux-gnu/libpython3.12.so
+  /usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0
+  /usr/lib/x86_64-linux-gnu/libpython3.12.so.1
+
+=== pkg-config Information ===
+pkg-config: /usr/bin/pkg-config
+Version: 1.8.1
+
+boost: NOT FOUND via pkg-config
+libpcap package found:
+  Version: 1.10.4
+  Cflags: -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/libnl3 
+  Libs: -lpcap 
+libelf package found:
+  Version: 0.190
+  Cflags: 
+  Libs: -lelf 
+libbpf package found:
+  Version: 1.3.0
+  Cflags: 
+  Libs: -lbpf 
+python3 package found:
+  Version: 3.12
+  Cflags: -I/usr/include/python3.12 -I/usr/include/x86_64-linux-gnu/python3.12 
+  Libs: 
+
+=== Dynamic Linker Information ===
+ld.so.conf contents:
+  include /etc/ld.so.conf.d/*.conf
+  
+ld.so.conf.d files:
+  total 28
+  drwxr-xr-x   2 root root 4096 Sep 26 23:58 .
+  drwxr-xr-x 112 root root 4096 Sep 27 14:26 ..
+  -rw-r--r--   1 root root   38 Jan 21  2024 fakeroot-x86_64-linux-gnu.conf
+  -rw-r--r--   1 root root   44 Aug  2  2022 libc.conf
+  -rw-r--r--   1 root root  100 Mar 30  2024 x86_64-linux-gnu.conf
+  -rw-r--r--   1 root root   56 Sep 17 14:55 zz_i386-biarch-compat.conf
+  -rw-r--r--   1 root root   58 Sep 17 14:55 zz_x32-biarch-compat.conf
+
+=== XDP2 Related Libraries ===
+Searching for libxdp2...
+Searching for libcli...
+Searching for libsiphash...
+Searching for libcrc...
+  /usr/lib/modules/6.8.0-84-generic/kernel/lib/libcrc32c.ko.zst
+Searching for libflowdis...
+Searching for liblzf...
+Searching for libmurmur3hash...
+Searching for libparselite...
+
+=== Python Library Paths ===
+Python library search paths:
+  
+  /usr/lib/python312.zip
+  /usr/lib/python3.12
+  /usr/lib/python3.12/lib-dynload
+  /usr/local/lib/python3.12/dist-packages
+  /usr/lib/python3/dist-packages
+
+Python site-packages:
+  /usr/local/lib/python3.12/dist-packages
+  /usr/lib/python3/dist-packages
+  /usr/lib/python3.12/dist-packages
+
+make: Leaving directory '/home/das/xdp2/documentation/nix/ubuntu_analysis_scripts/package_versions'
