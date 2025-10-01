@@ -1039,3 +1039,46 @@ The segfault is likely caused by **specific hardening flags** that change how th
 ### **Root Cause Hypothesis**:
 
 The segfault is caused by **Nix's aggressive hardening flags** that change the runtime behavior of the compiled code in ways that break the XDP2 compiler's interaction with Clang's AST processing. Ubuntu's default (no hardening) environment allows the code to work, while Nix's hardened environment exposes the issue.
+
+## Phase 8 Progress: Hardening Flags Test Results
+
+### **CRITICAL DISCOVERY**: Hardening Flags Are NOT the Root Cause
+
+**Test Results**: After successfully rebuilding the `xdp2-compiler` with hardening flags disabled in `flake.nix`, the segfault **still occurs** when testing the original problematic `parser.c` file.
+
+#### **What We Tested**:
+
+1. **Modified flake.nix**: Added `hardeningDisable = [ "fortify" "fortify3" "stackprotector" "strictoverflow" ];`
+2. **Rebuilt xdp2-compiler**: Successfully built with the new hardening-disabled environment
+3. **Tested Original Segfault**: `../../tools/compiler/xdp2-compiler -I../../include -o parser.p.c -i parser.c`
+4. **Result**: ❌ **Still segfaults** - `Segmentation fault (core dumped)`
+
+#### **Key Insights**:
+
+1. **Hardening Flags Are NOT the Issue**: The segfault persists even with aggressive hardening flags disabled
+2. **Build System Issues Resolved**: We successfully fixed all the Python/LLVM linking issues
+3. **Real Runtime Bug**: This confirms the segfault is a genuine runtime issue in the XDP2 compiler's AST processing code
+4. **Environment-Specific**: The issue is still environment-specific (works on Ubuntu, fails in Nix)
+
+#### **Updated Root Cause Analysis**:
+
+The segfault is **NOT** caused by Nix hardening flags. The real issue is likely:
+
+1. **Clang/LLVM Version Differences**: Nix uses Clang 20.1.8 vs Ubuntu's 18.1.3
+2. **ABI Compatibility Issues**: Different library versions may have incompatible ABIs
+3. **Error Recovery Mechanisms**: Different Clang versions handle error recovery differently
+4. **Memory Layout Differences**: Different compiler versions may generate different memory layouts
+
+#### **Next Steps**:
+
+1. **Test with Ubuntu's Clang Version**: Try using Clang 18.1.3 in the Nix environment
+2. **Compare ABI Compatibility**: Check if the Clang libraries are ABI-compatible
+3. **Test with Different Optimization Levels**: Try different `-O` flags
+4. **Investigate Clang Error Recovery**: Look into how different Clang versions handle AST errors
+
+### **Current Status**:
+
+- ✅ **Build System**: Fully working (Python, LLVM, Boost, Clang all linked correctly)
+- ✅ **xdp2-compiler**: Successfully built and functional
+- ❌ **Segfault**: Still occurs with complex parser files
+- 🎯 **Next Focus**: Clang/LLVM version compatibility and ABI issues
