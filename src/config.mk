@@ -1,4 +1,4 @@
-# Generated config based on /home/das/Downloads/xdp2/src/include
+# Generated config based on --compiler
 ifneq ($(TOP_LEVEL_MAKE),y)
 # user can control verbosity similar to kernel builds (e.g., V=1)
 ifeq ("$(origin V)", "command line")
@@ -28,32 +28,32 @@ PATH_ARG=""
 CFLAGS_PYTHON=`$(PKG_CONFIG) $(PATH_ARG) --cflags python3-embed`
 LDFLAGS_PYTHON=`$(PKG_CONFIG) $(PATH_ARG) --libs python3-embed`
 CAT=cat
-CC_ISA_EXT_FLAGS := 
-ASM_ISA_EXT_FLAGS := 
-C_MARCH_FLAGS := 
-ASM_MARCH_FLAGS := 
+CC_ISA_EXT_FLAGS :=
+ASM_ISA_EXT_FLAGS :=
+C_MARCH_FLAGS :=
+ASM_MARCH_FLAGS :=
 HOST_CC := gcc
 HOST_CXX := g++
-CC_ELF := 
-LDLIBS =  
+CC_ELF :=
+LDLIBS =
 LDLIBS += $(LDLIBS_LOCAL) -ldl
-LDLIBS_STATIC = 
+LDLIBS_STATIC =
 LDLIBS_STATIC += $(LDLIBS_LOCAL) -ldl
 TEST_TARGET_STATIC = $(TEST_TARGET:%=%_static)
 OBJ = $(TEST_TARGET:%=%.o)
 STATIC_OBJ = $(TEST_TARGET_STATIC:%=%.o)
 TARGETS = $(TEST_TARGET)
 PKG_CONFIG := pkg-config
-TARGET_ARCH := 
+TARGET_ARCH :=
 XDP2_ARCH := x86_64
 XDP2_CFLAGS += -DARCH_x86_64
 
-CC := clang
+CC := /nix/store/95k9rsn1zsw1yvir8mj824ldhf90i4qw-gcc-wrapper-14.3.0/bin/gcc
 LD := ld
-CXX := clang++
+CXX := /nix/store/95k9rsn1zsw1yvir8mj824ldhf90i4qw-gcc-wrapper-14.3.0/bin/g++
 HOST_LLVM_CONFIG := /nix/store/hmmni7ynqhn65mxmssgif5g5baxr03h7-llvm-20.1.8-dev/bin/llvm-config
 LLVM_CONFIG := llvm-config
-LDFLAGS := 
+LDFLAGS :=
 PYTHON := python3
 HAVE_SCAPY:=y
 ifneq ($(USE_HOST_TOOLS),y)
@@ -87,4 +87,4 @@ endif # !TOP_LEVEL_MAKE
 INSTALLDIR ?= /home/das/Downloads/xdp2/src/../../install/x86_64
 INSTALLTARNAME ?= install.tgz
 BUILD_OPT_PARSER ?= y
-CONFIG_DEFINES := 
+CONFIG_DEFINES :=

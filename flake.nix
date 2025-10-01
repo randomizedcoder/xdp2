@@ -16,6 +16,24 @@
         # DEBUGGING: Keep all debug code in place - adjust nixDebug level to control verbosity
         nixDebug = 6; # 0 = no debug, 7 max debug (like syslog level)
 
+        # COMPILER SELECTION: Allow testing with GCC vs Clang
+        # Default to GCC (as intended by the codebase design)
+        # Set XDP2_USE_CLANG=true to use Clang (for testing)
+        # Unset or false to use GCC (default, Ubuntu-like environment)
+        useClang = builtins.getEnv "XDP2_USE_CLANG" == "true";
+        useGCC = !useClang;
+
+        # Select compiler based on configuration
+        selectedCC = if useGCC then pkgs.gcc else pkgs.clang;
+        selectedCXX = if useGCC then pkgs.gcc else pkgs.clang;
+
+        # Select correct binary names for each compiler
+        selectedCCBin = if useGCC then "gcc" else "clang";
+        selectedCXXBin = if useGCC then "g++" else "clang++";
+
+        # Compiler info for debugging
+        compilerInfo = if useGCC then "GCC" else "Clang";
+
         # Create a Python environment with scapy included.
         # This is the idiomatic Nix way to handle Python dependencies.
         pythonWithScapy = pkgs.python3.withPackages (ps: [ ps.scapy ]);
@@ -104,10 +122,20 @@
             # The configure script must be run from within the 'src' directory
             cd src
 
-            # Set essential environment variables (like Ubuntu would)
-            export HOST_CXX=g++
-            export HOST_CC=gcc
+            # COMPILER SELECTION: Use selected compiler instead of hardcoded values
+            export HOST_CXX=${selectedCXX}/bin/${selectedCXXBin}
+            export HOST_CC=${selectedCC}/bin/${selectedCCBin}
             export HOST_LLVM_CONFIG=${llvmP.llvm.dev}/bin/llvm-config
+
+            # DEBUG: Show compiler selection
+            echo "=== COMPILER SELECTION ==="
+            echo "Using compiler: ${compilerInfo}"
+            echo "HOST_CC: $HOST_CC"
+            echo "HOST_CXX: $HOST_CXX"
+            echo "Compiler version:"
+            $HOST_CC --version | head -1
+            $HOST_CXX --version | head -1
+            echo "=== End compiler selection ==="
 
             # Simple configure call - let it use defaults like Ubuntu
             ./configure --build-opt-parser --installdir "$out"
@@ -123,8 +151,8 @@
           preBuild = ''
             echo "=== Building cppfront-compiler v0.3.0 with Nix-controlled toolchain ==="
 
-            # Build cppfront-compiler using Nix-controlled versions (more reproducible than Ubuntu)
-            HOST_CXX=g++ HOST_CC=gcc make -C ../thirdparty/cppfront
+            # Build cppfront-compiler using selected compiler
+            HOST_CXX=${selectedCXX}/bin/${selectedCXXBin} HOST_CC=${selectedCC}/bin/${selectedCCBin} make -C ../thirdparty/cppfront
 
             # Verify it was built
             test -f ../thirdparty/cppfront/cppfront-compiler || (echo "cppfront-compiler not found!"; exit 1)
@@ -231,6 +259,12 @@
             export PYTHON_VER=3
             export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
 
+            # COMPILER SELECTION: Override Nix's default compiler settings
+            export CC=${selectedCC}/bin/${selectedCCBin}
+            export CXX=${selectedCXX}/bin/${selectedCXXBin}
+            export HOST_CC=${selectedCC}/bin/${selectedCCBin}
+            export HOST_CXX=${selectedCXX}/bin/${selectedCXXBin}
+
             # Set up environment variables for Python and LLVM compilation
             # These fix the build issues we identified during debugging
             export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"
@@ -292,8 +326,13 @@
             }
 
             echo "=== XDP2 Development Shell (DEBUG MODE) ==="
+            echo "Compiler: ${compilerInfo}"
             echo "GCC and Clang are available in the environment."
             echo "Debugging tools: gdb, valgrind, strace, ltrace"
+            echo ""
+            echo "COMPILER SELECTION:"
+            echo "  Default: GCC (Ubuntu-like environment)"
+            echo "  XDP2_USE_CLANG=true - Use Clang (for testing)"
             echo ""
             echo "DEBUGGING COMMANDS:"
             echo "  make-debug     - Build with debugging enabled and capture output"
@@ -304,6 +343,11 @@
             echo ""
             echo "Run 'make' in 'src/' to build the project."
             echo "Run 'make-debug' for detailed debugging output."
+            echo ""
+
+            # Set custom prompt to show we're in XDP2 dev shell
+            # Replace the existing prompt with our custom one using environment variables
+            export PS1="[XDP2-${compilerInfo}] [\u@\h:\w]\$ "
           '';
         };
       });
