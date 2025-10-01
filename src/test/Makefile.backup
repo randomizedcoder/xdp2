@@ -3,8 +3,8 @@ include ../config.mk
 TOPTARGETS := all clean install
 
 SUBDIRS = vstructs switch tables timer pvbuf parser
-# TEMPORARILY SKIPPED: #parse_dump (causes segfault in nix environment)
-# SUBDIRS += #parse_dump
+# TEMPORARILY SKIPPED: parse_dump (causes segfault in nix environment)
+# SUBDIRS += parse_dump
 SUBDIRS += accelerator router bitmaps
 
 $(TOPTARGETS) : $(SUBDIRS)

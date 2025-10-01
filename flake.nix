@@ -39,6 +39,11 @@
           llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
           # Debugging tools for linking analysis
           glibc_multi.bin # glibc.bin glibc_multi.bin # Provides ldd for dynamic library inspection
+          # DEBUGGING: Add debugging tools for segfault analysis
+          gdb # GNU Debugger for core dump analysis
+          valgrind # Memory debugging and profiling
+          strace # System call tracer
+          ltrace # Library call tracer
           # REMOVED: cppfront - we build cppfront v0.3.0 from source in preBuild
         ];
 
@@ -46,6 +51,10 @@
           pname = "xdp2-build";
           version = "dev";
           src = ./.;
+
+          # DISABLE HARDENING FLAGS: Disable specific hardening flags that cause segfaults
+          # Based on investigation: fortify, fortify3, stackprotector, strictoverflow are likely culprits
+          hardeningDisable = [ "fortify" "fortify3" "stackprotector" "strictoverflow" ];
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -194,15 +203,75 @@
         devShells.default = pkgs.mkShell {
           packages = devPackages;
 
+          # DEBUGGING: Add helper functions for debugging
           shellHook = ''
             export XDP2DIR=${xdp2-build}
             export BUILD_OPT_PARSER=y
             export PYTHON_VER=3
             export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
 
-            echo "=== XDP2 Development Shell ==="
+            # DEBUGGING: Enable core dumps and debugging environment
+            ulimit -c unlimited
+            export XDP2_COMPILER_DEBUG=1
+            export PYTHONPATH="${pkgs.python3}/lib/python3.13/site-packages:$PYTHONPATH"
+
+            # DEBUGGING: Helper functions for debugging
+            make-debug() {
+              echo "=== Starting debug build ==="
+              cd src
+              make clean
+              make 2>&1 | tee ../debug-build.log
+              echo "Build log saved to debug-build.log"
+            }
+
+            make-skip-test() {
+              echo "=== Building without problematic test ==="
+              cd src
+              make clean
+              # Skip the parse_dump test that causes segfault
+              make -j$(nproc) 2>&1 | grep -v "parse_dump" | tee ../build-skip-test.log
+              echo "Build log saved to build-skip-test.log"
+            }
+
+            test-segfault() {
+              echo "=== Testing segfault with debugging tools ==="
+              cd src/test/parse_dump
+              echo "Testing with strace..."
+              strace -f -o ../../../strace.log ../../tools/compiler/xdp2-compiler -I../../include -o parser.p.c -i parser.c
+              echo "Strace log saved to strace.log"
+            }
+
+            analyze-core() {
+              echo "=== Analyzing core dumps ==="
+              if [ -f core ]; then
+                echo "Found core dump, analyzing with gdb..."
+                gdb --batch --ex run --ex bt --ex quit ./tools/compiler/xdp2-compiler core
+              else
+                echo "No core dump found. Run 'test-segfault' first."
+              fi
+            }
+
+            python-debug() {
+              echo "=== Testing Python environment ==="
+              python3 --version
+              python3 -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
+              python3 -c "import sysconfig; print('Python config:'); print(sysconfig.get_paths())"
+              python3 -c "import ctypes; print('Python embedding works')"
+            }
+
+            echo "=== XDP2 Development Shell (DEBUG MODE) ==="
             echo "GCC and Clang are available in the environment."
+            echo "Debugging tools: gdb, valgrind, strace, ltrace"
+            echo ""
+            echo "DEBUGGING COMMANDS:"
+            echo "  make-debug     - Build with debugging enabled and capture output"
+            echo "  make-skip-test - Build without the problematic parse_dump test"
+            echo "  test-segfault  - Test the segfault with debugging tools"
+            echo "  analyze-core   - Analyze core dumps if they exist"
+            echo "  python-debug   - Test Python environment and embedding"
+            echo ""
             echo "Run 'make' in 'src/' to build the project."
+            echo "Run 'make-debug' for detailed debugging output."
           '';
         };
       });

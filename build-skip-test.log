@@ -1,0 +1,10 @@
+sh configure /usr/include
+
+Usage: configure [--config-defines <defines>] [--ccarch <arch>]
+ [--arch <arch>] [--compiler <compiler>]
+ [--installdir <dir>] [--build-opt-parser]
+ [--pkg-config-path <path>]
+ [--llvm-config <llvm-config>]
+
+Makefile:5: config.mk: No such file or directory
+make: *** [Makefile:79: config.mk] Error 1
