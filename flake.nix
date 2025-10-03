@@ -1,9 +1,21 @@
 #
 # flake.nix for XDP2
 #
-# This flake.nix is used to build the XDP2 project
+# This flake.nix is used to develop the XDP2 project
 #
-# Run "nix develop" to enter the development environment
+# To enter the development environment:
+# nix develop
+#
+# If flakes are not enabled, use the following command to enter the development environment:
+# nix --extra-experimental-features 'nix-command flakes' develop .
+#
+# To enable flakes, you may need to enable them in your system configuration:
+# test -d /etc/nix || sudo mkdir /etc/nix
+# echo 'experimental-features = nix-command flakes' | sudo tee -a /etc/nix/nix.conf
+#
+# Debugging:
+# XDP2_NIX_DEBUG=7 nix develop --verbose --print-build-logs
+# nix develop --option eval-cache false
 #
 {
   description = "XDP2 development environment";
@@ -17,102 +29,379 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        lib = nixpkgs.lib;
         llvmP = pkgs.llvmPackages_20;  #pkgs.llvmPackages_21 is available
-
-        # nixDebug code will be left in place to allow for future debugging
-        # DEBUGGING: Keep all debug code in place - adjust nixDebug level to control verbosity
-        nixDebug = 6; # 0 = no debug, 7 max debug (like syslog level)
-
-        # COMPILER SELECTION: Allow testing with GCC vs Clang
-        # Default to GCC (as intended by the codebase design)
-        # Set XDP2_USE_CLANG=true to use Clang (for testing)
-        # Unset or false to use GCC (default, Ubuntu-like environment)
-        useClang = builtins.getEnv "XDP2_USE_CLANG" == "true";
-        useGCC = !useClang;
-
-        # Select compiler package based on configuration
-        selectedCC = if useGCC then pkgs.gcc else pkgs.clang;
-        selectedCXX = if useGCC then pkgs.gcc else pkgs.clang;
-
-        # Select correct binary names for each compiler
-        selectedCCBin = if useGCC then "gcc" else "clang";
-        selectedCXXBin = if useGCC then "g++" else "clang++";
-
-        # Compiler info for debugging
-        compilerInfo = if useGCC then "GCC" else "Clang";
 
         # Create a Python environment with scapy included.
         # This is the idiomatic Nix way to handle Python dependencies.
         pythonWithScapy = pkgs.python3.withPackages (ps: [ ps.scapy ]);
 
-        devPackages = with pkgs; [
-          # Build tools
-          gnumake pkg-config bison flex
-          # Core utilities
-          bash coreutils gnused gawk gnutar xz git
-          # Libraries
-          boost
-          libpcap
-          libelf
-          libbpf
-          pythonWithScapy
-          # Development tools
-          graphviz
-          bpftools
-          # Compilers for the dual-toolchain environment
-          gcc # https://search.nixos.org/packages?channel=unstable&query=gcc gcc15 is available
-          llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
-          # Debugging tools for linking analysis
-          glibc_multi.bin # Provides ldd for dynamic library inspection
-          # DEBUGGING: Add debugging tools for segfault analysis
-          gdb # GNU Debugger for core dump analysis
-          valgrind # Memory debugging and profiling
-          strace # System call tracer
-          ltrace # Library call tracer
-          # REMOVED: cppfront - we build cppfront v0.3.0 from source in preBuild
-        ];
+        sharedConfig = let
+          useClang = builtins.getEnv "XDP2_USE_CLANG" == "true";
+          useGCC = !useClang;
+        in {
+          # Debug configuration
+          nixDebug = let
+            envDebug = builtins.getEnv "XDP2_NIX_DEBUG";
+          in
+            if envDebug == "" then 0 else builtins.fromJSON envDebug;
 
-        xdp2-build = pkgs.stdenv.mkDerivation {
-          pname = "xdp2-build";
-          version = "dev";
-          src = ./.;
+          # Compiler selection
+          inherit useClang useGCC;
 
-          # DISABLE HARDENING FLAGS: Disable specific hardening flags that could potentially cause segfaults
-          # Based on investigation: fortify, fortify3, stackprotector, strictoverflow are likely culprits
-          # TODO: Need to retest this, as we may not need to disable these flags
-          hardeningDisable = [ "fortify" "fortify3" "stackprotector" "strictoverflow" ];
+          selectedCCPkgs = if useGCC then pkgs.gcc else pkgs.clang;
+          selectedCXXPkgs = if useGCC then pkgs.gcc else pkgs.clang;
+          selectedCCBin = if useGCC then "gcc" else "clang";
+          selectedCXXBin = if useGCC then "g++" else "clang++";
+          compilerInfo = if useGCC then "GCC" else "Clang";
+
+          # https://nixos.wiki/wiki/C#Hardening_flags
+          # hardeningDisable = [ "fortify" "fortify3" "stackprotector" "strictoverflow" ];
+          # Disable all hardening flags for now, but might restore some later
+          hardeningDisable = [ "all" ];
+
+          # Library packages
+          corePackages = with pkgs; [
+            # Build tools
+            gnumake pkg-config bison flex
+            # Core utilities
+            bash coreutils gnused gawk gnutar xz git
+            # Libraries
+              boost # boost189 is available and solves the deprecation warnings, but configure can't find it
+            libpcap
+            libelf
+            libbpf
+            pythonWithScapy
+            # Development tools
+            graphviz
+            bpftools
+            # Compilers for the dual-toolchain environment
+            gcc # https://search.nixos.org/packages?channel=unstable&query=gcc gcc15 is available
+            llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
+            # Debugging tools for linking analysis
+            glibc_multi.bin # Provides ldd for dynamic library inspection
+              # Debugging
+            gdb # GNU Debugger for core dump analysis
+            valgrind # Memory debugging and profiling
+            strace # System call tracer
+            ltrace # Library call tracer
+            # REMOVED: cppfront - we build cppfront v0.3.0 from source in preBuild
+          ];
+
+          buildInputs = with pkgs; [
+            boost
+            libpcap
+            libelf
+            libbpf
+            pythonWithScapy
+            llvmP.llvm llvmP.clang-unwrapped
+            llvmP.libclang
+            llvmP.lld
+          ];
 
           nativeBuildInputs = [
             pkgs.pkg-config
             llvmP.clang
             llvmP.llvm.dev # For llvm-config
           ];
+        };
 
-          buildInputs = with pkgs; [
-            # Core libraries
-            boost
-            libpcap
-            libelf
-            libbpf
-            zlib
-            ncurses
-            # Per nix_python_compile_errors.md, the build derivation needs a clean python3.
-            # The pythonWithScapy environment is only for the interactive dev shell.
-            # Consistent Python environment across all phases
-            pythonWithScapy
-            # CPython in nixpkgs, the C headers (Python.h) and python3-config are already in pkgs.python3. You don't need a separate dev output (unlike many C libs)
-            python3
-            # Add LLVM and Clang libraries for linking during the clang check
-            llvmP.llvm
-            llvmP.clang-unwrapped
-            # REMOVED: cppfront package - we build cppfront v0.3.0 from source in preBuild
-          ];
+        # Create a wrapper for llvm-config to include clang paths.
+        # The xdp2-compiler needs clang headers/libs, but the default llvm-config
+        # from the llvm package only knows about llvm paths.
+        llvm-config-wrapped = pkgs.runCommand "llvm-config-wrapped" { } ''
+          mkdir -p $out/bin
+          cat > $out/bin/llvm-config <<EOF
+          #!${pkgs.bash}/bin/bash
+          if [[ "\$1" == "--includedir" ]]; then
+            echo "${llvmP.clang-unwrapped.dev}/include"
+          elif [[ "\$1" == "--libdir" ]]; then
+            echo "${lib.getLib llvmP.clang-unwrapped}/lib"
+          else
+            ${llvmP.llvm.dev}/bin/llvm-config "\$@"
+          fi
+          EOF
+          chmod +x $out/bin/llvm-config
+        '';
+
+        sharedEnvVars = ''
+          # Compiler settings
+          export CC=${sharedConfig.selectedCCPkgs}/bin/${sharedConfig.selectedCCBin}
+          export CXX=${sharedConfig.selectedCXXPkgs}/bin/${sharedConfig.selectedCXXBin}
+          export HOST_CC=${sharedConfig.selectedCCPkgs}/bin/${sharedConfig.selectedCCBin}
+          export HOST_CXX=${sharedConfig.selectedCXXPkgs}/bin/${sharedConfig.selectedCXXBin}
+
+          # Clang environment variables for xdp2-compiler (using clang dev package)
+          # ./src/tools/compiler/src/main.cpp and Makefile reference these variables
+          export XDP2_CLANG_VERSION="$(${llvmP.llvm.dev}/bin/llvm-config --version)"
+          export XDP2_C_INCLUDE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
+          export XDP2_CLANG_RESOURCE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
+
+          # Python environment
+          export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"
+          export LDFLAGS_PYTHON="$(pkg-config --libs python3-embed)"
+          export PYTHON_VER=3
+          export PYTHONPATH="${pkgs.python3}/lib/python3.13/site-packages:$PYTHONPATH"
+
+          # LLVM/Clang settings
+          export HOST_LLVM_CONFIG="${llvm-config-wrapped}/bin/llvm-config"
+          export LLVM_LIBS="-L${llvmP.llvm}/lib"
+          export CLANG_LIBS="-lclang -lLLVM -lclang-cpp"
+
+          # libclang configuration
+          #export LIBCLANG_PATH="${lib.getLib llvmP.clang-unwrapped}/lib"
+          export LIBCLANG_PATH=${llvmP.libclang.lib}/lib
+          export LD_LIBRARY_PATH=${llvmP.libclang.lib}/lib:$LD_LIBRARY_PATH
+
+          # Boost libraries
+          export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_system -lboost_program_options"
+
+          # Other libraries
+          export LIBS="-lpthread -ldl -lutil"
+          export PATH_ARG=""
+
+          # Build configuration
+          export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" sharedConfig.corePackages}
+          export XDP2_COMPILER_DEBUG=1
+        '';
+
+        # SHARED BUILD FUNCTIONS
+        # NOTE: This is a hack to fix the PATH_ARG issue
+        sharedBuildSteps = {
+          # Configure script execution
+          runConfigure = installDir: ''
+            cd src
+            rm -f config.mk
+            ./configure --build-opt-parser --installdir "${installDir}"
+            # Verify PATH_ARG fix
+            if grep -q 'PATH_ARG="--with-path=' config.mk; then
+              echo "ERROR: PATH_ARG still contains --with-path, applying manual fix"
+              sed -i 's|PATH_ARG="--with-path=.*"|PATH_ARG=""|' config.mk
+            fi
+            echo "PATH_ARG in config.mk: $(grep '^PATH_ARG=' config.mk)"
+
+            # Debug output: Print config.mk contents when debug level > 5
+            if [ ${toString sharedConfig.nixDebug} -gt 5 ]; then
+              echo "=== config.mk contents ==="
+              cat config.mk
+              echo "=== End config.mk ==="
+            fi
+            cd ..
+          '';
+
+          # Build cppfront-compiler
+          # There is a cppfront binary in the thirdparty/cppfront directory, but we build it from source
+          # to ensure it is nix compatible.
+          #( I did try upgrading this to latest nix package, but the syntax changed and the code didn't compile)
+          buildCppfront = ''
+            echo "=== Building cppfront-compiler ==="
+            cd thirdparty/cppfront
+
+            # Build cppfront with error checking
+            if HOST_CXX=${sharedConfig.selectedCXXPkgs}/bin/${sharedConfig.selectedCXXBin} \
+               HOST_CC=${sharedConfig.selectedCCPkgs}/bin/${sharedConfig.selectedCCBin} make; then
+              echo "=== cppfront make completed successfully ==="
+            else
+              echo "=== ERROR: cppfront make failed ==="
+              exit 1
+            fi
+
+            cd ../..
+
+            # Ensure cppfront is available in PATH for the main build
+            # Create a symlink so the main build can find 'cppfront' (it expects this name)
+            ln -sf cppfront-compiler ./thirdparty/cppfront/cppfront
+            export PATH="$PWD/thirdparty/cppfront:$PATH"
+
+            # Test the binary and check return code
+            if ./thirdparty/cppfront/cppfront-compiler -version; then
+              echo "=== cppfront-compiler built successfully and added to PATH ==="
+            else
+              echo "=== ERROR: cppfront-compiler failed to run ==="
+              exit 1
+            fi
+          '';
+
+          buildXdp2Compiler = ''
+            echo "=== Building xdp2-compiler ==="
+            echo "Current environment variables:"
+            echo "CFLAGS_PYTHON: $CFLAGS_PYTHON"
+            echo "LDFLAGS_PYTHON: $LDFLAGS_PYTHON"
+            echo "CC: $CC"
+            echo "CXX: $CXX"
+            echo "HOST_CC: $HOST_CC"
+            echo "HOST_CXX: $HOST_CXX"
+            echo "XDP2_CLANG_VERSION: $XDP2_CLANG_VERSION"
+            echo "XDP2_C_INCLUDE_PATH: $XDP2_C_INCLUDE_PATH"
+            echo "XDP2_CLANG_RESOURCE_PATH: $XDP2_CLANG_RESOURCE_PATH"
+
+            # Pre-build validation: Check that all required libraries and headers exist
+            echo "=== Pre-build validation: Checking required libraries and headers ==="
+
+            # Check Clang headers directory
+            if [ ! -d "$XDP2_C_INCLUDE_PATH" ]; then
+              echo "=== ERROR: Clang headers directory not found: $XDP2_C_INCLUDE_PATH ==="
+              exit 1
+            fi
+            echo "=== ✓ Clang headers directory exists: $XDP2_C_INCLUDE_PATH ==="
+
+            # Check Clang resource path
+            if [ ! -d "$XDP2_CLANG_RESOURCE_PATH" ]; then
+              echo "=== ERROR: Clang resource path not found: $XDP2_CLANG_RESOURCE_PATH ==="
+              exit 1
+            fi
+            echo "=== ✓ Clang resource path exists: $XDP2_CLANG_RESOURCE_PATH ==="
+
+            # Check key header files that xdp2-compiler needs
+            key_headers=(
+              "$XDP2_C_INCLUDE_PATH/AST/Type.h"
+              "$XDP2_C_INCLUDE_PATH/AST/Decl.h"
+              "$XDP2_C_INCLUDE_PATH/AST/DeclGroup.h"
+              "$XDP2_C_INCLUDE_PATH/AST/ASTTypeTraits.h"
+              "$XDP2_C_INCLUDE_PATH/Basic/SourceLocation.h"
+              "$XDP2_C_INCLUDE_PATH/Frontend/CompilerInstance.h"
+            )
+
+            for header in "''${key_headers[@]}"; do
+              if [ ! -f "$header" ]; then
+                echo "=== ERROR: Required header file not found: $header ==="
+                exit 1
+              fi
+              echo "=== ✓ Header file exists: $header ==="
+            done
+
+            # Check that required libraries exist (these will be linked at runtime)
+            # Note: We can't check the exact library paths since they're determined by the linker,
+            # but we can verify that the Clang and LLVM packages are available
+            if ! command -v llvm-config >/dev/null 2>&1; then
+              echo "=== ERROR: llvm-config not found in PATH ==="
+              exit 1
+            fi
+            echo "=== ✓ llvm-config found: $(which llvm-config) ==="
+
+            # Verify llvm-config can find the libraries
+            llvm_libdir="$(${llvmP.llvm.dev}/bin/llvm-config --libdir)"
+            if [ ! -d "$llvm_libdir" ]; then
+              echo "=== ERROR: LLVM lib directory not found: $llvm_libdir ==="
+              exit 1
+            fi
+            echo "=== ✓ LLVM lib directory exists: $llvm_libdir ==="
+
+            # Check for key LLVM/Clang libraries
+            key_libs=(
+              "$llvm_libdir/libLLVM.so.20.1"
+              "${llvmP.clang-unwrapped.lib}/lib/libclang.so.20.1"
+              "${llvmP.clang-unwrapped.lib}/lib/libclang-cpp.so.20.1"
+            )
+
+            for lib in "''${key_libs[@]}"; do
+              if [ ! -f "$lib" ]; then
+                echo "=== ERROR: Required library not found: $lib ==="
+                exit 1
+              fi
+              echo "=== ✓ Library exists: $lib ==="
+            done
+
+            echo "=== ✓ All required libraries and headers validated ==="
+            cd src
+
+            # Clean previous build to ensure fresh environment
+            echo "=== Cleaning previous build ==="
+            make clean -C tools/compiler || true  # Don't fail if clean fails
+
+            # Debug: Show what llvm-config returns
+            echo "=== DEBUG: llvm-config output ==="
+            echo "llvm-config --includedir: $($HOST_LLVM_CONFIG --includedir)"
+            echo "llvm-config --libdir: $($HOST_LLVM_CONFIG --libdir)"
+            echo "=== END DEBUG ==="
+
+            # Build xdp2-compiler with error checking
+            if CFLAGS_PYTHON="$CFLAGS_PYTHON" LDFLAGS_PYTHON="$LDFLAGS_PYTHON" make -C tools; then
+              echo "=== xdp2-compiler make completed successfully ==="
+            else
+              echo "=== ERROR: xdp2-compiler make failed ==="
+              exit 1
+            fi
+
+            # Test the binary exists and is executable
+            if [ -x "./tools/compiler/xdp2-compiler" ]; then
+              echo "=== xdp2-compiler binary found and executable ==="
+
+              # Test the binary with --help and verify it works
+              echo "=== Testing xdp2-compiler --help ==="
+              set +e  # Temporarily disable exit on error
+              ./tools/compiler/xdp2-compiler --help
+              help_exit_code=$?
+              set -e  # Re-enable exit on error
+              echo "=== xdp2-compiler help returned exit code: $help_exit_code ==="
+
+              # Check if help command worked (we expect exit code 1 for help)
+              if [ $help_exit_code -eq 1 ]; then
+                echo "=== xdp2-compiler built successfully (help returned expected exit code: 1) ==="
+              elif [ $help_exit_code -eq 0 ]; then
+                echo "=== xdp2-compiler built successfully (help returned exit code: 0) ==="
+              else
+                echo "=== WARNING: xdp2-compiler help returned unexpected exit code: $help_exit_code ==="
+                echo "=== But binary exists and is executable, continuing... ==="
+              fi
+            else
+              echo "=== ERROR: xdp2-compiler binary not found or not executable ==="
+              exit 1
+            fi
+            cd ..
+          '';
+
+          buildXdp2 = ''
+            echo "=== Building xdp2 project ==="
+            cd src
+
+            # Ensure xdp2-compiler is available in PATH for the main build
+            export PATH="$PWD/tools/compiler:$PATH"
+            echo "=== Added tools/compiler to PATH: $PATH ==="
+
+            # Build the main xdp2 project (this will use cppfront and xdp2-compiler)
+            if make; then
+              echo "=== xdp2 project make completed successfully ==="
+            else
+              echo "=== ERROR: xdp2 project make failed ==="
+              exit 1
+            fi
+
+            # Test that the build completed successfully
+            echo "=== xdp2 project built successfully ==="
+            echo "=== Note: xdp2-compiler was built in previous step ==="
+            echo "=== Build completed without segfaults ==="
+            cd ..
+          '';
+
+          buildDevelopShell = ''
+            echo "=== Development shell setup ==="
+            mkdir -p $out/bin
+            echo "#!/bin/sh" > $out/bin/xdp2-dev-shell
+            echo "echo 'XDP2 Development Shell - use nix develop to enter'" >> $out/bin/xdp2-dev-shell
+            chmod +x $out/bin/xdp2-dev-shell
+            echo "=== Development shell setup completed ==="
+          '';
+        };
+
+        xdp2-build = pkgs.stdenv.mkDerivation {
+          pname = "xdp2-build";
+          version = "dev";
+          src = ./.;
+
+          hardeningDisable = sharedConfig.hardeningDisable;
+
+          nativeBuildInputs = sharedConfig.nativeBuildInputs;
+          buildInputs = sharedConfig.buildInputs;
 
           patchPhase = ''
-            # Option B: Keep only essential patches - remove complex patches that might cause issues
+            echo "=== PATCHPHASE STARTING ==="
+            echo "=== PATCHPHASE: This should appear in build logs ==="
+
+            # bash fix for nix
             substituteInPlace src/configure --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash'
 
-            # note that run-tests.sh does have the extra space
+            # bash fix for nix, note that run-tests.sh does have the extra space
             substituteInPlace src/test/parser/run-tests.sh --replace-fail '#! /bin/bash' '#!${pkgs.bash}/bin/bash'
 
             # Keep essential header fix for cppfront
@@ -125,49 +414,61 @@
             # Keep essential C++ standard fix
             substituteInPlace src/tools/compiler/src/main.cpp --replace-fail 'if (include_paths.has_value())' 'if (include_paths)'
 
+            # Debug: Check if Makefile exists and show its content
+            echo "=== DEBUG: Checking Makefile before patching ==="
+            ls -la src/tools/compiler/Makefile || echo "Makefile not found"
+            echo "=== Current LLVM_INCLUDE and LLVM_LIBS lines ==="
+            grep -E "LLVM_INCLUDE|LLVM_LIBS" src/tools/compiler/Makefile || echo "Lines not found"
+            echo "=== END DEBUG ==="
+
+            # Debug: Check if patches were applied
+            echo "=== DEBUG: Checking Makefile (no patches applied for LLVM paths) ==="
+            echo "=== Updated LLVM_INCLUDE and LLVM_LIBS lines ==="
+            grep -E "LLVM_INCLUDE|LLVM_LIBS" src/tools/compiler/Makefile || echo "Lines not found"
+            echo "=== END DEBUG ==="
+
             # REMOVED: Makefile patches for cppfront - we build cppfront v0.3.0 from source in preBuild
+
+            echo "=== PATCHPHASE COMPLETED ==="
           '';
 
-          # Option B: Simplified configure phase - more like Ubuntu approach
           configurePhase = ''
-            # The configure script must be run from within the 'src' directory
-            cd src
+            # Set shared environment variables
+            ${sharedEnvVars}
 
-            # COMPILER SELECTION: Use selected compiler instead of hardcoded values
-            export HOST_CXX=${selectedCXX}/bin/${selectedCXXBin}
-            export HOST_CC=${selectedCC}/bin/${selectedCCBin}
-            export HOST_LLVM_CONFIG=${llvmP.llvm.dev}/bin/llvm-config
-
-            # DEBUG: Show compiler selection
+            # Debug output: Show compiler selection when debug level > 4
+            if [ ${toString sharedConfig.nixDebug} -gt 4 ]; then
             echo "=== COMPILER SELECTION ==="
-            echo "Using compiler: ${compilerInfo}"
+              echo "Using compiler: ${sharedConfig.compilerInfo}"
             echo "HOST_CC: $HOST_CC"
             echo "HOST_CXX: $HOST_CXX"
-            echo "Compiler version:"
-            $HOST_CC --version | head -1
-            $HOST_CXX --version | head -1
             echo "=== End compiler selection ==="
+            fi
 
-            # Simple configure call - let it use defaults like Ubuntu
-            ./configure --build-opt-parser --installdir "$out"
+            # Debug output: Print all environment variables when debug level > 5
+            if [ ${toString sharedConfig.nixDebug} -gt 5 ]; then
+              echo "=== Environment Variables ==="
+              env
+              echo "=== End Environment Variables ==="
+            fi
 
-            # DEBUG: Print config.mk contents to understand the build configuration
-            echo "=== config.mk contents ==="
-            cat config.mk
-            echo "=== End config.mk ==="
+            # Run shared configure step
+            ${sharedBuildSteps.runConfigure "$out"}
           '';
 
-          # DEVELOPMENT SHELL APPROACH: Minimal build phase
-          # Only set up the environment, let shellHook handle the actual building
+          # Build phase: build cppfront first, because xdp2 make depends on it, then main project
           buildPhase = ''
-            echo "=== Development shell setup - minimal build phase ==="
-            echo "=== All building will be handled by shellHook ==="
+            echo "=== buildPhase - Building cppfront-compiler first ==="
+            ${sharedBuildSteps.buildCppfront}
 
-            # Just create a placeholder to satisfy Nix
-            mkdir -p $out/bin
-            echo "#!/bin/sh" > $out/bin/xdp2-dev-shell
-            echo "echo 'XDP2 Development Shell - use nix develop to enter'" >> $out/bin/xdp2-dev-shell
-            chmod +x $out/bin/xdp2-dev-shell
+            echo "=== buildPhase -Building xdp2-compiler ==="
+            ${sharedBuildSteps.buildXdp2Compiler}
+
+            echo "=== buildPhase -Building xdp2 project ==="
+            ${sharedBuildSteps.buildXdp2}
+
+            echo "=== buildPhase -Setting up development shell ==="
+            ${sharedBuildSteps.buildDevelopShell}
           '';
 
           # DEVELOPMENT SHELL: Skip install phase
@@ -179,144 +480,106 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          packages = devPackages;
 
-          # DEBUGGING: Add helper functions for debugging
+          packages = sharedConfig.corePackages;
+
           shellHook = ''
+            ${sharedEnvVars}
+
             export XDP2DIR=${xdp2-build}
-            # NOTE: BUILD_OPT_PARSER is not used in src/lib/xdp2/Makefile
-            # The optimized parser generation is always enabled there (conditional logic is commented out)
-            # export BUILD_OPT_PARSER=y
-            export PYTHON_VER=3
-            export PKG_CONFIG_PATH=${pkgs.lib.makeSearchPath "lib/pkgconfig" devPackages}
 
-            # COMPILER SELECTION: Override Nix's default compiler settings
-            export CC=${selectedCC}/bin/${selectedCCBin}
-            export CXX=${selectedCXX}/bin/${selectedCXXBin}
-            export HOST_CC=${selectedCC}/bin/${selectedCCBin}
-            export HOST_CXX=${selectedCXX}/bin/${selectedCXXBin}
-
-            # Set up environment variables for Python and LLVM compilation
-            # These fix the build issues we identified during debugging
-            echo "=== Setting up Python environment variables ==="
-            export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"
-            export LDFLAGS_PYTHON="$(pkg-config --libs python3-embed)"
-            echo "CFLAGS_PYTHON: $CFLAGS_PYTHON"
-            echo "LDFLAGS_PYTHON: $LDFLAGS_PYTHON"
-
-            # Additional Python debugging
-            echo "=== Python environment debugging ==="
-            echo "Python version: $(python3 --version)"
-            echo "Python config --cflags: $(python3-config --cflags)"
-            echo "Python config --ldflags: $(python3-config --ldflags)"
-            echo "pkg-config python3-embed --cflags: $(pkg-config --cflags python3-embed)"
-            echo "pkg-config python3-embed --libs: $(pkg-config --libs python3-embed)"
-            echo "=== End Python debugging ==="
-            export HOST_LLVM_CONFIG="${llvmP.llvm.dev}/bin/llvm-config"
-            export LLVM_LIBS="-L${llvmP.llvm}/lib"
-            export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_system -lboost_program_options"
-            export CLANG_LIBS="-lclang -lLLVM -lclang-cpp"
-            export LIBS="-lpthread -ldl -lutil"
-            export PATH_ARG=""
-
-            # PERMANENT FIX: Ensure configure script runs in development shell
-            # This generates config.mk which is required for the build system
-            # Force a fresh configure to ensure the PATH_ARG fix is applied
-            echo "=== Running configure script to generate config.mk with Nix fixes ==="
-            cd src
-            # Remove old config.mk to ensure fresh generation with our patches
-            rm -f config.mk
-            ./configure --build-opt-parser --installdir /tmp/xdp2-install
-            # Verify the PATH_ARG fix was applied
-            echo "=== Verifying PATH_ARG fix ==="
-            if grep -q 'PATH_ARG="--with-path=' config.mk; then
-              echo "ERROR: PATH_ARG still contains --with-path, applying manual fix"
-              sed -i 's|PATH_ARG="--with-path=.*"|PATH_ARG=""|' config.mk
-            fi
-            echo "PATH_ARG in config.mk: $(grep '^PATH_ARG=' config.mk)"
-            cd ..
-            echo "=== config.mk generated successfully with Nix fixes ==="
-
-            # Build cppfront-compiler v0.3.0 if not already built
-            if [ ! -f thirdparty/cppfront/cppfront-compiler ]; then
-              echo "=== Building cppfront-compiler v0.3.0 with Nix-controlled toolchain ==="
-              cd thirdparty/cppfront
-              HOST_CXX=${selectedCXX}/bin/${selectedCXXBin} HOST_CC=${selectedCC}/bin/${selectedCCBin} make
-              cd ../..
-              echo "=== cppfront-compiler built successfully ==="
-            else
-              echo "=== cppfront-compiler already exists, skipping build ==="
-            fi
-
-            # Build tools if not already built
-            if [ ! -f src/tools/compiler/xdp2-compiler ]; then
-              echo "=== Building xdp2-compiler ==="
-              echo "Current environment variables:"
-              echo "CFLAGS_PYTHON: $CFLAGS_PYTHON"
-              echo "LDFLAGS_PYTHON: $LDFLAGS_PYTHON"
-              echo "CC: $CC"
-              echo "CXX: $CXX"
+            if [ ${toString sharedConfig.nixDebug} -gt 4 ]; then
+              echo "=== COMPILER SELECTION ==="
+              echo "Using compiler: ${sharedConfig.compilerInfo}"
               echo "HOST_CC: $HOST_CC"
               echo "HOST_CXX: $HOST_CXX"
-              cd src
-              CFLAGS_PYTHON="$CFLAGS_PYTHON" LDFLAGS_PYTHON="$LDFLAGS_PYTHON" make -C tools
-              cd ..
-              echo "=== xdp2-compiler built successfully ==="
-            else
-              echo "=== xdp2-compiler already exists, skipping build ==="
+              ${sharedConfig.selectedCCPkgs}/bin/${sharedConfig.selectedCCBin} --version
+              ${sharedConfig.selectedCXXPkgs}/bin/${sharedConfig.selectedCXXBin} --version
+              echo "=== End compiler selection ==="
             fi
 
-            # DEBUGGING: Enable core dumps and debugging environment
-            ulimit -c unlimited
-            export XDP2_COMPILER_DEBUG=1
-            export PYTHONPATH="${pkgs.python3}/lib/python3.13/site-packages:$PYTHONPATH"
+            # Debug: Show what llvm-config returns
+            echo "=== DEBUG: llvm-config output ==="
+            echo "llvm-config --includedir: $($HOST_LLVM_CONFIG --includedir)"
+            echo "llvm-config --libdir: $($HOST_LLVM_CONFIG --libdir)"
+            echo "=== END DEBUG ==="
 
-            # DEBUGGING: Helper functions for debugging
-            make-debug() {
-              echo "=== Starting debug build ==="
-              cd src
-              make clean
-              make 2>&1 | tee ../debug-build.log
-              echo "Build log saved to debug-build.log"
-            }
+            if [ ${toString sharedConfig.nixDebug} -gt 5 ]; then
+              echo "=== Environment Variables ==="
+              env
+              echo "=== End Environment Variables ==="
+            fi
 
-            make-skip-test() {
-              echo "=== Building without problematic test ==="
-              cd src
-              make clean
-              # Skip the parse_dump test that causes segfault
-              make -j$(nproc) 2>&1 | grep -v "parse_dump" | tee ../build-skip-test.log
-              echo "Build log saved to build-skip-test.log"
-            }
+            if [ ${toString sharedConfig.nixDebug} -gt 5 ]; then
+              echo "=== Python environment debugging ==="
+              echo "Python version: $(python3 --version)"
+              echo "CFLAGS_PYTHON: $CFLAGS_PYTHON"
+              echo "LDFLAGS_PYTHON: $LDFLAGS_PYTHON"
+              echo "=== End Python debugging ==="
+            fi
 
-            test-segfault() {
-              echo "=== Testing segfault with debugging tools ==="
-              cd src/test/parse_dump
-              echo "Testing with strace..."
-              strace -f -o ../../../strace.log ../../tools/compiler/xdp2-compiler -I../../include -o parser.p.c -i parser.c
-              echo "Strace log saved to strace.log"
-            }
+            # Run shared build steps
+            echo "=== Running configure script to generate config.mk with Nix fixes ==="
+            ${sharedBuildSteps.runConfigure "/tmp/xdp2-install"}
+            echo "=== config.mk generated successfully with Nix fixes ==="
 
-            analyze-core() {
-              echo "=== Analyzing core dumps ==="
-              if [ -f core ]; then
-                echo "Found core dump, analyzing with gdb..."
-                gdb --batch --ex run --ex bt --ex quit ./tools/compiler/xdp2-compiler core
+            # Note: cppfront and xdp2-compiler are now built in the derivation's buildPhase
+            # This shellHook only sets up the development environment
+
+            # Environment validation: Check that all required libraries and headers exist
+            echo "=== Environment validation: Checking required libraries and headers ==="
+
+            # Check Clang headers directory
+            if [ ! -d "$XDP2_C_INCLUDE_PATH" ]; then
+              echo "=== ERROR: Clang headers directory not found: $XDP2_C_INCLUDE_PATH ==="
+              echo "=== This may cause segfaults in xdp2-compiler ==="
+            else
+              echo "=== ✓ Clang headers directory exists: $XDP2_C_INCLUDE_PATH ==="
+            fi
+
+            # Check Clang resource path
+            if [ ! -d "$XDP2_CLANG_RESOURCE_PATH" ]; then
+              echo "=== ERROR: Clang resource path not found: $XDP2_CLANG_RESOURCE_PATH ==="
+              echo "=== This may cause segfaults in xdp2-compiler ==="
+            else
+              echo "=== ✓ Clang resource path exists: $XDP2_CLANG_RESOURCE_PATH ==="
+            fi
+
+            # Check key header files that xdp2-compiler needs
+            key_headers=(
+              "$XDP2_C_INCLUDE_PATH/AST/Type.h"
+              "$XDP2_C_INCLUDE_PATH/AST/Decl.h"
+              "$XDP2_C_INCLUDE_PATH/AST/DeclGroup.h"
+            )
+
+            missing_headers=0
+            for header in "''${key_headers[@]}"; do
+              if [ ! -f "$header" ]; then
+                echo "=== ERROR: Required header file not found: $header ==="
+                missing_headers=1
               else
-                echo "No core dump found. Run 'test-segfault' first."
+                echo "=== ✓ Header file exists: $header ==="
               fi
-            }
+            done
 
-            python-debug() {
-              echo "=== Testing Python environment ==="
-              python3 --version
-              python3 -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
-              python3 -c "import sysconfig; print('Python config:'); print(sysconfig.get_paths())"
-              python3 -c "import ctypes; print('Python embedding works')"
-            }
+            if [ $missing_headers -eq 1 ]; then
+              echo "=== WARNING: Some required headers are missing - this may cause segfaults ==="
+            fi
 
-            echo "=== XDP2 Development Shell (DEBUG MODE) ==="
-            echo "Compiler: ${compilerInfo}"
+            # Check if xdp2-compiler exists and show its library dependencies
+            if [ -x "src/tools/compiler/xdp2-compiler" ]; then
+              echo "=== ✓ xdp2-compiler binary exists and is executable ==="
+              echo "=== xdp2-compiler library dependencies:"
+              ldd src/tools/compiler/xdp2-compiler | grep -E "(clang|llvm)" || echo "=== No clang/llvm libraries found in dependencies ==="
+            else
+              echo "=== WARNING: xdp2-compiler binary not found or not executable ==="
+            fi
+
+            echo "=== Environment validation completed ==="
+            echo ""
+
+            echo "=== XDP2 Development Shell ==="
+            echo "Compiler: ${sharedConfig.compilerInfo}"
             echo "GCC and Clang are available in the environment."
             echo "Debugging tools: gdb, valgrind, strace, ltrace"
             echo ""
@@ -324,20 +587,15 @@
             echo "  Default: GCC (Ubuntu-like environment)"
             echo "  XDP2_USE_CLANG=true - Use Clang (for testing)"
             echo ""
-            echo "DEBUGGING COMMANDS:"
-            echo "  make-debug     - Build with debugging enabled and capture output"
-            echo "  make-skip-test - Build without the problematic parse_dump test"
-            echo "  test-segfault  - Test the segfault with debugging tools"
-            echo "  analyze-core   - Analyze core dumps if they exist"
-            echo "  python-debug   - Test Python environment and embedding"
+            echo "DEBUGGING:"
+            echo "  XDP2_NIX_DEBUG=5 - Show compiler selection and config.mk"
+            echo "  XDP2_NIX_DEBUG=6 - Show all debug output including environment variables"
             echo ""
-            echo "Run 'make' in 'src/' to build the project."
-            echo "Run 'make-debug' for detailed debugging output."
+            echo "To build the project, 'cd src' and then 'make'"
             echo ""
 
-            # Set custom prompt to show we're in XDP2 dev shell
-            # Replace the existing prompt with our custom one using environment variables
-            export PS1="[XDP2-${compilerInfo}] [\u@\h:\w]\$ "
+            # Custom prompt shows we're in XDP2 dev shell
+            export PS1="[XDP2-${sharedConfig.compilerInfo}] [\u@\h:\w]\$ "
           '';
         };
       });

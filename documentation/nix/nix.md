@@ -51,6 +51,22 @@ Please keep in mind that nix will not interact with any "system" packages you ma
 nix develop
 ```
 
+## Nix Derivation verse Development Shell
+
+Please note that the purpose of the development shell, is different from "Derivation", so the differences are highlighed here.
+
+Derivation Build:
+- Source code is copied to /nix/store/ (read-only)
+- Build happens in isolated environment
+- Output is final and immutable
+- No access to your working directory
+
+Development Shell:
+- Works with your actual source code in your directory
+- Can edit files and rebuild incrementally
+- Has access to your git repository and local changes
+- Allows interactive development
+
 ## How the nix development environment works
 
 The nix development environment is using a nix flake to define the development environment.  The flake.nix file is in the root of the project.
