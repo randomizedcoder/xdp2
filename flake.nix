@@ -20,6 +20,8 @@
 # nix --extra-experimental-features 'nix-command flakes' --option eval-cache false develop
 # nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file
 #
+# nix --extra-experimental-features 'nix-command flakes' print-dev-env --json
+#
 {
   description = "XDP2 development environment";
 
@@ -38,6 +40,7 @@
         # Create a Python environment with scapy
         pythonWithScapy = pkgs.python3.withPackages (ps: [ ps.scapy ]);
 
+
         sharedConfig = {
 
           # Debug configuration
@@ -55,6 +58,7 @@
           compilerInfo = "GCC";
 
           configAgeWarningDays = 14;  # Configurable threshold for stale config warnings
+
 
           # https://nixos.wiki/wiki/C#Hardening_flags
           # hardeningDisable = [ "fortify" "fortify3" "stackprotector" "strictoverflow" ];
@@ -89,6 +93,8 @@
             shellcheck
             # ASCII art generator for logo display
             jp2a
+            # Locale support for cross-distribution compatibility
+            glibcLocales
           ];
 
           buildInputs = with pkgs; [
@@ -172,12 +178,10 @@
         # This simply includes a check to see if the config.mk file exists, and
         # it generates a warning if the file is older than the threshold
         smart-configure = ''
-          # Smart configuration management with age-based warnings
           smart-configure() {
             local config_file="./src/config.mk"
             local warning_days=${toString sharedConfig.configAgeWarningDays}
 
-            # Check if config.mk exists
             if [ -f "$config_file" ]; then
               echo "✓ config.mk found, skipping configure step"
 
@@ -201,17 +205,16 @@
               fi
             else
               echo "config.mk not found, running configure script..."
-              # Run the actual configure script
               cd src || return 1
-              rm -f config.mk
+            rm -f config.mk
               ./configure --build-opt-parser --installdir "/tmp/xdp2-install"
 
               # Apply PATH_ARG fix for Nix environment
-              if grep -q 'PATH_ARG="--with-path=' config.mk; then
+            if grep -q 'PATH_ARG="--with-path=' config.mk; then
                 echo "Applying PATH_ARG fix for Nix environment..."
-                sed -i 's|PATH_ARG="--with-path=.*"|PATH_ARG=""|' config.mk
-              fi
-              echo "PATH_ARG in config.mk: $(grep '^PATH_ARG=' config.mk)"
+              sed -i 's|PATH_ARG="--with-path=.*"|PATH_ARG=""|' config.mk
+            fi
+            echo "PATH_ARG in config.mk: $(grep '^PATH_ARG=' config.mk)"
 
               cd .. || return 1
               echo "✓ config.mk generated successfully"
@@ -221,7 +224,6 @@
 
         # Individual build function definitions
         build-cppfront-fn = ''
-          # Build cppfront-compiler
           build-cppfront() {
             if [ -n "$XDP2_NIX_DEBUG" ]; then
               local debug_level=$XDP2_NIX_DEBUG
@@ -248,37 +250,18 @@
             echo "Cleaning and building cppfront-compiler..."
 
             # Navigate to repository root first
-            local repo_root
-            repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] Repository root: $repo_root"
-            fi
+            navigate-to-repo-root || return 1
 
-            if ! cd "$repo_root"; then
-              echo "✗ ERROR: Cannot navigate to repository root: $repo_root"
-              return 1
-            fi
+            # Clean previous build artifacts (before navigating to component)
+            clean-cppfront
 
-            # Debug output for directory change
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] About to run: cd thirdparty/cppfront"
-            fi
-            if ! cd thirdparty/cppfront; then
-              echo "✗ ERROR: Cannot navigate to thirdparty/cppfront directory from $repo_root"
-              echo "   Please ensure you're in a valid XDP2 repository"
-              return 1
-            fi
-
-            # Debug output for clean command
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] About to run: make clean"
-            fi
-            make clean || true  # Don't fail if clean fails
+            # Navigate to cppfront directory
+            navigate-to-component "thirdparty/cppfront" || return 1
 
             # Apply essential header fix for cppfront
             if [ "$debug_level" -ge 3 ]; then
               echo "[DEBUG] Applying cppfront header fix"
-              echo "sed -i '1i#include <functional>\n#include <unordered_map>\n' include/cpp2util.h"
+              printf "sed -i '1i#include <functional>\\n#include <unordered_map>\\n' include/cpp2util.h\n"
             fi
             sed -i '1i#include <functional>\n#include <unordered_map>\n' include/cpp2util.h
 
@@ -296,12 +279,10 @@
             fi
 
             # Return to repository root
-            if ! cd "$repo_root"; then
-              echo "⚠ WARNING: Could not return to repository root"
-            fi
+            navigate-to-repo-root || return 1
 
             # Add to the PATH
-            export PATH="$PWD/thirdparty/cppfront:$PATH"
+            add-to-path "$PWD/thirdparty/cppfront"
 
             # Level 2: Validation step
             if [ "$debug_level" -ge 2 ]; then
@@ -347,7 +328,6 @@
         '';
 
         check-cppfront-age-fn = ''
-          # Check cppfront age and rebuild if needed
           check-cppfront-age() {
             if [ -n "$XDP2_NIX_DEBUG" ]; then
               local debug_level=$XDP2_NIX_DEBUG
@@ -410,7 +390,6 @@
         '';
 
         build-xdp2-compiler-fn = ''
-          # Build xdp2-compiler
           build-xdp2-compiler() {
             if [ -n "$XDP2_NIX_DEBUG" ]; then
               local debug_level=$XDP2_NIX_DEBUG
@@ -438,32 +417,13 @@
             echo "Cleaning and building xdp2-compiler..."
 
             # Navigate to repository root first
-            local repo_root
-            repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] Repository root: $repo_root"
-            fi
+            navigate-to-repo-root || return 1
 
-            if ! cd "$repo_root"; then
-              echo "✗ ERROR: Cannot navigate to repository root: $repo_root"
-              return 1
-            fi
+            # Clean previous build artifacts (before navigating to component)
+            clean-xdp2-compiler
 
-            # Debug output for directory change
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] About to run: cd src/tools/compiler"
-            fi
-            if ! cd src/tools/compiler; then
-              echo "✗ ERROR: Cannot navigate to src/tools/compiler directory from $repo_root"
-              echo "   Please ensure you're in a valid XDP2 repository"
-              return 1
-            fi
-
-            # Debug output for clean command
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] About to run: make clean"
-            fi
-            make clean || true  # Don't fail if clean fails
+            # Navigate to xdp2-compiler directory
+            navigate-to-component "src/tools/compiler" || return 1
 
             # Level 3: Build step details
             if [ "$debug_level" -ge 3 ]; then
@@ -511,9 +471,7 @@
             fi
 
             # Return to repository root
-            if ! cd "$repo_root"; then
-              echo "⚠ WARNING: Could not return to repository root"
-            fi
+            navigate-to-repo-root || return 1
 
             # End timing for debug levels > 3
             if [ "$debug_level" -gt 3 ]; then
@@ -527,7 +485,6 @@
         '';
 
         build-xdp2-fn = ''
-          # Build xdp2 project
           build-xdp2() {
             if [ -n "$XDP2_NIX_DEBUG" ]; then
               local debug_level=$XDP2_NIX_DEBUG
@@ -555,35 +512,16 @@
             echo "Cleaning and building xdp2 project..."
 
             # Navigate to repository root first
-            local repo_root
-            repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] Repository root: $repo_root"
-            fi
+            navigate-to-repo-root || return 1
 
-            if ! cd "$repo_root"; then
-              echo "✗ ERROR: Cannot navigate to repository root: $repo_root"
-              return 1
-            fi
+            # Clean previous build artifacts (before navigating to component)
+            clean-xdp2
 
-            # Debug output for directory change
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] About to run: cd src"
-            fi
-            if ! cd src; then
-              echo "✗ ERROR: Cannot navigate to src/ directory from $repo_root"
-              echo "   Please ensure you're in a valid XDP2 repository"
-              return 1
-            fi
-
-            # Debug output for clean command
-            if [ "$debug_level" -gt 3 ]; then
-              echo "[DEBUG] About to run: make clean"
-            fi
-            make clean || true  # Don't fail if clean fails
+            # Navigate to src directory
+            navigate-to-component "src" || return 1
 
             # Ensure xdp2-compiler is available in PATH
-            export PATH="$PWD/tools/compiler:$PATH"
+            add-to-path "$PWD/tools/compiler"
             echo "Added tools/compiler to PATH"
 
             # Level 3: Build step details
@@ -601,9 +539,7 @@
             fi
 
             # Return to repository root
-            if ! cd "$repo_root"; then
-              echo "⚠ WARNING: Could not return to repository root"
-            fi
+            navigate-to-repo-root || return 1
 
             # End timing for debug levels > 3
             if [ "$debug_level" -gt 3 ]; then
@@ -617,8 +553,13 @@
         '';
 
         build-all-fn = ''
-          # Build all components
           build-all() {
+            if [ -n "$XDP2_NIX_DEBUG" ]; then
+              local debug_level=$XDP2_NIX_DEBUG
+            else
+              local debug_level=0
+            fi
+
             echo "Building all XDP2 components..."
 
             if [ "$debug_level" -ge 3 ]; then
@@ -640,140 +581,179 @@
           }
         '';
 
-        clean-build-fn = ''
-          # Clean all build artifacts
-          clean-build() {
+        clean-all-fn = ''
+          clean-all() {
             echo "Cleaning all build artifacts..."
 
-            if [ "$debug_level" -ge 3 ]; then
-              echo "[DEBUG] Cleaning cppfront: cd thirdparty/cppfront && make clean"
-            fi
-            cd thirdparty/cppfront && make clean || true && cd ../..
-
-            if [ "$debug_level" -ge 3 ]; then
-              echo "[DEBUG] Cleaning xdp2-compiler: cd src/tools/compiler && make clean"
-            fi
-            cd src/tools/compiler && make clean || true && cd ../..
-
-            if [ "$debug_level" -ge 3 ]; then
-              echo "[DEBUG] Cleaning xdp2: cd src && make clean"
-            fi
-            cd src && make clean || true && cd ..
+            # Clean each component using centralized clean functions
+            clean-cppfront
+            clean-xdp2-compiler
+            clean-xdp2
 
             echo "✓ All build artifacts cleaned"
           }
         '';
 
-        run-shellcheck-fn = ''
-          # Run shellcheck validation on all shell functions
+        # Shellcheck function registry - list of all bash functions that should be validated by shellcheck
+        # IMPORTANT: When adding or removing bash functions, update this list accordingly
+        shellcheckFunctionRegistry = [
+          "smart-configure"
+          "build-cppfront"
+          "check-cppfront-age"
+          "build-xdp2-compiler"
+          "build-xdp2"
+          "build-all"
+          "clean-all"
+          "check-platform-compatibility"
+          "detect-repository-root"
+          "setup-locale-support"
+          "xdp2-help"
+          "navigate-to-repo-root"
+          "navigate-to-component"
+          "add-to-path"
+          "clean-cppfront"
+          "clean-xdp2-compiler"
+          "clean-xdp2"
+        ];
+
+        # Generate complete shellcheck validation function in Nix
+        generate-shellcheck-validation = let
+          functionNames = shellcheckFunctionRegistry;
+          totalFunctions = builtins.length functionNames;
+
+          # Generate individual function checks
+          functionChecks = lib.concatStringsSep "\n" (map (name: ''
+            echo "Checking ${name}..."
+            if declare -f "${name}" >/dev/null 2>&1; then
+              # Create temporary script with function definition
+              local temp_script="/tmp/validate_${name}.sh"
+              declare -f "${name}" > "$temp_script"
+              echo "#!/bin/bash" > "$temp_script.tmp"
+              cat "$temp_script" >> "$temp_script.tmp"
+              mv "$temp_script.tmp" "$temp_script"
+
+              # Run shellcheck on the function
+              if shellcheck -s bash "$temp_script" 2>/dev/null; then
+                echo "✓ ${name} passed shellcheck validation"
+                passed_functions=$((passed_functions + 1))
+              else
+                echo "✗ ${name} failed shellcheck validation:"
+                shellcheck -s bash "$temp_script"
+                failed_functions+=("${name}")
+              fi
+              rm -f "$temp_script"
+            else
+              echo "✗ ${name} not found"
+              failed_functions+=("${name}")
+            fi
+            echo ""
+          '') functionNames);
+
+          # Generate failed functions reporting
+          failedFunctionsReporting = lib.concatStringsSep "\n" (map (name: ''
+            if [[ "$${failed_functions[*]}" == *"${name}"* ]]; then
+              echo "  - ${name}"
+            fi
+          '') functionNames);
+
+        in ''
           run-shellcheck() {
             if [ -n "$XDP2_NIX_DEBUG" ]; then
               local debug_level=$XDP2_NIX_DEBUG
             else
               local debug_level=0
             fi
-            local start_time=""
-            local end_time=""
-
-            # Start timing for debug levels > 3
-            if [ "$debug_level" -gt 3 ]; then
-              start_time=$(date +%s)
-              echo "[DEBUG] run-shellcheck started at $(date)"
-            fi
-
-            # Level 1: Function start
-            if [ "$debug_level" -ge 1 ]; then
-              echo "[DEBUG] Starting run-shellcheck function"
-            fi
-
-            # Level 2: Check shellcheck availability
-            if [ "$debug_level" -ge 2 ]; then
-              echo "[DEBUG] Checking shellcheck availability"
-            fi
-
-            if ! command -v shellcheck >/dev/null 2>&1; then
-              echo "✗ ERROR: shellcheck not found in PATH"
-              echo "Please install shellcheck to validate bash code"
-              return 1
-            fi
-
-            echo "✓ shellcheck found: $(which shellcheck)"
-
-            # Level 3: Define function list
-            if [ "$debug_level" -ge 3 ]; then
-              echo "[DEBUG] Defining list of functions to check"
-            fi
 
             echo "Running shellcheck validation on shell functions..."
 
-            # Check each function individually
-            echo "Checking build-cppfront..."
-            if type "build-cppfront" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ build-cppfront passed shellcheck validation"
-            else
-              echo "✗ build-cppfront failed shellcheck validation"
-            fi
+            local failed_functions=()
+            local total_functions=${toString totalFunctions}
+            local passed_functions=0
 
-            echo "Checking build-xdp2-compiler..."
-            if type "build-xdp2-compiler" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ build-xdp2-compiler passed shellcheck validation"
-            else
-              echo "✗ build-xdp2-compiler failed shellcheck validation"
-            fi
+            # Pre-generated function checks from Nix
+            ${functionChecks}
 
-            echo "Checking build-xdp2..."
-            if type "build-xdp2" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ build-xdp2 passed shellcheck validation"
-            else
-              echo "✗ build-xdp2 failed shellcheck validation"
-            fi
-
-            echo "Checking build-all..."
-            if type "build-all" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ build-all passed shellcheck validation"
-            else
-              echo "✗ build-all failed shellcheck validation"
-            fi
-
-            echo "Checking clean-build..."
-            if type "clean-build" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ clean-build passed shellcheck validation"
-            else
-              echo "✗ clean-build failed shellcheck validation"
-            fi
-
-            echo "Checking check-cppfront-age..."
-            if type "check-cppfront-age" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ check-cppfront-age passed shellcheck validation"
-            else
-              echo "✗ check-cppfront-age failed shellcheck validation"
-            fi
-
-            echo "Checking run-shellcheck..."
-            if type "run-shellcheck" 2>/dev/null | shellcheck -s bash -; then
-              echo "✓ run-shellcheck passed shellcheck validation"
-            else
-              echo "✗ run-shellcheck failed shellcheck validation"
-            fi
-
-            echo ""
+            # Report results
             echo "=== Shellcheck Validation Complete ==="
-            echo "All functions have been checked for shellcheck compliance"
+            echo "Total functions: $total_functions"
+            echo "Passed: $passed_functions"
+            echo "Failed: $((total_functions - passed_functions))"
 
-            # End timing for debug levels > 3
-            if [ "$debug_level" -gt 3 ]; then
-              end_time=$(date +%s)
-              local duration=$((end_time - start_time))
-              echo "[DEBUG] run-shellcheck completed in $duration seconds"
+            if [ $((total_functions - passed_functions)) -eq 0 ]; then
+              echo "✓ All functions passed shellcheck validation"
+              return 0
+            else
+              echo "✗ Some functions failed validation:"
+              # Pre-generated failed functions reporting from Nix
+              ${failedFunctionsReporting}
+              return 1
+            fi
+          }
+        '';
+
+        run-shellcheck-fn = generate-shellcheck-validation;
+
+        platform-compatibility-check-fn = ''
+          check-platform-compatibility() {
+            if [ "$(uname)" != "Linux" ]; then
+              echo "⚠️  PLATFORM COMPATIBILITY NOTICE
+==================================
+
+🍎 You are running on $(uname) (not Linux)
+
+The XDP2 development environment includes Linux-specific packages
+like libbpf that are not available on $(uname) systems.
+
+📋 Available platforms:
+   ✅ Linux (x86_64-linux, aarch64-linux, etc.)
+   ❌ macOS (x86_64-darwin, aarch64-darwin)
+   ❌ Other Unix systems
+
+Exiting development shell..."
+              exit 1
+            fi
+          }
+        '';
+
+        detect-repository-root-fn = ''
+          detect-repository-root() {
+            XDP2_REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+            export XDP2_REPO_ROOT
+
+            if [ ! -d "$XDP2_REPO_ROOT" ]; then
+              echo "⚠ WARNING: Could not detect valid repository root"
+              XDP2_REPO_ROOT="$PWD"
+            else
+              echo "📁 Repository root: $XDP2_REPO_ROOT"
+            fi
+          }
+        '';
+
+        setup-locale-support-fn = let
+          bashVarExpansion = "$";
+          bashDefaultSyntax = "{LANG:-C.UTF-8}";
+          bashDefaultSyntaxLC = "{LC_ALL:-C.UTF-8}";
+        in ''
+          setup-locale-support() {
+            # Only set locale if user hasn't already configured it
+            if [ -z "$LANG" ] || [ -z "$LC_ALL" ]; then
+              # Try to use system default, fallback to C.UTF-8
+              export LANG=${bashVarExpansion}${bashDefaultSyntax}
+              export LC_ALL=${bashVarExpansion}${bashDefaultSyntaxLC}
             fi
 
-            echo "✓ Shellcheck validation completed"
-            return 0
+            # Verify locale is available (only if locale command exists)
+            if command -v locale >/dev/null 2>&1; then
+              if ! locale -a 2>/dev/null | grep -q "$LANG"; then
+                # Fallback to C.UTF-8 if user's locale is not available
+                export LANG=C.UTF-8
+                export LC_ALL=C.UTF-8
+              fi
+            fi
           }
         '';
 
         xdp2-help-fn = ''
-          # Comprehensive help function using single echo with heredoc
           xdp2-help() {
             echo "🚀 === XDP2 Development Shell Help ===
 
@@ -782,36 +762,30 @@
 🐛 Debugging tools: gdb, valgrind, strace, ltrace
 
 🔍 DEBUGGING:
+  XDP2_NIX_DEBUG=0 - No extra debug. Default
+  XDP2_NIX_DEBUG=3 - Basic debug
   XDP2_NIX_DEBUG=5 - Show compiler selection and config.mk
-  XDP2_NIX_DEBUG=6 - Show all debug output including environment variables
+  XDP2_NIX_DEBUG=7 - Show all debug info
 
-⚙️  BUILD COMMANDS:
+🔧 BUILD COMMANDS:
   build-cppfront     - Build cppfront compiler
   build-xdp2-compiler - Build xdp2 compiler
   build-xdp2         - Build main XDP2 project
   build-all          - Build all components
-  clean-build        - Clean all build artifacts
-  check-cppfront-age - Check and rebuild cppfront if needed
+
+🧹 CLEAN COMMANDS:
+  clean-cppfront     - Clean cppfront build artifacts
+  clean-xdp2-compiler - Clean xdp2-compiler build artifacts
+  clean-xdp2         - Clean xdp2 build artifacts
+  clean-all          - Clean all build artifacts
+
+🔍 VALIDATION:
   run-shellcheck     - Validate all shell functions
 
-💡 QUICK START:
-  • Run 'build-all' to build everything
-  • Run 'clean-build' to clean all artifacts
-  • Run 'run-shellcheck' to validate shell functions
-
-🚀 CONVENIENT ALIASES:
-  • xdp2-build        - Alias for 'build-all'
-  • xdp2-clean        - Alias for 'clean-build'
-  • xdp2-check        - Alias for 'run-shellcheck'
-  • xdp2-help         - Show this help message
-  • xdp2-src          - Navigate to src/ directory
-  • xdp2-samples      - Navigate to samples/ directory
-  • xdp2-docs         - Navigate to documentation/ directory
-  • xdp2-cppfront     - Navigate to cppfront directory
-
 📁 PROJECT STRUCTURE:
-  • src/              - Main XDP2 source code
-  • thirdparty/cppfront/ - Cppfront compiler
+  • src/             - Main source code
+  • tools/           - Build tools and utilities
+  • thirdparty/      - Third-party dependencies
   • samples/          - Example code and parsers
   • documentation/    - Project documentation
 
@@ -820,24 +794,6 @@
         '';
 
         shell-aliases = ''
-          # Add useful aliases and shortcuts
-          alias ll='ls -la'
-          alias la='ls -A'
-          alias l='ls -CF'
-          alias ..='cd ..'
-          alias ...='cd ../..'
-          alias ....='cd ../../..'
-          alias grep='grep --color=auto'
-          alias fgrep='fgrep --color=auto'
-          alias egrep='egrep --color=auto'
-
-          # XDP2-specific aliases
-          alias xdp2-build='build-all'
-          alias xdp2-clean='clean-build'
-          alias xdp2-check='run-shellcheck'
-          alias xdp2-help='xdp2-help'
-
-          # Quick navigation aliases
           alias xdp2-src='cd src'
           alias xdp2-samples='cd samples'
           alias xdp2-docs='cd documentation'
@@ -845,12 +801,10 @@
         '';
 
         colored-prompt = ''
-          # Set colored prompt with XDP2 branding
           export PS1="\[\033[0;32m\][XDP2-${sharedConfig.compilerInfo}] \[\033[01;34m\][\u@\h:\w]\$ \[\033[0m\]"
         '';
 
         ascii-art-logo = ''
-          # Display ASCII art logo with fallback
           if command -v jp2a >/dev/null 2>&1 && [ -f "./documentation/images/xdp2-big.png" ]; then
             echo "$(jp2a --colors ./documentation/images/xdp2-big.png)"
             echo ""
@@ -860,7 +814,6 @@
         '';
 
         minimal-shell-entry = ''
-          # Minimal shell entry information
           echo "🚀 === XDP2 Development Shell ==="
           echo "📦 Compiler: ${sharedConfig.compilerInfo}"
           echo "🔧 GCC and Clang are available in the environment"
@@ -868,9 +821,7 @@
           echo "🎯 Ready to develop! 'xdp2-help' for help"
         '';
 
-        # Debug output functions
         debug-compiler-selection = ''
-            # Debug output: Show compiler selection when debug level > 4
             if [ ${toString sharedConfig.nixDebug} -gt 4 ]; then
             echo "=== COMPILER SELECTION ==="
               echo "Using compiler: ${sharedConfig.compilerInfo}"
@@ -883,7 +834,6 @@
         '';
 
         debug-environment-vars = ''
-            # Debug output: Print all environment variables when debug level > 5
             if [ ${toString sharedConfig.nixDebug} -gt 5 ]; then
               echo "=== Environment Variables ==="
               env
@@ -891,14 +841,168 @@
             fi
         '';
 
-        # Combined build functions
+
+        navigate-to-repo-root-fn = ''
+          navigate-to-repo-root() {
+            if [ -n "$XDP2_REPO_ROOT" ]; then
+              cd "$XDP2_REPO_ROOT" || return 1
+            else
+              echo "✗ ERROR: XDP2_REPO_ROOT not set"
+              return 1
+            fi
+          }
+        '';
+
+        navigate-to-component-fn = ''
+          navigate-to-component() {
+            local component="$1"
+            local target_dir="$XDP2_REPO_ROOT/$component"
+
+            if [ ! -d "$target_dir" ]; then
+              echo "✗ ERROR: Component directory not found: $target_dir"
+              return 1
+            fi
+
+            cd "$target_dir" || return 1
+          }
+        '';
+
+        add-to-path-fn = ''
+          # Add path to PATH environment variable if not already present
+          add-to-path() {
+            local path_to_add="$1"
+
+            if [ -n "$XDP2_NIX_DEBUG" ]; then
+              local debug_level=$XDP2_NIX_DEBUG
+            else
+              local debug_level=0
+            fi
+
+            # Check if path is already in PATH
+            if [[ ":$PATH:" == *":$path_to_add:"* ]]; then
+              if [ "$debug_level" -gt 3 ]; then
+                echo "[DEBUG] Path already in PATH: $path_to_add"
+              fi
+              return 0
+            fi
+
+            # Add path to beginning of PATH
+            if [ "$debug_level" -gt 3 ]; then
+              echo "[DEBUG] Adding to PATH: $path_to_add"
+              echo "[DEBUG] PATH before: $PATH"
+            fi
+
+            export PATH="$path_to_add:$PATH"
+
+            if [ "$debug_level" -gt 3 ]; then
+              echo "[DEBUG] PATH after: $PATH"
+            fi
+          }
+        '';
+
+        clean-cppfront-fn = ''
+          # Clean cppfront build artifacts
+          clean-cppfront() {
+            if [ -n "$XDP2_NIX_DEBUG" ]; then
+              local debug_level=$XDP2_NIX_DEBUG
+            else
+              local debug_level=0
+            fi
+
+            # Navigate to repository root first
+            navigate-to-repo-root || return 1
+
+            # Navigate to cppfront directory
+            navigate-to-component "thirdparty/cppfront" || return 1
+
+            # Debug output for clean command
+            if [ "$debug_level" -gt 3 ]; then
+              echo "[DEBUG] About to run: rm -f cppfront-compiler"
+            fi
+            rm -f cppfront-compiler  # Remove the binary directly since Makefile has no clean target
+
+            # Return to repository root
+            navigate-to-repo-root || return 1
+          }
+        '';
+
+        clean-xdp2-compiler-fn = ''
+          # Clean xdp2-compiler build artifacts
+          clean-xdp2-compiler() {
+            if [ -n "$XDP2_NIX_DEBUG" ]; then
+              local debug_level=$XDP2_NIX_DEBUG
+            else
+              local debug_level=0
+            fi
+
+            # Navigate to repository root first
+            navigate-to-repo-root || return 1
+
+            # Navigate to xdp2-compiler directory
+            navigate-to-component "src/tools/compiler" || return 1
+
+            # Debug output for clean command
+            if [ "$debug_level" -gt 3 ]; then
+              echo "[DEBUG] About to run: make clean"
+            fi
+            make clean || true  # Don't fail if clean fails
+
+            # Return to repository root
+            navigate-to-repo-root || return 1
+          }
+        '';
+
+        clean-xdp2-fn = ''
+          # Clean xdp2 build artifacts
+          clean-xdp2() {
+            if [ -n "$XDP2_NIX_DEBUG" ]; then
+              local debug_level=$XDP2_NIX_DEBUG
+            else
+              local debug_level=0
+            fi
+
+            # Navigate to repository root first
+            navigate-to-repo-root || return 1
+
+            # Navigate to src directory
+            navigate-to-component "src" || return 1
+
+            # Debug output for clean command
+            if [ "$debug_level" -gt 3 ]; then
+              echo "[DEBUG] About to run: make clean"
+            fi
+            make clean || true  # Don't fail if clean fails
+
+            # Return to repository root
+            navigate-to-repo-root || return 1
+          }
+        '';
+
+        # Combined build functions (ordered to avoid SC2218 - functions called before definition)
         build-functions = ''
-          ${build-cppfront-fn}
+          # Navigation functions (called by all other functions)
+          ${navigate-to-repo-root-fn}
+          ${navigate-to-component-fn}
+
+          # Utility functions
+          ${add-to-path-fn}
           ${check-cppfront-age-fn}
+
+          # Individual clean functions (called by build functions and clean-build)
+          ${clean-cppfront-fn}
+          ${clean-xdp2-compiler-fn}
+          ${clean-xdp2-fn}
+          # Individual build functions (called by build-all)
+          ${build-cppfront-fn}
           ${build-xdp2-compiler-fn}
           ${build-xdp2-fn}
+          # Composite functions (call the individual functions above)
           ${build-all-fn}
-          ${clean-build-fn}
+          ${clean-all-fn}
+          # Validation and help functions
+          ${platform-compatibility-check-fn}
+          ${detect-repository-root-fn}
+          ${setup-locale-support-fn}
           ${run-shellcheck-fn}
           ${xdp2-help-fn}
         '';
@@ -911,29 +1015,24 @@
           shellHook = ''
             ${sharedEnvVars}
 
-            # Debug output functions
+            ${build-functions}
+
+            check-platform-compatibility
+            detect-repository-root
+            setup-locale-support
+
             ${debug-compiler-selection}
             ${debug-environment-vars}
 
-            # Display ASCII art logo
             ${ascii-art-logo}
 
-            # Define smart configure function
             ${smart-configure}
-
-            # Run smart configure script with age checking
             smart-configure
 
-            # Define build command functions
-            ${build-functions}
-
-            # Set up shell aliases
             ${shell-aliases}
 
-            # Set colored prompt
             ${colored-prompt}
 
-            # Display minimal shell entry information
             ${minimal-shell-entry}
           '';
         };
