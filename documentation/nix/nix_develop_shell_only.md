@@ -6437,9 +6437,182 @@ in ''
 
 ---
 
+## Defect #19: Segmentation Fault on Fedora with parser_big.p.c
+
+### **Problem Description**
+
+The Nix development shell is experiencing segmentation faults when building on Fedora, specifically during the compilation of `parser_big.p.c`. This is concerning because:
+
+1. **Nix should provide isolation** - The dev shell should only use libraries from Nix, not the host system
+2. **Inconsistent behavior** - Works on NixOS and Ubuntu, but fails on Fedora
+3. **Previously documented fix** - This issue was supposedly resolved in previous documentation
+
+### **Error Details**
+
+```bash
+    CC       config_functions.o
+    CC       parser.o
+    CC       accelerator.o
+    CC       locks.o
+make[2]: *** [Makefile:37: parsers/parser_big.p.c] Segmentation fault (core dumped)
+make[1]: *** [Makefile:11: xdp2] Error 2
+make: *** [Makefile:74: all] Error 2
+✗ ERROR: xdp2 project make failed
+   Check the error messages above for details
+```
+
+### **Current Status**
+
+- ✅ **NixOS**: Development shell works correctly
+- ✅ **Ubuntu**: Development shell works correctly
+- ❌ **Fedora**: Segmentation fault during `parser_big.p.c` compilation
+
+### **Root Cause Analysis**
+
+#### **Expected Behavior**
+Nix development shells should provide **complete isolation** from the host system:
+- All libraries should come from Nix packages
+- Host system libraries should not interfere
+- Behavior should be consistent across all Linux distributions
+
+#### **CRITICAL DISCOVERY: Actual Root Cause**
+
+**The segmentation fault is NOT a Nix isolation issue!**
+
+**Investigation Results:**
+1. ✅ **Nix Isolation is Working**: `ldd xdp2-compiler` shows all libraries correctly come from Nix stores
+2. ✅ **Library Paths are Correct**: All libclang, libLLVM, and other dependencies are from Nix
+3. ✅ **Environment Variables are Set**: `HOST_LLVM_CONFIG`, `LIBCLANG_PATH`, etc. are properly configured
+
+**The Real Issue:**
+The segmentation fault occurs **inside the `xdp2-compiler`** when it processes `parser_big.c` to generate `parser_big.p.c`. This happens at:
+
+```makefile
+# src/lib/xdp2/Makefile line 37
+$(PARSERCSEXT): %.p.c: %.c
+	$(XDP2_COMPILER) -I$(SRCDIR)/include -o $@ -i $<
+```
+
+**The Problem:**
+- `xdp2-compiler` is a C++ program that uses **Python embedded interpreter** and **libclang**
+- The segmentation fault occurs during **Python initialization** or **libclang parsing** within `xdp2-compiler`
+- This is likely a **memory corruption** or **incompatible library version** issue specific to Fedora
+
+#### **Possible Causes**
+
+1. **Python Embedded Interpreter Issues**
+   - `xdp2-compiler` embeds Python 3.13 for code generation
+   - Fedora's system may have different Python library behavior
+   - Memory management conflicts between Nix Python and Fedora system
+
+2. **libclang Version Incompatibility**
+   - `xdp2-compiler` uses libclang 20.1.8 from Nix
+   - Fedora may have different libclang expectations or ABI issues
+   - Clang AST parsing may fail on Fedora's specific compiler setup
+
+3. **Memory Management Issues**
+   - Fedora's glibc version may have different memory management behavior
+   - Stack/heap corruption during Python + libclang interaction
+   - Different memory alignment or protection mechanisms
+
+4. **Previously Documented Fix Not Applied**
+   - The fix mentioned in documentation may not be implemented in current codebase
+   - Fix may have been lost during refactoring
+
+### **Investigation Plan**
+
+#### **Step 1: Debug xdp2-compiler Execution** ✅ **COMPLETED**
+**Result**: Nix isolation is working correctly. All libraries come from Nix stores.
+
+#### **Step 2: Test xdp2-compiler Directly**
+Test the `xdp2-compiler` with minimal input to isolate the issue:
+```bash
+# Test with a simple C file
+echo "int main() { return 0; }" > test.c
+./xdp2-compiler -i test.c -o test.p.c
+
+# Test with parser_big.c specifically
+./xdp2-compiler -I../../include -i parser_big.c -o parser_big.p.c
+```
+
+#### **Step 3: Debug with GDB/Valgrind**
+Use debugging tools to identify the exact cause:
+```bash
+# Run with GDB to get stack trace
+gdb --args ./xdp2-compiler -I../../include -i parser_big.c -o parser_big.p.c
+
+# Run with Valgrind to detect memory issues
+valgrind --tool=memcheck ./xdp2-compiler -I../../include -i parser_big.c -o parser_big.p.c
+```
+
+#### **Step 4: Compare Python/libclang Versions**
+Check if there are version differences between working and failing systems:
+```bash
+# Check Python version and paths
+python3 --version
+ldd $(which python3)
+
+# Check libclang version
+ldd ./xdp2-compiler | grep clang
+```
+
+#### **Step 5: Review Previous Documentation**
+Find and review the previously documented fix for `parser_big.p.c` segmentation fault.
+
+### **Proposed Solutions**
+
+#### **Solution A: Debug and Fix Root Cause** 🔴 **HIGH PRIORITY**
+1. **Use debugging tools** (gdb, valgrind) to identify the exact cause
+2. **Analyze core dumps** to understand the segmentation fault
+3. **Test xdp2-compiler directly** with minimal input to isolate the issue
+4. **Implement targeted fix** based on debugging results
+
+#### **Solution B: Python/libclang Compatibility Fix**
+1. **Check Python embedded interpreter** initialization in `xdp2-compiler`
+2. **Verify libclang version compatibility** between Nix and Fedora
+3. **Add memory management fixes** for Python + libclang interaction
+4. **Implement error handling** for Python initialization failures
+
+#### **Solution C: Fedora-Specific Workaround**
+1. **Add conditional logic** for Fedora systems in the build process
+2. **Use different Nix packages** that are more compatible with Fedora
+3. **Add Fedora-specific build flags** or compiler options
+4. **Implement fallback mechanism** if `xdp2-compiler` fails
+
+#### **Solution D: Verify and Apply Previous Fix**
+1. **Locate the documented fix** for `parser_big.p.c` segmentation fault
+2. **Verify the fix is implemented** in current codebase
+3. **Apply missing fixes** if they were lost during refactoring
+
+### **Implementation Priority**
+
+1. **High Priority**: Debug and fix root cause using GDB/Valgrind
+2. **Medium Priority**: Python/libclang compatibility fixes
+3. **Low Priority**: Fedora-specific workarounds (should not be necessary with proper fix)
+4. **Low Priority**: Verify and apply previous documented fix
+
+### **Expected Outcome**
+
+After implementing the fix:
+- ✅ **All Linux distributions** should work consistently
+- ✅ **No segmentation faults** during `xdp2-compiler` execution
+- ✅ **Reliable Python + libclang integration** in `xdp2-compiler`
+- ✅ **Robust development environment** across platforms
+
+### **Key Insights**
+
+1. **Nix Isolation is Working**: The issue is not with Nix package isolation
+2. **Root Cause is in xdp2-compiler**: The segmentation fault occurs inside the C++ compiler tool
+3. **Python + libclang Interaction**: The issue likely involves embedded Python interpreter and libclang
+4. **Fedora-Specific**: Works on NixOS and Ubuntu, fails on Fedora, suggesting system-specific behavior
+
+**Status**: 🔴 **INVESTIGATED** - Root cause identified, awaiting debugging and fix implementation
+
+---
+
 ## Next Steps
 
-1. Review and approve the proposed solution for Defect #18
-2. Implement the shellcheck fix
-3. Test and validate the solution
-4. Continue with other improvements as needed
+1. **Investigate the issue** by following the investigation plan
+2. **Review previous documentation** for the documented fix
+3. **Test and validate** the solution on Fedora
+4. **Ensure consistent behavior** across all Linux distributions

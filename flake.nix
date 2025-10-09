@@ -22,6 +22,9 @@
 #
 # nix --extra-experimental-features 'nix-command flakes' print-dev-env --json
 #
+# Recommended term
+# export TERM=xterm-256color
+#
 {
   description = "XDP2 development environment";
 
@@ -82,7 +85,11 @@
             bpftools
             # Compilers
             gcc
-            llvmP.clang llvmP.llvm.dev llvmP.clang-unwrapped
+            llvmP.clang
+            llvmP.llvm.dev
+            llvmP.clang-unwrapped
+            llvmP.libclang
+            llvmP.lld
             # Debugging tools
             glibc_multi.bin
             gdb
@@ -103,7 +110,9 @@
             libelf
             libbpf
             pythonWithScapy
-            llvmP.llvm llvmP.clang-unwrapped
+            llvmP.llvm
+            llvmP.llvm.dev
+            llvmP.clang-unwrapped
             llvmP.libclang
             llvmP.lld
           ];
@@ -271,7 +280,7 @@
             fi
 
             # Build cppfront with error checking
-            if HOST_CXX="$CXX" HOST_CC="$CC" make; then
+            if HOST_CXX="$CXX" HOST_CC="$CC" make -j"$NIX_BUILD_CORES"; then
               echo "✓ cppfront make completed successfully"
             else
               echo "✗ ERROR: cppfront make failed"
@@ -431,7 +440,7 @@
             fi
 
             # Build xdp2-compiler with error checking
-            if CFLAGS_PYTHON="$CFLAGS_PYTHON" LDFLAGS_PYTHON="$LDFLAGS_PYTHON" make; then
+            if CFLAGS_PYTHON="$CFLAGS_PYTHON" LDFLAGS_PYTHON="$LDFLAGS_PYTHON" make -j"$NIX_BUILD_CORES"; then
               echo "✓ xdp2-compiler make completed successfully"
             else
               echo "✗ ERROR: xdp2-compiler make failed"
@@ -530,7 +539,7 @@
             fi
 
             # Build the main xdp2 project
-            if make; then
+            if make -j"$NIX_BUILD_CORES"; then
               echo "✓ xdp2 project make completed successfully"
             else
               echo "✗ ERROR: xdp2 project make failed"
@@ -692,6 +701,12 @@
         '';
 
         run-shellcheck-fn = generate-shellcheck-validation;
+
+        disable-exit-fn = ''
+          disable-exit() {
+            set +e
+          }
+        '';
 
         platform-compatibility-check-fn = ''
           check-platform-compatibility() {
@@ -1032,6 +1047,8 @@ Exiting development shell..."
             ${shell-aliases}
 
             ${colored-prompt}
+
+            ${disable-exit-fn}
 
             ${minimal-shell-entry}
           '';
