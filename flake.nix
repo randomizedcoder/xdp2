@@ -151,7 +151,13 @@
           # Clang environment variables for xdp2-compiler
           export XDP2_CLANG_VERSION="$(${llvmP.llvm.dev}/bin/llvm-config --version)"
           export XDP2_C_INCLUDE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
-          export XDP2_CLANG_RESOURCE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
+          # NOTE: We intentionally do NOT set XDP2_CLANG_RESOURCE_PATH here.
+          # Let clang auto-detect its resource directory, which works correctly in Nix
+          # via the clang-wrapper that sets up the resource-root symlink.
+          # Previously, this was set incorrectly to "${llvmP.clang-unwrapped.dev}/include/clang"
+          # which points to API headers, not the resource directory with builtin headers.
+          # This caused incomplete type information and segfaults in the AST consumer.
+          # export XDP2_CLANG_RESOURCE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
 
           # Python environment
           export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"

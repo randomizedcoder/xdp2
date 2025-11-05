@@ -805,3 +805,167 @@ If required headers are not found, clang may create incomplete type definitions.
 1. Proceed with applying null pointer checks from `ast-consumer-changes.md`
 2. Add logging to understand why types are returning null
 3. Consider if there are other code paths that need investigation
+
+## Investigation Progress: Defect 3
+
+### Step 1: Verify Clang Resource Directory - Initial Findings
+
+**Command Run:**
+```bash
+cd src/lib/xdp2
+../../tools/compiler/xdp2-compiler -v -I../../include -o parsers/parser_big.p.c -i parsers/parser_big.c 2>&1 | grep -i "resource"
+```
+
+**Result:** No output (empty result)
+
+**Analysis:**
+The grep returned nothing, which suggests that the word "resource" doesn't appear in the verbose output. However, examining the full verbose output reveals a critical finding:
+
+**Key Discovery:**
+```
+/usr/lib/clang/20.1.8/include
+```
+
+This appears in the verbose output, indicating that the compiler is using a **non-Nix system path** (`/usr/lib/clang/`) instead of a Nix store path (which would be `/nix/store/...-clang-20.1.8/lib/clang/20.1.8/include`).
+
+**What This Tells Us:**
+1. **The resource directory path is being set, but it's pointing to `/usr/lib/clang/`** - this is a system path, not a Nix store path
+2. **This path likely doesn't exist in the Nix environment** - Nix isolates packages in `/nix/store/`, so `/usr/lib/clang/` is probably not the correct location
+3. **Clang is likely falling back to a default or compiled-in path** - The code shows this path is being printed, but it may not be the actual resource directory being used
+4. **This could cause incomplete type information** - If clang can't find its builtin headers, types may be incomplete
+
+**Updated Hypothesis:**
+After reviewing `flake.nix`, the issue is clear: **The clang resource directory is incorrectly configured**.
+
+**Root Cause:**
+In `flake.nix` line 154, `XDP2_CLANG_RESOURCE_PATH` is set to:
+```nix
+export XDP2_CLANG_RESOURCE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
+```
+
+This is **WRONG**! This path points to clang's C++ API headers (`/nix/store/...-clang-unwrapped-dev/include/clang/`), NOT the clang resource directory that contains builtin headers.
+
+**What the Resource Directory Should Be:**
+The clang resource directory should contain:
+- `include/` subdirectory with builtin headers (`stddef.h`, `stdint.h`, `stdbool.h`, etc.)
+- `share/` subdirectory with other resources
+- Typical path: `/nix/store/...-clang-20.1.8/lib/clang/20.1.8/` or similar
+
+**How It's Used:**
+1. `flake.nix` sets `XDP2_CLANG_RESOURCE_PATH` environment variable
+2. `src/tools/compiler/Makefile` line 19 compiles it into the binary: `-DXDP2_CLANG_RESOURCE_PATH="$(XDP2_CLANG_RESOURCE_PATH)"`
+3. `src/tools/compiler/src/main.cpp` lines 225-231 uses it to set `-resource-dir` flag for clang
+4. If the resource directory is wrong, clang can't find builtin headers, creating incomplete types
+5. The AST consumer then tries to access these incomplete types, causing null pointer returns
+
+**Why `/usr/lib/clang/20.1.8/include` appears:**
+Line 200-201 in `main.cpp` shows hardcoded debug output: `plog::log(std::cout) << "/usr/lib/clang/" << version << "/include" << std::endl;` - This is just debug output, not the actual path being used. A comment has been added to `main.cpp` to clarify this.
+
+**Investigation Results - Actual Clang Resource Directory:**
+
+From within the `nix develop` shell:
+```bash
+$ which clang
+/nix/store/8s647qbgn3yy2l52ykznsh0xkvgcrqhx-clang-wrapper-20.1.8/bin/clang
+
+$ clang -print-resource-dir
+/nix/store/8s647qbgn3yy2l52ykznsh0xkvgcrqhx-clang-wrapper-20.1.8/resource-root
+
+$ ls -la `clang -print-resource-dir`
+total 20
+dr-xr-xr-x 2 root root 4096 Dec 31  1969 .
+dr-xr-xr-x 5 root root 4096 Dec 31  1969 ..
+lrwxrwxrwx 2 root root   81 Dec 31  1969 include -> /nix/store/ar9afnik87wldrqad2fdz1kz1znpsj45-clang-20.1.8-lib/lib/clang/20/include
+lrwxrwxrwx 2 root root   71 Dec 31  1969 lib -> /nix/store/4aasyh931v4gq27wna3b5c13bk1wn483-compiler-rt-libc-20.1.8/lib
+lrwxrwxrwx 2 root root   73 Dec 31  1969 share -> /nix/store/4aasyh931v4gq27wna3b5c13bk1wn483-compiler-rt-libc-20.1.8/share
+```
+
+**Key Findings:**
+1. **The actual resource directory exists and is correct**: `/nix/store/8s647qbgn3yy2l52ykznsh0xkvgcrqhx-clang-wrapper-20.1.8/resource-root`
+2. **It contains a symlink to the builtin headers**: `include -> /nix/store/ar9afnik87wldrqad2fdz1kz1znpsj45-clang-20.1.8-lib/lib/clang/20/include`
+3. **The wrapper provides the correct resource directory**: Nix's clang-wrapper correctly sets up the resource directory
+4. **The problem**: `flake.nix` is setting `XDP2_CLANG_RESOURCE_PATH` to the wrong path (`${llvmP.clang-unwrapped.dev}/include/clang`), which overrides clang's auto-detection
+
+**The Real Problem:**
+The actual resource directory being used is `${llvmP.clang-unwrapped.dev}/include/clang` (from `flake.nix` line 154), which:
+- Doesn't contain the builtin headers clang needs
+- Is the wrong type of directory (API headers vs. resource directory)
+- Overrides clang's ability to auto-detect the correct resource directory
+- Causes clang to create incomplete types
+- Leads to null pointer returns in the AST consumer
+
+**Next Steps:**
+1. **Fix `flake.nix` line 154:**
+   - **Option A (Recommended)**: Remove or comment out the line entirely
+     ```nix
+     # export XDP2_CLANG_RESOURCE_PATH="${llvmP.clang-unwrapped.dev}/include/clang"
+     ```
+     - This allows clang to auto-detect its resource directory (which works correctly via the wrapper)
+     - The `#ifdef XDP2_CLANG_RESOURCE_PATH` in `main.cpp` (line 225) will be false, so it won't override clang's detection
+
+   - **Option B**: Set it to use clang's detected resource directory at runtime
+     ```nix
+     export XDP2_CLANG_RESOURCE_PATH="$(${llvmP.clang}/bin/clang -print-resource-dir)"
+     ```
+     - This dynamically gets the resource directory from clang itself
+     - Note: This sets an environment variable, but the Makefile still compiles it into the binary
+     - The Makefile line 19 would need to be updated to use the environment variable at build time
+
+2. **Update Makefile (if using Option B):**
+   - The Makefile line 19 uses `$(XDP2_CLANG_RESOURCE_PATH)` which is an environment variable
+   - If we want to use clang's auto-detection, we should remove the `-DXDP2_CLANG_RESOURCE_PATH` from the compile flags
+   - Or change it to use `clang -print-resource-dir` at build time
+
+3. **Recommended Approach:**
+   - **Remove the `XDP2_CLANG_RESOURCE_PATH` setting from `flake.nix`** (line 154)
+   - **Remove or comment out the `#ifdef XDP2_CLANG_RESOURCE_PATH` block in `main.cpp`** (lines 225-231)
+   - Let clang auto-detect its resource directory (which works correctly in Nix via the wrapper)
+   - This is the simplest and most reliable approach
+
+4. **Verify the fix:**
+   - Rebuild `xdp2-compiler` after fixing `flake.nix`
+   - Run with verbose output and check that no explicit `-resource-dir` is being set (or that it's set correctly)
+   - Verify that clang can find its builtin headers
+   - Test that the segfault no longer occurs
+
+**Additional Observations from Full Output:**
+- The compiler successfully processes many declarations (all the builtin types, xdp2 types, etc.)
+- The crash occurs specifically when processing parser nodes: `insert_node_by_name ipv4_check_node`
+- The crash happens after processing `ipv4_check_node` declaration, right before the next node
+- This suggests the issue occurs during AST traversal when processing specific node types
+- The verbose output shows many "RecoveryExpr" and "contains-errors" markers, which may indicate parsing issues
+
+**Decision: Implement Option 3 (Recommended Approach)**
+
+After investigating the clang resource directory configuration, we decided to implement **Option 3 (Recommended Approach)** as outlined in the "Next Steps" section above.
+
+**Summary of Changes Made:**
+
+1. **`flake.nix` (line 154)**: Commented out the `XDP2_CLANG_RESOURCE_PATH` environment variable
+   - Added detailed comment explaining why we're not setting it
+   - Notes that clang's auto-detection works correctly via Nix's clang-wrapper
+   - Documents the previous incorrect path that was causing incomplete type information
+
+2. **`src/tools/compiler/src/main.cpp` (lines 228-233)**: Added explanatory comment before the `#ifdef XDP2_CLANG_RESOURCE_PATH` block
+   - Explains that we intentionally let clang auto-detect its resource directory
+   - Notes that Nix's clang-wrapper correctly sets up the resource-root symlink
+   - Documents that if explicit setting is needed in the future, we should use `clang -print-resource-dir` at build time
+   - The `#ifdef` block remains in the code but won't be triggered since `XDP2_CLANG_RESOURCE_PATH` is no longer defined
+
+3. **`src/tools/compiler/src/main.cpp` (lines 200-202)**: Added clarifying comment about the hardcoded debug output
+   - Notes that `/usr/lib/clang/...` output is just debug output, not the actual resource directory
+   - Clarifies that the actual resource directory is set via the `-resource-dir` flag
+
+**Expected Outcome:**
+- Clang will now auto-detect its resource directory (via Nix's clang-wrapper)
+- The resource directory will correctly point to `/nix/store/...-clang-wrapper-20.1.8/resource-root`
+- Builtin headers will be accessible, allowing clang to create complete type information
+- The null pointer dereferences and segfaults should be resolved
+
+**Next Steps:**
+- Rebuild `xdp2-compiler` after these changes
+- Test that the segfault no longer occurs
+- Verify that parser generation completes successfully
+- If issues persist, we may need to apply the null pointer checks from `ast-consumer-changes.md` as defensive programming
+
+**Status:** ✅ **FIX APPLIED** - Awaiting rebuild and testing
