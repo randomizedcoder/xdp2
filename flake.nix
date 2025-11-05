@@ -332,7 +332,7 @@
               echo "[DEBUG] build-cppfront completed in $duration seconds"
             fi
 
-            echo "cppfront-compiler built and validated successfully"
+            echo "cppfront-compiler built and validated successfully ( ./thirdparty/cppfront/cppfront-compiler )"
           }
         '';
 
@@ -489,7 +489,7 @@
               echo "[DEBUG] build-xdp2-compiler completed in $duration seconds"
             fi
 
-            echo "xdp2-compiler built and validated successfully"
+            echo "xdp2-compiler built and validated successfully ( ./src/tools/compiler/xdp2-compiler )"
           }
         '';
 
@@ -778,32 +778,32 @@ Exiting development shell..."
 🐛 Debugging tools: gdb, valgrind, strace, ltrace
 
 🔍 DEBUGGING:
-  XDP2_NIX_DEBUG=0 - No extra debug. Default
-  XDP2_NIX_DEBUG=3 - Basic debug
-  XDP2_NIX_DEBUG=5 - Show compiler selection and config.mk
-  XDP2_NIX_DEBUG=7 - Show all debug info
+  XDP2_NIX_DEBUG=0         - No extra debug. Default
+  XDP2_NIX_DEBUG=3         - Basic debug
+  XDP2_NIX_DEBUG=5         - Show compiler selection and config.mk
+  XDP2_NIX_DEBUG=7         - Show all debug info
 
 🔧 BUILD COMMANDS:
-  build-cppfront     - Build cppfront compiler
-  build-xdp2-compiler - Build xdp2 compiler
-  build-xdp2         - Build main XDP2 project
-  build-all          - Build all components
+  build-cppfront           - Build cppfront compiler
+  build-xdp2-compiler      - Build xdp2 compiler
+  build-xdp2               - Build main XDP2 project
+  build-all                - Build all components
 
 🧹 CLEAN COMMANDS:
-  clean-cppfront     - Clean cppfront build artifacts
-  clean-xdp2-compiler - Clean xdp2-compiler build artifacts
-  clean-xdp2         - Clean xdp2 build artifacts
-  clean-all          - Clean all build artifacts
+  clean-cppfront           - Clean cppfront build artifacts
+  clean-xdp2-compiler      - Clean xdp2-compiler build artifacts
+  clean-xdp2               - Clean xdp2 build artifacts
+  clean-all                - Clean all build artifacts
 
 🔍 VALIDATION:
-  run-shellcheck     - Validate all shell functions
+  run-shellcheck           - Validate all shell functions
 
 📁 PROJECT STRUCTURE:
-  • src/             - Main source code
-  • tools/           - Build tools and utilities
-  • thirdparty/      - Third-party dependencies
-  • samples/          - Example code and parsers
-  • documentation/    - Project documentation
+  • src/                   - Main source code
+  • tools/                 - Build tools and utilities
+  • thirdparty/            - Third-party dependencies
+  • samples/               - Example code and parsers
+  • documentation/         - Project documentation
 
 🎯 Ready to develop! 'xdp2-help' for help"
           }
