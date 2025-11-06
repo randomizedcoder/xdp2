@@ -11,6 +11,20 @@ CONFIG=config.mk
 TMPDIR=$(mktemp -d config.XXXXXX)
 trap 'status=$?; rm -rf $TMPDIR; exit $status' EXIT HUP INT QUIT TERM
 
+# Debug function for progressive debugging (0-7, like syslog)
+# Level 0: No debug output (default)
+# Level 1-2: Basic information (detected tools, paths)
+# Level 3-4: Command execution details
+# Level 5-6: Full command output, environment variables
+# Level 7: Maximum verbosity (all intermediate steps, test program contents)
+debug_print() {
+	local level=$1
+	shift
+	if [ "${CONFIGURE_DEBUG_LEVEL:-0}" -ge "$level" ]; then
+		echo "[DEBUG-$level] $*" >&2
+	fi
+}
+
 
 check_prog()
 {
@@ -97,6 +111,7 @@ EOF
 
 check_boostsystem()
 {
+	debug_print 6 "Boost.System: Starting check"
 	cat >$TMPDIR/systemtest.cpp <<EOF
 #include <boost/system/error_code.hpp>
 
@@ -108,11 +123,21 @@ int main(int argc, char **argv)
 	return (0);
 }
 EOF
-	$HOST_CXX -o $TMPDIR/systemtest $TMPDIR/systemtest.cpp		\
-					-lboost_system > /dev/null 2>&1
-	case $? in
-		0)	;;
-		*)	echo Boost.System missing or broken\! 1>&2
+	if [ "${CONFIGURE_DEBUG_LEVEL:-0}" -ge 5 ]; then
+		$HOST_CXX -o $TMPDIR/systemtest $TMPDIR/systemtest.cpp -lboost_system
+		COMPILE_EXIT=$?
+	else
+		$HOST_CXX -o $TMPDIR/systemtest $TMPDIR/systemtest.cpp		\
+						-lboost_system > /dev/null 2>&1
+		COMPILE_EXIT=$?
+	fi
+	case $COMPILE_EXIT in
+		0)
+			debug_print 6 "Boost.System: Check PASSED"
+			;;
+		*)
+			debug_print 6 "Boost.System: Check FAILED (exit code: $COMPILE_EXIT)"
+			echo Boost.System missing or broken\! 1>&2
 			exit 1
 			;;
 	esac
@@ -145,6 +170,10 @@ EOF
 
 check_clang_lib()
 {
+	debug_print 1 "Clang.Lib: Starting check"
+	debug_print 1 "Clang.Lib: HOST_CXX=$HOST_CXX"
+	debug_print 1 "Clang.Lib: HOST_LLVM_CONFIG=$HOST_LLVM_CONFIG"
+
 	cat >$TMPDIR/clang_lib.cpp <<EOF
 #include <clang/Frontend/CompilerInstance.h>
 #include "clang/Frontend/FrontendActions.h"
@@ -161,11 +190,77 @@ int main(int argc, const char **argv)
 return 0;
 }
 EOF
-	$HOST_CXX -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp	\
-			 `$HOST_LLVM_CONFIG --ldflags --cxxflags` -lclang -lLLVM -lclang-cpp > /dev/null 2>&1
-	case $? in
-		0)	;;
-		*)	echo Clang library missing or broken\! 1>&2
+
+	debug_print 7 "Clang.Lib: Test program created at $TMPDIR/clang_lib.cpp"
+	if [ "${CONFIGURE_DEBUG_LEVEL:-0}" -ge 7 ]; then
+		debug_print 7 "Clang.Lib: Test program contents:"
+		cat $TMPDIR/clang_lib.cpp >&2
+	fi
+
+	# Test if llvm-config exists and works before using it
+	if ! command -v "$HOST_LLVM_CONFIG" >/dev/null 2>&1 && [ ! -f "$HOST_LLVM_CONFIG" ]; then
+		debug_print 1 "Clang.Lib: Error: $HOST_LLVM_CONFIG not found!"
+		echo "Error: $HOST_LLVM_CONFIG not found!" 1>&2
+		echo "Clang library missing or broken! (Failed in check_clang_lib() #1)" 1>&2
+		exit 1
+	fi
+
+	# Get llvm-config flags for debugging
+	LLVM_LDFLAGS=`$HOST_LLVM_CONFIG --ldflags 2>&1`
+	LLVM_CXXFLAGS=`$HOST_LLVM_CONFIG --cxxflags 2>&1`
+	debug_print 4 "Clang.Lib: llvm-config --ldflags: $LLVM_LDFLAGS"
+	debug_print 4 "Clang.Lib: llvm-config --cxxflags: $LLVM_CXXFLAGS"
+
+	# Get library flags from llvm-config instead of hardcoding
+	# This handles both versioned and non-versioned libraries correctly
+	LLVM_LIBS=`$HOST_LLVM_CONFIG --libs clang 2>&1`
+	LLVM_LIBS_EXIT=$?
+	if [ $LLVM_LIBS_EXIT -ne 0 ] || [ -z "$LLVM_LIBS" ]; then
+		debug_print 1 "Clang.Lib: Warning: llvm-config --libs clang failed, trying without component"
+		# Fallback: try without specifying component
+		LLVM_LIBS=`$HOST_LLVM_CONFIG --libs 2>&1`
+		LLVM_LIBS_EXIT=$?
+		if [ $LLVM_LIBS_EXIT -ne 0 ] || [ -z "$LLVM_LIBS" ]; then
+			debug_print 1 "Clang.Lib: Error: Failed to get library flags from llvm-config"
+			echo "Error: Failed to get library flags from $HOST_LLVM_CONFIG" 1>&2
+			echo "Clang library missing or broken! (Failed in check_clang_lib() #1a)" 1>&2
+			exit 1
+		fi
+	fi
+	debug_print 4 "Clang.Lib: llvm-config --libs clang: $LLVM_LIBS"
+
+	# Build compilation command using llvm-config library flags
+	COMPILE_CMD="$HOST_CXX -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp $LLVM_LDFLAGS $LLVM_CXXFLAGS $LLVM_LIBS"
+	debug_print 3 "Clang.Lib: Executing compilation command"
+	debug_print 5 "Clang.Lib: Full command: $COMPILE_CMD"
+
+	# Determine output redirection based on debug level
+	if [ "${CONFIGURE_DEBUG_LEVEL:-0}" -ge 5 ]; then
+		# Level 5+: Show all output
+		$HOST_CXX -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp \
+			$LLVM_LDFLAGS $LLVM_CXXFLAGS $LLVM_LIBS
+		COMPILE_EXIT=$?
+		debug_print 5 "Clang.Lib: Compilation exit code: $COMPILE_EXIT"
+	elif [ "${CONFIGURE_DEBUG_LEVEL:-0}" -ge 3 ]; then
+		# Level 3-4: Show errors only (stderr)
+		$HOST_CXX -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp \
+			$LLVM_LDFLAGS $LLVM_CXXFLAGS $LLVM_LIBS > /dev/null
+		COMPILE_EXIT=$?
+		debug_print 3 "Clang.Lib: Compilation exit code: $COMPILE_EXIT"
+	else
+		# Level 0-2: Suppress output (current behavior)
+		$HOST_CXX -o $TMPDIR/clang_lib $TMPDIR/clang_lib.cpp \
+			$LLVM_LDFLAGS $LLVM_CXXFLAGS $LLVM_LIBS > /dev/null 2>&1
+		COMPILE_EXIT=$?
+	fi
+
+	case $COMPILE_EXIT in
+		0)
+			debug_print 1 "Clang.Lib: Check PASSED"
+			;;
+		*)
+			debug_print 1 "Clang.Lib: Check FAILED (exit code: $COMPILE_EXIT)"
+			echo "Clang library missing or broken! (Failed in check_clang_lib() #2)" 1>&2
 			exit 1
 			;;
 	esac
@@ -291,6 +386,7 @@ usage()
 	echo " [--build-opt-parser] [--build-parser-json]"
 	echo " [--no-build-compiler] [--pkg-config-path <path>]"
 	echo " [--python-ver <version>] [--llvm-config <llvm-config>]"
+	echo " [--debug-level <0-7>]"
 
 	platform_usage
 
@@ -304,7 +400,12 @@ init_platform
 PROGNAME=$0
 COMPILER="gcc"
 
-while [ -n "$1" ]; do
+# Show debug level if set
+if [ -n "${CONFIGURE_DEBUG_LEVEL}" ]; then
+	debug_print 1 "Debug Level: ${CONFIGURE_DEBUG_LEVEL}"
+fi
+
+	while [ -n "$1" ]; do
 	case $1 in
 		"--config-defines") CONFIG_DEFINES=$2; shift;;
 		"--ccarch") TARGET_ARCH=$2; shift;;
@@ -317,6 +418,7 @@ while [ -n "$1" ]; do
 		"--no-build-compiler") NO_BUILD_COMPILER="y";;
 		"--python-ver") PYTHON_VER=$2; shift;;
 		"--llvm-config") HOST_LLVM_CONFIG=$2; shift;;
+		"--debug-level") CONFIGURE_DEBUG_LEVEL=$2; shift;;
 		*) parse_platform_opts $1;;
 	esac
 	shift
@@ -458,8 +560,51 @@ echo "COMPILER is $COMPILER"
 : ${CXX:="$CC_CXX $CFLAGS_N"}
 : ${LD:="$LD_GCC"}
 
-if [ -z "$HOST_LLVM_CONFIG" ]; then
-	: ${HOST_LLVM_CONFIG:="/usr/bin/llvm-config"}
+# Auto-detect llvm-config if not explicitly set or verify the one provided
+debug_print 1 "Tool Detection: Starting llvm-config detection"
+FOUND_LLVM_CONFIG=""
+if [ -n "$HOST_LLVM_CONFIG" ]; then
+	# If HOST_LLVM_CONFIG is set, verify it works
+	debug_print 2 "Tool Detection: HOST_LLVM_CONFIG is set to: $HOST_LLVM_CONFIG"
+	LLVM_CONFIG_PATH=$(command -v "$HOST_LLVM_CONFIG" 2>/dev/null)
+	if [ -n "$LLVM_CONFIG_PATH" ] && "$LLVM_CONFIG_PATH" --version >/dev/null 2>&1; then
+		FOUND_LLVM_CONFIG="$LLVM_CONFIG_PATH"
+		debug_print 1 "Tool Detection: Verified user-provided HOST_LLVM_CONFIG: $FOUND_LLVM_CONFIG"
+		LLVM_VER=`$FOUND_LLVM_CONFIG --version 2>/dev/null`
+		debug_print 2 "Tool Detection: Version: $LLVM_VER"
+	else
+		debug_print 2 "Tool Detection: User-provided HOST_LLVM_CONFIG not found or invalid, will auto-detect"
+	fi
+fi
+
+if [ -z "$FOUND_LLVM_CONFIG" ]; then
+	# Auto-detect: try unversioned first, then versioned variants (llvm-config-20, etc.)
+	# Verify each tool works by testing --version
+	debug_print 2 "Tool Detection: Auto-detecting llvm-config..."
+	for llvm_config_tool in llvm-config llvm-config-20 llvm-config-19 llvm-config-18 llvm-config-17 llvm-config-16; do
+		debug_print 3 "Tool Detection: Checking for $llvm_config_tool"
+		LLVM_CONFIG_PATH=$(command -v "$llvm_config_tool" 2>/dev/null)
+		if [ -n "$LLVM_CONFIG_PATH" ]; then
+			debug_print 3 "Tool Detection: Found $llvm_config_tool at $LLVM_CONFIG_PATH"
+			if "$LLVM_CONFIG_PATH" --version >/dev/null 2>&1; then
+				FOUND_LLVM_CONFIG="$LLVM_CONFIG_PATH"
+				LLVM_VER=`$FOUND_LLVM_CONFIG --version 2>/dev/null`
+				debug_print 1 "Tool Detection: Selected $llvm_config_tool (version $LLVM_VER)"
+				break
+			else
+				debug_print 3 "Tool Detection: $llvm_config_tool found but --version test failed"
+			fi
+		fi
+	done
+fi
+
+if [ -n "$FOUND_LLVM_CONFIG" ]; then
+	HOST_LLVM_CONFIG="$FOUND_LLVM_CONFIG"
+	debug_print 1 "Tool Detection: Using HOST_LLVM_CONFIG=$HOST_LLVM_CONFIG"
+else
+	# Fallback to default (will fail later if it doesn't exist)
+	HOST_LLVM_CONFIG="/usr/bin/llvm-config"
+	debug_print 2 "Tool Detection: No llvm-config found, falling back to default: $HOST_LLVM_CONFIG"
 fi
 
 : ${LLVM_CONFIG:="$LLVM_CONFIG"}
@@ -474,6 +619,7 @@ echo "PYTHON := python3" >> $CONFIG
 # If we didn't get an architecture from the command line set it base
 # on the running host
 
+debug_print 1 "Configuration: Platform=$PLATFORM, Architecture=$ARCH, Compiler=$COMPILER"
 
 check_libpcap
 check_boostsystem
