@@ -1,4 +1,4 @@
-# Generated config based on /home/das/Downloads/xdp2/src/include
+# Generated config based on --build-opt-parser
 ifneq ($(TOP_LEVEL_MAKE),y)
 # user can control verbosity similar to kernel builds (e.g., V=1)
 ifeq ("$(origin V)", "command line")
@@ -89,9 +89,9 @@ XDP2_CLANG_RESOURCE_PATH=/nix/store/ar9afnik87wldrqad2fdz1kz1znpsj45-clang-20.1.
 
 endif # !TOP_LEVEL_MAKE
 
-INSTALLDIR ?= /home/das/Downloads/xdp2/src/../../install/x86_64
+INSTALLDIR ?= /home/das/Downloads/xdp2/src/../install/x86_64
 INSTALLTARNAME ?= install.tgz
-BUILD_OPT_PARSER ?= 
+BUILD_OPT_PARSER ?= y
 BUILD_PARSER_JSON ?= 
 NO_BUILD_COMPILER ?= 
 CONFIG_DEFINES := 

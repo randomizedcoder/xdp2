@@ -89,6 +89,8 @@ install: all
 	@install -m 0755 -d $(INSTALLDIR)$(HDRDIR)
 	@for i in $(SUBDIRS); \
 	do echo; echo $$i; $(MAKE) -C $$i install; done
+	@echo ""
+	@echo "xdp2 installed into directory: $(INSTALLDIR)"
 
 install_data: install
 	@rm -rf $(INSTALLDIR)/data

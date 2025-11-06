@@ -40,6 +40,7 @@ This section covers getting started with xdp2 using native Ubuntu ( without Nix 
 1. Package installs
 2. git clone
 3. ./configure.sh
+3.5 make clean
 4. make cppfront
 5. make
 6. make install
@@ -183,6 +184,14 @@ das@ubuntu2404-no-nix:~/xdp2/src$
 
 If you succeed at using xdp2 on something other than ubuntu, please let us know! ( Please note xdp2 with nix on Fedora _is_ tested )
 
+#### 3.3 make clean
+
+It will never hurt to run `make clean` before all of this ;)
+```
+cd ~/xdp2/src/
+make clean
+```
+
 #### 4. make cppfront
 
 xdp2 uses an old version of cppfront, which should be built before anything else, as this is a dependancy.
@@ -230,31 +239,7 @@ make clean
 make
 ```
 
-#### 5a. make install (optional but recommended for samples)
-
-To use the sample parsers, you'll need to install xdp2 headers and libraries. The default installation location is `~/xdp2/install/x86_64` (relative to the source directory), which keeps everything in your home directory.
-
-**Option 1: Use default location (recommended)**
-```
-cd ~/xdp2/src
-make install
-```
-This installs to `~/xdp2/install/x86_64/` by default.
-
-**Option 2: Custom installation location**
-If you prefer a different location, you can specify it during configure:
-```
-cd ~/xdp2/src
-./configure.sh --installdir ~/xdp2/install
-make install
-```
-
-The installation will create:
-- `~/xdp2/install/x86_64/bin/` - executables (e.g., xdp2-compiler)
-- `~/xdp2/install/x86_64/lib/` - libraries
-- `~/xdp2/install/x86_64/include/` - header files
-
-Example outputs
+Example output
 ```
 das@ubuntu2404-no-nix-no-version:~/xdp2/src$ make
 
@@ -336,44 +321,7 @@ include/xdp2gen/llvm/patterns.h2... ok (mixed Cpp1/Cpp2, Cpp2 code passes safety
 
 include/xdp2gen/ast-consumer/patterns.h2... ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)
 
-
-include
-
-lib
-
-test
-
-tools
-    INSTALL
-    INSTALL  get_uet_udp_port uet_pds.pcap uet_ses.pcap
-    INSTALL  get_falcon_udp_port falcon.pcap
-    INSTALL  get_sue_udp_port sue.pcap
-    INSTALL  gen-patterns-cpp xdp2-compiler
-
-include
-    INSTALL  cli.h
-    INSTALL  siphash.h
-    INSTALL  proto_arp_rarp.h proto_batman.h proto_ether.h proto_fcoe.h proto_gre.h proto_icmp.h proto_igmp.h proto_ip.h proto_ipv4.h proto_ipv4ip.h proto_ipv6.h proto_ipv6_eh.h proto_ipv6ip.h proto_ipv6_nd.h proto_l2tp.h proto_l2tp_v0.h proto_mpls.h proto_ports.h proto_ppp.h proto_pppoe.h proto_protobuf.h proto_tcp.h proto_tipc.h proto_udp.h proto_vlan.h proto_vxlan.h proto_geneve.h proto_srv6.h
-    INSTALL  parser_big.h parser_simple_hash.h
-    INSTALL  compiler_helpers.h utility.h bswap.h bitmap_word.h bitmap.h bitmap_helpers.h pmacro.h _pmacro_gen.h vstruct.h switch.h locks.h timer.h cli.h pcap.h packets_helpers.h table_common.h stable.h _stable.h dtable.h _dtable.h checksum.h obj_allocator.h pvbuf.h pvpkt.h config.h parser_types.h parser.h parser_metadata.h flag_fields.h tlvs.h arrays.h proto_defs_define.h proto_defs.h accelerator.h pkt_action.h bpf.h xdp_tmpl.h
-    INSTALL  parser.h proto_arp_rarp.h proto_batman.h proto_ether.h proto_fcoe.h proto_gre.h proto_icmp.h proto_igmp.h proto_ip.h proto_ipv4.h proto_ipv4ip.h proto_ipv6_eh.h proto_ipv6.h proto_ipv6ip.h proto_mpls.h proto_ports.h proto_ppp.h proto_sctp.h proto_tcp.h proto_tipc.h proto_vlan.h
-    INSTALL  pds.h proto_uet_pds.h proto_uet_ses.h ses.h debug.h config.h protocol.h parser_test.h
-    INSTALL  falcon.h proto_falcon.h debug.h config.h protocol.h parser_test.h
-    INSTALL
-install: missing destination file operand after '/home/das/xdp2/src/../../install/x86_64/include/falcon'
-Try 'install --help' for more information.
-make[2]: *** [Makefile:17: install] Error 1
-make[1]: *** [Makefile:12: sue] Error 2
-
-lib
-    INSTALL  libcli.so libcli.a
-    INSTALL  libsiphash.so libsiphash.a
-    INSTALL  libcrc.so libcrc.a
-    INSTALL  libflowdis.so libflowdis.a
-    INSTALL  liblzf_compress.so liblzf_compress.a liblzf_decompress.so liblzf_decompress.a
-    INSTALL  libmurmur3hash.so libmurmur3hash.a
-    INSTALL  libxdp2.so libxdp2.a
-    INSTALL  libparselite.so libparselite.a
+...
 
 test
     INSTALL  test_vstructs
@@ -388,34 +336,9 @@ test
     INSTALL  test_bitmap
     INSTALL
     INSTALL
+
+xdp2 installed into directory: /home/das/xdp2/src/../install/x86_64
 das@ubuntu2404-no-nix-no-version:~/xdp2/src$
-das@ubuntu2404-no-nix-no-version:~/xdp2/src$ cd ../install/x86_64/bin/
-das@ubuntu2404-no-nix-no-version:~/xdp2/install/x86_64/bin$ ls -la
-total 58764
-drwxr-xr-x 2 das das     4096 Nov  6 21:21 .
-drwxr-xr-x 7 das das     4096 Nov  6 21:21 ..
--rwxr-xr-x 1 das das      690 Nov  6 21:21 falcon.pcap
--rwxr-xr-x 1 das das    15984 Nov  6 21:21 get_falcon_udp_port
--rwxr-xr-x 1 das das    15976 Nov  6 21:21 get_sue_udp_port
--rwxr-xr-x 1 das das    15976 Nov  6 21:21 get_uet_udp_port
--rwxr-xr-x 1 das das   648272 Nov  6 21:21 parse_dump
--rwxr-xr-x 1 das das    16672 Nov  6 21:21 pmacro_gen
--rwxr-xr-x 1 das das      288 Nov  6 21:21 sue.pcap
--rwxr-xr-x 1 das das   236112 Nov  6 21:21 test_accel
--rwxr-xr-x 1 das das 18902720 Nov  6 21:21 test_bitmap
--rwxr-xr-x 1 das das   178880 Nov  6 21:21 test_falcon
--rwxr-xr-x 1 das das   130536 Nov  6 21:21 test_parser
--rwxr-xr-x 1 das das   219560 Nov  6 21:21 test_pvbuf
--rwxr-xr-x 1 das das   114824 Nov  6 21:21 test_router
--rwxr-xr-x 1 das das    16208 Nov  6 21:21 test_switch
--rwxr-xr-x 1 das das   261536 Nov  6 21:21 test_tables
--rwxr-xr-x 1 das das    93896 Nov  6 21:21 test_timer
--rwxr-xr-x 1 das das   401528 Nov  6 21:21 test_uet
--rwxr-xr-x 1 das das    73016 Nov  6 21:21 test_vstructs
--rwxr-xr-x 1 das das     1978 Nov  6 21:21 uet_pds.pcap
--rwxr-xr-x 1 das das     1862 Nov  6 21:21 uet_ses.pcap
--rwxr-xr-x 1 das das 38783152 Nov  6 21:21 xdp2-compiler            <-------------
-das@ubuntu2404-no-nix-no-version:~/install/x86_64/bin$
 ```
 
 #### 7. ports_parser example
