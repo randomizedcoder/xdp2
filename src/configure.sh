@@ -526,7 +526,8 @@ quiet_config >> $CONFIG
 
 if [ -n "$PKG_CONFIG_PATH" ]; then
 	echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $CONFIG
-	echo "PATH_ARG=\"--with-path=$PKG_CONFIG_PATH\"" >> $CONFIG
+	# PATH_ARG is empty because pkg-config automatically uses PKG_CONFIG_PATH from environment
+	echo "PATH_ARG=\"\"" >> $CONFIG
 else
 	echo "PATH_ARG=\"\"" >> $CONFIG
 fi
