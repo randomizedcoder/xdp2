@@ -222,7 +222,7 @@
               echo "config.mk not found, running configure script..."
               cd src || return 1
             rm -f config.mk
-              ./configure --build-opt-parser --installdir "/tmp/xdp2-install"
+              ./configure.sh --build-opt-parser
 
               # Apply PATH_ARG fix for Nix environment
             if grep -q 'PATH_ARG="--with-path=' config.mk; then

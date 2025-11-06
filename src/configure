@@ -514,15 +514,20 @@ echo "TARGET_ARCH := $TARGET_ARCH" >> $CONFIG
 
 
 if [ -z "$INSTALLDIR" ]; then
-	INSTALLDIR=$PWD/../../install/$ARCH
+	# Default to install directory in the xdp2 repo root (one level up from src/)
+	INSTALLDIR=$PWD/../install/$ARCH
+	debug_print 1 "INSTALLDIR=$INSTALLDIR"
 fi
 
 if [ -z "$INSTALLTARNAME" ]; then
 	INSTALLTARNAME=install.tgz
+	debug_print 1 "INSTALLTARNAME=$INSTALLTARNAME"
 fi
 
 echo "XDP2_ARCH := $ARCH" >> $CONFIG
 echo "XDP2_CFLAGS += -DARCH_$ARCH" >> $CONFIG
+debug_print 1 "XDP2_ARCH=$ARCH"
+debug_print 1 "XDP2_CFLAGS=$INSTALLDIR"
 
 if [ -n "$TARGET_ARCH" ]; then
 	echo "CFLAGS += -DTARGET_ARCH_$TARGET_ARCH" >> $CONFIG

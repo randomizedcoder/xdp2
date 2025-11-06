@@ -94,11 +94,11 @@ We have x2 ubuntu versioning sytles to test.
 
 The first is with no version specified.  These seems to default to a version 18 of clang.
 ```
-sudo apt install -y build-essential gcc gcc-multilib pkg-config bison flex \
+sudo apt --yes install build-essential gcc gcc-multilib pkg-config bison flex \
     libboost-all-dev libpcap-dev python3-scapy graphviz libelf-dev libbpf-dev
 
-
-sudo apt-get install -y libelf-dev clang clang-tools libclang-dev llvm llvm-dev libbpf-dev linux-tools-$(uname -r)
+sudo apt-get --yes install llvm-dev clang libclang-dev clang-tools lld
+sudo apt-get --yes install yes linux-tools-$(uname -r)
 ```
 
 Then we have a versioned instance, where we are testing version 20.
@@ -106,11 +106,11 @@ Then we have a versioned instance, where we are testing version 20.
 When ./src/configure didn't immediately work, I tried upgrading from clang 18, which is the default, to clang 20 by doing this.
 
 ```
-sudo apt-get install -y build-essential gcc gcc-multilib pkg-config bison flex libboost-all-dev libpcap-dev python3-scapy
+sudo apt install --yes build-essential gcc gcc-multilib pkg-config bison flex \
+    libboost-all-dev libpcap-dev python3-scapy graphviz libelf-dev libbpf-dev
 
-sudo apt-get install -y graphviz
-
-sudo apt-get install -y sudo apt install -y llvm-20-dev clang-20 libclang-20-dev clang-tools-20 lld-20 linux-tools-$(uname -r)
+sudo apt-get --yes install llvm-20-dev clang-20 libclang-20-dev clang-tools-20 lld-20
+sudo apt-get --yes install linux-tools-$(uname -r)
 ```
 
 ## Configure script

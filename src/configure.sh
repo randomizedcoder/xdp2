@@ -1,8 +1,13 @@
 #!/bin/bash
-# configure.sh is an experimental version of ./configure, which has some tweaks
-# Major changes including supporting detection of different versions of clang on ubuntu systems
 #
-# This is not an autoconf generated configure
+# configure.sh
+#
+# configure.sh is an experimental version of ./configure, which has some tweaks
+# Major changes including:
+# - supporting detection of different versions of clang on ubuntu systems
+# - adjustments to the c++ embedded code to support clang18 and clang20
+#
+# This is not autoconf generated
 #
 INCLUDE=${1:-"$PWD/include"}
 
@@ -11,6 +16,9 @@ CONFIG=config.mk
 # Make a temp directory in build tree
 TMPDIR=$(mktemp -d config.XXXXXX)
 trap 'status=$?; rm -rf $TMPDIR; exit $status' EXIT HUP INT QUIT TERM
+
+# Global variable to store discovered clang libraries
+CLANG_LIBS_DISCOVERED=""
 
 # Debug function for progressive debugging (0-7, like syslog)
 # Level 0: No debug output (default)
@@ -311,6 +319,10 @@ EOF
 
 	if [ $COMPILE_EXIT -eq 0 ]; then
 		debug_print 1 "Clang.Lib: Check PASSED with libraries: $CLANG_LIBS_FOUND"
+		# Store discovered libraries in global variable for writing to config.mk
+		# Include LLVM library flag from llvm-config --libs along with discovered clang libraries
+		CLANG_LIBS_DISCOVERED="$LLVM_LIBS $CLANG_LIBS_FOUND"
+		debug_print 3 "Clang.Lib: Stored CLANG_LIBS_DISCOVERED: $CLANG_LIBS_DISCOVERED"
 		rm -f "$TMPDIR"/clang_lib.cpp "$TMPO"
 		return 0
 	fi
@@ -590,7 +602,8 @@ echo "TARGET_ARCH := $TARGET_ARCH" >> $CONFIG
 
 
 if [ -z "$INSTALLDIR" ]; then
-	INSTALLDIR=$PWD/../../install/$ARCH
+	# Default to install directory in the xdp2 repo root (one level up from src/)
+	INSTALLDIR=$PWD/../install/$ARCH
 fi
 
 if [ -z "$INSTALLTARNAME" ]; then
@@ -707,6 +720,13 @@ check_boostfilesystem
 check_clang_lib
 check_python
 check_scapy
+
+if [ -n "$CLANG_LIBS_DISCOVERED" ]; then
+	echo "CLANG_LIBS := $CLANG_LIBS_DISCOVERED" >> $CONFIG
+	debug_print 1 "Configuration: Wrote CLANG_LIBS to config.mk: $CLANG_LIBS_DISCOVERED"
+else
+	debug_print 2 "Configuration: Warning: CLANG_LIBS_DISCOVERED is empty, Makefile will use default"
+fi
 
 echo "ifneq (\$(USE_HOST_TOOLS),y)" >> $CONFIG
 

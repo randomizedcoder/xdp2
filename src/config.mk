@@ -57,6 +57,7 @@ LLVM_CONFIG := llvm-config
 LDFLAGS := 
 PYTHON := python3
 HAVE_SCAPY:=y
+CLANG_LIBS := -lLLVM-20 -lclang-cpp -lclangTooling
 ifneq ($(USE_HOST_TOOLS),y)
 %.o: %.c
 	$(QUIET_CC)$(CC) $(CFLAGS) $(XDP2_CFLAGS) $(EXTRA_CFLAGS) $(C_MARCH_FLAGS)\
