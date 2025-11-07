@@ -261,6 +261,112 @@ The sample Makefile should default to using the source tree location instead of 
    - Ensure the guide clearly explains where headers need to be located
    - Consider adding a note about the `XDP2DIR` variable and when to use it
 
-4. **Test the fix:**
-   - Verify the sample builds successfully after following the updated guide
-   - Test both approaches (install vs. setting XDP2DIR) to ensure both work
+4. ✅ **Test the fix:** (COMPLETED)
+   - ✅ Updated getting-started.md to include `make install` step
+   - ✅ Updated getting-started.md to show setting `XDP2DIR` when building samples
+   - ✅ Verified samples can find headers after installation
+   - ✅ Fixed `INSTALLDIR` default to install to `~/xdp2/install/x86_64/` instead of `~/install/x86_64/`
+
+**Status: RESOLVED** - Documentation updated and `INSTALLDIR` default fixed.
+
+### Defect 3
+
+The xdp2 samples fail to compile due to API mismatches. The sample code uses an older xdp2 API that doesn't match the current installed headers. Multiple compilation errors occur when trying to build the samples.
+
+**Error output:**
+```
+das@ubuntu2404-no-nix-no-version:~/xdp2/samples$ make XDP2DIR=~/xdp2/install/x86_64
+make[1]: Entering directory '/home/das/xdp2/samples/parser'
+make[2]: Entering directory '/home/das/xdp2/samples/parser/offset_parser'
+gcc -I/home/das/xdp2/install/x86_64/include -g   -c -o parser.o parser.c
+parser.c:62:40: error: 'const struct xdp2_ctrl_data' has no member named 'hdr'
+   62 |         metadata->network_offset = ctrl.hdr.hdr_offset;
+      |                                        ^
+parser.c:71:42: error: 'const struct xdp2_ctrl_data' has no member named 'hdr'
+   71 |         metadata->transport_offset = ctrl.hdr.hdr_offset;
+      |                                          ^
+parser.c:77:47: warning: initialization of 'void (*)(const void *, size_t,  size_t,  void *, void *, const struct xdp2_ctrl_data *)' from incompatible pointer type 'void (*)(const void *, void *, const struct xdp2_ctrl_data)' [-Wincompatible-pointer-types]
+parser.c:111:33: error: storage size of 'pdata' isn't known
+  111 |         struct xdp2_packet_data pdata;
+      |                                 ^~~~~
+parser.c:122:17: warning: implicit declaration of function 'XDP2_SET_BASIC_PDATA_LEN_SEQNO' [-Wimplicit-function-declaration]
+parser.c:125:44: warning: passing argument 3 of 'xdp2_parse' makes integer from pointer without a cast [-Wint-conversion]
+parser.c:125:17: error: too few arguments to function 'xdp2_parse'
+  125 |                 xdp2_parse(parser, &pdata, &metadata, 0);
+      |                 ^~~~~~~~~~
+```
+
+**Context:**
+- The samples are located in `~/xdp2/samples/parser/` and `~/xdp2/samples/xdp/`
+- The error occurs in `samples/parser/offset_parser/parser.c`
+- The sample code uses an older xdp2 API that has been changed
+- The current API is documented in `src/include/xdp2/parser.h` and `src/include/xdp2/parser_types.h`
+- Working examples using the correct API exist in `src/test/parse_dump/` and `src/test/parser/`
+
+#### Hypothesis
+
+**Primary Hypothesis:**
+The sample code in `samples/parser/offset_parser/parser.c` (and likely other samples) uses an older version of the xdp2 API that has been changed. The API changes include:
+
+1. **`extract_metadata` function signature changed:**
+   - Old: `void extract_metadata(const void *v, void *_meta, const struct xdp2_ctrl_data ctrl)`
+   - New: `void extract_metadata(const void *hdr, size_t hdr_len, size_t hdr_off, void *metadata, void *frame, const struct xdp2_ctrl_data *ctrl)`
+   - The header offset (`hdr_off`) is now passed as a parameter instead of being accessed via `ctrl.hdr.hdr_offset`
+
+2. **`xdp2_parse` function signature changed:**
+   - Old: `xdp2_parse(parser, &pdata, &metadata, flags)` (4 parameters)
+   - New: `xdp2_parse(parser, hdr, len, metadata, ctrl, flags)` (6 parameters)
+   - Requires a `struct xdp2_ctrl_data *ctrl` parameter that must be initialized
+
+3. **`struct xdp2_packet_data` no longer exists:**
+   - Old code uses `struct xdp2_packet_data pdata` and `XDP2_SET_BASIC_PDATA_LEN_SEQNO`
+   - New code should use `struct xdp2_ctrl_data ctrl` and `XDP2_CTRL_SET_BASIC_PKT_DATA` macro
+
+4. **`xdp2_ctrl_data` structure changed:**
+   - Old: Had an `hdr` member with `hdr_offset` field
+   - New: Has `var`, `pkt`, and `key` members, but no `hdr` member
+
+**Supporting Evidence:**
+1. The error messages clearly show the API mismatches:
+   - `'const struct xdp2_ctrl_data' has no member named 'hdr'` - structure changed
+   - `too few arguments to function 'xdp2_parse'` - function signature changed
+   - `storage size of 'pdata' isn't known` - type no longer exists
+   - Function pointer type mismatch for `extract_metadata` - signature changed
+
+2. Working examples in `src/test/parse_dump/` and `src/test/parser/` show the correct API usage:
+   - `extract_metadata` uses 6 parameters including `hdr_off` as a parameter
+   - `xdp2_parse` is called with 6 parameters: `xdp2_parse(parser, buffer, n, &pmetadata, &ctrl, flags)`
+   - Uses `struct xdp2_ctrl_data ctrl` initialized with `XDP2_CTRL_SET_BASIC_PKT_DATA`
+
+3. The current API is documented in the header files:
+   - `src/include/xdp2/parser_types.h` line 204-206 shows the correct `extract_metadata` signature
+   - `src/include/xdp2/parser.h` line 296-300 shows the correct `xdp2_parse` signature
+
+**Alternative Hypothesis:**
+The samples might be intentionally using an older API for compatibility, but this is unlikely since they're meant to be working examples for users.
+
+#### Next steps
+
+1. **Verify the hypothesis:**
+   - Review all sample files in `samples/parser/` and `samples/xdp/` to identify which ones use the old API
+   - Compare sample code with working examples in `src/test/` to confirm the correct API usage
+   - Check if there are multiple versions of the API or if this is a breaking change
+
+2. **Update the sample code:**
+   - Update `samples/parser/offset_parser/parser.c` to use the new API:
+     - Change `extract_metadata` signature to accept 6 parameters (including `hdr_off`)
+     - Use `hdr_off` parameter instead of `ctrl.hdr.hdr_offset`
+     - Replace `struct xdp2_packet_data` with `struct xdp2_ctrl_data`
+     - Update `xdp2_parse` call to use 6 parameters with initialized `ctrl`
+     - Use `XDP2_CTRL_SET_BASIC_PKT_DATA` instead of `XDP2_SET_BASIC_PDATA_LEN_SEQNO`
+   - Check and update other sample files that may have similar issues
+
+3. **Review all sample Makefiles:**
+   - Verify all sample Makefiles correctly pass `XDP2DIR` to subdirectories
+   - Ensure all samples can find the installed headers and libraries
+   - Check if any samples need additional dependencies or configuration
+
+4. **Test the fixes:**
+   - Build each sample individually to verify they compile
+   - Test that the samples run correctly after compilation
+   - Update getting-started.md with successful sample build/run examples

@@ -341,32 +341,242 @@ xdp2 installed into directory: /home/das/xdp2/src/../install/x86_64
 das@ubuntu2404-no-nix-no-version:~/xdp2/src$
 ```
 
-#### 7. ports_parser example
+#### 7. xdp2 samples
 
-With xdp2-compiler built and installed, we can now try using one of the sample parsers.
+With xdp2-compiler built and installed, we can now try using some of the samples, which are in ~/xdp2/samples/
 
-Let's try the "ports_parser".  Refer to the README.md in that folder for info about this sample.
+**Important:** The sample Makefile-s needs to know where xdp2 is installed. Set `XDP2DIR` to point to your installation directory (without the architecture suffix).
 
-**Important:** The sample Makefile needs to know where xdp2 is installed. Set `XDP2DIR` to point to your installation directory (without the architecture suffix).
-
+The samples rely on the environment variable XDP2DIR, which should be set to the same as INSTALLDIR.
 ```
-cd ~/xdp2/samples/parser/ports_parser/
-make XDP2DIR=~/xdp2/install/x86_64
+das@ubuntu2404-no-nix-no-version:~/xdp2/samples$ cat ~/xdp2/src/config.mk | grep INSTALLDIR
+INSTALLDIR ?= /home/das/xdp2/src/../install/x86_64
 ```
 
-If you used a custom installation location, adjust the path accordingly:
-```
-make XDP2DIR=~/xdp2/install
-```
 
 Example output:
 ```
-das@ubuntu2404-no-nix-no-version:~/xdp2/samples/parser/ports_parser$ make XDP2DIR=~/xdp2/install/x86_64
+das@ubuntu2404-no-nix-no-version:~/xdp2/samples$ make XDP2DIR=~/xdp2/install/x86_64
+make[1]: Entering directory '/home/das/xdp2/samples/parser'
+make[2]: Entering directory '/home/das/xdp2/samples/parser/offset_parser'
 gcc -I/home/das/xdp2/install/x86_64/include -g   -c -o parser.o parser.c
-~/xdp2/install/x86_64/bin/xdp2-compiler -I/home/das/xdp2/install/x86_64/include -i parser.c -o parser.p.c
-gcc -I/home/das/xdp2/install/x86_64/include -g -L/home/das/xdp2/install/x86_64/lib -o parser parser.p.c -lpcap -lxdp2 -lcli -lsiphash
-das@ubuntu2404-no-nix-no-version:~/xdp2/samples/parser/ports_parser$ ls -la parser
--rwxrwxr-x 1 das das 123456 Nov  6 20:00 parser
+parser.c: In function ‘extract_network’:
+parser.c:62:40: error: ‘const struct xdp2_ctrl_data’ has no member named ‘hdr’
+   62 |         metadata->network_offset = ctrl.hdr.hdr_offset;
+      |                                        ^
+parser.c: In function ‘extract_transport’:
+parser.c:71:42: error: ‘const struct xdp2_ctrl_data’ has no member named ‘hdr’
+   71 |         metadata->transport_offset = ctrl.hdr.hdr_offset;
+      |                                          ^
+In file included from parser.c:42:
+parser.c: At top level:
+parser.c:77:47: warning: initialization of ‘void (*)(const void *, size_t,  size_t,  void *, void *, const struct xdp2_ctrl_data *)’ {aka ‘void (*)(const void *, long unsigned int,  long unsigned int,  void *, void *, const struct xdp2_ctrl_data *)’} from incompatible pointer type ‘void (*)(const void *, void *, const struct xdp2_ctrl_data)’ [-Wincompatible-pointer-types]
+   77 |                      (.ops.extract_metadata = extract_network));
+      |                                               ^~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:209:49: note: in definition of macro ‘__XDP2_MAKE_PARSE_NODE_OPT_ONE’
+  209 | #define __XDP2_MAKE_PARSE_NODE_OPT_ONE(OPT) .pn OPT,
+      |                                                 ^~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:54:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY1’
+   54 |                         __XDP2_PMACRO_APPLY##NUM(ACT, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:57:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_3’
+   57 |                         __XDP2_PMACRO_APPLY_ALL_3(ACT, NUM, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:60:9: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_2’
+   60 |         __XDP2_PMACRO_APPLY_ALL_2(ACT,                                  \
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:218:17: note: in expansion of macro ‘XDP2_PMACRO_APPLY_ALL’
+  218 |                 XDP2_PMACRO_APPLY_ALL(                                  \
+      |                 ^~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/utility.h:80:24: note: in expansion of macro ‘XDP2_DEPAIR2’
+   80 | #define XDP2_DEPAIR(X) XDP2_DEPAIR2 X
+      |                        ^~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:220:33: note: in expansion of macro ‘XDP2_DEPAIR’
+  220 |                                 XDP2_DEPAIR(EXTRA))
+      |                                 ^~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:228:17: note: in expansion of macro ‘__XDP2_MAKE_PARSE_NODE_COMMON’
+  228 |                 __XDP2_MAKE_PARSE_NODE_COMMON(PARSE_NODE, PROTO_DEF,    \
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:76:1: note: in expansion of macro ‘XDP2_MAKE_PARSE_NODE’
+   76 | XDP2_MAKE_PARSE_NODE(ipv4_node, xdp2_parse_ipv4, ip_table,
+      | ^~~~~~~~~~~~~~~~~~~~
+parser.c:77:47: note: (near initialization for ‘ipv4_node.pn.ops.extract_metadata’)
+   77 |                      (.ops.extract_metadata = extract_network));
+      |                                               ^~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:209:49: note: in definition of macro ‘__XDP2_MAKE_PARSE_NODE_OPT_ONE’
+  209 | #define __XDP2_MAKE_PARSE_NODE_OPT_ONE(OPT) .pn OPT,
+      |                                                 ^~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:54:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY1’
+   54 |                         __XDP2_PMACRO_APPLY##NUM(ACT, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:57:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_3’
+   57 |                         __XDP2_PMACRO_APPLY_ALL_3(ACT, NUM, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:60:9: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_2’
+   60 |         __XDP2_PMACRO_APPLY_ALL_2(ACT,                                  \
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:218:17: note: in expansion of macro ‘XDP2_PMACRO_APPLY_ALL’
+  218 |                 XDP2_PMACRO_APPLY_ALL(                                  \
+      |                 ^~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/utility.h:80:24: note: in expansion of macro ‘XDP2_DEPAIR2’
+   80 | #define XDP2_DEPAIR(X) XDP2_DEPAIR2 X
+      |                        ^~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:220:33: note: in expansion of macro ‘XDP2_DEPAIR’
+  220 |                                 XDP2_DEPAIR(EXTRA))
+      |                                 ^~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:228:17: note: in expansion of macro ‘__XDP2_MAKE_PARSE_NODE_COMMON’
+  228 |                 __XDP2_MAKE_PARSE_NODE_COMMON(PARSE_NODE, PROTO_DEF,    \
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:76:1: note: in expansion of macro ‘XDP2_MAKE_PARSE_NODE’
+   76 | XDP2_MAKE_PARSE_NODE(ipv4_node, xdp2_parse_ipv4, ip_table,
+      | ^~~~~~~~~~~~~~~~~~~~
+parser.c:79:47: warning: initialization of ‘void (*)(const void *, size_t,  size_t,  void *, void *, const struct xdp2_ctrl_data *)’ {aka ‘void (*)(const void *, long unsigned int,  long unsigned int,  void *, void *, const struct xdp2_ctrl_data *)’} from incompatible pointer type ‘void (*)(const void *, void *, const struct xdp2_ctrl_data)’ [-Wincompatible-pointer-types]
+   79 |                      (.ops.extract_metadata = extract_network));
+      |                                               ^~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:209:49: note: in definition of macro ‘__XDP2_MAKE_PARSE_NODE_OPT_ONE’
+  209 | #define __XDP2_MAKE_PARSE_NODE_OPT_ONE(OPT) .pn OPT,
+      |                                                 ^~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:54:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY1’
+   54 |                         __XDP2_PMACRO_APPLY##NUM(ACT, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:57:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_3’
+   57 |                         __XDP2_PMACRO_APPLY_ALL_3(ACT, NUM, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:60:9: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_2’
+   60 |         __XDP2_PMACRO_APPLY_ALL_2(ACT,                                  \
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:218:17: note: in expansion of macro ‘XDP2_PMACRO_APPLY_ALL’
+  218 |                 XDP2_PMACRO_APPLY_ALL(                                  \
+      |                 ^~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/utility.h:80:24: note: in expansion of macro ‘XDP2_DEPAIR2’
+   80 | #define XDP2_DEPAIR(X) XDP2_DEPAIR2 X
+      |                        ^~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:220:33: note: in expansion of macro ‘XDP2_DEPAIR’
+  220 |                                 XDP2_DEPAIR(EXTRA))
+      |                                 ^~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:228:17: note: in expansion of macro ‘__XDP2_MAKE_PARSE_NODE_COMMON’
+  228 |                 __XDP2_MAKE_PARSE_NODE_COMMON(PARSE_NODE, PROTO_DEF,    \
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:78:1: note: in expansion of macro ‘XDP2_MAKE_PARSE_NODE’
+   78 | XDP2_MAKE_PARSE_NODE(ipv6_node, xdp2_parse_ipv6, ip_table,
+      | ^~~~~~~~~~~~~~~~~~~~
+parser.c:79:47: note: (near initialization for ‘ipv6_node.pn.ops.extract_metadata’)
+   79 |                      (.ops.extract_metadata = extract_network));
+      |                                               ^~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:209:49: note: in definition of macro ‘__XDP2_MAKE_PARSE_NODE_OPT_ONE’
+  209 | #define __XDP2_MAKE_PARSE_NODE_OPT_ONE(OPT) .pn OPT,
+      |                                                 ^~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:54:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY1’
+   54 |                         __XDP2_PMACRO_APPLY##NUM(ACT, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:57:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_3’
+   57 |                         __XDP2_PMACRO_APPLY_ALL_3(ACT, NUM, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:60:9: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_2’
+   60 |         __XDP2_PMACRO_APPLY_ALL_2(ACT,                                  \
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:218:17: note: in expansion of macro ‘XDP2_PMACRO_APPLY_ALL’
+  218 |                 XDP2_PMACRO_APPLY_ALL(                                  \
+      |                 ^~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/utility.h:80:24: note: in expansion of macro ‘XDP2_DEPAIR2’
+   80 | #define XDP2_DEPAIR(X) XDP2_DEPAIR2 X
+      |                        ^~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:220:33: note: in expansion of macro ‘XDP2_DEPAIR’
+  220 |                                 XDP2_DEPAIR(EXTRA))
+      |                                 ^~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:228:17: note: in expansion of macro ‘__XDP2_MAKE_PARSE_NODE_COMMON’
+  228 |                 __XDP2_MAKE_PARSE_NODE_COMMON(PARSE_NODE, PROTO_DEF,    \
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:78:1: note: in expansion of macro ‘XDP2_MAKE_PARSE_NODE’
+   78 | XDP2_MAKE_PARSE_NODE(ipv6_node, xdp2_parse_ipv6, ip_table,
+      | ^~~~~~~~~~~~~~~~~~~~
+parser.c:81:47: warning: initialization of ‘void (*)(const void *, size_t,  size_t,  void *, void *, const struct xdp2_ctrl_data *)’ {aka ‘void (*)(const void *, long unsigned int,  long unsigned int,  void *, void *, const struct xdp2_ctrl_data *)’} from incompatible pointer type ‘void (*)(const void *, void *, const struct xdp2_ctrl_data)’ [-Wincompatible-pointer-types]
+   81 |                      (.ops.extract_metadata = extract_transport));
+      |                                               ^~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:209:49: note: in definition of macro ‘__XDP2_MAKE_PARSE_NODE_OPT_ONE’
+  209 | #define __XDP2_MAKE_PARSE_NODE_OPT_ONE(OPT) .pn OPT,
+      |                                                 ^~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:54:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY1’
+   54 |                         __XDP2_PMACRO_APPLY##NUM(ACT, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:57:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_3’
+   57 |                         __XDP2_PMACRO_APPLY_ALL_3(ACT, NUM, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:60:9: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_2’
+   60 |         __XDP2_PMACRO_APPLY_ALL_2(ACT,                                  \
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:218:17: note: in expansion of macro ‘XDP2_PMACRO_APPLY_ALL’
+  218 |                 XDP2_PMACRO_APPLY_ALL(                                  \
+      |                 ^~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/utility.h:80:24: note: in expansion of macro ‘XDP2_DEPAIR2’
+   80 | #define XDP2_DEPAIR(X) XDP2_DEPAIR2 X
+      |                        ^~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:220:33: note: in expansion of macro ‘XDP2_DEPAIR’
+  220 |                                 XDP2_DEPAIR(EXTRA))
+      |                                 ^~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:248:17: note: in expansion of macro ‘__XDP2_MAKE_PARSE_NODE_COMMON’
+  248 |                 __XDP2_MAKE_PARSE_NODE_COMMON(PARSE_NODE, PROTO_DEF,    \
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:80:1: note: in expansion of macro ‘XDP2_MAKE_LEAF_PARSE_NODE’
+   80 | XDP2_MAKE_LEAF_PARSE_NODE(ports_node, xdp2_parse_ports,
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:81:47: note: (near initialization for ‘ports_node.pn.ops.extract_metadata’)
+   81 |                      (.ops.extract_metadata = extract_transport));
+      |                                               ^~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:209:49: note: in definition of macro ‘__XDP2_MAKE_PARSE_NODE_OPT_ONE’
+  209 | #define __XDP2_MAKE_PARSE_NODE_OPT_ONE(OPT) .pn OPT,
+      |                                                 ^~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:54:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY1’
+   54 |                         __XDP2_PMACRO_APPLY##NUM(ACT, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:57:25: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_3’
+   57 |                         __XDP2_PMACRO_APPLY_ALL_3(ACT, NUM, __VA_ARGS__)
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/pmacro.h:60:9: note: in expansion of macro ‘__XDP2_PMACRO_APPLY_ALL_2’
+   60 |         __XDP2_PMACRO_APPLY_ALL_2(ACT,                                  \
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:218:17: note: in expansion of macro ‘XDP2_PMACRO_APPLY_ALL’
+  218 |                 XDP2_PMACRO_APPLY_ALL(                                  \
+      |                 ^~~~~~~~~~~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/utility.h:80:24: note: in expansion of macro ‘XDP2_DEPAIR2’
+   80 | #define XDP2_DEPAIR(X) XDP2_DEPAIR2 X
+      |                        ^~~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:220:33: note: in expansion of macro ‘XDP2_DEPAIR’
+  220 |                                 XDP2_DEPAIR(EXTRA))
+      |                                 ^~~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:248:17: note: in expansion of macro ‘__XDP2_MAKE_PARSE_NODE_COMMON’
+  248 |                 __XDP2_MAKE_PARSE_NODE_COMMON(PARSE_NODE, PROTO_DEF,    \
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:80:1: note: in expansion of macro ‘XDP2_MAKE_LEAF_PARSE_NODE’
+   80 | XDP2_MAKE_LEAF_PARSE_NODE(ports_node, xdp2_parse_ports,
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c: In function ‘run_parser’:
+parser.c:111:33: error: storage size of ‘pdata’ isn’t known
+  111 |         struct xdp2_packet_data pdata;
+      |                                 ^~~~~
+parser.c:122:17: warning: implicit declaration of function ‘XDP2_SET_BASIC_PDATA_LEN_SEQNO’ [-Wimplicit-function-declaration]
+  122 |                 XDP2_SET_BASIC_PDATA_LEN_SEQNO(pdata, packet, plen,
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+parser.c:125:44: warning: passing argument 3 of ‘xdp2_parse’ makes integer from pointer without a cast [-Wint-conversion]
+  125 |                 xdp2_parse(parser, &pdata, &metadata, 0);
+      |                                            ^~~~~~~~~
+      |                                            |
+      |                                            struct metadata *
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:297:48: note: expected ‘size_t’ {aka ‘long unsigned int’} but argument is of type ‘struct metadata *’
+  297 |                              void *hdr, size_t len,
+      |                                         ~~~~~~~^~~
+parser.c:125:17: error: too few arguments to function ‘xdp2_parse’
+  125 |                 xdp2_parse(parser, &pdata, &metadata, 0);
+      |                 ^~~~~~~~~~
+/home/das/xdp2/install/x86_64/include/xdp2/parser.h:296:19: note: declared here
+  296 | static inline int xdp2_parse(const struct xdp2_parser *parser,
+      |                   ^~~~~~~~~~
+make[2]: *** [<builtin>: parser.o] Error 1
+make[2]: Leaving directory '/home/das/xdp2/samples/parser/offset_parser'
+make[1]: *** [Makefile:14: offset_parser] Error 2
+make[1]: Leaving directory '/home/das/xdp2/samples/parser'
+make: *** [Makefile:14: parser] Error 2
+das@ubuntu2404-no-nix-no-version:~/xdp2/samples$
 ```
 
 
