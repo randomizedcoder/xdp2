@@ -1,0 +1,708 @@
+Script started on 2026-02-09 04:06:33+00:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="278" LINES="67"]
+[?2004h]0;das@ubuntu2404-xdp2: ~[01;32mdas@ubuntu2404-xdp2[00m:[01;34m~[00m$ rebootsudo apt update && sudo apt upgrade --yes[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[24Pvi /etc/hostname sudo apt update && sudo apt upgrade --yes[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[19Pvi /etc/hostname apt update && sudo apt upgrade --yes[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[24Pvi /etc/hostname sudo apt update && sudo apt upgrade --yes[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Creboot[K[Kgit clone [7mhttps://github.com/randomizedcoder/xdp2.git[27m[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Chttps://github.com/randomizedcoder/xdp2.git
+[?2004lCloning into 'xdp2'...
+remote: Enumerating objects: 3335, done.[K
+remote: Counting objects:   0% (1/482)[Kremote: Counting objects:   1% (5/482)[Kremote: Counting objects:   2% (10/482)[Kremote: Counting objects:   3% (15/482)[Kremote: Counting objects:   4% (20/482)[Kremote: Counting objects:   5% (25/482)[Kremote: Counting objects:   6% (29/482)[Kremote: Counting objects:   7% (34/482)[Kremote: Counting objects:   8% (39/482)[Kremote: Counting objects:   9% (44/482)[Kremote: Counting objects:  10% (49/482)[Kremote: Counting objects:  11% (54/482)[Kremote: Counting objects:  12% (58/482)[Kremote: Counting objects:  13% (63/482)[Kremote: Counting objects:  14% (68/482)[Kremote: Counting objects:  15% (73/482)[Kremote: Counting objects:  16% (78/482)[Kremote: Counting objects:  17% (82/482)[Kremote: Counting objects:  18% (87/482)[Kremote: Counting objects:  19% (92/482)[Kremote: Counting objects:  20% (97/482)[Kremote: Counting objects:  21% (102/482)[Kremote: Counting objects:  22% (107/482)[Kremote: Counting objects:  23% (111/482)[Kremote: Counting objects:  24% (116/482)[Kremote: Counting objects:  25% (121/482)[Kremote: Counting objects:  26% (126/482)[Kremote: Counting objects:  27% (131/482)[Kremote: Counting objects:  28% (135/482)[Kremote: Counting objects:  29% (140/482)[Kremote: Counting objects:  30% (145/482)[Kremote: Counting objects:  31% (150/482)[Kremote: Counting objects:  32% (155/482)[Kremote: Counting objects:  33% (160/482)[Kremote: Counting objects:  34% (164/482)[Kremote: Counting objects:  35% (169/482)[Kremote: Counting objects:  36% (174/482)[Kremote: Counting objects:  37% (179/482)[Kremote: Counting objects:  38% (184/482)[Kremote: Counting objects:  39% (188/482)[Kremote: Counting objects:  40% (193/482)[Kremote: Counting objects:  41% (198/482)[Kremote: Counting objects:  42% (203/482)[Kremote: Counting objects:  43% (208/482)[Kremote: Counting objects:  44% (213/482)[Kremote: Counting objects:  45% (217/482)[Kremote: Counting objects:  46% (222/482)[Kremote: Counting objects:  47% (227/482)[Kremote: Counting objects:  48% (232/482)[Kremote: Counting objects:  49% (237/482)[Kremote: Counting objects:  50% (241/482)[Kremote: Counting objects:  51% (246/482)[Kremote: Counting objects:  52% (251/482)[Kremote: Counting objects:  53% (256/482)[Kremote: Counting objects:  54% (261/482)[Kremote: Counting objects:  55% (266/482)[Kremote: Counting objects:  56% (270/482)[Kremote: Counting objects:  57% (275/482)[Kremote: Counting objects:  58% (280/482)[Kremote: Counting objects:  59% (285/482)[Kremote: Counting objects:  60% (290/482)[Kremote: Counting objects:  61% (295/482)[Kremote: Counting objects:  62% (299/482)[Kremote: Counting objects:  63% (304/482)[Kremote: Counting objects:  64% (309/482)[Kremote: Counting objects:  65% (314/482)[Kremote: Counting objects:  66% (319/482)[Kremote: Counting objects:  67% (323/482)[Kremote: Counting objects:  68% (328/482)[Kremote: Counting objects:  69% (333/482)[Kremote: Counting objects:  70% (338/482)[Kremote: Counting objects:  71% (343/482)[Kremote: Counting objects:  72% (348/482)[Kremote: Counting objects:  73% (352/482)[Kremote: Counting objects:  74% (357/482)[Kremote: Counting objects:  75% (362/482)[Kremote: Counting objects:  76% (367/482)[Kremote: Counting objects:  77% (372/482)[Kremote: Counting objects:  78% (376/482)[Kremote: Counting objects:  79% (381/482)[Kremote: Counting objects:  80% (386/482)[Kremote: Counting objects:  81% (391/482)[Kremote: Counting objects:  82% (396/482)[Kremote: Counting objects:  83% (401/482)[Kremote: Counting objects:  84% (405/482)[Kremote: Counting objects:  85% (410/482)[Kremote: Counting objects:  86% (415/482)[Kremote: Counting objects:  87% (420/482)[Kremote: Counting objects:  88% (425/482)[Kremote: Counting objects:  89% (429/482)[Kremote: Counting objects:  90% (434/482)[Kremote: Counting objects:  91% (439/482)[Kremote: Counting objects:  92% (444/482)[Kremote: Counting objects:  93% (449/482)[Kremote: Counting objects:  94% (454/482)[Kremote: Counting objects:  95% (458/482)[Kremote: Counting objects:  96% (463/482)[Kremote: Counting objects:  97% (468/482)[Kremote: Counting objects:  98% (473/482)[Kremote: Counting objects:  99% (478/482)[Kremote: Counting objects: 100% (482/482)[Kremote: Counting objects: 100% (482/482), done.[K
+remote: Compressing objects:   0% (1/160)[Kremote: Compressing objects:   1% (2/160)[Kremote: Compressing objects:   2% (4/160)[Kremote: Compressing objects:   3% (5/160)[Kremote: Compressing objects:   4% (7/160)[Kremote: Compressing objects:   5% (8/160)[Kremote: Compressing objects:   6% (10/160)[Kremote: Compressing objects:   7% (12/160)[Kremote: Compressing objects:   8% (13/160)[Kremote: Compressing objects:   9% (15/160)[Kremote: Compressing objects:  10% (16/160)[Kremote: Compressing objects:  11% (18/160)[Kremote: Compressing objects:  12% (20/160)[Kremote: Compressing objects:  13% (21/160)[Kremote: Compressing objects:  14% (23/160)[Kremote: Compressing objects:  15% (24/160)[Kremote: Compressing objects:  16% (26/160)[Kremote: Compressing objects:  17% (28/160)[Kremote: Compressing objects:  18% (29/160)[Kremote: Compressing objects:  19% (31/160)[Kremote: Compressing objects:  20% (32/160)[Kremote: Compressing objects:  21% (34/160)[Kremote: Compressing objects:  22% (36/160)[Kremote: Compressing objects:  23% (37/160)[Kremote: Compressing objects:  24% (39/160)[Kremote: Compressing objects:  25% (40/160)[Kremote: Compressing objects:  26% (42/160)[Kremote: Compressing objects:  27% (44/160)[Kremote: Compressing objects:  28% (45/160)[Kremote: Compressing objects:  29% (47/160)[Kremote: Compressing objects:  30% (48/160)[Kremote: Compressing objects:  31% (50/160)[Kremote: Compressing objects:  32% (52/160)[Kremote: Compressing objects:  33% (53/160)[Kremote: Compressing objects:  34% (55/160)[Kremote: Compressing objects:  35% (56/160)[Kremote: Compressing objects:  36% (58/160)[Kremote: Compressing objects:  37% (60/160)[Kremote: Compressing objects:  38% (61/160)[Kremote: Compressing objects:  39% (63/160)[Kremote: Compressing objects:  40% (64/160)[Kremote: Compressing objects:  41% (66/160)[Kremote: Compressing objects:  42% (68/160)[Kremote: Compressing objects:  43% (69/160)[Kremote: Compressing objects:  44% (71/160)[Kremote: Compressing objects:  45% (72/160)[Kremote: Compressing objects:  46% (74/160)[Kremote: Compressing objects:  47% (76/160)[Kremote: Compressing objects:  48% (77/160)[Kremote: Compressing objects:  49% (79/160)[Kremote: Compressing objects:  50% (80/160)[Kremote: Compressing objects:  51% (82/160)[Kremote: Compressing objects:  52% (84/160)[Kremote: Compressing objects:  53% (85/160)[Kremote: Compressing objects:  54% (87/160)[Kremote: Compressing objects:  55% (88/160)[Kremote: Compressing objects:  56% (90/160)[Kremote: Compressing objects:  57% (92/160)[Kremote: Compressing objects:  58% (93/160)[Kremote: Compressing objects:  59% (95/160)[Kremote: Compressing objects:  60% (96/160)[Kremote: Compressing objects:  61% (98/160)[Kremote: Compressing objects:  62% (100/160)[Kremote: Compressing objects:  63% (101/160)[Kremote: Compressing objects:  64% (103/160)[Kremote: Compressing objects:  65% (104/160)[Kremote: Compressing objects:  66% (106/160)[Kremote: Compressing objects:  67% (108/160)[Kremote: Compressing objects:  68% (109/160)[Kremote: Compressing objects:  69% (111/160)[Kremote: Compressing objects:  70% (112/160)[Kremote: Compressing objects:  71% (114/160)[Kremote: Compressing objects:  72% (116/160)[Kremote: Compressing objects:  73% (117/160)[Kremote: Compressing objects:  74% (119/160)[Kremote: Compressing objects:  75% (120/160)[Kremote: Compressing objects:  76% (122/160)[Kremote: Compressing objects:  77% (124/160)[Kremote: Compressing objects:  78% (125/160)[Kremote: Compressing objects:  79% (127/160)[Kremote: Compressing objects:  80% (128/160)[Kremote: Compressing objects:  81% (130/160)[Kremote: Compressing objects:  82% (132/160)[Kremote: Compressing objects:  83% (133/160)[Kremote: Compressing objects:  84% (135/160)[Kremote: Compressing objects:  85% (136/160)[Kremote: Compressing objects:  86% (138/160)[Kremote: Compressing objects:  87% (140/160)[Kremote: Compressing objects:  88% (141/160)[Kremote: Compressing objects:  89% (143/160)[Kremote: Compressing objects:  90% (144/160)[Kremote: Compressing objects:  91% (146/160)[Kremote: Compressing objects:  92% (148/160)[Kremote: Compressing objects:  93% (149/160)[Kremote: Compressing objects:  94% (151/160)[Kremote: Compressing objects:  95% (152/160)[Kremote: Compressing objects:  96% (154/160)[Kremote: Compressing objects:  97% (156/160)[Kremote: Compressing objects:  98% (157/160)[Kremote: Compressing objects:  99% (159/160)[Kremote: Compressing objects: 100% (160/160)[Kremote: Compressing objects: 100% (160/160), done.[K
+Receiving objects:   0% (1/3335)Receiving objects:   1% (34/3335)Receiving objects:   2% (67/3335)Receiving objects:   3% (101/3335)Receiving objects:   4% (134/3335)Receiving objects:   5% (167/3335)Receiving objects:   6% (201/3335)Receiving objects:   7% (234/3335)Receiving objects:   8% (267/3335)Receiving objects:   9% (301/3335)Receiving objects:  10% (334/3335)Receiving objects:  11% (367/3335)Receiving objects:  12% (401/3335)Receiving objects:  13% (434/3335)Receiving objects:  14% (467/3335)Receiving objects:  15% (501/3335)Receiving objects:  16% (534/3335)Receiving objects:  17% (567/3335)Receiving objects:  18% (601/3335)Receiving objects:  19% (634/3335)Receiving objects:  20% (667/3335)Receiving objects:  21% (701/3335)Receiving objects:  22% (734/3335)Receiving objects:  23% (768/3335)Receiving objects:  24% (801/3335)Receiving objects:  25% (834/3335)Receiving objects:  26% (868/3335)Receiving objects:  27% (901/3335)Receiving objects:  28% (934/3335)Receiving objects:  29% (968/3335)Receiving objects:  30% (1001/3335)Receiving objects:  31% (1034/3335)Receiving objects:  32% (1068/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  33% (1101/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  34% (1134/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  35% (1168/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  36% (1201/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  37% (1234/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  38% (1268/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  39% (1301/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  40% (1334/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  41% (1368/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  42% (1401/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  43% (1435/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  44% (1468/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  45% (1501/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  46% (1535/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  47% (1568/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  48% (1601/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  49% (1635/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  50% (1668/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  51% (1701/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  52% (1735/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  53% (1768/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  54% (1801/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  55% (1835/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  56% (1868/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  57% (1901/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  58% (1935/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  59% (1968/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  60% (2001/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  61% (2035/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  62% (2068/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  63% (2102/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  64% (2135/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  65% (2168/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  66% (2202/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  67% (2235/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  68% (2268/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  69% (2302/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  70% (2335/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  71% (2368/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  72% (2402/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  73% (2435/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  74% (2468/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  75% (2502/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  76% (2535/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  77% (2568/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  78% (2602/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  79% (2635/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  80% (2668/3335), 4.58 MiB | 9.15 MiB/sReceiving objects:  80% (2683/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  81% (2702/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  82% (2735/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  83% (2769/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  84% (2802/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  85% (2835/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  86% (2869/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  87% (2902/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  88% (2935/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  89% (2969/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  90% (3002/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  91% (3035/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  92% (3069/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  93% (3102/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  94% (3135/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  95% (3169/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  96% (3202/3335), 22.05 MiB | 22.04 MiB/sremote: Total 3335 (delta 331), reused 356 (delta 321), pack-reused 2853 (from 2)[K
+Receiving objects:  97% (3235/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  98% (3269/3335), 22.05 MiB | 22.04 MiB/sReceiving objects:  99% (3302/3335), 22.05 MiB | 22.04 MiB/sReceiving objects: 100% (3335/3335), 22.05 MiB | 22.04 MiB/sReceiving objects: 100% (3335/3335), 24.25 MiB | 23.18 MiB/s, done.
+Resolving deltas:   0% (0/1695)Resolving deltas:   1% (17/1695)Resolving deltas:   2% (34/1695)Resolving deltas:   3% (51/1695)Resolving deltas:   4% (68/1695)Resolving deltas:   5% (85/1695)Resolving deltas:   6% (102/1695)Resolving deltas:   7% (119/1695)Resolving deltas:   8% (136/1695)Resolving deltas:   9% (153/1695)Resolving deltas:  10% (170/1695)Resolving deltas:  11% (187/1695)Resolving deltas:  12% (204/1695)Resolving deltas:  13% (221/1695)Resolving deltas:  14% (238/1695)Resolving deltas:  15% (255/1695)Resolving deltas:  16% (272/1695)Resolving deltas:  17% (290/1695)Resolving deltas:  18% (306/1695)Resolving deltas:  19% (323/1695)Resolving deltas:  20% (340/1695)Resolving deltas:  21% (356/1695)Resolving deltas:  22% (374/1695)Resolving deltas:  23% (390/1695)Resolving deltas:  24% (407/1695)Resolving deltas:  25% (424/1695)Resolving deltas:  26% (441/1695)Resolving deltas:  27% (458/1695)Resolving deltas:  28% (475/1695)Resolving deltas:  29% (492/1695)Resolving deltas:  30% (509/1695)Resolving deltas:  31% (526/1695)Resolving deltas:  32% (543/1695)Resolving deltas:  33% (560/1695)Resolving deltas:  34% (577/1695)Resolving deltas:  35% (594/1695)Resolving deltas:  36% (611/1695)Resolving deltas:  37% (629/1695)Resolving deltas:  38% (645/1695)Resolving deltas:  39% (663/1695)Resolving deltas:  40% (678/1695)Resolving deltas:  41% (695/1695)Resolving deltas:  42% (712/1695)Resolving deltas:  43% (729/1695)Resolving deltas:  44% (746/1695)Resolving deltas:  45% (763/1695)Resolving deltas:  46% (780/1695)Resolving deltas:  47% (797/1695)Resolving deltas:  48% (814/1695)Resolving deltas:  49% (831/1695)Resolving deltas:  50% (849/1695)Resolving deltas:  51% (865/1695)Resolving deltas:  52% (882/1695)Resolving deltas:  53% (899/1695)Resolving deltas:  54% (916/1695)Resolving deltas:  55% (933/1695)Resolving deltas:  56% (950/1695)Resolving deltas:  57% (967/1695)Resolving deltas:  58% (984/1695)Resolving deltas:  59% (1001/1695)Resolving deltas:  60% (1017/1695)Resolving deltas:  61% (1035/1695)Resolving deltas:  62% (1051/1695)Resolving deltas:  63% (1068/1695)Resolving deltas:  64% (1085/1695)Resolving deltas:  65% (1102/1695)Resolving deltas:  66% (1119/1695)Resolving deltas:  67% (1136/1695)Resolving deltas:  68% (1153/1695)Resolving deltas:  69% (1170/1695)Resolving deltas:  70% (1187/1695)Resolving deltas:  71% (1204/1695)Resolving deltas:  72% (1221/1695)Resolving deltas:  73% (1238/1695)Resolving deltas:  74% (1256/1695)Resolving deltas:  75% (1272/1695)Resolving deltas:  76% (1289/1695)Resolving deltas:  77% (1306/1695)Resolving deltas:  78% (1323/1695)Resolving deltas:  79% (1340/1695)Resolving deltas:  80% (1356/1695)Resolving deltas:  81% (1373/1695)Resolving deltas:  82% (1390/1695)Resolving deltas:  83% (1407/1695)Resolving deltas:  84% (1424/1695)Resolving deltas:  85% (1441/1695)Resolving deltas:  86% (1458/1695)Resolving deltas:  87% (1475/1695)Resolving deltas:  88% (1492/1695)Resolving deltas:  89% (1509/1695)Resolving deltas:  90% (1526/1695)Resolving deltas:  91% (1543/1695)Resolving deltas:  92% (1560/1695)Resolving deltas:  93% (1577/1695)Resolving deltas:  94% (1594/1695)Resolving deltas:  95% (1611/1695)Resolving deltas:  96% (1628/1695)Resolving deltas:  97% (1645/1695)Resolving deltas:  98% (1662/1695)Resolving deltas:  99% (1679/1695)Resolving deltas: 100% (1695/1695)Resolving deltas: 100% (1695/1695), done.
+[?2004h]0;das@ubuntu2404-xdp2: ~[01;32mdas@ubuntu2404-xdp2[00m:[01;34m~[00m$ cd xdp2/src/
+[?2004l[?2004h]0;das@ubuntu2404-xdp2: ~/xdp2/src[01;32mdas@ubuntu2404-xdp2[00m:[01;34m~/xdp2/src[00m$ ./configure.sh 
+[?2004l
+
+Platform is default
+Architecture is x86_64
+Architecture includes for x86_64 not found, using generic
+Target Architecture is 
+COMPILER is gcc
+LLVM_VER:18.1.3
+HOST_LLVM_CONFIG:/usr/bin/llvm-config
+XDP2_CLANG_VERSION=18.1.3
+XDP2_C_INCLUDE_PATH=/usr/lib/llvm-18/lib/clang/18/include
+XDP2_CLANG_RESOURCE_PATH=/usr/lib/llvm-18/lib/clang/18
+
+[?2004h]0;das@ubuntu2404-xdp2: ~/xdp2/src[01;32mdas@ubuntu2404-xdp2[00m:[01;34m~/xdp2/src[00m$ make
+[?2004l
+tools
+    CC       get_uet_udp_port
+    CC       get_falcon_udp_port
+    CC       get_sue_udp_port
+    CC       get_sunh_ether_type
+    CC       get_superp_proto_numbers
+cppfront-compiler not found at ../../../thirdparty/cppfront/cppfront-compiler
+Building cppfront...
+include/xdp2gen/llvm/patterns.h2... ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)
+
+include/xdp2gen/ast-consumer/patterns.h2... ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)
+
+    CXX      src/main.o
+    CXX      src/template.o
+    EMBED    ../../templates/xdp2/c_def.cpp
+    CXX      ../../templates/xdp2/c_def.o
+    EMBED    ../../templates/xdp2/xdp_def.cpp
+    CXX      ../../templates/xdp2/xdp_def.o
+    EMBED    ../../templates/xdp2/common_parser.cpp
+    CXX      ../../templates/xdp2/common_parser.o
+
+include
+    MACROGEN _pmacro_gen.h
+    TBL_INC  _stable.h
+    TBL_INC  _dtable.h
+
+lib
+    CC       cli.o
+    AR       libcli.a
+    CC       siphash.o
+    CC       libsiphash.so
+    AR       libsiphash.a
+    CC       crc16.o
+    CC       crc32c.o
+    CC       crc64.o
+    CC       crcspeed.o
+    CC       libcrc.so
+    AR       libcrc.a
+    CC       flow_dissector.o
+    AR       libflowdis.a
+    CC       lzf_compress.o
+    CC       lzf_decompress.o
+    CC       liblzf_compress.so
+    AR       liblzf_compress.a
+    CC       liblzf_decompress.so
+    AR       liblzf_decompress.a
+    CC       murmur3_hash.o
+    CC       libmurmur3hash.so
+    AR       libmurmur3hash.a
+    CC       vstruct.o
+    CC       timer.o
+    CC       cli.o
+    CC       pcap.o
+    CC       packets_helpers.o
+    CC       dtable.o
+    CC       obj_allocator.o
+    CC       pvbuf.o
+    CC       pvpkt.o
+    CC       config_functions.o
+    CC       parser.o
+    CC       accelerator.o
+    CC       locks.o
+struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}static const struct xdp2_proto_tlvs_table_entry __tcp_tlv_table[] = {{.type = 2, .node = &tcp_opt_mss_node}, {.type = 3, .node = &tcp_opt_window_scaling_node}, {.type = 8, .node = &tcp_opt_timestamp_node}, {.type = 5, .node = &tcp_opt_sack_node}}static const struct xdp2_proto_tlvs_table_entry __tcp_sack_tlv_table[] = {{.type = 10, .node = &tcp_opt_sack_1}, {.type = 18, .node = &tcp_opt_sack_2}, {.type = 26, .node = &tcp_opt_sack_3}, {.type = 34, .node = &tcp_opt_sack_4}}static const struct xdp2_proto_flag_fields_table_entry __gre_v0_flag_fields_table[] = {{.index = 0, .node = &gre_flag_csum_node}, {.index = 1, .node = &gre_flag_key_node}, {.index = 2, .node = &gre_flag_seq_node}}static const struct xdp2_proto_flag_fields_table_entry __gre_v1_flag_fields_table[] = {{.index = 0, .node = &XDP2_FLAG_NODE_NULL}, {.index = 1, .node = &gre_pptp_flag_key_node}, {.index = 2, .node = &gre_pptp_flag_seq_node}, {.index = 3, .node = &gre_pptp_flag_ack_node}}    CC       parsers/parser_big.p.o
+struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct __attribute__((aligned(64))) __attribute__((packed)) xdp2_parse_node {
+    enum xdp2_parser_node_type node_type __attribute__((packed));
+    __s8 unknown_ret;
+    __u8 key_sel;
+    __u8 flags;
+    __u8 rsvd;
+    const struct xdp2_proto_def *proto_def;
+    const struct xdp2_parse_node_ops ops;
+    const struct xdp2_proto_table *proto_table;
+    const struct xdp2_parse_node *wildcard_node;
+    char *text_name;
+}struct xdp2_parse_node_ops {
+    void (*extract_metadata)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+    int (*post_handler)(const void *, size_t, size_t, void *, void *, const struct xdp2_ctrl_data *);
+}    CC       parsers/parser_simple_hash.p.o
+    AR       libxdp2.a
+    CC       parser.o
+    AR       libparselite.a
+
+test
+    CC       test_vstructs.o
+    LINK     test_vstructs
+    CC       test_switch.o
+    LINK     test_switch
+    CC       test_table.o
+    CC       sftable_plain.o
+    CC       sftable_tern.o
+    CC       sftable_lpm.o
+    CC       dftable_plain.o
+    CC       dftable_tern.o
+    CC       dftable_lpm.o
+    CC       stable_plain.o
+    CC       stable_tern.o
+    CC       stable_lpm.o
+    CC       dtable_plain.o
+    CC       dtable_tern.o
+    CC       dtable_lpm.o
+    LINK     test_tables
+    CC       test_timer.o
+    LINK     test_timer
+    CC       test_pvbuf.o
+    LINK     test_pvbuf
+    CC       core-flowdis.o
+    CC       core-xdp2.o
+    CC       core-xdp2fast.o
+    CC       core-parselite.o
+    CC       core-null.o
+    CC       in-tcpdump.o
+    CC       in-raw.o
+    CC       in-pcap.o
+    CC       in-fuzz.o
+    CC       out-text.o
+    CC       out-err.o
+    CC       out-null.o
+    CC       cores.o
+    CC       imethods.o
+    CC       main.o
+    CC       omethods.o
+    CC       common-xdp2.o
+    CC       main.o
+    CC       print_meta.o
+    CC       tables.o
+    CC       parser.o
+    LINK     parse_dump
+    CC       test_accel.o
+    LINK     test_accel
+    CC       main.o
+    CC       control.o
+    CC       dataplane.o
+    LINK     test_router
+    LINK     make_bitmap_funcs
+    CC       test_bitmap.o
+    LINK     test_bitmap
+    CC       main.o
+    CC       cli.o
+    CC       test_packets_rx.o
+    CC       test_packets_tx.o
+    CC       test_packets.o
+    LINK     test_uet
+    CC       main.o
+    CC       cli.o
+    CC       test_packets_rx.o
+    CC       test_packets_tx.o
+    CC       test_packets.o
+    LINK     test_falcon
+[?2004h]0;das@ubuntu2404-xdp2: ~/xdp2/src[01;32mdas@ubuntu2404-xdp2[00m:[01;34m~/xdp2/src[00m$ make install
+[?2004l
+tools
+include/xdp2gen/llvm/patterns.h2... ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)
+
+include/xdp2gen/ast-consumer/patterns.h2... ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)
+
+
+include
+
+lib
+
+test
+
+tools
+    INSTALL  
+    INSTALL  get_uet_udp_port uet_pds.pcap uet_ses.pcap
+    INSTALL  get_falcon_udp_port falcon.pcap
+    INSTALL  get_sue_udp_port sue.pcap
+    INSTALL  get_sunh_ether_type sunh.pcap
+    INSTALL  get_superp_proto_numbers superp.pcap
+    INSTALL  gen-patterns-cpp xdp2-compiler
+
+include
+    INSTALL  cli.h
+    INSTALL  siphash.h
+    INSTALL  proto_arp_rarp.h proto_batman.h proto_ether.h proto_fcoe.h proto_gre.h proto_icmp.h proto_igmp.h proto_ip.h proto_ipv4.h proto_ipv4ip.h proto_ipv6.h proto_ipv6_eh.h proto_ipv6ip.h proto_ipv6_nd.h proto_l2tp.h proto_l2tp_v0.h proto_mpls.h proto_ports.h proto_ppp.h proto_pppoe.h proto_protobuf.h proto_tcp.h proto_tipc.h proto_udp.h proto_vlan.h proto_vxlan.h proto_geneve.h proto_srv6.h
+    INSTALL  parser_big.h parser_simple_hash.h
+    INSTALL  compiler_helpers.h utility.h bswap.h bitmap_word.h bitmap.h bitmap_helpers.h pmacro.h _pmacro_gen.h vstruct.h switch.h locks.h timer.h cli.h pcap.h packets_helpers.h table_common.h stable.h _stable.h dtable.h _dtable.h checksum.h obj_allocator.h pvbuf.h pvpkt.h config.h parser_types.h parser.h parser_metadata.h flag_fields.h tlvs.h arrays.h proto_defs_define.h proto_defs.h accelerator.h pkt_action.h bpf.h xdp_tmpl.h
+    INSTALL  
+install: missing destination file operand after '/home/das/xdp2/src/../install/x86_64/include/sunh'
+Try 'install --help' for more information.
+make[2]: *** [Makefile:17: install] Error 1
+make[1]: *** [Makefile:12: sunh] Error 2
+
+lib
+    INSTALL  libcli.so libcli.a
+    INSTALL  libsiphash.so libsiphash.a
+    INSTALL  libcrc.so libcrc.a
+    INSTALL  libflowdis.so libflowdis.a
+    INSTALL  liblzf_compress.so liblzf_compress.a liblzf_decompress.so liblzf_decompress.a
+    INSTALL  libmurmur3hash.so libmurmur3hash.a
+    INSTALL  libxdp2.so libxdp2.a
+    INSTALL  libparselite.so libparselite.a
+
+test
+    INSTALL  test_vstructs
+    INSTALL  test_switch
+    INSTALL  
+    INSTALL  test_timer
+    INSTALL  test_pvbuf
+    INSTALL  test_parser
+    INSTALL  
+    INSTALL  test_accel
+    INSTALL  
+    INSTALL  test_bitmap
+    INSTALL  
+    INSTALL  
+
+xdp2 installed into directory: /home/das/xdp2/src/../install/x86_64
+[?2004h]0;das@ubuntu2404-xdp2: ~/xdp2/src[01;32mdas@ubuntu2404-xdp2[00m:[01;34m~/xdp2/src[00m$ exit
+[?2004lexit
+
+Script done on 2026-02-09 04:10:36+00:00 [COMMAND_EXIT_CODE="0"]
