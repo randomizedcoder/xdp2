@@ -13,7 +13,7 @@ TEMPLATES_SRC = $(patsubst %,%.template.c,$(TEMPLATES_LIST))
 	$(QUIET_EMBED)$(CAT) $< >> $@
 	@echo ")\";" >> $@
 
-OBJS := src/main.o src/template.o
+OBJS := src/main.o src/template.o src/clang-tool-config.o
 OBJS += $(patsubst %,$(TEMPLATES_PATH)/%.o,$(TEMPLATES_LIST))
 
 CLANG_INFO ?= -DXDP2_CLANG_VERSION="$(XDP2_CLANG_VERSION)" -DXDP2_CLANG_RESOURCE_PATH="$(XDP2_CLANG_RESOURCE_PATH)"
