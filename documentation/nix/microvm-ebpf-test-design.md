@@ -26,24 +26,29 @@
    - [Caching](#caching)
 6. [Architecture Overview](#architecture-overview)
 7. [Supported Architectures](#supported-architectures)
-8. [Implementation](#implementation)
+8. [Advanced Nix Patterns](#advanced-nix-patterns)
+   - [Functional Matrix Generation](#functional-matrix-generation)
+   - [Store Injection via virtio-9p](#store-injection-via-virtio-9p)
+   - [Systemd Test Driver](#systemd-test-driver)
+   - [Cross-Compilation Overlays](#cross-compilation-overlays)
+   - [NixOS Module Pattern](#nixos-module-pattern)
+9. [Implementation](#implementation)
    - [Directory Structure](#directory-structure)
    - [Constants Module](#constants-module-nixmicrovmsconstantsnix)
-   - [Architecture Generator](#architecture-generator-nixmicrovmsarchnix)
-   - [Base VM Module](#base-vm-module-nixmicrovmsbasenix)
+   - [Matrix Generator](#matrix-generator-nixmicrovmsmatrixnix)
+   - [VM Builder Function](#vm-builder-function-nixlibmk-vmnix)
+   - [eBPF Base Module](#ebpf-base-module-nixmodulesebpf-basenix)
    - [Packages Module](#packages-module-nixmicrovmspackagesnix)
-   - [QEMU Console Configuration](#qemu-console-configuration)
-   - [VM Generator Entry Point](#vm-generator-entry-point)
    - [Flake Integration](#flake-integration)
-9. [Console Architecture](#console-architecture)
-10. [BTF Requirements](#btf-bpf-type-format-requirements)
-11. [VM Management Scripts](#vm-management-scripts)
-12. [Automated Testing](#automated-testing)
-13. [Usage Examples](#usage-examples)
-14. [Troubleshooting](#troubleshooting)
-15. [Future Enhancements](#future-enhancements)
-16. [Revision History](#revision-history)
-17. [References](#references)
+10. [Console Architecture](#console-architecture)
+11. [BTF Requirements](#btf-bpf-type-format-requirements)
+12. [VM Management Scripts](#vm-management-scripts)
+13. [Automated Testing](#automated-testing)
+14. [Usage Examples](#usage-examples)
+15. [Troubleshooting](#troubleshooting)
+16. [Future Enhancements](#future-enhancements)
+17. [Revision History](#revision-history)
+18. [References](#references)
 
 ---
 
@@ -544,29 +549,289 @@ XDP2 MicroVM test infrastructure supports seven architectures covering the major
 
 ---
 
+## Advanced Nix Patterns
+
+This section describes idiomatic Nix patterns that make the infrastructure more elegant, DRY, and maintainable. The goal is to let Nix's evaluation engine handle dependency resolution and architecture mapping before the first VM starts.
+
+### Functional Matrix Generation
+
+Instead of imperative loops in shell scripts, use `lib.cartesianProductOfSets` to generate every combination of (Architecture × Kernel × TestMode) as distinct Nix derivations.
+
+**Why this is elegant:** You can run `nix build .#tests.x86_64.lts-6_6` directly. Nix handles the matrix logic, not bash.
+
+```nix
+# nix/microvms/matrix.nix
+{ lib, mkTestVM }:
+
+let
+  # Define the matrix dimensions
+  matrix = lib.cartesianProductOfSets {
+    arch = [ "x86_64" "aarch64" "riscv64" "s390x" ];
+    kernel = [ "latest" "stable" "lts-6_6" ];
+  };
+
+in
+  # Generate an attribute set of all permutations
+  # Result: { "x86_64-latest" = <vm>; "x86_64-stable" = <vm>; ... }
+  lib.listToAttrs (map (comb: {
+    name = "${comb.arch}-${comb.kernel}";
+    value = mkTestVM {
+      inherit (comb) arch kernel;
+    };
+  }) matrix)
+```
+
+**Usage:**
+
+```bash
+# Build a specific combination
+nix build .#tests.x86_64-lts-6_6
+
+# Build all combinations (Nix evaluates the matrix)
+nix build .#tests
+
+# List all available test targets
+nix flake show | grep tests
+```
+
+### Store Injection via virtio-9p
+
+Instead of copying binaries into the VM image, use `microvm.shares` to mount the host's `/nix/store` directly into the guest via virtio-9p.
+
+**Why this is elegant:** VM boot is nearly instantaneous because XDP2 binaries aren't inside the disk image—they're mounted from the host's memory-cached Nix store.
+
+```nix
+# In the VM module
+microvm.shares = [{
+  source = "/nix/store";
+  mountPoint = "/nix/store";
+  tag = "nix-store";
+  proto = "9p";
+  # Use msize=104857600 for better 9p performance
+}];
+
+# The guest can now access all host store paths
+# No need to copy binaries into the VM image
+```
+
+**Benefits:**
+- **Instant boot:** No time spent copying binaries
+- **Smaller images:** VM images contain only kernel and initrd
+- **Live updates:** Change code on host, immediately available in VM
+
+### Systemd Test Driver
+
+Instead of shell scripts polling console ports, use a Systemd oneshot service inside the guest that reports success/failure via exit code.
+
+**Why this is elegant:** The test becomes a unit that either succeeds or fails. The host waits for the VM process to exit with code 0—no polling, no timeouts, no race conditions.
+
+```nix
+# nix/modules/ebpf-test.nix
+{ config, pkgs, lib, ... }:
+
+{
+  options.xdp2.test = {
+    enable = lib.mkEnableOption "XDP2 self-test on boot";
+
+    exitOnComplete = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Shut down VM after test completion";
+    };
+  };
+
+  config = lib.mkIf config.xdp2.test.enable {
+    systemd.services.xdp2-self-test = {
+      description = "XDP2 eBPF Self-Test";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        # Exit code propagates to VM exit code
+        SuccessExitStatus = "0";
+      };
+
+      script = ''
+        set -euo pipefail
+
+        echo "═══════════════════════════════════════════════════════"
+        echo "  XDP2 Self-Test: $(uname -m)"
+        echo "═══════════════════════════════════════════════════════"
+
+        # Check BTF
+        if [ -f /sys/kernel/btf/vmlinux ]; then
+          echo "✓ BTF enabled"
+        else
+          echo "✗ BTF not available"
+          exit 1
+        fi
+
+        # Check bpftool
+        ${pkgs.bpftool}/bin/bpftool feature probe | head -5
+        echo "✓ bpftool works"
+
+        # Run XDP2 test suite
+        ${pkgs.xdp2}/bin/xdp2-test --all
+        echo "✓ XDP2 tests passed"
+
+        echo "═══════════════════════════════════════════════════════"
+        echo "  All tests passed!"
+        echo "═══════════════════════════════════════════════════════"
+
+        ${lib.optionalString config.xdp2.test.exitOnComplete ''
+          # Shut down VM - exit code 0 indicates success
+          ${pkgs.systemd}/bin/poweroff
+        ''}
+      '';
+    };
+  };
+}
+```
+
+**Host-side usage:**
+
+```bash
+# Run VM - it boots, runs tests, and exits
+# Exit code 0 = success, non-zero = failure
+./result/bin/microvm-run
+echo "Exit code: $?"
+```
+
+### Cross-Compilation Overlays
+
+Use Nix overlays to ensure consistent compiler flags across all architectures.
+
+```nix
+# nix/overlays/xdp2-cross.nix
+final: prev: {
+  xdp2 = prev.xdp2.overrideAttrs (old: {
+    # Ensure consistent optimization across architectures
+    NIX_CFLAGS_COMPILE = (old.NIX_CFLAGS_COMPILE or "") + " -O2";
+
+    # Architecture-specific flags handled by Nix cross-compilation
+    # No manual -march needed - crossSystem handles this
+  });
+
+  # Ensure bpftool matches kernel
+  bpftool = final.linuxPackages.bpftool;
+}
+```
+
+### NixOS Module Pattern
+
+Structure reusable configuration as NixOS modules. This enables clean option-based configuration.
+
+```nix
+# nix/modules/ebpf-base.nix
+{ config, pkgs, lib, ... }:
+
+{
+  options.xdp2 = {
+    debug = {
+      exportVerifierLogs = lib.mkEnableOption "Export BPF verifier logs to shared directory";
+
+      logDirectory = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/log/xdp2";
+        description = "Directory for verifier logs";
+      };
+    };
+  };
+
+  config = {
+    # Always enable BTF
+    boot.kernelPatches = [{
+      name = "btf-support";
+      patch = null;
+      extraConfig = ''
+        DEBUG_INFO_BTF y
+      '';
+    }];
+
+    # Always enable BPF JIT
+    boot.kernel.sysctl = {
+      "net.core.bpf_jit_enable" = 1;
+      "kernel.unprivileged_bpf_disabled" = 0;
+    };
+
+    # Conditional verifier log export
+    environment.systemPackages = lib.mkIf config.xdp2.debug.exportVerifierLogs [
+      (pkgs.writeShellScriptBin "xdp2-load-with-log" ''
+        OBJ="$1"
+        LOG_DIR="${config.xdp2.debug.logDirectory}"
+        mkdir -p "$LOG_DIR"
+        LOG_FILE="$LOG_DIR/verifier-$(date +%s).log"
+
+        if ! ${pkgs.bpftool}/bin/bpftool prog load "$OBJ" /sys/fs/bpf/test 2>"$LOG_FILE"; then
+          echo "Load failed. Verifier log: $LOG_FILE"
+          cat "$LOG_FILE"
+          exit 1
+        fi
+        rm -f "$LOG_FILE"  # Clean up on success
+      '')
+    ];
+  };
+}
+```
+
+**Usage in VM definition:**
+
+```nix
+# Enable debug features
+xdp2.debug.exportVerifierLogs = true;
+xdp2.test.enable = true;
+```
+
+---
+
 ## Implementation
 
 ### Directory Structure
 
+The directory structure follows Nix best practices with clear separation between library functions, modules, and entry points:
+
 ```
 nix/
+├── lib/
+│   └── mk-vm.nix                # Function: (arch, kernel) -> VM derivation
+├── modules/
+│   ├── ebpf-base.nix            # Common BTF, sysctls, eBPF requirements
+│   ├── ebpf-test.nix            # Systemd test driver
+│   ├── logging.nix              # Verifier log export
+│   └── network-test.nix         # Future: TAP/bridge for packet injection
 ├── microvms/
-│   ├── default.nix              # Entry point, exports VMs and scripts
-│   ├── constants.nix            # Ports, timeouts, resources (single source of truth)
-│   ├── arch.nix                 # Architecture generator (DRY pattern)
-│   ├── base.nix                 # Base VM configuration module
-│   ├── packages.nix             # Tool packages (profiling, debugging, network)
-│   └── qemu-consoles.nix        # Dual console QEMU args
+│   ├── default.nix              # Entry point: applies lib/mk-vm to matrix
+│   ├── constants.nix            # Data: ports, timeouts, architectures
+│   ├── matrix.nix               # Generates arch × kernel combinations
+│   └── packages.nix             # Tool packages for VMs
+├── overlays/
+│   └── xdp2-cross.nix           # Cross-compilation overlays
 ├── scripts/
-│   ├── default.nix              # Script exports
-│   └── vm-management.nix        # VM management scripts (start/stop/console/tmux)
-├── tests/
-│   ├── default.nix              # Test exports
-│   ├── run-fast.nix             # Fast mode runner (x86_64 + riscv64)
-│   ├── run-all.nix              # Full mode runner (all architectures)
-│   └── test-lib.nix             # Shared test utilities
-└── lib/
-    └── microvm-lib.nix          # Helper functions
+│   └── vm-management.nix        # Helper scripts
+└── tests/
+    ├── default.nix              # Test exports
+    ├── run-fast.nix             # Fast mode runner
+    ├── run-all.nix              # Full mode runner
+    └── run-matrix.nix           # Kernel matrix runner
+```
+
+**Layer diagram:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Top Layer: constants.nix (Data)                                            │
+│  - Architectures, ports, timeouts, kernel versions                          │
+│  - Pure data, no functions                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Middle Layer: lib/mk-vm.nix + matrix.nix (Logic/Transform)                 │
+│  - mkTestVM: (arch, kernel) -> VM derivation                                │
+│  - cartesianProductOfSets generates all combinations                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Bottom Layer: Artifacts (Multiple .qcow2 or 9p mounts)                     │
+│  - tests.x86_64-latest, tests.s390x-lts-6_6, etc.                           │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Constants Module (`nix/microvms/constants.nix`)
@@ -810,213 +1075,225 @@ Single source of truth for all configuration. This makes maintenance easy and pr
 }
 ```
 
-### Architecture Generator (`nix/microvms/arch.nix`)
+### Matrix Generator (`nix/microvms/matrix.nix`)
 
-DRY pattern for generating architecture-specific VMs from constants.
+Uses `lib.cartesianProductOfSets` to generate all (Architecture × Kernel) combinations as distinct derivations.
 
 ```nix
-# nix/microvms/arch.nix
+# nix/microvms/matrix.nix
 #
-# Architecture generator - creates VMs from architecture definitions.
-# This eliminates the need for separate per-architecture files.
+# Generates the full test matrix using functional Nix patterns.
+# No imperative loops - Nix evaluation handles the combinatorics.
 #
-{ pkgs, lib, microvm, nixpkgs, system, xdp2 }:
+{ lib, callPackage }:
 
 let
   constants = import ./constants.nix;
-  qemuConsoles = import ./qemu-consoles.nix;
-  vmPackages = import ./packages.nix { inherit pkgs; };
+  mkVM = callPackage ../lib/mk-vm.nix {};
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # VM Generator Function
-  # ═══════════════════════════════════════════════════════════════════════════
-
-  mkTestVM = arch:
+  # Generate matrix for a given test mode
+  mkMatrix = { archs, kernels }:
     let
-      cfg = constants.getArchConfig arch;
-      archDef = constants.architectures.${arch};
-
-    in (nixpkgs.lib.nixosSystem {
-      system = cfg.nixSystem;
-
-      modules = [
-        microvm.nixosModules.microvm
-
-        ({ config, pkgs, ... }: {
-          system.stateVersion = "24.05";
-          networking.hostName = cfg.hostName;
-
-          # ─── MicroVM Configuration ──────────────────────────────────────
-          microvm = {
-            hypervisor = "qemu";
-            mem = cfg.mem;
-            vcpu = cfg.vcpu;
-            interfaces = [];
-
-            qemu.serialConsole = false;
-
-            qemu.extraArgs = [
-              "-name" "${cfg.hostName},process=${cfg.hostName}"
-              "-machine" archDef.machine
-              "-cpu" archDef.cpu
-            ]
-            ++ (lib.optionals archDef.useKvm [ "-enable-kvm" ])
-            ++ (qemuConsoles {
-              serialPort = cfg.serialPort;
-              virtioPort = cfg.virtioPort;
-            });
-          };
-
-          # ─── Kernel Configuration ───────────────────────────────────────
-          boot.kernelParams = archDef.consoleOverride or [
-            "console=ttyS0,115200"
-            "console=hvc0"
-          ];
-
-          boot.kernelPackages = pkgs.linuxPackages_latest;
-
-          # Enable BTF for CO-RE eBPF programs
-          boot.kernelPatches = [{
-            name = "btf-support";
-            patch = null;
-            extraConfig = ''
-              DEBUG_INFO_BTF y
-            '';
-          }];
-
-          # ─── Getty Configuration ────────────────────────────────────────
-          systemd.services."serial-getty@ttyS0" = {
-            enable = true;
-            wantedBy = [ "getty.target" ];
-          };
-          systemd.services."serial-getty@hvc0" = {
-            enable = true;
-            wantedBy = [ "getty.target" ];
-          };
-          services.getty.autologinUser = "root";
-          users.users.root.password = "";
-
-          # ─── eBPF Requirements ──────────────────────────────────────────
-          boot.kernel.sysctl = {
-            "net.core.bpf_jit_enable" = 1;
-            "kernel.unprivileged_bpf_disabled" = 0;
-          };
-
-          # ─── Packages ───────────────────────────────────────────────────
-          environment.systemPackages = [ xdp2 ] ++ vmPackages.all;
-
-          # ─── Welcome Message ────────────────────────────────────────────
-          users.motd = ''
-            ┌─────────────────────────────────────────────────────────────┐
-            │              XDP2 eBPF Test VM (${arch})
-            ├─────────────────────────────────────────────────────────────┤
-            │  ${archDef.description}
-            │
-            │  Consoles:
-            │    ttyS0 (serial) - port ${toString cfg.serialPort}
-            │    hvc0  (virtio) - port ${toString cfg.virtioPort}
-            │
-            │  Quick tests:
-            │    bpftool prog list
-            │    bpftool feature probe
-            └─────────────────────────────────────────────────────────────┘
-          '';
-        })
-      ];
-    }).config.microvm.declaredRunner;
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # Console Script Generator
-  # ═══════════════════════════════════════════════════════════════════════════
-
-  mkConsoleScripts = arch:
-    let
-      cfg = constants.getArchConfig arch;
-    in {
-      connect-serial = pkgs.writeShellApplication {
-        name = "connect-serial";
-        runtimeInputs = [ pkgs.netcat ];
-        text = ''
-          echo "Connecting to ${cfg.hostName} serial (ttyS0) on port ${toString cfg.serialPort}"
-          exec nc localhost ${toString cfg.serialPort}
-        '';
+      matrix = lib.cartesianProductOfSets {
+        arch = archs;
+        kernel = kernels;
       };
-
-      connect-console = pkgs.writeShellApplication {
-        name = "connect-console";
-        runtimeInputs = [ pkgs.netcat ];
-        text = ''
-          echo "Connecting to ${cfg.hostName} virtio (hvc0) on port ${toString cfg.virtioPort}"
-          exec nc localhost ${toString cfg.virtioPort}
-        '';
-      };
-
-      console-status = pkgs.writeShellApplication {
-        name = "console-status";
-        runtimeInputs = [ pkgs.netcat ];
-        text = ''
-          echo "Console Status for ${cfg.hostName}"
-          echo "═══════════════════════════════════"
-          printf "ttyS0 (serial) port ${toString cfg.serialPort}: "
-          if nc -z localhost ${toString cfg.serialPort} 2>/dev/null; then
-            echo "listening"
-          else
-            echo "not available"
-          fi
-          printf "hvc0 (virtio) port ${toString cfg.virtioPort}: "
-          if nc -z localhost ${toString cfg.virtioPort} 2>/dev/null; then
-            echo "listening"
-          else
-            echo "not available"
-          fi
-        '';
-      };
-    };
+    in
+      lib.listToAttrs (map (comb: {
+        name = "${comb.arch}-${comb.kernel}";
+        value = mkVM {
+          inherit (comb) arch kernel;
+        };
+      }) matrix);
 
 in {
-  # Generate VMs for all architectures
-  vms = lib.mapAttrs (arch: _: mkTestVM arch) constants.architectures;
+  # ─── Pre-defined Test Matrices ──────────────────────────────────────────
 
-  # Generate console scripts for all architectures
-  scripts = lib.mapAttrs (arch: _: mkConsoleScripts arch) constants.architectures;
+  # Fast: 2 archs × 1 kernel = 2 VMs
+  fast = mkMatrix {
+    archs = constants.testModes.fast;
+    kernels = constants.testModeKernels.fast;
+  };
 
-  # Export constants for other modules
-  inherit constants;
+  # Full: 7 archs × 1 kernel = 7 VMs
+  full = mkMatrix {
+    archs = constants.testModes.full;
+    kernels = constants.testModeKernels.full;
+  };
 
-  # Export architecture list
-  architectureNames = builtins.attrNames constants.architectures;
+  # Matrix: 2 archs × 3 kernels = 6 VMs
+  matrix = mkMatrix {
+    archs = constants.testModes.matrix;
+    kernels = constants.testModeKernels.matrix;
+  };
+
+  # Endian: 1 arch × 1 kernel = 1 VM (Big Endian validation)
+  endian = mkMatrix {
+    archs = constants.testModes.endian;
+    kernels = [ "latest" ];
+  };
+
+  # ─── Custom Matrix Generation ───────────────────────────────────────────
+  inherit mkMatrix;
 }
 ```
 
-### Base VM Module (`nix/microvms/base.nix`)
+**Usage examples:**
 
-With the architecture generator, `base.nix` becomes simpler - just shared utilities:
+```bash
+# Build a specific combination directly
+nix build .#tests.fast.x86_64-latest
+nix build .#tests.matrix.riscv64-lts-6_6
+
+# Build entire test mode
+nix build .#tests.fast    # All 2 VMs
+nix build .#tests.matrix  # All 6 VMs
+
+# List available combinations
+nix eval .#tests.matrix --apply 'builtins.attrNames'
+# => ["riscv64-latest" "riscv64-lts-6_6" "riscv64-stable" "x86_64-latest" ...]
+```
+
+### VM Builder Function (`nix/lib/mk-vm.nix`)
+
+The core VM builder, used via `callPackage` for clean dependency injection.
 
 ```nix
-# nix/microvms/base.nix
+# nix/lib/mk-vm.nix
 #
-# Shared utilities for MicroVM configuration.
-# Most VM generation is now handled by arch.nix.
+# VM builder function: (arch, kernel) -> MicroVM derivation
 #
-{ lib }:
+# Uses callPackage pattern for dependency injection.
+#
+{ lib, pkgs, microvm, nixpkgs }:
+
+{ arch, kernel ? "latest" }:
+
+let
+  constants = import ../microvms/constants.nix;
+  cfg = constants.getArchConfig arch;
+  archDef = constants.architectures.${arch};
+  kernelPkg = pkgs.${constants.kernelVersions.${kernel}};
+
+in (nixpkgs.lib.nixosSystem {
+  system = cfg.nixSystem;
+
+  modules = [
+    microvm.nixosModules.microvm
+
+    # Import our reusable modules
+    ../modules/ebpf-base.nix
+    ../modules/ebpf-test.nix
+
+    ({ config, pkgs, ... }: {
+      system.stateVersion = "24.05";
+      networking.hostName = cfg.hostName;
+
+      # ─── Enable Our Modules ──────────────────────────────────────────
+      xdp2.test.enable = true;
+      xdp2.debug.exportVerifierLogs = true;
+
+      # ─── MicroVM Configuration ───────────────────────────────────────
+      microvm = {
+        hypervisor = "qemu";
+        mem = cfg.mem;
+        vcpu = cfg.vcpu;
+        interfaces = [];
+
+        # Store injection: mount host /nix/store directly
+        shares = [{
+          source = "/nix/store";
+          mountPoint = "/nix/store";
+          tag = "nix-store";
+          proto = "9p";
+        }];
+
+        qemu.serialConsole = false;
+        qemu.extraArgs = [
+          "-name" "${cfg.hostName},process=${cfg.hostName}"
+          "-machine" archDef.machine
+          "-cpu" archDef.cpu
+        ] ++ (lib.optionals archDef.useKvm [ "-enable-kvm" ]);
+      };
+
+      # ─── Kernel Configuration ────────────────────────────────────────
+      # Use the specified kernel version
+      boot.kernelPackages = kernelPkg;
+
+      boot.kernelParams = archDef.consoleOverride or [
+        "console=ttyS0,115200"
+        "console=hvc0"
+      ];
+
+      # ─── Auto-login for Testing ──────────────────────────────────────
+      services.getty.autologinUser = "root";
+      users.users.root.password = "";
+    })
+  ];
+}).config.microvm.declaredRunner
+```
+
+### eBPF Base Module (`nix/modules/ebpf-base.nix`)
+
+Reusable NixOS module for eBPF requirements.
+
+```nix
+# nix/modules/ebpf-base.nix
+#
+# Base eBPF configuration module.
+# Provides common options for BTF, sysctls, and debugging.
+#
+{ config, pkgs, lib, ... }:
 
 {
-  # BTF check script (injected into VMs)
-  btfCheckScript = ''
-    if [ -f /sys/kernel/btf/vmlinux ]; then
-      echo "BTF enabled"
-    else
-      echo "WARNING: BTF not enabled - CO-RE eBPF programs will fail"
-      echo "Verify with: ls /sys/kernel/btf/vmlinux"
-    fi
-  '';
+  options.xdp2 = {
+    debug = {
+      exportVerifierLogs = lib.mkEnableOption "Export BPF verifier logs";
 
-  # eBPF verification commands
-  ebpfVerifyCommands = [
-    "bpftool feature probe"
-    "bpftool prog list"
-    "ls /sys/kernel/btf/vmlinux"
-  ];
+      logDirectory = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/log/xdp2";
+        description = "Directory for verifier logs";
+      };
+    };
+  };
+
+  config = {
+    # ─── BTF Support ───────────────────────────────────────────────────
+    boot.kernelPatches = [{
+      name = "btf-support";
+      patch = null;
+      extraConfig = ''
+        DEBUG_INFO_BTF y
+      '';
+    }];
+
+    # ─── eBPF sysctls ──────────────────────────────────────────────────
+    boot.kernel.sysctl = {
+      "net.core.bpf_jit_enable" = 1;
+      "kernel.unprivileged_bpf_disabled" = 0;
+    };
+
+    # ─── bpftool matching kernel ───────────────────────────────────────
+    environment.systemPackages = [
+      config.boot.kernelPackages.bpftool
+    ] ++ lib.optionals config.xdp2.debug.exportVerifierLogs [
+      (pkgs.writeShellScriptBin "xdp2-load-with-log" ''
+        set -euo pipefail
+        OBJ="$1"
+        LOG_DIR="${config.xdp2.debug.logDirectory}"
+        mkdir -p "$LOG_DIR"
+        LOG_FILE="$LOG_DIR/verifier-$(date +%s).log"
+
+        if ! ${config.boot.kernelPackages.bpftool}/bin/bpftool prog load "$OBJ" /sys/fs/bpf/test 2>"$LOG_FILE"; then
+          echo "BPF load failed. Verifier log saved to: $LOG_FILE"
+          cat "$LOG_FILE"
+          exit 1
+        fi
+        rm -f "$LOG_FILE"
+      '')
+    ];
+  };
 }
 ```
 
@@ -1093,119 +1370,12 @@ With the architecture generator, `base.nix` becomes simpler - just shared utilit
 }
 ```
 
-### QEMU Console Configuration
-
-```nix
-# nix/microvms/qemu-consoles.nix
-#
-# QEMU command-line arguments for TCP-accessible consoles.
-#
-{ serialPort, virtioPort }:
-
-[
-  # ttyS0: Serial console on TCP socket
-  "-chardev"
-  "socket,id=serial0,host=localhost,port=${toString serialPort},server=on,wait=off"
-  "-serial"
-  "chardev:serial0"
-
-  # hvc0: virtio-console on TCP socket
-  "-device"
-  "virtio-serial-device"
-  "-chardev"
-  "socket,id=virtcon0,host=localhost,port=${toString virtioPort},server=on,wait=off"
-  "-device"
-  "virtconsole,chardev=virtcon0"
-]
-```
-
-### VM Generator Entry Point
-
-```nix
-# nix/microvms/default.nix
-#
-# XDP2 MicroVM test infrastructure entry point.
-#
-{ pkgs, lib, microvm, nixpkgs, system, xdp2 }:
-
-let
-  arch = import ./arch.nix {
-    inherit pkgs lib microvm nixpkgs system xdp2;
-  };
-
-  constants = arch.constants;
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # Test Mode Runners
-  # ═══════════════════════════════════════════════════════════════════════════
-
-  mkTestRunner = { name, architectures, description }:
-    pkgs.writeShellApplication {
-      inherit name;
-      runtimeInputs = with pkgs; [ coreutils gnugrep netcat nix ];
-      text = ''
-        echo "════════════════════════════════════════════════════════════════"
-        echo "  XDP2 Test: ${description}"
-        echo "  Architectures: ${lib.concatStringsSep ", " architectures}"
-        echo "════════════════════════════════════════════════════════════════"
-
-        FAILED=""
-        PASSED=""
-
-        for arch in ${lib.concatStringsSep " " architectures}; do
-          echo ""
-          echo "Testing: $arch"
-          if nix build ".#xdp2-test-vm-$arch" --no-link 2>/dev/null; then
-            RESULT=$(nix build ".#xdp2-test-vm-$arch" --print-out-paths)
-            if [ -x "$RESULT/bin/run-test" ] && "$RESULT/bin/run-test"; then
-              echo "  PASSED: $arch"
-              PASSED="$PASSED $arch"
-            else
-              echo "  FAILED: $arch"
-              FAILED="$FAILED $arch"
-            fi
-          else
-            echo "  FAILED: $arch (build error)"
-            FAILED="$FAILED $arch"
-          fi
-        done
-
-        echo ""
-        echo "════════════════════════════════════════════════════════════════"
-        if [ -n "$PASSED" ]; then echo "Passed:$PASSED"; fi
-        if [ -n "$FAILED" ]; then
-          echo "Failed:$FAILED"
-          exit 1
-        else
-          echo "All tests passed!"
-        fi
-      '';
-    };
-
-in {
-  # ─── VM Exports ─────────────────────────────────────────────────────────
-  inherit (arch) vms scripts constants architectureNames;
-
-  # ─── Test Mode Runners ──────────────────────────────────────────────────
-  testRunners = {
-    fast = mkTestRunner {
-      name = "xdp2-test-fast";
-      architectures = constants.testModes.fast;
-      description = "Fast Mode (Development)";
-    };
-
-    all = mkTestRunner {
-      name = "xdp2-test-all";
-      architectures = constants.testModes.full;
-      description = "Full Mode (CI/Release)";
-    };
-  };
-}
-```
-
 ### Flake Integration
 
+Using `callPackage` for clean dependency injection and exposing the test matrix.
+
 ```nix
+# flake.nix
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -1227,33 +1397,73 @@ in {
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        xdp2 = import ./nix/derivation.nix { inherit pkgs; };
 
-        microvms = import ./nix/microvms {
-          inherit pkgs microvm nixpkgs system xdp2;
-          lib = pkgs.lib;
-        };
+        # Use callPackage for dependency injection
+        callPackage = pkgs.lib.callPackageWith (pkgs // {
+          inherit microvm nixpkgs;
+        });
+
+        # Import matrix generator
+        matrix = callPackage ./nix/microvms/matrix.nix {};
+
+        # XDP2 package with overlays
+        xdp2 = callPackage ./nix/derivation.nix {};
 
       in {
-        packages = {
-          # ─── Test Mode Runners ──────────────────────────────────────────
-          xdp2-test-fast = microvms.testRunners.fast;
-          xdp2-test-all = microvms.testRunners.all;
+        # ─── Test Matrix ────────────────────────────────────────────────────
+        # Access: nix build .#tests.fast.x86_64-latest
+        #         nix build .#tests.matrix.riscv64-lts-6_6
+        tests = {
+          inherit (matrix) fast full matrix endian;
+        };
 
-          # ─── Per-Architecture VMs (generated from constants) ────────────
-        } // (pkgs.lib.mapAttrs'
-          (arch: vm: pkgs.lib.nameValuePair "xdp2-test-vm-${arch}" vm)
-          microvms.vms
-        ) // (pkgs.lib.foldl' (acc: arch:
-          acc // {
-            "xdp2-vm-console-${arch}" = microvms.scripts.${arch}.connect-console;
-            "xdp2-vm-serial-${arch}" = microvms.scripts.${arch}.connect-serial;
-            "xdp2-vm-status-${arch}" = microvms.scripts.${arch}.console-status;
-          }
-        ) {} microvms.architectureNames);
+        # ─── Convenience Aliases ────────────────────────────────────────────
+        packages = {
+          inherit xdp2;
+
+          # Test mode runners (for shell scripts / CI)
+          xdp2-test-fast = pkgs.writeShellApplication {
+            name = "xdp2-test-fast";
+            text = ''
+              for vm in ${pkgs.lib.concatStringsSep " " (builtins.attrNames matrix.fast)}; do
+                echo "Testing: $vm"
+                nix build ".#tests.fast.$vm" --no-link
+                $(nix build ".#tests.fast.$vm" --print-out-paths)/bin/microvm-run
+              done
+            '';
+          };
+
+          xdp2-test-all = pkgs.writeShellApplication {
+            name = "xdp2-test-all";
+            text = ''
+              for vm in ${pkgs.lib.concatStringsSep " " (builtins.attrNames matrix.full)}; do
+                echo "Testing: $vm"
+                nix build ".#tests.full.$vm" --no-link
+                $(nix build ".#tests.full.$vm" --print-out-paths)/bin/microvm-run
+              done
+            '';
+          };
+
+          xdp2-test-matrix = pkgs.writeShellApplication {
+            name = "xdp2-test-matrix";
+            text = ''
+              for vm in ${pkgs.lib.concatStringsSep " " (builtins.attrNames matrix.matrix)}; do
+                echo "Testing: $vm"
+                nix build ".#tests.matrix.$vm" --no-link
+                $(nix build ".#tests.matrix.$vm" --print-out-paths)/bin/microvm-run
+              done
+            '';
+          };
+        };
       });
 }
 ```
+
+**Key improvements:**
+- `callPackage` automatically passes `pkgs`, `lib`, etc. - no manual threading
+- Test matrix is a first-class flake output: `nix build .#tests.matrix.x86_64-stable`
+- Each (arch × kernel) combination is a distinct derivation
+- Nix evaluation handles combinatorics, not bash loops
 
 ---
 
@@ -1618,6 +1828,19 @@ nix run .#xdp2-test-matrix
 - Added pahole requirement for BTF generation
 - Expanded Future Enhancements with packet injection details
 - Added bpftool version matching guidance
+- **2026-02-16**: Advanced Nix Patterns revision
+- Added Advanced Nix Patterns section
+  - Functional matrix generation with `lib.cartesianProductOfSets`
+  - Store injection via virtio-9p for instant boot
+  - Systemd test driver (oneshot service instead of console polling)
+  - Cross-compilation overlays
+  - NixOS module pattern for reusable configuration
+- Restructured Implementation section
+  - `nix/lib/mk-vm.nix` - VM builder function with callPackage
+  - `nix/microvms/matrix.nix` - Generates (arch × kernel) combinations
+  - `nix/modules/ebpf-base.nix` - Reusable eBPF NixOS module
+- Updated Flake Integration to use callPackage pattern
+- Test matrix now a first-class flake output: `nix build .#tests.matrix.x86_64-stable`
 
 ---
 
