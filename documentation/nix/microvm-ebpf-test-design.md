@@ -14,14 +14,19 @@
 3. [Test Modes](#test-modes)
    - [Fast Mode (Development)](#fast-mode-development)
    - [Full Mode (CI/Release)](#full-mode-cirelease)
-4. [Performance Optimization](#performance-optimization)
+4. [High Confidence Testing](#high-confidence-testing)
+   - [Endianness Validation](#endianness-validation)
+   - [Kernel Version Matrix](#kernel-version-matrix)
+   - [Verifier Log Export](#verifier-log-export)
+5. [Performance Optimization](#performance-optimization)
    - [Compilation Strategy](#compilation-strategy)
    - [VM Resource Tuning](#vm-resource-tuning)
    - [Parallel Execution](#parallel-execution)
+   - [CI Resource Throttling](#ci-resource-throttling)
    - [Caching](#caching)
-5. [Architecture Overview](#architecture-overview)
-6. [Supported Architectures](#supported-architectures)
-7. [Implementation](#implementation)
+6. [Architecture Overview](#architecture-overview)
+7. [Supported Architectures](#supported-architectures)
+8. [Implementation](#implementation)
    - [Directory Structure](#directory-structure)
    - [Constants Module](#constants-module-nixmicrovmsconstantsnix)
    - [Architecture Generator](#architecture-generator-nixmicrovmsarchnix)
@@ -30,15 +35,15 @@
    - [QEMU Console Configuration](#qemu-console-configuration)
    - [VM Generator Entry Point](#vm-generator-entry-point)
    - [Flake Integration](#flake-integration)
-8. [Console Architecture](#console-architecture)
-9. [BTF Requirements](#btf-bpf-type-format-requirements)
-10. [VM Management Scripts](#vm-management-scripts)
-11. [Automated Testing](#automated-testing)
-12. [Usage Examples](#usage-examples)
-13. [Troubleshooting](#troubleshooting)
-14. [Future Enhancements](#future-enhancements)
-15. [Revision History](#revision-history)
-16. [References](#references)
+9. [Console Architecture](#console-architecture)
+10. [BTF Requirements](#btf-bpf-type-format-requirements)
+11. [VM Management Scripts](#vm-management-scripts)
+12. [Automated Testing](#automated-testing)
+13. [Usage Examples](#usage-examples)
+14. [Troubleshooting](#troubleshooting)
+15. [Future Enhancements](#future-enhancements)
+16. [Revision History](#revision-history)
+17. [References](#references)
 
 ---
 
@@ -143,6 +148,155 @@ jobs:
 
 ---
 
+## High Confidence Testing
+
+This section describes features designed to catch subtle bugs that only manifest on specific architectures or kernel versions.
+
+### Endianness Validation
+
+**Why it matters:** Network headers are Big Endian (network byte order). eBPF developers frequently make mistakes with `htons()`/`ntohs()` that only manifest on Big Endian hardware.
+
+Our architecture matrix includes:
+- **Little Endian:** x86_64, aarch64, riscv64, riscv32, mips64el, ppc64le
+- **Big Endian:** s390x
+
+The s390x (IBM z/Architecture) VM serves as our Big Endian validation target. Tests on s390x will catch byte-order bugs that pass on all Little Endian architectures.
+
+**Byte-order verification test case:**
+
+```bash
+# Included in automated test suite for s390x
+# Verifies XDP2's abstraction layer handles endianness correctly
+
+# Test 1: Parse Ethernet header, verify EtherType
+# Inject packet with EtherType 0x0800 (IPv4)
+# XDP2 must correctly read this as 0x0800, not 0x0008
+
+# Test 2: Parse IPv4 header, verify protocol field
+# Inject packet with protocol 0x06 (TCP)
+# Verify correct extraction regardless of host byte order
+
+# Test 3: Parse TCP header, verify port numbers
+# Inject packet with dst_port 80 (0x0050)
+# XDP2 must read 80, not 20480 (0x5000)
+```
+
+**Implementation note:** The byte-order tests are critical for XDP2's value proposition. If the abstraction layer doesn't handle endianness correctly, users will write buggy code that "works on my machine" but fails in production on different hardware.
+
+### Kernel Version Matrix
+
+The BPF subsystem evolves rapidly. Features available in 6.x may not exist in 5.15 LTS:
+
+| Feature | Minimum Kernel | Notes |
+|---------|---------------|-------|
+| `bpf_ringbuf` | 5.8 | Preferred over `bpf_perf_event_array` |
+| `bpf_timer` | 5.15 | Delayed work in BPF |
+| `bpf_loop` | 5.17 | Bounded loops helper |
+| `bpf_dynptr` | 5.19 | Dynamic pointers |
+| `bpf_kfunc` | 6.0+ | Kernel function calls |
+
+**Kernel version strategy:**
+
+| Test Mode | Architectures | Kernels | Purpose |
+|-----------|---------------|---------|---------|
+| `fast` | x86_64, riscv64 | latest | Quick iteration |
+| `full` | All 7 | latest | Architecture breadth |
+| `matrix` | x86_64, riscv64 | latest, stable, LTS | Kernel version breadth |
+
+**Configurable kernel version in constants.nix:**
+
+```nix
+# In constants.nix
+kernelVersions = {
+  # Latest mainline kernel (bleeding edge, newest eBPF features)
+  latest = "linuxPackages_latest";
+
+  # Stable kernel (nixpkgs default, well-tested)
+  stable = "linuxPackages";
+
+  # LTS kernels for backward compatibility
+  lts-6_6 = "linuxPackages_6_6";
+  lts-5_15 = "linuxPackages_5_15";
+};
+
+# Which kernels to test in matrix mode
+testModeKernels = {
+  fast = [ "latest" ];
+  full = [ "latest" ];
+  matrix = [ "latest" "stable" "lts-6_6" ];
+};
+```
+
+**Usage:**
+
+```bash
+# Fast mode with latest kernel (default)
+nix run .#xdp2-test-fast
+
+# Fast mode with specific kernel
+nix run .#xdp2-test-fast -- --kernel stable
+nix run .#xdp2-test-fast -- --kernel lts-6_6
+
+# Matrix mode: test fast architectures on multiple kernels
+nix run .#xdp2-test-matrix
+# Tests: x86_64 + riscv64 on latest, stable, and LTS-6.6
+```
+
+**Why this matters:** Nix's reproducibility is a superpower here. The same MicroVM definition can be built with any kernel version, making it trivial to:
+- Validate that XDP2 works on enterprise LTS kernels (5.15, 6.6)
+- Test new eBPF features on latest mainline
+- Bisect regressions across kernel versions
+
+### Verifier Log Export
+
+When a BPF program fails to load, the kernel verifier provides detailed error messages. These logs are essential for debugging but are lost if not captured.
+
+**Automatic verifier log capture:**
+
+```nix
+# In test runner - capture verifier output on failure
+verifierLogExport = ''
+  # Attempt to load BPF program, capture verifier output
+  VERIFIER_LOG=$(mktemp /tmp/verifier-XXXXXX.log)
+
+  if ! bpftool prog load "$BPF_OBJ" /sys/fs/bpf/test 2>"$VERIFIER_LOG"; then
+    echo "BPF load failed. Verifier log:"
+    cat "$VERIFIER_LOG"
+
+    # Export to host filesystem via shared directory
+    if [ -d /mnt/host-logs ]; then
+      cp "$VERIFIER_LOG" "/mnt/host-logs/verifier-${ARCH}-$(date +%s).log"
+      echo "Verifier log exported to host"
+    fi
+
+    exit 1
+  fi
+'';
+```
+
+**Host-side log collection:**
+
+```bash
+# After test failure, logs are available at:
+ls ./test-logs/verifier-*.log
+
+# View the most recent failure
+cat ./test-logs/verifier-s390x-*.log
+```
+
+**bpftool version matching:** The `bpftool` in the VM must match the guest kernel version to ensure accurate feature probing and program inspection. The packages module uses `linuxPackages_latest.bpftool` which automatically matches when using `linuxPackages_latest` for the kernel.
+
+```nix
+# In packages.nix - ensure bpftool matches kernel
+ebpf = with pkgs; [
+  # Use bpftool from the same kernel package set
+  config.boot.kernelPackages.bpftool  # Matches guest kernel
+  # NOT: pkgs.bpftool  # This could mismatch
+];
+```
+
+---
+
 ## Performance Optimization
 
 ### Compilation Strategy
@@ -218,6 +372,55 @@ nix run .#xdp2-test-all -- --parallel x86_64 aarch64 riscv64
 ```
 
 For parallel execution, ensure sufficient RAM (approximately 2GB per concurrent VM).
+
+### CI Resource Throttling
+
+QEMU emulation can starve the host CPU, potentially freezing CI runners. Use cgroups or nice wrappers to prevent this:
+
+```nix
+# In mkTestRunner - wrap QEMU execution with resource limits
+mkThrottledRunner = { name, ... }:
+  pkgs.writeShellApplication {
+    inherit name;
+    runtimeInputs = with pkgs; [ coreutils systemd ];
+    text = ''
+      # Run tests in a cgroup with CPU limits
+      # Prevents emulation from starving the CI runner
+
+      if command -v systemd-run &>/dev/null; then
+        # Use systemd for cgroup management
+        exec systemd-run --user --scope \
+          -p CPUQuota=80% \
+          -p MemoryMax=8G \
+          "$@"
+      else
+        # Fallback: use nice for basic throttling
+        exec nice -n 10 "$@"
+      fi
+    '';
+  };
+```
+
+**CI workflow with resource limits:**
+
+```yaml
+# .github/workflows/test.yml
+jobs:
+  full-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run tests with resource limits
+        run: |
+          # Limit to 80% CPU to keep runner responsive
+          systemd-run --user --scope -p CPUQuota=80% \
+            nix run .#xdp2-test-all
+```
+
+**Why this matters:** Without throttling, 7 concurrent QEMU VMs (especially for slow architectures like RISC-V or MIPS) can consume 100% CPU and cause:
+- CI runner timeouts
+- Unresponsive runner UI
+- Failed SSH health checks
+- Zombie processes if the runner is force-killed
 
 ### Caching
 
@@ -399,12 +602,59 @@ Single source of truth for all configuration. This makes maintenance easy and pr
   # ═══════════════════════════════════════════════════════════════════════════
 
   testModes = {
-    # Fast mode: Development iteration (2 architectures)
+    # Fast mode: Development iteration (2 architectures, latest kernel)
     fast = [ "x86_64" "riscv64" ];
 
-    # Full mode: CI/release validation (all architectures)
+    # Full mode: CI/release validation (all architectures, latest kernel)
     full = [ "x86_64" "aarch64" "riscv64" "riscv32" "mips64" "ppc64" "s390x" ];
+
+    # Matrix mode: Kernel version breadth (fast architectures, multiple kernels)
+    matrix = [ "x86_64" "riscv64" ];
+
+    # Endianness mode: Big Endian validation only
+    endian = [ "s390x" ];
   };
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Kernel Version Matrix
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # Nix provides reproducibility: we can easily build MicroVMs with different
+  # kernel versions to validate eBPF compatibility across the kernel ecosystem.
+  #
+  # Kernel packages in nixpkgs:
+  #   linuxPackages_latest  - Latest mainline kernel (bleeding edge)
+  #   linuxPackages         - Current stable kernel (nixpkgs default)
+  #   linuxPackages_6_6     - Specific LTS version
+  #   linuxPackages_5_15    - Older LTS for maximum compatibility
+  #
+
+  kernelVersions = {
+    # Latest mainline kernel (bleeding edge, newest eBPF features)
+    latest = "linuxPackages_latest";
+
+    # Stable kernel (nixpkgs default, well-tested)
+    stable = "linuxPackages";
+
+    # LTS kernels for backward compatibility testing
+    lts-6_6 = "linuxPackages_6_6";
+    lts-5_15 = "linuxPackages_5_15";
+  };
+
+  # Default kernel for each test mode
+  testModeKernels = {
+    # Fast mode: use latest for quick iteration
+    fast = [ "latest" ];
+
+    # Full mode: test latest only (architecture breadth over kernel depth)
+    full = [ "latest" ];
+
+    # Matrix mode: test kernel breadth on fast architectures
+    matrix = [ "latest" "stable" "lts-6_6" ];
+  };
+
+  # Default kernel version (can be overridden via CLI)
+  defaultKernel = "latest";
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Default Resource Settings
@@ -1048,6 +1298,20 @@ ls /sys/kernel/btf/vmlinux
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
+### Build Dependencies
+
+BTF generation requires `pahole` (from `dwarves` package) during kernel build. Ensure it's available in `nativeBuildInputs`:
+
+```nix
+# In the kernel build derivation
+nativeBuildInputs = [
+  pkgs.pahole  # Required for BTF generation
+  # ... other build inputs
+];
+```
+
+**Note:** If `pahole` is missing, the kernel will build but BTF will silently fail to generate. The VM will boot, but `/sys/kernel/btf/vmlinux` won't exist, and CO-RE eBPF programs will fail.
+
 ### Current Implementation
 
 Until the microvm.nix BTF feature is merged, we use kernel patches:
@@ -1060,6 +1324,13 @@ boot.kernelPatches = [{
     DEBUG_INFO_BTF y
   '';
 }];
+
+# Ensure pahole is available for BTF generation
+boot.kernelPackages = pkgs.linuxPackages_latest.extend (self: super: {
+  kernel = super.kernel.override {
+    nativeBuildInputs = (super.kernel.nativeBuildInputs or []) ++ [ pkgs.pahole ];
+  };
+});
 ```
 
 ### Future: Native microvm.nix BTF
@@ -1189,13 +1460,135 @@ zcat /proc/config.gz | grep BTF
 
 Replace kernel patches with `microvm.btf.enable = true` when available.
 
-### Phase 2: Network Testing
+### Phase 2: Network Topology Simulation
 
-Add TAP interfaces for XDP program testing with real packet flows.
+Add TAP interfaces for XDP program testing with real packet flows and packet injection.
+
+**Goal:** Enable host-side test scripts to inject packets into the VM's XDP hook and verify the output.
+
+**Approach 1: QEMU User Networking with guestfwd**
+
+```nix
+# In microvm QEMU args
+qemu.extraArgs = [
+  "-netdev" "user,id=net0,guestfwd=tcp:10.0.2.100:5555-cmd:nc -l 5555"
+  "-device" "virtio-net-device,netdev=net0"
+];
+```
+
+**Approach 2: veth Pair with Host Bridge**
+
+```nix
+# Create veth pair in NixOS module
+microvm.interfaces = [{
+  type = "tap";
+  id = "xdp2-tap0";
+  mac = "02:00:00:00:01:00";
+}];
+
+# Host-side: Attach to bridge for packet injection
+networking.bridges.xdp2-br0.interfaces = [ "xdp2-tap0" ];
+```
+
+**Host-side packet injection with scapy:**
+
+```python
+#!/usr/bin/env python3
+# test-xdp-injection.py
+from scapy.all import *
+
+# Send test packet into VM's XDP hook
+pkt = Ether()/IP(dst="10.0.2.15")/TCP(dport=80)
+sendp(pkt, iface="xdp2-tap0")
+
+# Capture and verify XDP output
+result = sniff(iface="xdp2-tap0", count=1, timeout=5)
+assert result[0][IP].dst == "10.0.2.15", "XDP modified packet unexpectedly"
+```
+
+**Test scenarios:**
+
+| Test | Input | Expected XDP Action | Validates |
+|------|-------|---------------------|-----------|
+| Pass-through | Valid IPv4 | XDP_PASS | Basic forwarding |
+| Drop invalid | Malformed header | XDP_DROP | Header validation |
+| Redirect | Matching flow | XDP_REDIRECT | Flow steering |
+| Byte-order | BE EtherType | Correct parse | Endianness handling |
 
 ### Phase 3: CI Integration
 
 Full GitHub Actions workflow with fast/full mode selection.
+
+```yaml
+# .github/workflows/xdp2-test.yml
+name: XDP2 MicroVM Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fast-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
+        with:
+          name: xdp2
+      - name: Fast mode (x86_64 + riscv64)
+        run: |
+          systemd-run --user --scope -p CPUQuota=80% \
+            nix run .#xdp2-test-fast
+
+  full-test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        kernel: [latest, lts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v26
+      - name: Full mode (${{ matrix.kernel }} kernel)
+        run: |
+          systemd-run --user --scope -p CPUQuota=80% -p MemoryMax=12G \
+            nix run .#xdp2-test-all -- --kernel ${{ matrix.kernel }}
+      - name: Upload verifier logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifier-logs-${{ matrix.kernel }}
+          path: test-logs/verifier-*.log
+
+  endianness-test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v26
+      - name: Big Endian validation (s390x)
+        run: nix run .#xdp2-test-endian
+```
+
+### Phase 4: Kernel Version Matrix Testing
+
+Test against multiple kernel versions to ensure backward compatibility:
+
+```bash
+# Test all architectures on both LTS and latest kernels
+nix run .#xdp2-test-matrix
+
+# Output:
+# ┌─────────────┬─────────────┬─────────────┐
+# │ Architecture│ Kernel 5.15 │ Kernel 6.x  │
+# ├─────────────┼─────────────┼─────────────┤
+# │ x86_64      │     ✓       │     ✓       │
+# │ riscv64     │     ✓       │     ✓       │
+# │ s390x       │     ✗       │     ✓       │  ← Feature requires 6.x
+# └─────────────┴─────────────┴─────────────┘
+```
 
 ---
 
@@ -1216,6 +1609,15 @@ Full GitHub Actions workflow with fast/full mode selection.
 - Refactored Nix to DRY pattern with arch.nix generator
 - Consolidated constants into single source of truth
 - Reorganized document for better flow
+- **2026-02-16**: High Confidence Testing revision
+- Added High Confidence Testing section
+  - Endianness validation (s390x as Big Endian target)
+  - Kernel version matrix (LTS + latest)
+  - Verifier log export for debugging
+- Added CI Resource Throttling (cgroups/nice)
+- Added pahole requirement for BTF generation
+- Expanded Future Enhancements with packet injection details
+- Added bpftool version matching guidance
 
 ---
 
