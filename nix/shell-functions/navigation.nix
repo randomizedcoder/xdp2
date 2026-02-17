@@ -15,7 +15,7 @@
 { }:
 
 ''
-  # Detect and export the repository root directory
+  # Detect and export the repository root directory and XDP2DIR
   detect-repository-root() {
     XDP2_REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
     export XDP2_REPO_ROOT
@@ -25,6 +25,32 @@
       XDP2_REPO_ROOT="$PWD"
     else
       echo "📁 Repository root: $XDP2_REPO_ROOT"
+    fi
+
+    # Set XDP2DIR to the local install directory
+    # Detect architecture for install path
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+      x86_64|amd64)
+        arch="x86_64"
+        ;;
+      aarch64|arm64)
+        arch="aarch64"
+        ;;
+      *)
+        arch="$arch"
+        ;;
+    esac
+
+    XDP2DIR="$XDP2_REPO_ROOT/install/$arch"
+    export XDP2DIR
+
+    if [ -d "$XDP2DIR/include" ]; then
+      echo "📦 XDP2DIR: $XDP2DIR"
+    else
+      echo "⚠ WARNING: XDP2DIR install directory not found: $XDP2DIR"
+      echo "   Run 'make install' to create it, or use 'nix build' for a clean build"
     fi
   }
 
