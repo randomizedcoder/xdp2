@@ -97,6 +97,21 @@
           xdp2 = xdp2-debug;  # Tests use debug build with assertions
         };
 
+        # Convenience target to run all sample tests
+        run-sample-tests = pkgs.writeShellApplication {
+          name = "run-sample-tests";
+          runtimeInputs = [];
+          text = ''
+            echo "========================================"
+            echo "  XDP2 Sample Tests Runner"
+            echo "========================================"
+            echo ""
+
+            # Run all tests via the combined test runner
+            ${tests.all}/bin/xdp2-test-all
+          '';
+        };
+
       in
       {
         # Package outputs
@@ -107,6 +122,17 @@
 
           # Tests (build with: nix build .#tests.simple-parser)
           tests = tests;
+
+          # Convenience aliases for individual tests
+          simple-parser-test = tests.simple-parser;
+          offset-parser-test = tests.offset-parser;
+          ports-parser-test = tests.ports-parser;
+          flow-tracker-combo-test = tests.flow-tracker-combo;
+          xdp-build-test = tests.xdp-build;
+
+          # Run all sample tests in one go
+          # Usage: nix run .#run-sample-tests
+          inherit run-sample-tests;
         };
 
         # Development shell
