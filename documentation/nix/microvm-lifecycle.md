@@ -292,6 +292,55 @@ getHostname = arch: "xdp2-test-${archHostname.${arch}}";
 # Results in: xdp2-test-x86-64
 ```
 
+## Code Structure
+
+The MicroVM infrastructure uses a modular, DRY architecture:
+
+```
+nix/microvms/
+├── default.nix       # Entry point, generates scripts for all architectures
+├── constants.nix     # Configuration (ports, timeouts, arch settings)
+├── lib.nix           # Script generators (mkPollingScript, mkLifecycleScripts, etc.)
+├── mkVm.nix          # Parameterized VM definition (takes arch parameter)
+├── x86_64.nix        # Compatibility wrapper (imports mkVm.nix with arch="x86_64")
+└── scripts/
+    ├── vm-expect.exp
+    ├── vm-debug.exp
+    └── vm-verify-service.exp
+```
+
+### Adding a New Architecture
+
+1. Add architecture config to `constants.nix`:
+   ```nix
+   architectures = {
+     x86_64 = { ... };
+     aarch64 = {
+       nixSystem = "aarch64-linux";
+       qemuMachine = "virt";
+       useKvm = false;  # Cross-compilation
+       serialPort = 23510;
+       virtioPort = 23511;
+       # ...
+     };
+   };
+   ```
+
+2. Add to `supportedArchs` in `default.nix`:
+   ```nix
+   supportedArchs = [ "x86_64" "aarch64" ];
+   ```
+
+3. Add QEMU args to `mkVm.nix`:
+   ```nix
+   archQemuArgs = {
+     x86_64 = [ "-enable-kvm" "-cpu" cfg.qemuCpu ];
+     aarch64 = [ "-machine" "virt" "-cpu" "cortex-a72" ];
+   };
+   ```
+
+All lifecycle scripts, helpers, and tests are automatically generated for each architecture.
+
 ## Console Ports
 
 Port allocation scheme starting at 23500:
@@ -497,6 +546,7 @@ Key techniques:
 
 ## See Also
 
+- [Adding New Architectures](./microvm-adding-architectures.md) - Guide to adding new CPU architectures
 - [MicroVM Implementation Phase 1](./microvm-implementation-phase1.md) - Implementation plan
 - [MicroVM Implementation Log](./microvm-implementation-phase1-log.md) - Progress log
 - [MicroVM eBPF Test Design](./microvm-ebpf-test-design.md) - Comprehensive design document

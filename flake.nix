@@ -209,8 +209,9 @@
 
           # ===================================================================
           # Lifecycle check scripts
-          # Usage: nix run .#xdp2-lifecycle-1-check-process
+          # Usage: nix run .#xdp2-lifecycle-0-build
           # ===================================================================
+          xdp2-lifecycle-0-build = microvms.lifecycle.checkBuild;
           xdp2-lifecycle-1-check-process = microvms.lifecycle.checkProcess;
           xdp2-lifecycle-2-check-serial = microvms.lifecycle.checkSerial;
           xdp2-lifecycle-2b-check-virtio = microvms.lifecycle.checkVirtio;
