@@ -1,0 +1,122 @@
+#!/usr/bin/env expect
+###############################################################################
+# vm-verify-service.exp - Verify xdp2-self-test service status
+#
+# Polls until service is active/inactive or timeout.
+# Returns exit code 0 if service completed successfully.
+# Uses hostname-based prompt matching for reliability.
+#
+# Usage:
+#   vm-verify-service.exp <port> <hostname> [timeout] [poll_interval]
+#
+# Example:
+#   vm-verify-service.exp 23501 xdp2-test-x86-64 60 2
+#
+###############################################################################
+
+if {$argc < 2} {
+    send_user "Usage: vm-verify-service.exp <port> <hostname> \[timeout\] \[poll_interval\]\n"
+    exit 1
+}
+
+set port [lindex $argv 0]
+set hostname [lindex $argv 1]
+set max_timeout [expr {$argc > 2 ? [lindex $argv 2] : 60}]
+set poll_interval [expr {$argc > 3 ? [lindex $argv 3] : 2}]
+
+# Prompt pattern based on hostname
+set prompt_pattern "root@${hostname}:\[^#\]*#"
+
+log_user 0
+
+send_user "=== Verify Self-Test Service ===\n"
+send_user "Port: $port\n"
+send_user "Timeout: ${max_timeout}s (polling every ${poll_interval}s)\n"
+send_user "\n"
+
+# Connect
+spawn nc 127.0.0.1 $port
+set nc_id $spawn_id
+
+sleep 0.5
+send "\r"
+
+# Wait for initial prompt - may take a while as VM is still booting
+set timeout 30
+set prompt_attempts 0
+set max_prompt_attempts 3
+
+while {$prompt_attempts < $max_prompt_attempts} {
+    expect {
+        -re $prompt_pattern {
+            break
+        }
+        timeout {
+            incr prompt_attempts
+            if {$prompt_attempts < $max_prompt_attempts} {
+                send_user "  Waiting for shell prompt... (attempt $prompt_attempts/$max_prompt_attempts)\n"
+                send "\r"
+            } else {
+                send_user "ERROR: No prompt from VM after $max_prompt_attempts attempts\n"
+                exit 1
+            }
+        }
+        eof {
+            send_user "ERROR: Connection failed\n"
+            exit 1
+        }
+    }
+}
+
+# Poll for service status
+set elapsed 0
+set status "unknown"
+
+while {$elapsed < $max_timeout} {
+    send "systemctl is-active xdp2-self-test.service 2>/dev/null\r"
+
+    set timeout 5
+    expect {
+        -re {(active|inactive|failed|activating|unknown)[\r\n]} {
+            set status $expect_out(1,string)
+        }
+        -re $prompt_pattern {
+            # Got prompt without status
+        }
+        timeout {
+            set status "timeout"
+        }
+    }
+
+    # Wait for prompt
+    expect {
+        -re $prompt_pattern { }
+        timeout { }
+    }
+
+    if {$status eq "active" || $status eq "inactive"} {
+        # Service completed (inactive is expected for oneshot)
+        send_user -- "PASS: Service completed (status: $status)\n"
+        send_user -- "  Time: ${elapsed}s\n"
+        send "exit\r"
+        expect eof
+        exit 0
+    } elseif {$status eq "failed"} {
+        send_user "FAIL: Service failed\n"
+        send "exit\r"
+        expect eof
+        exit 1
+    } elseif {$status eq "activating"} {
+        send_user -- "  Polling... (${elapsed}/${max_timeout}s) - activating\n"
+    } else {
+        send_user -- "  Polling... (${elapsed}/${max_timeout}s) - $status\n"
+    }
+
+    sleep $poll_interval
+    incr elapsed $poll_interval
+}
+
+send_user "FAIL: Timeout after ${max_timeout}s (last status: $status)\n"
+send "exit\r"
+expect eof
+exit 1

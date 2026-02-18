@@ -1,0 +1,3137 @@
+{
+    "parsers": [
+        {
+            "file_name": "parser.c",
+            "name": "parse_dump",
+            "root-node": "ether_node_root",
+            "metameta-size": 72,
+            "max-nodes": 255,
+            "max-encaps": 4,
+            "max-frames": 3,
+            "frame-size": 96,
+            "okay-target": "okay_node",
+            "fail-target": "fail_node",
+            "encap-target": "atencap_node"
+        }
+    ],
+    "metadata": [
+        {
+            "fields": [
+                {
+                    "fields": [
+                        {
+                            "is_union": true,
+                            "fields": [
+                                {
+                                    "size": 32,
+                                    "name": "val"
+                                },
+                                {
+                                    "fields": [
+                                        {
+                                            "size": 16,
+                                            "name": "callid"
+                                        },
+                                        {
+                                            "size": 16,
+                                            "name": "payload_len"
+                                        }
+                                    ],
+                                    "name": ""
+                                }
+                            ],
+                            "name": "key_id"
+                        },
+                        {
+                            "size": 32,
+                            "name": "sequence"
+                        },
+                        {
+                            "size": 32,
+                            "name": "ack"
+                        }
+                    ],
+                    "name": "gre"
+                },
+                {
+                    "array_size": 2,
+                    "array_type": {
+                        "fields": [
+                            {
+                                "size": 16,
+                                "name": "id"
+                            },
+                            {
+                                "size": 8,
+                                "name": "dei"
+                            },
+                            {
+                                "size": 8,
+                                "name": "priority"
+                            },
+                            {
+                                "size": 16,
+                                "name": "tci"
+                            },
+                            {
+                                "size": 16,
+                                "name": "tpid"
+                            },
+                            {
+                                "size": 16,
+                                "name": "enc_proto"
+                            }
+                        ]
+                    },
+                    "name": "vlan"
+                },
+                {
+                    "size": 8,
+                    "name": "vlan_cnt"
+                },
+                {
+                    "size": 8,
+                    "name": "gre_version"
+                },
+                {
+                    "size": 16,
+                    "name": "ipv4_hdr_csum"
+                },
+                {
+                    "size": 16,
+                    "name": "pseudo_checksum"
+                },
+                {
+                    "size": 8,
+                    "name": "ip_ttl"
+                },
+                {
+                    "size": 8,
+                    "name": "ip_hlen"
+                },
+                {
+                    "size": 16,
+                    "name": "ip_off"
+                },
+                {
+                    "size": 16,
+                    "name": "ip_frag_off"
+                },
+                {
+                    "size": 8,
+                    "name": "is_ipv6_frag"
+                },
+                {
+                    "size": 32,
+                    "name": "ip_frag_id"
+                },
+                {
+                    "size": 8,
+                    "name": "addr_type"
+                },
+                {
+                    "size": 8,
+                    "name": "ip_proto"
+                },
+                {
+                    "size": 16,
+                    "name": "ether_type"
+                },
+                {
+                    "is_union": true,
+                    "fields": [
+                        {
+                            "fields": [
+                                {
+                                    "size": 16,
+                                    "name": "sport"
+                                },
+                                {
+                                    "size": 16,
+                                    "name": "dport"
+                                }
+                            ],
+                            "name": ""
+                        },
+                        {
+                            "size": 32,
+                            "name": "v"
+                        }
+                    ],
+                    "name": "port_pair"
+                },
+                {
+                    "is_union": true,
+                    "fields": [
+                        {
+                            "is_union": true,
+                            "fields": [
+                                {
+                                    "array_size": 2,
+                                    "array_type": {
+                                        "size": 32
+                                    },
+                                    "name": "v4_addrs"
+                                },
+                                {
+                                    "fields": [
+                                        {
+                                            "size": 32,
+                                            "name": "saddr"
+                                        },
+                                        {
+                                            "size": 32,
+                                            "name": "daddr"
+                                        }
+                                    ],
+                                    "name": "v4"
+                                }
+                            ],
+                            "name": ""
+                        },
+                        {
+                            "is_union": true,
+                            "fields": [
+                                {
+                                    "array_size": 2,
+                                    "array_type": {
+                                        "fields": [
+                                            {
+                                                "is_union": true,
+                                                "fields": [
+                                                    {
+                                                        "array_size": 16,
+                                                        "array_type": {
+                                                            "size": 8
+                                                        },
+                                                        "name": "u6_addr8"
+                                                    },
+                                                    {
+                                                        "array_size": 8,
+                                                        "array_type": {
+                                                            "size": 16
+                                                        },
+                                                        "name": "u6_addr16"
+                                                    },
+                                                    {
+                                                        "array_size": 4,
+                                                        "array_type": {
+                                                            "size": 32
+                                                        },
+                                                        "name": "u6_addr32"
+                                                    }
+                                                ],
+                                                "name": "in6_u"
+                                            }
+                                        ]
+                                    },
+                                    "name": "v6_addrs"
+                                },
+                                {
+                                    "fields": [
+                                        {
+                                            "fields": [
+                                                {
+                                                    "is_union": true,
+                                                    "fields": [
+                                                        {
+                                                            "array_size": 16,
+                                                            "array_type": {
+                                                                "size": 8
+                                                            },
+                                                            "name": "u6_addr8"
+                                                        },
+                                                        {
+                                                            "array_size": 8,
+                                                            "array_type": {
+                                                                "size": 16
+                                                            },
+                                                            "name": "u6_addr16"
+                                                        },
+                                                        {
+                                                            "array_size": 4,
+                                                            "array_type": {
+                                                                "size": 32
+                                                            },
+                                                            "name": "u6_addr32"
+                                                        }
+                                                    ],
+                                                    "name": "in6_u"
+                                                }
+                                            ],
+                                            "name": "saddr"
+                                        },
+                                        {
+                                            "fields": [
+                                                {
+                                                    "is_union": true,
+                                                    "fields": [
+                                                        {
+                                                            "array_size": 16,
+                                                            "array_type": {
+                                                                "size": 8
+                                                            },
+                                                            "name": "u6_addr8"
+                                                        },
+                                                        {
+                                                            "array_size": 8,
+                                                            "array_type": {
+                                                                "size": 16
+                                                            },
+                                                            "name": "u6_addr16"
+                                                        },
+                                                        {
+                                                            "array_size": 4,
+                                                            "array_type": {
+                                                                "size": 32
+                                                            },
+                                                            "name": "u6_addr32"
+                                                        }
+                                                    ],
+                                                    "name": "in6_u"
+                                                }
+                                            ],
+                                            "name": "daddr"
+                                        }
+                                    ],
+                                    "name": "v6"
+                                }
+                            ],
+                            "name": ""
+                        },
+                        {
+                            "is_union": true,
+                            "fields": [
+                                {
+                                    "array_size": 2,
+                                    "array_type": {
+                                        "fields": [
+                                            {
+                                                "is_union": true,
+                                                "fields": [
+                                                    {
+                                                        "array_size": 16,
+                                                        "array_type": {
+                                                            "size": 8
+                                                        },
+                                                        "name": "u6_addr8"
+                                                    },
+                                                    {
+                                                        "array_size": 8,
+                                                        "array_type": {
+                                                            "size": 16
+                                                        },
+                                                        "name": "u6_addr16"
+                                                    },
+                                                    {
+                                                        "array_size": 4,
+                                                        "array_type": {
+                                                            "size": 32
+                                                        },
+                                                        "name": "u6_addr32"
+                                                    }
+                                                ],
+                                                "name": "in6_u"
+                                            }
+                                        ]
+                                    },
+                                    "name": "sunh_addrs"
+                                },
+                                {
+                                    "fields": [
+                                        {
+                                            "size": 16,
+                                            "name": "saddr"
+                                        },
+                                        {
+                                            "size": 16,
+                                            "name": "daddr"
+                                        }
+                                    ],
+                                    "name": "sunh"
+                                }
+                            ],
+                            "name": ""
+                        }
+                    ],
+                    "name": "addrs"
+                }
+            ]
+        }
+    ],
+    "parse-nodes": [
+        {
+            "name": "falcon_base_node",
+            "min-hdr-length": 1,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "right-shift": 4,
+                "table": "falcon_version_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "falcon_v1_node",
+            "min-hdr-length": 8,
+            "overlay": true
+        },
+        {
+            "name": "falcon_pull_request",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "falcon_pull_data",
+            "min-hdr-length": 24
+        },
+        {
+            "name": "falcon_push_data",
+            "min-hdr-length": 28
+        },
+        {
+            "name": "falcon_resync",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "falcon_back",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "falcon_nack",
+            "min-hdr-length": 40
+        },
+        {
+            "name": "falcon_eack",
+            "min-hdr-length": 72
+        },
+        {
+            "name": "sue_base_node",
+            "min-hdr-length": 1,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "right-shift": 6,
+                "table": "sue_version_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "sue_v0_node",
+            "min-hdr-length": 8,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x3000",
+                "right-shift": 4,
+                "table": "sue_opcode_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "sue_rh_ack",
+            "min-hdr-length": 8
+        },
+        {
+            "name": "sue_rh_nack",
+            "min-hdr-length": 8
+        },
+        {
+            "name": "sue_rh_invalid1",
+            "min-hdr-length": 8
+        },
+        {
+            "name": "sue_rh_invalid2",
+            "min-hdr-length": 8
+        },
+        {
+            "name": "sunh_node",
+            "min-hdr-length": 8,
+            "next-proto": {
+                "field-off": 1,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "superp_no_op_node"
+        },
+        {
+            "name": "superp_tal_node",
+            "min-hdr-length": 8,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 1,
+                "field-len": 1,
+                "table": "superp_tal_op_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "superp_pdl_node",
+            "min-hdr-length": 16,
+            "next-node": "superp_tal_node"
+        },
+        {
+            "name": "uet_base_node",
+            "min-hdr-length": 2,
+            "overlay": true
+        },
+        {
+            "name": "pds_ack_cc_base_node",
+            "min-hdr-length": 32,
+            "overlay": true
+        },
+        {
+            "name": "pds_ack_cc_nscc",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "pds_ack_cc_credit",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "pds_rud_request",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "pds_rod_request",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "pds_rud_request_cc",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_rod_request_cc",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_rud_request_syn",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "pds_rod_request_syn",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "pds_rud_request_cc_syn",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_rod_request_cc_syn",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_ack",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "pds_ack_ccx",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "pds_nack",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_nack_ccx",
+            "min-hdr-length": 24
+        },
+        {
+            "name": "pds_control",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_control_syn",
+            "min-hdr-length": 16
+        },
+        {
+            "name": "pds_uud_req",
+            "min-hdr-length": 4
+        },
+        {
+            "name": "pds_rudi_req",
+            "min-hdr-length": 8
+        },
+        {
+            "name": "pds_rudi_resp",
+            "min-hdr-length": 8
+        },
+        {
+            "name": "uet_ses_request_read_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_read_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_read_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_read_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_write_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_write_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_write_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_write_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_send_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_send_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_datagram_send_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_datagram_send_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_datagram_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_datagram_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_tagged_send_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_tagged_send_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_tagged_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_tagged_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_tsend_atomic_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_tsend_atomic_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_tsend_atomic_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_tsend_atomic_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_tsend_fetch_atomic_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_tsend_fetch_atomic_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_tsend_fetch_atomic_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_tsend_fetch_atomic_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_error_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_error_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_error_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_som_error_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "atomic_switch_node",
+            "min-hdr-length": 4,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "uet_ses_amo_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_atomic_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_atomic_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_atomic_std",
+            "min-hdr-length": 44,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_request_som_atomic_std",
+            "min-hdr-length": 44,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_request_fetching_atomic_std",
+            "min-hdr-length": 44,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x1",
+                "right-shift": 8,
+                "table": "uet_ses_msg_fetching_atomic_std_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "uet_ses_request_nosom_fetching_atomic_std",
+            "min-hdr-length": 44,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_request_som_fetching_atomic_std",
+            "min-hdr-length": 44,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_request_deferrable_send_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_deferrable_tsend_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_ready_restart_std",
+            "min-hdr-length": 44
+        },
+        {
+            "name": "uet_ses_request_rendezvous_send_std",
+            "min-hdr-length": 40
+        },
+        {
+            "name": "uet_ses_request_rendezvous_tsend_std",
+            "min-hdr-length": 40
+        },
+        {
+            "name": "uet_ses_atomic_node",
+            "min-hdr-length": 4
+        },
+        {
+            "name": "uet_ses_atomic_cmp_swp_node",
+            "min-hdr-length": 36
+        },
+        {
+            "name": "uet_ses_no_op_std"
+        },
+        {
+            "name": "uet_ses_request_write_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_read_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_send_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_tsend_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_datagram_send_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_tsend_atomic_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_tsend_fetch_atomic_medium",
+            "min-hdr-length": 32
+        },
+        {
+            "name": "uet_ses_request_atomic_medium",
+            "min-hdr-length": 32,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_request_fetching_atomic_medium",
+            "min-hdr-length": 32,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_msg_no_op_medium"
+        },
+        {
+            "name": "uet_ses_request_write_small",
+            "min-hdr-length": 20
+        },
+        {
+            "name": "uet_ses_request_read_small",
+            "min-hdr-length": 20
+        },
+        {
+            "name": "uet_ses_request_atomic_small",
+            "min-hdr-length": 20,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_request_fetching_atomic_small",
+            "min-hdr-length": 20,
+            "next-node": "atomic_switch_node"
+        },
+        {
+            "name": "uet_ses_msg_no_op_small"
+        },
+        {
+            "name": "uet_ses_no_next_hdr"
+        },
+        {
+            "name": "uet_ses_request_small",
+            "min-hdr-length": 4,
+            "overlay": true
+        },
+        {
+            "name": "uet_ses_request_medium",
+            "min-hdr-length": 4,
+            "overlay": true
+        },
+        {
+            "name": "uet_ses_request_std",
+            "min-hdr-length": 4,
+            "overlay": true
+        },
+        {
+            "name": "uet_ses_normal_nodata_response",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "uet_ses_default_nodata_response",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "uet_ses_none_nodata_response",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "uet_ses_response_with_data",
+            "min-hdr-length": 20
+        },
+        {
+            "name": "uet_ses_response_with_small_data",
+            "min-hdr-length": 12
+        },
+        {
+            "name": "uet_ses_response_tnode",
+            "min-hdr-length": 4,
+            "overlay": true
+        },
+        {
+            "name": "uet_ses_response_with_data_tnode",
+            "min-hdr-length": 4,
+            "overlay": true
+        },
+        {
+            "name": "uet_ses_response_with_data_small_tnode",
+            "min-hdr-length": 4,
+            "overlay": true
+        },
+        {
+            "name": "ether_node_root",
+            "min-hdr-length": 14,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ether_type",
+                        "type": "extract",
+                        "md-off": 58,
+                        "is-frame": false,
+                        "hdr-src-off": 12,
+                        "length": 2,
+                        "endian-swap": true
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 12,
+                "field-len": 2,
+                "table": "ether_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "ether_node",
+            "min-hdr-length": 14,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ether_type",
+                        "type": "extract",
+                        "md-off": 58,
+                        "is-frame": false,
+                        "hdr-src-off": 12,
+                        "length": 2,
+                        "endian-swap": true
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 12,
+                "field-len": 2,
+                "table": "ether_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "ip_overlay_node",
+            "min-hdr-length": 1,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "right-shift": 4,
+                "table": "ip_overlay_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "ip_overlay_by_key_node",
+            "overlay": true
+        },
+        {
+            "name": "ipv4_node",
+            "min-hdr-length": 20,
+            "hdr-length": {
+                "field-off": 0,
+                "field-len": 1,
+                "mask": "0xf",
+                "multiplier": 4
+            },
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ip_frag_off",
+                        "type": "extract",
+                        "md-off": 42,
+                        "is-frame": false,
+                        "hdr-src-off": 6,
+                        "length": 2
+                    },
+                    {
+                        "name": "ip_ttl",
+                        "type": "extract",
+                        "md-off": 38,
+                        "is-frame": false,
+                        "hdr-src-off": 8,
+                        "length": 1
+                    },
+                    {
+                        "name": "addrs.v4.daddr",
+                        "type": "extract",
+                        "md-off": 68,
+                        "is-frame": false,
+                        "hdr-src-off": 16,
+                        "length": 4
+                    },
+                    {
+                        "name": "addrs.v4.saddr",
+                        "type": "extract",
+                        "md-off": 64,
+                        "is-frame": false,
+                        "hdr-src-off": 12,
+                        "length": 4
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 9,
+                        "length": 1
+                    },
+                    {
+                        "name": "addr_type",
+                        "type": "constant",
+                        "md-off": 56,
+                        "is-frame": false,
+                        "length": 1,
+                        "value": 1
+                    },
+                    {
+                        "name": "ip_hlen",
+                        "type": "hdr_length",
+                        "md-off": 39,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 1
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 9,
+                "field-len": 1,
+                "table": "ip4_table",
+                "default": "stop_fail"
+            },
+            "cond-exprs": {
+                "default-fail": "stop_okay",
+                "ents": [
+                    {
+                        "type": "equal",
+                        "field-off": 6,
+                        "field-len": 2,
+                        "mask": "0x1fff",
+                        "value": 0
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ipv4_check_node",
+            "min-hdr-length": 20,
+            "overlay": true,
+            "next-node": "ip_overlay_by_key_node",
+            "cond-exprs": {
+                "default-fail": "stop_okay",
+                "ents": [
+                    {
+                        "type": "equal",
+                        "field-off": 6,
+                        "field-len": 2,
+                        "mask": "0x1fff",
+                        "value": 0
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ipv4ip_node",
+            "min-hdr-length": 20,
+            "overlay": true,
+            "encap": true,
+            "next-node": "ipv4_node"
+        },
+        {
+            "name": "ipv6_node",
+            "min-hdr-length": 40,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 6,
+                        "length": 1
+                    },
+                    {
+                        "name": "addrs.v6.daddr",
+                        "type": "extract",
+                        "md-off": 80,
+                        "is-frame": false,
+                        "hdr-src-off": 24,
+                        "length": 16
+                    },
+                    {
+                        "name": "addrs.v6.saddr",
+                        "type": "extract",
+                        "md-off": 64,
+                        "is-frame": false,
+                        "hdr-src-off": 8,
+                        "length": 16
+                    },
+                    {
+                        "name": "addr_type",
+                        "type": "constant",
+                        "md-off": 56,
+                        "is-frame": false,
+                        "length": 1,
+                        "value": 2
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 6,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "ipv6_check_node",
+            "min-hdr-length": 40,
+            "overlay": true,
+            "hdr-length": {
+                "field-off": 0,
+                "field-len": 1,
+                "mask": "0xf0"
+            },
+            "next-node": "ip_overlay_by_key_node"
+        },
+        {
+            "name": "ipv6ip_node",
+            "min-hdr-length": 40,
+            "overlay": true,
+            "encap": true,
+            "next-node": "ipv6_node"
+        },
+        {
+            "name": "l2tp_base_node",
+            "min-hdr-length": 2,
+            "overlay": true,
+            "encap": true
+        },
+        {
+            "name": "geneve_base_node",
+            "min-hdr-length": 1,
+            "overlay": true
+        },
+        {
+            "name": "geneve_v0_node",
+            "min-hdr-length": 8,
+            "encap": true,
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "ether_table",
+                "default": "stop_fail"
+            },
+            "tlvs-parse-node": {
+                "tlv-type": {
+                    "field-off": 0,
+                    "field-len": 2
+                },
+                "tlv-length": {
+                    "field-off": 1,
+                    "field-len": 1
+                },
+                "start-offset": 8,
+                "ents": [
+                    {
+                        "key": 0,
+                        "node": "geneve_class_0_tlv_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ppp_node",
+            "min-hdr-length": 4,
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "ppp_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "pppoe_node",
+            "min-hdr-length": 8,
+            "next-proto": {
+                "field-off": 6,
+                "field-len": 2,
+                "table": "ppp_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "icmpv4_node",
+            "min-hdr-length": 8,
+            "overlay": true
+        },
+        {
+            "name": "icmpv6_node",
+            "min-hdr-length": 8,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "icmpv6_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "icmpv6_neigh_solicit",
+            "min-hdr-length": 24,
+            "tlvs-parse-node": {
+                "tlv-type": {
+                    "field-off": 0,
+                    "field-len": 1
+                },
+                "tlv-length": {
+                    "field-off": 1,
+                    "field-len": 1
+                },
+                "start-offset": 24,
+                "wildcard-node": "icmpv6_nd_solicit_opt_unknown_node",
+                "default": "wild",
+                "ents": [
+                    {
+                        "key": 1,
+                        "node": "icmpv6_nd_target_addr_opt_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "icmpv6_neigh_advert"
+        },
+        {
+            "name": "vxlan_node",
+            "min-hdr-length": 8,
+            "encap": true,
+            "next-node": "ether_node"
+        },
+        {
+            "name": "protobufs1_node",
+            "tlvs-parse-node": {
+                "tlv-type": {
+                    "field-off": 0,
+                    "field-len": 1
+                },
+                "tlv-length": {
+                    "field-off": 1,
+                    "field-len": 1
+                },
+                "start-offset": 0,
+                "ents": [
+                    {
+                        "key": 1,
+                        "node": "protobufs1_name_node"
+                    },
+                    {
+                        "key": 2,
+                        "node": "protobufs1_id_node"
+                    },
+                    {
+                        "key": 3,
+                        "node": "protobufs1_email_node"
+                    },
+                    {
+                        "key": 4,
+                        "node": "protobufs1_phones_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "protobufs2_node",
+            "tlvs-parse-node": {
+                "tlv-type": {
+                    "field-off": 0,
+                    "field-len": 1
+                },
+                "tlv-length": {
+                    "field-off": 1,
+                    "field-len": 1
+                },
+                "start-offset": 0,
+                "ents": [
+                    {
+                        "key": 1,
+                        "node": "protobufs2_entry_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ospf_node"
+        },
+        {
+            "name": "udp_node",
+            "min-hdr-length": 8,
+            "metadata": {
+                "ents": [
+                    {
+                        "type": "extract",
+                        "md-off": 62,
+                        "is-frame": false,
+                        "hdr-src-off": 2,
+                        "length": 2
+                    },
+                    {
+                        "type": "extract",
+                        "md-off": 60,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 2
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "udp_ports_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "arp_node",
+            "min-hdr-length": 28
+        },
+        {
+            "name": "protobufs1_phone_node",
+            "tlvs-parse-node": {
+                "tlv-type": {
+                    "field-off": 0,
+                    "field-len": 1
+                },
+                "tlv-length": {
+                    "field-off": 1,
+                    "field-len": 1
+                },
+                "start-offset": 0,
+                "ents": [
+                    {
+                        "key": 1,
+                        "node": "protobufs2_phone_number_node"
+                    },
+                    {
+                        "key": 2,
+                        "node": "protobufs2_phone_type_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "tcp_node",
+            "min-hdr-length": 20,
+            "hdr-length": {
+                "field-off": 12,
+                "field-len": 2,
+                "mask": "0xf000",
+                "right-shift": 2
+            },
+            "metadata": {
+                "ents": [
+                    {
+                        "type": "extract",
+                        "md-off": 62,
+                        "is-frame": false,
+                        "hdr-src-off": 2,
+                        "length": 2
+                    },
+                    {
+                        "type": "extract",
+                        "md-off": 60,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 2
+                    }
+                ]
+            },
+            "tlvs-parse-node": {
+                "pad1": 1,
+                "eol": 0,
+                "tlv-type": {
+                    "field-off": 0,
+                    "field-len": 1
+                },
+                "tlv-length": {
+                    "field-off": 1,
+                    "field-len": 1
+                },
+                "start-offset": 20,
+                "wildcard-node": "tcp_opt_unknown_node",
+                "default": "wild",
+                "ents": [
+                    {
+                        "key": 8,
+                        "node": "tcp_opt_timestamp_node"
+                    },
+                    {
+                        "key": 5,
+                        "node": "tcp_opt_sack_node"
+                    },
+                    {
+                        "key": 2,
+                        "node": "tcp_opt_mss_node"
+                    },
+                    {
+                        "key": 3,
+                        "node": "tcp_opt_wscale_node"
+                    },
+                    {
+                        "key": 4,
+                        "node": "tcp_opt_sack_permitted_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "okay_node"
+        },
+        {
+            "name": "fail_node"
+        },
+        {
+            "name": "atencap_node"
+        },
+        {
+            "name": "gre_base_node",
+            "min-hdr-length": 4,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 2,
+                "mask": "0x7",
+                "right-shift": 8,
+                "table": "gre_base_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "gre_v0_node",
+            "min-hdr-length": 4,
+            "encap": true,
+            "hdr-length": {
+                "flag-fields-length": true
+            },
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "gre_version",
+                        "type": "constant",
+                        "md-off": 33,
+                        "is-frame": false,
+                        "length": 1,
+                        "value": 128
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "gre_v0_table"
+            },
+            "flag-fields-parse-node": {
+                "flags-offset": 0,
+                "flags-length": 2,
+                "flags-reverse-order": true,
+                "ents": [
+                    {
+                        "name": "gre_flag_csum_node",
+                        "flag": "0x8000",
+                        "field-len": 4
+                    },
+                    {
+                        "metadata": {
+                            "ents": [
+                                {
+                                    "name": "gre.key_id.val",
+                                    "type": "extract",
+                                    "md-off": 0,
+                                    "is-frame": false,
+                                    "hdr-src-off": 0,
+                                    "length": 4,
+                                    "endian-swap": true
+                                }
+                            ]
+                        },
+                        "name": "gre_flag_key_node",
+                        "flag": "0x2000",
+                        "field-len": 4
+                    },
+                    {
+                        "metadata": {
+                            "ents": [
+                                {
+                                    "name": "gre.sequence",
+                                    "type": "extract",
+                                    "md-off": 4,
+                                    "is-frame": false,
+                                    "hdr-src-off": 0,
+                                    "length": 4,
+                                    "endian-swap": true
+                                }
+                            ]
+                        },
+                        "name": "gre_flag_seq_node",
+                        "flag": "0x1000",
+                        "field-len": 4
+                    }
+                ]
+            }
+        },
+        {
+            "name": "gre_v1_node",
+            "min-hdr-length": 4,
+            "encap": true,
+            "hdr-length": {
+                "flag-fields-length": true
+            },
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "gre_version",
+                        "type": "constant",
+                        "md-off": 33,
+                        "is-frame": false,
+                        "length": 1,
+                        "value": 129
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "gre_v1_table"
+            },
+            "flag-fields-parse-node": {
+                "flags-offset": 0,
+                "flags-length": 2,
+                "flags-reverse-order": true,
+                "ents": [
+                    {
+                        "metadata": {
+                            "ents": [
+                                {
+                                    "name": "gre.key_id.val",
+                                    "type": "extract",
+                                    "md-off": 0,
+                                    "is-frame": false,
+                                    "hdr-src-off": 0,
+                                    "length": 4,
+                                    "endian-swap": true
+                                }
+                            ]
+                        },
+                        "name": "gre_pptp_flag_key_node",
+                        "flag": "0x2000",
+                        "field-len": 4
+                    },
+                    {
+                        "metadata": {
+                            "ents": [
+                                {
+                                    "name": "gre.sequence",
+                                    "type": "extract",
+                                    "md-off": 4,
+                                    "is-frame": false,
+                                    "hdr-src-off": 0,
+                                    "length": 4,
+                                    "endian-swap": true
+                                }
+                            ]
+                        },
+                        "name": "gre_pptp_flag_seq_node",
+                        "flag": "0x1000",
+                        "field-len": 4
+                    },
+                    {
+                        "metadata": {
+                            "ents": [
+                                {
+                                    "name": "gre.ack",
+                                    "type": "extract",
+                                    "md-off": 8,
+                                    "is-frame": false,
+                                    "hdr-src-off": 0,
+                                    "length": 4,
+                                    "endian-swap": true
+                                }
+                            ]
+                        },
+                        "name": "gre_pptp_flag_ack_node",
+                        "flag": "0x80",
+                        "field-len": 4
+                    }
+                ]
+            }
+        },
+        {
+            "name": "e8021AD_node",
+            "min-hdr-length": 4,
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "ether_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "e8021Q_node",
+            "min-hdr-length": 4,
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 2,
+                "table": "ether_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "sunh_node_alt",
+            "min-hdr-length": 8,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "addrs.sunh.daddr",
+                        "type": "extract",
+                        "md-off": 66,
+                        "is-frame": false,
+                        "hdr-src-off": 6,
+                        "length": 2
+                    },
+                    {
+                        "name": "addrs.sunh.saddr",
+                        "type": "extract",
+                        "md-off": 64,
+                        "is-frame": false,
+                        "hdr-src-off": 4,
+                        "length": 2
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 1,
+                        "length": 1
+                    },
+                    {
+                        "name": "addr_type",
+                        "type": "constant",
+                        "md-off": 56,
+                        "is-frame": false,
+                        "length": 1,
+                        "value": 4
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 1,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "ipv6_hbh_options_node",
+            "min-hdr-length": 2,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 1
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "ipv6_dest_options_node",
+            "min-hdr-length": 2,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 1
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "ipv6_routing_header_node",
+            "min-hdr-length": 2,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 1
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "ipv6_routing_header_node_check",
+            "min-hdr-length": 4,
+            "overlay": true,
+            "next-proto": {
+                "field-off": 2,
+                "field-len": 1,
+                "table": "rthdr_table",
+                "wildcard-node": "ipv6_routing_header_node",
+                "default": "stop_fail"
+            }
+        },
+        {
+            "name": "ipv6_fragment_header_node",
+            "min-hdr-length": 2,
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "ipv6_ah_header_node",
+            "min-hdr-length": 2,
+            "metadata": {
+                "ents": [
+                    {
+                        "name": "ip_proto",
+                        "type": "extract",
+                        "md-off": 57,
+                        "is-frame": false,
+                        "hdr-src-off": 0,
+                        "length": 1
+                    }
+                ]
+            },
+            "next-proto": {
+                "field-off": 0,
+                "field-len": 1,
+                "table": "ip6_table",
+                "default": "stop_okay"
+            }
+        },
+        {
+            "name": "l2tp_v0_node",
+            "min-hdr-length": 2
+        },
+        {
+            "name": "l2tp_v0_offsz_node",
+            "min-hdr-length": 2,
+            "next-node": "ppp_node"
+        },
+        {
+            "name": "l2tp_v1_node",
+            "min-hdr-length": 2,
+            "next-node": "ppp_node"
+        },
+        {
+            "name": "l2tp_v2_node",
+            "min-hdr-length": 2
+        },
+        {
+            "name": "l2tp_v3_node"
+        },
+        {
+            "name": "ppp_lcp_node"
+        },
+        {
+            "name": "ppp_pap_node"
+        },
+        {
+            "name": "ppp_chap_node"
+        },
+        {
+            "name": "ppp_icpc_node"
+        }
+    ],
+    "proto-tables": [
+        {
+            "name": "falcon_version_table",
+            "ents": [
+                {
+                    "name": "falcon_v1_node",
+                    "key": "0x1",
+                    "node": "falcon_v1_node"
+                }
+            ]
+        },
+        {
+            "name": "falcon_packet_type_table",
+            "ents": [
+                {
+                    "name": "falcon_pull_request",
+                    "key": "0x0",
+                    "node": "falcon_pull_request"
+                },
+                {
+                    "name": "falcon_pull_data",
+                    "key": "0x3",
+                    "node": "falcon_pull_data"
+                },
+                {
+                    "name": "falcon_push_data",
+                    "key": "0x5",
+                    "node": "falcon_push_data"
+                },
+                {
+                    "name": "falcon_resync",
+                    "key": "0x6",
+                    "node": "falcon_resync"
+                },
+                {
+                    "name": "falcon_back",
+                    "key": "0x9",
+                    "node": "falcon_back"
+                },
+                {
+                    "name": "falcon_eack",
+                    "key": "0xa",
+                    "node": "falcon_eack"
+                },
+                {
+                    "name": "falcon_nack",
+                    "key": "0x8",
+                    "node": "falcon_nack"
+                }
+            ]
+        },
+        {
+            "name": "sue_version_table",
+            "ents": [
+                {
+                    "name": "sue_v0_node",
+                    "key": "0x0",
+                    "node": "sue_v0_node"
+                }
+            ]
+        },
+        {
+            "name": "sue_opcode_table",
+            "ents": [
+                {
+                    "name": "sue_rh_ack",
+                    "key": "0x0",
+                    "node": "sue_rh_ack"
+                },
+                {
+                    "name": "sue_rh_nack",
+                    "key": "0x100",
+                    "node": "sue_rh_nack"
+                },
+                {
+                    "name": "sue_rh_invalid1",
+                    "key": "0x200",
+                    "node": "sue_rh_invalid1"
+                },
+                {
+                    "name": "sue_rh_invalid2",
+                    "key": "0x300",
+                    "node": "sue_rh_invalid2"
+                }
+            ]
+        },
+        {
+            "name": "ip6_table",
+            "ents": [
+                {
+                    "name": "tcp_node",
+                    "key": "0x6",
+                    "node": "tcp_node"
+                },
+                {
+                    "name": "udp_node",
+                    "key": "0x11",
+                    "node": "udp_node"
+                },
+                {
+                    "name": "gre_base_node",
+                    "key": "0x2f",
+                    "node": "gre_base_node"
+                },
+                {
+                    "name": "l2tp_base_node",
+                    "key": "0x73",
+                    "node": "l2tp_base_node"
+                },
+                {
+                    "name": "ipv4ip_node",
+                    "key": "0x4",
+                    "node": "ipv4ip_node"
+                },
+                {
+                    "name": "ipv6ip_node",
+                    "key": "0x29",
+                    "node": "ipv6ip_node"
+                },
+                {
+                    "name": "icmpv6_node",
+                    "key": "0x3a",
+                    "node": "icmpv6_node"
+                },
+                {
+                    "name": "ipv6_hbh_options_node",
+                    "key": "0x0",
+                    "node": "ipv6_hbh_options_node"
+                },
+                {
+                    "name": "ipv6_dest_options_node",
+                    "key": "0x3c",
+                    "node": "ipv6_dest_options_node"
+                },
+                {
+                    "name": "ipv6_routing_header_node_check",
+                    "key": "0x2b",
+                    "node": "ipv6_routing_header_node_check"
+                },
+                {
+                    "name": "ipv6_fragment_header_node",
+                    "key": "0x2c",
+                    "node": "ipv6_fragment_header_node"
+                },
+                {
+                    "name": "ipv6_ah_header_node",
+                    "key": "0x33",
+                    "node": "ipv6_ah_header_node"
+                },
+                {
+                    "name": "superp_pdl_node",
+                    "key": "0xfd",
+                    "node": "superp_pdl_node"
+                }
+            ]
+        },
+        {
+            "name": "superp_tal_op_table",
+            "ents": [
+                {
+                    "name": "superp_no_op_node",
+                    "key": "0x0",
+                    "node": "superp_no_op_node"
+                },
+                {
+                    "name": "superp_no_op_node",
+                    "key": "0x1",
+                    "node": "superp_no_op_node"
+                }
+            ]
+        },
+        {
+            "name": "pds_packet_type_table",
+            "ents": [
+                {
+                    "name": "pds_rud_request",
+                    "key": "0x10",
+                    "node": "pds_rud_request"
+                },
+                {
+                    "name": "pds_rud_request_syn",
+                    "key": "0x410",
+                    "node": "pds_rud_request_syn"
+                },
+                {
+                    "name": "pds_rod_request",
+                    "key": "0x18",
+                    "node": "pds_rod_request"
+                },
+                {
+                    "name": "pds_rod_request_syn",
+                    "key": "0x418",
+                    "node": "pds_rod_request_syn"
+                },
+                {
+                    "name": "pds_rud_request_cc",
+                    "key": "0x68",
+                    "node": "pds_rud_request_cc"
+                },
+                {
+                    "name": "pds_rud_request_cc_syn",
+                    "key": "0x468",
+                    "node": "pds_rud_request_cc_syn"
+                },
+                {
+                    "name": "pds_rod_request_cc",
+                    "key": "0x70",
+                    "node": "pds_rod_request_cc"
+                },
+                {
+                    "name": "pds_rod_request_cc_syn",
+                    "key": "0x470",
+                    "node": "pds_rod_request_cc_syn"
+                },
+                {
+                    "name": "pds_control",
+                    "key": "0x58",
+                    "node": "pds_control"
+                },
+                {
+                    "name": "pds_control_syn",
+                    "key": "0x458",
+                    "node": "pds_control_syn"
+                },
+                {
+                    "name": "pds_rudi_req",
+                    "key": "0x20",
+                    "node": "pds_rudi_req"
+                },
+                {
+                    "name": "pds_rudi_req",
+                    "key": "0x420",
+                    "node": "pds_rudi_req"
+                },
+                {
+                    "name": "pds_ack",
+                    "key": "0x38",
+                    "node": "pds_ack"
+                },
+                {
+                    "name": "pds_ack",
+                    "key": "0x438",
+                    "node": "pds_ack"
+                },
+                {
+                    "name": "pds_ack_cc_base_node",
+                    "key": "0x40",
+                    "node": "pds_ack_cc_base_node"
+                },
+                {
+                    "name": "pds_ack_cc_base_node",
+                    "key": "0x440",
+                    "node": "pds_ack_cc_base_node"
+                },
+                {
+                    "name": "pds_ack_ccx",
+                    "key": "0x48",
+                    "node": "pds_ack_ccx"
+                },
+                {
+                    "name": "pds_ack_ccx",
+                    "key": "0x448",
+                    "node": "pds_ack_ccx"
+                },
+                {
+                    "name": "pds_nack",
+                    "key": "0x50",
+                    "node": "pds_nack"
+                },
+                {
+                    "name": "pds_nack",
+                    "key": "0x450",
+                    "node": "pds_nack"
+                },
+                {
+                    "name": "pds_nack_ccx",
+                    "key": "0x60",
+                    "node": "pds_nack_ccx"
+                },
+                {
+                    "name": "pds_nack_ccx",
+                    "key": "0x460",
+                    "node": "pds_nack_ccx"
+                },
+                {
+                    "name": "pds_rudi_resp",
+                    "key": "0x28",
+                    "node": "pds_rudi_resp"
+                },
+                {
+                    "name": "pds_rudi_resp",
+                    "key": "0x428",
+                    "node": "pds_rudi_resp"
+                },
+                {
+                    "name": "pds_uud_req",
+                    "key": "0x30",
+                    "node": "pds_uud_req"
+                },
+                {
+                    "name": "pds_uud_req",
+                    "key": "0x430",
+                    "node": "pds_uud_req"
+                }
+            ]
+        },
+        {
+            "name": "pds_ack_cc_type_table",
+            "ents": [
+                {
+                    "name": "pds_ack_cc_nscc",
+                    "key": "0x0",
+                    "node": "pds_ack_cc_nscc"
+                },
+                {
+                    "name": "pds_ack_cc_credit",
+                    "key": "0x1",
+                    "node": "pds_ack_cc_credit"
+                }
+            ]
+        },
+        {
+            "name": "pds_next_hdr_response_table",
+            "ents": [
+                {
+                    "name": "uet_ses_no_next_hdr",
+                    "key": "0x0",
+                    "node": "uet_ses_no_next_hdr"
+                },
+                {
+                    "name": "uet_ses_response_tnode",
+                    "key": "0x4",
+                    "node": "uet_ses_response_tnode"
+                },
+                {
+                    "name": "uet_ses_response_with_data_tnode",
+                    "key": "0x5",
+                    "node": "uet_ses_response_with_data_tnode"
+                },
+                {
+                    "name": "uet_ses_response_with_data_small_tnode",
+                    "key": "0x6",
+                    "node": "uet_ses_response_with_data_small_tnode"
+                }
+            ]
+        },
+        {
+            "name": "pds_next_hdr_request_table",
+            "ents": [
+                {
+                    "name": "uet_ses_no_next_hdr",
+                    "key": "0x0",
+                    "node": "uet_ses_no_next_hdr"
+                },
+                {
+                    "name": "uet_ses_request_small",
+                    "key": "0x1",
+                    "node": "uet_ses_request_small"
+                },
+                {
+                    "name": "uet_ses_request_medium",
+                    "key": "0x2",
+                    "node": "uet_ses_request_medium"
+                },
+                {
+                    "name": "uet_ses_request_std",
+                    "key": "0x3",
+                    "node": "uet_ses_request_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_read_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_read_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_read_std"
+                },
+                {
+                    "name": "uet_ses_request_som_read_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_read_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_write_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_write_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_write_std"
+                },
+                {
+                    "name": "uet_ses_request_som_write_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_write_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_send_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_send_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_send_std"
+                },
+                {
+                    "name": "uet_ses_request_som_send_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_send_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_datagram_send_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_datagram_send_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_datagram_send_std"
+                },
+                {
+                    "name": "uet_ses_request_som_datagram_send_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_datagram_send_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_tagged_send_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_tagged_send_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_tagged_send_std"
+                },
+                {
+                    "name": "uet_ses_request_som_tagged_send_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_tagged_send_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_tsend_atomic_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_tsend_atomic_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_tsend_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_som_tsend_atomic_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_tsend_atomic_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_tsend_fetch_atomic_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_tsend_fetch_atomic_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_tsend_fetch_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_som_tsend_fetch_atomic_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_tsend_fetch_atomic_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_error_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_error_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_error_std"
+                },
+                {
+                    "name": "uet_ses_request_som_error_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_error_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_amo_table",
+            "ents": [
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x0",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x1",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x2",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x3",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x4",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x5",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x6",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x7",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x8",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x9",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0xa",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0xb",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0xc",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_cmp_swp_node",
+                    "key": "0xd",
+                    "node": "uet_ses_atomic_cmp_swp_node"
+                },
+                {
+                    "name": "uet_ses_atomic_cmp_swp_node",
+                    "key": "0xe",
+                    "node": "uet_ses_atomic_cmp_swp_node"
+                },
+                {
+                    "name": "uet_ses_atomic_cmp_swp_node",
+                    "key": "0xf",
+                    "node": "uet_ses_atomic_cmp_swp_node"
+                },
+                {
+                    "name": "uet_ses_atomic_cmp_swp_node",
+                    "key": "0x10",
+                    "node": "uet_ses_atomic_cmp_swp_node"
+                },
+                {
+                    "name": "uet_ses_atomic_cmp_swp_node",
+                    "key": "0x11",
+                    "node": "uet_ses_atomic_cmp_swp_node"
+                },
+                {
+                    "name": "uet_ses_atomic_cmp_swp_node",
+                    "key": "0x12",
+                    "node": "uet_ses_atomic_cmp_swp_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x13",
+                    "node": "uet_ses_atomic_node"
+                },
+                {
+                    "name": "uet_ses_atomic_node",
+                    "key": "0x14",
+                    "node": "uet_ses_atomic_node"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_atomic_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_atomic_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_som_atomic_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_atomic_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_msg_fetching_atomic_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_request_nosom_fetching_atomic_std",
+                    "key": "0x0",
+                    "node": "uet_ses_request_nosom_fetching_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_som_fetching_atomic_std",
+                    "key": "0x100",
+                    "node": "uet_ses_request_som_fetching_atomic_std"
+                }
+            ]
+        },
+        {
+            "name": "pds_hdr_request_small_table",
+            "ents": [
+                {
+                    "name": "uet_ses_msg_no_op_small",
+                    "key": "0x0",
+                    "node": "uet_ses_msg_no_op_small"
+                },
+                {
+                    "name": "uet_ses_request_write_small",
+                    "key": "0x1",
+                    "node": "uet_ses_request_write_small"
+                },
+                {
+                    "name": "uet_ses_request_read_small",
+                    "key": "0x2",
+                    "node": "uet_ses_request_read_small"
+                },
+                {
+                    "name": "uet_ses_request_atomic_small",
+                    "key": "0x3",
+                    "node": "uet_ses_request_atomic_small"
+                },
+                {
+                    "name": "uet_ses_request_fetching_atomic_small",
+                    "key": "0x4",
+                    "node": "uet_ses_request_fetching_atomic_small"
+                }
+            ]
+        },
+        {
+            "name": "pds_hdr_request_medium_table",
+            "ents": [
+                {
+                    "name": "uet_ses_msg_no_op_medium",
+                    "key": "0x0",
+                    "node": "uet_ses_msg_no_op_medium"
+                },
+                {
+                    "name": "uet_ses_request_write_medium",
+                    "key": "0x1",
+                    "node": "uet_ses_request_write_medium"
+                },
+                {
+                    "name": "uet_ses_request_read_medium",
+                    "key": "0x2",
+                    "node": "uet_ses_request_read_medium"
+                },
+                {
+                    "name": "uet_ses_request_send_medium",
+                    "key": "0x5",
+                    "node": "uet_ses_request_send_medium"
+                },
+                {
+                    "name": "uet_ses_request_tsend_medium",
+                    "key": "0x9",
+                    "node": "uet_ses_request_tsend_medium"
+                },
+                {
+                    "name": "uet_ses_request_datagram_send_medium",
+                    "key": "0x7",
+                    "node": "uet_ses_request_datagram_send_medium"
+                },
+                {
+                    "name": "uet_ses_request_tsend_atomic_medium",
+                    "key": "0xd",
+                    "node": "uet_ses_request_tsend_atomic_medium"
+                },
+                {
+                    "name": "uet_ses_request_tsend_fetch_atomic_medium",
+                    "key": "0xe",
+                    "node": "uet_ses_request_tsend_fetch_atomic_medium"
+                },
+                {
+                    "name": "uet_ses_request_atomic_medium",
+                    "key": "0x3",
+                    "node": "uet_ses_request_atomic_medium"
+                },
+                {
+                    "name": "uet_ses_request_fetching_atomic_medium",
+                    "key": "0x4",
+                    "node": "uet_ses_request_fetching_atomic_medium"
+                }
+            ]
+        },
+        {
+            "name": "pds_hdr_request_std_table",
+            "ents": [
+                {
+                    "name": "uet_ses_no_op_std",
+                    "key": "0x0",
+                    "node": "uet_ses_no_op_std"
+                },
+                {
+                    "name": "uet_ses_request_write_std",
+                    "key": "0x1",
+                    "node": "uet_ses_request_write_std"
+                },
+                {
+                    "name": "uet_ses_request_read_std",
+                    "key": "0x2",
+                    "node": "uet_ses_request_read_std"
+                },
+                {
+                    "name": "uet_ses_request_atomic_std",
+                    "key": "0x3",
+                    "node": "uet_ses_request_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_fetching_atomic_std",
+                    "key": "0x4",
+                    "node": "uet_ses_request_fetching_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_send_std",
+                    "key": "0x5",
+                    "node": "uet_ses_request_send_std"
+                },
+                {
+                    "name": "uet_ses_request_rendezvous_send_std",
+                    "key": "0x6",
+                    "node": "uet_ses_request_rendezvous_send_std"
+                },
+                {
+                    "name": "uet_ses_request_datagram_send_std",
+                    "key": "0x7",
+                    "node": "uet_ses_request_datagram_send_std"
+                },
+                {
+                    "name": "uet_ses_request_deferrable_send_std",
+                    "key": "0x8",
+                    "node": "uet_ses_request_deferrable_send_std"
+                },
+                {
+                    "name": "uet_ses_request_tagged_send_std",
+                    "key": "0x9",
+                    "node": "uet_ses_request_tagged_send_std"
+                },
+                {
+                    "name": "uet_ses_request_rendezvous_tsend_std",
+                    "key": "0xa",
+                    "node": "uet_ses_request_rendezvous_tsend_std"
+                },
+                {
+                    "name": "uet_ses_request_deferrable_tsend_std",
+                    "key": "0xb",
+                    "node": "uet_ses_request_deferrable_tsend_std"
+                },
+                {
+                    "name": "uet_ses_request_ready_restart_std",
+                    "key": "0xc",
+                    "node": "uet_ses_request_ready_restart_std"
+                },
+                {
+                    "name": "uet_ses_request_tsend_atomic_std",
+                    "key": "0xd",
+                    "node": "uet_ses_request_tsend_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_tsend_fetch_atomic_std",
+                    "key": "0xe",
+                    "node": "uet_ses_request_tsend_fetch_atomic_std"
+                },
+                {
+                    "name": "uet_ses_request_error_std",
+                    "key": "0xf",
+                    "node": "uet_ses_request_error_std"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_response_nodata_table",
+            "ents": [
+                {
+                    "name": "uet_ses_normal_nodata_response",
+                    "key": "0x1",
+                    "node": "uet_ses_normal_nodata_response"
+                },
+                {
+                    "name": "uet_ses_default_nodata_response",
+                    "key": "0x0",
+                    "node": "uet_ses_default_nodata_response"
+                },
+                {
+                    "name": "uet_ses_none_nodata_response",
+                    "key": "0x3",
+                    "node": "uet_ses_none_nodata_response"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_response_with_data_table",
+            "ents": [
+                {
+                    "name": "uet_ses_response_with_data",
+                    "key": "0x2",
+                    "node": "uet_ses_response_with_data"
+                }
+            ]
+        },
+        {
+            "name": "uet_ses_response_with_data_small_table",
+            "ents": [
+                {
+                    "name": "uet_ses_response_with_small_data",
+                    "key": "0x2",
+                    "node": "uet_ses_response_with_small_data"
+                }
+            ]
+        },
+        {
+            "name": "ether_table",
+            "ents": [
+                {
+                    "name": "ip_overlay_node",
+                    "key": "0x800",
+                    "node": "ip_overlay_node"
+                },
+                {
+                    "name": "ip_overlay_node",
+                    "key": "0x86dd",
+                    "node": "ip_overlay_node"
+                },
+                {
+                    "name": "pppoe_node",
+                    "key": "0x8864",
+                    "node": "pppoe_node"
+                },
+                {
+                    "name": "ppp_node",
+                    "key": "0x880b",
+                    "node": "ppp_node"
+                },
+                {
+                    "name": "e8021AD_node",
+                    "key": "0x88a8",
+                    "node": "e8021AD_node"
+                },
+                {
+                    "name": "e8021Q_node",
+                    "key": "0x8100",
+                    "node": "e8021Q_node"
+                },
+                {
+                    "name": "arp_node",
+                    "key": "0x806",
+                    "node": "arp_node"
+                },
+                {
+                    "name": "ether_node",
+                    "key": "0x6558",
+                    "node": "ether_node"
+                },
+                {
+                    "name": "sunh_node_alt",
+                    "key": "0x885b",
+                    "node": "sunh_node_alt"
+                }
+            ]
+        },
+        {
+            "name": "ip_overlay_table",
+            "ents": [
+                {
+                    "name": "ipv4_check_node",
+                    "key": "0x4",
+                    "node": "ipv4_check_node"
+                },
+                {
+                    "name": "ipv6_check_node",
+                    "key": "0x6",
+                    "node": "ipv6_check_node"
+                }
+            ]
+        },
+        {
+            "name": "ip_overlay_by_key_table",
+            "ents": [
+                {
+                    "name": "ipv4_node",
+                    "key": "0x4",
+                    "node": "ipv4_node"
+                },
+                {
+                    "name": "ipv6_node",
+                    "key": "0x6",
+                    "node": "ipv6_node"
+                }
+            ]
+        },
+        {
+            "name": "ip4_table",
+            "ents": [
+                {
+                    "name": "tcp_node",
+                    "key": "0x6",
+                    "node": "tcp_node"
+                },
+                {
+                    "name": "udp_node",
+                    "key": "0x11",
+                    "node": "udp_node"
+                },
+                {
+                    "name": "gre_base_node",
+                    "key": "0x2f",
+                    "node": "gre_base_node"
+                },
+                {
+                    "name": "l2tp_base_node",
+                    "key": "0x73",
+                    "node": "l2tp_base_node"
+                },
+                {
+                    "name": "ipv4ip_node",
+                    "key": "0x4",
+                    "node": "ipv4ip_node"
+                },
+                {
+                    "name": "ipv6ip_node",
+                    "key": "0x29",
+                    "node": "ipv6ip_node"
+                },
+                {
+                    "name": "icmpv4_node",
+                    "key": "0x1",
+                    "node": "icmpv4_node"
+                },
+                {
+                    "name": "ospf_node",
+                    "key": "0x59",
+                    "node": "ospf_node"
+                }
+            ]
+        },
+        {
+            "name": "l2tp_base_table",
+            "ents": [
+                {
+                    "name": "l2tp_v0_node",
+                    "key": "0x0",
+                    "node": "l2tp_v0_node"
+                },
+                {
+                    "name": "l2tp_v1_node",
+                    "key": "0x1",
+                    "node": "l2tp_v1_node"
+                },
+                {
+                    "name": "l2tp_v2_node",
+                    "key": "0x2",
+                    "node": "l2tp_v2_node"
+                },
+                {
+                    "name": "l2tp_v3_node",
+                    "key": "0x3",
+                    "node": "l2tp_v3_node"
+                }
+            ]
+        },
+        {
+            "name": "geneve_base_table",
+            "ents": [
+                {
+                    "name": "geneve_v0_node",
+                    "key": "0x0",
+                    "node": "geneve_v0_node"
+                }
+            ]
+        },
+        {
+            "name": "ppp_table",
+            "ents": [
+                {
+                    "name": "ip_overlay_node",
+                    "key": "0x21",
+                    "node": "ip_overlay_node"
+                },
+                {
+                    "name": "ppp_lcp_node",
+                    "key": "0xc021",
+                    "node": "ppp_lcp_node"
+                },
+                {
+                    "name": "ppp_pap_node",
+                    "key": "0xc023",
+                    "node": "ppp_pap_node"
+                },
+                {
+                    "name": "ppp_chap_node",
+                    "key": "0xc223",
+                    "node": "ppp_chap_node"
+                },
+                {
+                    "name": "ppp_icpc_node",
+                    "key": "0x8021",
+                    "node": "ppp_icpc_node"
+                },
+                {
+                    "name": "ipv6_node",
+                    "key": "0x57",
+                    "node": "ipv6_node"
+                }
+            ]
+        },
+        {
+            "name": "icmpv6_table",
+            "ents": [
+                {
+                    "name": "icmpv6_neigh_solicit",
+                    "key": "0x87",
+                    "node": "icmpv6_neigh_solicit"
+                },
+                {
+                    "name": "icmpv6_neigh_advert",
+                    "key": "0x88",
+                    "node": "icmpv6_neigh_advert"
+                }
+            ]
+        },
+        {
+            "name": "udp_ports_table",
+            "ents": [
+                {
+                    "name": "protobufs1_node",
+                    "key": "0x22b8",
+                    "node": "protobufs1_node"
+                },
+                {
+                    "name": "protobufs2_node",
+                    "key": "0x270f",
+                    "node": "protobufs2_node"
+                },
+                {
+                    "name": "vxlan_node",
+                    "key": "0x12b5",
+                    "node": "vxlan_node"
+                },
+                {
+                    "name": "l2tp_base_node",
+                    "key": "0x6a5",
+                    "node": "l2tp_base_node"
+                },
+                {
+                    "name": "geneve_base_node",
+                    "key": "0x17c1",
+                    "node": "geneve_base_node"
+                },
+                {
+                    "name": "uet_base_node",
+                    "key": "0x12b9",
+                    "node": "uet_base_node"
+                },
+                {
+                    "name": "falcon_base_node",
+                    "key": "0x1e61",
+                    "node": "falcon_base_node"
+                },
+                {
+                    "name": "sue_base_node",
+                    "key": "0xd05",
+                    "node": "sue_base_node"
+                },
+                {
+                    "name": "superp_pdl_node",
+                    "key": "0x115c",
+                    "node": "superp_pdl_node"
+                }
+            ]
+        },
+        {
+            "name": "gre_base_table",
+            "ents": [
+                {
+                    "name": "gre_v0_node",
+                    "key": "0x0",
+                    "node": "gre_v0_node"
+                },
+                {
+                    "name": "gre_v1_node",
+                    "key": "0x100",
+                    "node": "gre_v1_node"
+                }
+            ]
+        },
+        {
+            "name": "gre_v0_table",
+            "ents": [
+                {
+                    "name": "ip_overlay_node",
+                    "key": "0x800",
+                    "node": "ip_overlay_node"
+                },
+                {
+                    "name": "ip_overlay_node",
+                    "key": "0x86dd",
+                    "node": "ip_overlay_node"
+                },
+                {
+                    "name": "ether_node",
+                    "key": "0x6558",
+                    "node": "ether_node"
+                },
+                {
+                    "name": "pppoe_node",
+                    "key": "0x8864",
+                    "node": "pppoe_node"
+                },
+                {
+                    "name": "ppp_node",
+                    "key": "0x880b",
+                    "node": "ppp_node"
+                }
+            ]
+        },
+        {
+            "name": "gre_v1_table",
+            "ents": [
+                {
+                    "name": "ipv4_check_node",
+                    "key": "0x800",
+                    "node": "ipv4_check_node"
+                },
+                {
+                    "name": "ipv6_check_node",
+                    "key": "0x86dd",
+                    "node": "ipv6_check_node"
+                },
+                {
+                    "name": "ether_node",
+                    "key": "0x6558",
+                    "node": "ether_node"
+                },
+                {
+                    "name": "pppoe_node",
+                    "key": "0x8864",
+                    "node": "pppoe_node"
+                },
+                {
+                    "name": "ppp_node",
+                    "key": "0x880b",
+                    "node": "ppp_node"
+                }
+            ]
+        },
+        {
+            "name": "l2tp_v0_base_table",
+            "ents": [
+                {
+                    "name": "ppp_node",
+                    "key": "0x0",
+                    "node": "ppp_node"
+                },
+                {
+                    "name": "l2tp_v0_offsz_node",
+                    "key": "0x1",
+                    "node": "l2tp_v0_offsz_node"
+                }
+            ]
+        }
+    ],
+    "tlv-nodes": [
+        {
+            "name": "tcp_opt_unknown_node"
+        },
+        {
+            "name": "tcp_opt_sack_4"
+        },
+        {
+            "name": "tcp_opt_sack_3"
+        },
+        {
+            "name": "tcp_opt_mss_node"
+        },
+        {
+            "name": "geneve_class_0_tlv_node",
+            "overlay-node": {
+                "field-off": 1,
+                "field-len": 1,
+                "ents": [
+                    {
+                        "key": 128,
+                        "node": "geneve_class_0_tlv_80_node"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "icmpv6_nd_target_addr_opt_node"
+        },
+        {
+            "name": "icmpv6_nd_solicit_opt_unknown_node"
+        },
+        {
+            "name": "protobufs1_name_node"
+        },
+        {
+            "name": "protobufs1_phones_node"
+        },
+        {
+            "name": "tcp_opt_sack_2"
+        },
+        {
+            "name": "tcp_opt_wscale_node"
+        },
+        {
+            "name": "geneve_class_0_tlv_80_node"
+        },
+        {
+            "name": "protobufs2_entry_node"
+        },
+        {
+            "name": "protobufs1_email_node"
+        },
+        {
+            "name": "protobufs2_phone_type_node"
+        },
+        {
+            "name": "tcp_opt_sack_1"
+        },
+        {
+            "name": "protobufs2_phone_number_node"
+        },
+        {
+            "name": "tcp_opt_timestamp_node"
+        },
+        {
+            "name": "tcp_opt_sack_permitted_node"
+        },
+        {
+            "name": "protobufs1_id_node"
+        },
+        {
+            "name": "tcp_opt_sack_node",
+            "overlay-node": {
+                "field-off": 1,
+                "field-len": 1,
+                "ents": [
+                    {
+                        "key": 10,
+                        "node": "tcp_opt_sack_1"
+                    },
+                    {
+                        "key": 18,
+                        "node": "tcp_opt_sack_2"
+                    },
+                    {
+                        "key": 26,
+                        "node": "tcp_opt_sack_3"
+                    },
+                    {
+                        "key": 34,
+                        "node": "tcp_opt_sack_4"
+                    }
+                ]
+            }
+        }
+    ]
+}

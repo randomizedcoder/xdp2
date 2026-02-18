@@ -47,8 +47,17 @@
 14. [Usage Examples](#usage-examples)
 15. [Troubleshooting](#troubleshooting)
 16. [Future Enhancements](#future-enhancements)
-17. [Revision History](#revision-history)
-18. [References](#references)
+17. [Cross-Compilation for Distribution](#cross-compilation-for-distribution)
+   - [Architecture Targets](#architecture-targets)
+   - [Cross-Compilation Strategy](#cross-compilation-strategy)
+   - [Implementation](#implementation-1)
+18. [Linux Package Generation](#linux-package-generation)
+   - [Package Contents](#package-contents)
+   - [Package Metadata](#package-metadata)
+   - [Implementation Approach: FPM](#implementation-approach-fpm-effing-package-management)
+   - [CI Release Workflow](#ci-release-workflow)
+19. [Revision History](#revision-history)
+20. [References](#references)
 
 ---
 
@@ -62,6 +71,8 @@ This document describes the design for a NixOS MicroVM-based test infrastructure
 4. **Reproducible environments** - Nix-based VM definitions with pinned kernel versions
 5. **BTF-enabled kernels** - Required for CO-RE eBPF programs (CONFIG_DEBUG_INFO_BTF=y)
 6. **Two test modes** - Fast mode for development iteration, full mode for CI/release
+7. **Cross-compilation** - Build XDP2 binaries for x86_64, aarch64, riscv64, and armv7l
+8. **Package generation** - Produce `.deb` (apt) and `.rpm` (dnf) packages for distribution
 
 > **Note:** XDP and eBPF are Linux-only technologies. This infrastructure does not support FreeBSD, Solaris, or other non-Linux operating systems.
 
@@ -89,6 +100,18 @@ nix build .#xdp2-test-vm-x86_64
 
 # Check VM status
 nix run .#xdp2-vm-check
+
+# Cross-compile for different architectures
+nix build .#cross.aarch64
+nix build .#cross.riscv64
+nix build .#cross.riscv32
+
+# Generate distribution packages
+nix build .#deb-x86_64    # Debian/Ubuntu x86_64
+nix build .#deb-riscv64   # Debian/Ubuntu RISC-V 64-bit
+nix build .#deb-riscv32   # Debian/Ubuntu RISC-V 32-bit
+nix build .#rpm-riscv64   # Fedora RISC-V 64-bit
+nix build .#packages-all  # All packages for all architectures
 ```
 
 ---
@@ -1802,6 +1825,495 @@ nix run .#xdp2-test-matrix
 
 ---
 
+## Cross-Compilation for Distribution
+
+This section describes how to cross-compile XDP2 binaries for multiple architectures and generate Linux distribution packages (.deb and .rpm).
+
+### Architecture Targets
+
+XDP2 compiler binaries should be available for these architectures:
+
+| Architecture | Nix System | Target Use Case | Package Priority |
+|-------------|------------|-----------------|------------------|
+| **x86_64** | `x86_64-linux` | Servers, desktops, CI | High |
+| **aarch64** | `aarch64-linux` | ARM servers, Graviton, RPi 4/5 | High |
+| **riscv64** | `riscv64-linux` | RISC-V servers, SiFive, StarFive VisionFive | High |
+| **riscv32** | `riscv32-linux` | RISC-V embedded, ESP32-C3, microcontrollers | High |
+| **armv7l** | `armv7l-linux` | Older ARM (RPi 2/3 32-bit) | Medium |
+
+> **Note:** RISC-V is a priority target for XDP2. The architecture is gaining traction in networking equipment, embedded systems, and data center infrastructure. Both 32-bit (microcontrollers, IoT) and 64-bit (servers, network appliances) variants are important.
+
+### Cross-Compilation Strategy
+
+Nix provides `pkgsCross.<arch>` for cross-compilation. The key insight is separating:
+
+1. **Build-time tools** (`nativeBuildInputs`) - Run on the build host (always x86_64)
+2. **Target libraries** (`buildInputs`) - Link into the cross-compiled binary
+
+**Special case for xdp2-compiler:** The compiler itself is a code generator that runs on the host, not a runtime tool. For distribution, we cross-compile it so users on ARM servers can run it natively.
+
+### Implementation
+
+#### Cross-Compilation Module (`nix/cross.nix`)
+
+```nix
+# nix/cross.nix
+#
+# Cross-compilation support for XDP2 binaries.
+# Generates binaries for multiple target architectures from an x86_64 host.
+#
+{ pkgs, lib }:
+
+let
+  # Target architectures for cross-compilation
+  # RISC-V (both 32 and 64-bit) are priority targets
+  crossTargets = {
+    x86_64 = pkgs;  # Native build
+    aarch64 = pkgs.pkgsCross.aarch64-multiplatform;
+    riscv64 = pkgs.pkgsCross.riscv64;
+    riscv32 = pkgs.pkgsCross.riscv32;
+    armv7l = pkgs.pkgsCross.armv7l-hf-multiplatform;
+  };
+
+  # Import base derivation
+  mkXdp2 = crossPkgs: import ./derivation.nix {
+    pkgs = crossPkgs;
+    lib = crossPkgs.lib;
+    llvmConfig = import ./llvm.nix { pkgs = crossPkgs; lib = crossPkgs.lib; };
+    inherit (import ./packages.nix {
+      pkgs = crossPkgs;
+      llvmPackages = (import ./llvm.nix { pkgs = crossPkgs; lib = crossPkgs.lib; }).llvmPackages;
+    }) nativeBuildInputs buildInputs;
+    enableAsserts = false;
+  };
+
+in {
+  # Cross-compiled packages
+  # Usage: nix build .#cross.aarch64
+  packages = lib.mapAttrs (name: crossPkgs: mkXdp2 crossPkgs) crossTargets;
+
+  # Convenience: build all architectures
+  # Usage: nix build .#cross.all
+  all = pkgs.symlinkJoin {
+    name = "xdp2-cross-all";
+    paths = lib.attrValues (lib.mapAttrs (name: crossPkgs:
+      pkgs.runCommand "xdp2-${name}" {} ''
+        mkdir -p $out/${name}
+        cp -r ${mkXdp2 crossPkgs}/* $out/${name}/
+      ''
+    ) crossTargets);
+  };
+}
+```
+
+#### Cross-Compilation Caveats
+
+**LLVM/Clang dependency:** The xdp2-compiler links against libclang. Cross-compiling LLVM is complex. Two approaches:
+
+1. **Static linking** (recommended): Link libclang statically to avoid runtime dependency issues
+2. **Host-only compiler**: Build xdp2-compiler only for the host, cross-compile libraries only
+
+```nix
+# In derivation.nix - static LLVM linking for portability
+buildPhase = ''
+  # ... existing build steps ...
+
+  # For cross-compiled builds, use static LLVM linking
+  ${lib.optionalString (pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform) ''
+    export LLVM_LINK_STATIC=1
+  ''}
+'';
+```
+
+**Build-time vs runtime tools:** Some tools (like the xdp2-compiler) need to run during build. For cross-compilation:
+
+```nix
+nativeBuildInputs = [
+  # These run on the BUILD machine (always x86_64)
+  pkgs.buildPackages.gcc
+  pkgs.buildPackages.gnumake
+  pkgs.buildPackages.pkg-config
+];
+
+buildInputs = [
+  # These link into the TARGET binary
+  pkgs.boost
+  pkgs.libelf
+];
+```
+
+### Flake Integration
+
+```nix
+# In flake.nix - add cross-compilation outputs
+{
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        cross = import ./nix/cross.nix { inherit pkgs lib; };
+      in {
+        packages = {
+          # ... existing packages ...
+
+          # Cross-compiled binaries
+          cross = cross.packages;
+          cross-all = cross.all;
+        };
+      });
+}
+```
+
+**Usage:**
+
+```bash
+# Build for specific architecture
+nix build .#cross.aarch64
+nix build .#cross.riscv64
+nix build .#cross.riscv32
+
+# Build all architectures
+nix build .#cross.all
+ls result/
+# => aarch64/ riscv64/ riscv32/ x86_64/ armv7l/
+
+# Inspect cross-compiled binaries
+file result/riscv64/bin/xdp2-compiler
+# => ELF 64-bit LSB executable, UCB RISC-V, ...
+
+file result/riscv32/bin/xdp2-compiler
+# => ELF 32-bit LSB executable, UCB RISC-V, ...
+```
+
+---
+
+## Linux Package Generation
+
+Generate `.deb` (Debian/Ubuntu) and `.rpm` (RHEL/Fedora) packages from Nix builds.
+
+### Package Contents
+
+Each package should include:
+
+| Component | Destination | Description |
+|-----------|-------------|-------------|
+| `xdp2-compiler` | `/usr/bin/` | Main compiler tool |
+| `cppfront-compiler` | `/usr/bin/` | C++ metaprogramming tool |
+| `libxdp2.so` | `/usr/lib/` | Core library |
+| `libxdp2.a` | `/usr/lib/` | Static library |
+| Headers | `/usr/include/xdp2/` | API headers |
+| Templates | `/usr/share/xdp2/` | Code templates |
+
+### Package Metadata
+
+```nix
+# nix/packaging/metadata.nix
+{
+  name = "xdp2";
+  version = "0.1.0";
+  maintainer = "XDP2 Team <team@xdp2.dev>";
+  description = "High-performance packet processing framework using eBPF/XDP";
+  homepage = "https://github.com/xdp2/xdp2";
+  license = "MIT";
+
+  # Runtime dependencies (translated to package deps)
+  depends = {
+    deb = [ "libboost-all-dev" "libelf1" "libbpf0" ];
+    rpm = [ "boost-devel" "elfutils-libelf" "libbpf" ];
+  };
+}
+```
+
+### Implementation Approach: FPM (Effing Package Management)
+
+FPM is a tool that converts directory structures into native packages. Nix can drive FPM to generate packages.
+
+#### Package Builder Module (`nix/packaging/default.nix`)
+
+```nix
+# nix/packaging/default.nix
+#
+# Generate .deb and .rpm packages from Nix builds.
+# Uses FPM (Effing Package Management) for package creation.
+#
+{ pkgs, lib, xdp2 }:
+
+let
+  metadata = import ./metadata.nix;
+
+  # Common FPM arguments
+  fpmCommon = arch: ''
+    --name ${metadata.name} \
+    --version ${metadata.version} \
+    --maintainer "${metadata.maintainer}" \
+    --description "${metadata.description}" \
+    --url "${metadata.homepage}" \
+    --license "${metadata.license}" \
+    --architecture ${arch}
+  '';
+
+  # Create package staging directory
+  mkStaging = arch: pkgs.runCommand "xdp2-staging-${arch}" {} ''
+    mkdir -p $out/usr/bin
+    mkdir -p $out/usr/lib
+    mkdir -p $out/usr/include
+    mkdir -p $out/usr/share/xdp2
+
+    # Copy binaries
+    cp ${xdp2}/bin/* $out/usr/bin/ 2>/dev/null || true
+
+    # Copy libraries
+    cp ${xdp2}/lib/*.so $out/usr/lib/ 2>/dev/null || true
+    cp ${xdp2}/lib/*.a $out/usr/lib/ 2>/dev/null || true
+
+    # Copy headers
+    cp -r ${xdp2}/include/* $out/usr/include/ 2>/dev/null || true
+
+    # Copy templates
+    cp -r ${xdp2}/share/xdp2/* $out/usr/share/xdp2/ 2>/dev/null || true
+  '';
+
+  # Generate .deb package
+  mkDeb = { arch, debArch }: pkgs.runCommand "xdp2-${metadata.version}-${debArch}.deb" {
+    nativeBuildInputs = [ pkgs.fpm ];
+  } ''
+    mkdir -p $out
+
+    fpm -s dir -t deb \
+      ${fpmCommon debArch} \
+      ${lib.concatMapStringsSep " " (d: "--depends ${d}") metadata.depends.deb} \
+      --chdir ${mkStaging arch} \
+      --package $out/xdp2_${metadata.version}_${debArch}.deb \
+      .
+  '';
+
+  # Generate .rpm package
+  mkRpm = { arch, rpmArch }: pkgs.runCommand "xdp2-${metadata.version}-${rpmArch}.rpm" {
+    nativeBuildInputs = [ pkgs.fpm pkgs.rpm ];
+  } ''
+    mkdir -p $out
+
+    fpm -s dir -t rpm \
+      ${fpmCommon rpmArch} \
+      ${lib.concatMapStringsSep " " (d: "--depends ${d}") metadata.depends.rpm} \
+      --chdir ${mkStaging arch} \
+      --package $out/xdp2-${metadata.version}-1.${rpmArch}.rpm \
+      .
+  '';
+
+in {
+  # Individual packages
+  # Note: RISC-V uses "riscv64" and "riscv32" for both deb and rpm
+  deb = {
+    x86_64 = mkDeb { arch = "x86_64"; debArch = "amd64"; };
+    aarch64 = mkDeb { arch = "aarch64"; debArch = "arm64"; };
+    riscv64 = mkDeb { arch = "riscv64"; debArch = "riscv64"; };
+    riscv32 = mkDeb { arch = "riscv32"; debArch = "riscv32"; };
+    armv7l = mkDeb { arch = "armv7l"; debArch = "armhf"; };
+  };
+
+  rpm = {
+    x86_64 = mkRpm { arch = "x86_64"; rpmArch = "x86_64"; };
+    aarch64 = mkRpm { arch = "aarch64"; rpmArch = "aarch64"; };
+    riscv64 = mkRpm { arch = "riscv64"; rpmArch = "riscv64"; };
+    riscv32 = mkRpm { arch = "riscv32"; rpmArch = "riscv32"; };
+  };
+
+  # All packages combined
+  all = pkgs.symlinkJoin {
+    name = "xdp2-packages-all";
+    paths = [
+      (mkDeb { arch = "x86_64"; debArch = "amd64"; })
+      (mkDeb { arch = "aarch64"; debArch = "arm64"; })
+      (mkDeb { arch = "riscv64"; debArch = "riscv64"; })
+      (mkDeb { arch = "riscv32"; debArch = "riscv32"; })
+      (mkRpm { arch = "x86_64"; rpmArch = "x86_64"; })
+      (mkRpm { arch = "aarch64"; rpmArch = "aarch64"; })
+      (mkRpm { arch = "riscv64"; rpmArch = "riscv64"; })
+      (mkRpm { arch = "riscv32"; rpmArch = "riscv32"; })
+    ];
+  };
+}
+```
+
+### Flake Integration
+
+```nix
+# In flake.nix - add packaging outputs
+{
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        xdp2 = import ./nix/derivation.nix { /* ... */ };
+
+        # Cross-compiled variants
+        cross = import ./nix/cross.nix { inherit pkgs lib; };
+
+        # Package generator
+        packaging = import ./nix/packaging {
+          inherit pkgs lib;
+          xdp2 = xdp2;  # or cross.packages.aarch64 for ARM packages
+        };
+
+      in {
+        packages = {
+          # ... existing packages ...
+
+          # Linux packages - x86_64
+          deb-x86_64 = packaging.deb.x86_64;
+          rpm-x86_64 = packaging.rpm.x86_64;
+
+          # Linux packages - ARM64
+          deb-aarch64 = packaging.deb.aarch64;
+          rpm-aarch64 = packaging.rpm.aarch64;
+
+          # Linux packages - RISC-V 64-bit (priority target)
+          deb-riscv64 = packaging.deb.riscv64;
+          rpm-riscv64 = packaging.rpm.riscv64;
+
+          # Linux packages - RISC-V 32-bit (priority target)
+          deb-riscv32 = packaging.deb.riscv32;
+          rpm-riscv32 = packaging.rpm.riscv32;
+
+          # Linux packages - ARM 32-bit
+          deb-armv7l = packaging.deb.armv7l;
+
+          # All packages
+          packages-all = packaging.all;
+        };
+      });
+}
+```
+
+**Usage:**
+
+```bash
+# Build specific package
+nix build .#deb-x86_64
+ls result/
+# => xdp2_0.1.0_amd64.deb
+
+nix build .#rpm-aarch64
+ls result/
+# => xdp2-0.1.0-1.aarch64.rpm
+
+# Build all packages
+nix build .#packages-all
+ls result/
+# => xdp2_0.1.0_amd64.deb  xdp2_0.1.0_arm64.deb  xdp2-0.1.0-1.x86_64.rpm  ...
+
+# Test installation (in a container)
+docker run -v $(pwd)/result:/pkg debian:bookworm dpkg -i /pkg/xdp2_0.1.0_amd64.deb
+docker run -v $(pwd)/result:/pkg fedora:40 rpm -i /pkg/xdp2-0.1.0-1.x86_64.rpm
+```
+
+### CI Release Workflow
+
+```yaml
+# .github/workflows/release.yml
+name: Release Packages
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            deb: amd64
+            rpm: x86_64
+          - arch: aarch64
+            deb: arm64
+            rpm: aarch64
+          - arch: riscv64
+            deb: riscv64
+            rpm: riscv64
+          - arch: riscv32
+            deb: riscv32
+            rpm: riscv32
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v26
+
+      - name: Build .deb
+        run: nix build .#deb-${{ matrix.arch }}
+
+      - name: Build .rpm
+        run: nix build .#rpm-${{ matrix.arch }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.arch }}
+          path: |
+            result/*.deb
+            result/*.rpm
+
+  create-release:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages-*/*.deb
+            packages-*/*.rpm
+```
+
+### Alternative: Native Nix Package Generation
+
+For environments without FPM, Nix can generate packages directly using `dpkg-deb` and `rpmbuild`:
+
+```nix
+# Direct .deb generation without FPM
+mkDebNative = { arch, debArch }: pkgs.runCommand "xdp2-${metadata.version}-${debArch}.deb" {
+  nativeBuildInputs = [ pkgs.dpkg ];
+} ''
+  # Create DEBIAN control directory
+  mkdir -p pkg/DEBIAN
+  cat > pkg/DEBIAN/control << EOF
+  Package: xdp2
+  Version: ${metadata.version}
+  Architecture: ${debArch}
+  Maintainer: ${metadata.maintainer}
+  Description: ${metadata.description}
+  Depends: ${lib.concatStringsSep ", " metadata.depends.deb}
+  EOF
+
+  # Copy files
+  mkdir -p pkg/usr
+  cp -r ${mkStaging arch}/usr/* pkg/usr/
+
+  # Build package
+  dpkg-deb --build pkg $out/xdp2_${metadata.version}_${debArch}.deb
+'';
+```
+
+### Package Verification
+
+```bash
+# Verify .deb contents
+dpkg-deb --contents result/xdp2_0.1.0_amd64.deb
+
+# Verify .rpm contents
+rpm -qlp result/xdp2-0.1.0-1.x86_64.rpm
+
+# Check dependencies
+dpkg-deb --info result/xdp2_0.1.0_amd64.deb | grep Depends
+rpm -qpR result/xdp2-0.1.0-1.x86_64.rpm
+```
+
+---
+
 ## Revision History
 
 - **2026-02-16**: Initial draft
@@ -1841,6 +2353,19 @@ nix run .#xdp2-test-matrix
   - `nix/modules/ebpf-base.nix` - Reusable eBPF NixOS module
 - Updated Flake Integration to use callPackage pattern
 - Test matrix now a first-class flake output: `nix build .#tests.matrix.x86_64-stable`
+- **2026-02-17**: Cross-Compilation and Packaging revision
+- Added Cross-Compilation for Distribution section
+  - Architecture targets (x86_64, aarch64, riscv64, riscv32, armv7l)
+  - **RISC-V 32-bit and 64-bit as priority targets**
+  - `pkgsCross.*` strategy with nativeBuildInputs/buildInputs separation
+  - LLVM static linking for portability
+  - `nix/cross.nix` module implementation
+- Added Linux Package Generation section
+  - `.deb` for Debian/Ubuntu (apt) - all architectures including RISC-V
+  - `.rpm` for RHEL/Fedora (dnf) - all architectures including RISC-V
+  - FPM-based and native dpkg-deb approaches
+  - `nix/packaging/` module implementation
+  - CI release workflow for GitHub Actions with full RISC-V support
 
 ---
 

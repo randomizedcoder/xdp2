@@ -40,9 +40,16 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+
+    # MicroVM for eBPF testing (Phase 1)
+    # See: documentation/nix/microvm-implementation-phase1.md
+    microvm = {
+      url = "github:astro/microvm.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, microvm }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -112,6 +119,23 @@
           '';
         };
 
+        # =====================================================================
+        # Phase 1: Packaging (x86_64 .deb only)
+        # See: documentation/nix/microvm-implementation-phase1.md
+        # =====================================================================
+        packaging = import ./nix/packaging {
+          inherit pkgs lib;
+          xdp2 = xdp2;  # Use production build for distribution
+        };
+
+        # =====================================================================
+        # Phase 1: MicroVM infrastructure (x86_64 only)
+        # See: documentation/nix/microvm-implementation-phase1.md
+        # =====================================================================
+        microvms = import ./nix/microvms {
+          inherit pkgs lib microvm nixpkgs;
+        };
+
       in
       {
         # Package outputs
@@ -133,6 +157,72 @@
           # Run all sample tests in one go
           # Usage: nix run .#run-sample-tests
           inherit run-sample-tests;
+
+          # ===================================================================
+          # Phase 1: Packaging outputs (x86_64 .deb only)
+          # See: documentation/nix/microvm-implementation-phase1.md
+          # ===================================================================
+
+          # Staging directory (for inspection/debugging)
+          # Usage: nix build .#deb-staging
+          deb-staging = packaging.staging.x86_64;
+
+          # Debian package
+          # Usage: nix build .#deb-x86_64
+          deb-x86_64 = packaging.deb.x86_64;
+
+          # ===================================================================
+          # Phase 1: MicroVM outputs (x86_64 only)
+          # See: documentation/nix/microvm-implementation-phase1.md
+          # ===================================================================
+
+          # MicroVM for x86_64 testing
+          # Usage: nix build .#microvm-x86_64
+          #        ./result/bin/microvm-run
+          microvm-x86_64 = microvms.vms.x86_64;
+
+          # Test runner (builds and runs VM, checks self-test)
+          # Usage: nix run .#xdp2-test-phase1
+          xdp2-test-phase1 = microvms.testRunner;
+
+          # Helper scripts
+          # Usage: nix run .#xdp2-vm-console
+          xdp2-vm-console = microvms.connectConsole;
+          xdp2-vm-serial = microvms.connectSerial;
+          xdp2-vm-status = microvms.vmStatus;
+
+          # Login helpers (interactive, with proper terminal handling)
+          # Usage: nix run .#xdp2-vm-login-serial
+          xdp2-vm-login-serial = microvms.loginSerial;
+          xdp2-vm-login-virtio = microvms.loginVirtio;
+
+          # Command execution helpers (run command and capture output)
+          # Usage: nix run .#xdp2-vm-run-serial -- 'uname -a'
+          xdp2-vm-run-serial = microvms.runCommandSerial;
+          xdp2-vm-run-virtio = microvms.runCommandVirtio;
+
+          # Expect-based helpers (reliable terminal interaction)
+          # Usage: nix run .#xdp2-vm-expect-run -- 'uname -a'
+          xdp2-vm-expect-run = microvms.expectRunCommand;
+          xdp2-vm-debug-expect = microvms.debugVmExpect;
+          xdp2-vm-expect-verify-service = microvms.expectVerifyService;
+
+          # ===================================================================
+          # Lifecycle check scripts
+          # Usage: nix run .#xdp2-lifecycle-1-check-process
+          # ===================================================================
+          xdp2-lifecycle-1-check-process = microvms.lifecycle.checkProcess;
+          xdp2-lifecycle-2-check-serial = microvms.lifecycle.checkSerial;
+          xdp2-lifecycle-2b-check-virtio = microvms.lifecycle.checkVirtio;
+          xdp2-lifecycle-3-verify-ebpf-loaded = microvms.lifecycle.verifyEbpfLoaded;
+          xdp2-lifecycle-4-verify-ebpf-running = microvms.lifecycle.verifyEbpfRunning;
+          xdp2-lifecycle-5-shutdown = microvms.lifecycle.shutdown;
+          xdp2-lifecycle-6-wait-exit = microvms.lifecycle.waitExit;
+          xdp2-lifecycle-force-kill = microvms.lifecycle.forceKill;
+
+          # Full lifecycle test (runs all phases)
+          # Usage: nix run .#xdp2-lifecycle-full-test
+          xdp2-lifecycle-full-test = microvms.lifecycle.fullTest;
         };
 
         # Development shell
