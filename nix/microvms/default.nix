@@ -569,6 +569,9 @@ let
       YELLOW='\033[1;33m'
       NC='\033[0m'
 
+      # Millisecond timing helper
+      now_ms() { date +%s%3N; }
+
       pass() { echo -e "  ''${GREEN}PASS: $1''${NC}"; }
       fail() { echo -e "  ''${RED}FAIL: $1''${NC}"; exit 1; }
       info() { echo -e "  ''${YELLOW}INFO: $1''${NC}"; }
@@ -592,15 +595,28 @@ let
       echo "Virtio Port: $VIRTIO_PORT"
       echo ""
 
+      # Record test start time
+      TEST_START_MS=$(now_ms)
+
+      # Timing storage for summary
+      PHASE0_MS=0
+      PHASE1_MS=0
+      PHASE2_MS=0
+      PHASE2B_MS=0
+      PHASE3_MS=0
+      PHASE4_MS=0
+      PHASE5_MS=0
+      PHASE6_MS=0
+
       # Phase 0: Build the VM (can take time if building from scratch)
       echo "--- Phase 0: Build VM (timeout: $BUILD_TIMEOUT s) ---"
-      BUILD_START=$(date +%s)
+      PHASE_START_MS=$(now_ms)
 
       # Run build with timeout - capture output for progress feedback
       if ! timeout "$BUILD_TIMEOUT" nix build .#microvm-x86_64 --print-out-paths --no-link 2>&1; then
-        BUILD_END=$(date +%s)
-        BUILD_TIME=$((BUILD_END - BUILD_START))
-        fail "Build failed or timed out after $BUILD_TIME seconds"
+        PHASE_END_MS=$(now_ms)
+        PHASE0_MS=$((PHASE_END_MS - PHASE_START_MS))
+        fail "Build failed or timed out after ''${PHASE0_MS}ms"
       fi
 
       # Get the output path
@@ -609,9 +625,9 @@ let
         fail "Build succeeded but could not get output path"
       fi
 
-      BUILD_END=$(date +%s)
-      BUILD_TIME=$((BUILD_END - BUILD_START))
-      pass "VM built in $BUILD_TIME s: $VM_PATH"
+      PHASE_END_MS=$(now_ms)
+      PHASE0_MS=$((PHASE_END_MS - PHASE_START_MS))
+      pass "VM built in ''${PHASE0_MS}ms: $VM_PATH"
       echo ""
 
       # Check ports are free
@@ -621,6 +637,7 @@ let
 
       # Phase 1: Start VM and verify process
       echo "--- Phase 1: Start VM (timeout: $PROCESS_TIMEOUT s) ---"
+      PHASE_START_MS=$(now_ms)
       "$VM_PATH/bin/microvm-run" &
       VM_PID=$!
 
@@ -636,11 +653,14 @@ let
         fi
         info "Polling for process... ($WAITED/$PROCESS_TIMEOUT s)"
       done
-      pass "VM process '$VM_PROCESS' running (found in $WAITED s)"
+      PHASE_END_MS=$(now_ms)
+      PHASE1_MS=$((PHASE_END_MS - PHASE_START_MS))
+      pass "VM process '$VM_PROCESS' running (found in ''${PHASE1_MS}ms)"
       echo ""
 
       # Phase 2: Wait for serial console
       echo "--- Phase 2: Check Serial Console (timeout: $SERIAL_TIMEOUT s) ---"
+      PHASE_START_MS=$(now_ms)
       WAITED=0
       while ! nc -z 127.0.0.1 "$SERIAL_PORT" 2>/dev/null; do
         sleep "$POLL_INTERVAL"
@@ -653,11 +673,14 @@ let
         fi
         info "Polling serial... ($WAITED/$SERIAL_TIMEOUT s)"
       done
-      pass "Serial console available (ready in $WAITED s)"
+      PHASE_END_MS=$(now_ms)
+      PHASE2_MS=$((PHASE_END_MS - PHASE_START_MS))
+      pass "Serial console available (ready in ''${PHASE2_MS}ms)"
       echo ""
 
       # Phase 2b: Wait for virtio console
       echo "--- Phase 2b: Check Virtio Console (timeout: $VIRTIO_TIMEOUT s) ---"
+      PHASE_START_MS=$(now_ms)
       WAITED=0
       while ! nc -z 127.0.0.1 "$VIRTIO_PORT" 2>/dev/null; do
         sleep "$POLL_INTERVAL"
@@ -667,23 +690,31 @@ let
         fi
         info "Polling virtio... ($WAITED/$VIRTIO_TIMEOUT s)"
       done
-      pass "Virtio console available (ready in $WAITED s)"
+      PHASE_END_MS=$(now_ms)
+      PHASE2B_MS=$((PHASE_END_MS - PHASE_START_MS))
+      pass "Virtio console available (ready in ''${PHASE2B_MS}ms)"
       echo ""
 
       # Phase 3: Wait for self-test service (using expect for reliable terminal handling)
       echo "--- Phase 3: Verify Self-Test Service (timeout: $SERVICE_TIMEOUT s) ---"
+      PHASE_START_MS=$(now_ms)
       EXPECT_SCRIPT="${./scripts}/vm-verify-service.exp"
       VM_HOSTNAME="${vmHostname}"
 
       if expect "$EXPECT_SCRIPT" "$VIRTIO_PORT" "$VM_HOSTNAME" "$SERVICE_TIMEOUT" "$POLL_INTERVAL"; then
-        pass "Self-test service completed"
+        PHASE_END_MS=$(now_ms)
+        PHASE3_MS=$((PHASE_END_MS - PHASE_START_MS))
+        pass "Self-test service completed (phase: ''${PHASE3_MS}ms)"
       else
-        info "Service verification returned non-zero (check output above)"
+        PHASE_END_MS=$(now_ms)
+        PHASE3_MS=$((PHASE_END_MS - PHASE_START_MS))
+        info "Service verification returned non-zero after ''${PHASE3_MS}ms (check output above)"
       fi
       echo ""
 
       # Phase 4: Check eBPF/XDP status (using expect for reliable output)
       echo "--- Phase 4: Verify eBPF/XDP Status ---"
+      PHASE_START_MS=$(now_ms)
       EXPECT_SCRIPT="${./scripts}/vm-expect.exp"
 
       # Helper to run commands via expect
@@ -729,16 +760,23 @@ let
       else
         info "Could not verify BTF"
       fi
+      PHASE_END_MS=$(now_ms)
+      PHASE4_MS=$((PHASE_END_MS - PHASE_START_MS))
+      info "Phase 4 completed in ''${PHASE4_MS}ms"
       echo ""
 
       # Phase 5: Shutdown
       echo "--- Phase 5: Shutdown ---"
+      PHASE_START_MS=$(now_ms)
       echo "poweroff" | timeout "$CMD_TIMEOUT" nc 127.0.0.1 "$VIRTIO_PORT" 2>/dev/null || true
-      pass "Shutdown command sent"
+      PHASE_END_MS=$(now_ms)
+      PHASE5_MS=$((PHASE_END_MS - PHASE_START_MS))
+      pass "Shutdown command sent (''${PHASE5_MS}ms)"
       echo ""
 
       # Phase 6: Wait for exit
       echo "--- Phase 6: Wait for Exit (timeout: $SHUTDOWN_TIMEOUT s) ---"
+      PHASE_START_MS=$(now_ms)
       WAITED=0
       while kill -0 "$VM_PID" 2>/dev/null; do
         sleep "$POLL_INTERVAL"
@@ -752,17 +790,39 @@ let
         info "Polling for exit... ($WAITED/$SHUTDOWN_TIMEOUT s)"
       done
 
+      PHASE_END_MS=$(now_ms)
+      PHASE6_MS=$((PHASE_END_MS - PHASE_START_MS))
       if ! kill -0 "$VM_PID" 2>/dev/null; then
-        pass "VM exited cleanly (shutdown time: $WAITED s)"
+        pass "VM exited cleanly (shutdown time: ''${PHASE6_MS}ms)"
       else
-        info "VM required forced termination"
+        info "VM required forced termination after ''${PHASE6_MS}ms"
         kill -9 "$VM_PID" 2>/dev/null || true
       fi
       echo ""
 
+      # Final summary
+      TEST_END_MS=$(now_ms)
+      TOTAL_TIME_MS=$((TEST_END_MS - TEST_START_MS))
+
       echo "========================================"
       echo -e "  ''${GREEN}Full Lifecycle Test Complete''${NC}"
       echo "========================================"
+      echo ""
+      echo "  Timing Summary"
+      echo "  ─────────────────────────────────────"
+      printf "  %-24s %10s\n" "Phase" "Time (ms)"
+      echo "  ─────────────────────────────────────"
+      printf "  %-24s %10d\n" "0: Build VM" "$PHASE0_MS"
+      printf "  %-24s %10d\n" "1: Start VM" "$PHASE1_MS"
+      printf "  %-24s %10d\n" "2: Serial Console" "$PHASE2_MS"
+      printf "  %-24s %10d\n" "2b: Virtio Console" "$PHASE2B_MS"
+      printf "  %-24s %10d\n" "3: Service Verification" "$PHASE3_MS"
+      printf "  %-24s %10d\n" "4: eBPF Status" "$PHASE4_MS"
+      printf "  %-24s %10d\n" "5: Shutdown" "$PHASE5_MS"
+      printf "  %-24s %10d\n" "6: Wait Exit" "$PHASE6_MS"
+      echo "  ─────────────────────────────────────"
+      printf "  %-24s %10d\n" "TOTAL" "$TOTAL_TIME_MS"
+      echo "  ─────────────────────────────────────"
     '';
   };
 
