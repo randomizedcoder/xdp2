@@ -92,6 +92,13 @@
           enableAsserts = true;
         };
 
+        # XDP sample programs (BPF bytecode)
+        # Uses xdp2-debug for xdp2-compiler and headers
+        xdp-samples = import ./nix/xdp-samples.nix {
+          inherit pkgs;
+          xdp2 = xdp2-debug;
+        };
+
         # Import development shell module
         devshell = import ./nix/devshell.nix {
           inherit pkgs lib llvmConfig compilerConfig envVars;
@@ -129,11 +136,17 @@
         };
 
         # =====================================================================
-        # Phase 1: MicroVM infrastructure (x86_64 only)
-        # See: documentation/nix/microvm-implementation-phase1.md
+        # Phase 2: MicroVM infrastructure (x86_64, aarch64, riscv64)
+        # See: documentation/nix/microvm-phase2-arm-riscv-plan.md
+        #
+        # Cross-compilation: We pass buildSystem so that when building for
+        # non-native architectures (e.g., riscv64 on x86_64), we use true
+        # cross-compilation with native cross-compilers instead of slow
+        # binfmt emulation.
         # =====================================================================
         microvms = import ./nix/microvms {
           inherit pkgs lib microvm nixpkgs;
+          buildSystem = system;  # Pass host system for cross-compilation
         };
 
       in
@@ -143,6 +156,7 @@
           default = xdp2;
           xdp2 = xdp2;
           xdp2-debug = xdp2-debug;  # Debug build with assertions
+          xdp-samples = xdp-samples;  # XDP sample programs (BPF bytecode)
 
           # Tests (build with: nix build .#tests.simple-parser)
           tests = tests;
@@ -172,45 +186,78 @@
           deb-x86_64 = packaging.deb.x86_64;
 
           # ===================================================================
-          # Phase 1: MicroVM outputs (x86_64 only)
-          # See: documentation/nix/microvm-implementation-phase1.md
+          # Phase 2: MicroVM outputs (x86_64, aarch64, riscv64)
+          # See: documentation/nix/microvm-phase2-arm-riscv-plan.md
           # ===================================================================
+          #
+          # Primary interface (nested):
+          #   nix build .#microvms.x86_64
+          #   nix run .#microvms.test-x86_64
+          #   nix run .#microvms.test-all
+          #
+          # Legacy interface (flat, backwards compatible):
+          #   nix build .#microvm-x86_64
+          #   nix run .#xdp2-lifecycle-full-test
+          #
 
-          # MicroVM for x86_64 testing
-          # Usage: nix build .#microvm-x86_64
-          #        ./result/bin/microvm-run
+          # ─────────────────────────────────────────────────────────────────
+          # Nested MicroVM structure (primary interface)
+          # ─────────────────────────────────────────────────────────────────
+          microvms = {
+            # VM derivations
+            x86_64 = microvms.vms.x86_64;
+            aarch64 = microvms.vms.aarch64;
+            riscv64 = microvms.vms.riscv64;
+
+            # Individual architecture tests
+            test-x86_64 = microvms.tests.x86_64;
+            test-aarch64 = microvms.tests.aarch64;
+            test-riscv64 = microvms.tests.riscv64;
+
+            # Combined test (all architectures)
+            test-all = microvms.tests.all;
+
+            # Lifecycle scripts (nested by arch)
+            lifecycle = microvms.lifecycleByArch;
+
+            # Helper scripts (nested by arch)
+            helpers = microvms.helpers;
+
+            # Expect scripts (nested by arch)
+            expect = microvms.expect;
+          };
+
+          # ─────────────────────────────────────────────────────────────────
+          # Legacy flat exports (backwards compatibility)
+          # ─────────────────────────────────────────────────────────────────
+
+          # VM derivations (legacy names)
           microvm-x86_64 = microvms.vms.x86_64;
+          microvm-aarch64 = microvms.vms.aarch64;
+          microvm-riscv64 = microvms.vms.riscv64;
 
-          # Test runner (builds and runs VM, checks self-test)
-          # Usage: nix run .#xdp2-test-phase1
+          # Test runner (legacy name)
           xdp2-test-phase1 = microvms.testRunner;
 
-          # Helper scripts
-          # Usage: nix run .#xdp2-vm-console
+          # Helper scripts (legacy names, x86_64 default)
           xdp2-vm-console = microvms.connectConsole;
           xdp2-vm-serial = microvms.connectSerial;
           xdp2-vm-status = microvms.vmStatus;
 
-          # Login helpers (interactive, with proper terminal handling)
-          # Usage: nix run .#xdp2-vm-login-serial
+          # Login helpers
           xdp2-vm-login-serial = microvms.loginSerial;
           xdp2-vm-login-virtio = microvms.loginVirtio;
 
-          # Command execution helpers (run command and capture output)
-          # Usage: nix run .#xdp2-vm-run-serial -- 'uname -a'
+          # Command execution helpers
           xdp2-vm-run-serial = microvms.runCommandSerial;
           xdp2-vm-run-virtio = microvms.runCommandVirtio;
 
-          # Expect-based helpers (reliable terminal interaction)
-          # Usage: nix run .#xdp2-vm-expect-run -- 'uname -a'
+          # Expect-based helpers
           xdp2-vm-expect-run = microvms.expectRunCommand;
           xdp2-vm-debug-expect = microvms.debugVmExpect;
           xdp2-vm-expect-verify-service = microvms.expectVerifyService;
 
-          # ===================================================================
-          # Lifecycle check scripts
-          # Usage: nix run .#xdp2-lifecycle-0-build
-          # ===================================================================
+          # Lifecycle scripts (legacy names, x86_64 default)
           xdp2-lifecycle-0-build = microvms.lifecycle.checkBuild;
           xdp2-lifecycle-1-check-process = microvms.lifecycle.checkProcess;
           xdp2-lifecycle-2-check-serial = microvms.lifecycle.checkSerial;
@@ -220,11 +267,70 @@
           xdp2-lifecycle-5-shutdown = microvms.lifecycle.shutdown;
           xdp2-lifecycle-6-wait-exit = microvms.lifecycle.waitExit;
           xdp2-lifecycle-force-kill = microvms.lifecycle.forceKill;
-
-          # Full lifecycle test (runs all phases)
-          # Usage: nix run .#xdp2-lifecycle-full-test
           xdp2-lifecycle-full-test = microvms.lifecycle.fullTest;
-        };
+        } // (
+          # ===================================================================
+          # Cross-compiled packages for RISC-V (built on x86_64, runs on riscv64)
+          # ===================================================================
+          if system == "x86_64-linux" then
+            let
+              pkgsCrossRiscv = import nixpkgs {
+                localSystem = "x86_64-linux";
+                crossSystem = "riscv64-linux";
+                config = { allowUnfree = true; };
+                overlays = [
+                  (final: prev: {
+                    boehmgc = prev.boehmgc.overrideAttrs (old: { doCheck = false; });
+                    libuv = prev.libuv.overrideAttrs (old: { doCheck = false; });
+                    meson = prev.meson.overrideAttrs (old: { doCheck = false; doInstallCheck = false; });
+                    libseccomp = prev.libseccomp.overrideAttrs (old: { doCheck = false; });
+                  })
+                ];
+              };
+
+              llvmConfigRiscv = import ./nix/llvm.nix { pkgs = pkgsCrossRiscv; lib = pkgsCrossRiscv.lib; };
+              packagesModuleRiscv = import ./nix/packages.nix { pkgs = pkgsCrossRiscv; llvmPackages = llvmConfigRiscv.llvmPackages; };
+
+              xdp2-debug-riscv64 = import ./nix/derivation.nix {
+                pkgs = pkgsCrossRiscv;
+                lib = pkgsCrossRiscv.lib;
+                llvmConfig = llvmConfigRiscv;
+                inherit (packagesModuleRiscv) nativeBuildInputs buildInputs;
+                enableAsserts = true;
+              };
+
+              testsRiscv64 = import ./nix/tests {
+                pkgs = pkgsCrossRiscv;
+                xdp2 = xdp2-debug-riscv64;
+              };
+            in {
+              # Cross-compiled xdp2 for RISC-V
+              xdp2-debug-riscv64 = xdp2-debug-riscv64;
+
+              # Cross-compiled tests for RISC-V
+              riscv64-tests = testsRiscv64;
+
+              # Runner script for RISC-V tests in VM
+              run-riscv64-tests = pkgs.writeShellApplication {
+                name = "run-riscv64-tests";
+                runtimeInputs = [ pkgs.expect pkgs.netcat-gnu ];
+                text = ''
+                  echo "========================================"
+                  echo "  XDP2 RISC-V Sample Tests"
+                  echo "========================================"
+                  echo ""
+                  echo "Test binary: ${testsRiscv64.all}/bin/xdp2-test-all"
+                  echo ""
+                  echo "Running tests inside RISC-V VM..."
+
+                  # Use expect to run the tests
+                  ${microvms.expect.riscv64.runCommand}/bin/xdp2-vm-expect-run-riscv64 \
+                    "${testsRiscv64.all}/bin/xdp2-test-all"
+                '';
+              };
+            }
+          else {}
+        );
 
         # Development shell
         devShells.default = devshell;

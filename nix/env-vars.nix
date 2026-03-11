@@ -51,8 +51,8 @@
   export PYTHON_VER=3
   export PYTHONPATH="${pkgs.python3}/lib/python3.13/site-packages:$PYTHONPATH"
 
-  # Boost libraries
-  export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_system -lboost_program_options"
+  # Boost libraries (boost_system is header-only since Boost 1.69)
+  export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_program_options"
 
   # Other libraries
   export LIBS="-lpthread -ldl -lutil"

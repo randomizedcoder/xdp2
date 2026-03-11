@@ -2,14 +2,10 @@
 #
 # Configuration constants for XDP2 MicroVM test infrastructure.
 #
-# Phase 1: x86_64 only, stable kernel
-# See: documentation/nix/microvm-implementation-phase1.md
+# Phase 2: x86_64, aarch64, riscv64
+# See: documentation/nix/microvm-phase2-arm-riscv-plan.md
 #
 rec {
-  # ==========================================================================
-  # Phase 1: Single architecture for validation
-  # ==========================================================================
-
   # ==========================================================================
   # Port allocation scheme for multiple MicroVMs
   # ==========================================================================
@@ -22,7 +18,7 @@ rec {
   #   - riscv32: 23530-23539
   #
   # Within each block:
-  #   +0 = serial console (ttyS0)
+  #   +0 = serial console (ttyS0/ttyAMA0)
   #   +1 = virtio console (hvc0)
   #   +2 = reserved (future: GDB, monitor, etc.)
   #   +3-9 = reserved for kernel variants
@@ -45,6 +41,10 @@ rec {
     virtio = base + 1;  # +1
   };
 
+  # ==========================================================================
+  # Architecture Definitions
+  # ==========================================================================
+
   architectures = {
     x86_64 = {
       # Nix system identifier
@@ -54,6 +54,9 @@ rec {
       qemuMachine = "pc";
       qemuCpu = "host";  # Use host CPU features with KVM
       useKvm = true;     # x86_64 can use KVM on x86_64 host
+
+      # Console device (architecture-specific)
+      consoleDevice = "ttyS0";
 
       # Console ports (TCP) - using port allocation scheme
       serialPort = portBase + archPortOffset.x86_64;       # 23500
@@ -66,14 +69,68 @@ rec {
       # Description
       description = "x86_64 (KVM accelerated)";
     };
+
+    aarch64 = {
+      # Nix system identifier
+      nixSystem = "aarch64-linux";
+
+      # QEMU configuration
+      qemuMachine = "virt";
+      qemuCpu = "cortex-a72";
+      useKvm = false;  # Cross-arch emulation (QEMU TCG)
+
+      # Console device (aarch64 uses ttyAMA0, not ttyS0)
+      consoleDevice = "ttyAMA0";
+
+      # Console ports (TCP)
+      serialPort = portBase + archPortOffset.aarch64;       # 23510
+      virtioPort = portBase + archPortOffset.aarch64 + 1;   # 23511
+
+      # VM resources
+      mem = 1024;
+      vcpu = 2;
+
+      # Description
+      description = "aarch64 (ARM64, QEMU emulated)";
+    };
+
+    riscv64 = {
+      # Nix system identifier
+      nixSystem = "riscv64-linux";
+
+      # QEMU configuration
+      qemuMachine = "virt";
+      qemuCpu = "rv64";  # Default RISC-V 64-bit CPU
+      useKvm = false;    # Cross-arch emulation (QEMU TCG)
+
+      # Console device
+      consoleDevice = "ttyS0";
+
+      # Console ports (TCP)
+      serialPort = portBase + archPortOffset.riscv64;       # 23520
+      virtioPort = portBase + archPortOffset.riscv64 + 1;   # 23521
+
+      # VM resources
+      mem = 1024;
+      vcpu = 2;
+
+      # Description
+      description = "riscv64 (RISC-V 64-bit, QEMU emulated)";
+    };
   };
 
   # ==========================================================================
   # Kernel configuration
   # ==========================================================================
 
-  # Phase 1: stable kernel only
-  # Options: "linuxPackages" (stable), "linuxPackages_latest", "linuxPackages_6_6"
+  # Use linuxPackages_latest for cross-arch VMs (better BTF/eBPF support)
+  # Use stable linuxPackages for KVM (x86_64) for stability
+  getKernelPackage = arch:
+    if architectures.${arch}.useKvm or false
+    then "linuxPackages"         # Stable for KVM (x86_64)
+    else "linuxPackages_latest"; # Latest for emulated (better BTF)
+
+  # Legacy: default kernel package (for backwards compatibility)
   kernelPackage = "linuxPackages";
 
   # ==========================================================================
@@ -117,6 +174,44 @@ rec {
     # Legacy aliases for compatibility
     boot = 60;
   };
+
+  # Timeouts for QEMU emulated architectures (slower than KVM)
+  # NOTE: build timeout is longer because we compile QEMU without seccomp
+  # support (qemu-for-vm-tests), which takes 15-30 minutes from scratch.
+  # Once cached, subsequent builds are fast. Runtime is fine once built.
+  timeoutsQemu = {
+    build = 2400;           # 40 minutes (QEMU compilation from source)
+    processStart = 5;
+    serialReady = 30;
+    virtioReady = 45;
+    serviceReady = 120;     # Emulation slows systemd boot
+    command = 10;
+    shutdown = 30;
+    boot = 120;
+  };
+
+  # Timeouts for slow QEMU emulation (RISC-V is particularly slow)
+  # NOTE: RISC-V VMs require cross-compiled kernel/userspace plus
+  # QEMU compilation, which can take 45-60 minutes total.
+  # Runtime is slower due to full software emulation.
+  timeoutsQemuSlow = {
+    build = 3600;           # 60 minutes (QEMU + cross-compiled packages)
+    processStart = 10;
+    serialReady = 60;
+    virtioReady = 90;
+    serviceReady = 180;     # RISC-V emulation is slow
+    command = 15;
+    shutdown = 60;
+    boot = 180;
+  };
+
+  # Get appropriate timeouts for an architecture
+  getTimeouts = arch:
+    if architectures.${arch}.useKvm or false
+    then timeouts            # KVM (fast)
+    else if arch == "riscv64" || arch == "riscv32"
+    then timeoutsQemuSlow    # RISC-V is particularly slow
+    else timeoutsQemu;       # Other emulated archs (aarch64)
 
   # ==========================================================================
   # VM naming

@@ -26,7 +26,8 @@ CPPFRONT_INCLUDE = -I../../../thirdparty/cppfront/include
 EXTRA_CXXFLAGS += '-g'
 
 CXXFLAGS += -Iinclude -I../../../thirdparty/json/include -I../../include $(LLVM_INCLUDE) -std=c++20 $(CFLAGS_PYTHON)  $(CLANG_INFO) $(EXTRA_CXXFLAGS) -Wno-deprecated-enum-enum-conversion $(CPPFRONT_INCLUDE)
-BOOST_LIBS ?= -lboost_wave -lboost_thread -lboost_filesystem -lboost_system -lboost_program_options
+# Note: boost_system is header-only since Boost 1.69, so we don't link against it
+BOOST_LIBS ?= -lboost_wave -lboost_thread -lboost_filesystem -lboost_program_options
 CLANG_LIBS ?= -lclang -lLLVM -lclang-cpp
 
 

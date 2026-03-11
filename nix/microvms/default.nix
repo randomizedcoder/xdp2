@@ -7,10 +7,15 @@
 # corresponding configuration exists in `constants.nix`.
 #
 # Usage in flake.nix:
-#   microvms = import ./nix/microvms { inherit pkgs lib microvm nixpkgs; };
+#   microvms = import ./nix/microvms { inherit pkgs lib microvm nixpkgs; buildSystem = system; };
 #   packages.microvm-x86_64 = microvms.vms.x86_64;
 #
-{ pkgs, lib, microvm, nixpkgs }:
+# Cross-compilation:
+#   The buildSystem parameter specifies where we're building FROM (host).
+#   This enables true cross-compilation for non-native architectures instead
+#   of slow binfmt emulation.
+#
+{ pkgs, lib, microvm, nixpkgs, buildSystem ? "x86_64-linux" }:
 
 let
   constants = import ./constants.nix;
@@ -23,7 +28,9 @@ let
   # Add new architectures here as they become supported.
   # Each architecture must have a corresponding entry in constants.nix
   #
-  supportedArchs = [ "x86_64" ];
+  # Phase 2: x86_64 (KVM), aarch64 (QEMU), riscv64 (QEMU)
+  #
+  supportedArchs = [ "x86_64" "aarch64" "riscv64" ];
 
   # Path to expect scripts (used by lifecycle and helper scripts)
   scriptsDir = ./scripts;
@@ -33,7 +40,7 @@ let
   # ==========================================================================
 
   vms = lib.genAttrs supportedArchs (arch:
-    import ./mkVm.nix { inherit pkgs lib microvm nixpkgs arch; }
+    import ./mkVm.nix { inherit pkgs lib microvm nixpkgs arch buildSystem; }
   );
 
   # ==========================================================================
@@ -75,6 +82,83 @@ let
   expectByArch = lib.genAttrs supportedArchs (arch:
     microvmLib.mkExpectScripts { inherit arch scriptsDir; }
   );
+
+  # ==========================================================================
+  # Test runners for individual and combined testing
+  # ==========================================================================
+
+  # Individual architecture test runners
+  testsByArch = lib.genAttrs supportedArchs (arch:
+    pkgs.writeShellApplication {
+      name = "xdp2-test-${arch}";
+      runtimeInputs = [ pkgs.coreutils ];
+      text = ''
+        echo "========================================"
+        echo "  XDP2 MicroVM Test: ${arch}"
+        echo "========================================"
+        echo ""
+        ${lifecycleByArch.${arch}.fullTest}/bin/xdp2-lifecycle-full-test-${arch}
+      '';
+    }
+  );
+
+  # Combined test runner (all architectures sequentially)
+  testAll = pkgs.writeShellApplication {
+    name = "xdp2-test-all-architectures";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      echo "========================================"
+      echo "  XDP2 MicroVM Test: ALL ARCHITECTURES"
+      echo "========================================"
+      echo ""
+      echo "Architectures: ${lib.concatStringsSep ", " supportedArchs}"
+      echo ""
+
+      FAILED=""
+      PASSED=""
+
+      for arch in ${lib.concatStringsSep " " supportedArchs}; do
+        echo ""
+        echo "════════════════════════════════════════"
+        echo "  Testing: $arch"
+        echo "════════════════════════════════════════"
+
+        # Run the lifecycle test for this architecture
+        TEST_SCRIPT=""
+        case "$arch" in
+          x86_64)  TEST_SCRIPT="${lifecycleByArch.x86_64.fullTest}/bin/xdp2-lifecycle-full-test-x86_64" ;;
+          aarch64) TEST_SCRIPT="${lifecycleByArch.aarch64.fullTest}/bin/xdp2-lifecycle-full-test-aarch64" ;;
+          riscv64) TEST_SCRIPT="${lifecycleByArch.riscv64.fullTest}/bin/xdp2-lifecycle-full-test-riscv64" ;;
+        esac
+
+        if $TEST_SCRIPT; then
+          PASSED="$PASSED $arch"
+          echo ""
+          echo "  Result: PASS"
+        else
+          FAILED="$FAILED $arch"
+          echo ""
+          echo "  Result: FAIL"
+        fi
+      done
+
+      echo ""
+      echo "========================================"
+      echo "  Summary"
+      echo "========================================"
+      if [ -n "$PASSED" ]; then
+        echo "  PASSED:$PASSED"
+      fi
+      if [ -n "$FAILED" ]; then
+        echo "  FAILED:$FAILED"
+        exit 1
+      else
+        echo ""
+        echo "  All architectures passed!"
+        exit 0
+      fi
+    '';
+  };
 
   # ==========================================================================
   # Flattened exports (for backwards compatibility and convenience)
@@ -200,13 +284,17 @@ in {
   inherit vms;
 
   # Lifecycle scripts by architecture (use lifecycleByArch.x86_64.fullTest etc.)
-  lifecycleByArch = lifecycleByArch;
+  inherit lifecycleByArch;
 
   # Helper scripts by architecture
   helpers = helpersByArch;
 
   # Expect scripts by architecture
   expect = expectByArch;
+
+  # Test runners
+  tests = testsByArch // { all = testAll; };
+  inherit testsByArch testAll;
 
   # ==========================================================================
   # Configuration

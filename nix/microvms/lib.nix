@@ -119,6 +119,7 @@ rec {
   mkRunCommandScript = { arch, console }:
   let
     cfg = getArchConfig arch;
+    timeouts = constants.getTimeouts arch;
     port = if console == "serial" then cfg.serialPort else cfg.virtioPort;
     portName = if console == "serial" then "serial" else "virtio";
   in pkgs.writeShellApplication {
@@ -126,7 +127,7 @@ rec {
     runtimeInputs = [ pkgs.netcat-gnu pkgs.coreutils ];
     text = ''
       PORT=${toString port}
-      CMD_TIMEOUT=${toString constants.timeouts.command}
+      CMD_TIMEOUT=${toString timeouts.command}
 
       if [ $# -eq 0 ]; then
         echo "Usage: xdp2-vm-run-${portName}-${arch} <command>"
@@ -205,13 +206,15 @@ rec {
     cfg = getArchConfig arch;
     hostname = getHostname arch;
     processName = getProcessName arch;
+    # Use architecture-specific timeouts (KVM is fast, QEMU emulation is slower)
+    timeouts = constants.getTimeouts arch;
   in {
     # Phase 0: Build VM
     checkBuild = pkgs.writeShellApplication {
       name = "xdp2-lifecycle-0-build-${arch}";
       runtimeInputs = [ pkgs.coreutils ];
       text = ''
-        BUILD_TIMEOUT=${toString constants.timeouts.build}
+        BUILD_TIMEOUT=${toString timeouts.build}
 
         echo "=== Lifecycle Phase 0: Build VM (${arch}) ==="
         echo "Timeout: $BUILD_TIMEOUT seconds"
@@ -255,7 +258,7 @@ rec {
       checkCmd = "pgrep -f '${processName}' > /dev/null 2>&1";
       successMsg = "VM process is running";
       failMsg = "VM process not found";
-      timeout = constants.timeouts.processStart;
+      timeout = timeouts.processStart;
       runtimeInputs = [ pkgs.procps pkgs.coreutils ];
       postSuccess = ''
         echo ""
@@ -272,7 +275,7 @@ rec {
       checkCmd = "nc -z 127.0.0.1 ${toString cfg.serialPort} 2>/dev/null";
       successMsg = "Serial console available on port ${toString cfg.serialPort}";
       failMsg = "Serial port not available";
-      timeout = constants.timeouts.serialReady;
+      timeout = timeouts.serialReady;
       runtimeInputs = [ pkgs.netcat-gnu pkgs.coreutils ];
     };
 
@@ -284,7 +287,7 @@ rec {
       checkCmd = "nc -z 127.0.0.1 ${toString cfg.virtioPort} 2>/dev/null";
       successMsg = "Virtio console available on port ${toString cfg.virtioPort}";
       failMsg = "Virtio port not available";
-      timeout = constants.timeouts.virtioReady;
+      timeout = timeouts.virtioReady;
       runtimeInputs = [ pkgs.netcat-gnu pkgs.coreutils ];
     };
 
@@ -294,8 +297,8 @@ rec {
       runtimeInputs = [ pkgs.netcat-gnu pkgs.coreutils ];
       text = ''
         VIRTIO_PORT=${toString cfg.virtioPort}
-        TIMEOUT=${toString constants.timeouts.serviceReady}
-        CMD_TIMEOUT=${toString constants.timeouts.command}
+        TIMEOUT=${toString timeouts.serviceReady}
+        CMD_TIMEOUT=${toString timeouts.command}
         POLL_INTERVAL=${toString constants.pollInterval}
 
         echo "=== Lifecycle Phase 3: Verify eBPF Loaded (${arch}) ==="
@@ -393,7 +396,7 @@ rec {
       runtimeInputs = [ pkgs.netcat-gnu pkgs.coreutils ];
       text = ''
         VIRTIO_PORT=${toString cfg.virtioPort}
-        CMD_TIMEOUT=${toString constants.timeouts.command}
+        CMD_TIMEOUT=${toString timeouts.command}
 
         echo "=== Lifecycle Phase 5: Shutdown VM (${arch}) ==="
         echo "Port: $VIRTIO_PORT (hvc0 virtio console)"
@@ -422,7 +425,7 @@ rec {
       checkCmd = "! pgrep -f '${processName}' > /dev/null 2>&1";
       successMsg = "VM process exited";
       failMsg = "VM process still running";
-      timeout = constants.timeouts.shutdown;
+      timeout = timeouts.shutdown;
       runtimeInputs = [ pkgs.procps pkgs.coreutils ];
       postSuccess = ''
         echo ""
@@ -480,13 +483,13 @@ rec {
         SERIAL_PORT=${toString cfg.serialPort}
         VIRTIO_PORT=${toString cfg.virtioPort}
         POLL_INTERVAL=${toString constants.pollInterval}
-        BUILD_TIMEOUT=${toString constants.timeouts.build}
-        PROCESS_TIMEOUT=${toString constants.timeouts.processStart}
-        SERIAL_TIMEOUT=${toString constants.timeouts.serialReady}
-        VIRTIO_TIMEOUT=${toString constants.timeouts.virtioReady}
-        SERVICE_TIMEOUT=${toString constants.timeouts.serviceReady}
-        CMD_TIMEOUT=${toString constants.timeouts.command}
-        SHUTDOWN_TIMEOUT=${toString constants.timeouts.shutdown}
+        BUILD_TIMEOUT=${toString timeouts.build}
+        PROCESS_TIMEOUT=${toString timeouts.processStart}
+        SERIAL_TIMEOUT=${toString timeouts.serialReady}
+        VIRTIO_TIMEOUT=${toString timeouts.virtioReady}
+        SERVICE_TIMEOUT=${toString timeouts.serviceReady}
+        CMD_TIMEOUT=${toString timeouts.command}
+        SHUTDOWN_TIMEOUT=${toString timeouts.shutdown}
         VM_HOSTNAME="${hostname}"
         EXPECT_SCRIPTS="${scriptsDir}"
 
@@ -808,6 +811,7 @@ rec {
   mkTestRunner = { arch }:
   let
     cfg = getArchConfig arch;
+    timeouts = constants.getTimeouts arch;
   in pkgs.writeShellApplication {
     name = "xdp2-test-${arch}";
     runtimeInputs = [ pkgs.coreutils pkgs.netcat-gnu ];
@@ -840,7 +844,7 @@ rec {
       echo "VM PID: $VM_PID"
 
       echo "Waiting for VM to boot..."
-      TIMEOUT=${toString constants.timeouts.boot}
+      TIMEOUT=${toString timeouts.boot}
       WAITED=0
       while ! nc -z 127.0.0.1 "$VIRTIO_PORT" 2>/dev/null; do
         sleep 1

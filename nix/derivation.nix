@@ -30,6 +30,24 @@
 
 let
   llvmPackages = llvmConfig.llvmPackages;
+
+  # Wrapper scripts for HOST_CC/HOST_CXX that include Boost paths
+  # The configure script calls these directly to test Boost availability
+  host-gcc = pkgs.writeShellApplication {
+    name = "host-gcc";
+    runtimeInputs = [ pkgs.gcc ];
+    text = ''
+      exec gcc -I${pkgs.boost.dev}/include -L${pkgs.boost}/lib "$@"
+    '';
+  };
+
+  host-gxx = pkgs.writeShellApplication {
+    name = "host-g++";
+    runtimeInputs = [ pkgs.gcc ];
+    text = ''
+      exec g++ -I${pkgs.boost.dev}/include -L${pkgs.boost}/lib "$@"
+    '';
+  };
 in
 pkgs.stdenv.mkDerivation rec {
   pname = if enableAsserts then "xdp2-debug" else "xdp2";
@@ -87,9 +105,9 @@ pkgs.stdenv.mkDerivation rec {
 
     cd src
 
-    # Set up environment for configure
-    export CC="${pkgs.gcc}/bin/gcc"
-    export CXX="${pkgs.gcc}/bin/g++"
+    # Set up environment for configure using the Boost-aware wrapper scripts
+    export CC="${host-gcc}/bin/host-gcc"
+    export CXX="${host-gxx}/bin/host-g++"
     export HOST_CC="$CC"
     export HOST_CXX="$CXX"
     export HOST_LLVM_CONFIG="${llvmConfig.llvm-config-wrapped}/bin/llvm-config"
@@ -100,7 +118,8 @@ pkgs.stdenv.mkDerivation rec {
     export XDP2_CLANG_RESOURCE_PATH="${llvmConfig.paths.clangResourceDir}"
     export XDP2_C_INCLUDE_PATH="${llvmConfig.paths.clangResourceDir}/include"
 
-    # Run configure script
+    # Run configure script with debug output
+    export CONFIGURE_DEBUG_LEVEL=7
     bash configure.sh --build-opt-parser
 
     # Fix PATH_ARG for Nix environment (remove hardcoded paths)
