@@ -7,12 +7,20 @@
 # 2. The parser binary runs and produces expected output (network/transport offsets)
 # 3. The optimized parser (-O flag) also works correctly
 #
+# Supports two modes:
+# - Native: Builds sample at runtime using xdp2-compiler
+# - Pre-built: Uses pre-compiled binaries (for cross-compilation)
+#
 # Usage:
 #   nix build .#tests.offset-parser
 #   ./result/bin/xdp2-test-offset-parser
 #
 
-{ pkgs, xdp2 }:
+{ pkgs
+, xdp2
+  # Pre-built sample derivation (optional, for cross-compilation)
+, prebuiltSample ? null
+}:
 
 let
   # Source directory for test data (pcap files)
@@ -20,11 +28,17 @@ let
 
   # LLVM config for getting correct clang paths
   llvmConfig = import ../llvm.nix { inherit pkgs; lib = pkgs.lib; };
+
+  # Determine if we're using pre-built samples
+  usePrebuilt = prebuiltSample != null;
 in
 pkgs.writeShellApplication {
   name = "xdp2-test-offset-parser";
 
-  runtimeInputs = [
+  runtimeInputs = if usePrebuilt then [
+    pkgs.coreutils
+    pkgs.gnugrep
+  ] else [
     pkgs.gnumake
     pkgs.gcc
     pkgs.coreutils
@@ -39,8 +53,24 @@ pkgs.writeShellApplication {
 
     echo "=== XDP2 offset_parser Test ==="
     echo ""
+    ${if usePrebuilt then ''echo "Mode: Pre-built samples"'' else ''echo "Mode: Runtime compilation"''}
+    echo ""
 
-    # Create temp build directory
+    ${if usePrebuilt then ''
+    # Pre-built mode: Use binary from prebuiltSample
+    PARSER="${prebuiltSample}/bin/parser"
+
+    echo "Using pre-built binary:"
+    echo "  parser: $PARSER"
+    echo ""
+
+    # Verify binary exists
+    if [[ ! -x "$PARSER" ]]; then
+      echo "FAIL: parser binary not found at $PARSER"
+      exit 1
+    fi
+    '' else ''
+    # Runtime compilation mode: Build from source
     WORKDIR=$(mktemp -d)
     trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -76,6 +106,14 @@ pkgs.writeShellApplication {
     echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
     echo ""
 
+    # Build the sample
+    echo "--- Building offset_parser ---"
+    make XDP2DIR="${xdp2}" CFLAGS="-I${xdp2}/include -I${pkgs.libpcap}/include -g" LDFLAGS="-L${xdp2}/lib -L${pkgs.libpcap.lib}/lib -Wl,-rpath,${xdp2}/lib -Wl,-rpath,${pkgs.libpcap.lib}/lib"
+    echo ""
+
+    PARSER="./parser"
+    ''}
+
     # Track test results
     TESTS_PASSED=0
     TESTS_FAILED=0
@@ -90,13 +128,8 @@ pkgs.writeShellApplication {
       TESTS_FAILED=$((TESTS_FAILED + 1))
     }
 
-    # Build the sample
-    echo "--- Building offset_parser ---"
-    make XDP2DIR="${xdp2}" CFLAGS="-I${xdp2}/include -I${pkgs.libpcap}/include -g" LDFLAGS="-L${xdp2}/lib -L${pkgs.libpcap.lib}/lib -Wl,-rpath,${xdp2}/lib -Wl,-rpath,${pkgs.libpcap.lib}/lib"
-    echo ""
-
     # Verify binary was created
-    if [[ ! -x ./parser ]]; then
+    if [[ ! -x "$PARSER" ]]; then
       fail "parser binary not found"
       exit 1
     fi
@@ -113,7 +146,7 @@ pkgs.writeShellApplication {
 
     # Test 1: parser basic run
     echo "--- Test 1: parser basic ---"
-    OUTPUT=$(./parser "$PCAP" 2>&1) || {
+    OUTPUT=$("$PARSER" "$PCAP" 2>&1) || {
       fail "parser exited with error"
       echo "$OUTPUT"
       exit 1
@@ -155,7 +188,7 @@ pkgs.writeShellApplication {
 
     # Test 2: parser optimized (-O)
     echo "--- Test 2: parser optimized ---"
-    OUTPUT_OPT=$(./parser -O "$PCAP" 2>&1) || {
+    OUTPUT_OPT=$("$PARSER" -O "$PCAP" 2>&1) || {
       fail "parser -O exited with error"
       echo "$OUTPUT_OPT"
       exit 1

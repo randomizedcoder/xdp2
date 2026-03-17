@@ -288,26 +288,42 @@
                 ];
               };
 
-              llvmConfigRiscv = import ./nix/llvm.nix { pkgs = pkgsCrossRiscv; lib = pkgsCrossRiscv.lib; };
-              packagesModuleRiscv = import ./nix/packages.nix { pkgs = pkgsCrossRiscv; llvmPackages = llvmConfigRiscv.llvmPackages; };
+              # For cross-compilation, use HOST LLVM for xdp2-compiler (runs on build machine)
+              # Use target packages for the actual xdp2 libraries
+              packagesModuleRiscv = import ./nix/packages.nix { pkgs = pkgsCrossRiscv; llvmPackages = llvmConfig.llvmPackages; };
 
               xdp2-debug-riscv64 = import ./nix/derivation.nix {
                 pkgs = pkgsCrossRiscv;
                 lib = pkgsCrossRiscv.lib;
-                llvmConfig = llvmConfigRiscv;
+                # Use HOST llvmConfig, not target, because xdp2-compiler runs on HOST
+                llvmConfig = llvmConfig;
                 inherit (packagesModuleRiscv) nativeBuildInputs buildInputs;
                 enableAsserts = true;
+              };
+
+              # Pre-built samples for RISC-V cross-compilation
+              # Key: xdp2-compiler runs on HOST (x86_64), generates .p.c files
+              # which are then compiled with TARGET (RISC-V) toolchain
+              prebuiltSamplesRiscv64 = import ./nix/samples {
+                inherit pkgs;                    # Host pkgs (for xdp2-compiler)
+                xdp2 = xdp2-debug;               # Host xdp2 with compiler (x86_64)
+                xdp2Target = xdp2-debug-riscv64; # Target xdp2 libraries (RISC-V)
+                targetPkgs = pkgsCrossRiscv;     # Target pkgs for binaries
               };
 
               testsRiscv64 = import ./nix/tests {
                 pkgs = pkgsCrossRiscv;
                 xdp2 = xdp2-debug-riscv64;
+                prebuiltSamples = prebuiltSamplesRiscv64;
               };
             in {
               # Cross-compiled xdp2 for RISC-V
               xdp2-debug-riscv64 = xdp2-debug-riscv64;
 
-              # Cross-compiled tests for RISC-V
+              # Pre-built samples for RISC-V (built on x86_64, runs on riscv64)
+              prebuilt-samples-riscv64 = prebuiltSamplesRiscv64.all;
+
+              # Cross-compiled tests for RISC-V (using pre-built samples)
               riscv64-tests = testsRiscv64;
 
               # Runner script for RISC-V tests in VM

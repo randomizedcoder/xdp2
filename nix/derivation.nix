@@ -31,23 +31,49 @@
 let
   llvmPackages = llvmConfig.llvmPackages;
 
-  # Wrapper scripts for HOST_CC/HOST_CXX that include Boost paths
-  # The configure script calls these directly to test Boost availability
-  host-gcc = pkgs.writeShellApplication {
-    name = "host-gcc";
-    runtimeInputs = [ pkgs.gcc ];
-    text = ''
-      exec gcc -I${pkgs.boost.dev}/include -L${pkgs.boost}/lib "$@"
-    '';
-  };
+  # For cross-compilation, use buildPackages for host tools
+  # buildPackages contains packages that run on the BUILD machine
+  hostPkgs = pkgs.buildPackages;
 
-  host-gxx = pkgs.writeShellApplication {
-    name = "host-g++";
-    runtimeInputs = [ pkgs.gcc ];
-    text = ''
-      exec g++ -I${pkgs.boost.dev}/include -L${pkgs.boost}/lib "$@"
-    '';
-  };
+  # Native compiler for the BUILD machine (x86_64)
+  # IMPORTANT: Use stdenv.cc, NOT gcc, because in cross-compilation context
+  # buildPackages.gcc returns the cross-compiler, not the native compiler
+  hostCC = hostPkgs.stdenv.cc;
+
+  # Python with scapy for configure checks (runs on HOST)
+  hostPython = hostPkgs.python3.withPackages (p: [ p.scapy ]);
+
+  # Wrapper scripts for HOST_CC/HOST_CXX that include Boost and libpcap paths
+  # The configure script calls these directly to test Boost/libpcap availability
+  # Use hostPkgs (buildPackages) so these run on the build machine
+  # Use full paths to the Nix gcc wrapper to ensure proper include handling
+  host-gcc = hostPkgs.writeShellScript "host-gcc" ''
+    exec ${hostCC}/bin/gcc \
+      -I${hostPkgs.boost.dev}/include \
+      -I${hostPkgs.libpcap}/include \
+      -L${hostPkgs.boost}/lib \
+      -L${hostPkgs.libpcap.lib}/lib \
+      "$@"
+  '';
+
+  host-gxx = hostPkgs.writeShellScript "host-g++" ''
+    exec ${hostCC}/bin/g++ \
+      -I${hostPkgs.boost.dev}/include \
+      -I${hostPkgs.libpcap}/include \
+      -I${hostPython}/include/python3.13 \
+      -L${hostPkgs.boost}/lib \
+      -L${hostPkgs.libpcap.lib}/lib \
+      -L${hostPython}/lib \
+      -Wl,-rpath,${hostPython}/lib \
+      "$@"
+  '';
+
+  # Detect cross-compilation
+  isCrossCompilation = pkgs.stdenv.buildPlatform != pkgs.stdenv.hostPlatform;
+
+  # Target compiler (for libraries that run on the target)
+  targetCC = "${pkgs.stdenv.cc}/bin/${pkgs.stdenv.cc.targetPrefix}cc";
+  targetCXX = "${pkgs.stdenv.cc}/bin/${pkgs.stdenv.cc.targetPrefix}c++";
 in
 pkgs.stdenv.mkDerivation rec {
   pname = if enableAsserts then "xdp2-debug" else "xdp2";
@@ -73,17 +99,18 @@ pkgs.stdenv.mkDerivation rec {
   hardeningDisable = [ "all" ];
 
   # Set up environment variables for the build
-  HOST_CC = "${pkgs.gcc}/bin/gcc";
-  HOST_CXX = "${pkgs.gcc}/bin/g++";
+  # HOST_CC/CXX run on the build machine (for xdp2-compiler, cppfront)
+  HOST_CC = "${hostCC}/bin/gcc";
+  HOST_CXX = "${hostCC}/bin/g++";
   HOST_LLVM_CONFIG = "${llvmConfig.llvm-config-wrapped}/bin/llvm-config";
   XDP2_CLANG_VERSION = llvmConfig.version;
   XDP2_CLANG_RESOURCE_PATH = llvmConfig.paths.clangResourceDir;
 
-  # Add LLVM/Clang libs to library path
+  # Add LLVM/Clang libs to library path (use host versions for xdp2-compiler)
   LD_LIBRARY_PATH = lib.makeLibraryPath [
     llvmPackages.llvm
     llvmPackages.libclang.lib
-    pkgs.boost
+    hostPkgs.boost
   ];
 
   # Compiler flags - enable assertions for debug builds
@@ -97,6 +124,13 @@ pkgs.stdenv.mkDerivation rec {
 
     # Add functional header to cppfront (required for newer GCC)
     sed -i '1i#include <functional>\n#include <unordered_map>\n' thirdparty/cppfront/include/cpp2util.h
+
+    # Patch configure.sh to use CC_GCC from environment (for cross-compilation)
+    # The original script sets CC_GCC="gcc" unconditionally, but we need it to
+    # respect our host-gcc wrapper which includes the correct include paths
+    substituteInPlace src/configure.sh \
+      --replace-fail 'CC_GCC="gcc"' 'CC_GCC="''${CC_GCC:-gcc}"' \
+      --replace-fail 'CC_CXX="g++"' 'CC_CXX="''${CC_CXX:-g++}"'
   '';
 
   # Configure phase: Generate config.mk
@@ -105,9 +139,24 @@ pkgs.stdenv.mkDerivation rec {
 
     cd src
 
+    # Add host tools to PATH so configure.sh can find them
+    # This is needed for cross-compilation where only cross-tools are in PATH
+    # Use hostCC (stdenv.cc) which is the native x86_64 compiler
+    # Also add hostPython which has scapy for the scapy check
+    export PATH="${hostCC}/bin:${hostPython}/bin:$PATH"
+
+    # Set up CC_GCC and CC_CXX to use our wrapper scripts that include boost/libpcap paths
+    # This is needed because configure.sh uses these for compile tests
+    export CC_GCC="${host-gcc}"
+    export CC_CXX="${host-gxx}"
+
     # Set up environment for configure using the Boost-aware wrapper scripts
-    export CC="${host-gcc}/bin/host-gcc"
-    export CXX="${host-gxx}/bin/host-g++"
+    export CC="${host-gcc}"
+    export CXX="${host-gxx}"
+
+    # Set up PKG_CONFIG_PATH to find HOST libraries (Python, etc.)
+    # This ensures configure.sh finds x86_64 Python, not RISC-V Python
+    export PKG_CONFIG_PATH="${hostPython}/lib/pkgconfig:$PKG_CONFIG_PATH"
     export HOST_CC="$CC"
     export HOST_CXX="$CXX"
     export HOST_LLVM_CONFIG="${llvmConfig.llvm-config-wrapped}/bin/llvm-config"
@@ -127,6 +176,14 @@ pkgs.stdenv.mkDerivation rec {
       sed -i 's|PATH_ARG="--with-path=.*"|PATH_ARG=""|' config.mk
     fi
 
+    # Fix HOST_CC/HOST_CXX in config.mk to use our wrapper scripts with correct paths
+    # configure.sh writes "HOST_CC := gcc" which won't find HOST libraries
+    sed -i 's|^HOST_CC := gcc$|HOST_CC := ${host-gcc}|' config.mk
+    sed -i 's|^HOST_CXX := g++$|HOST_CXX := ${host-gxx}|' config.mk
+
+    # Add HOST boost library paths to LDFLAGS for xdp2-compiler
+    echo "HOST_LDFLAGS := -L${hostPkgs.boost}/lib -Wl,-rpath,${hostPkgs.boost}/lib" >> config.mk
+
     cd ..
 
     runHook postConfigure
@@ -137,8 +194,10 @@ pkgs.stdenv.mkDerivation rec {
     runHook preBuild
 
     # Set up environment
-    export HOST_CC="${pkgs.gcc}/bin/gcc"
-    export HOST_CXX="${pkgs.gcc}/bin/g++"
+    # HOST_CC/CXX run on the build machine (for xdp2-compiler, cppfront)
+    # Use hostCC (stdenv.cc) which is the native x86_64 compiler
+    export HOST_CC="${hostCC}/bin/gcc"
+    export HOST_CXX="${hostCC}/bin/g++"
     export HOST_LLVM_CONFIG="${llvmConfig.llvm-config-wrapped}/bin/llvm-config"
     export NIX_BUILD_CORES=$NIX_BUILD_CORES
     export XDP2_CLANG_VERSION="${llvmConfig.version}"
@@ -146,29 +205,45 @@ pkgs.stdenv.mkDerivation rec {
 
     # Include paths for xdp2-compiler's libclang usage
     # These are needed because ClangTool bypasses the Nix clang wrapper
+    # Use host (build machine) paths since xdp2-compiler runs on host
     export XDP2_C_INCLUDE_PATH="${llvmConfig.paths.clangResourceDir}/include"
-    export XDP2_GLIBC_INCLUDE_PATH="${pkgs.stdenv.cc.libc.dev}/include"
-    export XDP2_LINUX_HEADERS_PATH="${pkgs.linuxHeaders}/include"
+    export XDP2_GLIBC_INCLUDE_PATH="${hostPkgs.stdenv.cc.libc.dev}/include"
+    export XDP2_LINUX_HEADERS_PATH="${hostPkgs.linuxHeaders}/include"
 
-    # 1. Build cppfront compiler
+    # 1. Build cppfront compiler (runs on host)
     echo "Building cppfront..."
     cd thirdparty/cppfront
     $HOST_CXX -std=c++20 source/cppfront.cpp -o cppfront-compiler
     cd ../..
 
-    # 2. Build xdp2-compiler
+    # 2. Build xdp2-compiler (runs on host, needs host LLVM)
     echo "Building xdp2-compiler..."
     cd src/tools/compiler
     make -j$NIX_BUILD_CORES
     cd ../../..
 
-    # 3. Build main xdp2 project
+    # 3. Build main xdp2 project (libraries for target)
     echo "Building xdp2..."
     cd src
 
     # NOTE: parse_dump was previously skipped due to a std::optional assertion failure
     # in LLVM pattern matching. Fixed in main.cpp by adding null check for next_proto_data.
     # See documentation/nix/clang-tool-refactor-log.md for details.
+
+    ${lib.optionalString isCrossCompilation ''
+      echo "Cross-compilation detected: ${pkgs.stdenv.hostPlatform.config}"
+      echo "  Target CC: ${targetCC}"
+      echo "  Target CXX: ${targetCXX}"
+      # Override CC/CXX in config.mk for target libraries
+      sed -i "s|^CC :=.*|CC := ${targetCC}|" config.mk
+      sed -i "s|^CXX :=.*|CXX := ${targetCXX}|" config.mk
+      # Add include paths for cross-compilation
+      INCLUDE_FLAGS="-I$(pwd)/include -I${pkgs.linuxHeaders}/include"
+      sed -i "s|^EXTRA_CFLAGS :=.*|EXTRA_CFLAGS := $INCLUDE_FLAGS|" config.mk
+      if ! grep -q "^EXTRA_CFLAGS" config.mk; then
+        echo "EXTRA_CFLAGS := $INCLUDE_FLAGS" >> config.mk
+      fi
+    ''}
 
     make -j$NIX_BUILD_CORES
     cd ..

@@ -7,12 +7,20 @@
 # 2. The parser_notmpl binary runs and produces expected output
 # 3. The optimized parser (-O flag) also works correctly
 #
+# Supports two modes:
+# - Native: Builds sample at runtime using xdp2-compiler
+# - Pre-built: Uses pre-compiled binaries (for cross-compilation)
+#
 # Usage:
 #   nix build .#tests.simple-parser
 #   ./result/bin/xdp2-test-simple-parser
 #
 
-{ pkgs, xdp2 }:
+{ pkgs
+, xdp2
+  # Pre-built sample derivation (optional, for cross-compilation)
+, prebuiltSample ? null
+}:
 
 let
   # Source directory for test data (pcap files)
@@ -20,11 +28,17 @@ let
 
   # LLVM config for getting correct clang paths
   llvmConfig = import ../llvm.nix { inherit pkgs; lib = pkgs.lib; };
+
+  # Determine if we're using pre-built samples
+  usePrebuilt = prebuiltSample != null;
 in
 pkgs.writeShellApplication {
   name = "xdp2-test-simple-parser";
 
-  runtimeInputs = [
+  runtimeInputs = if usePrebuilt then [
+    pkgs.coreutils
+    pkgs.gnugrep
+  ] else [
     pkgs.gnumake
     pkgs.gcc
     pkgs.coreutils
@@ -39,8 +53,30 @@ pkgs.writeShellApplication {
 
     echo "=== XDP2 simple_parser Test ==="
     echo ""
+    ${if usePrebuilt then ''echo "Mode: Pre-built samples"'' else ''echo "Mode: Runtime compilation"''}
+    echo ""
 
-    # Create temp build directory
+    ${if usePrebuilt then ''
+    # Pre-built mode: Use binaries from prebuiltSample
+    PARSER_NOTMPL="${prebuiltSample}/bin/parser_notmpl"
+    PARSER_TMPL="${prebuiltSample}/bin/parser_tmpl"
+
+    echo "Using pre-built binaries:"
+    echo "  parser_notmpl: $PARSER_NOTMPL"
+    echo "  parser_tmpl: $PARSER_TMPL"
+    echo ""
+
+    # Verify binaries exist
+    if [[ ! -x "$PARSER_NOTMPL" ]]; then
+      echo "FAIL: parser_notmpl binary not found at $PARSER_NOTMPL"
+      exit 1
+    fi
+    if [[ ! -x "$PARSER_TMPL" ]]; then
+      echo "FAIL: parser_tmpl binary not found at $PARSER_TMPL"
+      exit 1
+    fi
+    '' else ''
+    # Runtime compilation mode: Build from source
     WORKDIR=$(mktemp -d)
     trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -76,6 +112,15 @@ pkgs.writeShellApplication {
     echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
     echo ""
 
+    # Build the sample
+    echo "--- Building simple_parser ---"
+    make XDP2DIR="${xdp2}" CFLAGS="-I${xdp2}/include -I${pkgs.libpcap}/include -g" LDFLAGS="-L${xdp2}/lib -L${pkgs.libpcap.lib}/lib -Wl,-rpath,${xdp2}/lib -Wl,-rpath,${pkgs.libpcap.lib}/lib"
+    echo ""
+
+    PARSER_NOTMPL="./parser_notmpl"
+    PARSER_TMPL="./parser_tmpl"
+    ''}
+
     # Track test results
     TESTS_PASSED=0
     TESTS_FAILED=0
@@ -90,19 +135,14 @@ pkgs.writeShellApplication {
       TESTS_FAILED=$((TESTS_FAILED + 1))
     }
 
-    # Build the sample
-    echo "--- Building simple_parser ---"
-    make XDP2DIR="${xdp2}" CFLAGS="-I${xdp2}/include -I${pkgs.libpcap}/include -g" LDFLAGS="-L${xdp2}/lib -L${pkgs.libpcap.lib}/lib -Wl,-rpath,${xdp2}/lib -Wl,-rpath,${pkgs.libpcap.lib}/lib"
-    echo ""
-
     # Verify binaries were created
-    if [[ ! -x ./parser_notmpl ]]; then
+    if [[ ! -x "$PARSER_NOTMPL" ]]; then
       fail "parser_notmpl binary not found"
       exit 1
     fi
     pass "parser_notmpl binary created"
 
-    if [[ ! -x ./parser_tmpl ]]; then
+    if [[ ! -x "$PARSER_TMPL" ]]; then
       fail "parser_tmpl binary not found"
       exit 1
     fi
@@ -119,7 +159,7 @@ pkgs.writeShellApplication {
 
     # Test 1: parser_notmpl basic run
     echo "--- Test 1: parser_notmpl basic ---"
-    OUTPUT=$(./parser_notmpl "$PCAP" 2>&1) || {
+    OUTPUT=$("$PARSER_NOTMPL" "$PCAP" 2>&1) || {
       fail "parser_notmpl exited with error"
       echo "$OUTPUT"
       exit 1
@@ -151,7 +191,7 @@ pkgs.writeShellApplication {
     # proper IPv6 parsing and TCP timestamp extraction. This is critical for xdp2
     # performance - the optimized parser is the primary use case.
     echo "--- Test 2: parser_notmpl optimized ---"
-    OUTPUT_OPT=$(./parser_notmpl -O "$PCAP" 2>&1) || {
+    OUTPUT_OPT=$("$PARSER_NOTMPL" -O "$PCAP" 2>&1) || {
       fail "parser_notmpl -O exited with error"
       echo "$OUTPUT_OPT"
       exit 1
@@ -188,7 +228,7 @@ pkgs.writeShellApplication {
 
     # Test 3: parser_tmpl basic run
     echo "--- Test 3: parser_tmpl basic ---"
-    OUTPUT_TMPL=$(./parser_tmpl "$PCAP" 2>&1) || {
+    OUTPUT_TMPL=$("$PARSER_TMPL" "$PCAP" 2>&1) || {
       fail "parser_tmpl exited with error"
       echo "$OUTPUT_TMPL"
       exit 1
@@ -211,7 +251,7 @@ pkgs.writeShellApplication {
 
     # Test 4: parser_tmpl optimized (-O)
     echo "--- Test 4: parser_tmpl optimized ---"
-    OUTPUT_TMPL_OPT=$(./parser_tmpl -O "$PCAP" 2>&1) || {
+    OUTPUT_TMPL_OPT=$("$PARSER_TMPL" -O "$PCAP" 2>&1) || {
       fail "parser_tmpl -O exited with error"
       echo "$OUTPUT_TMPL_OPT"
       exit 1
@@ -249,11 +289,11 @@ pkgs.writeShellApplication {
     echo ""
 
     if [[ $TESTS_FAILED -eq 0 ]]; then
-      echo "✓ All simple_parser tests passed!"
+      echo "All simple_parser tests passed!"
       echo "==================================="
       exit 0
     else
-      echo "✗ Some tests failed!"
+      echo "Some tests failed!"
       echo "==================================="
       exit 1
     fi

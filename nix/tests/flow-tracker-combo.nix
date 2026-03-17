@@ -10,12 +10,20 @@
 # Note: XDP programs cannot be loaded/tested without root and network interfaces,
 # so we only verify that the BPF object compiles successfully.
 #
+# Supports two modes:
+# - Native: Builds sample at runtime using xdp2-compiler
+# - Pre-built: Uses pre-compiled binaries (for cross-compilation)
+#
 # Usage:
 #   nix build .#tests.flow-tracker-combo
 #   ./result/bin/xdp2-test-flow-tracker-combo
 #
 
-{ pkgs, xdp2 }:
+{ pkgs
+, xdp2
+  # Pre-built sample derivation (optional, for cross-compilation)
+, prebuiltSample ? null
+}:
 
 let
   # Source directory for test data (pcap files)
@@ -23,11 +31,17 @@ let
 
   # LLVM config for getting correct clang paths
   llvmConfig = import ../llvm.nix { inherit pkgs; lib = pkgs.lib; };
+
+  # Determine if we're using pre-built samples
+  usePrebuilt = prebuiltSample != null;
 in
 pkgs.writeShellApplication {
   name = "xdp2-test-flow-tracker-combo";
 
-  runtimeInputs = [
+  runtimeInputs = if usePrebuilt then [
+    pkgs.coreutils
+    pkgs.gnugrep
+  ] else [
     pkgs.gnumake
     pkgs.gcc
     pkgs.coreutils
@@ -44,8 +58,24 @@ pkgs.writeShellApplication {
 
     echo "=== XDP2 flow_tracker_combo Test ==="
     echo ""
+    ${if usePrebuilt then ''echo "Mode: Pre-built samples"'' else ''echo "Mode: Runtime compilation"''}
+    echo ""
 
-    # Create temp build directory
+    ${if usePrebuilt then ''
+    # Pre-built mode: Use binary from prebuiltSample
+    FLOW_PARSER="${prebuiltSample}/bin/flow_parser"
+
+    echo "Using pre-built binary:"
+    echo "  flow_parser: $FLOW_PARSER"
+    echo ""
+
+    # Verify binary exists
+    if [[ ! -x "$FLOW_PARSER" ]]; then
+      echo "FAIL: flow_parser binary not found at $FLOW_PARSER"
+      exit 1
+    fi
+    '' else ''
+    # Runtime compilation mode: Build from source
     WORKDIR=$(mktemp -d)
     trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -80,20 +110,6 @@ pkgs.writeShellApplication {
     echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
     echo ""
 
-    # Track test results
-    TESTS_PASSED=0
-    TESTS_FAILED=0
-
-    pass() {
-      echo "PASS: $1"
-      TESTS_PASSED=$((TESTS_PASSED + 1))
-    }
-
-    fail() {
-      echo "FAIL: $1"
-      TESTS_FAILED=$((TESTS_FAILED + 1))
-    }
-
     # Build only the userspace component (flow_parser)
     # XDP build is disabled due to API issues in xdp2/bpf.h
     echo "--- Building flow_tracker_combo (userspace only) ---"
@@ -117,8 +133,25 @@ pkgs.writeShellApplication {
     echo "NOTE: XDP build (flow_tracker.xdp.o) skipped - xdp2/bpf.h needs API fixes"
     echo ""
 
+    FLOW_PARSER="./flow_parser"
+    ''}
+
+    # Track test results
+    TESTS_PASSED=0
+    TESTS_FAILED=0
+
+    pass() {
+      echo "PASS: $1"
+      TESTS_PASSED=$((TESTS_PASSED + 1))
+    }
+
+    fail() {
+      echo "FAIL: $1"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    }
+
     # Verify userspace binary was created
-    if [[ ! -x ./flow_parser ]]; then
+    if [[ ! -x "$FLOW_PARSER" ]]; then
       fail "flow_parser binary not found"
       exit 1
     fi
@@ -135,7 +168,7 @@ pkgs.writeShellApplication {
 
     # Test 1: flow_parser basic run with IPv6
     echo "--- Test 1: flow_parser basic (IPv6) ---"
-    OUTPUT=$(./flow_parser "$PCAP_IPV6" 2>&1) || {
+    OUTPUT=$("$FLOW_PARSER" "$PCAP_IPV6" 2>&1) || {
       fail "flow_parser exited with error"
       echo "$OUTPUT"
       exit 1
@@ -161,7 +194,7 @@ pkgs.writeShellApplication {
 
     # Test 2: flow_parser optimized (-O) with IPv6
     echo "--- Test 2: flow_parser optimized (IPv6) ---"
-    OUTPUT_OPT=$(./flow_parser -O "$PCAP_IPV6" 2>&1) || {
+    OUTPUT_OPT=$("$FLOW_PARSER" -O "$PCAP_IPV6" 2>&1) || {
       fail "flow_parser -O exited with error"
       echo "$OUTPUT_OPT"
       exit 1
@@ -197,7 +230,7 @@ pkgs.writeShellApplication {
 
     # Test 3: flow_parser basic run with IPv4
     echo "--- Test 3: flow_parser basic (IPv4) ---"
-    OUTPUT_V4=$(./flow_parser "$PCAP_IPV4" 2>&1) || {
+    OUTPUT_V4=$("$FLOW_PARSER" "$PCAP_IPV4" 2>&1) || {
       fail "flow_parser (IPv4) exited with error"
       echo "$OUTPUT_V4"
       exit 1
@@ -214,7 +247,7 @@ pkgs.writeShellApplication {
 
     # Test 4: flow_parser optimized with IPv4
     echo "--- Test 4: flow_parser optimized (IPv4) ---"
-    OUTPUT_V4_OPT=$(./flow_parser -O "$PCAP_IPV4" 2>&1) || {
+    OUTPUT_V4_OPT=$("$FLOW_PARSER" -O "$PCAP_IPV4" 2>&1) || {
       fail "flow_parser -O (IPv4) exited with error"
       echo "$OUTPUT_V4_OPT"
       exit 1
