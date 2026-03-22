@@ -224,6 +224,83 @@ let
     };
   };
 
+  # Build flow_dissector benchmark sample (userspace, compares xdp2 vs flowdis)
+  buildFlowDissectorBenchmark = targetPkgs.stdenv.mkDerivation {
+    pname = "xdp2-sample-flow-dissector-benchmark";
+    version = xdp2.version or "0.1.0";
+
+    src = srcRoot + "/samples/flow_dissector";
+
+    nativeBuildInputs = [
+      pkgs.gnumake
+    ];
+
+    buildInputs = [
+      targetPkgs.libpcap
+      targetPkgs.libpcap.lib
+    ];
+
+    hardeningDisable = [ "all" ];
+
+    XDP2_C_INCLUDE_PATH = "${llvmConfig.paths.clangResourceDir}/include";
+    XDP2_GLIBC_INCLUDE_PATH = "${pkgs.stdenv.cc.libc.dev}/include";
+    XDP2_LINUX_HEADERS_PATH = "${pkgs.linuxHeaders}/include";
+
+    buildPhase = ''
+      runHook preBuild
+
+      export PATH="${xdp2}/bin:$PATH"
+
+      echo "Building flow_dissector benchmark..."
+      echo "Using compiler: $CC"
+      echo "Target xdp2 (libraries): ${xdp2Target}"
+
+      # First compile parser.c to check for errors
+      $CC \
+        -I${xdp2Target}/include \
+        -I${targetPkgs.libpcap}/include \
+        -O2 \
+        -c -o parser.o parser.c || true
+
+      # Generate optimized parser code
+      ${xdp2}/bin/xdp2-compiler \
+        -I${xdp2Target}/include \
+        -i parser.c \
+        -o parser.p.c
+
+      # Build benchmark binary
+      $CC \
+        -I${xdp2Target}/include \
+        -I${targetPkgs.libpcap}/include \
+        -L${xdp2Target}/lib \
+        -L${targetPkgs.libpcap.lib}/lib \
+        -Wl,-rpath,${xdp2Target}/lib \
+        -Wl,-rpath,${targetPkgs.libpcap.lib}/lib \
+        -g -O2 \
+        -o benchmark benchmark.c parser.p.c \
+        -lpcap -lxdp2 -lcli -lflowdis -lsiphash
+
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out/bin
+      mkdir -p $out/share/xdp2-samples/flow-dissector-benchmark
+
+      install -m 755 benchmark $out/bin/
+      cp -r . $out/share/xdp2-samples/flow-dissector-benchmark/
+
+      runHook postInstall
+    '';
+
+    meta = {
+      description = "XDP2 flow_dissector benchmark sample (pre-built)";
+      platforms = lib.platforms.linux;
+    };
+  };
+
   # Define samples once to avoid rebuilding them in 'all'
   simpleParser = buildParserSample {
     name = "simple-parser";
@@ -252,6 +329,9 @@ in rec {
   # XDP samples (userspace component only)
   flow-tracker-combo = buildFlowTrackerCombo;
 
+  # Flow dissector benchmark (xdp2 vs kernel flowdis)
+  flow-dissector-benchmark = buildFlowDissectorBenchmark;
+
   # Combined package with all samples (reuses existing derivations)
   all = targetPkgs.symlinkJoin {
     name = "xdp2-samples-all";
@@ -260,6 +340,7 @@ in rec {
       offset-parser
       ports-parser
       flow-tracker-combo
+      flow-dissector-benchmark
     ];
   };
 }

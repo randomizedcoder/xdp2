@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * BPF flow dissector using XDP2 declarative parser framework.
+ *
+ * This demonstrates that xdp2's declarative parser can replace the
+ * kernel's ~2100 lines of hand-written flow dissector C code. The
+ * parser graph is defined in parser.c (~150 lines) and compiled by
+ * xdp2-compiler into the generated parser.xdp.h.
+ *
+ * Program type: BPF_PROG_TYPE_FLOW_DISSECTOR
+ * Context: struct __sk_buff with skb->flow_keys
+ * Output: writes to struct bpf_flow_keys
+ */
+
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/mpls.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
+
+#include "xdp2/bpf.h"
+#include "xdp2/parser_metadata.h"
+
+/* Generated parser from xdp2-compiler */
+#include "parser.xdp.h"
+
+/* Per-CPU storage for parser context */
+struct flow_dissector_ctx {
+	struct xdp2_xdp_ctx ctx;
+	struct xdp2_metadata_all frame[1];
+};
+
+struct bpf_elf_map SEC("maps") ctx_map = {
+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+	.size_key = sizeof(__u32),
+	.size_value = sizeof(struct flow_dissector_ctx),
+	.max_elem = 2,
+	.pinning = PIN_GLOBAL_NS,
+};
+
+static __always_inline struct flow_dissector_ctx *get_ctx(void)
+{
+	__u32 key = 1;
+
+	return bpf_map_lookup_elem(&ctx_map, &key);
+}
+
+struct vlan_hdr {
+	__be16 h_vlan_TCI;
+	__be16 h_vlan_encapsulated_proto;
+};
+
+/* Handle VLAN tags: strip 802.1Q/802.1AD, update nhoff/thoff/n_proto */
+static __always_inline int handle_vlan(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data_end = (void *)(long)skb->data_end;
+	void *data = (void *)(long)skb->data;
+	struct vlan_hdr *vlan;
+
+	/* Handle 802.1AD (outer tag) */
+	if (keys->n_proto == bpf_htons(ETH_P_8021AD)) {
+		vlan = data + keys->thoff;
+		if ((void *)(vlan + 1) > data_end)
+			return BPF_DROP;
+
+		if (vlan->h_vlan_encapsulated_proto !=
+		    bpf_htons(ETH_P_8021Q))
+			return BPF_DROP;
+
+		keys->nhoff += sizeof(*vlan);
+		keys->thoff += sizeof(*vlan);
+	}
+
+	/* Handle 802.1Q (inner tag) */
+	vlan = data + keys->thoff;
+	if ((void *)(vlan + 1) > data_end)
+		return BPF_DROP;
+
+	keys->nhoff += sizeof(*vlan);
+	keys->thoff += sizeof(*vlan);
+
+	/* Reject triple tagging */
+	if (vlan->h_vlan_encapsulated_proto == bpf_htons(ETH_P_8021AD) ||
+	    vlan->h_vlan_encapsulated_proto == bpf_htons(ETH_P_8021Q))
+		return BPF_DROP;
+
+	keys->n_proto = vlan->h_vlan_encapsulated_proto;
+
+	return -1; /* Continue processing with new n_proto */
+}
+
+/* Handle MPLS: validate header and return BPF_OK */
+static __always_inline int handle_mpls(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data_end = (void *)(long)skb->data_end;
+	void *data = (void *)(long)skb->data;
+	struct mpls_label *mpls;
+
+	mpls = data + keys->thoff;
+	if ((void *)(mpls + 1) > data_end)
+		return BPF_DROP;
+
+	return BPF_OK;
+}
+
+/* Translate xdp2 metadata to bpf_flow_keys */
+static __always_inline void translate_metadata(struct xdp2_metadata_all *frame,
+					       struct bpf_flow_keys *keys)
+{
+	/* Address type and addresses */
+	switch (frame->addr_type) {
+	case XDP2_ADDR_TYPE_IPV4:
+		keys->addr_proto = ETH_P_IP;
+		keys->ipv4_src = frame->addrs.v4.saddr;
+		keys->ipv4_dst = frame->addrs.v4.daddr;
+		break;
+	case XDP2_ADDR_TYPE_IPV6:
+		keys->addr_proto = ETH_P_IPV6;
+		__builtin_memcpy(&keys->ipv6_src, &frame->addrs.v6.saddr,
+				 sizeof(keys->ipv6_src));
+		__builtin_memcpy(&keys->ipv6_dst, &frame->addrs.v6.daddr,
+				 sizeof(keys->ipv6_dst));
+		break;
+	default:
+		break;
+	}
+
+	/* IP protocol */
+	keys->ip_proto = frame->ip_proto;
+
+	/* Ports */
+	keys->sport = frame->port_pair.sport;
+	keys->dport = frame->port_pair.dport;
+
+	/* Fragment info */
+	if (frame->is_fragment) {
+		keys->is_frag = true;
+		if (frame->first_frag)
+			keys->is_first_frag = true;
+	}
+
+	/* IPv6 flow label */
+	keys->flow_label = frame->flow_label;
+}
+
+SEC("flow_dissector")
+int _dissect(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data_end = (void *)(long)skb->data_end;
+	void *data = (void *)(long)skb->data;
+	struct flow_dissector_ctx *parser_ctx;
+	const void *hdr;
+	int rc;
+
+	/* Handle VLAN tags inline */
+	if (keys->n_proto == bpf_htons(ETH_P_8021Q) ||
+	    keys->n_proto == bpf_htons(ETH_P_8021AD)) {
+		rc = handle_vlan(skb);
+		if (rc >= 0)
+			return rc;
+		/* Reload data pointers after VLAN processing */
+		data_end = (void *)(long)skb->data_end;
+		data = (void *)(long)skb->data;
+	}
+
+	/* Handle MPLS inline */
+	if (keys->n_proto == bpf_htons(ETH_P_MPLS_UC) ||
+	    keys->n_proto == bpf_htons(ETH_P_MPLS_MC))
+		return handle_mpls(skb);
+
+	/* Only handle IP and IPv6 via the xdp2 parser */
+	if (keys->n_proto != bpf_htons(ETH_P_IP) &&
+	    keys->n_proto != bpf_htons(ETH_P_IPV6))
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	/* Get per-CPU parser context */
+	parser_ctx = get_ctx();
+	if (!parser_ctx)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	/* Initialize parser context */
+	__builtin_memset(parser_ctx->frame, 0,
+			 sizeof(struct xdp2_metadata_all));
+	parser_ctx->ctx.frame_num = 0;
+	parser_ctx->ctx.next = CODE_IGNORE;
+	parser_ctx->ctx.metadata = parser_ctx->frame;
+	parser_ctx->ctx.parser = xdp2_parser_flow_dissector;
+
+	/* Start parsing at L3 (thoff points past Ethernet/VLAN) */
+	hdr = data + keys->thoff;
+	if (hdr >= data_end)
+		return BPF_DROP;
+
+	/* Invoke the xdp2 parser on raw packet data */
+	rc = XDP2_PARSE_XDP(xdp2_parser_flow_dissector, &parser_ctx->ctx,
+			    &hdr, data_end, false, 0);
+
+	if (rc != XDP2_OKAY && rc != XDP2_STOP_OKAY &&
+	    rc != XDP2_STOP_UNKNOWN_PROTO)
+		return BPF_DROP;
+
+	/* Translate xdp2 metadata -> bpf_flow_keys */
+	translate_metadata(parser_ctx->frame, keys);
+
+	/* Update thoff to point past parsed headers */
+	if (hdr > data && hdr <= data_end)
+		keys->thoff = (__u16)(hdr - data);
+
+	return BPF_OK;
+}
+
+char __license[] SEC("license") = "GPL";
