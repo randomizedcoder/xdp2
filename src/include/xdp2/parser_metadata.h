@@ -743,6 +743,41 @@ static void NAME(const void *vtipc, size_t hdr_len, void *imetadata,	\
 	frame->addr_type = XDP2_ADDR_TYPE_TIPC;				\
 }
 
+/* Meta data helper for ESP.
+ * Uses common metadata field: keyid (SPI)
+ */
+#define XDP2_METADATA_TEMP_esp(NAME, STRUCT)				\
+static void NAME(const void *vesp, size_t hdr_len, void *imetadata,	\
+		 void *iframe, const struct xdp2_ctrl_data *ctrl)	\
+{									\
+	((struct STRUCT *)iframe)->keyid =				\
+			((struct ip_esp_hdr *)vesp)->spi;		\
+}
+
+/* Meta data helper for AH (Authentication Header).
+ * Uses common metadata fields: keyid (SPI), ip_proto (nexthdr)
+ */
+#define XDP2_METADATA_TEMP_ah(NAME, STRUCT)				\
+static void NAME(const void *vah, size_t hdr_len, void *imetadata,	\
+		 void *iframe, const struct xdp2_ctrl_data *ctrl)	\
+{									\
+	struct STRUCT *frame = iframe;					\
+	const struct ip_auth_hdr *ah = vah;				\
+									\
+	frame->keyid = ah->spi;						\
+	frame->ip_proto = ah->nexthdr;					\
+}
+
+/* Meta data helper for L2TPv3 session.
+ * Uses common metadata field: keyid (session_id)
+ */
+#define XDP2_METADATA_TEMP_l2tp_v3(NAME, STRUCT)			\
+static void NAME(const void *vl2tp, size_t hdr_len, void *imetadata,	\
+		 void *iframe, const struct xdp2_ctrl_data *ctrl)	\
+{									\
+	((struct STRUCT *)iframe)->keyid = *(__be32 *)vl2tp;		\
+}
+
 /* Meta data helper for GRE (v0)
  * Uses common metadata field: gre.flags
  */

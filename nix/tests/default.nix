@@ -57,6 +57,11 @@ let
     prebuiltSample = if usePrebuilt then prebuiltSamples.flow-tracker-combo else null;
   };
 
+  flowDissectorBenchmark = import ./flow-dissector-benchmark.nix {
+    inherit pkgs xdp2;
+    prebuiltSample = if usePrebuilt then prebuiltSamples.flow-dissector-benchmark else null;
+  };
+
 in {
   # Parser sample tests (userspace, no root required)
   simple-parser = simpleParser;
@@ -68,6 +73,9 @@ in {
 
   # XDP sample tests
   flow-tracker-combo = flowTrackerCombo;
+
+  # Flow dissector benchmark (xdp2 vs kernel flowdis)
+  flow-dissector-benchmark = flowDissectorBenchmark;
 
   # XDP build verification (compile-only, no runtime test)
   xdp-build = import ./xdp-build.nix { inherit pkgs xdp2; };
@@ -107,6 +115,11 @@ in {
 
       # Run flow-tracker-combo test (userspace + XDP build)
       ${flowTrackerCombo}/bin/xdp2-test-flow-tracker-combo
+
+      echo ""
+
+      # Run flow-dissector-benchmark test (xdp2 vs kernel flowdis)
+      ${flowDissectorBenchmark}/bin/xdp2-test-flow-dissector-benchmark
 
       echo ""
 

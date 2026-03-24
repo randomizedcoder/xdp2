@@ -1592,6 +1592,28 @@ ip_proto_again:
 		fdret = FLOW_DISSECT_INTERNAL_PROTO_AGAIN();
 		break;
 
+	case IPPROTO_AH: {
+		u8 _opthdr[2], *opthdr;
+
+		opthdr = __skb_header_pointer(skb, nhoff, sizeof(_opthdr),
+					      data, hlen, &_opthdr);
+		if (!opthdr) {
+			fdret = FLOW_DISSECT_INTERNAL_OUT_BAD(
+					"__skb_header_pointer failed "
+					"(AH)");
+			break;
+		}
+
+		ip_proto = opthdr[0];
+		nhoff += (opthdr[1] + 2) << 2;
+
+		fdret = FLOW_DISSECT_INTERNAL_IPPROTO_AGAIN();
+		break;
+	}
+	case IPPROTO_ESP:
+	case IPPROTO_L2TP:
+		goto out_good;
+
 	case IPPROTO_TCP:
 		__skb_flow_dissect_tcp(skb, flow_dissector, target_container,
 				       data, nhoff, hlen);

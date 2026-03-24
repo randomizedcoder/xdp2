@@ -20,7 +20,7 @@ let
   llvmPackages = llvmConfig.llvmPackages;
   hostPkgs = pkgs.buildPackages;
   hostCC = hostPkgs.stdenv.cc;
-  hostPython = hostPkgs.python3.withPackages (p: [ p.scapy ]);
+  hostPython = hostPkgs.python314.withPackages (p: [ p.scapy ]);
 
   host-gcc = hostPkgs.writeShellScript "host-gcc" ''
     exec ${hostCC}/bin/gcc \
@@ -35,7 +35,7 @@ let
     exec ${hostCC}/bin/g++ \
       -I${hostPkgs.boost.dev}/include \
       -I${hostPkgs.libpcap}/include \
-      -I${hostPython}/include/python3.13 \
+      -I${hostPython}/include/python3.14 \
       -L${hostPkgs.boost}/lib \
       -L${hostPkgs.libpcap.lib}/lib \
       -L${hostPython}/lib \
@@ -139,7 +139,7 @@ pkgs.stdenv.mkDerivation {
   src = ../..;
 
   nativeBuildInputs = nativeBuildInputs ++ [
-    pkgs.buildPackages.python3
+    pkgs.buildPackages.python314
   ];
   inherit buildInputs;
 
@@ -247,7 +247,7 @@ pkgs.stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out
 
-    ${pkgs.buildPackages.python3}/bin/python3 \
+    ${pkgs.buildPackages.python314}/bin/python3 \
       ${genCompileDbScript} \
       "$NIX_BUILD_TOP/make-build.log" \
       "$out/compile_commands.json" \

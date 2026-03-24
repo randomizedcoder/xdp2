@@ -80,6 +80,13 @@ void apply_config(clang::tooling::ClangTool &tool,
     plog::log(std::cout) << "[clang-tool-config] Applying configuration:\n"
                          << config.to_string() << std::endl;
 
+    // Use GNU C11 standard — matches kernel convention and enables
+    // GNU extensions (typeof, __attribute__, etc.) used by proto_defs
+    tool.appendArgumentsAdjuster(
+        clang::tooling::getInsertArgumentAdjuster(
+            "-std=gnu11",
+            clang::tooling::ArgumentInsertPosition::END));
+
     // Resource directory (required for clang builtins like stddef.h)
     if (config.resource_dir) {
         tool.appendArgumentsAdjuster(

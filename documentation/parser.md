@@ -518,7 +518,7 @@ The attributes that may be set in **EXTRA** include:
 The example below creates a typical Ethernet node for the root of a parser.
 The name is **ether_node_root**. The protocol definition is
 **xdp2_parse_ether** which is defined in
-[include/xdp2/proto_defs/proto_ether.h](../src/include/xdp2/proto_defs/proto_ether.h).
+[include/xdp2/proto_defs/ethernet/proto_ether.h](../src/include/xdp2/proto_defs/ethernet/proto_ether.h).
 The protocol table is **ether_table** and the definition is shown below.
 An extract metadata function and a handler function are specified.
 

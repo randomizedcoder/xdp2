@@ -24,163 +24,93 @@
  * SUCH DAMAGE.
  */
 
-/* XDP2 parser for BPF flow dissector
+/* XDP2 multi-graph parser — flow dissector + non-Ethernet protocol families
  *
- * Comprehensive parse graph for flow key extraction. Starts at IP overlay
- * (no Ethernet header -- the kernel provides n_proto already set).
- * Covers IPv4, IPv6, TCP/UDP ports, ICMP, GRE, MPLS, IP-in-IP,
- * IPv6 extension headers, and VLAN.
+ * This file orchestrates the parse graph by including component fragments.
+ * All fragments are #include'd (not separately compiled) because parse nodes
+ * and tables are static const with internal linkage — they must share a
+ * single translation unit.
  *
- * This parser is built for both BPF (flow_dissector.bpf.c) and
- * userspace (benchmark.c) via xdp2-compiler.
+ * For BPF builds, parser_xdp.c does:
+ *   #define XDP2_XDP_BUILD
+ *   #include "parser.c"
+ * which compiles only the L3 root parser (no L2 or non-Ethernet graphs).
+ *
+ * 14 parsers with dedicated roots covering ~65 protocol types:
+ *
+ * Ethernet/IP parsers:
+ * 1. xdp2_parser_flow_dissector — root at ip_check_node (L3 entry).
+ * 2. xdp2_parser_flow_dissector_l2 — root at etype_dispatch_node (L2 entry).
+ *
+ * Non-Ethernet parsers (userspace only):
+ * 3.  xdp2_parser_ieee80211    — WiFi 802.11 (frame type dispatch)
+ * 4.  xdp2_parser_hci          — Bluetooth HCI (packet type dispatch)
+ * 5.  xdp2_parser_infiniband   — InfiniBand (LNH dispatch)
+ * 6.  xdp2_parser_can          — CAN 2.0
+ * 7.  xdp2_parser_canfd        — CAN FD
+ * 8.  xdp2_parser_canxl        — CAN XL (SDT dispatch)
+ * 9.  xdp2_parser_netlink      — Netlink (nlmsg_type dispatch)
+ * 10. xdp2_parser_ieee802154   — IEEE 802.15.4 WPAN
+ * 11. xdp2_parser_phonet       — Phonet (Nokia ISI)
+ * 12. xdp2_parser_mctp         — MCTP
+ * 13. xdp2_parser_atm          — ATM
+ * 14. xdp2_parser_x25          — X.25
+ *
+ * Layout:
+ *   flow_dissector_metadata.h     - Metadata extractors (18 XDP2_METADATA_TEMP_*)
+ *   flow_dissector_proto_defs.h   - Local proto_defs (6 custom protocol defs)
+ *   flow_dissector_nodes.h        - Core Ethernet/IP parse nodes (~40 nodes)
+ *   flow_dissector_nodes_l2.h     - Extended L2 leaf nodes (userspace only)
+ *   flow_dissector_tables.h       - Protocol dispatch tables (~15 tables)
+ *   graph_ieee80211.h             - WiFi 802.11 parse graph
+ *   graph_bluetooth.h             - Bluetooth HCI parse graph
+ *   graph_infiniband.h            - InfiniBand parse graph
+ *   graph_netlink.h               - Netlink parse graph
+ *   graph_misc.h                  - X.25, MCTP, ATM standalone roots
+ *   flow_dissector_parsers.h      - XDP2_PARSER() declarations (14 parsers)
  */
 
 #include "xdp2/parser.h"
+
+/* Ethertype constants not in all kernel headers */
+#ifndef ETH_P_PROFINET
+#define ETH_P_PROFINET	0x8892
+#endif
+#ifndef ETH_P_CANXL
+#define ETH_P_CANXL	0x000E
+#endif
+#ifndef ETH_P_MCTP
+#define ETH_P_MCTP	0x00FA
+#endif
 #include "xdp2/parser_metadata.h"
 #include "xdp2/proto_defs_define.h"
 #include "xdp2/utility.h"
 
-/* Metadata extraction functions using canned templates */
+/* === Metadata extractors === */
+#include "flow_dissector_metadata.h"
 
-XDP2_METADATA_TEMP_ipv4(ipv4_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_ipv6(ipv6_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_ipv6_eh(ipv6_eh_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_ipv6_frag(ipv6_frag_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_ports(ports_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_icmp(icmp_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_mpls(mpls_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_gre(gre_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_gre_checksum(gre_checksum_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_gre_keyid(gre_keyid_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_gre_seq(gre_seq_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_vlan_8021Q(e8021Q_metadata, xdp2_metadata_all)
-XDP2_METADATA_TEMP_vlan_8021AD(e8021AD_metadata, xdp2_metadata_all)
+/* === Local proto_defs (custom protocol definitions) === */
+#include "flow_dissector_proto_defs.h"
 
-/* Parse nodes */
+/* === Core Ethernet/IP parse nodes === */
+#include "flow_dissector_nodes.h"
 
-/* IP overlay: checks version byte to dispatch IPv4 vs IPv6 */
-XDP2_MAKE_PARSE_NODE(ip_check_node, xdp2_parse_ip, ip_check_table, ());
+/* === Extended L2 nodes (userspace only) === */
+#ifndef XDP2_XDP_BUILD
+#include "flow_dissector_nodes_l2.h"
+#endif
 
-/* IPv4 and IPv6 */
-XDP2_MAKE_PARSE_NODE(ipv4_node, xdp2_parse_ipv4, ipv4_table,
-		     (.ops.extract_metadata = ipv4_metadata));
-XDP2_MAKE_PARSE_NODE(ipv6_node, xdp2_parse_ipv6, ipv6_table,
-		     (.ops.extract_metadata = ipv6_metadata));
+/* === Protocol dispatch tables === */
+#include "flow_dissector_tables.h"
 
-/* IPv6 extension headers */
-XDP2_MAKE_PARSE_NODE(ipv6_eh_node, xdp2_parse_ipv6_eh, ipv6_table,
-		     (.ops.extract_metadata = ipv6_eh_metadata));
-XDP2_MAKE_PARSE_NODE(ipv6_frag_node, xdp2_parse_ipv6_frag_eh, ipv6_table,
-		     (.ops.extract_metadata = ipv6_frag_metadata));
+/* === Non-Ethernet parse graphs (userspace only) === */
+#ifndef XDP2_XDP_BUILD
+#include "graph_ieee80211.h"
+#include "graph_bluetooth.h"
+#include "graph_infiniband.h"
+#include "graph_netlink.h"
+#include "graph_misc.h"
+#endif
 
-/* Transport: ports (TCP/UDP/SCTP/DCCP) and ICMP */
-XDP2_MAKE_LEAF_PARSE_NODE(ports_node, xdp2_parse_ports,
-			  (.ops.extract_metadata = ports_metadata));
-XDP2_MAKE_LEAF_PARSE_NODE(icmpv4_node, xdp2_parse_icmpv4,
-			  (.ops.extract_metadata = icmp_metadata));
-XDP2_MAKE_LEAF_PARSE_NODE(icmpv6_node, xdp2_parse_icmpv6,
-			  (.ops.extract_metadata = icmp_metadata));
-
-/* MPLS */
-XDP2_MAKE_LEAF_PARSE_NODE(mpls_node, xdp2_parse_mpls,
-			  (.ops.extract_metadata = mpls_metadata));
-
-/* GRE */
-XDP2_MAKE_PARSE_NODE(gre_base_node, xdp2_parse_gre_base,
-		     gre_base_table, ());
-XDP2_MAKE_FLAG_FIELDS_PARSE_NODE(gre_v0_node, xdp2_parse_gre_v0,
-				 gre_v0_table, gre_v0_flag_fields_table,
-				 (.ops.extract_metadata = gre_metadata), ());
-
-/* GRE v0 flag-field nodes */
-XDP2_MAKE_FLAG_FIELD_PARSE_NODE(gre_flag_csum_node,
-				(.ops.extract_metadata =
-						gre_checksum_metadata));
-XDP2_MAKE_FLAG_FIELD_PARSE_NODE(gre_flag_key_node,
-				(.ops.extract_metadata =
-						gre_keyid_metadata));
-XDP2_MAKE_FLAG_FIELD_PARSE_NODE(gre_flag_seq_node,
-				(.ops.extract_metadata =
-						gre_seq_metadata));
-
-/* IP-in-IP encapsulation */
-XDP2_MAKE_AUTONEXT_PARSE_NODE(ipv4ip_node, xdp2_parse_ipv4ip,
-			      ipv4_node, ());
-XDP2_MAKE_AUTONEXT_PARSE_NODE(ipv6ip_node, xdp2_parse_ipv6ip,
-			      ipv6_node, ());
-
-/* VLAN */
-XDP2_MAKE_PARSE_NODE(e8021Q_node, xdp2_parse_vlan, ether_table,
-		     (.ops.extract_metadata = e8021Q_metadata));
-XDP2_MAKE_PARSE_NODE(e8021AD_node, xdp2_parse_vlan, ether_table,
-		     (.ops.extract_metadata = e8021AD_metadata));
-
-/* Protocol tables */
-
-XDP2_MAKE_PROTO_TABLE(ip_check_table,
-		      ( 4, ipv4_node ),
-		      ( 6, ipv6_node )
-);
-
-XDP2_MAKE_PROTO_TABLE(ipv4_table,
-		      ( IPPROTO_TCP, ports_node ),
-		      ( IPPROTO_UDP, ports_node ),
-		      ( IPPROTO_SCTP, ports_node ),
-		      ( IPPROTO_DCCP, ports_node ),
-		      ( IPPROTO_ICMP, icmpv4_node ),
-		      ( IPPROTO_GRE, gre_base_node ),
-		      ( IPPROTO_MPLS, mpls_node ),
-		      ( IPPROTO_IPIP, ipv4ip_node ),
-		      ( IPPROTO_IPV6, ipv6ip_node )
-);
-
-XDP2_MAKE_PROTO_TABLE(ipv6_table,
-		      ( IPPROTO_TCP, ports_node ),
-		      ( IPPROTO_UDP, ports_node ),
-		      ( IPPROTO_SCTP, ports_node ),
-		      ( IPPROTO_DCCP, ports_node ),
-		      ( IPPROTO_ICMPV6, icmpv6_node ),
-		      ( IPPROTO_HOPOPTS, ipv6_eh_node ),
-		      ( IPPROTO_DSTOPTS, ipv6_eh_node ),
-		      ( IPPROTO_ROUTING, ipv6_eh_node ),
-		      ( IPPROTO_FRAGMENT, ipv6_frag_node ),
-		      ( IPPROTO_GRE, gre_base_node ),
-		      ( IPPROTO_MPLS, mpls_node ),
-		      ( IPPROTO_IPIP, ipv4ip_node ),
-		      ( IPPROTO_IPV6, ipv6ip_node )
-);
-
-XDP2_MAKE_PROTO_TABLE(gre_base_table,
-		      ( 0, gre_v0_node )
-);
-
-XDP2_MAKE_PROTO_TABLE(gre_v0_table,
-		      ( __cpu_to_be16(ETH_P_IP), ip_check_node ),
-		      ( __cpu_to_be16(ETH_P_IPV6), ip_check_node )
-);
-
-/* Ether table used by VLAN nodes to recurse back into the protocol stack */
-XDP2_MAKE_PROTO_TABLE(ether_table,
-		      ( __cpu_to_be16(ETH_P_IP), ip_check_node ),
-		      ( __cpu_to_be16(ETH_P_IPV6), ip_check_node ),
-		      ( __cpu_to_be16(ETH_P_8021AD), e8021AD_node ),
-		      ( __cpu_to_be16(ETH_P_8021Q), e8021Q_node ),
-		      ( __cpu_to_be16(ETH_P_MPLS_UC), mpls_node ),
-		      ( __cpu_to_be16(ETH_P_MPLS_MC), mpls_node )
-);
-
-/* GRE v0 flag-fields table */
-XDP2_MAKE_FLAG_FIELDS_TABLE(gre_v0_flag_fields_table,
-			    ( GRE_FLAGS_CSUM_IDX, gre_flag_csum_node ),
-			    ( GRE_FLAGS_KEY_IDX, gre_flag_key_node ),
-			    ( GRE_FLAGS_SEQ_IDX, gre_flag_seq_node )
-);
-
-/* Parser definition: starts at ip_check_node (no Ethernet) */
-XDP2_PARSER(xdp2_parser_flow_dissector, "XDP2 BPF flow dissector",
-	    ip_check_node,
-	    (.metameta_size = 0,
-	     .frame_size = sizeof(struct xdp2_metadata_all),
-	     .max_frames = 1
-	    )
-);
+/* === Parser declarations === */
+#include "flow_dissector_parsers.h"

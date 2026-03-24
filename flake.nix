@@ -143,6 +143,32 @@
           buildSystem = system;  # Pass host system for cross-compilation
         };
 
+        # Generate combinatorial test PCAPs with all protocol permutations
+        # Usage: nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo_500k.pcap
+        #        nix run .#gen-test-pcap -- --list
+        gen-test-pcap = pkgs.writeShellApplication {
+          name = "gen-test-pcap";
+          runtimeInputs = [
+            (pkgs.python314.withPackages (ps: [ ps.scapy ]))
+          ];
+          text = ''
+            exec python3 ${./samples/flow_dissector/gen_test_pcap.py} "$@"
+          '';
+        };
+
+        # Pre-built 500k packet PCAP for benchmarking (cached in Nix store)
+        # Usage: nix build .#test-pcap
+        #        ls result/combo.pcap
+        test-pcap = pkgs.runCommand "xdp2-test-pcap" {
+          nativeBuildInputs = [
+            (pkgs.python314.withPackages (ps: [ ps.scapy ]))
+          ];
+        } ''
+          mkdir -p $out
+          python3 ${./samples/flow_dissector/gen_test_pcap.py} \
+            -n 500000 -o $out/combo.pcap
+        '';
+
         # Convenience target to run all sample tests
         run-sample-tests = pkgs.writeShellApplication {
           name = "run-sample-tests";
@@ -175,11 +201,22 @@
           offset-parser-test = tests.offset-parser;
           ports-parser-test = tests.ports-parser;
           flow-tracker-combo-test = tests.flow-tracker-combo;
+          flow-dissector-benchmark-test = tests.flow-dissector-benchmark;
           xdp-build-test = tests.xdp-build;
+
+          # Generate combinatorial test PCAPs
+          # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap
+          # nix build .#test-pcap  → result/combo.pcap (500k packets, cached)
+          inherit gen-test-pcap test-pcap;
 
           # Run all sample tests in one go
           # Usage: nix run .#run-sample-tests
           inherit run-sample-tests;
+
+          # Kernel BPF flow dissector source (for updating vendored copy)
+          # Usage: nix build .#kern-bpf-flow-src
+          #        cp result samples/flow_dissector/kern_bpf/bpf_flow.c
+          kern-bpf-flow-src = import ./nix/kern-bpf-flow.nix { inherit pkgs; };
 
           # ===================================================================
           # Static Analysis

@@ -95,7 +95,7 @@ let
 
   # ── Combined targets ───────────────────────────────────────────
 
-  quick = pkgs.runCommand "xdp2-analysis-quick" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+  quick = pkgs.runCommand "xdp2-analysis-quick" { nativeBuildInputs = [ pkgs.python314 ]; } ''
     mkdir -p $out
     ln -s ${clang-tidy} $out/clang-tidy
     ln -s ${cppcheck} $out/cppcheck
@@ -112,7 +112,7 @@ let
     cat $out/summary.txt
   '';
 
-  standard = pkgs.runCommand "xdp2-analysis-standard" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+  standard = pkgs.runCommand "xdp2-analysis-standard" { nativeBuildInputs = [ pkgs.python314 ]; } ''
     mkdir -p $out
     ln -s ${clang-tidy} $out/clang-tidy
     ln -s ${cppcheck} $out/cppcheck
@@ -136,7 +136,7 @@ let
     cat $out/summary.txt
   '';
 
-  deep = pkgs.runCommand "xdp2-analysis-deep" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+  deep = pkgs.runCommand "xdp2-analysis-deep" { nativeBuildInputs = [ pkgs.python314 ]; } ''
     mkdir -p $out
     ln -s ${clang-tidy} $out/clang-tidy
     ln -s ${cppcheck} $out/cppcheck

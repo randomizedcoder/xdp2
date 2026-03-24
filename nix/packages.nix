@@ -15,7 +15,7 @@
 
 let
   # Create a Python environment with scapy for packet generation
-  pythonWithScapy = pkgs.python3.withPackages (ps: [ ps.scapy ]);
+  pythonWithScapy = pkgs.python314.withPackages (ps: [ ps.scapy ]);
 in
 {
   # Build-time tools only - these run on the build machine

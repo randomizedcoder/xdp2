@@ -6,7 +6,7 @@
 
 TOPTARGETS := all clean install
 
-SUBDIRS = parser xdp
+SUBDIRS = parser xdp flow_dissector
 
 $(TOPTARGETS) : $(SUBDIRS)
 

@@ -24,47 +24,32 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_AH_H__
-#define __XDP2_PROTO_AH_H__
+#ifndef __XDP2_PROTO_HCI_ISO_H__
+#define __XDP2_PROTO_HCI_ISO_H__
 
 #include "xdp2/parser.h"
 
-/* AH (Authentication Header) chains to the next IP protocol.
- * Variable length: (hdrlen + 2) * 4 bytes.
+/* HCI ISO Data packet (type 0x05, Bluetooth 5.2+).
+ * 4-byte header: handle(12)+PB(2)+TS(1)+res(1) + data length(14)+res(2).
+ * Leaf — isochronous audio data, no further dispatch.
  */
 
-struct ip_auth_hdr {
-	__u8   nexthdr;
-	__u8   hdrlen;
-	__be16 reserved;
-	__be32 spi;
-	__be32 seq_no;
-	__u8   auth_data[0];
+struct hci_iso_hdr {
+	__le16 handle;		/* handle(12) + PB(2) + TS(1) + reserved(1) */
+	__le16 dlen;		/* data length(14) + reserved(2) */
 };
 
-static inline int ah_next_proto(const void *vah)
-{
-	return ((struct ip_auth_hdr *)vah)->nexthdr;
-}
-
-static inline ssize_t ah_len(const void *vah, size_t hdr_len)
-{
-	return (((struct ip_auth_hdr *)vah)->hdrlen + 2) << 2;
-}
-
-#endif /* __XDP2_PROTO_AH_H__ */
+#endif /* __XDP2_PROTO_HCI_ISO_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_ah protocol definition
+/* xdp2_parse_hci_iso protocol definition
  *
- * Parse AH header — chains to next IP protocol via nexthdr field
+ * Parse HCI ISO Data header (leaf — no further dispatch)
  */
-static const struct xdp2_proto_def xdp2_parse_ah __unused() = {
-	.name = "AH",
-	.min_len = sizeof(struct ip_auth_hdr),
-	.ops.next_proto = ah_next_proto,
-	.ops.len = ah_len,
+static const struct xdp2_proto_def xdp2_parse_hci_iso __unused() = {
+	.name = "HCI ISO",
+	.min_len = sizeof(struct hci_iso_hdr),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

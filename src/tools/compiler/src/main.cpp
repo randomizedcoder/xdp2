@@ -346,6 +346,10 @@ int main(int argc, char *argv[])
 
     compiler_args.push_back(argv[0]);
 
+    // Use GNU C11 standard — matches kernel convention and enables
+    // GNU extensions (typeof, __attribute__, etc.) used by proto_defs
+    compiler_args.push_back("--extra-arg=-std=gnu11");
+
     std::string temp("--");
 
     std::vector<std::string> include_args;

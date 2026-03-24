@@ -491,6 +491,9 @@ auto call_function(python_object_t const &function, T... raw_args)
 {
     auto args = tuple(std::forward<T>(raw_args)...);
     auto call_result = PyObject_CallObject(function.get(), args.get());
+    if (!call_result && PyErr_Occurred()) {
+        PyErr_Print();
+    }
     return ensure_not_null(call_result, "Failed to call function");
 }
 
@@ -550,8 +553,6 @@ int generate_root_parser_c(std::string filename, std::string output,
 	    return 120;
         }
 
-        Py_Initialize();
-
         auto checker = error_checker{};
 
         PyRun_SimpleString(pyratempsrc);
@@ -574,11 +575,11 @@ int generate_root_parser_c(std::string filename, std::string output,
         }
     }
 
-    if (Py_FinalizeEx() < 0) {
-        plog::log(std::cerr)
-            << "Error running generation template" << std::endl;
-        return 120;
-    }
+    /* Skip Py_FinalizeEx() — embedded Python finalization can crash
+     * nondeterministically during module/GC cleanup. All Python objects
+     * are released when the inner scope ends above; the OS reclaims
+     * the rest when the process exits.
+     */
 
     return 0;
 }
@@ -614,8 +615,6 @@ int generate_root_parser_xdp_c(std::string filename, std::string output,
 	    return 120;
         }
 
-        Py_Initialize();
-
         auto checker = error_checker{};
 
         PyRun_SimpleString(pyratempsrc);
@@ -638,11 +637,7 @@ int generate_root_parser_xdp_c(std::string filename, std::string output,
         }
     }
 
-    if (Py_FinalizeEx() < 0) {
-        plog::log(std::cerr)
-            << "Error running generation template" << std::endl;
-        return 120;
-    }
+    /* Skip Py_FinalizeEx() — see comment in generate_root_parser_c() */
 
     return 0;
 }

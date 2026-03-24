@@ -38,7 +38,10 @@
 /* Include stdint.h from clang's resource directory for uintptr_t, etc. */
 #include <stdint.h>
 /* BPF-compatible definitions for types not in stddef.h */
+#ifndef __ssize_t_defined
 typedef __s64 ssize_t;
+#define __ssize_t_defined
+#endif
 typedef _Bool bool;
 #define true 1
 #define false 0

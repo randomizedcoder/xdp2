@@ -18,6 +18,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/mpls.h>
+#include <linux/ppp_defs.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
@@ -48,10 +49,7 @@ static __always_inline struct flow_dissector_ctx *get_ctx(void)
 	return bpf_map_lookup_elem(&ctx_map, &key);
 }
 
-struct vlan_hdr {
-	__be16 h_vlan_TCI;
-	__be16 h_vlan_encapsulated_proto;
-};
+/* vlan_hdr is provided by xdp2/proto_defs/ethernet/proto_vlan.h via parser.xdp.h */
 
 /* Handle VLAN tags: strip 802.1Q/802.1AD, update nhoff/thoff/n_proto */
 static __always_inline int handle_vlan(struct __sk_buff *skb)
@@ -126,6 +124,9 @@ static __always_inline void translate_metadata(struct xdp2_metadata_all *frame,
 		__builtin_memcpy(&keys->ipv6_dst, &frame->addrs.v6.daddr,
 				 sizeof(keys->ipv6_dst));
 		break;
+	case XDP2_ADDR_TYPE_TIPC:
+		/* TIPC doesn't map to bpf_flow_keys addr_proto */
+		break;
 	default:
 		break;
 	}
@@ -173,6 +174,53 @@ int _dissect(struct __sk_buff *skb)
 	if (keys->n_proto == bpf_htons(ETH_P_MPLS_UC) ||
 	    keys->n_proto == bpf_htons(ETH_P_MPLS_MC))
 		return handle_mpls(skb);
+
+	/* Handle ARP inline — validate header and return OK */
+	if (keys->n_proto == bpf_htons(ETH_P_ARP)) {
+		void *arp = data + keys->thoff;
+
+		if (arp + sizeof(struct arphdr) > data_end)
+			return BPF_DROP;
+		return BPF_OK;
+	}
+
+	/* Handle TIPC inline — validate basic header (4 x __be32) */
+	if (keys->n_proto == bpf_htons(ETH_P_TIPC)) {
+		void *tipc = data + keys->thoff;
+
+		if (tipc + 16 > data_end)
+			return BPF_DROP;
+		return BPF_OK;
+	}
+
+	/* Handle PPPoE inline — strip PPPoE header and continue to IP */
+	if (keys->n_proto == bpf_htons(ETH_P_PPP_SES)) {
+		struct pppoe_hdr {
+			__u8 vertype;
+			__u8 code;
+			__be16 sid;
+			__be16 length;
+			__be16 protocol;
+		} __attribute__((packed));
+
+		struct pppoe_hdr *pppoe = data + keys->thoff;
+		__be16 ppp_proto;
+
+		if ((void *)(pppoe + 1) > data_end)
+			return BPF_DROP;
+		keys->thoff += sizeof(*pppoe);
+		keys->nhoff += sizeof(*pppoe);
+		ppp_proto = pppoe->protocol;
+		if (ppp_proto == bpf_htons(PPP_IP))
+			keys->n_proto = bpf_htons(ETH_P_IP);
+		else if (ppp_proto == bpf_htons(PPP_IPV6))
+			keys->n_proto = bpf_htons(ETH_P_IPV6);
+		else
+			return BPF_FLOW_DISSECTOR_CONTINUE;
+		/* Reload data pointers and fall through to IP/IPv6 */
+		data_end = (void *)(long)skb->data_end;
+		data = (void *)(long)skb->data;
+	}
 
 	/* Only handle IP and IPv6 via the xdp2 parser */
 	if (keys->n_proto != bpf_htons(ETH_P_IP) &&

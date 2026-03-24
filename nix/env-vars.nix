@@ -49,7 +49,7 @@
   export CFLAGS_PYTHON="$(pkg-config --cflags python3-embed)"
   export LDFLAGS_PYTHON="$(pkg-config --libs python3-embed)"
   export PYTHON_VER=3
-  export PYTHONPATH="${pkgs.python3}/lib/python3.13/site-packages:$PYTHONPATH"
+  export PYTHONPATH="${pkgs.python314}/lib/python3.14/site-packages:$PYTHONPATH"
 
   # Boost libraries (boost_system is header-only since Boost 1.69)
   export BOOST_LIBS="-lboost_wave -lboost_thread -lboost_filesystem -lboost_program_options"

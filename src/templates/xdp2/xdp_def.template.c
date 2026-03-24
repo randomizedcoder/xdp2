@@ -355,7 +355,7 @@ static __attribute__((unused)) __always_inline int
 @!generate_protocol_tlvs_parse_function(name=name)!@
 	<!--(end)-->
 	<!--(if len(graph[name]['flag_fields_nodes']) != 0)-->
-@!generate_protocol_fields_parse_function(name=name)!@
+@!generate_protocol_fields_parse_function(parser_name=parser_name,name=name)!@
 	<!--(end)-->
 /*  Main parse function. Header passed as a ** since parse functions may
  * advance it

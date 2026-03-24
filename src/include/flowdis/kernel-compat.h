@@ -76,6 +76,10 @@ static inline __be32 tipc_hdr_rps_key(struct tipc_basic_hdr *hdr)
 	return key;
 }
 
+#ifndef IPPROTO_L2TP
+#define IPPROTO_L2TP		115
+#endif
+
 #define NEXTHDR_HOP             0	/* Hop-by-hop option header. */
 #define NEXTHDR_TCP             6	/* TCP segment. */
 #define NEXTHDR_UDP             17	/* UDP message. */

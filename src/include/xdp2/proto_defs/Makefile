@@ -2,21 +2,18 @@ include ../../../config.mk
 
 INCDIR=$(INSTALLDIR)$(HDRDIR)/xdp2/proto_defs
 
-TARGETS = proto_arp_rarp.h proto_batman.h proto_ether.h proto_fcoe.h
-TARGETS += proto_gre.h proto_icmp.h proto_igmp.h proto_ip.h proto_ipv4.h
-TARGETS += proto_ipv4ip.h proto_ipv6.h proto_ipv6_eh.h proto_ipv6ip.h
-TARGETS += proto_ipv6_nd.h proto_l2tp.h proto_l2tp_v0.h proto_mpls.h
-TARGETS += proto_ports.h proto_ppp.h proto_pppoe.h proto_protobuf.h
-TARGETS += proto_tcp.h proto_tipc.h proto_udp.h proto_vlan.h
-TARGETS += proto_vxlan.h proto_geneve.h proto_srv6.h
+SUBDIRS = ethernet ip transport tunnel security management storage \
+          wireless bluetooth infiniband can netlink legacy other
 
 .PHONY: all
-all: $(TARGETS)
+all:
 
 .PHONY: install
-install: $(TARGETS)
-	@install -m 0755 -d $(INCDIR)
-	$(QUIET_INSTALL)$(INSTALL) -m 0644 $^ $(INCDIR)
+install:
+	@for dir in $(SUBDIRS); do \
+	    $(INSTALL) -m 0755 -d $(INCDIR)/$$dir; \
+	    $(QUIET_INSTALL)$(INSTALL) -m 0644 $$dir/proto_*.h $(INCDIR)/$$dir/; \
+	done
 
 .PHONY: clean
 clean:

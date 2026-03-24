@@ -41,7 +41,7 @@ let
   hostCC = hostPkgs.stdenv.cc;
 
   # Python with scapy for configure checks (runs on HOST)
-  hostPython = hostPkgs.python3.withPackages (p: [ p.scapy ]);
+  hostPython = hostPkgs.python314.withPackages (p: [ p.scapy ]);
 
   # Wrapper scripts for HOST_CC/HOST_CXX that include Boost and libpcap paths
   # The configure script calls these directly to test Boost/libpcap availability
@@ -60,7 +60,7 @@ let
     exec ${hostCC}/bin/g++ \
       -I${hostPkgs.boost.dev}/include \
       -I${hostPkgs.libpcap}/include \
-      -I${hostPython}/include/python3.13 \
+      -I${hostPython}/include/python3.14 \
       -L${hostPkgs.boost}/lib \
       -L${hostPkgs.libpcap.lib}/lib \
       -L${hostPython}/lib \

@@ -24,32 +24,37 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_ESP_H__
-#define __XDP2_PROTO_ESP_H__
+#ifndef __XDP2_PROTO_ATALK_H__
+#define __XDP2_PROTO_ATALK_H__
 
 #include "xdp2/parser.h"
 
-/* ESP header: payload is encrypted, so this is a leaf protocol.
- * Only the SPI (Security Parameter Index) can be extracted.
+/* AppleTalk DDP (ETH_P_ATALK 0x809B).
+ * Leaf protocol — 13-byte header with network addresses and sockets.
  */
 
-struct ip_esp_hdr {
-	__be32 spi;
-	__be32 seq_no;
-	__u8   enc_data[0];
+struct atalk_ddp_hdr {
+	__be16 len_hop;		/* length(10) + hop(4) + pad(2) */
+	__be16 dnet;
+	__be16 snet;
+	__u8 dnode;
+	__u8 snode;
+	__u8 dsock;
+	__u8 ssock;
+	__u8 type;
 };
 
-#endif /* __XDP2_PROTO_ESP_H__ */
+#endif /* __XDP2_PROTO_ATALK_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_esp protocol definition
+/* xdp2_parse_atalk protocol definition
  *
- * Parse ESP header (leaf — encrypted payload cannot be parsed further)
+ * Parse AppleTalk DDP header (leaf — no further dispatch)
  */
-static const struct xdp2_proto_def xdp2_parse_esp __unused() = {
-	.name = "ESP",
-	.min_len = sizeof(struct ip_esp_hdr),
+static const struct xdp2_proto_def xdp2_parse_atalk __unused() = {
+	.name = "AppleTalk",
+	.min_len = sizeof(struct atalk_ddp_hdr),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

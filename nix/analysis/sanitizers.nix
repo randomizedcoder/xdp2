@@ -20,7 +20,7 @@ let
   llvmPackages = llvmConfig.llvmPackages;
   hostPkgs = pkgs.buildPackages;
   hostCC = hostPkgs.stdenv.cc;
-  hostPython = hostPkgs.python3.withPackages (p: [ p.scapy ]);
+  hostPython = hostPkgs.python314.withPackages (p: [ p.scapy ]);
 
   host-gcc = hostPkgs.writeShellScript "host-gcc" ''
     exec ${hostCC}/bin/gcc \
@@ -35,7 +35,7 @@ let
     exec ${hostCC}/bin/g++ \
       -I${hostPkgs.boost.dev}/include \
       -I${hostPkgs.libpcap}/include \
-      -I${hostPython}/include/python3.13 \
+      -I${hostPython}/include/python3.14 \
       -L${hostPkgs.boost}/lib \
       -L${hostPkgs.libpcap.lib}/lib \
       -L${hostPython}/lib \
