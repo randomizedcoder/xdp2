@@ -99,6 +99,12 @@
           xdp2 = xdp2-debug;
         };
 
+        # Proto-audit: multi-source protocol definition audit tool
+        protoAuditSources = import ./nix/proto-audit-sources.nix { inherit pkgs; };
+        proto-audit = import ./nix/proto-audit.nix {
+          inherit pkgs protoAuditSources;
+        };
+
         # Import development shell module
         devshell = import ./nix/devshell.nix {
           inherit pkgs lib llvmConfig compilerConfig envVars;
@@ -203,6 +209,12 @@
           flow-tracker-combo-test = tests.flow-tracker-combo;
           flow-dissector-benchmark-test = tests.flow-dissector-benchmark;
           xdp-build-test = tests.xdp-build;
+
+          # Proto-audit: multi-source protocol definition audit tool
+          # Usage: nix build .#proto-audit
+          #        nix run .#proto-audit -- list
+          #        nix run .#proto-audit -- scan --proto-defs-dir src/include/xdp2/proto_defs
+          inherit proto-audit;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

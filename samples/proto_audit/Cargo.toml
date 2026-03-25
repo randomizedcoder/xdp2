@@ -1,0 +1,17 @@
+[package]
+name = "proto-audit"
+version = "0.1.0"
+edition = "2021"
+description = "Multi-source protocol definition audit and generation tool for XDP2"
+license = "BSD-2-Clause-FreeBSD"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+roxmltree = "0.20"
+regex = "1"
+anyhow = "1"
+
+[dev-dependencies]
+pretty_assertions = "1"
