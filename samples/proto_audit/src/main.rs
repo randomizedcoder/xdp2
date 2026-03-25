@@ -209,9 +209,13 @@ fn try_extract(
                 src.join(format!("include/{}", header))
             };
             let content = std::fs::read_to_string(&header_path).ok()?;
-            extractors::kernel::extract_protocol(&content, struct_name, header)
+            let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
                 .ok()
-                .flatten()
+                .flatten()?;
+            // Use canonical name, not kernel struct name
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
         }
         "scapy" => {
             let helper = paths

@@ -88,8 +88,8 @@ fn infer_field_type(c_type: &str, name: &str, bits: u32) -> FieldType {
         }
     }
 
-    // Signed types
-    if c_type.starts_with("__s") {
+    // Signed types (but not __sum16 which is a checksum, not signed)
+    if c_type.starts_with("__s") && !c_type.starts_with("__sum") {
         return FieldType::Sint;
     }
 
