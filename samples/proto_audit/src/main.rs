@@ -22,6 +22,34 @@ struct Cli {
     command: Commands,
 }
 
+/// Common source path options shared by compare, audit, and extract.
+#[derive(clap::Args, Clone)]
+struct SourcePaths {
+    /// Path to XDP2 proto_defs directory
+    #[arg(long)]
+    proto_defs_dir: Option<PathBuf>,
+
+    /// Path to kernel source tree
+    #[arg(long)]
+    kernel_src: Option<PathBuf>,
+
+    /// Path to pcap file (for tshark)
+    #[arg(long)]
+    pcap: Option<PathBuf>,
+
+    /// Path to scapy_dump.py helper
+    #[arg(long)]
+    scapy_helper: Option<PathBuf>,
+
+    /// Python binary
+    #[arg(long, default_value = "python3")]
+    python: String,
+
+    /// tshark binary
+    #[arg(long, default_value = "tshark")]
+    tshark_bin: String,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Extract protocol definition from a single source
@@ -34,40 +62,44 @@ enum Commands {
         #[arg(long)]
         proto: String,
 
-        /// Path to XDP2 proto_defs directory (for xdp2 source)
-        #[arg(long)]
-        proto_defs_dir: Option<PathBuf>,
-
-        /// Path to kernel source tree (for kernel source)
-        #[arg(long)]
-        kernel_src: Option<PathBuf>,
-
-        /// Path to pcap file (for tshark source)
-        #[arg(long)]
-        pcap: Option<PathBuf>,
-
-        /// Path to scapy_dump.py helper
-        #[arg(long)]
-        scapy_helper: Option<PathBuf>,
-
-        /// Python binary (default: python3)
-        #[arg(long, default_value = "python3")]
-        python: String,
-
-        /// tshark binary (default: tshark)
-        #[arg(long, default_value = "tshark")]
-        tshark_bin: String,
+        #[command(flatten)]
+        paths: SourcePaths,
 
         /// Output as JSON
         #[arg(long)]
         json: bool,
     },
 
-    /// Compare a protocol across multiple sources
+    /// Compare a protocol across available sources
     Compare {
-        /// Protocol name
+        /// Protocol name (canonical: IPv4, TCP, etc.)
         #[arg(long)]
         proto: String,
+
+        /// Only use these sources (comma-separated: xdp2,kernel,scapy,tshark)
+        #[arg(long)]
+        sources: Option<String>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Audit all mapped protocols across available sources
+    Audit {
+        /// Only audit these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Only use these sources (comma-separated)
+        #[arg(long)]
+        sources: Option<String>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
 
         /// Output as JSON
         #[arg(long)]
@@ -119,25 +151,21 @@ fn main() -> Result<()> {
         Commands::Extract {
             source,
             proto,
-            proto_defs_dir,
-            kernel_src,
-            pcap,
-            scapy_helper,
-            python,
-            tshark_bin,
+            paths,
             json,
-        } => cmd_extract(
-            &source,
-            &proto,
-            proto_defs_dir,
-            kernel_src,
-            pcap,
-            scapy_helper,
-            &python,
-            &tshark_bin,
+        } => cmd_extract(&source, &proto, &paths, json),
+        Commands::Compare {
+            proto,
+            sources,
+            paths,
             json,
-        ),
-        Commands::Compare { proto, json } => cmd_compare(&proto, json),
+        } => cmd_compare(&proto, sources.as_deref(), &paths, json),
+        Commands::Audit {
+            protos,
+            sources,
+            paths,
+            json,
+        } => cmd_audit(protos.as_deref(), sources.as_deref(), &paths, json),
         Commands::Scan { proto_defs_dir, json } => cmd_scan(&proto_defs_dir, json),
         Commands::Generate {
             proto,
@@ -149,82 +177,75 @@ fn main() -> Result<()> {
     }
 }
 
+/// Try to extract a protocol from a single source. Returns None on failure
+/// (missing path, protocol not found) rather than hard error.
+fn try_extract(
+    source: &str,
+    proto: &str,
+    paths: &SourcePaths,
+) -> Option<ir::ProtocolDef> {
+    match source {
+        "xdp2" => {
+            let dir = paths.proto_defs_dir.as_ref()?;
+            let all_defs = extractors::xdp2::scan_proto_defs_dir(dir).ok()?;
+            let matching = all_defs
+                .iter()
+                .find(|d| {
+                    d.display_name.to_lowercase() == proto.to_lowercase()
+                        || d.var_name.to_lowercase().contains(&proto.to_lowercase())
+                })?;
+            Some(extractors::xdp2::to_protocol_def(matching))
+        }
+        "kernel" => {
+            let src = paths.kernel_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.kernel_struct?;
+            let header = names.kernel_header?;
+            // Try kernel source tree layout first, then glibc-dev layout
+            let header_path = src.join(format!("include/uapi/{}", header));
+            let header_path = if header_path.exists() {
+                header_path
+            } else {
+                src.join(format!("include/{}", header))
+            };
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            extractors::kernel::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()
+        }
+        "scapy" => {
+            let helper = paths
+                .scapy_helper
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("helpers/scapy_dump.py"));
+            let names = name_mapping::find_by_canonical(proto);
+            let scapy_name = names.as_ref().and_then(|n| n.scapy)?;
+            let sp =
+                extractors::scapy::run_scapy_helper(&helper, scapy_name, &paths.python).ok()?;
+            Some(extractors::scapy::to_protocol_def(&sp))
+        }
+        "tshark" => {
+            let pcap_path = paths.pcap.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto);
+            let dissector = names.as_ref().and_then(|n| n.tshark)?;
+            let xml = extractors::tshark::run_tshark(pcap_path, &paths.tshark_bin, 10).ok()?;
+            let packets = extractors::tshark::parse_pdml(&xml).ok()?;
+            let pdml =
+                extractors::tshark::extract_protocol_from_pdml(&packets, dissector)?;
+            Some(extractors::tshark::to_protocol_def(&pdml))
+        }
+        _ => None,
+    }
+}
+
 fn cmd_extract(
     source: &str,
     proto: &str,
-    proto_defs_dir: Option<PathBuf>,
-    kernel_src: Option<PathBuf>,
-    pcap: Option<PathBuf>,
-    scapy_helper: Option<PathBuf>,
-    python: &str,
-    tshark_bin: &str,
+    paths: &SourcePaths,
     json_output: bool,
 ) -> Result<()> {
-    let protocol_def = match source {
-        "xdp2" => {
-            let dir = proto_defs_dir.context(
-                "--proto-defs-dir required for xdp2 source"
-            )?;
-            let all_defs = extractors::xdp2::scan_proto_defs_dir(&dir)?;
-            let matching: Vec<_> = all_defs
-                .iter()
-                .filter(|d| {
-                    d.display_name.to_lowercase() == proto.to_lowercase()
-                        || d.var_name.to_lowercase().contains(&proto.to_lowercase())
-                })
-                .collect();
-
-            match matching.first() {
-                Some(def) => extractors::xdp2::to_protocol_def(def),
-                None => anyhow::bail!("Protocol '{}' not found in XDP2 proto_defs", proto),
-            }
-        }
-        "kernel" => {
-            let src = kernel_src.context("--kernel-src required for kernel source")?;
-            let names = name_mapping::find_by_canonical(proto)
-                .context(format!("Unknown protocol: {}", proto))?;
-            let struct_name = names
-                .kernel_struct
-                .context(format!("No kernel struct known for {}", proto))?;
-            let header = names
-                .kernel_header
-                .context(format!("No kernel header known for {}", proto))?;
-
-            let header_path = src.join(format!("include/uapi/{}", header));
-            let content = std::fs::read_to_string(&header_path)
-                .with_context(|| format!("reading {}", header_path.display()))?;
-
-            extractors::kernel::extract_protocol(&content, struct_name, header)?
-                .context(format!("Struct {} not found in {}", struct_name, header))?
-        }
-        "scapy" => {
-            let helper = scapy_helper
-                .unwrap_or_else(|| PathBuf::from("helpers/scapy_dump.py"));
-            let names = name_mapping::find_by_canonical(proto);
-            let scapy_name = names
-                .as_ref()
-                .and_then(|n| n.scapy)
-                .unwrap_or(proto);
-
-            let sp = extractors::scapy::run_scapy_helper(&helper, scapy_name, python)?;
-            extractors::scapy::to_protocol_def(&sp)
-        }
-        "tshark" => {
-            let pcap_path = pcap.context("--pcap required for tshark source")?;
-            let names = name_mapping::find_by_canonical(proto);
-            let dissector = names
-                .as_ref()
-                .and_then(|n| n.tshark)
-                .unwrap_or(proto);
-
-            let xml = extractors::tshark::run_tshark(&pcap_path, tshark_bin, 10)?;
-            let packets = extractors::tshark::parse_pdml(&xml)?;
-            let pdml = extractors::tshark::extract_protocol_from_pdml(&packets, dissector)
-                .context(format!("Protocol '{}' not found in PDML output", dissector))?;
-            extractors::tshark::to_protocol_def(&pdml)
-        }
-        _ => anyhow::bail!("Unknown source: {}. Use: xdp2, kernel, scapy, tshark", source),
-    };
+    let protocol_def = try_extract(source, proto, paths)
+        .with_context(|| format!("Failed to extract {} from source '{}'", proto, source))?;
 
     if json_output {
         println!("{}", serde_json::to_string_pretty(&protocol_def)?);
@@ -235,12 +256,133 @@ fn cmd_extract(
     Ok(())
 }
 
-fn cmd_compare(_proto: &str, _json: bool) -> Result<()> {
-    // Comparison requires extracting from multiple sources and comparing.
-    // For now, show that the infrastructure is in place.
-    eprintln!("Compare command requires multiple source configurations.");
-    eprintln!("Use 'extract' to get individual sources, then compare the JSON outputs.");
-    eprintln!("Full multi-source comparison will be implemented in Phase 5.");
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark"];
+
+fn parse_source_list(sources: Option<&str>) -> Vec<String> {
+    match sources {
+        Some(s) => s.split(',').map(|s| s.trim().to_string()).collect(),
+        None => ALL_SOURCES.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
+fn cmd_compare(
+    proto: &str,
+    sources: Option<&str>,
+    paths: &SourcePaths,
+    json_output: bool,
+) -> Result<()> {
+    let source_list = parse_source_list(sources);
+
+    // Extract from each available source
+    let mut extracted: Vec<(String, ir::ProtocolDef)> = Vec::new();
+    for source in &source_list {
+        match try_extract(source, proto, paths) {
+            Some(def) => {
+                eprintln!("  [+] {} → {} fields", source, def.fields.len());
+                extracted.push((source.clone(), def));
+            }
+            None => {
+                eprintln!("  [-] {} → not available", source);
+            }
+        }
+    }
+
+    if extracted.is_empty() {
+        anyhow::bail!(
+            "No sources available for '{}'. Provide --proto-defs-dir, --kernel-src, etc.",
+            proto
+        );
+    }
+
+    // Build reference pairs for the comparator
+    let refs: Vec<(&str, &ir::ProtocolDef)> = extracted
+        .iter()
+        .map(|(name, def)| (name.as_str(), def))
+        .collect();
+
+    let result = comparator::audit_protocol(proto, &refs);
+
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        print!("{}", report::format_audit_text(&result));
+    }
+
+    Ok(())
+}
+
+fn cmd_audit(
+    protos: Option<&str>,
+    sources: Option<&str>,
+    paths: &SourcePaths,
+    json_output: bool,
+) -> Result<()> {
+    let source_list = parse_source_list(sources);
+
+    // Determine which protocols to audit
+    let proto_names: Vec<String> = match protos {
+        Some(p) => p.split(',').map(|s| s.trim().to_string()).collect(),
+        None => {
+            // Default: all protocols in the name mapping table
+            name_mapping::protocol_table()
+                .iter()
+                .map(|p| p.canonical.to_string())
+                .collect()
+        }
+    };
+
+    eprintln!(
+        "Auditing {} protocols across sources: {}",
+        proto_names.len(),
+        source_list.join(", ")
+    );
+
+    let mut results = Vec::new();
+
+    for proto in &proto_names {
+        let mut extracted: Vec<(String, ir::ProtocolDef)> = Vec::new();
+        for source in &source_list {
+            if let Some(def) = try_extract(source, proto, paths) {
+                extracted.push((source.clone(), def));
+            }
+        }
+
+        if extracted.is_empty() {
+            continue;
+        }
+
+        let refs: Vec<(&str, &ir::ProtocolDef)> = extracted
+            .iter()
+            .map(|(name, def)| (name.as_str(), def))
+            .collect();
+
+        let result = comparator::audit_protocol(proto, &refs);
+        results.push(result);
+    }
+
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&results)?);
+    } else {
+        print!("{}", report::format_audit_summary(&results));
+
+        // Print detailed results for protocols with mismatches
+        let problematic: Vec<_> = results
+            .iter()
+            .filter(|r| r.fields_mismatch > 0 || r.fields_missing > 0)
+            .collect();
+
+        if !problematic.is_empty() {
+            println!(
+                "\n--- Detailed results for {} protocols with issues ---\n",
+                problematic.len()
+            );
+            for r in problematic {
+                print!("{}", report::format_audit_text(r));
+                println!();
+            }
+        }
+    }
+
     Ok(())
 }
 

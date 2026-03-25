@@ -167,9 +167,74 @@ pub fn parse_kernel_struct(content: &str, struct_name: &str) -> Result<Option<Ke
     }))
 }
 
+/// Preprocess struct body to unwrap __struct_group() macros.
+///
+/// `__struct_group(TAG, NAME, ATTRS, MEMBERS)` is a kernel macro that
+/// creates an anonymous struct group. We strip the wrapper and inline
+/// the MEMBERS so the field parser can see them normally.
+fn unwrap_struct_group(body: &str) -> String {
+    let mut result = body.to_string();
+
+    while let Some(start) = result.find("__struct_group(") {
+        let after_open = start + "__struct_group(".len();
+        // Count parentheses to find matching close
+        let mut depth = 1;
+        let mut end = after_open;
+        for (i, ch) in result[after_open..].char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = after_open + i;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Inside: TAG, NAME, ATTRS, MEMBERS
+        // We need the MEMBERS part (everything after the 3rd comma at depth 0)
+        let inner = &result[after_open..end];
+        let mut comma_count = 0;
+        let mut member_start = 0;
+        let mut pdepth = 0;
+        for (i, ch) in inner.char_indices() {
+            match ch {
+                '(' => pdepth += 1,
+                ')' => pdepth -= 1,
+                ',' if pdepth == 0 => {
+                    comma_count += 1;
+                    if comma_count == 3 {
+                        member_start = i + 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let members = &inner[member_start..];
+        // Also skip the trailing ");" or just ")"
+        let replacement_end = if result[end..].starts_with(");") {
+            end + 2
+        } else {
+            end + 1
+        };
+
+        result = format!("{}{}{}", &result[..start], members, &result[replacement_end..]);
+    }
+
+    result
+}
+
 /// Parse individual fields from a struct body.
 fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
     let mut fields = Vec::new();
+
+    // Step 0: Unwrap __struct_group() macros
+    let body = unwrap_struct_group(body);
 
     // Step 1: Filter out preprocessor directives and comments, join continuation lines
     let mut statements = Vec::new();
@@ -495,5 +560,72 @@ struct ethhdr {
         let src = proto.sources.get("kernel").unwrap();
         assert!(src.present);
         assert_eq!(src.min_header_bytes, 20);
+    }
+
+    /// Test parsing iphdr with __struct_group wrapping saddr/daddr
+    /// (as found in modern kernel headers like glibc 2.42+)
+    const IPHDR_STRUCT_GROUP: &str = r#"
+struct iphdr {
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+	__u8	ihl:4,
+		version:4;
+#elif defined (__BIG_ENDIAN_BITFIELD)
+	__u8	version:4,
+  		ihl:4;
+#else
+#error	"Please fix <asm/byteorder.h>"
+#endif
+	__u8	tos;
+	__be16	tot_len;
+	__be16	id;
+	__be16	frag_off;
+	__u8	ttl;
+	__u8	protocol;
+	__sum16	check;
+	__struct_group(/* no tag */, addrs, /* no attrs */,
+		__be32	saddr;
+		__be32	daddr;
+	);
+	/*The options start here. */
+};
+"#;
+
+    #[test]
+    fn test_parse_iphdr_struct_group() {
+        let ks = parse_kernel_struct(IPHDR_STRUCT_GROUP, "iphdr")
+            .unwrap()
+            .unwrap();
+        assert_eq!(ks.fields.len(), 11, "expected 11 fields, got {:?}",
+            ks.fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+
+        let saddr = ks.fields.iter().find(|f| f.name == "saddr").expect("saddr missing");
+        assert_eq!(saddr.c_type, "__be32");
+
+        let daddr = ks.fields.iter().find(|f| f.name == "daddr").expect("daddr missing");
+        assert_eq!(daddr.c_type, "__be32");
+    }
+
+    #[test]
+    fn test_iphdr_struct_group_field_defs() {
+        let ks = parse_kernel_struct(IPHDR_STRUCT_GROUP, "iphdr")
+            .unwrap()
+            .unwrap();
+        let fields = to_field_defs(&ks);
+
+        // saddr at offset 96, 32 bits
+        let saddr = fields.iter().find(|f| f.name == "saddr").unwrap();
+        assert_eq!(saddr.offset_bits, 96);
+        assert_eq!(saddr.size_bits, 32);
+        assert_eq!(saddr.field_type, FieldType::Ipv4Addr);
+
+        // daddr at offset 128, 32 bits
+        let daddr = fields.iter().find(|f| f.name == "daddr").unwrap();
+        assert_eq!(daddr.offset_bits, 128);
+        assert_eq!(daddr.size_bits, 32);
+        assert_eq!(daddr.field_type, FieldType::Ipv4Addr);
+
+        // Total: 160 bits = 20 bytes
+        let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap_or(0);
+        assert_eq!(total, 160);
     }
 }
