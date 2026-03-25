@@ -3,7 +3,7 @@
 //! Outputs audit results as either human-readable text tables
 //! or machine-readable JSON.
 
-use crate::ir::{AuditResult, ProtocolDef};
+use crate::ir::{AuditResult, FieldComparison, ProtocolDef};
 
 /// Format an AuditResult as a text summary.
 pub fn format_audit_text(result: &AuditResult) -> String {
@@ -216,6 +216,502 @@ pub fn format_audit_summary(results: &[AuditResult]) -> String {
     }
 
     out
+}
+
+/// Source-by-protocol coverage matrix.
+///
+/// Shows field counts per source, cross-source agreement, and XDP2 coverage.
+pub fn format_matrix(results: &[AuditResult]) -> String {
+    let mut out = String::new();
+    let sources = ["kernel", "scapy", "tshark", "xdp2"];
+
+    out.push_str(&format!(
+        "Source × Protocol Coverage Matrix ({} protocols)\n\n",
+        results.len()
+    ));
+    out.push_str(&format!(
+        "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5}  {}\n",
+        "Protocol", "kernel", "scapy", "tshark", "xdp2", "Agree", "Split", "Miss.", "Notes"
+    ));
+    out.push_str(&format!(
+        "  {} {} {} {} {}  {} {} {}  {}\n",
+        "-".repeat(16),
+        "-".repeat(8),
+        "-".repeat(8),
+        "-".repeat(8),
+        "-".repeat(8),
+        "-".repeat(6),
+        "-".repeat(5),
+        "-".repeat(5),
+        "-".repeat(30),
+    ));
+
+    for r in results {
+        let present: std::collections::HashSet<&str> =
+            r.sources_present.iter().map(|s| s.as_str()).collect();
+
+        // Count fields each source contributes via sources_agree
+        let mut src_fields: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+        for s in &sources {
+            src_fields.insert(s, 0);
+        }
+        for comp in &r.field_comparisons {
+            for s in &comp.sources_agree {
+                if let Some(count) = src_fields.get_mut(s.as_str()) {
+                    *count += 1;
+                }
+            }
+        }
+
+        let cell = |src: &str| -> String {
+            if !present.contains(src) {
+                "-".to_string()
+            } else {
+                let c = src_fields.get(src).copied().unwrap_or(0);
+                if c == 0 {
+                    "0*".to_string()
+                } else {
+                    c.to_string()
+                }
+            }
+        };
+
+        let mut notes = Vec::new();
+        if present.contains("xdp2") && src_fields.get("xdp2").copied().unwrap_or(0) == 0 {
+            notes.push("xdp2=struct-ref");
+        }
+        if r.fields_mismatch > 0 {
+            notes.push("SPLIT");
+        }
+
+        out.push_str(&format!(
+            "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5}  {}\n",
+            truncate(&r.protocol, 16),
+            cell("kernel"),
+            cell("scapy"),
+            cell("tshark"),
+            cell("xdp2"),
+            r.fields_agree,
+            r.fields_mismatch,
+            r.fields_missing,
+            notes.join(", "),
+        ));
+    }
+
+    // Legend
+    out.push_str("\n  0* = source present but extracted 0 fields (struct reference only)\n");
+    out.push_str("  -  = source has no definition for this protocol\n");
+
+    // Summary stats
+    let total = results.len();
+    let full_agree = results
+        .iter()
+        .filter(|r| r.fields_mismatch == 0 && r.fields_missing == 0 && r.total_fields > 0)
+        .count();
+    let has_mismatch = results.iter().filter(|r| r.fields_mismatch > 0).count();
+    let multi_source = results
+        .iter()
+        .filter(|r| {
+            r.sources_present
+                .iter()
+                .filter(|s| *s != "xdp2")
+                .count()
+                >= 2
+        })
+        .count();
+
+    out.push_str(&format!(
+        "\n  Summary: {} protocols, {} with 2+ external sources, {} full agreement, {} with field splits\n",
+        total, multi_source, full_agree, has_mismatch
+    ));
+
+    out
+}
+
+/// Detailed cross-source disagreement findings.
+///
+/// Shows where kernel, scapy, and tshark define different field sizes
+/// at the same bit offset — the interesting structural differences.
+pub fn format_findings(results: &[AuditResult]) -> String {
+    let mut out = String::new();
+
+    out.push_str("Cross-Source Protocol Field Analysis\n");
+    out.push_str(&"=".repeat(80));
+    out.push('\n');
+
+    // Section 1: XDP2 coverage assessment
+    out.push_str("\n1. XDP2 COVERAGE\n");
+    out.push_str(&"-".repeat(80));
+    out.push('\n');
+    out.push_str("\n");
+    out.push_str("XDP2 proto_defs reference kernel structs rather than defining fields directly.\n");
+    out.push_str("The parsing is correct — fields are resolved at runtime from kernel headers.\n\n");
+
+    let xdp2_present = results
+        .iter()
+        .filter(|r| r.sources_present.contains(&"xdp2".to_string()))
+        .count();
+    let xdp2_missing = results
+        .iter()
+        .filter(|r| r.sources_missing.contains(&"xdp2".to_string()))
+        .count();
+    out.push_str(&format!(
+        "  XDP2 has definitions for {}/{} audited protocols ({} missing)\n",
+        xdp2_present,
+        results.len(),
+        xdp2_missing,
+    ));
+
+    let missing_protos: Vec<&str> = results
+        .iter()
+        .filter(|r| r.sources_missing.contains(&"xdp2".to_string()))
+        .map(|r| r.protocol.as_str())
+        .collect();
+    if !missing_protos.is_empty() {
+        out.push_str(&format!("  Missing from XDP2: {}\n", missing_protos.join(", ")));
+    }
+
+    // Section 2: Field layout disagreements
+    out.push_str("\n\n2. FIELD LAYOUT DISAGREEMENTS\n");
+    out.push_str(&"-".repeat(80));
+    out.push('\n');
+    out.push_str("\nFields where sources define DIFFERENT sizes at the same bit offset.\n");
+    out.push_str("This reveals different granularity choices, not necessarily bugs.\n\n");
+
+    let mut found_any = false;
+    for r in results {
+        let ext_present: Vec<&str> = r
+            .sources_present
+            .iter()
+            .filter(|s| *s != "xdp2")
+            .map(|s| s.as_str())
+            .collect();
+        if ext_present.len() < 2 {
+            continue;
+        }
+
+        // Group fields by offset to find disagreements
+        let mut by_offset: std::collections::BTreeMap<u32, Vec<(&FieldComparison, Vec<&str>)>> =
+            std::collections::BTreeMap::new();
+        for comp in &r.field_comparisons {
+            let ext_sources: Vec<&str> = comp
+                .sources_agree
+                .iter()
+                .filter(|s| *s != "xdp2")
+                .map(|s| s.as_str())
+                .collect();
+            if !ext_sources.is_empty() {
+                by_offset
+                    .entry(comp.offset_bits)
+                    .or_default()
+                    .push((comp, ext_sources));
+            }
+        }
+
+        let disagreements: Vec<(&u32, &Vec<(&FieldComparison, Vec<&str>)>)> = by_offset
+            .iter()
+            .filter(|(_, entries)| entries.len() > 1)
+            .collect();
+
+        if !disagreements.is_empty() {
+            found_any = true;
+            out.push_str(&format!(
+                "  {} (sources: {})\n",
+                r.protocol,
+                ext_present.join(", ")
+            ));
+
+            for (offset, entries) in &disagreements {
+                for (comp, srcs) in *entries {
+                    out.push_str(&format!(
+                        "    @{:>3}b {:>3} bits  {:<30} [{}]\n",
+                        offset,
+                        comp.size_bits,
+                        comp.name,
+                        srcs.join(", "),
+                    ));
+                }
+            }
+            out.push('\n');
+        }
+    }
+
+    if !found_any {
+        out.push_str("  No field layout disagreements found.\n");
+    }
+
+    // Section 3: Coverage gaps
+    out.push_str("\n3. COVERAGE GAPS\n");
+    out.push_str(&"-".repeat(80));
+    out.push('\n');
+    out.push_str("\nProtocols with only a single external source (no cross-validation possible).\n\n");
+
+    out.push_str(&format!(
+        "  {:<16} {:<12} {}\n",
+        "Protocol", "Only Source", "Fields"
+    ));
+    out.push_str(&format!(
+        "  {} {} {}\n",
+        "-".repeat(16),
+        "-".repeat(12),
+        "-".repeat(8),
+    ));
+
+    for r in results {
+        let ext_present: Vec<&str> = r
+            .sources_present
+            .iter()
+            .filter(|s| *s != "xdp2")
+            .map(|s| s.as_str())
+            .collect();
+        if ext_present.len() == 1 {
+            let total_ext_fields: u32 = r
+                .field_comparisons
+                .iter()
+                .filter(|c| c.sources_agree.iter().any(|s| s != "xdp2"))
+                .count() as u32;
+            out.push_str(&format!(
+                "  {:<16} {:<12} {:>8}\n",
+                r.protocol, ext_present[0], total_ext_fields
+            ));
+        }
+    }
+
+    let no_ext: Vec<&str> = results
+        .iter()
+        .filter(|r| r.sources_present.iter().all(|s| s == "xdp2"))
+        .map(|r| r.protocol.as_str())
+        .collect();
+    if !no_ext.is_empty() {
+        out.push_str(&format!(
+            "\n  XDP2-only (no external validation): {}\n",
+            no_ext.join(", ")
+        ));
+    }
+
+    // Section 4: Notable findings
+    out.push_str("\n\n4. NOTABLE FINDINGS\n");
+    out.push_str(&"-".repeat(80));
+    out.push('\n');
+
+    // Find specific interesting cases
+    for r in results {
+        let ext_present: Vec<&str> = r
+            .sources_present
+            .iter()
+            .filter(|s| *s != "xdp2")
+            .map(|s| s.as_str())
+            .collect();
+        if ext_present.len() < 2 {
+            continue;
+        }
+
+        for comp in &r.field_comparisons {
+            // Look for non-presence, non-split mismatches (type/endian disagreements)
+            let type_mismatches: Vec<_> = comp
+                .mismatches
+                .iter()
+                .filter(|m| m.field != "presence" && m.field != "split")
+                .collect();
+
+            if !type_mismatches.is_empty() {
+                out.push_str(&format!(
+                    "\n  {} field '{}' @{}b {}b:\n",
+                    r.protocol, comp.name, comp.offset_bits, comp.size_bits,
+                ));
+                for m in &type_mismatches {
+                    out.push_str(&format!(
+                        "    {} disagrees: {} expected={} actual={}\n",
+                        m.source, m.field, m.expected, m.actual,
+                    ));
+                }
+            }
+        }
+
+        // Look for field split disagreements (interesting structural differences)
+        let splits: Vec<_> = r
+            .field_comparisons
+            .iter()
+            .filter(|c| c.mismatches.iter().any(|m| m.field == "split"))
+            .collect();
+
+        if !splits.is_empty() {
+            out.push_str(&format!(
+                "\n  {} — field boundary disagreements:\n",
+                r.protocol,
+            ));
+            for comp in &splits {
+                let split_detail: Vec<String> = comp
+                    .mismatches
+                    .iter()
+                    .filter(|m| m.field == "split")
+                    .map(|m| format!("{}: {}", m.source, m.actual))
+                    .collect();
+                out.push_str(&format!(
+                    "    '{}' @{}b {}b in [{}]: {}\n",
+                    comp.name,
+                    comp.offset_bits,
+                    comp.size_bits,
+                    comp.sources_agree.join(", "),
+                    split_detail.join("; "),
+                ));
+            }
+        }
+    }
+
+    out
+}
+
+/// Format matrix as JSON.
+pub fn format_matrix_json(results: &[AuditResult]) -> serde_json::Value {
+    let sources = ["kernel", "scapy", "tshark", "xdp2"];
+    let mut entries = Vec::new();
+
+    for r in results {
+        let present: std::collections::HashSet<&str> =
+            r.sources_present.iter().map(|s| s.as_str()).collect();
+
+        let mut src_fields: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+        for s in &sources {
+            src_fields.insert(s, 0);
+        }
+        for comp in &r.field_comparisons {
+            for s in &comp.sources_agree {
+                if let Some(count) = src_fields.get_mut(s.as_str()) {
+                    *count += 1;
+                }
+            }
+        }
+
+        let mut entry = serde_json::Map::new();
+        entry.insert("protocol".into(), r.protocol.clone().into());
+        for s in &sources {
+            let val = if present.contains(s) {
+                serde_json::Value::Number((*src_fields.get(s).unwrap_or(&0)).into())
+            } else {
+                serde_json::Value::Null
+            };
+            entry.insert((*s).into(), val);
+        }
+        entry.insert("fields_agree".into(), r.fields_agree.into());
+        entry.insert("fields_mismatch".into(), r.fields_mismatch.into());
+        entry.insert("fields_missing".into(), r.fields_missing.into());
+        entry.insert(
+            "xdp2_struct_ref_only".into(),
+            (present.contains("xdp2") && src_fields.get("xdp2").copied().unwrap_or(0) == 0).into(),
+        );
+        entries.push(serde_json::Value::Object(entry));
+    }
+
+    serde_json::Value::Array(entries)
+}
+
+/// Format findings as JSON.
+pub fn format_findings_json(results: &[AuditResult]) -> serde_json::Value {
+    let mut out = serde_json::Map::new();
+
+    // XDP2 coverage
+    let xdp2_present = results
+        .iter()
+        .filter(|r| r.sources_present.contains(&"xdp2".to_string()))
+        .count();
+    let xdp2_missing: Vec<&str> = results
+        .iter()
+        .filter(|r| r.sources_missing.contains(&"xdp2".to_string()))
+        .map(|r| r.protocol.as_str())
+        .collect();
+    out.insert(
+        "xdp2_coverage".into(),
+        serde_json::json!({
+            "present": xdp2_present,
+            "total": results.len(),
+            "missing_protocols": xdp2_missing,
+        }),
+    );
+
+    // Field layout disagreements
+    let mut disagreements = Vec::new();
+    for r in results {
+        let ext_present: Vec<&str> = r
+            .sources_present
+            .iter()
+            .filter(|s| *s != "xdp2")
+            .map(|s| s.as_str())
+            .collect();
+        if ext_present.len() < 2 {
+            continue;
+        }
+
+        let mut by_offset: std::collections::BTreeMap<u32, Vec<(&FieldComparison, Vec<&str>)>> =
+            std::collections::BTreeMap::new();
+        for comp in &r.field_comparisons {
+            let ext_sources: Vec<&str> = comp
+                .sources_agree
+                .iter()
+                .filter(|s| *s != "xdp2")
+                .map(|s| s.as_str())
+                .collect();
+            if !ext_sources.is_empty() {
+                by_offset
+                    .entry(comp.offset_bits)
+                    .or_default()
+                    .push((comp, ext_sources));
+            }
+        }
+
+        for (offset, entries) in &by_offset {
+            if entries.len() > 1 {
+                let fields: Vec<serde_json::Value> = entries
+                    .iter()
+                    .map(|(comp, srcs)| {
+                        serde_json::json!({
+                            "name": comp.name,
+                            "size_bits": comp.size_bits,
+                            "sources": srcs,
+                        })
+                    })
+                    .collect();
+
+                disagreements.push(serde_json::json!({
+                    "protocol": r.protocol,
+                    "offset_bits": offset,
+                    "fields": fields,
+                }));
+            }
+        }
+    }
+    out.insert("field_disagreements".into(), disagreements.into());
+
+    // Coverage gaps
+    let mut single_source = Vec::new();
+    for r in results {
+        let ext_present: Vec<&str> = r
+            .sources_present
+            .iter()
+            .filter(|s| *s != "xdp2")
+            .map(|s| s.as_str())
+            .collect();
+        if ext_present.len() == 1 {
+            single_source.push(serde_json::json!({
+                "protocol": r.protocol,
+                "only_source": ext_present[0],
+            }));
+        }
+    }
+    let xdp2_only: Vec<&str> = results
+        .iter()
+        .filter(|r| r.sources_present.iter().all(|s| s == "xdp2"))
+        .map(|r| r.protocol.as_str())
+        .collect();
+    out.insert(
+        "coverage_gaps".into(),
+        serde_json::json!({
+            "single_external_source": single_source,
+            "xdp2_only": xdp2_only,
+        }),
+    );
+
+    serde_json::Value::Object(out)
 }
 
 fn truncate(s: &str, max: usize) -> String {

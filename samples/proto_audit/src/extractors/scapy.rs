@@ -14,6 +14,15 @@ use std::process::Command;
 
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
 
+/// Deserialize a number that may be float (e.g., 3.0) as u32.
+fn deserialize_u32_from_float<'de, D>(deserializer: D) -> std::result::Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v: f64 = Deserialize::deserialize(deserializer)?;
+    Ok(v as u32)
+}
+
 /// Raw JSON output from the scapy_dump.py helper.
 #[derive(Debug, Deserialize)]
 pub struct ScapyProtocol {
@@ -25,7 +34,7 @@ pub struct ScapyProtocol {
     /// Fields in order
     pub fields: Vec<ScapyField>,
     /// Total minimum header size in bytes
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_u32_from_float")]
     pub min_bytes: u32,
 }
 
@@ -37,6 +46,7 @@ pub struct ScapyField {
     /// Scapy field class name (e.g., "ByteField", "ShortField", "BitField")
     pub field_class: String,
     /// Size in bits
+    #[serde(deserialize_with = "deserialize_u32_from_float")]
     pub size_bits: u32,
     /// Default value (as string)
     #[serde(default)]

@@ -101,9 +101,80 @@
 
         # Proto-audit: multi-source protocol definition audit tool
         protoAuditSources = import ./nix/proto-audit-sources.nix { inherit pkgs; };
-        proto-audit = import ./nix/proto-audit.nix {
+        proto-audit-bin = import ./nix/proto-audit.nix {
           inherit pkgs protoAuditSources;
         };
+
+        # Wrapped proto-audit with all external sources pre-configured
+        proto-audit = pkgs.writeShellApplication {
+          name = "proto-audit";
+          runtimeInputs = [
+            proto-audit-bin
+            protoAuditSources.scapyPython
+            protoAuditSources.tshark
+          ];
+          text = ''
+            export PROTO_AUDIT_PROTO_DEFS_DIR="''${PROTO_AUDIT_PROTO_DEFS_DIR:-${./src/include/xdp2/proto_defs}}"
+            export PROTO_AUDIT_KERNEL_SRC="''${PROTO_AUDIT_KERNEL_SRC:-${protoAuditSources.kernelSrc}}"
+            export PROTO_AUDIT_SCAPY_HELPER="''${PROTO_AUDIT_SCAPY_HELPER:-${proto-audit-bin}/share/proto-audit/scapy_dump.py}"
+            export PROTO_AUDIT_PYTHON="''${PROTO_AUDIT_PYTHON:-${protoAuditSources.scapyPython}/bin/python3}"
+            export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"
+            export PROTO_AUDIT_PCAP="''${PROTO_AUDIT_PCAP:-${test-pcap}/combo.pcap}"
+            exec proto-audit "$@"
+          '';
+        };
+
+        # Common source flags for proto-audit commands
+        protoAuditFlags = builtins.concatStringsSep " " [
+          "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
+          "--kernel-src ${protoAuditSources.kernelSrc}"
+          "--scapy-helper ${proto-audit-bin}/share/proto-audit/scapy_dump.py"
+          "--python ${protoAuditSources.scapyPython}/bin/python3"
+          "--tshark-bin ${protoAuditSources.tshark}/bin/tshark"
+          "--pcap ${test-pcap}/combo.pcap"
+        ];
+
+        # Full audit report (cached Nix derivation)
+        proto-audit-report = pkgs.runCommand "proto-audit-report" {
+          nativeBuildInputs = [
+            proto-audit-bin
+            protoAuditSources.scapyPython
+            protoAuditSources.tshark
+          ];
+        } ''
+          mkdir -p $out
+
+          # Full audit
+          proto-audit audit ${protoAuditFlags} \
+            > $out/audit.txt 2>&1 || true
+          proto-audit audit --json ${protoAuditFlags} \
+            > $out/audit.json 2>/dev/null || true
+
+          # Source × protocol matrix
+          proto-audit matrix ${protoAuditFlags} \
+            > $out/matrix.txt 2>/dev/null || true
+          proto-audit matrix --json ${protoAuditFlags} \
+            > $out/matrix.json 2>/dev/null || true
+
+          # Detailed cross-source findings
+          proto-audit findings ${protoAuditFlags} \
+            > $out/findings.txt 2>/dev/null || true
+          proto-audit findings --json ${protoAuditFlags} \
+            > $out/findings.json 2>/dev/null || true
+
+          # Protocol list
+          proto-audit list > $out/protocols.txt
+          proto-audit list --json > $out/protocols.json
+
+          # XDP2 scan
+          proto-audit scan --proto-defs-dir ${./src/include/xdp2/proto_defs} \
+            > $out/xdp2-scan.txt
+          proto-audit scan --proto-defs-dir ${./src/include/xdp2/proto_defs} --json \
+            > $out/xdp2-scan.json
+
+          echo "Proto-audit report generated at: $out"
+          ls -la $out/
+        '';
 
         # Import development shell module
         devshell = import ./nix/devshell.nix {
@@ -211,10 +282,10 @@
           xdp-build-test = tests.xdp-build;
 
           # Proto-audit: multi-source protocol definition audit tool
-          # Usage: nix build .#proto-audit
-          #        nix run .#proto-audit -- list
-          #        nix run .#proto-audit -- scan --proto-defs-dir src/include/xdp2/proto_defs
-          inherit proto-audit;
+          # Usage: nix run .#proto-audit -- list
+          #        nix run .#proto-audit -- compare --proto IPv4
+          #        nix build .#proto-audit-report
+          inherit proto-audit proto-audit-bin proto-audit-report;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

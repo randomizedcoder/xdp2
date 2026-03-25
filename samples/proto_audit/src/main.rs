@@ -26,27 +26,27 @@ struct Cli {
 #[derive(clap::Args, Clone)]
 struct SourcePaths {
     /// Path to XDP2 proto_defs directory
-    #[arg(long)]
+    #[arg(long, env = "PROTO_AUDIT_PROTO_DEFS_DIR")]
     proto_defs_dir: Option<PathBuf>,
 
     /// Path to kernel source tree
-    #[arg(long)]
+    #[arg(long, env = "PROTO_AUDIT_KERNEL_SRC")]
     kernel_src: Option<PathBuf>,
 
     /// Path to pcap file (for tshark)
-    #[arg(long)]
+    #[arg(long, env = "PROTO_AUDIT_PCAP")]
     pcap: Option<PathBuf>,
 
     /// Path to scapy_dump.py helper
-    #[arg(long)]
+    #[arg(long, env = "PROTO_AUDIT_SCAPY_HELPER")]
     scapy_helper: Option<PathBuf>,
 
     /// Python binary
-    #[arg(long, default_value = "python3")]
+    #[arg(long, env = "PROTO_AUDIT_PYTHON", default_value = "python3")]
     python: String,
 
     /// tshark binary
-    #[arg(long, default_value = "tshark")]
+    #[arg(long, env = "PROTO_AUDIT_TSHARK_BIN", default_value = "tshark")]
     tshark_bin: String,
 }
 
@@ -109,7 +109,7 @@ enum Commands {
     /// Scan XDP2 proto_defs directory
     Scan {
         /// Path to proto_defs directory
-        #[arg(long)]
+        #[arg(long, env = "PROTO_AUDIT_PROTO_DEFS_DIR")]
         proto_defs_dir: PathBuf,
 
         /// Output as JSON
@@ -138,6 +138,42 @@ enum Commands {
 
     /// List known protocols from the name mapping table
     List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show source × protocol coverage matrix
+    Matrix {
+        /// Only audit these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Only use these sources (comma-separated)
+        #[arg(long)]
+        sources: Option<String>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show detailed cross-source disagreements and findings
+    Findings {
+        /// Only audit these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Only use these sources (comma-separated)
+        #[arg(long)]
+        sources: Option<String>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -174,6 +210,18 @@ fn main() -> Result<()> {
             output,
         } => cmd_generate(&proto, from_json, dry_run, output),
         Commands::List { json } => cmd_list(json),
+        Commands::Matrix {
+            protos,
+            sources,
+            paths,
+            json,
+        } => cmd_matrix(protos.as_deref(), sources.as_deref(), &paths, json),
+        Commands::Findings {
+            protos,
+            sources,
+            paths,
+            json,
+        } => cmd_findings(protos.as_deref(), sources.as_deref(), &paths, json),
     }
 }
 
@@ -323,46 +371,16 @@ fn cmd_audit(
 ) -> Result<()> {
     let source_list = parse_source_list(sources);
 
-    // Determine which protocols to audit
-    let proto_names: Vec<String> = match protos {
-        Some(p) => p.split(',').map(|s| s.trim().to_string()).collect(),
-        None => {
-            // Default: all protocols in the name mapping table
-            name_mapping::protocol_table()
-                .iter()
-                .map(|p| p.canonical.to_string())
-                .collect()
-        }
-    };
-
     eprintln!(
         "Auditing {} protocols across sources: {}",
-        proto_names.len(),
+        match protos {
+            Some(p) => p.split(',').count(),
+            None => name_mapping::protocol_table().len(),
+        },
         source_list.join(", ")
     );
 
-    let mut results = Vec::new();
-
-    for proto in &proto_names {
-        let mut extracted: Vec<(String, ir::ProtocolDef)> = Vec::new();
-        for source in &source_list {
-            if let Some(def) = try_extract(source, proto, paths) {
-                extracted.push((source.clone(), def));
-            }
-        }
-
-        if extracted.is_empty() {
-            continue;
-        }
-
-        let refs: Vec<(&str, &ir::ProtocolDef)> = extracted
-            .iter()
-            .map(|(name, def)| (name.as_str(), def))
-            .collect();
-
-        let result = comparator::audit_protocol(proto, &refs);
-        results.push(result);
-    }
+    let results = run_audit(protos, sources, paths);
 
     if json_output {
         println!("{}", serde_json::to_string_pretty(&results)?);
@@ -456,6 +474,83 @@ fn cmd_generate(
         eprintln!("Wrote: {}", path.display());
     } else {
         println!("{}", header);
+    }
+
+    Ok(())
+}
+
+/// Shared helper: run audit across protocols and sources, return AuditResults.
+fn run_audit(
+    protos: Option<&str>,
+    sources: Option<&str>,
+    paths: &SourcePaths,
+) -> Vec<ir::AuditResult> {
+    let source_list = parse_source_list(sources);
+
+    let proto_names: Vec<String> = match protos {
+        Some(p) => p.split(',').map(|s| s.trim().to_string()).collect(),
+        None => name_mapping::protocol_table()
+            .iter()
+            .map(|p| p.canonical.to_string())
+            .collect(),
+    };
+
+    let mut results = Vec::new();
+    for proto in &proto_names {
+        let mut extracted: Vec<(String, ir::ProtocolDef)> = Vec::new();
+        for source in &source_list {
+            if let Some(def) = try_extract(source, proto, paths) {
+                extracted.push((source.clone(), def));
+            }
+        }
+        if extracted.is_empty() {
+            continue;
+        }
+        let refs: Vec<(&str, &ir::ProtocolDef)> = extracted
+            .iter()
+            .map(|(name, def)| (name.as_str(), def))
+            .collect();
+        results.push(comparator::audit_protocol(proto, &refs));
+    }
+
+    results
+}
+
+fn cmd_matrix(
+    protos: Option<&str>,
+    sources: Option<&str>,
+    paths: &SourcePaths,
+    json_output: bool,
+) -> Result<()> {
+    let results = run_audit(protos, sources, paths);
+
+    if json_output {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report::format_matrix_json(&results))?
+        );
+    } else {
+        print!("{}", report::format_matrix(&results));
+    }
+
+    Ok(())
+}
+
+fn cmd_findings(
+    protos: Option<&str>,
+    sources: Option<&str>,
+    paths: &SourcePaths,
+    json_output: bool,
+) -> Result<()> {
+    let results = run_audit(protos, sources, paths);
+
+    if json_output {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report::format_findings_json(&results))?
+        );
+    } else {
+        print!("{}", report::format_findings(&results));
     }
 
     Ok(())
