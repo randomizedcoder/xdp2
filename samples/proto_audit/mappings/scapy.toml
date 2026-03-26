@@ -1,0 +1,71 @@
+# Scapy Field Class → IR Type Mappings
+#
+# This project targets kernel developers, so we map to types that match
+# the kernel's perspective.
+
+[field_types]
+# Field class name → IR FieldType.
+# Classes not listed here fall through to name-pattern heuristics,
+# then default to Uint.
+
+# Address types
+IPField = "Ipv4Addr"
+SourceIPField = "Ipv4Addr"
+DestIPField = "Ipv4Addr"
+IP6Field = "Ipv6Addr"
+SourceIP6Field = "Ipv6Addr"
+DestIP6Field = "Ipv6Addr"
+MACField = "MacAddr"
+SourceMACField = "MacAddr"
+DestMACField = "MacAddr"
+
+# Enum types
+EnumField = "Enum"
+XByteEnumField = "Enum"
+XShortEnumField = "Enum"
+ByteEnumField = "Enum"
+BitEnumField = "Enum"
+IntEnumField = "Enum"
+LongEnumField = "Enum"
+MultiEnumField = "Enum"
+
+# XShortEnumField is mapped to Enum (unlike ShortEnumField).
+# XShortEnumField is used for EtherType fields (Ether.type, VLAN.type)
+# where the "X" prefix means hex display. These are closed registries.
+# ShortEnumField (no X prefix) is used for TCP/UDP ports — open namespace.
+
+# ShortEnumField is deliberately NOT mapped to Enum.
+# Scapy uses ShortEnumField for TCP/UDP ports because it has a
+# well-known-port lookup table. But kernel headers declare ports
+# as __be16 (Uint). Ports are an open 16-bit namespace, not a
+# closed enumeration like EtherType. ShortEnumField falls through
+# to the default (Uint), matching kernel's __be16.
+
+# Raw data types
+StrField = "Bytes"
+StrFixedLenField = "Bytes"
+PacketField = "Bytes"
+PacketListField = "Bytes"
+
+# Signed integer types
+SignedByteField = "Sint"
+SignedShortField = "Sint"
+SignedIntField = "Sint"
+
+[endian_prefixes]
+# Field class name prefix → endianness.
+# Scapy defaults to big-endian (network byte order).
+LE = "Little"
+
+[name_patterns]
+# Fallback: if field class has no explicit mapping, check field name
+# for these substrings.
+flags = "Flags"
+flag = "Flags"
+pad = "Pad"
+reserved = "Pad"
+
+[unwrap_classes]
+# Wrapper classes to unwrap (via .fld attribute) before type lookup.
+Emph = true
+ConditionalField = true

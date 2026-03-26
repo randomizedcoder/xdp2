@@ -1,0 +1,182 @@
+# proto-audit Status
+
+## Current State (Iteration 5)
+
+41 protocols audited across 4 sources (XDP2, kernel, scapy, tshark).
+17 protocols have 2+ external sources for cross-validation.
+93 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 5: Roundtrip & Cross-Mapping Tests
+
+Added bidirectional verification of the TOML translation layer — proving that
+source → IR → reverse-lookup is consistent, and that different sources agree
+when mapped through the IR.
+
+**New modules:**
+- `src/test_data.rs` — shared test constants (7 kernel structs, 5 Scapy JSON, 2 tshark PDML)
+- `src/roundtrip_tests.rs` — 14 roundtrip golden-output tests (kernel×7, scapy×4, tshark×3)
+
+**Reverse lookup methods** added to `type_mapping.rs`:
+- `KernelMappings::field_names_for_type()` — invert field_type_overrides
+- `KernelMappings::c_types_for()` — find C types matching bit width + endian
+- `ScapyMappings::classes_for_type()` — invert field_types table
+- `TsharkMappings::matches_for()` — check if a type+bits combo is reachable
+
+**Cross-source tests upgraded** (comparator.rs):
+- IPv4, Ethernet, UDP upgraded from 2-way → 3-way (kernel+scapy+tshark)
+- ARP (kernel+scapy) and TCP (kernel+scapy) added as new cross-source tests
+
+**Exhaustive TOML coverage tests** (type_mapping.rs):
+- `test_kernel_all_field_overrides_roundtrip` — every kernel override is forward+reverse consistent
+- `test_scapy_all_field_types_roundtrip` — every scapy class mapping is forward+reverse consistent
+- `test_tshark_all_patterns_exercised` — every tshark pattern produces the declared type
+
+Test count: 71 → 93 (+22 tests).
+
+### Iteration 4: Expanded Translations & Cross-Source Testing
+
+**Kernel field type overrides added:**
+
+| Field | Type | Rationale |
+|-------|------|-----------|
+| `code` | Enum | ICMP/IGMP code (IANA sub-type registry) |
+| `icmp6_code` | Enum | ICMPv6 code (IANA sub-type registry) |
+| `h_vlan_encapsulated_proto` | Enum | VLAN encapsulated EtherType (IEEE 802) |
+| `h_vlan_TCI` | Flags | VLAN tag control info (PCP + DEI + VID packed) |
+
+**Scapy class mappings added:**
+
+| Class | Type | Rationale |
+|-------|------|-----------|
+| `EnumField` | Enum | Generic Scapy enum field |
+| `XShortEnumField` | Enum | Hex-display enum (EtherType fields in Ether/VLAN) |
+| `LongEnumField` | Enum | 64-bit enum field |
+| `MultiEnumField` | Enum | Multi-value enum field |
+
+**Key distinction**: `XShortEnumField` → Enum (used for EtherType — closed registry),
+but `ShortEnumField` stays Uint (used for ports — open namespace).
+
+**tshark patterns added:**
+- `.code` at ≤8 bits → Enum (ICMP/ICMPv6 code)
+- `.addr` at 128 bits → Ipv6Addr
+- Extended blocklist: `.stream`, `.segment`, `.analysis`, `.reassembled_in`, `.reassembled.length`
+
+**Cross-source agreement tests:**
+- IPv4: kernel `iphdr` + scapy `IP` — validates `protocol`/`proto` both Enum, `saddr`/`src` both Ipv4Addr
+- Ethernet: kernel `ethhdr` + scapy `Ether` — validates MAC types and `h_proto`/`type` both Enum
+- UDP: kernel `udphdr` + scapy `UDP` — validates all 4 fields agree (ShortEnumField→Uint fix)
+
+### Iteration 3: Extensible Type Mapping System
+
+**Core change**: Replaced hardcoded type inference logic in all three extractors
+(kernel, scapy, tshark) with an extensible TOML-based mapping system. Developers
+can now add or correct type mappings by editing `mappings/*.toml` — no Rust code
+changes needed.
+
+#### Type Mapping System
+
+- **`mappings/kernel.toml`** — C type → bit width/endianness, field name overrides
+  (e.g., `protocol` → Enum, `h_proto` → Enum, `nexthdr` → Enum)
+- **`mappings/scapy.toml`** — Scapy field class → IR type, with documented
+  rationale for deliberate non-mappings (e.g., `ShortEnumField` stays Uint)
+- **`mappings/tshark.toml`** — tshark field name patterns → IR type, blocklist
+- **`src/type_mapping.rs`** — TOML loader with embedded defaults via `include_str!()`
+- Mappings are overridable via `--mappings-dir` or `PROTO_AUDIT_MAPPINGS_DIR`
+
+#### Kernel field type overrides (new Enum/address classifications)
+
+| Field | Type | Rationale |
+|-------|------|-----------|
+| `protocol` | Enum | IPv4 protocol number (IANA registry) |
+| `h_proto` | Enum | EtherType (IEEE 802 registry) |
+| `nexthdr` | Enum | IPv6/extension header next-header (IANA) |
+| `ar_hrd` | Enum | ARP hardware type (IANA) |
+| `ar_pro` | Enum | ARP protocol type (EtherType) |
+| `ar_op` | Enum | ARP operation code (IANA) |
+| `type` | Enum | ICMP/IGMP message type (IANA) |
+| `icmp6_type` | Enum | ICMPv6 message type (IANA) |
+| `group` | Ipv4Addr | IGMP multicast group address (32-bit only) |
+
+#### Scapy ShortEnumField → Uint (not Enum)
+
+Scapy uses `ShortEnumField` for TCP/UDP ports because it has a well-known-port
+lookup table. But kernel headers declare ports as `__be16` (Uint). Ports are an
+open 16-bit namespace, not a closed enumeration like EtherType. This eliminates
+false type-diff findings for TCP/UDP port fields.
+
+#### tshark operator precedence fix
+
+Fixed `name.contains("proto") || name.contains("type") && bits <= 16` →
+proper parenthesization via the TOML mapping system. The `enum_patterns` table
+applies `max_bits` to each pattern independently.
+
+#### Scapy helper improvements
+
+- **5 new contrib imports**: `macsec`, `lldp`, `erspan`, `nsh`, `hsr` — enables
+  extraction of these protocols from Scapy
+- **Recursive subclass search**: replaced 2-level search with full recursive
+  `search(Packet)` function, catching deeply nested packet classes
+
+#### Comparator fix
+
+- **Pairwise endian comparison**: compares all pairs in a field slot, not just
+  against the first source. Catches B-vs-C disagreements even when A agrees
+  with both individually.
+
+### Expected Impact
+
+| Protocol | Before (Agree/TDiff) | After (Agree/TDiff) | Key change |
+|----------|---------------------|---------------------|------------|
+| Ethernet | 2/1 | 3/0 | `h_proto` → Enum |
+| IPv4 | 7/1 | 8/0 | `protocol` → Enum |
+| IPv6 | 2/1 | 3/0 | `nexthdr` → Enum |
+| UDP | 2/2 | 4/0 | ShortEnumField → Uint |
+| TCP | 5/2 | 7/0 | ShortEnumField → Uint |
+| ARP | 1/4 | 5/0 | `ar_hrd`/`ar_pro`/`ar_op` → Enum |
+| IGMP | 2/2 | 4/0 | `type` → Enum, `group` → Ipv4Addr |
+| ICMPv4 | 3/1 | 4/0 | `type` → Enum |
+| ICMPv6 | 2/1 | 3/0 | `icmp6_type` → Enum |
+| AH | 4/1 | 5/0 | `nexthdr` → Enum |
+| SRv6 | 5/1 | 6/0 | `nexthdr` → Enum |
+
+### Known Remaining Issues
+
+**Scapy field sizes for ARP** — Scapy's ARP uses `FieldLenField` with a default
+hardware address length of 2 bytes (16 bits) rather than 6, since the field
+length is protocol-dependent (`ar_hln`). This causes `hwsrc`/`hwdst` to show as
+16 bits vs tshark's 48 bits. Not a bug — it reflects ARP's variable-length design.
+
+**tshark combined fields** — tshark sometimes reports combined fields (e.g.,
+`ip.version` as 8 bits covering both version and IHL, `tcp.flags` as 16 bits
+covering data offset + reserved + flags). These are display artifacts of PDML's
+byte-aligned output, not real protocol disagreements.
+
+**IEEE 802.11 offset drift** — kernel's `ieee80211_hdr` and scapy's `Dot11`
+disagree on field offsets because scapy includes sub-byte fields (subtype, type,
+proto) that the kernel packs into `frame_control`. The cumulative offset drift
+causes all subsequent MAC address fields to misalign.
+
+**ICMPv4 scapy extra fields** — Scapy defines 17 fields for ICMP (including
+message-type-specific payload fields like `id`, `seq`, `ts_ori`, etc.) vs
+kernel's 4-field `icmphdr`. This is expected — the kernel struct is minimal
+and message-specific fields are handled elsewhere.
+
+## Iteration 2 Changes
+
+1. Zero-field source filtering (XDP2 excluded from field comparison)
+2. Scapy contrib imports (igmp, geneve)
+3. tshark non-header field filtering (payload/padding/trailer blocklist)
+4. Kernel `__sum16` endian fix → Big
+5. Kernel MAC address endian fix → Big
+6. Scapy `Emph`/`ConditionalField` unwrapping
+
+## Iteration 1 Changes
+
+- Structural vs semantic agreement separation
+- Unified field map (no reference-source bias)
+- Kernel inline `/* ... */` comment handling
+- Kernel `#if 0` dead-code block skipping
+- Kernel `__struct_group()` macro unwrapping
+- IGMP PCAP packet generation
+- Geneve→scapy name mapping
+- `matrix` and `findings` CLI commands

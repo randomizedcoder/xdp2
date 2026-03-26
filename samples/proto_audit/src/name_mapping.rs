@@ -169,7 +169,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             xdp2: Some("xdp2_parse_geneve"),
             kernel_struct: Some("genevehdr"),
             kernel_header: Some("linux/geneve.h"),
-            scapy: None,
+            scapy: Some("GENEVE"),
             tshark: Some("geneve"),
             min_header_bytes: 8,
             variable_length: true,

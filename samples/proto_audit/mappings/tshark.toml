@@ -1,0 +1,84 @@
+# tshark PDML Field → IR Type Mappings
+#
+# Type inference relies on name patterns since PDML doesn't carry
+# explicit type info.
+
+# Field name suffixes to filter out (payload/padding/metadata,
+# not actual protocol header fields).
+blocklist_suffixes = [
+    ".payload",
+    ".padding",
+    ".trailer",
+    ".data",
+    ".checksum.status",
+    ".stream",
+    ".segment",
+    ".analysis",
+    ".reassembled_in",
+    ".reassembled.length",
+]
+
+[suffix_types]
+# Field name suffix → IR FieldType (unconditional on size).
+".src_hw" = "MacAddr"
+".dst_hw" = "MacAddr"
+
+[[suffix_types_by_size]]
+# Field name suffix + bit width → IR FieldType.
+# Checked in order; first match wins.
+suffix = ".src"
+bits = 32
+type = "Ipv4Addr"
+
+[[suffix_types_by_size]]
+suffix = ".dst"
+bits = 32
+type = "Ipv4Addr"
+
+[[suffix_types_by_size]]
+suffix = ".addr"
+bits = 32
+type = "Ipv4Addr"
+
+[[suffix_types_by_size]]
+suffix = ".src"
+bits = 128
+type = "Ipv6Addr"
+
+[[suffix_types_by_size]]
+suffix = ".dst"
+bits = 128
+type = "Ipv6Addr"
+
+[[suffix_types_by_size]]
+suffix = ".src"
+bits = 48
+type = "MacAddr"
+
+[[suffix_types_by_size]]
+suffix = ".dst"
+bits = 48
+type = "MacAddr"
+
+[[suffix_types_by_size]]
+suffix = ".addr"
+bits = 128
+type = "Ipv6Addr"
+
+[contains_types]
+# Field name contains substring → IR FieldType.
+flags = "Flags"
+pad = "Pad"
+reserved = "Pad"
+
+[enum_patterns]
+# Field name contains pattern AND bits <= max_bits → Enum.
+
+[enum_patterns.proto]
+max_bits = 16
+
+[enum_patterns.type]
+max_bits = 16
+
+[enum_patterns.code]
+max_bits = 8

@@ -13,6 +13,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
+use crate::type_mapping::{self, ScapyMappings};
 
 /// Deserialize a number that may be float (e.g., 3.0) as u32.
 fn deserialize_u32_from_float<'de, D>(deserializer: D) -> std::result::Result<u32, D::Error>
@@ -95,50 +96,48 @@ pub fn parse_scapy_json(json: &str) -> Result<ScapyProtocol> {
     serde_json::from_str(json).context("parsing scapy JSON output")
 }
 
-/// Map a Scapy field class name to our IR FieldType.
-fn scapy_field_type(class: &str, name: &str) -> FieldType {
-    match class {
-        "IPField" | "SourceIPField" | "DestIPField" => FieldType::Ipv4Addr,
-        "IP6Field" | "SourceIP6Field" | "DestIP6Field" => FieldType::Ipv6Addr,
-        "MACField" | "SourceMACField" | "DestMACField" => FieldType::MacAddr,
-        "FlagsField" | "BitField" if name.contains("flags") || name.contains("flag") => {
-            FieldType::Flags
-        }
-        "XByteEnumField" | "ByteEnumField" | "ShortEnumField" | "IntEnumField" => FieldType::Enum,
-        "StrField" | "StrFixedLenField" | "PacketField" => FieldType::Bytes,
-        "SignedByteField" | "SignedShortField" | "SignedIntField" => FieldType::Sint,
-        _ => {
-            if name.contains("pad") || name.contains("reserved") {
-                FieldType::Pad
-            } else {
-                FieldType::Uint
-            }
-        }
+/// Map a Scapy field class name to our IR FieldType using loaded mappings.
+fn scapy_field_type(class: &str, name: &str, mappings: &ScapyMappings) -> FieldType {
+    // 1. Check explicit class → type mapping
+    if let Some(ft) = mappings.field_type(class) {
+        return ft;
     }
+
+    // 2. FlagsField / BitField with flag-like name
+    if (class == "FlagsField" || class == "BitField")
+        && (name.contains("flags") || name.contains("flag"))
+    {
+        return FieldType::Flags;
+    }
+
+    // 3. Name pattern fallback (pad, reserved, flags)
+    if let Some(ft) = mappings.name_pattern_type(name) {
+        return ft;
+    }
+
+    FieldType::Uint
 }
 
-/// Determine endianness from Scapy field class.
-fn scapy_endian(class: &str, bits: u32) -> Endian {
-    if bits <= 8 {
-        return Endian::Na;
-    }
-    // LE* fields are little-endian
-    if class.starts_with("LE") {
-        Endian::Little
-    } else {
-        // Scapy defaults to big-endian (network byte order)
-        Endian::Big
-    }
+/// Determine endianness from Scapy field class using loaded mappings.
+fn scapy_endian(class: &str, bits: u32, mappings: &ScapyMappings) -> Endian {
+    mappings.endian(class, bits)
 }
 
 /// Convert a ScapyProtocol into an IR ProtocolDef.
 pub fn to_protocol_def(sp: &ScapyProtocol) -> ProtocolDef {
+    let mappings = type_mapping::load_scapy_mappings(None)
+        .expect("embedded scapy mappings should always parse");
+    to_protocol_def_with(sp, &mappings)
+}
+
+/// Convert using explicit mappings.
+pub fn to_protocol_def_with(sp: &ScapyProtocol, mappings: &ScapyMappings) -> ProtocolDef {
     let mut fields = Vec::new();
     let mut offset_bits: u32 = 0;
 
     for sf in &sp.fields {
-        let field_type = scapy_field_type(&sf.field_class, &sf.name);
-        let endian = scapy_endian(&sf.field_class, sf.size_bits);
+        let field_type = scapy_field_type(&sf.field_class, &sf.name, mappings);
+        let endian = scapy_endian(&sf.field_class, sf.size_bits, mappings);
 
         fields.push(FieldDef {
             name: sf.name.clone(),
@@ -260,10 +259,39 @@ mod tests {
 
     #[test]
     fn test_scapy_endian() {
-        assert_eq!(scapy_endian("ShortField", 16), Endian::Big);
-        assert_eq!(scapy_endian("LEShortField", 16), Endian::Little);
-        assert_eq!(scapy_endian("ByteField", 8), Endian::Na);
-        assert_eq!(scapy_endian("BitField", 4), Endian::Na);
+        let m = type_mapping::load_scapy_mappings(None).unwrap();
+        assert_eq!(scapy_endian("ShortField", 16, &m), Endian::Big);
+        assert_eq!(scapy_endian("LEShortField", 16, &m), Endian::Little);
+        assert_eq!(scapy_endian("ByteField", 8, &m), Endian::Na);
+        assert_eq!(scapy_endian("BitField", 4, &m), Endian::Na);
+    }
+
+    #[test]
+    fn test_short_enum_field_is_uint() {
+        // ShortEnumField should NOT map to Enum — it's used for ports
+        // which are an open namespace, not a closed enumeration
+        let sp = parse_scapy_json(SAMPLE_TCP_JSON).unwrap();
+        let proto = to_protocol_def(&sp);
+        let sport = proto.fields.iter().find(|f| f.name == "sport").unwrap();
+        assert_eq!(sport.field_type, FieldType::Uint);
+    }
+
+    #[test]
+    fn test_enum_field_variants() {
+        // EnumField, LongEnumField, MultiEnumField should all map to Enum
+        let json = r#"{
+  "name": "TestProto", "module": "test", "min_bytes": 8,
+  "fields": [
+    {"name": "f1", "field_class": "EnumField", "size_bits": 16},
+    {"name": "f2", "field_class": "LongEnumField", "size_bits": 64},
+    {"name": "f3", "field_class": "MultiEnumField", "size_bits": 8}
+  ]
+}"#;
+        let sp = parse_scapy_json(json).unwrap();
+        let proto = to_protocol_def(&sp);
+        assert_eq!(proto.fields[0].field_type, FieldType::Enum);
+        assert_eq!(proto.fields[1].field_type, FieldType::Enum);
+        assert_eq!(proto.fields[2].field_type, FieldType::Enum);
     }
 
     const SAMPLE_TCP_JSON: &str = r#"{

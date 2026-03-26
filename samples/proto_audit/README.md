@@ -1,160 +1,93 @@
 # proto-audit: Multi-Source Protocol Definition Audit & Generation
 
-A Rust tool that compares protocol definitions across four authoritative sources
-to audit correctness, find bugs, and auto-generate new XDP2 proto_def headers.
+Compares protocol header definitions across four authoritative sources —
+XDP2, Linux kernel UAPI headers, Scapy, and tshark — to find layout
+disagreements, coverage gaps, and type annotation differences.
 
-## Sources
+Supports 41 protocols from Ethernet through tunneling (GRE, VXLAN, Geneve,
+MPLS), security (ESP, AH, MACsec), and management (LLDP, PTP, IGMP).
 
-| Source | Format | Access |
-|---|---|---|
-| **XDP2** | C headers (`xdp2_proto_def` structs) | Local repo parse |
-| **Linux kernel** | C structs (UAPI headers) | Nix-pinned source |
-| **Scapy** | Python classes (`fields_desc`) | Runtime introspection → JSON |
-| **tshark** | PDML XML (`<proto>`/`<field>`) | `tshark -T pdml` subprocess |
+Type inference across sources is driven by an extensible TOML-based mapping
+system (`mappings/*.toml`) — add or correct type mappings without touching
+Rust code.
 
-## Intermediate Representation
-
-All sources are normalized into a canonical IR (`ProtocolDef`) with:
-
-- **Fields**: name, bit offset, bit size, semantic type, endianness, dispatch/length roles
-- **Dispatch tables**: maps field values to next protocols
-- **Source names**: preserves each source's original naming
-- **Cross-source metadata**: per-source file paths, field counts, notes
-
-See `src/ir.rs` for the full type definitions.
-
-## Architecture
-
-```
-                    ┌──────────────────────────────┐
-                    │     Rust: proto-audit CLI     │
-                    │  (clap, serde, roxmltree)     │
-                    └──────┬───────────────────────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-    ┌──────▼──────┐ ┌──────▼──────┐ ┌──────▼──────┐
-    │  XDP2       │ │  Kernel     │ │  tshark     │
-    │  Extractor  │ │  Extractor  │ │  Extractor  │
-    │ (regex C)   │ │ (regex C)   │ │ (PDML XML)  │
-    └─────────────┘ └─────────────┘ └──────┬──────┘
-                                           │
-                                    tshark subprocess
-    ┌─────────────┐                        │
-    │  Scapy      │ ◄── JSON ──── Python helper
-    │  Extractor  │
-    └─────────────┘
-           │
-           ▼
-    ┌─────────────────────┐     ┌──────────────────┐
-    │  Comparator         │ ──► │  Report          │
-    │  (field matching)   │     │  (text / JSON)   │
-    └─────────────────────┘     └──────────────────┘
-           │
-           ▼
-    ┌─────────────────────┐
-    │  Generator          │
-    │  (IR → C headers)   │
-    └─────────────────────┘
-```
-
-## Usage
-
-The Nix wrapper pre-configures all external source paths (kernel, Scapy, tshark, pcap):
+## Quick Start
 
 ```bash
-# List all 41 known protocols
-nix run .#proto-audit -- list
-
-# Extract from a single source
-nix run .#proto-audit -- extract --source kernel --proto IPv4
-nix run .#proto-audit -- extract --source scapy --proto TCP
-nix run .#proto-audit -- extract --source xdp2 --proto IPv4
-nix run .#proto-audit -- extract --source tshark --proto UDP
-
-# Compare a protocol across all sources
-nix run .#proto-audit -- compare --proto IPv4
-
-# Audit all protocols
-nix run .#proto-audit -- audit
-
-# Audit specific protocols
-nix run .#proto-audit -- audit --protos IPv4,TCP,UDP
-
-# Source × protocol coverage matrix
+# Source x protocol coverage matrix
 nix run .#proto-audit -- matrix
 
-# Detailed cross-source disagreements and findings
+# Detailed cross-source findings
 nix run .#proto-audit -- findings
 
-# Scan XDP2 proto_defs directory
-nix run .#proto-audit -- scan
+# Extract a single protocol from one source
+nix run .#proto-audit -- extract --source kernel --proto ARP
 
-# Generate a new proto_def from IR
-nix run .#proto-audit -- generate --proto VRRP --dry-run
-
-# Build full cached audit report (all formats)
+# Full cached report (all formats)
 nix build .#proto-audit-report
-cat result/matrix.txt      # Source × protocol coverage matrix
-cat result/findings.txt    # Detailed cross-source disagreements
-cat result/audit.txt       # Full per-protocol audit
-cat result/audit.json      # Machine-readable audit
-cat result/protocols.txt   # Protocol list
-cat result/xdp2-scan.txt   # XDP2 proto_defs scan
+cat result/matrix.txt
+cat result/findings.txt
 ```
 
-### Environment Variable Overrides
+## Commands
 
-The wrapper sets defaults via `PROTO_AUDIT_*` env vars. Override any source path:
-
-```bash
-PROTO_AUDIT_KERNEL_SRC=/custom/linux nix run .#proto-audit -- extract --source kernel --proto IPv4
-```
-
-| Variable | Description |
+| Command | Description |
 |---|---|
-| `PROTO_AUDIT_PROTO_DEFS_DIR` | XDP2 proto_defs directory |
-| `PROTO_AUDIT_KERNEL_SRC` | Linux kernel source tree |
-| `PROTO_AUDIT_PCAP` | PCAP file for tshark |
-| `PROTO_AUDIT_SCAPY_HELPER` | Path to scapy_dump.py |
-| `PROTO_AUDIT_PYTHON` | Python binary (with scapy) |
-| `PROTO_AUDIT_TSHARK_BIN` | tshark binary |
+| `list` | List all 41 known protocols |
+| `extract --source S --proto P` | Extract one protocol from one source |
+| `compare --proto P` | Compare a protocol across all sources |
+| `audit [--protos P1,P2]` | Audit all (or specific) protocols |
+| `matrix` | Source x protocol coverage matrix |
+| `findings` | Detailed cross-source disagreements |
+| `scan` | Scan XDP2 proto_defs directory |
+| `generate --proto P` | Generate C header from IR |
 
-## Building
+All commands accept `--json` for machine-readable output.
+
+## Building & Testing
 
 ```bash
-# Via Nix (recommended) — wrapped with all sources
+# Nix build (recommended — wrapped with all source paths)
 nix build .#proto-audit
 
-# Raw binary without source defaults
+# Raw binary (no env var defaults)
 nix build .#proto-audit-bin
 
-# Development (Rust tests)
+# Run tests (93 unit tests)
 nix develop --command cargo test
 ```
 
-## Tests
+## Type Mapping System
 
-43 unit tests covering all extractors, comparator, and generator:
+Each extractor's type inference is driven by TOML mapping files in `mappings/`:
 
-```bash
-nix develop --command cargo test
-```
+| File | Purpose |
+|---|---|
+| `mappings/kernel.toml` | C type → bit width/endianness, field name → IR type overrides |
+| `mappings/scapy.toml` | Scapy field class → IR type, endian prefixes, name-pattern fallbacks |
+| `mappings/tshark.toml` | tshark field name patterns → IR type, blocklist suffixes |
 
-## Field Matching Strategy
+Mappings are **embedded** in the binary via `include_str!()`, so the tool works
+without external files. To override, set `PROTO_AUDIT_MAPPINGS_DIR` to a
+directory containing replacement TOML files.
 
-Fields from different sources are matched by **offset+size first**, then name:
+To add a new kernel C type or correct a field classification, edit the
+appropriate TOML file — no Rust code changes needed. Each override entry
+includes a `reason` field documenting the rationale.
 
-1. **Exact match**: Same `offset_bits` AND `size_bits` → same field
-2. **Overlap match**: Overlapping bit ranges → likely same field split differently
-3. **Name similarity**: Levenshtein distance as tiebreaker
-4. **Unmatched**: Fields in one source but not another → coverage gap
+## Documentation
 
-## Phases
+- [Architecture](docs/architecture.md) — extractors, IR, type mapping system, report pipeline
+- [Field Matching](docs/field-matching.md) — structural vs semantic agreement, audit algorithm, report interpretation
+- [Status](docs/status.md) — iteration history, expected impact, known issues
 
-- [x] Phase 1: Project skeleton and design
-- [x] Phase 2: Nix integration
-- [x] Phase 3: IR core types and name mapping (41 protocols)
-- [x] Phase 4: Extractors (scapy, kernel, xdp2, tshark)
-- [x] Phase 5: Comparison and audit engine
-- [x] Phase 6: C header generation
+## Project Status
+
+- [x] IR core types and name mapping (41 protocols)
+- [x] Extractors (kernel, scapy, tshark, xdp2)
+- [x] Extensible TOML-based type mapping system (`mappings/*.toml`)
+- [x] Comparison engine (structural + semantic matching, pairwise)
+- [x] Report generation (matrix, findings, audit)
+- [x] C header generation from IR
+- [x] Roundtrip & cross-mapping tests for TOML translation layer
+- [x] Nix integration with cached report derivation

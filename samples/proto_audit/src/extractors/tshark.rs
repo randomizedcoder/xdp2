@@ -14,6 +14,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
+use crate::type_mapping::{self, TsharkMappings};
 
 /// A field extracted from PDML XML.
 #[derive(Debug, Clone)]
@@ -184,32 +185,14 @@ pub fn extract_protocol_from_pdml(
     None
 }
 
-/// Infer field type from tshark field name patterns.
-fn infer_field_type(name: &str, _show: &str, bits: u32) -> FieldType {
-    if name.ends_with(".src") || name.ends_with(".dst") || name.ends_with(".addr") {
-        if bits == 32 {
-            return FieldType::Ipv4Addr;
-        }
-        if bits == 128 {
-            return FieldType::Ipv6Addr;
-        }
-        if bits == 48 {
-            return FieldType::MacAddr;
-        }
-    }
-    if name.ends_with(".src_hw") || name.ends_with(".dst_hw") {
-        return FieldType::MacAddr;
-    }
-    if name.contains("flags") {
-        return FieldType::Flags;
-    }
-    if name.contains("proto") || name.contains("type") && bits <= 16 {
-        return FieldType::Enum;
-    }
-    if name.contains("pad") || name.contains("reserved") {
-        return FieldType::Pad;
-    }
-    FieldType::Uint
+/// Infer field type from tshark field name patterns using loaded mappings.
+fn infer_field_type(name: &str, _show: &str, bits: u32, mappings: &TsharkMappings) -> FieldType {
+    mappings.infer_field_type(name, bits)
+}
+
+/// Check if a tshark field name should be filtered out using loaded mappings.
+fn is_blocked_tshark_field(name: &str, mappings: &TsharkMappings) -> bool {
+    mappings.is_blocked(name)
 }
 
 /// Convert a PdmlProtocol to an IR ProtocolDef.
@@ -218,6 +201,13 @@ fn infer_field_type(name: &str, _show: &str, bits: u32) -> FieldType {
 /// (from PDML `pos` attribute). Field offsets are made relative to the
 /// protocol header start.
 pub fn to_protocol_def(pdml: &PdmlProtocol) -> ProtocolDef {
+    let mappings = type_mapping::load_tshark_mappings(None)
+        .expect("embedded tshark mappings should always parse");
+    to_protocol_def_with(pdml, &mappings)
+}
+
+/// Convert using explicit mappings.
+pub fn to_protocol_def_with(pdml: &PdmlProtocol, mappings: &TsharkMappings) -> ProtocolDef {
     let proto_byte_offset = pdml.pos;
     let mut fields = Vec::new();
 
@@ -226,11 +216,16 @@ pub fn to_protocol_def(pdml: &PdmlProtocol) -> ProtocolDef {
             continue; // Skip zero-size fields (metadata)
         }
 
+        // Skip payload/padding/trailer fields that aren't part of the header
+        if is_blocked_tshark_field(&pf.name, mappings) {
+            continue;
+        }
+
         let rel_byte_offset = pf.pos.saturating_sub(proto_byte_offset);
         let offset_bits = rel_byte_offset * 8;
         let size_bits = pf.size * 8;
 
-        let field_type = infer_field_type(&pf.name, &pf.show, size_bits);
+        let field_type = infer_field_type(&pf.name, &pf.show, size_bits, mappings);
         let endian = if size_bits <= 8 {
             Endian::Na
         } else {
@@ -346,6 +341,41 @@ mod tests {
         assert_eq!(src.offset_bits, 96);
         assert_eq!(src.field_type, FieldType::Ipv4Addr);
         assert_eq!(src.size_bits, 32);
+    }
+
+    #[test]
+    fn test_payload_fields_filtered() {
+        let pdml_with_payload = r#"<?xml version="1.0" encoding="utf-8"?>
+<pdml version="0" creator="wireshark/4.2.0">
+<packet>
+  <proto name="udp" showname="User Datagram Protocol" pos="34" size="8">
+    <field name="udp.srcport" showname="Source Port" pos="34" size="2" value="d903" show="55555"/>
+    <field name="udp.dstport" showname="Destination Port" pos="36" size="2" value="0035" show="53"/>
+    <field name="udp.length" showname="Length" pos="38" size="2" value="002e" show="46"/>
+    <field name="udp.checksum" showname="Checksum" pos="40" size="2" value="1234" show="0x1234"/>
+    <field name="udp.checksum.status" showname="Checksum Status" pos="40" size="0" value="" show="2"/>
+    <field name="udp.payload" showname="Payload" pos="42" size="25" value="abcd" show=""/>
+  </proto>
+</packet>
+</pdml>"#;
+        let packets = parse_pdml(pdml_with_payload).unwrap();
+        let udp = extract_protocol_from_pdml(&packets, "udp").unwrap();
+        let proto = to_protocol_def(&udp);
+
+        // udp.payload and udp.checksum.status should be filtered out
+        assert!(
+            proto.fields.iter().all(|f| f.name != "udp.payload"),
+            "udp.payload should be filtered"
+        );
+        assert!(
+            proto.fields.iter().all(|f| f.name != "udp.checksum.status"),
+            "udp.checksum.status should be filtered"
+        );
+        // Real header fields should remain
+        assert!(proto.fields.iter().any(|f| f.name == "udp.srcport"));
+        assert!(proto.fields.iter().any(|f| f.name == "udp.dstport"));
+        assert!(proto.fields.iter().any(|f| f.name == "udp.length"));
+        assert!(proto.fields.iter().any(|f| f.name == "udp.checksum"));
     }
 
     #[test]

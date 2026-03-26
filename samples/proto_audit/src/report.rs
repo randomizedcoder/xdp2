@@ -21,8 +21,9 @@ pub fn format_audit_text(result: &AuditResult) -> String {
         ));
     }
     out.push_str(&format!(
-        "Fields: {} total, {} agree, {} mismatch, {} missing\n",
-        result.total_fields, result.fields_agree, result.fields_mismatch, result.fields_missing
+        "Fields: {} total, {} agree, {} type-differ, {} mismatch, {} missing\n",
+        result.total_fields, result.fields_agree, result.fields_type_differ,
+        result.fields_mismatch, result.fields_missing
     ));
 
     if !result.field_comparisons.is_empty() {
@@ -187,28 +188,34 @@ pub fn format_audit_summary(results: &[AuditResult]) -> String {
 
     out.push_str(&format!("Audit Summary: {} protocols\n\n", results.len()));
     out.push_str(&format!(
-        "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {}\n",
-        "Protocol", "Sources", "Agree", "Mis.", "Miss.", "Status"
+        "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {:>5}  {}\n",
+        "Protocol", "Sources", "Agree", "TDiff", "Split", "Miss.", "Status"
     ));
     out.push_str(&format!(
-        "  {}  {}  {}  {}  {}  {}\n",
-        "-".repeat(20), "-".repeat(7), "-".repeat(5), "-".repeat(5), "-".repeat(5), "-".repeat(10)
+        "  {}  {}  {}  {}  {}  {}  {}\n",
+        "-".repeat(20), "-".repeat(7), "-".repeat(5), "-".repeat(5),
+        "-".repeat(5), "-".repeat(5), "-".repeat(12)
     ));
 
     for r in results {
-        let status = if r.fields_mismatch == 0 && r.fields_missing == 0 {
+        let status = if r.fields_mismatch == 0 && r.fields_missing == 0 && r.fields_type_differ == 0 {
             "OK"
         } else if r.fields_mismatch > 0 {
-            "MISMATCH"
+            "SPLIT"
+        } else if r.fields_type_differ > 0 && r.fields_missing == 0 {
+            "TYPE_DIFF"
+        } else if r.fields_missing > 0 {
+            "PARTIAL"
         } else {
             "PARTIAL"
         };
 
         out.push_str(&format!(
-            "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {}\n",
+            "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {:>5}  {}\n",
             truncate(&r.protocol, 20),
             r.sources_present.len(),
             r.fields_agree,
+            r.fields_type_differ,
             r.fields_mismatch,
             r.fields_missing,
             status,
@@ -230,17 +237,18 @@ pub fn format_matrix(results: &[AuditResult]) -> String {
         results.len()
     ));
     out.push_str(&format!(
-        "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5}  {}\n",
-        "Protocol", "kernel", "scapy", "tshark", "xdp2", "Agree", "Split", "Miss.", "Notes"
+        "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5} {:>5}  {}\n",
+        "Protocol", "kernel", "scapy", "tshark", "xdp2", "Agree", "TDiff", "Split", "Miss.", "Notes"
     ));
     out.push_str(&format!(
-        "  {} {} {} {} {}  {} {} {}  {}\n",
+        "  {} {} {} {} {}  {} {} {} {}  {}\n",
         "-".repeat(16),
         "-".repeat(8),
         "-".repeat(8),
         "-".repeat(8),
         "-".repeat(8),
         "-".repeat(6),
+        "-".repeat(5),
         "-".repeat(5),
         "-".repeat(5),
         "-".repeat(30),
@@ -250,13 +258,13 @@ pub fn format_matrix(results: &[AuditResult]) -> String {
         let present: std::collections::HashSet<&str> =
             r.sources_present.iter().map(|s| s.as_str()).collect();
 
-        // Count fields each source contributes via sources_agree
+        // Count fields each source contributes via sources_structural (layout match)
         let mut src_fields: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
         for s in &sources {
             src_fields.insert(s, 0);
         }
         for comp in &r.field_comparisons {
-            for s in &comp.sources_agree {
+            for s in &comp.sources_structural {
                 if let Some(count) = src_fields.get_mut(s.as_str()) {
                     *count += 1;
                 }
@@ -283,15 +291,19 @@ pub fn format_matrix(results: &[AuditResult]) -> String {
         if r.fields_mismatch > 0 {
             notes.push("SPLIT");
         }
+        if r.fields_type_differ > 0 {
+            notes.push("TYPE_DIFF");
+        }
 
         out.push_str(&format!(
-            "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5}  {}\n",
+            "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5} {:>5}  {}\n",
             truncate(&r.protocol, 16),
             cell("kernel"),
             cell("scapy"),
             cell("tshark"),
             cell("xdp2"),
             r.fields_agree,
+            r.fields_type_differ,
             r.fields_mismatch,
             r.fields_missing,
             notes.join(", "),
@@ -489,12 +501,14 @@ pub fn format_findings(results: &[AuditResult]) -> String {
         ));
     }
 
-    // Section 4: Notable findings
-    out.push_str("\n\n4. NOTABLE FINDINGS\n");
+    // Section 4: Type/endian annotation differences (informational)
+    out.push_str("\n\n4. TYPE/ENDIAN ANNOTATION DIFFERENCES (informational)\n");
     out.push_str(&"-".repeat(80));
     out.push('\n');
+    out.push_str("\nFields where sources agree on layout (offset+size) but infer different\n");
+    out.push_str("types or endianness. These are annotation differences, not structural bugs.\n");
 
-    // Find specific interesting cases
+    let mut found_type_diffs = false;
     for r in results {
         let ext_present: Vec<&str> = r
             .sources_present
@@ -506,29 +520,64 @@ pub fn format_findings(results: &[AuditResult]) -> String {
             continue;
         }
 
-        for comp in &r.field_comparisons {
-            // Look for non-presence, non-split mismatches (type/endian disagreements)
-            let type_mismatches: Vec<_> = comp
-                .mismatches
-                .iter()
-                .filter(|m| m.field != "presence" && m.field != "split")
-                .collect();
+        let type_diff_fields: Vec<_> = r
+            .field_comparisons
+            .iter()
+            .filter(|c| {
+                c.sources_structural.len() >= 2
+                    && c.mismatches
+                        .iter()
+                        .any(|m| m.field == "field_type" || m.field == "endian")
+            })
+            .collect();
 
-            if !type_mismatches.is_empty() {
+        if !type_diff_fields.is_empty() {
+            found_type_diffs = true;
+            out.push_str(&format!(
+                "\n  {} (sources: {})\n",
+                r.protocol,
+                ext_present.join(", ")
+            ));
+            for comp in &type_diff_fields {
+                let details: Vec<String> = comp
+                    .mismatches
+                    .iter()
+                    .filter(|m| m.field == "field_type" || m.field == "endian")
+                    .map(|m| format!("{} {}={}", m.source, m.field, m.actual))
+                    .collect();
                 out.push_str(&format!(
-                    "\n  {} field '{}' @{}b {}b:\n",
-                    r.protocol, comp.name, comp.offset_bits, comp.size_bits,
+                    "    '{}' @{}b {}b [structural: {}]: {}\n",
+                    comp.name,
+                    comp.offset_bits,
+                    comp.size_bits,
+                    comp.sources_structural.join(","),
+                    details.join("; "),
                 ));
-                for m in &type_mismatches {
-                    out.push_str(&format!(
-                        "    {} disagrees: {} expected={} actual={}\n",
-                        m.source, m.field, m.expected, m.actual,
-                    ));
-                }
             }
         }
+    }
 
-        // Look for field split disagreements (interesting structural differences)
+    if !found_type_diffs {
+        out.push_str("\n  No type/endian annotation differences found.\n");
+    }
+
+    // Section 5: Field boundary disagreements (structural splits)
+    out.push_str("\n\n5. FIELD BOUNDARY DISAGREEMENTS\n");
+    out.push_str(&"-".repeat(80));
+    out.push('\n');
+
+    let mut found_splits = false;
+    for r in results {
+        let ext_present: Vec<&str> = r
+            .sources_present
+            .iter()
+            .filter(|s| *s != "xdp2")
+            .map(|s| s.as_str())
+            .collect();
+        if ext_present.len() < 2 {
+            continue;
+        }
+
         let splits: Vec<_> = r
             .field_comparisons
             .iter()
@@ -536,6 +585,7 @@ pub fn format_findings(results: &[AuditResult]) -> String {
             .collect();
 
         if !splits.is_empty() {
+            found_splits = true;
             out.push_str(&format!(
                 "\n  {} — field boundary disagreements:\n",
                 r.protocol,
@@ -552,11 +602,15 @@ pub fn format_findings(results: &[AuditResult]) -> String {
                     comp.name,
                     comp.offset_bits,
                     comp.size_bits,
-                    comp.sources_agree.join(", "),
+                    comp.sources_structural.join(", "),
                     split_detail.join("; "),
                 ));
             }
         }
+    }
+
+    if !found_splits {
+        out.push_str("\n  No field boundary disagreements found.\n");
     }
 
     out
@@ -571,12 +625,13 @@ pub fn format_matrix_json(results: &[AuditResult]) -> serde_json::Value {
         let present: std::collections::HashSet<&str> =
             r.sources_present.iter().map(|s| s.as_str()).collect();
 
+        // Use sources_structural for field counts (layout match)
         let mut src_fields: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
         for s in &sources {
             src_fields.insert(s, 0);
         }
         for comp in &r.field_comparisons {
-            for s in &comp.sources_agree {
+            for s in &comp.sources_structural {
                 if let Some(count) = src_fields.get_mut(s.as_str()) {
                     *count += 1;
                 }
@@ -594,6 +649,7 @@ pub fn format_matrix_json(results: &[AuditResult]) -> serde_json::Value {
             entry.insert((*s).into(), val);
         }
         entry.insert("fields_agree".into(), r.fields_agree.into());
+        entry.insert("fields_type_differ".into(), r.fields_type_differ.into());
         entry.insert("fields_mismatch".into(), r.fields_mismatch.into());
         entry.insert("fields_missing".into(), r.fields_missing.into());
         entry.insert(
@@ -739,10 +795,12 @@ mod tests {
                 offset_bits: 0,
                 size_bits: 4,
                 sources_agree: vec!["kernel".into(), "scapy".into()],
+                sources_structural: vec!["kernel".into(), "scapy".into()],
                 mismatches: vec![],
             }],
             total_fields: 1,
             fields_agree: 1,
+            fields_type_differ: 0,
             fields_mismatch: 0,
             fields_missing: 0,
         };

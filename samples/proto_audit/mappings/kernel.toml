@@ -1,0 +1,106 @@
+# Kernel C Type → IR Type Mappings
+#
+# Kernel developers can extend these tables to support new struct types
+# or correct type classifications without touching Rust code.
+
+[type_bits]
+# C type name → bit width
+__u8 = 8
+__s8 = 8
+__be8 = 8
+"unsigned char" = 8
+char = 8
+u8 = 8
+
+__u16 = 16
+__s16 = 16
+__be16 = 16
+__le16 = 16
+__sum16 = 16
+u16 = 16
+
+__u32 = 32
+__s32 = 32
+__be32 = 32
+__le32 = 32
+__wsum = 32
+u32 = 32
+
+__u64 = 64
+__s64 = 64
+__be64 = 64
+__le64 = 64
+u64 = 64
+
+[type_endian]
+# Keys use "prefix:" for starts-with matching, "exact:" for exact matching.
+# Value is the endianness: "Big", "Little", or "Na".
+"prefix:__be" = "Big"
+"prefix:__le" = "Little"
+"exact:__sum16" = "Big"   # network-order checksum (IP, TCP, UDP, ICMP)
+
+[field_type_overrides]
+# Field name → IR FieldType overrides.
+# These override the default Uint inference for well-known kernel struct
+# fields. Each entry documents the rationale — protocol-specific decisions,
+# not generic type inference.
+
+[field_type_overrides.protocol]
+type = "Enum"
+reason = "IPv4 protocol number (IANA registry)"
+
+[field_type_overrides.h_proto]
+type = "Enum"
+reason = "EtherType (IEEE 802 registry)"
+
+[field_type_overrides.nexthdr]
+type = "Enum"
+reason = "IPv6/extension header next-header (IANA)"
+
+[field_type_overrides.ar_hrd]
+type = "Enum"
+reason = "ARP hardware type (IANA)"
+
+[field_type_overrides.ar_pro]
+type = "Enum"
+reason = "ARP protocol type (EtherType)"
+
+[field_type_overrides.ar_op]
+type = "Enum"
+reason = "ARP operation code (IANA)"
+
+[field_type_overrides.type]
+type = "Enum"
+reason = "ICMP/IGMP message type (IANA)"
+
+[field_type_overrides.icmp6_type]
+type = "Enum"
+reason = "ICMPv6 message type (IANA)"
+
+[field_type_overrides.code]
+type = "Enum"
+reason = "ICMP/IGMP code (IANA sub-type registry)"
+
+[field_type_overrides.icmp6_code]
+type = "Enum"
+reason = "ICMPv6 code (IANA sub-type registry)"
+
+[field_type_overrides.h_vlan_encapsulated_proto]
+type = "Enum"
+reason = "VLAN encapsulated EtherType (IEEE 802)"
+
+[field_type_overrides.h_vlan_TCI]
+type = "Flags"
+reason = "VLAN tag control info (PCP + DEI + VID packed)"
+
+[field_type_overrides.group]
+type = "Ipv4Addr"
+reason = "IGMP multicast group address"
+require_bits = 32
+
+[array_endian_overrides]
+# C_type:array_size → endianness for specific array patterns.
+
+[array_endian_overrides."unsigned char:6"]
+endian = "Big"
+reason = "MAC address (ETH_ALEN) — network byte order"

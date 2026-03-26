@@ -147,8 +147,11 @@ pub struct FieldComparison {
     pub offset_bits: u32,
     /// Field width in bits
     pub size_bits: u32,
-    /// Which sources agree on this field
+    /// Which sources fully agree (offset+size+type+endian)
     pub sources_agree: Vec<String>,
+    /// Which sources structurally agree (offset+size match, type/endian may differ)
+    #[serde(default)]
+    pub sources_structural: Vec<String>,
     /// Which sources disagree (with details)
     pub mismatches: Vec<FieldMismatch>,
 }
@@ -171,6 +174,9 @@ pub struct AuditResult {
     pub field_comparisons: Vec<FieldComparison>,
     pub total_fields: u32,
     pub fields_agree: u32,
+    /// Fields where sources match on offset+size but disagree on type/endian
+    #[serde(default)]
+    pub fields_type_differ: u32,
     pub fields_mismatch: u32,
     pub fields_missing: u32,
 }

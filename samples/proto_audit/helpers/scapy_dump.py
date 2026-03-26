@@ -18,18 +18,33 @@ def get_packet_class(name):
     """Import and return the Scapy Packet class by name."""
     # Import scapy layers to register all packet classes
     import scapy.all  # noqa: F401
+    # Contrib modules must be explicitly imported to register their packet classes
+    for contrib in [
+        'scapy.contrib.igmp',
+        'scapy.contrib.geneve',
+        'scapy.contrib.macsec',
+        'scapy.contrib.lldp',
+        'scapy.contrib.erspan',
+        'scapy.contrib.nsh',
+        'scapy.contrib.hsr',
+    ]:
+        try:
+            __import__(contrib)
+        except ImportError:
+            pass
     from scapy.packet import Packet
 
-    # Search all subclasses
-    for cls in Packet.__subclasses__():
-        if cls.__name__ == name:
-            return cls
-    # Also search deeper (some are nested)
-    for cls in Packet.__subclasses__():
+    # Recursive search through all subclasses
+    def search(cls):
         for sub in cls.__subclasses__():
             if sub.__name__ == name:
                 return sub
-    return None
+            found = search(sub)
+            if found is not None:
+                return found
+        return None
+
+    return search(Packet)
 
 
 def field_size_bits(field):
@@ -60,6 +75,15 @@ def field_size_bits(field):
     return 0
 
 
+def unwrap_field(field):
+    """Unwrap decorator fields (Emph, ConditionalField, etc.) to get the real field."""
+    # Emph wraps a field for display emphasis; .fld is the inner field
+    # ConditionalField wraps a field with a condition; .fld is the inner field
+    while hasattr(field, 'fld') and type(field).__name__ in ('Emph', 'ConditionalField'):
+        field = field.fld
+    return field
+
+
 def dump_protocol(name):
     """Dump a single protocol's fields as JSON."""
     cls = get_packet_class(name)
@@ -70,10 +94,11 @@ def dump_protocol(name):
     fields = []
     total_bits = 0
     for f in cls.fields_desc:
-        bits = field_size_bits(f)
+        inner = unwrap_field(f)
+        bits = field_size_bits(inner)
         fields.append({
             "name": f.name,
-            "field_class": type(f).__name__,
+            "field_class": type(inner).__name__,
             "size_bits": bits,
             "default": str(f.default) if f.default is not None else None,
         })

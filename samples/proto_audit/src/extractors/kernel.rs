@@ -22,6 +22,7 @@ use regex::Regex;
 use std::collections::BTreeMap;
 
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
+use crate::type_mapping::{self, KernelMappings};
 
 /// A raw field parsed from a kernel struct.
 #[derive(Debug, Clone)]
@@ -46,33 +47,26 @@ pub struct KernelStruct {
     pub has_endian_bitfield: bool,
 }
 
-/// Map a kernel C type to its size in bits.
-fn c_type_bits(ty: &str) -> Option<u32> {
-    match ty {
-        "__u8" | "__s8" | "__be8" | "u8" | "char" | "unsigned char" => Some(8),
-        "__u16" | "__s16" | "__be16" | "__le16" | "__sum16" | "u16" => Some(16),
-        "__u32" | "__s32" | "__be32" | "__le32" | "__wsum" | "u32" => Some(32),
-        "__u64" | "__s64" | "__be64" | "__le64" | "u64" => Some(64),
-        _ => None,
-    }
+/// Map a kernel C type to its size in bits using loaded mappings.
+fn c_type_bits(ty: &str, mappings: &KernelMappings) -> Option<u32> {
+    mappings.type_bits(ty)
 }
 
-/// Determine endianness from kernel type annotation.
-fn c_type_endian(ty: &str) -> Endian {
-    if ty.starts_with("__be") {
-        Endian::Big
-    } else if ty.starts_with("__le") {
-        Endian::Little
-    } else {
-        // Native types (__u8, etc.) — for single-byte, Na; for multi-byte, assume platform
-        // In network protocol context, most multi-byte fields are big-endian
-        Endian::Na
-    }
+/// Determine endianness from kernel type annotation using loaded mappings.
+fn c_type_endian(ty: &str, mappings: &KernelMappings) -> Endian {
+    mappings.type_endian(ty)
 }
 
 /// Determine the semantic field type from the C type and field name.
-fn infer_field_type(c_type: &str, name: &str, bits: u32) -> FieldType {
-    // Address types by name pattern
+///
+/// Checks mapping overrides first, then falls back to name-pattern heuristics.
+fn infer_field_type(c_type: &str, name: &str, bits: u32, mappings: &KernelMappings) -> FieldType {
+    // 1. Check JSON field_type_overrides first
+    if let Some(ft) = mappings.field_type_override(name, bits) {
+        return ft;
+    }
+
+    // 2. Address types by name pattern
     if name.contains("addr") || name == "src" || name == "dst" || name == "saddr" || name == "daddr"
     {
         if bits == 32 {
@@ -88,12 +82,12 @@ fn infer_field_type(c_type: &str, name: &str, bits: u32) -> FieldType {
         }
     }
 
-    // Signed types (but not __sum16 which is a checksum, not signed)
+    // 3. Signed types (but not __sum16 which is a checksum, not signed)
     if c_type.starts_with("__s") && !c_type.starts_with("__sum") {
         return FieldType::Sint;
     }
 
-    // Padding/reserved
+    // 4. Padding/reserved
     if name.contains("pad") || name.contains("reserved") || name.starts_with("__") {
         return FieldType::Pad;
     }
@@ -229,6 +223,31 @@ fn unwrap_struct_group(body: &str) -> String {
     result
 }
 
+/// Strip C inline comments (`/* ... */`) from a single line.
+fn strip_inline_comments(line: &str) -> String {
+    let mut result = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '/' && chars.peek() == Some(&'*') {
+            chars.next(); // consume '*'
+            // Skip until closing */
+            loop {
+                match chars.next() {
+                    Some('*') if chars.peek() == Some(&'/') => {
+                        chars.next(); // consume '/'
+                        break;
+                    }
+                    None => break,
+                    _ => {}
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 /// Parse individual fields from a struct body.
 fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
     let mut fields = Vec::new();
@@ -237,11 +256,28 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
     let body = unwrap_struct_group(body);
 
     // Step 1: Filter out preprocessor directives and comments, join continuation lines
+    // Also track #if 0 / #endif blocks to skip dead-code fields
     let mut statements = Vec::new();
     let mut current = String::new();
+    let mut if0_depth: u32 = 0;
 
     for line in body.lines() {
         let trimmed = line.trim();
+
+        // Track #if 0 / #endif to skip dead-code blocks
+        if trimmed.starts_with("#if") && (trimmed.contains("0") && !trimmed.contains("defined")) {
+            if0_depth += 1;
+            continue;
+        }
+        if if0_depth > 0 {
+            if trimmed.starts_with("#if") {
+                if0_depth += 1;
+            } else if trimmed.starts_with("#endif") {
+                if0_depth -= 1;
+            }
+            continue;
+        }
+
         if trimmed.starts_with('#')
             || trimmed.starts_with("/*")
             || trimmed.starts_with("*")
@@ -251,11 +287,18 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
             continue;
         }
 
+        // Strip inline /* ... */ comments before processing
+        let cleaned = strip_inline_comments(trimmed);
+        let cleaned = cleaned.trim();
+        if cleaned.is_empty() {
+            continue;
+        }
+
         current.push(' ');
-        current.push_str(trimmed);
+        current.push_str(cleaned);
 
         // If line ends with `;`, it's a complete statement
-        if trimmed.ends_with(';') {
+        if cleaned.ends_with(';') {
             statements.push(current.trim().to_string());
             current.clear();
         }
@@ -350,7 +393,17 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
 }
 
 /// Convert a KernelStruct to field-level IR definitions.
+///
+/// Uses loaded mappings for type/endian inference. Call
+/// `to_field_defs_default()` for embedded defaults (tests/convenience).
 pub fn to_field_defs(ks: &KernelStruct) -> Vec<FieldDef> {
+    let mappings = type_mapping::load_kernel_mappings(None)
+        .expect("embedded kernel mappings should always parse");
+    to_field_defs_with(ks, &mappings)
+}
+
+/// Convert using explicit mappings.
+pub fn to_field_defs_with(ks: &KernelStruct, mappings: &KernelMappings) -> Vec<FieldDef> {
     let mut fields = Vec::new();
     let mut offset_bits: u32 = 0;
 
@@ -358,9 +411,9 @@ pub fn to_field_defs(ks: &KernelStruct) -> Vec<FieldDef> {
         let bits = if let Some(bw) = kf.bitfield_width {
             bw
         } else if let Some(arr) = kf.array_size {
-            c_type_bits(&kf.c_type).unwrap_or(8) * arr
+            c_type_bits(&kf.c_type, mappings).unwrap_or(8) * arr
         } else {
-            c_type_bits(&kf.c_type).unwrap_or(0)
+            c_type_bits(&kf.c_type, mappings).unwrap_or(0)
         };
 
         if bits == 0 {
@@ -369,11 +422,16 @@ pub fn to_field_defs(ks: &KernelStruct) -> Vec<FieldDef> {
 
         let endian = if kf.bitfield_width.is_some() || bits <= 8 {
             Endian::Na
+        } else if let Some(arr) = kf.array_size {
+            // Check array endian overrides (e.g., MAC addresses)
+            mappings
+                .array_endian_override(&kf.c_type, arr)
+                .unwrap_or_else(|| c_type_endian(&kf.c_type, mappings))
         } else {
-            c_type_endian(&kf.c_type)
+            c_type_endian(&kf.c_type, mappings)
         };
 
-        let field_type = infer_field_type(&kf.c_type, &kf.name, bits);
+        let field_type = infer_field_type(&kf.c_type, &kf.name, bits, mappings);
 
         fields.push(FieldDef {
             name: kf.name.clone(),
@@ -504,6 +562,12 @@ struct iphdr {
         assert_eq!(tot_len.size_bits, 16);
         assert_eq!(tot_len.endian, Endian::Big);
 
+        // check (__sum16) at offset 80, 16 bits, big-endian (network-order checksum)
+        let check = fields.iter().find(|f| f.name == "check").unwrap();
+        assert_eq!(check.offset_bits, 80);
+        assert_eq!(check.size_bits, 16);
+        assert_eq!(check.endian, Endian::Big);
+
         // saddr at offset 96, 32 bits, Ipv4Addr
         let saddr = fields.iter().find(|f| f.name == "saddr").unwrap();
         assert_eq!(saddr.offset_bits, 96);
@@ -543,6 +607,7 @@ struct ethhdr {
         assert_eq!(h_dest.offset_bits, 0);
         assert_eq!(h_dest.size_bits, 48);
         assert_eq!(h_dest.field_type, FieldType::MacAddr); // h_dest → MAC address
+        assert_eq!(h_dest.endian, Endian::Big); // MAC addresses are network byte order
 
         let h_proto = &fields[2];
         assert_eq!(h_proto.offset_bits, 96);
@@ -627,5 +692,136 @@ struct iphdr {
         // Total: 160 bits = 20 bytes
         let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap_or(0);
         assert_eq!(total, 160);
+    }
+
+    /// Test parsing arphdr with inline comments and #if 0 dead code.
+    const ARPHDR: &str = r#"
+struct arphdr {
+	__be16		ar_hrd;		/* format of hardware address	*/
+	__be16		ar_pro;		/* format of protocol address	*/
+	unsigned char	ar_hln;		/* length of hardware address	*/
+	unsigned char	ar_pln;		/* length of protocol address	*/
+	__be16		ar_op;		/* ARP opcode (command)		*/
+
+#if 0
+	 /*
+	  *	 Ethernet looks like this : This bit is variable sized however...
+	  */
+	unsigned char		ar_sha[ETH_ALEN];	/* sender hardware address	*/
+	unsigned char		ar_sip[4];		/* sender IP address		*/
+	unsigned char		ar_tha[ETH_ALEN];	/* target hardware address	*/
+	unsigned char		ar_tip[4];		/* target IP address		*/
+#endif
+
+};
+"#;
+
+    #[test]
+    fn test_parse_arphdr_inline_comments() {
+        let ks = parse_kernel_struct(ARPHDR, "arphdr").unwrap().unwrap();
+        assert_eq!(
+            ks.fields.len(),
+            5,
+            "expected 5 fields (ar_hrd, ar_pro, ar_hln, ar_pln, ar_op), got {:?}",
+            ks.fields.iter().map(|f| &f.name).collect::<Vec<_>>()
+        );
+
+        assert_eq!(ks.fields[0].name, "ar_hrd");
+        assert_eq!(ks.fields[0].c_type, "__be16");
+        assert_eq!(ks.fields[1].name, "ar_pro");
+        assert_eq!(ks.fields[2].name, "ar_hln");
+        assert_eq!(ks.fields[2].c_type, "unsigned char");
+        assert_eq!(ks.fields[3].name, "ar_pln");
+        assert_eq!(ks.fields[4].name, "ar_op");
+    }
+
+    #[test]
+    fn test_arphdr_field_defs() {
+        let ks = parse_kernel_struct(ARPHDR, "arphdr").unwrap().unwrap();
+        let fields = to_field_defs(&ks);
+        assert_eq!(fields.len(), 5);
+
+        // ar_hrd: 0..16 big-endian, Enum (via mapping override)
+        assert_eq!(fields[0].offset_bits, 0);
+        assert_eq!(fields[0].size_bits, 16);
+        assert_eq!(fields[0].endian, Endian::Big);
+        assert_eq!(fields[0].field_type, FieldType::Enum);
+
+        // ar_pro: Enum (via mapping override)
+        assert_eq!(fields[1].field_type, FieldType::Enum);
+
+        // ar_op at offset 48, 16 bits, Enum (via mapping override)
+        assert_eq!(fields[4].offset_bits, 48);
+        assert_eq!(fields[4].size_bits, 16);
+        assert_eq!(fields[4].field_type, FieldType::Enum);
+
+        // Total: 64 bits = 8 bytes
+        let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap_or(0);
+        assert_eq!(total, 64);
+    }
+
+    #[test]
+    fn test_iphdr_protocol_field_is_enum() {
+        let ks = parse_kernel_struct(IPHDR, "iphdr").unwrap().unwrap();
+        let fields = to_field_defs(&ks);
+        let protocol = fields.iter().find(|f| f.name == "protocol").unwrap();
+        assert_eq!(protocol.field_type, FieldType::Enum);
+    }
+
+    const VLANHDR: &str = r#"
+struct vlan_hdr {
+    __be16  h_vlan_TCI;
+    __be16  h_vlan_encapsulated_proto;
+};
+"#;
+
+    #[test]
+    fn test_vlanhdr_field_types() {
+        let ks = parse_kernel_struct(VLANHDR, "vlan_hdr").unwrap().unwrap();
+        let fields = to_field_defs(&ks);
+        assert_eq!(fields.len(), 2);
+
+        // h_vlan_TCI → Flags (packed PCP + DEI + VID)
+        assert_eq!(fields[0].name, "h_vlan_TCI");
+        assert_eq!(fields[0].field_type, FieldType::Flags);
+        assert_eq!(fields[0].endian, Endian::Big);
+
+        // h_vlan_encapsulated_proto → Enum (EtherType)
+        assert_eq!(fields[1].name, "h_vlan_encapsulated_proto");
+        assert_eq!(fields[1].field_type, FieldType::Enum);
+        assert_eq!(fields[1].endian, Endian::Big);
+    }
+
+    const ICMPHDR: &str = r#"
+struct icmphdr {
+    __u8    type;
+    __u8    code;
+    __sum16 checksum;
+    __be16  id;
+    __be16  sequence;
+};
+"#;
+
+    #[test]
+    fn test_icmphdr_field_types() {
+        let ks = parse_kernel_struct(ICMPHDR, "icmphdr").unwrap().unwrap();
+        let fields = to_field_defs(&ks);
+
+        let type_field = fields.iter().find(|f| f.name == "type").unwrap();
+        assert_eq!(type_field.field_type, FieldType::Enum);
+
+        let code_field = fields.iter().find(|f| f.name == "code").unwrap();
+        assert_eq!(code_field.field_type, FieldType::Enum);
+
+        let checksum = fields.iter().find(|f| f.name == "checksum").unwrap();
+        assert_eq!(checksum.endian, Endian::Big); // __sum16 → Big
+    }
+
+    #[test]
+    fn test_ethhdr_h_proto_is_enum() {
+        let ks = parse_kernel_struct(ETHHDR, "ethhdr").unwrap().unwrap();
+        let fields = to_field_defs(&ks);
+        let h_proto = fields.iter().find(|f| f.name == "h_proto").unwrap();
+        assert_eq!(h_proto.field_type, FieldType::Enum);
     }
 }

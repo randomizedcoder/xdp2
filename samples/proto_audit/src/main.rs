@@ -9,6 +9,12 @@ mod generator;
 mod ir;
 mod name_mapping;
 mod report;
+mod type_mapping;
+
+#[cfg(test)]
+mod test_data;
+#[cfg(test)]
+mod roundtrip_tests;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -390,7 +396,7 @@ fn cmd_audit(
         // Print detailed results for protocols with mismatches
         let problematic: Vec<_> = results
             .iter()
-            .filter(|r| r.fields_mismatch > 0 || r.fields_missing > 0)
+            .filter(|r| r.fields_mismatch > 0 || r.fields_missing > 0 || r.fields_type_differ > 0)
             .collect();
 
         if !problematic.is_empty() {
