@@ -104,3 +104,7 @@ require_bits = 32
 [array_endian_overrides."unsigned char:6"]
 endian = "Big"
 reason = "MAC address (ETH_ALEN) — network byte order"
+
+[array_endian_overrides."__be32:4"]
+endian = "Big"
+reason = "TIPC node ID / address fields — network byte order"

@@ -1,10 +1,39 @@
 # proto-audit Status
 
-## Current State (Iteration 6)
+## Current State (Iteration 7)
 
-41 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+69 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
-107 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 7: Expanded Protocol Coverage (41 → 69)
+
+Added **28 new protocols** to the audit matrix, making it a near-complete inventory
+of XDP2's protocol coverage. The additions span UAPI kernel protocols, Bluetooth
+variants, management/industrial protocols, and legacy/niche protocols.
+
+**Batch 1 — UAPI Kernel Protocols (8):**
+IPv6_EH, IPv6_ND, IEEE802154, MCTP, Phonet, GenNetlink, NLAttr, TIPC
+
+**Batch 2 — Bluetooth Variants + EAPOL + CAN_XL (7):**
+HCI_CMD, HCI_ACL, HCI_Event, HCI_SCO, HCI_ISO, EAPOL, CAN_XL
+
+**Batch 3 — Management & Industrial (10):**
+TRILL, BATMAN, DSA, EDSA, CFM, FIP, MAC_Control, MVRP, NC_SI, Slow_Protocols
+
+**Batch 4 — Legacy/Niche (3):**
+PROFINET, X25, ATM
+
+**Supporting changes:**
+- `kernel.toml`: Added `__be32:4` array_endian_override for TIPC
+- `scapy_dump.py`: Added `dot15d4`, `bluetooth`, `eap` imports
+- 2 new cross-source tests (IPv6_EH kernel+scapy, IEEE802154 kernel+scapy)
+
+**Protocols deliberately excluded:** version dispatchers (`xdp2_parse_ip`),
+encap duplicates (`ipv4ip`/`ipv6ip`), sub-parsers (`l2tp_v0_*`, `ipv6_routing_hdr`),
+generic wrappers (`ports`, `protobufs`).
+
+Test count: 107 → 109 (+2 tests).
 
 ### Iteration 6: Etherparse Source + "Adding a Source" Guide
 

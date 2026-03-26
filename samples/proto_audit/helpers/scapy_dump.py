@@ -27,6 +27,9 @@ def get_packet_class(name):
         'scapy.contrib.erspan',
         'scapy.contrib.nsh',
         'scapy.contrib.hsr',
+        'scapy.contrib.dot15d4',
+        'scapy.layers.bluetooth',
+        'scapy.layers.eap',
     ]:
         try:
             __import__(contrib)

@@ -1091,6 +1091,133 @@ struct udphdr {
         );
     }
 
+    /// Cross-source test: kernel ipv6_opt_hdr + scapy IPv6ExtHdrHopByHop
+    #[test]
+    fn test_cross_source_ipv6_eh_kernel_scapy() {
+        use crate::extractors::{kernel, scapy};
+
+        let ipv6_opt_hdr_c = r#"
+struct ipv6_opt_hdr {
+    __u8    nexthdr;
+    __u8    hdrlen;
+};
+"#;
+        let ks = kernel::parse_kernel_struct(ipv6_opt_hdr_c, "ipv6_opt_hdr")
+            .unwrap()
+            .unwrap();
+        let k_proto = make_proto("ipv6_opt_hdr", kernel::to_field_defs(&ks));
+
+        let hop_json = r#"{
+  "name": "IPv6ExtHdrHopByHop", "module": "scapy.layers.inet6", "min_bytes": 2,
+  "fields": [
+    {"name": "nh", "field_class": "ByteEnumField", "size_bits": 8},
+    {"name": "len", "field_class": "ByteField", "size_bits": 8}
+  ]
+}"#;
+        let sp = scapy::parse_scapy_json(hop_json).unwrap();
+        let s_proto = scapy::to_protocol_def(&sp);
+
+        let result = audit_protocol("IPv6_EH", &[("kernel", &k_proto), ("scapy", &s_proto)]);
+
+        assert_eq!(result.sources_present.len(), 2);
+        assert_eq!(result.total_fields, 2);
+        // Both fields should structurally match
+        for comp in &result.field_comparisons {
+            assert_eq!(
+                comp.sources_structural.len(),
+                2,
+                "field '{}' should be structurally present in both sources",
+                comp.name
+            );
+        }
+        // nexthdr/nh: kernel override → Enum, scapy ByteEnumField → Enum
+        let nh = result
+            .field_comparisons
+            .iter()
+            .find(|c| c.offset_bits == 0 && c.size_bits == 8)
+            .expect("nexthdr/nh field at offset 0");
+        assert!(
+            nh.mismatches.iter().all(|m| m.field != "field_type"),
+            "nexthdr/nh should agree on type (both Enum)"
+        );
+    }
+
+    /// Cross-source test: kernel ieee802154_hdr_fc + scapy Dot15d4
+    #[test]
+    fn test_cross_source_ieee802154_kernel_scapy() {
+        use crate::extractors::{kernel, scapy};
+
+        // IEEE 802.15.4 frame control is a 16-bit bitfield in the kernel
+        let ieee802154_c = r#"
+struct ieee802154_hdr_fc {
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+    __u16   type:3,
+            security:1,
+            pending:1,
+            ack_request:1,
+            intra_pan:1,
+            reserved:3,
+            dest_addr_mode:2,
+            version:2,
+            source_addr_mode:2;
+#elif defined(__BIG_ENDIAN_BITFIELD)
+    __u16   reserved:1,
+            intra_pan:1,
+            ack_request:1,
+            pending:1,
+            security:1,
+            type:3,
+            source_addr_mode:2,
+            version:2,
+            dest_addr_mode:2,
+            reserved2:3;
+#endif
+};
+"#;
+        let ks = kernel::parse_kernel_struct(ieee802154_c, "ieee802154_hdr_fc")
+            .unwrap()
+            .unwrap();
+        let k_fields = kernel::to_field_defs(&ks);
+        let k_proto = make_proto("ieee802154_hdr_fc", k_fields);
+
+        // Scapy Dot15d4 minimal representation (frame control fields)
+        let dot15d4_json = r#"{
+  "name": "Dot15d4", "module": "scapy.contrib.dot15d4", "min_bytes": 3,
+  "fields": [
+    {"name": "fcf_frametype", "field_class": "BitField", "size_bits": 3},
+    {"name": "fcf_security", "field_class": "BitField", "size_bits": 1},
+    {"name": "fcf_pending", "field_class": "BitField", "size_bits": 1},
+    {"name": "fcf_ackreq", "field_class": "BitField", "size_bits": 1},
+    {"name": "fcf_intrapan", "field_class": "BitField", "size_bits": 1},
+    {"name": "fcf_reserved", "field_class": "BitField", "size_bits": 3},
+    {"name": "fcf_destaddrmode", "field_class": "BitField", "size_bits": 2},
+    {"name": "fcf_framever", "field_class": "BitField", "size_bits": 2},
+    {"name": "fcf_srcaddrmode", "field_class": "BitField", "size_bits": 2},
+    {"name": "seqnum", "field_class": "ByteField", "size_bits": 8}
+  ]
+}"#;
+        let sp = scapy::parse_scapy_json(dot15d4_json).unwrap();
+        let s_proto = scapy::to_protocol_def(&sp);
+
+        let result =
+            audit_protocol("IEEE802154", &[("kernel", &k_proto), ("scapy", &s_proto)]);
+
+        assert_eq!(result.sources_present.len(), 2);
+
+        // Both sources should have sub-byte bitfields that match at the same offsets
+        // At minimum type(3), security(1), pending(1), ack_request(1), intra_pan(1) should match
+        let matched: Vec<_> = result
+            .field_comparisons
+            .iter()
+            .filter(|c| c.sources_structural.len() == 2)
+            .collect();
+        assert!(
+            matched.len() >= 4,
+            "at least 4 bitfields should structurally match, got {}",
+            matched.len()
+        );
+    }
+
     /// Cross-source test: kernel udphdr + scapy UDP + tshark udp + etherparse UdpHeader (four-way)
     #[test]
     fn test_cross_source_udp_four_way() {
