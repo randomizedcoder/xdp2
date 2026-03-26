@@ -120,6 +120,7 @@
             export PROTO_AUDIT_PYTHON="''${PROTO_AUDIT_PYTHON:-${protoAuditSources.scapyPython}/bin/python3}"
             export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"
             export PROTO_AUDIT_PCAP="''${PROTO_AUDIT_PCAP:-${test-pcap}/combo.pcap}"
+            export PROTO_AUDIT_ETHERPARSE_SRC="''${PROTO_AUDIT_ETHERPARSE_SRC:-${protoAuditSources.etherparseSrc}}"
             exec proto-audit "$@"
           '';
         };
@@ -132,6 +133,7 @@
           "--python ${protoAuditSources.scapyPython}/bin/python3"
           "--tshark-bin ${protoAuditSources.tshark}/bin/tshark"
           "--pcap ${test-pcap}/combo.pcap"
+          "--etherparse-src ${protoAuditSources.etherparseSrc}"
         ];
 
         # Full audit report (cached Nix derivation)

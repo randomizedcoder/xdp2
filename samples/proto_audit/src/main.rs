@@ -54,6 +54,10 @@ struct SourcePaths {
     /// tshark binary
     #[arg(long, env = "PROTO_AUDIT_TSHARK_BIN", default_value = "tshark")]
     tshark_bin: String,
+
+    /// Path to etherparse source tree
+    #[arg(long, env = "PROTO_AUDIT_ETHERPARSE_SRC")]
+    etherparse_src: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -292,6 +296,22 @@ fn try_extract(
                 extractors::tshark::extract_protocol_from_pdml(&packets, dissector)?;
             Some(extractors::tshark::to_protocol_def(&pdml))
         }
+        "etherparse" => {
+            let src = paths.etherparse_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.etherparse_struct?;
+            let source_file = names.etherparse_file?;
+            let file_path = src.join(source_file);
+            let content = std::fs::read_to_string(&file_path).ok()?;
+            let mut def = extractors::etherparse::extract_protocol(
+                &content, struct_name, source_file,
+            )
+            .ok()
+            .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         _ => None,
     }
 }
@@ -314,7 +334,7 @@ fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {
@@ -576,6 +596,8 @@ fn cmd_list(json_output: bool) -> Result<()> {
                     "kernel_header": p.kernel_header,
                     "scapy": p.scapy,
                     "tshark": p.tshark,
+                    "etherparse_struct": p.etherparse_struct,
+                    "etherparse_file": p.etherparse_file,
                     "min_header_bytes": p.min_header_bytes,
                     "variable_length": p.variable_length,
                 })
@@ -584,21 +606,22 @@ fn cmd_list(json_output: bool) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&json_list)?);
     } else {
         println!(
-            "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:>4}",
-            "Protocol", "XDP2", "Kernel", "Scapy", "tshark", "Bytes"
+            "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:>4}",
+            "Protocol", "XDP2", "Kernel", "Scapy", "tshark", "etherparse", "Bytes"
         );
         println!(
-            "  {}  {}  {}  {}  {}  {}",
-            "-".repeat(16), "-".repeat(30), "-".repeat(14), "-".repeat(8), "-".repeat(8), "-".repeat(4)
+            "  {}  {}  {}  {}  {}  {}  {}",
+            "-".repeat(16), "-".repeat(30), "-".repeat(14), "-".repeat(8), "-".repeat(8), "-".repeat(20), "-".repeat(4)
         );
         for p in &table {
             println!(
-                "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:>4}",
+                "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:>4}",
                 p.canonical,
                 p.xdp2.unwrap_or("-"),
                 p.kernel_struct.unwrap_or("-"),
                 p.scapy.unwrap_or("-"),
                 p.tshark.unwrap_or("-"),
+                p.etherparse_struct.unwrap_or("-"),
                 p.min_header_bytes,
             );
         }

@@ -34,4 +34,12 @@ in
 
   # tshark binary (Wireshark CLI)
   tshark = pkgs.wireshark-cli;
+
+  # etherparse Rust crate source (for struct parsing)
+  etherparseSrc = pkgs.fetchFromGitHub {
+    owner = "JulianSchmid";
+    repo = "etherparse";
+    rev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";
+    hash = "sha256-5Ng3OFI4/OcLGlNJpfJamJwzA9xNQdwu5bUUGB4m6Ic=";
+  };
 }

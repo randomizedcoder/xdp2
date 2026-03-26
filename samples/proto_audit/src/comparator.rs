@@ -1037,4 +1037,99 @@ struct udphdr {
             }
         }
     }
+
+    /// Cross-source test: kernel ethhdr + scapy Ether + tshark eth + etherparse Ethernet2Header (four-way)
+    #[test]
+    fn test_cross_source_ethernet_four_way() {
+        use crate::extractors::{etherparse, kernel, scapy, tshark};
+        use crate::test_data::*;
+
+        let ks = kernel::parse_kernel_struct(KERNEL_ETHHDR, "ethhdr").unwrap().unwrap();
+        let k_proto = make_proto("ethhdr", kernel::to_field_defs(&ks));
+
+        let sp = scapy::parse_scapy_json(SCAPY_ETHER_JSON).unwrap();
+        let s_proto = scapy::to_protocol_def(&sp);
+
+        let packets = tshark::parse_pdml(TSHARK_ETH_IP_PDML).unwrap();
+        let eth = tshark::extract_protocol_from_pdml(&packets, "eth").unwrap();
+        let t_proto = tshark::to_protocol_def(&eth);
+
+        let e_proto = etherparse::extract_protocol(
+            ETHERPARSE_ETHERNET2_HEADER, "Ethernet2Header", "test",
+        )
+        .unwrap()
+        .unwrap();
+
+        let result = audit_protocol(
+            "Ethernet",
+            &[
+                ("kernel", &k_proto),
+                ("scapy", &s_proto),
+                ("tshark", &t_proto),
+                ("etherparse", &e_proto),
+            ],
+        );
+
+        assert_eq!(result.sources_present.len(), 4);
+        assert_eq!(result.total_fields, 3);
+
+        // All 3 fields should structurally match across all 4 sources
+        for comp in &result.field_comparisons {
+            assert_eq!(
+                comp.sources_structural.len(),
+                4,
+                "field '{}' should be structurally present in all 4 sources",
+                comp.name
+            );
+        }
+
+        // MAC fields and ether_type should agree on type
+        assert!(
+            result.fields_agree >= 3,
+            "all 3 Ethernet fields should agree, got {}",
+            result.fields_agree
+        );
+    }
+
+    /// Cross-source test: kernel udphdr + scapy UDP + tshark udp + etherparse UdpHeader (four-way)
+    #[test]
+    fn test_cross_source_udp_four_way() {
+        use crate::extractors::{etherparse, kernel, scapy, tshark};
+        use crate::test_data::*;
+
+        let ks = kernel::parse_kernel_struct(KERNEL_UDPHDR, "udphdr").unwrap().unwrap();
+        let k_proto = make_proto("udphdr", kernel::to_field_defs(&ks));
+
+        let sp = scapy::parse_scapy_json(SCAPY_UDP_JSON).unwrap();
+        let s_proto = scapy::to_protocol_def(&sp);
+
+        let packets = tshark::parse_pdml(TSHARK_UDP_PDML).unwrap();
+        let udp = tshark::extract_protocol_from_pdml(&packets, "udp").unwrap();
+        let t_proto = tshark::to_protocol_def(&udp);
+
+        let e_proto = etherparse::extract_protocol(
+            ETHERPARSE_UDP_HEADER, "UdpHeader", "test",
+        )
+        .unwrap()
+        .unwrap();
+
+        let result = audit_protocol(
+            "UDP",
+            &[
+                ("kernel", &k_proto),
+                ("scapy", &s_proto),
+                ("tshark", &t_proto),
+                ("etherparse", &e_proto),
+            ],
+        );
+
+        assert_eq!(result.sources_present.len(), 4);
+        assert_eq!(result.total_fields, 4);
+        // All 4 should be Uint across all 4 sources
+        assert_eq!(
+            result.fields_agree, 4,
+            "all 4 UDP fields should fully agree, got {} agree, {} type_differ",
+            result.fields_agree, result.fields_type_differ
+        );
+    }
 }

@@ -1,10 +1,48 @@
 # proto-audit Status
 
-## Current State (Iteration 5)
+## Current State (Iteration 6)
 
-41 protocols audited across 4 sources (XDP2, kernel, scapy, tshark).
-17 protocols have 2+ external sources for cross-validation.
-93 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+41 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
+107 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 6: Etherparse Source + "Adding a Source" Guide
+
+Added **etherparse** as a 5th protocol definition source, proving the architecture
+is extensible across languages (Rust vs C vs Python vs XML). Shipped alongside a
+comprehensive guide document (`docs/adding-a-source.md`) using etherparse as the
+worked example.
+
+**New modules:**
+- `src/extractors/etherparse.rs` — Rust struct parser + IR conversion (~320 lines + ~210 lines tests)
+- `mappings/etherparse.toml` — type/endian/field/implicit-field/flag mappings
+
+**Key design decisions:**
+- Wire-accurate bit widths in TOML (e.g., `IpDscp` → 6 bits, not 8)
+- Implicit field handling via TOML `start_offset_bits` and `gaps` (IPv4 version/IHL, IPv6 version, TCP data_offset/reserved)
+- TCP flag wire ordering via `flag_bit_offsets` table (struct order ≠ wire order)
+- `EtherparseMappings` struct with extra sections beyond `KernelMappings`
+
+**New type mapping structs:**
+- `EtherparseMappings` — extends base with `implicit_fields` and `flag_bit_offsets`
+- `ImplicitFieldConfig` — start_offset_bits + gaps
+- `GapEntry` — after field name + skip_bits
+
+**Name mapping extensions:**
+- Added `etherparse_struct` and `etherparse_file` fields to `ProtocolNames`
+- Populated 9 protocols, `find_by_etherparse_struct()` lookup
+
+**Tests added:**
+- 7 extractor unit tests (parsing, array fields, non-pub field skipping, offset calculations)
+- 5 roundtrip tests (Ethernet, UDP, IPv4, TCP, IPv6)
+- 2 four-way cross-source tests (Ethernet: kernel+scapy+tshark+etherparse, UDP: same)
+
+**Nix integration:**
+- `etherparseSrc` in `nix/proto-audit-sources.nix` (fetchFromGitHub, pinned hash)
+- `PROTO_AUDIT_ETHERPARSE_SRC` env var in proto-audit wrapper
+- `--etherparse-src` flag in `protoAuditFlags`
+
+Test count: 93 → 107 (+14 tests).
 
 ### Iteration 5: Roundtrip & Cross-Mapping Tests
 

@@ -4,7 +4,7 @@
 //! 1. Forward: extractor produces correct IR field properties
 //! 2. Reverse: TOML reverse lookup confirms the original mapping is consistent
 
-use crate::extractors::{kernel, scapy, tshark};
+use crate::extractors::{etherparse, kernel, scapy, tshark};
 use crate::ir::{Endian, FieldDef, FieldType};
 use crate::test_data::*;
 use crate::type_mapping;
@@ -346,4 +346,128 @@ fn roundtrip_tshark_udp() {
     );
 
     assert!(mappings.matches_for(&FieldType::Uint, 16));
+}
+
+// ── Etherparse roundtrip tests ──
+
+#[test]
+fn roundtrip_etherparse_ethernet() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_ETHERNET2_HEADER, "Ethernet2Header")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 3);
+    assert_field(&fields, "source", 0, 48, FieldType::MacAddr, Endian::Big);
+    assert_field(&fields, "destination", 48, 48, FieldType::MacAddr, Endian::Big);
+    assert_field(&fields, "ether_type", 96, 16, FieldType::Enum, Endian::Big);
+
+    // Total: 112 bits = 14 bytes
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 112);
+}
+
+#[test]
+fn roundtrip_etherparse_udp() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_UDP_HEADER, "UdpHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 4);
+    assert_field(&fields, "source_port", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "destination_port", 16, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "length", 32, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "checksum", 48, 16, FieldType::Uint, Endian::Big);
+
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 64);
+}
+
+#[test]
+fn roundtrip_etherparse_ipv4() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_IPV4_HEADER, "Ipv4Header")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    // dscp(6)+ecn(2)+total_len(16)+identification(16)+dont_fragment(1)+more_fragments(1)
+    // +fragment_offset(13)+time_to_live(8)+protocol(8)+header_checksum(16)+source(32)+destination(32)
+    // = 12 fields (options skipped)
+    assert_eq!(fields.len(), 12);
+
+    // dscp starts at offset 8 (version:4 + ihl:4 implicit)
+    assert_field(&fields, "dscp", 8, 6, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "ecn", 14, 2, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "total_len", 16, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "identification", 32, 16, FieldType::Uint, Endian::Big);
+    // After identification: +1 reserved bit gap
+    assert_field(&fields, "dont_fragment", 49, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "more_fragments", 50, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "fragment_offset", 51, 13, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "time_to_live", 64, 8, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "protocol", 72, 8, FieldType::Enum, Endian::Na);
+    assert_field(&fields, "header_checksum", 80, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "source", 96, 32, FieldType::Ipv4Addr, Endian::Big);
+    assert_field(&fields, "destination", 128, 32, FieldType::Ipv4Addr, Endian::Big);
+}
+
+#[test]
+fn roundtrip_etherparse_tcp() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_TCP_HEADER, "TcpHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    // source_port, destination_port, sequence_number, acknowledgment_number,
+    // ns, fin, syn, rst, psh, ack, urg, ece, cwr, window_size, checksum, urgent_pointer
+    // = 16 fields (options skipped)
+    assert_eq!(fields.len(), 16);
+
+    assert_field(&fields, "source_port", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "destination_port", 16, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "sequence_number", 32, 32, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "acknowledgment_number", 64, 32, FieldType::Uint, Endian::Big);
+
+    // TCP flags at explicit wire positions
+    assert_field(&fields, "ns", 103, 1, FieldType::Flags, Endian::Na);
+    assert_field(&fields, "cwr", 104, 1, FieldType::Flags, Endian::Na);
+    assert_field(&fields, "ece", 105, 1, FieldType::Flags, Endian::Na);
+    assert_field(&fields, "fin", 111, 1, FieldType::Flags, Endian::Na);
+
+    assert_field(&fields, "window_size", 112, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "checksum", 128, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "urgent_pointer", 144, 16, FieldType::Uint, Endian::Big);
+
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 160);
+}
+
+#[test]
+fn roundtrip_etherparse_ipv6() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_IPV6_HEADER, "Ipv6Header")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    // traffic_class(8)+flow_label(20)+payload_length(16)+next_header(8)+hop_limit(8)
+    // +source(128)+destination(128) = 7 fields
+    assert_eq!(fields.len(), 7);
+
+    // Starts at offset 4 (version:4 implicit)
+    assert_field(&fields, "traffic_class", 4, 8, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "flow_label", 12, 20, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "payload_length", 32, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "next_header", 48, 8, FieldType::Enum, Endian::Na);
+    assert_field(&fields, "hop_limit", 56, 8, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "source", 64, 128, FieldType::Ipv6Addr, Endian::Big);
+    assert_field(&fields, "destination", 192, 128, FieldType::Ipv6Addr, Endian::Big);
+
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 320); // 40 bytes
 }

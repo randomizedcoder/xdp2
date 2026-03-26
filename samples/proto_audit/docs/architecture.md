@@ -11,22 +11,23 @@ normalizes them into a common IR, then compares and reports on agreement.
                     │  (clap, serde, roxmltree)     │
                     └──────┬───────────────────────┘
                            │
-           ┌───────────────┼───────────────┐
-           │               │               │
-    ┌──────▼──────┐ ┌──────▼──────┐ ┌──────▼──────┐
-    │  XDP2       │ │  Kernel     │ │  tshark     │
-    │  Extractor  │ │  Extractor  │ │  Extractor  │
-    │ (regex C)   │ │ (regex C)   │ │ (PDML XML)  │
-    └─────────────┘ └─────────────┘ └──────┬──────┘
-           │               │               │
-           │        ┌──────▼──────┐  tshark subprocess
-           │        │  Type       │        │
-    ┌──────▼──────┐ │  Mappings   │ ┌──────▼──────┐
-    │  Scapy      │ │  (TOML)     │ │  Python     │
-    │  Extractor  │ └─────────────┘ │  helper     │
-    └─────────────┘                 └─────────────┘
-           │
-           ▼
+       ┌───────────┬───────┼───────────┬───────────┐
+       │           │       │           │           │
+┌──────▼──────┐ ┌──▼───────▼──┐ ┌──────▼──────┐ ┌──▼──────────┐
+│  XDP2       │ │  Kernel     │ │  tshark     │ │ etherparse  │
+│  Extractor  │ │  Extractor  │ │  Extractor  │ │ Extractor   │
+│ (regex C)   │ │ (regex C)   │ │ (PDML XML)  │ │ (regex Rust)│
+└─────────────┘ └─────────────┘ └──────┬──────┘ └─────────────┘
+       │               │               │               │
+       │        ┌──────▼──────┐  tshark subprocess     │
+       │        │  Type       │        │               │
+┌──────▼──────┐ │  Mappings   │ ┌──────▼──────┐        │
+│  Scapy      │ │  (TOML)     │ │  Python     │        │
+│  Extractor  │ └─────────────┘ │  helper     │        │
+└─────────────┘                 └─────────────┘        │
+       │                                               │
+       └───────────────────┬───────────────────────────┘
+                           ▼
     ┌─────────────────────┐     ┌──────────────────┐
     │  Comparator         │ ──► │  Report          │
     │  (field matching)   │     │  (text / JSON)   │
@@ -47,6 +48,7 @@ normalizes them into a common IR, then compares and reports on agreement.
 | **Linux kernel** | C structs (UAPI headers) | Nix-pinned source |
 | **Scapy** | Python classes (`fields_desc`) | Runtime introspection via JSON |
 | **tshark** | PDML XML (`<proto>`/`<field>`) | `tshark -T pdml` subprocess |
+| **etherparse** | Rust structs (`pub struct`) | Nix-pinned source (regex parse) |
 
 ## Intermediate Representation
 
@@ -70,6 +72,7 @@ type inference logic with an extensible, documented configuration.
 | `mappings/kernel.toml` | C type → bit width, endianness; field name → IR type overrides |
 | `mappings/scapy.toml` | Scapy field class → IR type; name-pattern fallbacks |
 | `mappings/tshark.toml` | tshark field name patterns → IR type; blocklist suffixes |
+| `mappings/etherparse.toml` | Rust type → wire bit width; implicit fields, flag bit offsets |
 
 ### How it works
 
@@ -152,6 +155,26 @@ Type inference uses `mappings/tshark.toml`:
 - `enum_patterns`: substring + max bits → Enum (e.g., `proto` at ≤16 bits)
 - `blocklist_suffixes`: filtered out (`.payload`, `.padding`, `.trailer`, etc.)
 
+### etherparse (`src/extractors/etherparse.rs`)
+
+Parses Rust `pub struct` definitions from etherparse source files. Handles:
+- Array fields (`[u8; 6]` for MAC addresses)
+- Non-pub field filtering (ARP private fields skipped)
+- Newtype wrappers mapped to wire bit widths via TOML
+- Implicit wire fields (IPv4 version/IHL, IPv6 version, TCP data_offset/reserved)
+- TCP flag reordering (struct order ≠ wire order)
+
+Type inference uses `mappings/etherparse.toml`:
+- `type_bits`: Rust type → wire bit width (including newtype wrappers)
+- `field_type_overrides`: field name → semantic type
+- `implicit_fields`: start_offset_bits + gaps for missing wire fields
+- `flag_bit_offsets`: field name → absolute wire bit position
+- `array_endian_overrides`: Rust type + array size → endianness
+
+Covers 9 protocols: Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6.
+
+See `docs/adding-a-source.md` for the complete guide using etherparse as a worked example.
+
 ### XDP2 (`src/extractors/xdp2.rs`)
 
 Scans XDP2's `proto_defs/` directory for `xdp2_proto_def` struct
@@ -162,8 +185,8 @@ and length field metadata.
 
 `src/name_mapping.rs` maintains a table of 41 protocols with canonical names
 and per-source identifiers (XDP2 function name, kernel struct, Scapy class,
-tshark filter). This enables cross-source correlation without relying on
-naming conventions.
+tshark filter, etherparse struct). This enables cross-source correlation
+without relying on naming conventions.
 
 ## Report Outputs
 

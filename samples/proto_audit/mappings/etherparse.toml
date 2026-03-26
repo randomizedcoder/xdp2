@@ -1,0 +1,91 @@
+# Etherparse Rust Struct → IR Type Mappings
+#
+# Maps etherparse's Rust type system to proto-audit IR.
+# Etherparse uses newtype wrappers (IpDscp, VlanPcp, etc.) that store
+# values in larger Rust types — the TOML maps each to its **wire** bit width.
+
+[type_bits]
+# Rust primitive types
+u8 = 8
+u16 = 16
+u32 = 32
+u64 = 64
+bool = 1
+
+# Etherparse newtype wrappers → wire bit widths
+EtherType = 16
+IpNumber = 8
+IpDscp = 6
+IpEcn = 2
+IpFragOffset = 13
+Ipv6FlowLabel = 20
+VlanPcp = 3
+VlanId = 12
+ArpHardwareId = 16
+ArpOperation = 16
+Icmpv4Type = 32     # type(8) + code(8) + type-specific(16) = 32 bits on wire
+Icmpv6Type = 32
+TcpOptions = 0      # variable length, skip
+Ipv4Options = 0     # variable length, skip
+
+[type_endian]
+# Most multi-byte fields are big-endian (network order)
+# Single-byte and sub-byte fields are Na (handled in extractor)
+
+[field_type_overrides]
+# Field name → IR FieldType overrides
+ether_type = { type = "Enum", reason = "EtherType (IEEE 802)" }
+protocol = { type = "Enum", reason = "IPv4 protocol number (IANA)" }
+next_header = { type = "Enum", reason = "IPv6 next header (IANA)" }
+hw_addr_type = { type = "Enum", reason = "ARP hardware type" }
+proto_addr_type = { type = "Enum", reason = "ARP protocol type" }
+operation = { type = "Enum", reason = "ARP operation code" }
+icmp_type = { type = "Enum", reason = "ICMP type+code" }
+
+[implicit_fields]
+# Some wire fields are not present in etherparse structs.
+# start_offset_bits: skip this many bits at the beginning of the wire header.
+# gaps: skip bits after a named field (for implicit mid-header fields).
+
+[implicit_fields.Ipv4Header]
+start_offset_bits = 8    # version(4) + ihl(4) are implicit
+# After identification, there's a reserved flag bit (1 bit) that etherparse omits
+gaps = [{ after = "identification", skip_bits = 1 }]
+
+[implicit_fields.Ipv6Header]
+start_offset_bits = 4    # version(4) is implicit
+
+[implicit_fields.TcpHeader]
+# After acknowledgment_number (ends at offset 96), data_offset(4) + reserved(3) are implicit
+# gaps are applied after the named field, adding skip_bits to the running offset
+gaps = [{ after = "acknowledgment_number", skip_bits = 7 }]
+
+[flag_bit_offsets]
+# TCP flags: etherparse struct order ≠ wire order.
+# Each flag maps to its absolute wire bit position.
+
+[flag_bit_offsets.TcpHeader]
+ns = 103
+cwr = 104
+ece = 105
+urg = 106
+ack = 107
+psh = 108
+rst = 109
+syn = 110
+fin = 111
+
+[array_endian_overrides]
+# Rust_type:array_size → endianness for specific array patterns.
+
+[array_endian_overrides."u8:6"]
+endian = "Big"
+reason = "MAC address"
+
+[array_endian_overrides."u8:4"]
+endian = "Big"
+reason = "IPv4 address"
+
+[array_endian_overrides."u8:16"]
+endian = "Big"
+reason = "IPv6 address"

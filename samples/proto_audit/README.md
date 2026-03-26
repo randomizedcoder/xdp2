@@ -1,11 +1,12 @@
 # proto-audit: Multi-Source Protocol Definition Audit & Generation
 
-Compares protocol header definitions across four authoritative sources —
-XDP2, Linux kernel UAPI headers, Scapy, and tshark — to find layout
-disagreements, coverage gaps, and type annotation differences.
+Compares protocol header definitions across five authoritative sources —
+XDP2, Linux kernel UAPI headers, Scapy, tshark, and etherparse — to find
+layout disagreements, coverage gaps, and type annotation differences.
 
 Supports 41 protocols from Ethernet through tunneling (GRE, VXLAN, Geneve,
 MPLS), security (ESP, AH, MACsec), and management (LLDP, PTP, IGMP).
+Etherparse provides cross-language Rust validation for 9 core protocols.
 
 Type inference across sources is driven by an extensible TOML-based mapping
 system (`mappings/*.toml`) — add or correct type mappings without touching
@@ -53,7 +54,7 @@ nix build .#proto-audit
 # Raw binary (no env var defaults)
 nix build .#proto-audit-bin
 
-# Run tests (93 unit tests)
+# Run tests (107 unit tests)
 nix develop --command cargo test
 ```
 
@@ -66,6 +67,7 @@ Each extractor's type inference is driven by TOML mapping files in `mappings/`:
 | `mappings/kernel.toml` | C type → bit width/endianness, field name → IR type overrides |
 | `mappings/scapy.toml` | Scapy field class → IR type, endian prefixes, name-pattern fallbacks |
 | `mappings/tshark.toml` | tshark field name patterns → IR type, blocklist suffixes |
+| `mappings/etherparse.toml` | Rust type → wire bit width, implicit fields, flag bit offsets |
 
 Mappings are **embedded** in the binary via `include_str!()`, so the tool works
 without external files. To override, set `PROTO_AUDIT_MAPPINGS_DIR` to a
@@ -78,16 +80,19 @@ includes a `reason` field documenting the rationale.
 ## Documentation
 
 - [Architecture](docs/architecture.md) — extractors, IR, type mapping system, report pipeline
+- [Adding a Source](docs/adding-a-source.md) — step-by-step guide using etherparse as worked example
 - [Field Matching](docs/field-matching.md) — structural vs semantic agreement, audit algorithm, report interpretation
 - [Status](docs/status.md) — iteration history, expected impact, known issues
 
 ## Project Status
 
 - [x] IR core types and name mapping (41 protocols)
-- [x] Extractors (kernel, scapy, tshark, xdp2)
+- [x] Extractors (kernel, scapy, tshark, xdp2, etherparse)
 - [x] Extensible TOML-based type mapping system (`mappings/*.toml`)
 - [x] Comparison engine (structural + semantic matching, pairwise)
 - [x] Report generation (matrix, findings, audit)
 - [x] C header generation from IR
 - [x] Roundtrip & cross-mapping tests for TOML translation layer
+- [x] Etherparse source (5th source, 9 protocols, cross-language Rust validation)
+- [x] "Adding a Source" guide (`docs/adding-a-source.md`)
 - [x] Nix integration with cached report derivation

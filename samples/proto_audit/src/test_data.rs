@@ -223,3 +223,74 @@ pub const TSHARK_UDP_PDML: &str = r#"<?xml version="1.0" encoding="utf-8"?>
   </proto>
 </packet>
 </pdml>"#;
+
+// ── Etherparse Rust struct definitions ──
+
+pub const ETHERPARSE_ETHERNET2_HEADER: &str = r#"
+pub struct Ethernet2Header {
+    pub source: [u8; 6],
+    pub destination: [u8; 6],
+    pub ether_type: EtherType,
+}
+"#;
+
+pub const ETHERPARSE_UDP_HEADER: &str = r#"
+pub struct UdpHeader {
+    pub source_port: u16,
+    pub destination_port: u16,
+    pub length: u16,
+    pub checksum: u16,
+}
+"#;
+
+pub const ETHERPARSE_IPV4_HEADER: &str = r#"
+pub struct Ipv4Header {
+    pub dscp: IpDscp,
+    pub ecn: IpEcn,
+    pub total_len: u16,
+    pub identification: u16,
+    pub dont_fragment: bool,
+    pub more_fragments: bool,
+    pub fragment_offset: IpFragOffset,
+    pub time_to_live: u8,
+    pub protocol: IpNumber,
+    pub header_checksum: u16,
+    pub source: [u8; 4],
+    pub destination: [u8; 4],
+    pub options: Ipv4Options,
+}
+"#;
+
+pub const ETHERPARSE_TCP_HEADER: &str = r#"
+pub struct TcpHeader {
+    pub source_port: u16,
+    pub destination_port: u16,
+    pub sequence_number: u32,
+    pub acknowledgment_number: u32,
+    pub ns: bool,
+    pub fin: bool,
+    pub syn: bool,
+    pub rst: bool,
+    pub psh: bool,
+    pub ack: bool,
+    pub urg: bool,
+    pub ece: bool,
+    pub cwr: bool,
+    pub window_size: u16,
+    pub checksum: u16,
+    pub urgent_pointer: u16,
+    pub options: TcpOptions,
+}
+"#;
+
+pub const ETHERPARSE_IPV6_HEADER: &str = r#"
+pub struct Ipv6Header {
+    pub traffic_class: u8,
+    pub flow_label: Ipv6FlowLabel,
+    pub payload_length: u16,
+    pub next_header: IpNumber,
+    pub hop_limit: u8,
+    pub source: [u8; 16],
+    pub destination: [u8; 16],
+}
+"#;
