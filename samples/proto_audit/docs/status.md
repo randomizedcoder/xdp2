@@ -1,10 +1,21 @@
 # proto-audit Status
 
-## Current State (Iteration 9)
+## Current State (Iteration 10)
 
-91 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+97 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
 109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 10: UDP Application Protocols (91 → 97)
+
+Added **6 UDP application-layer protocols** — none have XDP2 parsers or kernel
+structs, but all are fundamental network protocols with broad Scapy and/or
+tshark coverage.
+
+**Added:** DNS, NTP, SNMP, DHCP (BOOTP-based), DHCPv6, QUIC
+- DNS, NTP, SNMP, DHCP, DHCPv6 have Scapy classes (all in standard `scapy.layers.*`)
+- QUIC is tshark-only (no Scapy support yet)
+- MoQ (Media over QUIC) skipped — still a draft protocol with no dissector support
 
 ### Iteration 9: Bluetooth & InfiniBand Upper Layers (77 → 90)
 
