@@ -21,6 +21,7 @@ def get_packet_class(name):
     # Contrib modules must be explicitly imported to register their packet classes
     for contrib in [
         'scapy.contrib.igmp',
+        'scapy.contrib.igmpv3',
         'scapy.contrib.geneve',
         'scapy.contrib.macsec',
         'scapy.contrib.lldp',

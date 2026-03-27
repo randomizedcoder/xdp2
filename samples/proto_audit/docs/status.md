@@ -1,10 +1,28 @@
 # proto-audit Status
 
-## Current State (Iteration 10)
+## Current State (Iteration 11)
 
-97 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+105 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
 109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 11: Multicast & Media/Streaming Protocols (97 → 105)
+
+Added **8 protocols** for multicast and media streaming.
+
+**Multicast (5):** IGMPv3_Query, IGMPv3_Report, MLD, MLDv2_Query, MLDv2_Report
+- IGMPv3 has kernel structs in `linux/igmp.h` + Scapy classes in `scapy.contrib.igmpv3`
+- MLD/MLDv2 have kernel structs in `net/mld.h` (internal, not UAPI)
+- MLD maps to `ICMPv6MLQuery` in Scapy; MLDv2 has no Scapy support
+- Existing `IGMP` entry covers v1/v2 (`igmphdr`)
+
+**Media/Streaming (3):** RTP, MPEG_TS, SRT
+- RTP has Scapy class (`scapy.layers.rtp`) + tshark
+- MPEG_TS is tshark-only (`mp2t`), fixed 188-byte packets
+- SRT is tshark-only (UDP-based low-latency streaming)
+
+**Supporting changes:**
+- `scapy_dump.py`: Added `scapy.contrib.igmpv3` import
 
 ### Iteration 10: UDP Application Protocols (91 → 97)
 
