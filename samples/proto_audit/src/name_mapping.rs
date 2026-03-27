@@ -109,6 +109,18 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             variable_length: true,
         },
         ProtocolNames {
+            canonical: "RARP",
+            xdp2: Some("xdp2_parse_rarp"),
+            kernel_struct: Some("arphdr"),
+            kernel_header: Some("linux/if_arp.h"),
+            scapy: None,
+            tshark: Some("rarp"),
+            etherparse_struct: None,
+            etherparse_file: None,
+            min_header_bytes: 8,
+            variable_length: true,
+        },
+        ProtocolNames {
             canonical: "ICMPv4",
             xdp2: Some("xdp2_parse_icmpv4"),
             kernel_struct: Some("icmphdr"),

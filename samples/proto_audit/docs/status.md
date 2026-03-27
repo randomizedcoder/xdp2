@@ -2,7 +2,7 @@
 
 ## Current State (Iteration 9)
 
-90 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+91 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
 109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
 
