@@ -2,9 +2,27 @@
 
 ## Current State (Iteration 11)
 
-105 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+114 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
 110 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 12: Storage & Network Storage Protocols (105 → 114)
+
+Added **9 protocols** for storage and network storage.
+
+**Storage (5):** iSCSI, NVMe, FC (Fibre Channel), SCSI, iSER
+- iSCSI, SCSI, iSER have kernel structs in `scsi/` headers (internal)
+- NVMe has kernel structs in `linux/nvme.h` (internal)
+- FC has UAPI kernel structs in `uapi/scsi/fc/fc_fs.h`
+- All have tshark dissectors; none have Scapy support
+
+**Network Storage (4):** NFS, SMB, SMB2, ONC_RPC
+- NFS has Scapy class (`NFS_Call` in `scapy.contrib.nfs`)
+- SMB/SMB2 have Scapy classes (`SMB_Header`, `SMB2_Header` in `scapy.layers.smb*`)
+- ONC_RPC is tshark-only (`rpc`)
+
+**Supporting changes:**
+- `scapy_dump.py`: Added `scapy.contrib.nfs` import
 
 ### Iteration 11b: Kernel Extractor — Embedded Struct Support
 

@@ -34,6 +34,7 @@ def get_packet_class(name):
         'scapy.contrib.isis',
         'scapy.contrib.bgp',
         'scapy.contrib.eigrp',
+        'scapy.contrib.nfs',
         'scapy.layers.bluetooth',
         'scapy.layers.eap',
     ]:
