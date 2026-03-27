@@ -1,0 +1,82 @@
+# Reverse mapping: IR (semantic_type, size_bits) → Scapy field class for generation.
+#
+# Used by generate_scapy() to select appropriate Scapy field classes
+# when generating Packet class definitions from IR ProtocolDefs.
+
+[field_classes]
+# IR FieldType + size_bits → Scapy field class
+# Format: "FieldType:size_bits" = "ScapyFieldClass"
+
+# Unsigned integers — byte-aligned
+"Uint:8" = "ByteField"
+"Uint:16" = "ShortField"
+"Uint:32" = "IntField"
+"Uint:64" = "LongField"
+
+# Sub-byte fields
+"Uint:1" = "BitField"
+"Uint:2" = "BitField"
+"Uint:3" = "BitField"
+"Uint:4" = "BitField"
+"Uint:6" = "BitField"
+"Uint:13" = "BitField"
+"Uint:20" = "BitField"
+
+# Signed integers
+"Sint:8" = "SignedByteField"
+"Sint:16" = "SignedShortField"
+"Sint:32" = "SignedIntField"
+
+# Enum types
+"Enum:8" = "ByteEnumField"
+"Enum:16" = "ShortEnumField"
+"Enum:32" = "IntEnumField"
+
+# Flags
+"Flags:1" = "BitField"
+"Flags:3" = "FlagsField"
+"Flags:8" = "FlagsField"
+"Flags:9" = "FlagsField"
+"Flags:16" = "FlagsField"
+
+# Padding
+"Pad:8" = "ByteField"
+"Pad:16" = "ShortField"
+"Pad:1" = "BitField"
+"Pad:3" = "BitField"
+"Pad:4" = "BitField"
+
+# Addresses
+"Ipv4Addr:32" = "IPField"
+"Ipv6Addr:128" = "IP6Field"
+"MacAddr:48" = "MACField"
+
+# Raw bytes
+"Bytes:8" = "ByteField"
+"Bytes:16" = "ShortField"
+"Bytes:32" = "IntField"
+"Bytes:64" = "LongField"
+
+[name_overrides]
+# Field name → class override (takes priority over type+size mapping)
+src = "SourceIPField"
+dst = "DestIPField"
+src_addr = "SourceIPField"
+dst_addr = "DestIPField"
+src_mac = "SourceMACField"
+dst_mac = "DestMACField"
+chksum = "XShortField"
+checksum = "XShortField"
+tos = "XByteField"
+identification = "ShortField"
+id = "ShortField"
+
+[le_prefixes]
+# If endian == Little, prepend this prefix to the field class
+ByteField = "LEByteField"
+ShortField = "LEShortField"
+IntField = "LEIntField"
+LongField = "LELongField"
+SignedByteField = "LESignedByteField"
+SignedShortField = "LESignedShortField"
+SignedIntField = "LESignedIntField"

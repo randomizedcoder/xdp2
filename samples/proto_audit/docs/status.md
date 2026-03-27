@@ -1,10 +1,60 @@
 # proto-audit Status
 
-## Current State (Iteration 11)
+## Current State (Iteration 13)
 
-114 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
-9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
-110 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+113 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+109 protocols have Scapy coverage (up from ~71). 9 have etherparse coverage.
+122 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+79 protocols with full cross-source agreement, 28 with field splits.
+
+### Iteration 13: Comprehensive Scapy Coverage
+
+Expanded Scapy coverage from ~71 to **109 out of 113 protocols**, eliminating
+all `scapy: None` entries from the name mapping table.
+
+**Category A — Wired 11 existing Scapy classes:**
+RARP (`ARP`), PTP, AoE (`AOE`), EtherCAT (`EtherCat`), Slow_Protocols
+(`SlowProtocol`), PROFINET (`ProfinetIO`), MAC_Control (`MACControlPause`),
+MLDv2_Query (`ICMPv6MLQuery2`), MLDv2_Report (`ICMPv6MLReport2`), ONC_RPC
+(`RPC`), QUIC (`QUIC_Initial`).
+
+**Category B — Created 27 new Scapy protocol modules (19 new files):**
+
+*New contrib files:*
+- `pbb.py` (PBB), `trill.py` (TRILL), `mpeg_ts.py` (MPEG_TS), `srt.py` (SRT)
+- `dsa.py` (DSA + EDSA), `batman.py` (BATMAN_OGM), `cfm.py` (CFM)
+- `ncsi.py` (NCSI), `fip.py` (FIP), `mvrp.py` (MVRP)
+- `netlink_proto.py` (NetlinkHeader + GenlMsgHdr + NLAttr)
+- `ipx.py` (IPX), `appletalk.py` (DDP), `x25.py` (X25), `atm.py` (ATM)
+- `iscsi.py` (iSCSI_BHS), `nvme.py` (NVMe_Command), `scsi.py` (SCSI_LUN), `iser.py` (iSER_Ctrl)
+
+*Extended existing files:*
+- `infiniband.py`: Added IB_RDETH, IB_AtomicETH, IB_ImmDt, IB_MAD
+- `bluetooth.py`: Added HCI_ISO_Hdr, RFCOMM_Hdr, BNEP, SDP_Hdr, AVDTP_Hdr
+
+**Zero-field mapping fixes (3):**
+- ERSPAN: `ERSPAN` (0 fields) → `ERSPAN_II` (8 fields)
+- QUIC: `QUIC` (0 fields, dispatch-only) → `QUIC_Initial` (14 fields)
+- MAC_Control: `MACControl` (0 fields) → `MACControlPause` (2 fields)
+
+**Supporting changes:**
+- `scapy_dump.py`: Added 27 new contrib/layer imports (total ~40)
+- `name_mapping.rs`: All 38 `scapy: None` entries populated
+
+**Remaining 4 without Scapy (pre-existing):**
+- HSR: `scapy.contrib.hsr` does not exist in this Scapy version
+- CAN/CAN_FD: CAN classes require SocketCAN, not importable in standard context
+- HCI_SCO: HCI_SCO_Hdr is socket-level, not a Packet subclass
+
+**Protocol count adjustment:** 114 → 113 (RARP counted separately from ARP
+but uses same Scapy class; this was already the case, just corrected in docs).
+
+**Matrix results after this iteration:**
+- 113 protocols, 109 with Scapy coverage
+- 79 with full cross-source agreement (up from 76)
+- 28 with field splits (unchanged)
+
+Test count: 122 (unchanged — no new Rust tests, but all existing pass).
 
 ### Iteration 12: Storage & Network Storage Protocols (105 → 114)
 

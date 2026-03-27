@@ -117,4 +117,5 @@ PROTO_AUDIT_KERNEL_SRC=/custom/linux nix run .#proto-audit -- extract --source k
 | `PROTO_AUDIT_SCAPY_HELPER` | Path to scapy_dump.py |
 | `PROTO_AUDIT_PYTHON` | Python binary (with scapy) |
 | `PROTO_AUDIT_TSHARK_BIN` | tshark binary |
+| `PROTO_AUDIT_ETHERPARSE_SRC` | etherparse crate source tree |
 | `PROTO_AUDIT_MAPPINGS_DIR` | Directory with override TOML mapping files |

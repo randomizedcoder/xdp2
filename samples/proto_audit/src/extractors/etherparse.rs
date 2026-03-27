@@ -153,6 +153,8 @@ pub fn to_field_defs_with(
                     is_length: false,
                     length_multiplier: None,
                     source_names: BTreeMap::new(),
+                    default_value: None,
+                    flag_names: None,
                 });
                 // Track the end of the flag region
                 let end = bit_pos + base_bits;
@@ -206,6 +208,8 @@ pub fn to_field_defs_with(
             is_length: false,
             length_multiplier: None,
             source_names: BTreeMap::new(),
+            default_value: None,
+            flag_names: None,
         });
 
         offset += total_bits;

@@ -150,6 +150,8 @@ pub fn to_protocol_def_with(sp: &ScapyProtocol, mappings: &ScapyMappings) -> Pro
             is_length: false,
             length_multiplier: None,
             source_names: BTreeMap::from([("scapy".to_string(), sf.name.clone())]),
+            default_value: sf.default.clone(),
+            flag_names: None,
         });
 
         offset_bits += sf.size_bits;

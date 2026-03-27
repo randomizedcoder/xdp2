@@ -33,6 +33,7 @@ try:
         IPv6ExtHdrRouting, PadN, wrpcap,
     )
     from scapy.contrib.geneve import GENEVE
+    from scapy.contrib.igmp import IGMP
 except ImportError:
     print("Error: scapy is required. Install with: pip install scapy",
           file=sys.stderr)
@@ -450,6 +451,36 @@ def build_arp(l2_name, op):
                 Dot1Q(vlan=rand_vlan(), prio=rand_prio(), type=0x0806) / arp)
     return None
 
+def build_igmp(l2_name, igmp_type):
+    """Build IGMP packet (Membership Query or v2 Report)."""
+    sm = rand_mac()
+    # IGMP uses multicast destination MACs
+    if igmp_type == "query":
+        dm = "01:00:5e:00:00:01"  # All-hosts
+        igmp_pkt = IP(src=rand_ipv4(), dst="224.0.0.1", ttl=1) / \
+                   IGMP(type=0x11, gaddr="0.0.0.0")  # Membership Query
+    else:  # report
+        group = "239.%d.%d.%d" % (random.randint(0, 255),
+                                   random.randint(0, 255),
+                                   random.randint(1, 254))
+        dm = "01:00:5e:%02x:%02x:%02x" % (
+            int(group.split('.')[1]) & 0x7f,
+            int(group.split('.')[2]),
+            int(group.split('.')[3]))
+        igmp_pkt = IP(src=rand_ipv4(), dst=group, ttl=1) / \
+                   IGMP(type=0x16, gaddr=group)  # v2 Membership Report
+
+    if l2_name == "bare":
+        return Ether(src=sm, dst=dm) / igmp_pkt
+    elif l2_name.startswith("vlan"):
+        return (Ether(src=sm, dst=dm) /
+                Dot1Q(vlan=rand_vlan(), prio=rand_prio(), type=0x0800) / igmp_pkt)
+    elif l2_name == "qinq":
+        return (Ether(src=sm, dst=dm, type=0x88a8) /
+                Dot1Q(vlan=rand_vlan(), prio=rand_prio(), type=0x8100) /
+                Dot1Q(vlan=rand_vlan(), prio=rand_prio(), type=0x0800) / igmp_pkt)
+    return None
+
 def build_tipc(l2_name):
     """Build TIPC packet."""
     sm, dm = rand_mac(), rand_mac()
@@ -749,6 +780,9 @@ MPLS_L2 = ["bare", "vlan_p0", "vlan_p3", "vlan_p7", "qinq"]
 # L2 types that support ARP
 ARP_L2 = ["bare", "vlan_p0", "vlan_p3", "qinq"]
 
+# L2 types that support IGMP (IPv4-only, same as ARP)
+IGMP_L2 = ["bare", "vlan_p0", "vlan_p3", "qinq"]
+
 # L2 types that support TIPC
 TIPC_L2 = ["bare", "vlan_p0"]
 
@@ -829,6 +863,12 @@ def generate_combinations():
             op_name = "arp_request" if op == "who-has" else "arp_reply"
             name = "%s/%s" % (l2, op_name)
             combos.append((name, "arp", l2, op))
+
+    # 1b. IGMP (IPv4 L3 protocol, like ARP)
+    for l2 in IGMP_L2:
+        for igmp_type, igmp_name in [("query", "igmp_query"), ("report", "igmp_report")]:
+            name = "%s/%s" % (l2, igmp_name)
+            combos.append((name, "igmp", l2, igmp_type))
 
     # 2. L2-only terminals: TIPC
     for l2 in TIPC_L2:
@@ -1006,6 +1046,9 @@ def build_combo_packet(combo):
     if kind == "arp":
         _, _, l2, op = combo
         return build_arp(l2, op)
+    elif kind == "igmp":
+        _, _, l2, igmp_type = combo
+        return build_igmp(l2, igmp_type)
     elif kind == "tipc":
         _, _, l2, _ = combo
         return build_tipc(l2)

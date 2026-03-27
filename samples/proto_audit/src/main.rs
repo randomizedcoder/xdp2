@@ -127,7 +127,7 @@ enum Commands {
         json: bool,
     },
 
-    /// Generate a proto_def C header from IR
+    /// Generate code from IR (C header, etherparse Rust struct, or Scapy class)
     Generate {
         /// Protocol name or path to IR JSON
         #[arg(long)]
@@ -137,6 +137,10 @@ enum Commands {
         #[arg(long)]
         from_json: Option<PathBuf>,
 
+        /// Target output format: c, etherparse, scapy
+        #[arg(long, default_value = "c")]
+        target: String,
+
         /// Print to stdout without writing
         #[arg(long)]
         dry_run: bool,
@@ -144,6 +148,9 @@ enum Commands {
         /// Output file path
         #[arg(long, short)]
         output: Option<PathBuf>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
     },
 
     /// List known protocols from the name mapping table
@@ -216,9 +223,11 @@ fn main() -> Result<()> {
         Commands::Generate {
             proto,
             from_json,
+            target,
             dry_run,
             output,
-        } => cmd_generate(&proto, from_json, dry_run, output),
+            paths,
+        } => cmd_generate(&proto, from_json, &target, dry_run, output, &paths),
         Commands::List { json } => cmd_list(json),
         Commands::Matrix {
             protos,
@@ -466,15 +475,17 @@ fn cmd_scan(proto_defs_dir: &PathBuf, json_output: bool) -> Result<()> {
 fn cmd_generate(
     proto: &str,
     from_json: Option<PathBuf>,
+    target: &str,
     dry_run: bool,
     output: Option<PathBuf>,
+    paths: &SourcePaths,
 ) -> Result<()> {
     let protocol_def = if let Some(json_path) = from_json {
         let content = std::fs::read_to_string(&json_path)
             .with_context(|| format!("reading {}", json_path.display()))?;
         serde_json::from_str(&content).context("parsing IR JSON")?
-    } else {
-        // Try to build a minimal ProtocolDef from the name mapping
+    } else if target == "c" {
+        // For C target, a minimal ProtocolDef from name mapping suffices
         let names = name_mapping::find_by_canonical(proto)
             .context(format!("Unknown protocol: {}. Use --from-json for custom protocols.", proto))?;
 
@@ -488,21 +499,67 @@ fn cmd_generate(
             identifiers: std::collections::BTreeMap::new(),
             sources: std::collections::BTreeMap::new(),
         }
+    } else {
+        // For etherparse/scapy targets, try to extract a rich IR from available sources
+        build_rich_ir(proto, paths)?
     };
 
-    let header = generator::generate_proto_def(&protocol_def);
+    let generated = match target {
+        "c" => generator::generate_proto_def(&protocol_def),
+        "etherparse" => generator::generate_etherparse(&protocol_def),
+        "scapy" => generator::generate_scapy(&protocol_def),
+        _ => anyhow::bail!(
+            "Unknown target '{}'. Valid targets: c, etherparse, scapy",
+            target
+        ),
+    };
 
     if dry_run {
-        println!("{}", header);
+        println!("{}", generated);
     } else if let Some(path) = output {
-        std::fs::write(&path, &header)
+        std::fs::write(&path, &generated)
             .with_context(|| format!("writing {}", path.display()))?;
         eprintln!("Wrote: {}", path.display());
     } else {
-        println!("{}", header);
+        println!("{}", generated);
     }
 
     Ok(())
+}
+
+/// Build a rich IR ProtocolDef by extracting from available sources and merging.
+/// Prefers kernel fields (most accurate struct layout), supplemented by scapy defaults.
+fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
+    // Try each source in priority order
+    let source_priority = ["kernel", "scapy", "tshark", "etherparse"];
+    let mut best: Option<ir::ProtocolDef> = None;
+
+    for source in &source_priority {
+        if let Some(def) = try_extract(source, proto, paths) {
+            if best.is_none() || def.fields.len() > best.as_ref().unwrap().fields.len() {
+                best = Some(def);
+            }
+        }
+    }
+
+    best.or_else(|| {
+        // Fallback: minimal def from name mapping
+        let names = name_mapping::find_by_canonical(proto)?;
+        Some(ir::ProtocolDef {
+            name: names.canonical.to_string(),
+            min_header_bits: names.min_header_bytes * 8,
+            is_variable_length: names.variable_length,
+            fields: vec![],
+            dispatch_field: None,
+            dispatch_table: vec![],
+            identifiers: std::collections::BTreeMap::new(),
+            sources: std::collections::BTreeMap::new(),
+        })
+    })
+    .context(format!(
+        "Unknown protocol: {}. Use --from-json for custom protocols.",
+        proto
+    ))
 }
 
 /// Shared helper: run audit across protocols and sources, return AuditResults.

@@ -407,6 +407,8 @@ mod tests {
             is_length: false,
             length_multiplier: None,
             source_names: BTreeMap::new(),
+            default_value: None,
+            flag_names: None,
         }
     }
 

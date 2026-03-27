@@ -1,0 +1,84 @@
+# Reverse mapping: IR (semantic_type, size_bits) → Rust type for etherparse generation.
+#
+# Used by generate_etherparse() to select appropriate Rust types
+# when generating struct definitions from IR ProtocolDefs.
+
+[rust_types]
+# IR FieldType + size_bits → Rust type string
+# Format: "FieldType:size_bits" = "RustType"
+
+# Unsigned integers
+"Uint:1" = "bool"
+"Uint:8" = "u8"
+"Uint:16" = "u16"
+"Uint:32" = "u32"
+"Uint:64" = "u64"
+
+# Signed integers
+"Sint:8" = "i8"
+"Sint:16" = "i16"
+"Sint:32" = "i32"
+
+# Sub-byte unsigned (bitfields)
+"Uint:2" = "u8"
+"Uint:3" = "u8"
+"Uint:4" = "u8"
+"Uint:6" = "u8"
+"Uint:13" = "u16"
+"Uint:20" = "u32"
+
+# Flags
+"Flags:1" = "bool"
+"Flags:3" = "u8"
+"Flags:8" = "u8"
+"Flags:9" = "u16"
+"Flags:16" = "u16"
+
+# Padding
+"Pad:1" = "u8"
+"Pad:3" = "u8"
+"Pad:4" = "u8"
+"Pad:8" = "u8"
+"Pad:16" = "u16"
+
+# Enum types → newtypes where possible
+"Enum:8" = "u8"
+"Enum:16" = "u16"
+"Enum:32" = "u32"
+
+# Addresses
+"Ipv4Addr:32" = "[u8; 4]"
+"Ipv6Addr:128" = "[u8; 16]"
+"MacAddr:48" = "[u8; 6]"
+
+# Raw bytes (variable)
+"Bytes:8" = "u8"
+"Bytes:16" = "u16"
+"Bytes:32" = "u32"
+"Bytes:64" = "u64"
+
+[newtypes]
+# Known etherparse newtypes: field_name → newtype
+# These override the generic rust_types mapping when the field name matches.
+ether_type = "EtherType"
+protocol = "IpNumber"
+next_header = "IpNumber"
+dscp = "IpDscp"
+ecn = "IpEcn"
+fragment_offset = "IpFragOffset"
+flow_label = "Ipv6FlowLabel"
+pcp = "VlanPcp"
+vlan_id = "VlanId"
+hw_addr_type = "ArpHardwareId"
+operation = "ArpOperation"
+
+[derives]
+# Default derive list for generated structs
+default = ["Debug", "Clone", "PartialEq", "Eq"]
+
+[skip_fields]
+# Fields to skip in generated structs (implicit in etherparse)
+# Format: "StructName" = ["field1", "field2"]
+Ipv4Header = ["version", "ihl"]
+Ipv6Header = ["version"]
+TcpHeader = ["data_offset", "reserved"]

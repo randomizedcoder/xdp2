@@ -23,6 +23,8 @@ const DEFAULT_KERNEL_TOML: &str = include_str!("../mappings/kernel.toml");
 const DEFAULT_SCAPY_TOML: &str = include_str!("../mappings/scapy.toml");
 const DEFAULT_TSHARK_TOML: &str = include_str!("../mappings/tshark.toml");
 const DEFAULT_ETHERPARSE_TOML: &str = include_str!("../mappings/etherparse.toml");
+const DEFAULT_ETHERPARSE_GEN_TOML: &str = include_str!("../mappings/etherparse_gen.toml");
+const DEFAULT_SCAPY_GEN_TOML: &str = include_str!("../mappings/scapy_gen.toml");
 
 // ── Kernel mappings ──
 
@@ -366,6 +368,75 @@ impl EtherparseMappings {
     }
 }
 
+// ── Etherparse generation mappings ──
+
+#[derive(Debug, Deserialize)]
+pub struct EtherparseGenMappings {
+    pub rust_types: HashMap<String, String>,
+    #[serde(default)]
+    pub newtypes: HashMap<String, String>,
+    #[serde(default)]
+    pub derives: DerivesConfig,
+    #[serde(default)]
+    pub skip_fields: HashMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct DerivesConfig {
+    #[serde(default)]
+    pub default: Vec<String>,
+}
+
+impl EtherparseGenMappings {
+    /// Look up Rust type for an IR field by (FieldType, size_bits).
+    pub fn rust_type(&self, ft: &FieldType, bits: u32) -> Option<&str> {
+        let key = format!("{:?}:{}", ft, bits);
+        self.rust_types.get(&key).map(|s| s.as_str())
+    }
+
+    /// Check for a newtype override by field name.
+    pub fn newtype(&self, field_name: &str) -> Option<&str> {
+        self.newtypes.get(field_name).map(|s| s.as_str())
+    }
+
+    /// Check if a field should be skipped for a given struct.
+    pub fn should_skip(&self, struct_name: &str, field_name: &str) -> bool {
+        self.skip_fields
+            .get(struct_name)
+            .map(|v| v.iter().any(|f| f == field_name))
+            .unwrap_or(false)
+    }
+}
+
+// ── Scapy generation mappings ──
+
+#[derive(Debug, Deserialize)]
+pub struct ScapyGenMappings {
+    pub field_classes: HashMap<String, String>,
+    #[serde(default)]
+    pub name_overrides: HashMap<String, String>,
+    #[serde(default)]
+    pub le_prefixes: HashMap<String, String>,
+}
+
+impl ScapyGenMappings {
+    /// Look up Scapy field class for an IR field by (FieldType, size_bits).
+    pub fn field_class(&self, ft: &FieldType, bits: u32) -> Option<&str> {
+        let key = format!("{:?}:{}", ft, bits);
+        self.field_classes.get(&key).map(|s| s.as_str())
+    }
+
+    /// Check for a field name override.
+    pub fn name_override(&self, field_name: &str) -> Option<&str> {
+        self.name_overrides.get(field_name).map(|s| s.as_str())
+    }
+
+    /// Get LE variant of a field class, if one exists.
+    pub fn le_variant(&self, class: &str) -> Option<&str> {
+        self.le_prefixes.get(class).map(|s| s.as_str())
+    }
+}
+
 // ── Parsing helpers ──
 
 /// Parse a FieldType string into the enum.
@@ -414,6 +485,16 @@ pub fn load_tshark_mappings(dir: Option<&Path>) -> Result<TsharkMappings> {
 /// Load etherparse mappings from a directory, or use embedded defaults.
 pub fn load_etherparse_mappings(dir: Option<&Path>) -> Result<EtherparseMappings> {
     load_mappings(dir, "etherparse.toml", DEFAULT_ETHERPARSE_TOML)
+}
+
+/// Load etherparse generation mappings from a directory, or use embedded defaults.
+pub fn load_etherparse_gen_mappings(dir: Option<&Path>) -> Result<EtherparseGenMappings> {
+    load_mappings(dir, "etherparse_gen.toml", DEFAULT_ETHERPARSE_GEN_TOML)
+}
+
+/// Load scapy generation mappings from a directory, or use embedded defaults.
+pub fn load_scapy_gen_mappings(dir: Option<&Path>) -> Result<ScapyGenMappings> {
+    load_mappings(dir, "scapy_gen.toml", DEFAULT_SCAPY_GEN_TOML)
 }
 
 fn load_mappings<T: serde::de::DeserializeOwned>(

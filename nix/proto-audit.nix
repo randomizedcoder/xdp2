@@ -20,7 +20,7 @@ pkgs.rustPlatform.buildRustPackage {
 
   src = ../samples/proto_audit;
 
-  cargoHash = pkgs.lib.fakeHash;  # TODO: update after first build with toml crate
+  cargoHash = "sha256-mqDBPVik4ivFRSS/RzZMQ58nr2ORj5KCxZ0Tq+cYBqQ=";
 
   nativeBuildInputs = [ pkgs.pkg-config ];
 

@@ -457,6 +457,8 @@ pub fn to_field_defs_with(ks: &KernelStruct, mappings: &KernelMappings) -> Vec<F
             is_length: false,
             length_multiplier: None,
             source_names: BTreeMap::from([("kernel".to_string(), kf.name.clone())]),
+            default_value: None,
+            flag_names: None,
         });
 
         offset_bits += bits;

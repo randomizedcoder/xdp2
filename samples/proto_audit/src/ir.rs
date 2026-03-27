@@ -37,6 +37,12 @@ pub struct FieldDef {
     /// Keys: "xdp2", "kernel", "scapy", "tshark"
     #[serde(default)]
     pub source_names: BTreeMap<String, String>,
+    /// Default value from source (e.g., "4", "0x0800", "0")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<String>,
+    /// Names for individual flag bits (e.g., ["Reserved", "DF", "MF"])
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flag_names: Option<Vec<String>>,
 }
 
 /// Semantic type of a protocol field.
@@ -206,6 +212,8 @@ mod tests {
                         ("scapy".into(), "version".into()),
                         ("tshark".into(), "ip.version".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "ihl".to_string(),
@@ -222,6 +230,8 @@ mod tests {
                         ("scapy".into(), "ihl".into()),
                         ("tshark".into(), "ip.hdr_len".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "tos".to_string(),
@@ -238,6 +248,8 @@ mod tests {
                         ("scapy".into(), "tos".into()),
                         ("tshark".into(), "ip.dsfield".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "total_length".to_string(),
@@ -254,6 +266,8 @@ mod tests {
                         ("scapy".into(), "len".into()),
                         ("tshark".into(), "ip.len".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "identification".to_string(),
@@ -270,6 +284,8 @@ mod tests {
                         ("scapy".into(), "id".into()),
                         ("tshark".into(), "ip.id".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "flags".to_string(),
@@ -286,6 +302,8 @@ mod tests {
                         ("scapy".into(), "flags".into()),
                         ("tshark".into(), "ip.flags".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "fragment_offset".to_string(),
@@ -302,6 +320,8 @@ mod tests {
                         ("scapy".into(), "frag".into()),
                         ("tshark".into(), "ip.frag_offset".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "ttl".to_string(),
@@ -318,6 +338,8 @@ mod tests {
                         ("scapy".into(), "ttl".into()),
                         ("tshark".into(), "ip.ttl".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "protocol".to_string(),
@@ -335,6 +357,8 @@ mod tests {
                         ("tshark".into(), "ip.proto".into()),
                         ("xdp2".into(), "protocol".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "checksum".to_string(),
@@ -351,6 +375,8 @@ mod tests {
                         ("scapy".into(), "chksum".into()),
                         ("tshark".into(), "ip.checksum".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "src_addr".to_string(),
@@ -368,6 +394,8 @@ mod tests {
                         ("tshark".into(), "ip.src".into()),
                         ("xdp2".into(), "saddr".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
                 FieldDef {
                     name: "dst_addr".to_string(),
@@ -385,6 +413,8 @@ mod tests {
                         ("tshark".into(), "ip.dst".into()),
                         ("xdp2".into(), "daddr".into()),
                     ]),
+                    default_value: None,
+                    flag_names: None,
                 },
             ],
             dispatch_field: Some("protocol".to_string()),
