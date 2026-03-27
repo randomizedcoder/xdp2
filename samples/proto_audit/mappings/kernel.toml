@@ -32,6 +32,14 @@ __be64 = 64
 __le64 = 64
 u64 = 64
 
+[struct_sizes]
+# Embedded struct name → bit width.
+# Used when a kernel struct contains fields like `struct icmp6hdr mld_hdr;`
+# that the parser would otherwise skip.
+icmp6hdr = 64       # 8 bytes: type(1) + code(1) + cksum(2) + dataun(4)
+in6_addr = 128      # 16 bytes: IPv6 address
+in_addr = 32        # 4 bytes: IPv4 address
+
 [type_endian]
 # Keys use "prefix:" for starts-with matching, "exact:" for exact matching.
 # Value is the endianness: "Big", "Little", or "Na".

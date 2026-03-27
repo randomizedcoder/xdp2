@@ -343,10 +343,23 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
         if c_type.is_empty() || rest.is_empty() {
             continue;
         }
-        // Skip union/struct embedded types
-        if c_type == "union" || c_type == "struct" {
+        // Skip unions (too complex to infer size)
+        if c_type == "union" {
             continue;
         }
+        // Handle embedded struct fields: `struct icmp6hdr mld_hdr;`
+        // Treat the struct name as the type for size lookup via struct_sizes
+        let (c_type, rest) = if c_type == "struct" {
+            let mut parts = rest.splitn(2, |c: char| c.is_whitespace());
+            let struct_name = parts.next().unwrap_or("").to_string();
+            let field_rest = parts.next().unwrap_or("").trim().to_string();
+            if struct_name.is_empty() || field_rest.is_empty() {
+                continue;
+            }
+            (struct_name, field_rest)
+        } else {
+            (c_type, rest)
+        };
 
         // Parse comma-separated field list (handles bitfields across continuations)
         for part in rest.split(',') {
@@ -823,5 +836,30 @@ struct icmphdr {
         let fields = to_field_defs(&ks);
         let h_proto = fields.iter().find(|f| f.name == "h_proto").unwrap();
         assert_eq!(h_proto.field_type, FieldType::Enum);
+    }
+
+    #[test]
+    fn test_mld_msg_embedded_structs() {
+        let mld_h = r#"
+struct mld_msg {
+    struct icmp6hdr      mld_hdr;
+    struct in6_addr      mld_mca;
+};
+"#;
+        let ks = parse_kernel_struct(mld_h, "mld_msg").unwrap().unwrap();
+        assert_eq!(ks.fields.len(), 2);
+        assert_eq!(ks.fields[0].name, "mld_hdr");
+        assert_eq!(ks.fields[0].c_type, "icmp6hdr");
+        assert_eq!(ks.fields[1].name, "mld_mca");
+        assert_eq!(ks.fields[1].c_type, "in6_addr");
+
+        let fields = to_field_defs(&ks);
+        assert_eq!(fields.len(), 2);
+        // icmp6hdr = 64 bits (from struct_sizes)
+        assert_eq!(fields[0].size_bits, 64);
+        assert_eq!(fields[0].offset_bits, 0);
+        // in6_addr = 128 bits (from struct_sizes)
+        assert_eq!(fields[1].size_bits, 128);
+        assert_eq!(fields[1].offset_bits, 64);
     }
 }

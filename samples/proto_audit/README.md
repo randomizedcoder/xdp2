@@ -61,7 +61,7 @@ nix build .#proto-audit
 # Raw binary (no env var defaults)
 nix build .#proto-audit-bin
 
-# Run tests (109 unit tests)
+# Run tests (110 unit tests)
 nix develop --command cargo test
 ```
 

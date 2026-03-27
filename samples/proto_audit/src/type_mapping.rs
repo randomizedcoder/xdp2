@@ -33,6 +33,8 @@ pub struct KernelMappings {
     pub field_type_overrides: HashMap<String, FieldTypeOverride>,
     #[serde(default)]
     pub array_endian_overrides: HashMap<String, ArrayEndianOverride>,
+    #[serde(default)]
+    pub struct_sizes: HashMap<String, u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,8 +56,14 @@ pub struct ArrayEndianOverride {
 
 impl KernelMappings {
     /// Look up bit width for a C type.
+    ///
+    /// Also handles `struct X` types via the `struct_sizes` table.
     pub fn type_bits(&self, c_type: &str) -> Option<u32> {
-        self.type_bits.get(c_type).copied()
+        if let Some(&bits) = self.type_bits.get(c_type) {
+            return Some(bits);
+        }
+        // Check struct_sizes for embedded struct types (e.g., "icmp6hdr")
+        self.struct_sizes.get(c_type).copied()
     }
 
     /// Determine endianness from C type using prefix/exact rules.

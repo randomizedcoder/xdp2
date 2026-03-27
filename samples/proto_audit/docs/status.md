@@ -4,7 +4,34 @@
 
 105 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
-109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+110 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 11b: Kernel Extractor — Embedded Struct Support
+
+Enhanced the kernel C struct parser to handle embedded `struct X` fields
+(e.g., `struct icmp6hdr mld_hdr;`) instead of silently skipping them.
+
+**Core change:** When the parser encounters `struct X name;`, it now treats
+the struct name as a type and looks it up in a new `[struct_sizes]` TOML table.
+
+**New TOML section** (`kernel.toml`):
+```toml
+[struct_sizes]
+icmp6hdr = 64    # 8 bytes
+in6_addr = 128   # 16 bytes
+in_addr = 32     # 4 bytes
+```
+
+**Files modified:**
+- `mappings/kernel.toml`: Added `[struct_sizes]` table
+- `src/type_mapping.rs`: Added `struct_sizes` field to `KernelMappings`, extended `type_bits()`
+- `src/extractors/kernel.rs`: Changed `struct` handling from skip to parse-as-type
+
+**Impact:** MLD structs (`mld_msg`, `mld2_query`, `mld2_report`) now produce
+fields instead of empty results. Any future kernel struct with embedded
+`struct in6_addr` or `struct icmp6hdr` fields will also work.
+
+Test count: 109 → 110 (+1 test: `test_mld_msg_embedded_structs`).
 
 ### Iteration 11: Multicast & Media/Streaming Protocols (97 → 105)
 
