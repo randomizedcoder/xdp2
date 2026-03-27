@@ -1,10 +1,25 @@
 # proto-audit Status
 
-## Current State (Iteration 8)
+## Current State (Iteration 9)
 
-77 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+90 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
 109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 9: Bluetooth & InfiniBand Upper Layers (77 → 90)
+
+Added **13 protocols** to deepen Bluetooth and InfiniBand family coverage beyond
+the base headers already mapped.
+
+**Bluetooth upper layers (6):** BT_ATT, BT_SMP, BT_RFCOMM, BT_BNEP, BT_SDP, BT_AVDTP
+- ATT and SMP have Scapy classes (`ATT_Hdr`, `SM_Hdr` in `scapy.layers.bluetooth`)
+- RFCOMM, BNEP, SDP, AVDTP are tshark-only (no Scapy core classes)
+- None have XDP2 parsers — these operate above L2CAP
+
+**InfiniBand extended transport headers (7):** IB_DETH, IB_RETH, IB_AETH, IB_RDETH,
+IB_AtomicETH, IB_ImmDt, IB_MAD
+- All tshark-only (Scapy's `scapy.contrib.roce` only covers BTH/GRH)
+- These are the per-operation headers that follow BTH in IB packets
 
 ### Iteration 8: Routing & Redundancy Protocols (69 → 77)
 

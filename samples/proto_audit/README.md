@@ -4,11 +4,13 @@ Compares protocol header definitions across five authoritative sources —
 XDP2, Linux kernel UAPI headers, Scapy, tshark, and etherparse — to find
 layout disagreements, coverage gaps, and type annotation differences.
 
-Supports 77 protocols from Ethernet through tunneling (GRE, VXLAN, Geneve,
+Supports 90 protocols from Ethernet through tunneling (GRE, VXLAN, Geneve,
 MPLS), security (ESP, AH, MACsec), management (LLDP, PTP, IGMP), Bluetooth
-(HCI variants, L2CAP), industrial (EtherCAT, PROFINET, CAN/CAN_FD/CAN_XL),
-routing (OSPF, BGP, RIP, ISIS, EIGRP), redundancy (VRRP, HSRP),
-and legacy (IPX, AppleTalk, X.25, ATM).
+(HCI variants, L2CAP, ATT, SMP, RFCOMM, BNEP, SDP, AVDTP), InfiniBand
+(LRH, GRH, BTH, DETH, RETH, AETH, RDETH, AtomicETH, ImmDt, MAD),
+industrial (EtherCAT, PROFINET, CAN/CAN_FD/CAN_XL), routing (OSPF, BGP,
+RIP, ISIS, EIGRP), redundancy (VRRP, HSRP), and legacy (IPX, AppleTalk,
+X.25, ATM).
 Etherparse provides cross-language Rust validation for 9 core protocols.
 
 Type inference across sources is driven by an extensible TOML-based mapping
@@ -37,7 +39,7 @@ cat result/findings.txt
 
 | Command | Description |
 |---|---|
-| `list` | List all 77 known protocols |
+| `list` | List all 90 known protocols |
 | `extract --source S --proto P` | Extract one protocol from one source |
 | `compare --proto P` | Compare a protocol across all sources |
 | `audit [--protos P1,P2]` | Audit all (or specific) protocols |
@@ -89,7 +91,7 @@ includes a `reason` field documenting the rationale.
 
 ## Project Status
 
-- [x] IR core types and name mapping (77 protocols)
+- [x] IR core types and name mapping (90 protocols)
 - [x] Extractors (kernel, scapy, tshark, xdp2, etherparse)
 - [x] Extensible TOML-based type mapping system (`mappings/*.toml`)
 - [x] Comparison engine (structural + semantic matching, pairwise)
