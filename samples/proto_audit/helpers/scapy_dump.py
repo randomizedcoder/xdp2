@@ -28,6 +28,11 @@ def get_packet_class(name):
         'scapy.contrib.nsh',
         'scapy.contrib.hsr',
         'scapy.contrib.dot15d4',
+        'scapy.contrib.cdp',
+        'scapy.contrib.ospf',
+        'scapy.contrib.isis',
+        'scapy.contrib.bgp',
+        'scapy.contrib.eigrp',
         'scapy.layers.bluetooth',
         'scapy.layers.eap',
     ]:

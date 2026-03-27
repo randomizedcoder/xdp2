@@ -1,10 +1,28 @@
 # proto-audit Status
 
-## Current State (Iteration 7)
+## Current State (Iteration 8)
 
-69 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+77 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
 9 protocols have etherparse coverage (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP, ICMPv4, ICMPv6).
 109 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+
+### Iteration 8: Routing & Redundancy Protocols (69 → 77)
+
+Added **8 scapy+tshark protocols** with no XDP2 or kernel coverage — these are
+higher-layer routing and redundancy protocols that XDP2 doesn't parse but are
+valuable for understanding cross-source coverage gaps.
+
+**Redundancy (2):** VRRP (VRRPv3), HSRP
+**Discovery (1):** CDP
+**Routing (5):** RIP, OSPF, ISIS, BGP, EIGRP
+
+**Supporting changes:**
+- `scapy_dump.py`: Added 5 contrib imports (cdp, ospf, isis, bgp, eigrp)
+- VRRP, HSRP, RIP are in standard `scapy.layers` (loaded by `scapy.all`)
+
+These protocols highlight the audit matrix's value: they show where XDP2 has
+no coverage while Scapy and tshark both do — useful for prioritizing future
+XDP2 parser development.
 
 ### Iteration 7: Expanded Protocol Coverage (41 → 69)
 
