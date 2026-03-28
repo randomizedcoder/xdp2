@@ -1,14 +1,28 @@
 --- /dev/null
 +++ b/src/proto_audit/nsh.rs
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,25 @@
 +//! NSH header (RFC 8300) — 8 bytes.
 +
 +/// NSH header (RFC 8300) — 8 bytes.
 +pub struct NshHeader {
-+    /// Version (2) + OAM (1) + unused (1) + TTL (6) + length (6).
-+    pub flags_length: u16,
-+    /// Reserved (4) + MD Type (4) + Next Protocol (8).
-+    pub md_type_next_proto: u16,
-+    /// Service Path Identifier (24) + Service Index (8).
-+    pub spi_si: u32,
++    /// Version.
++    pub version: Bits2,
++    /// OAM flag.
++    pub oam: bool,
++    /// Unused.
++    pub unused0: bool,
++    /// TTL.
++    pub ttl: Bits6,
++    /// Length (in 4-byte units).
++    pub length: Bits6,
++    /// Unused.
++    pub unused1: Bits4,
++    /// Metadata type.
++    pub md_type: Bits4,
++    /// Next protocol.
++    pub next_protocol: u8,
++    /// Service Path Identifier (24 bits).
++    pub spi: [u8; 3],
++    /// Service Index.
++    pub si: u8,
 +}

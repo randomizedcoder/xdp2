@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/hsr.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +/*
 + * hsr.h — hsr_header definition for proto-audit comparison.
 + */
@@ -12,7 +12,8 @@
 +
 +/* HSR tag (IEC 62439-3) — 6 bytes */
 +struct hsr_header {
-+    uint16_t hsr_path_lsdu_size;
++    uint16_t hsr_path:4;
++    uint16_t hsr_lsdu_size:12;
 +    uint16_t hsr_seq_nr;
 +    uint16_t hsr_ether_type;
 +};

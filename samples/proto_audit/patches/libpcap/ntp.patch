@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/ntp.h
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,27 @@
 +/*
 + * ntp.h — ntp_header definition for proto-audit comparison.
 + */
@@ -12,7 +12,9 @@
 +
 +/* NTP header (RFC 5905) — 48 bytes */
 +struct ntp_header {
-+    uint8_t  ntp_li_vn_mode;
++    uint8_t  ntp_leap_indicator:2;
++    uint8_t  ntp_version:3;
++    uint8_t  ntp_mode:3;
 +    uint8_t  ntp_stratum;
 +    uint8_t  ntp_poll;
 +    uint8_t  ntp_precision;

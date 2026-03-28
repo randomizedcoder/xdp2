@@ -320,7 +320,12 @@ struct vlan_tag {
 
 pub const ETHERPARSE_GRE_HEADER: &str = r#"
 pub struct GreHeader {
-    pub flags_version: u16,
+    pub checksum_present: bool,
+    pub reserved0: bool,
+    pub key_present: bool,
+    pub sequence_present: bool,
+    pub reserved1: Bits9,
+    pub version: Bits3,
     pub protocol_type: u16,
 }
 "#;
@@ -364,7 +369,9 @@ pub struct DnsHeader {
 
 pub const ETHERPARSE_VXLAN_HEADER: &str = r#"
 pub struct VxlanHeader {
-    pub flags: u8,
+    pub reserved_flags0: Bits4,
+    pub vni_valid: bool,
+    pub reserved_flags1: Bits3,
     pub reserved1: [u8; 3],
     pub vni: [u8; 3],
     pub reserved2: u8,
@@ -375,7 +382,12 @@ pub struct VxlanHeader {
 
 pub const LIBPCAP_GRE_HEADER: &str = r#"
 struct gre_header {
-    uint16_t gre_flags_version;
+    uint16_t gre_checksum_present:1;
+    uint16_t gre_reserved0:1;
+    uint16_t gre_key_present:1;
+    uint16_t gre_sequence_present:1;
+    uint16_t gre_reserved1:9;
+    uint16_t gre_version:3;
     uint16_t gre_protocol_type;
 };
 "#;

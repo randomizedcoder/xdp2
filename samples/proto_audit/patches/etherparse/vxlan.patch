@@ -1,12 +1,16 @@
 --- /dev/null
 +++ b/src/proto_audit/vxlan.rs
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,17 @@
 +//! VXLAN header (RFC 7348) — 8 bytes.
 +
 +/// VXLAN header (RFC 7348) — 8 bytes.
 +pub struct VxlanHeader {
-+    /// Flags (bit 3 = VNI valid).
-+    pub flags: u8,
++    /// Reserved flags.
++    pub reserved_flags0: Bits4,
++    /// VNI valid (I flag).
++    pub vni_valid: bool,
++    /// Reserved flags.
++    pub reserved_flags1: Bits3,
 +    /// Reserved.
 +    pub reserved1: [u8; 3],
 +    /// VXLAN Network Identifier (24 bits).

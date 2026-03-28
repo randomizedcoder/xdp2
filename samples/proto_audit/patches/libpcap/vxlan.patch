@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/vxlan.h
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,20 @@
 +/*
 + * vxlan.h — vxlan_header definition for proto-audit comparison.
 + */
@@ -12,7 +12,9 @@
 +
 +/* VXLAN header (RFC 7348) — 8 bytes */
 +struct vxlan_header {
-+    uint8_t  vxlan_flags;
++    uint8_t  vxlan_reserved_flags0:4;
++    uint8_t  vxlan_vni_valid:1;
++    uint8_t  vxlan_reserved_flags1:3;
 +    uint8_t  vxlan_reserved1[3];
 +    uint8_t  vxlan_vni[3];
 +    uint8_t  vxlan_reserved2;

@@ -1,14 +1,24 @@
 --- /dev/null
 +++ b/src/proto_audit/erspan.rs
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,21 @@
 +//! ERSPAN Type II header (Cisco) — 8 bytes.
 +
 +/// ERSPAN Type II header (Cisco) — 8 bytes.
 +pub struct ErspanHeader {
-+    /// Version (4) + VLAN (12).
-+    pub ver_vlan: u16,
-+    /// COS (3) + BSO (2) + T (1) + session ID (10).
-+    pub cos_bso_t_session: u16,
-+    /// Reserved (12) + Index (20) = 32 bits.
-+    pub reserved_index: u32,
++    /// Version.
++    pub version: Bits4,
++    /// VLAN ID.
++    pub vlan: Bits12,
++    /// Class of Service.
++    pub cos: Bits3,
++    /// BSO (bad/short/oversized).
++    pub bso: Bits2,
++    /// Truncated.
++    pub truncated: bool,
++    /// ERSPAN session ID.
++    pub session_id: Bits10,
++    /// Reserved.
++    pub reserved: Bits12,
++    /// Port index.
++    pub index: Bits20,
 +}

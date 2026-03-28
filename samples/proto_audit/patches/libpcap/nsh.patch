@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/nsh.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,24 @@
 +/*
 + * nsh.h — nsh_header definition for proto-audit comparison.
 + */
@@ -12,9 +12,16 @@
 +
 +/* NSH header (RFC 8300) — 8 bytes */
 +struct nsh_header {
-+    uint16_t nsh_flags_length;
-+    uint16_t nsh_md_type_next_proto;
-+    uint32_t nsh_spi_si;
++    uint16_t nsh_version:2;
++    uint16_t nsh_oam:1;
++    uint16_t nsh_unused0:1;
++    uint16_t nsh_ttl:6;
++    uint16_t nsh_length:6;
++    uint16_t nsh_unused1:4;
++    uint16_t nsh_md_type:4;
++    uint8_t  nsh_next_protocol;
++    uint8_t  nsh_spi[3];
++    uint8_t  nsh_si;
 +};
 +
 +#endif /* PROTO_AUDIT_NSH_H */

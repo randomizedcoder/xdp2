@@ -1,12 +1,14 @@
 --- /dev/null
 +++ b/src/proto_audit/hsr.rs
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,13 @@
 +//! HSR tag (IEC 62439-3) — 6 bytes.
 +
 +/// HSR tag (IEC 62439-3) — 6 bytes.
 +pub struct HsrHeader {
-+    /// Path + LSDU size.
-+    pub path_lsdu_size: u16,
++    /// Network ID / Path indicator.
++    pub path: Bits4,
++    /// LSDU size.
++    pub lsdu_size: Bits12,
 +    /// Sequence number.
 +    pub seq_nr: u16,
 +    /// Encapsulated protocol (EtherType).

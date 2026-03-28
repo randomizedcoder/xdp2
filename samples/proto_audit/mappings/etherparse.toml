@@ -28,6 +28,20 @@ Icmpv6Type = 32
 TcpOptions = 0      # variable length, skip
 Ipv4Options = 0     # variable length, skip
 
+# Generic sub-byte types for proto-audit overlay structs.
+# Each maps to its wire bit width so the extractor computes offsets correctly.
+Bits2 = 2
+Bits3 = 3
+Bits4 = 4
+Bits5 = 5
+Bits6 = 6
+Bits7 = 7
+Bits9 = 9
+Bits10 = 10
+Bits12 = 12
+Bits20 = 20
+Bits29 = 29
+
 [type_endian]
 # Most multi-byte fields are big-endian (network order)
 # Single-byte and sub-byte fields are Na (handled in extractor)
@@ -51,8 +65,11 @@ packet_type = { type = "Enum", reason = "EAPOL packet type" }
 bpdu_type = { type = "Enum", reason = "STP BPDU type" }
 code = { type = "Enum", reason = "PPPoE/RADIUS code" }
 ppp_protocol = { type = "Enum", reason = "PPP protocol number" }
-marker_pt = { type = "Enum", reason = "RTP payload type" }
-ver_diag = { type = "Enum", reason = "BFD version + diagnostic" }
+payload_type = { type = "Enum", reason = "RTP payload type" }
+diagnostic = { type = "Enum", reason = "BFD diagnostic code" }
+next_protocol = { type = "Enum", reason = "NSH/VXLAN-GPE next protocol" }
+message_type = { type = "Enum", reason = "PTP message type" }
+dccp_type = { type = "Enum", reason = "DCCP packet type" }
 
 [implicit_fields]
 # Some wire fields are not present in etherparse structs.

@@ -1,12 +1,28 @@
 --- /dev/null
 +++ b/src/proto_audit/l2tp.rs
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,27 @@
 +//! L2TP header (RFC 2661) — 6 bytes minimum.
 +
 +/// L2TP header (RFC 2661) — 6 bytes minimum.
 +pub struct L2tpHeader {
-+    /// Flags and version.
-+    pub flags_version: u16,
++    /// Message type (0=data, 1=control).
++    pub msg_type: bool,
++    /// Length field present.
++    pub length_present: bool,
++    /// Reserved.
++    pub reserved0: Bits2,
++    /// Sequence fields present.
++    pub sequence_present: bool,
++    /// Reserved.
++    pub reserved1: bool,
++    /// Offset field present.
++    pub offset_present: bool,
++    /// Priority.
++    pub priority: bool,
++    /// Reserved.
++    pub reserved2: Bits4,
++    /// Protocol version (must be 2).
++    pub version: Bits4,
 +    /// Tunnel ID.
 +    pub tunnel_id: u16,
 +    /// Session ID.

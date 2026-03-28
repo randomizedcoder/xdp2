@@ -1,10 +1,9 @@
 --- /dev/null
 +++ b/src/proto_audit/wire_guard.rs
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,9 @@
 +//! WireGuard message header — 4 bytes.
 +
 +/// WireGuard message header — 4 bytes.
-+/// Common prefix for all WireGuard message types.
 +pub struct WireGuardHeader {
 +    /// Message type (1=init, 2=response, 3=cookie, 4=data).
 +    pub msg_type: u8,

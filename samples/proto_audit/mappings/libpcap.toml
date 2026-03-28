@@ -38,6 +38,7 @@ hsr_ether_type = { type = "Enum", reason = "HSR encapsulated protocol (EtherType
 eapol_type = { type = "Enum", reason = "EAPOL packet type" }
 igmp_type = { type = "Enum", reason = "IGMP message type" }
 dns_flags = { type = "Flags", reason = "DNS header flags" }
+nsh_next_protocol = { type = "Enum", reason = "NSH next protocol type" }
 
 [array_endian_overrides]
 # SLL address bytes

@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/gre.h
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,21 @@
 +/*
 + * gre.h — gre_header definition for proto-audit comparison.
 + */
@@ -10,9 +10,14 @@
 +
 +#include <stdint.h>
 +
-+/* GRE header (RFC 2784) — 4 bytes minimum */
++/* GRE header (RFC 2784/2890) — 4 bytes minimum */
 +struct gre_header {
-+    uint16_t gre_flags_version;
++    uint16_t gre_checksum_present:1;
++    uint16_t gre_reserved0:1;
++    uint16_t gre_key_present:1;
++    uint16_t gre_sequence_present:1;
++    uint16_t gre_reserved1:9;
++    uint16_t gre_version:3;
 +    uint16_t gre_protocol_type;
 +};
 +

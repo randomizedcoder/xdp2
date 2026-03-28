@@ -1,14 +1,18 @@
 --- /dev/null
 +++ b/src/proto_audit/ptp.rs
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,33 @@
 +//! PTP header (IEEE 1588) — 34 bytes.
 +
 +/// PTP header (IEEE 1588) — 34 bytes.
 +pub struct PtpHeader {
-+    /// Transport specific (4) + Message type (4).
-+    pub transport_msg_type: u8,
-+    /// Version PTP (4) + minor version (4).
-+    pub version: u8,
++    /// Transport specific.
++    pub transport_specific: Bits4,
++    /// Message type.
++    pub message_type: Bits4,
++    /// PTP version.
++    pub version_ptp: Bits4,
++    /// Minor version.
++    pub minor_version: Bits4,
 +    /// Message length.
 +    pub message_length: u16,
 +    /// Domain number.

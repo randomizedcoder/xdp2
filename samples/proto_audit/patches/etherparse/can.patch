@@ -1,12 +1,18 @@
 --- /dev/null
 +++ b/src/proto_audit/can.rs
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,23 @@
 +//! CAN frame header (socketcan) — 16 bytes.
 +
 +/// CAN frame header (socketcan) — 16 bytes.
 +pub struct CanHeader {
-+    /// CAN ID + flags.
-+    pub can_id: u32,
++    /// CAN identifier (29 bits for EFF, 11 for SFF).
++    pub can_id: Bits29,
++    /// Error frame flag.
++    pub err_flag: bool,
++    /// Remote transmission request.
++    pub rtr_flag: bool,
++    /// Extended frame format.
++    pub eff_flag: bool,
 +    /// Data length code.
 +    pub len: u8,
 +    /// Flags.

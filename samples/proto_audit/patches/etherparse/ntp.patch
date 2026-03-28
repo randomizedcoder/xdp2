@@ -1,12 +1,16 @@
 --- /dev/null
 +++ b/src/proto_audit/ntp.rs
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,31 @@
 +//! NTP header (RFC 5905) — 48 bytes.
 +
 +/// NTP header (RFC 5905) — 48 bytes.
 +pub struct NtpHeader {
-+    /// LI (2) + VN (3) + Mode (3).
-+    pub li_vn_mode: u8,
++    /// Leap Indicator.
++    pub leap_indicator: Bits2,
++    /// Version Number.
++    pub version: Bits3,
++    /// Mode.
++    pub mode: Bits3,
 +    /// Stratum.
 +    pub stratum: u8,
 +    /// Poll interval.

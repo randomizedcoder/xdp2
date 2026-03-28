@@ -1,14 +1,28 @@
 --- /dev/null
 +++ b/src/proto_audit/bfd.rs
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,37 @@
 +//! BFD header (RFC 5880) — 24 bytes.
 +
 +/// BFD header (RFC 5880) — 24 bytes.
 +pub struct BfdHeader {
-+    /// Version (3) + Diag (5).
-+    pub ver_diag: u8,
-+    /// State (2) + flags (6).
-+    pub sta_flags: u8,
++    /// Protocol version.
++    pub version: Bits3,
++    /// Diagnostic code.
++    pub diagnostic: Bits5,
++    /// Session state.
++    pub state: Bits2,
++    /// Poll.
++    pub poll: bool,
++    /// Final.
++    pub final_flag: bool,
++    /// Control Plane Independent.
++    pub control_plane_independent: bool,
++    /// Authentication Present.
++    pub authentication_present: bool,
++    /// Demand mode.
++    pub demand: bool,
++    /// Multipoint.
++    pub multipoint: bool,
 +    /// Detect multiplier.
 +    pub detect_mult: u8,
 +    /// Length.

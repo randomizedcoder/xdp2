@@ -652,8 +652,13 @@ fn roundtrip_etherparse_overlay_gre() {
         .unwrap();
     let fields = etherparse::to_field_defs_with(&es, &mappings);
 
-    assert_eq!(fields.len(), 2);
-    assert_field(&fields, "flags_version", 0, 16, FieldType::Flags, Endian::Big);
+    assert_eq!(fields.len(), 7);
+    assert_field(&fields, "checksum_present", 0, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "reserved0", 1, 1, FieldType::Flags, Endian::Na);
+    assert_field(&fields, "key_present", 2, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "sequence_present", 3, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "reserved1", 4, 9, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "version", 13, 3, FieldType::Uint, Endian::Na);
     assert_field(&fields, "protocol_type", 16, 16, FieldType::Enum, Endian::Big);
     let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
     assert_eq!(total, 32); // 4 bytes
@@ -734,8 +739,10 @@ fn roundtrip_etherparse_overlay_vxlan() {
         .unwrap();
     let fields = etherparse::to_field_defs_with(&es, &mappings);
 
-    assert_eq!(fields.len(), 4);
-    assert_field(&fields, "flags", 0, 8, FieldType::Flags, Endian::Na);
+    assert_eq!(fields.len(), 6);
+    assert_field(&fields, "reserved_flags0", 0, 4, FieldType::Flags, Endian::Na);
+    assert_field(&fields, "vni_valid", 4, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "reserved_flags1", 5, 3, FieldType::Flags, Endian::Na);
     assert_field(&fields, "reserved1", 8, 24, FieldType::Flags, Endian::Big);
     assert_field(&fields, "vni", 32, 24, FieldType::Uint, Endian::Big);
     assert_field(&fields, "reserved2", 56, 8, FieldType::Flags, Endian::Na);
@@ -753,8 +760,13 @@ fn roundtrip_libpcap_overlay_gre() {
         .unwrap();
     let fields = libpcap::struct_to_field_defs(&ls, &mappings);
 
-    assert_eq!(fields.len(), 2);
-    assert_field(&fields, "gre_flags_version", 0, 16, FieldType::Uint, Endian::Big);
+    assert_eq!(fields.len(), 7);
+    assert_field(&fields, "gre_checksum_present", 0, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "gre_reserved0", 1, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "gre_key_present", 2, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "gre_sequence_present", 3, 1, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "gre_reserved1", 4, 9, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "gre_version", 13, 3, FieldType::Uint, Endian::Na);
     assert_field(&fields, "gre_protocol_type", 16, 16, FieldType::Enum, Endian::Big);
     let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
     assert_eq!(total, 32); // 4 bytes

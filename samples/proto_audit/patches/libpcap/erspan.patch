@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/erspan.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,22 @@
 +/*
 + * erspan.h — erspan_header definition for proto-audit comparison.
 + */
@@ -12,9 +12,14 @@
 +
 +/* ERSPAN Type II header (Cisco) — 8 bytes */
 +struct erspan_header {
-+    uint16_t erspan_ver_vlan;
-+    uint16_t erspan_cos_bso_t_session;
-+    uint32_t erspan_reserved_index;
++    uint16_t erspan_version:4;
++    uint16_t erspan_vlan:12;
++    uint16_t erspan_cos:3;
++    uint16_t erspan_bso:2;
++    uint16_t erspan_truncated:1;
++    uint16_t erspan_session_id:10;
++    uint32_t erspan_reserved:12;
++    uint32_t erspan_index:20;
 +};
 +
 +#endif /* PROTO_AUDIT_ERSPAN_H */

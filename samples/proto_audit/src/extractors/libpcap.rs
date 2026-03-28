@@ -118,6 +118,8 @@ pub struct LibpcapField {
     pub c_type: String,
     pub name: String,
     pub array_size: Option<u32>,
+    /// Explicit bit width from C bitfield syntax (`uint16_t name:3;`).
+    pub bitfield_width: Option<u32>,
 }
 
 /// Metadata for a parsed libpcap struct.
@@ -132,7 +134,8 @@ const KNOWN_CONSTANTS: &[(&str, u32)] = &[("SLL_ADDRLEN", 8), ("SLL2_ADDRLEN", 8
 
 /// Parse a C struct definition from libpcap header content.
 ///
-/// Handles simple C structs with `uint*_t` types and fixed-size arrays.
+/// Handles simple C structs with `uint*_t` types, fixed-size arrays,
+/// and C bitfields (`uint16_t name:3;`).
 pub fn parse_libpcap_struct(content: &str, struct_name: &str) -> Result<Option<LibpcapStruct>> {
     let pattern = format!(
         r"struct\s+{}\s*\{{([^}}]*)\}}",
@@ -148,7 +151,8 @@ pub fn parse_libpcap_struct(content: &str, struct_name: &str) -> Result<Option<L
     let body = &caps[1];
     let mut fields = Vec::new();
 
-    let field_re = Regex::new(r"(\w+)\s+(\w+)(?:\[(\w+)\])?\s*;")?;
+    // Match: type name; | type name[N]; | type name:bits;
+    let field_re = Regex::new(r"(\w+)\s+(\w+)(?:\[(\w+)\])?(?::(\d+))?\s*;")?;
 
     for line in body.lines() {
         let line = line.trim();
@@ -168,11 +172,13 @@ pub fn parse_libpcap_struct(content: &str, struct_name: &str) -> Result<Option<L
                         .map(|(_, v)| *v)
                 })
             });
+            let bitfield_width = caps.get(4).and_then(|m| m.as_str().parse::<u32>().ok());
 
             fields.push(LibpcapField {
                 c_type,
                 name,
                 array_size,
+                bitfield_width,
             });
         }
     }
@@ -194,13 +200,17 @@ pub fn struct_to_field_defs(ls: &LibpcapStruct, mappings: &LibpcapMappings) -> V
             None => continue,
         };
 
-        let total_bits = if let Some(arr_size) = lf.array_size {
+        // Bitfield width overrides the type-based width
+        let total_bits = if let Some(bf_width) = lf.bitfield_width {
+            bf_width
+        } else if let Some(arr_size) = lf.array_size {
             base_bits * arr_size
         } else {
             base_bits
         };
 
-        let endian = if total_bits <= 8 {
+        // Bitfields and sub-byte fields get Na endianness
+        let endian = if lf.bitfield_width.is_some() || total_bits <= 8 {
             Endian::Na
         } else if let Some(arr_size) = lf.array_size {
             mappings

@@ -1,16 +1,28 @@
 --- /dev/null
 +++ b/src/proto_audit/macsec.rs
-@@ -0,0 +1,13 @@
-+//! MACsec SecTAG (IEEE 802.1AE) — 6 bytes minimum, padded to 8.
+@@ -0,0 +1,25 @@
++//! MACsec SecTAG (IEEE 802.1AE) — 8 bytes.
 +
-+/// MACsec SecTAG (IEEE 802.1AE) — 6 bytes minimum, padded to 8.
++/// MACsec SecTAG (IEEE 802.1AE) — 8 bytes.
 +pub struct MacsecHeader {
-+    /// TCI + AN (association number).
-+    pub tci_an: u8,
++    /// Version.
++    pub version: bool,
++    /// End Station.
++    pub end_station: bool,
++    /// SCI present.
++    pub sci_present: bool,
++    /// Single Copy Broadcast.
++    pub scb: bool,
++    /// Encryption.
++    pub encryption: bool,
++    /// Changed Text.
++    pub changed_text: bool,
++    /// Association Number.
++    pub association_number: Bits2,
 +    /// Short Length.
 +    pub short_length: u8,
 +    /// Packet Number.
 +    pub packet_number: u32,
-+    /// Secure Channel Identifier (optional, included for 8B min).
++    /// Secure Channel Identifier high bytes.
 +    pub sci_hi: u16,
 +}

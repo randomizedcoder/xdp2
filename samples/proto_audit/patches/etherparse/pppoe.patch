@@ -1,12 +1,14 @@
 --- /dev/null
 +++ b/src/proto_audit/pppoe.rs
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,15 @@
 +//! PPPoE header (RFC 2516) — 6 bytes.
 +
 +/// PPPoE header (RFC 2516) — 6 bytes.
 +pub struct PppoeHeader {
-+    /// Version (4 bits) + Type (4 bits).
-+    pub version_type: u8,
++    /// Version (must be 1).
++    pub version: Bits4,
++    /// Type (must be 1).
++    pub pppoe_type: Bits4,
 +    /// Code (Discovery or Session).
 +    pub code: u8,
 +    /// Session ID.
