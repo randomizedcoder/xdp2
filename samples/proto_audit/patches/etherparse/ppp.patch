@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/src/proto_audit/ppp.rs
+@@ -0,0 +1,7 @@
++//! PPP header (RFC 1661) — 2 bytes (protocol field only).
++
++/// PPP header (RFC 1661) — 2 bytes (protocol field only).
++pub struct PppHeader {
++    /// PPP protocol number.
++    pub protocol: u16,
++}

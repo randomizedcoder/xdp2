@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/geneve.h
+@@ -0,0 +1,19 @@
++/*
++ * geneve.h — geneve_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_GENEVE_H
++#define PROTO_AUDIT_GENEVE_H
++
++#include <stdint.h>
++
++/* Geneve header (RFC 8926) — 8 bytes minimum */
++struct geneve_header {
++    uint8_t  geneve_ver_opt_len;
++    uint8_t  geneve_flags;
++    uint16_t geneve_protocol_type;
++    uint8_t  geneve_vni[3];
++    uint8_t  geneve_reserved;
++};
++
++#endif /* PROTO_AUDIT_GENEVE_H */

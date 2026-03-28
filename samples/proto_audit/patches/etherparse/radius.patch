@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/radius.rs
+@@ -0,0 +1,13 @@
++//! RADIUS header (RFC 2865) — 20 bytes.
++
++/// RADIUS header (RFC 2865) — 20 bytes.
++pub struct RadiusHeader {
++    /// Code (Access-Request, etc.).
++    pub code: u8,
++    /// Identifier.
++    pub identifier: u8,
++    /// Total length.
++    pub length: u16,
++    /// Authenticator.
++    pub authenticator: [u8; 16],
++}

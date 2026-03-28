@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/esp.rs
+@@ -0,0 +1,9 @@
++//! ESP header (RFC 4303) — 8 bytes.
++
++/// ESP header (RFC 4303) — 8 bytes.
++pub struct EspHeader {
++    /// Security Parameters Index.
++    pub spi: u32,
++    /// Sequence number.
++    pub seq_number: u32,
++}

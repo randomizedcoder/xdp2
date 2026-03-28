@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/igmp.rs
+@@ -0,0 +1,13 @@
++//! IGMP header (RFC 2236) — 8 bytes.
++
++/// IGMP header (RFC 2236) — 8 bytes.
++pub struct IgmpHeader {
++    /// Message type.
++    pub msg_type: u8,
++    /// Max response time.
++    pub max_resp_time: u8,
++    /// Checksum.
++    pub checksum: u16,
++    /// Group address.
++    pub group_address: [u8; 4],
++}

@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/sctp.rs
+@@ -0,0 +1,13 @@
++//! SCTP common header (RFC 9260) — 12 bytes.
++
++/// SCTP common header (RFC 9260) — 12 bytes.
++pub struct SctpHeader {
++    /// Source port.
++    pub source_port: u16,
++    /// Destination port.
++    pub destination_port: u16,
++    /// Verification tag.
++    pub verification_tag: u32,
++    /// Checksum.
++    pub checksum: u32,
++}

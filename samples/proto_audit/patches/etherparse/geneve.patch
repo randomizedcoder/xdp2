@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/geneve.rs
+@@ -0,0 +1,15 @@
++//! Geneve header (RFC 8926) — 8 bytes minimum.
++
++/// Geneve header (RFC 8926) — 8 bytes minimum.
++pub struct GeneveHeader {
++    /// Version (2 bits) + options length (6 bits).
++    pub ver_opt_len: u8,
++    /// OAM (1) + critical (1) + reserved (6).
++    pub flags: u8,
++    /// Encapsulated protocol type (EtherType).
++    pub protocol_type: u16,
++    /// Virtual Network Identifier (24 bits).
++    pub vni: [u8; 3],
++    /// Reserved.
++    pub reserved: u8,
++}

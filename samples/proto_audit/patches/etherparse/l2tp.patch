@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/l2tp.rs
+@@ -0,0 +1,11 @@
++//! L2TP header (RFC 2661) — 6 bytes minimum.
++
++/// L2TP header (RFC 2661) — 6 bytes minimum.
++pub struct L2tpHeader {
++    /// Flags and version.
++    pub flags_version: u16,
++    /// Tunnel ID.
++    pub tunnel_id: u16,
++    /// Session ID.
++    pub session_id: u16,
++}

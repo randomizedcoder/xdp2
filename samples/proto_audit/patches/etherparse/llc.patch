@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/llc.rs
+@@ -0,0 +1,11 @@
++//! IEEE 802.2 LLC header — 3 bytes.
++
++/// IEEE 802.2 LLC header — 3 bytes.
++pub struct LlcHeader {
++    /// Destination Service Access Point.
++    pub dsap: u8,
++    /// Source Service Access Point.
++    pub ssap: u8,
++    /// Control field.
++    pub ctrl: u8,
++}

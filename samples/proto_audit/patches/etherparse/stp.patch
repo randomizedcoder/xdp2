@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/stp.rs
+@@ -0,0 +1,29 @@
++//! STP BPDU header (IEEE 802.1D) — 35 bytes.
++
++/// STP BPDU header (IEEE 802.1D) — 35 bytes.
++pub struct StpHeader {
++    /// Protocol Identifier (always 0x0000).
++    pub protocol_id: u16,
++    /// Protocol Version Identifier.
++    pub version: u8,
++    /// BPDU Type.
++    pub bpdu_type: u8,
++    /// Topology Change flags.
++    pub flags: u8,
++    /// Root Bridge Identifier.
++    pub root_id: [u8; 8],
++    /// Root Path Cost.
++    pub root_cost: u32,
++    /// Bridge Identifier.
++    pub bridge_id: [u8; 8],
++    /// Port Identifier.
++    pub port_id: u16,
++    /// Message Age (in 256ths of a second).
++    pub message_age: u16,
++    /// Max Age.
++    pub max_age: u16,
++    /// Hello Time.
++    pub hello_time: u16,
++    /// Forward Delay.
++    pub forward_delay: u16,
++}

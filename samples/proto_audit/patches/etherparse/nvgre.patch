@@ -1,0 +1,17 @@
+--- /dev/null
++++ b/src/proto_audit/nvgre.rs
+@@ -0,0 +1,14 @@
++//! NVGRE header (RFC 7637) — 8 bytes.
++
++/// NVGRE header (RFC 7637) — 8 bytes.
++/// GRE with Key field carrying VSID + FlowID.
++pub struct NvgreHeader {
++    /// GRE flags and version.
++    pub flags_version: u16,
++    /// Protocol type (0x6558 = transparent Ethernet bridging).
++    pub protocol_type: u16,
++    /// Virtual Subnet ID (24 bits).
++    pub vsid: [u8; 3],
++    /// Flow ID.
++    pub flow_id: u8,
++}

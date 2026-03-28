@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/esp.h
+@@ -0,0 +1,16 @@
++/*
++ * esp.h — esp_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ESP_H
++#define PROTO_AUDIT_ESP_H
++
++#include <stdint.h>
++
++/* ESP header (RFC 4303) — 8 bytes */
++struct esp_header {
++    uint32_t esp_spi;
++    uint32_t esp_seq;
++};
++
++#endif /* PROTO_AUDIT_ESP_H */

@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/llc.h
+@@ -0,0 +1,17 @@
++/*
++ * llc.h — llc_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LLC_H
++#define PROTO_AUDIT_LLC_H
++
++#include <stdint.h>
++
++/* LLC header (IEEE 802.2) — 3 bytes */
++struct llc_header {
++    uint8_t llc_dsap;
++    uint8_t llc_ssap;
++    uint8_t llc_ctrl;
++};
++
++#endif /* PROTO_AUDIT_LLC_H */

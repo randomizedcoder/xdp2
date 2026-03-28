@@ -1,0 +1,13 @@
+--- /dev/null
++++ b/src/proto_audit/snap.rs
+@@ -0,0 +1,10 @@
++//! IEEE 802.2 SNAP header — 5 bytes.
++
++/// IEEE 802.2 SNAP header — 5 bytes.
++/// Follows LLC header (dsap=0xAA, ssap=0xAA, ctrl=0x03).
++pub struct SnapHeader {
++    /// Organizationally Unique Identifier.
++    pub oui: [u8; 3],
++    /// Protocol ID (EtherType when OUI=0).
++    pub protocol_id: u16,
++}

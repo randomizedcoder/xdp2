@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/gre.rs
+@@ -0,0 +1,9 @@
++//! GRE header (RFC 2784) — 4 bytes minimum.
++
++/// GRE header (RFC 2784) — 4 bytes minimum.
++pub struct GreHeader {
++    /// Flags and version (C, K, S, reserved, version).
++    pub flags_version: u16,
++    /// Encapsulated protocol type (EtherType).
++    pub protocol_type: u16,
++}

@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/eapol.rs
+@@ -0,0 +1,11 @@
++//! EAPOL header (IEEE 802.1X) — 4 bytes.
++
++/// EAPOL header (IEEE 802.1X) — 4 bytes.
++pub struct EapolHeader {
++    /// Protocol version.
++    pub version: u8,
++    /// Packet type.
++    pub packet_type: u8,
++    /// Body length.
++    pub length: u16,
++}

@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/igmp.h
+@@ -0,0 +1,18 @@
++/*
++ * igmp.h — igmp_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IGMP_H
++#define PROTO_AUDIT_IGMP_H
++
++#include <stdint.h>
++
++/* IGMP header (RFC 2236) — 8 bytes */
++struct igmp_header {
++    uint8_t  igmp_type;
++    uint8_t  igmp_max_resp;
++    uint16_t igmp_checksum;
++    uint8_t  igmp_group[4];
++};
++
++#endif /* PROTO_AUDIT_IGMP_H */

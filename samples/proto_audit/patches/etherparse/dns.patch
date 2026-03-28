@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/dns.rs
+@@ -0,0 +1,17 @@
++//! DNS header (RFC 1035) — 12 bytes.
++
++/// DNS header (RFC 1035) — 12 bytes.
++pub struct DnsHeader {
++    /// Transaction ID.
++    pub id: u16,
++    /// Flags (QR, Opcode, AA, TC, RD, RA, Z, RCODE).
++    pub flags: u16,
++    /// Question count.
++    pub qd_count: u16,
++    /// Answer count.
++    pub an_count: u16,
++    /// Authority count.
++    pub ns_count: u16,
++    /// Additional count.
++    pub ar_count: u16,
++}

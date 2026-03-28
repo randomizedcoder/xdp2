@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/ah.h
+@@ -0,0 +1,19 @@
++/*
++ * ah.h — ah_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_AH_H
++#define PROTO_AUDIT_AH_H
++
++#include <stdint.h>
++
++/* AH header (RFC 4302) — 12 bytes minimum */
++struct ah_header {
++    uint8_t  ah_next_header;
++    uint8_t  ah_payload_len;
++    uint16_t ah_reserved;
++    uint32_t ah_spi;
++    uint32_t ah_seq;
++};
++
++#endif /* PROTO_AUDIT_AH_H */

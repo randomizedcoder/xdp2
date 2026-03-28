@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/vxlan_gpe.rs
+@@ -0,0 +1,15 @@
++//! VXLAN-GPE header (draft-ietf-nvo3-vxlan-gpe) — 8 bytes.
++
++/// VXLAN-GPE header (draft-ietf-nvo3-vxlan-gpe) — 8 bytes.
++pub struct VxlanGpeHeader {
++    /// Flags.
++    pub flags: u8,
++    /// Reserved.
++    pub reserved1: u16,
++    /// Next protocol.
++    pub next_protocol: u8,
++    /// Virtual Network Identifier (24 bits).
++    pub vni: [u8; 3],
++    /// Reserved.
++    pub reserved2: u8,
++}

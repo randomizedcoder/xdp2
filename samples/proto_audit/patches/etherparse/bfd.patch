@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/bfd.rs
+@@ -0,0 +1,23 @@
++//! BFD header (RFC 5880) — 24 bytes.
++
++/// BFD header (RFC 5880) — 24 bytes.
++pub struct BfdHeader {
++    /// Version (3) + Diag (5).
++    pub ver_diag: u8,
++    /// State (2) + flags (6).
++    pub sta_flags: u8,
++    /// Detect multiplier.
++    pub detect_mult: u8,
++    /// Length.
++    pub length: u8,
++    /// My Discriminator.
++    pub my_discriminator: u32,
++    /// Your Discriminator.
++    pub your_discriminator: u32,
++    /// Desired Min TX Interval.
++    pub min_tx_interval: u32,
++    /// Required Min RX Interval.
++    pub min_rx_interval: u32,
++    /// Required Min Echo RX Interval.
++    pub min_echo_rx_interval: u32,
++}

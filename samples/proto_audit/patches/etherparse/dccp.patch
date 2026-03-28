@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/dccp.rs
+@@ -0,0 +1,21 @@
++//! DCCP header (RFC 4340) — 12 bytes minimum.
++
++/// DCCP header (RFC 4340) — 12 bytes minimum.
++pub struct DccpHeader {
++    /// Source port.
++    pub source_port: u16,
++    /// Destination port.
++    pub destination_port: u16,
++    /// Data offset (in 32-bit words).
++    pub data_offset: u8,
++    /// CCVal (4 bits) + CsCov (4 bits).
++    pub ccval_cscov: u8,
++    /// Checksum.
++    pub checksum: u16,
++    /// Reserved (3) + Type (4) + X (1).
++    pub res_type_x: u8,
++    /// Sequence number high byte (short sequence).
++    pub seq_hi: u8,
++    /// Sequence number low bytes (short sequence).
++    pub seq_lo: u16,
++}

@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/can.rs
+@@ -0,0 +1,17 @@
++//! CAN frame header (socketcan) — 16 bytes.
++
++/// CAN frame header (socketcan) — 16 bytes.
++pub struct CanHeader {
++    /// CAN ID + flags.
++    pub can_id: u32,
++    /// Data length code.
++    pub len: u8,
++    /// Flags.
++    pub flags: u8,
++    /// Reserved.
++    pub reserved: u8,
++    /// Length to DLC.
++    pub len8_dlc: u8,
++    /// Data payload.
++    pub data: [u8; 8],
++}

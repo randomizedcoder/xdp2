@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/src/proto_audit/mpls.rs
+@@ -0,0 +1,7 @@
++//! MPLS label stack entry (RFC 3032) — 4 bytes.
++
++/// MPLS label stack entry (RFC 3032) — 4 bytes.
++pub struct MplsHeader {
++    /// Label (20) + TC (3) + S (1) + TTL (8) = 32 bits.
++    pub label_tc_s_ttl: u32,
++}

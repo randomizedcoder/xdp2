@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/pcap/proto_audit/ppp.h
+@@ -0,0 +1,15 @@
++/*
++ * ppp.h — ppp_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PPP_H
++#define PROTO_AUDIT_PPP_H
++
++#include <stdint.h>
++
++/* PPP header (RFC 1661) — 2 bytes */
++struct ppp_header {
++    uint16_t ppp_protocol;
++};
++
++#endif /* PROTO_AUDIT_PPP_H */

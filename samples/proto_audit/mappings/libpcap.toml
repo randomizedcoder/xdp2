@@ -96,76 +96,76 @@ struct_name = "sll_header"
 source_file = "pcap/sll.h"
 struct_name = "sll2_header"
 
-# ── Proto-audit overlay structs (pcap/proto_audit.h) ──
+# ── Proto-audit overlay structs (pcap/proto_audit/*.h) ──
 
 [struct_protocols.gre_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/gre.h"
 struct_name = "gre_header"
 
 [struct_protocols.vxlan_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/vxlan.h"
 struct_name = "vxlan_header"
 
 [struct_protocols.geneve_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/geneve.h"
 struct_name = "geneve_header"
 
 [struct_protocols.mpls_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/mpls.h"
 struct_name = "mpls_header"
 
 [struct_protocols.ppp_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/ppp.h"
 struct_name = "ppp_header"
 
 [struct_protocols.pppoe_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/pppoe.h"
 struct_name = "pppoe_header"
 
 [struct_protocols.esp_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/esp.h"
 struct_name = "esp_header"
 
 [struct_protocols.ah_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/ah.h"
 struct_name = "ah_header"
 
 [struct_protocols.l2tp_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/l2tp.h"
 struct_name = "l2tp_header"
 
 [struct_protocols.erspan_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/erspan.h"
 struct_name = "erspan_header"
 
 [struct_protocols.nsh_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/nsh.h"
 struct_name = "nsh_header"
 
 [struct_protocols.hsr_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/hsr.h"
 struct_name = "hsr_header"
 
 [struct_protocols.llc_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/llc.h"
 struct_name = "llc_header"
 
 [struct_protocols.eapol_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/eapol.h"
 struct_name = "eapol_header"
 
 [struct_protocols.igmp_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/igmp.h"
 struct_name = "igmp_header"
 
 [struct_protocols.sctp_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/sctp.h"
 struct_name = "sctp_header"
 
 [struct_protocols.dns_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/dns.h"
 struct_name = "dns_header"
 
 [struct_protocols.ntp_header]
-source_file = "pcap/proto_audit.h"
+source_file = "pcap/proto_audit/ntp.h"
 struct_name = "ntp_header"

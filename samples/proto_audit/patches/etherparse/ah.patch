@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/ah.rs
+@@ -0,0 +1,15 @@
++//! AH header (RFC 4302) — 12 bytes minimum.
++
++/// AH header (RFC 4302) — 12 bytes minimum.
++pub struct AhHeader {
++    /// Next header (IP protocol number).
++    pub next_header: u8,
++    /// Payload length (in 32-bit words, minus 2).
++    pub payload_len: u8,
++    /// Reserved.
++    pub reserved: u16,
++    /// Security Parameters Index.
++    pub spi: u32,
++    /// Sequence number.
++    pub seq_number: u32,
++}

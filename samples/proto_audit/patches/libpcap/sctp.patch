@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/sctp.h
+@@ -0,0 +1,18 @@
++/*
++ * sctp.h — sctp_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SCTP_H
++#define PROTO_AUDIT_SCTP_H
++
++#include <stdint.h>
++
++/* SCTP common header (RFC 9260) — 12 bytes */
++struct sctp_header {
++    uint16_t sctp_src_port;
++    uint16_t sctp_dst_port;
++    uint32_t sctp_vtag;
++    uint32_t sctp_checksum;
++};
++
++#endif /* PROTO_AUDIT_SCTP_H */

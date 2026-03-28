@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/src/proto_audit/ntp.rs
+@@ -0,0 +1,27 @@
++//! NTP header (RFC 5905) — 48 bytes.
++
++/// NTP header (RFC 5905) — 48 bytes.
++pub struct NtpHeader {
++    /// LI (2) + VN (3) + Mode (3).
++    pub li_vn_mode: u8,
++    /// Stratum.
++    pub stratum: u8,
++    /// Poll interval.
++    pub poll: u8,
++    /// Precision.
++    pub precision: u8,
++    /// Root delay.
++    pub root_delay: u32,
++    /// Root dispersion.
++    pub root_dispersion: u32,
++    /// Reference ID.
++    pub reference_id: u32,
++    /// Reference timestamp.
++    pub reference_ts: [u8; 8],
++    /// Origin timestamp.
++    pub origin_ts: [u8; 8],
++    /// Receive timestamp.
++    pub receive_ts: [u8; 8],
++    /// Transmit timestamp.
++    pub transmit_ts: [u8; 8],
++}

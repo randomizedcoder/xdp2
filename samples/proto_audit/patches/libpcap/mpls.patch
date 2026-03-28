@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/pcap/proto_audit/mpls.h
+@@ -0,0 +1,15 @@
++/*
++ * mpls.h — mpls_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MPLS_H
++#define PROTO_AUDIT_MPLS_H
++
++#include <stdint.h>
++
++/* MPLS label stack entry (RFC 3032) — 4 bytes */
++struct mpls_header {
++    uint32_t mpls_label_tc_s_ttl;
++};
++
++#endif /* PROTO_AUDIT_MPLS_H */

@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/rtp.rs
+@@ -0,0 +1,15 @@
++//! RTP header (RFC 3550) — 12 bytes.
++
++/// RTP header (RFC 3550) — 12 bytes.
++pub struct RtpHeader {
++    /// V (2) + P (1) + X (1) + CC (4).
++    pub flags_cc: u8,
++    /// M (1) + PT (7).
++    pub marker_pt: u8,
++    /// Sequence number.
++    pub sequence_number: u16,
++    /// Timestamp.
++    pub timestamp: u32,
++    /// Synchronization source.
++    pub ssrc: u32,
++}
