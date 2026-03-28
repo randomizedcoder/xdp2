@@ -257,6 +257,48 @@ pub(crate) fn cmd_generate(
     output: Option<PathBuf>,
     paths: &SourcePaths,
 ) -> Result<()> {
+    // PCAP target has a different output path (binary, not text)
+    if target == "pcap" {
+        let protocol_def = if let Some(json_path) = from_json {
+            let content = std::fs::read_to_string(&json_path)
+                .with_context(|| format!("reading {}", json_path.display()))?;
+            serde_json::from_str(&content).context("parsing IR JSON")?
+        } else {
+            build_rich_ir(proto, paths)?
+        };
+
+        let proto_map = build_proto_map(proto, paths);
+        let pcap_output = generator::generate_pcap(&protocol_def, &proto_map)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+        if dry_run {
+            println!(
+                "Stack: {}\nPacket: {} bytes\n\n{}",
+                pcap_output.stack.join(" → "),
+                pcap_output.packet_bytes.len(),
+                generator::pcap::hex_dump(&pcap_output.packet_bytes),
+            );
+        } else if let Some(path) = output {
+            std::fs::write(&path, &pcap_output.pcap_bytes)
+                .with_context(|| format!("writing {}", path.display()))?;
+            eprintln!(
+                "Wrote {} bytes to {} (stack: {})",
+                pcap_output.pcap_bytes.len(),
+                path.display(),
+                pcap_output.stack.join(" → "),
+            );
+        } else {
+            // No output path and not dry-run: write to stdout as hex dump
+            println!(
+                "Stack: {}\nPacket: {} bytes\n\n{}",
+                pcap_output.stack.join(" → "),
+                pcap_output.packet_bytes.len(),
+                generator::pcap::hex_dump(&pcap_output.packet_bytes),
+            );
+        }
+        return Ok(());
+    }
+
     let protocol_def = if let Some(json_path) = from_json {
         let content = std::fs::read_to_string(&json_path)
             .with_context(|| format!("reading {}", json_path.display()))?;
@@ -283,7 +325,7 @@ pub(crate) fn cmd_generate(
         "etherparse" => generator::generate_etherparse(&protocol_def),
         "scapy" => generator::generate_scapy(&protocol_def),
         _ => anyhow::bail!(
-            "Unknown target '{}'. Valid targets: c, etherparse, scapy",
+            "Unknown target '{}'. Valid targets: c, etherparse, scapy, pcap",
             target
         ),
     };
@@ -296,6 +338,206 @@ pub(crate) fn cmd_generate(
         eprintln!("Wrote: {}", path.display());
     } else {
         println!("{}", generated);
+    }
+
+    Ok(())
+}
+
+/// Build a proto map for PCAP stack construction by walking STACK_ROUTES from
+/// target back to the root, extracting each protocol along the way.
+fn build_proto_map(
+    target_proto: &str,
+    paths: &SourcePaths,
+) -> std::collections::BTreeMap<String, ir::ProtocolDef> {
+    let mut map = std::collections::BTreeMap::new();
+
+    // Walk the route from target to root, collecting all protocol names on the path
+    let mut protos_needed: Vec<String> = vec![target_proto.to_string()];
+    let mut current = target_proto;
+    for _ in 0..10 {
+        if generator::is_root(current) {
+            protos_needed.push(current.to_string());
+            break;
+        }
+        if let Some((_, parent, _, _)) = generator::stack_route_for(current) {
+            protos_needed.push(parent.to_string());
+            current = parent;
+        } else {
+            break;
+        }
+    }
+
+    // Try to extract each protocol from available sources
+    for proto_name in &protos_needed {
+        if let Some(def) = try_extract("kernel", proto_name, paths)
+            .or_else(|| try_extract("scapy", proto_name, paths))
+            .or_else(|| try_extract("etherparse", proto_name, paths))
+        {
+            map.insert(proto_name.to_string(), def);
+        }
+    }
+    map
+}
+
+pub(crate) fn cmd_validate(
+    proto: &str,
+    keep_pcap: Option<PathBuf>,
+    json_output: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    // Step 1: Build rich IR for target protocol
+    let protocol_def = build_rich_ir(proto, paths)?;
+    eprintln!("  [1/5] Built IR for {} ({} fields)", proto, protocol_def.fields.len());
+
+    // Step 2: Build proto map for stack construction
+    let proto_map = build_proto_map(proto, paths);
+    eprintln!("  [2/5] Built protocol map ({} entries)", proto_map.len());
+
+    // Step 3: Generate PCAP
+    let pcap_output = generator::generate_pcap(&protocol_def, &proto_map)
+        .map_err(|e| anyhow::anyhow!("PCAP generation failed: {}", e))?;
+    eprintln!(
+        "  [3/5] Generated PCAP ({} bytes, stack: {})",
+        pcap_output.pcap_bytes.len(),
+        pcap_output.stack.join(" → "),
+    );
+
+    // Write to temp file (or keep_pcap path)
+    let pcap_path = if let Some(ref path) = keep_pcap {
+        std::fs::write(path, &pcap_output.pcap_bytes)
+            .with_context(|| format!("writing {}", path.display()))?;
+        eprintln!("       Saved PCAP to {}", path.display());
+        path.clone()
+    } else {
+        let tmp = std::env::temp_dir().join(format!("proto-audit-{}.pcap", proto.to_lowercase()));
+        std::fs::write(&tmp, &pcap_output.pcap_bytes)
+            .with_context(|| format!("writing temp PCAP {}", tmp.display()))?;
+        tmp
+    };
+
+    // Step 4: Run tshark on the generated PCAP
+    let xml = extractors::tshark::run_tshark(&pcap_path, &paths.tshark_bin, 1)
+        .context("running tshark on generated PCAP")?;
+    let packets = extractors::tshark::parse_pdml(&xml)
+        .context("parsing tshark PDML output")?;
+    eprintln!("  [4/5] tshark parsed {} packet(s)", packets.len());
+
+    // Find the target protocol in tshark output
+    let tshark_dissector = name_mapping::find_by_canonical(proto)
+        .and_then(|n| n.tshark.map(|s| s.to_string()));
+
+    let tshark_proto = tshark_dissector
+        .as_deref()
+        .and_then(|dissector| extractors::tshark::extract_protocol_from_pdml(&packets, dissector));
+
+    let tshark_def = match tshark_proto {
+        Some(pdml) => extractors::tshark::to_protocol_def(&pdml),
+        None => {
+            let msg = format!(
+                "tshark did not produce a dissection for '{}'. The PCAP was generated \
+                 but tshark could not parse the target protocol layer.",
+                proto
+            );
+            if json_output {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "protocol": proto,
+                        "status": "error",
+                        "message": msg,
+                    }))?
+                );
+            } else {
+                eprintln!("  [5/5] {}", msg);
+            }
+            // Clean up temp file if not keeping
+            if keep_pcap.is_none() {
+                let _ = std::fs::remove_file(&pcap_path);
+            }
+            return Ok(());
+        }
+    };
+
+    // Step 5: Compare original IR vs tshark round-trip result
+    let refs: Vec<(&str, &ir::ProtocolDef)> = vec![
+        ("ir", &protocol_def),
+        ("tshark-roundtrip", &tshark_def),
+    ];
+    let result = comparator::audit_protocol(proto, &refs);
+    eprintln!("  [5/5] Comparison complete");
+
+    if json_output {
+        let output = serde_json::json!({
+            "protocol": proto,
+            "status": if result.fields_mismatch == 0 { "pass" } else { "fail" },
+            "stack": pcap_output.stack,
+            "pcap_bytes": pcap_output.pcap_bytes.len(),
+            "ir_fields": protocol_def.fields.len(),
+            "tshark_fields": tshark_def.fields.len(),
+            "audit": result,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("Round-trip validation: {}", proto);
+        println!("  Stack: {}", pcap_output.stack.join(" → "));
+        println!("  PCAP:  {} bytes", pcap_output.pcap_bytes.len());
+        println!(
+            "  IR fields:     {}",
+            protocol_def.fields.len()
+        );
+        println!(
+            "  tshark fields: {}",
+            tshark_def.fields.len()
+        );
+        println!(
+            "  Agreement:     {}/{} fields",
+            result.fields_agree, result.total_fields
+        );
+        if result.fields_type_differ > 0 {
+            println!(
+                "  Type differ:   {} fields",
+                result.fields_type_differ
+            );
+        }
+        if result.fields_mismatch > 0 {
+            println!(
+                "  Mismatch:      {} fields",
+                result.fields_mismatch
+            );
+        }
+        if result.fields_missing > 0 {
+            println!(
+                "  Missing:       {} fields",
+                result.fields_missing
+            );
+        }
+        println!(
+            "  Status:        {}",
+            if result.fields_mismatch == 0 { "PASS" } else { "FAIL" }
+        );
+
+        // Show details for mismatches
+        let mismatched: Vec<_> = result
+            .field_comparisons
+            .iter()
+            .filter(|fc| !fc.mismatches.is_empty())
+            .collect();
+        if !mismatched.is_empty() {
+            println!("\n  Field details:");
+            for fc in mismatched {
+                for m in &fc.mismatches {
+                    println!(
+                        "    {} [{}]: expected {}, got {}",
+                        fc.name, m.source, m.expected, m.actual
+                    );
+                }
+            }
+        }
+    }
+
+    // Clean up temp file if not keeping
+    if keep_pcap.is_none() {
+        let _ = std::fs::remove_file(&pcap_path);
     }
 
     Ok(())

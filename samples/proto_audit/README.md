@@ -4,16 +4,16 @@ Extracts protocol header definitions from six independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**207 protocols** across every network layer, code generation in 3 languages, 145 unit tests.
+**207 protocols** across every network layer, code generation in 3 languages + PCAP wire output, 321 unit tests.
 
 ## Highlights
 
 - **207 protocols** across 6 independent sources (XDP2, kernel, Scapy, tshark, etherparse, libpcap)
 - Field-level comparison by wire bit offset — not name — catches real layout disagreements
-- Code generation from IR to C headers, Rust structs, and Scapy packet classes
+- Code generation from IR to C headers, Rust structs, Scapy packet classes, and PCAP packets
 - Extensible TOML-based type mappings — no Rust code changes needed
 - Nix-reproducible builds with pinned external sources and cached report derivation
-- 145 unit tests, JSON output on every command
+- 321 unit tests, JSON output on every command
 
 ## Vision
 
@@ -30,6 +30,8 @@ nix run .#proto-audit -- findings                            # cross-source disa
 nix run .#proto-audit -- extract --source kernel --proto ARP # single protocol
 nix run .#proto-audit -- compare --proto IPv4                # cross-source compare
 nix run .#proto-audit -- generate --proto IPv4 --target c    # code generation
+nix run .#proto-audit -- generate --proto TCP --target pcap  # PCAP wire output
+nix run .#proto-audit -- validate --proto IPv4               # round-trip validation
 nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 ```
 
@@ -52,8 +54,11 @@ All external sources are Nix-pinned for reproducibility. See [Architecture](docs
 definitions into a common IR indexed by wire bit offset.
 **Comparison.** Fields are matched across sources by `(offset, size)` tuples,
 not by name, catching real layout disagreements.
-**Generation.** Code generators produce C headers, Rust structs, and Scapy
-packet classes from the canonical IR.
+**Generation.** Code generators produce C headers, Rust structs, Scapy
+packet classes, and PCAP packets from the canonical IR.
+**Validation.** The `validate` command generates a PCAP from the IR, feeds it
+to tshark, extracts the result back to IR, and compares — a true round-trip
+through wire bytes.
 
 See [Architecture](docs/architecture.md), [IR Format](docs/ir-format.md),
 [Field Matching](docs/field-matching.md) for details.
@@ -69,7 +74,8 @@ See [Architecture](docs/architecture.md), [IR Format](docs/ir-format.md),
 | `matrix` | Source x protocol coverage matrix (field counts, agreement stats) |
 | `findings` | Detailed cross-source disagreements and coverage gaps |
 | `scan --proto-defs-dir DIR` | Scan XDP2 proto_defs directory for protocol metadata |
-| `generate --proto P [--target T]` | Generate code from IR (targets: `c`, `etherparse`, `scapy`) |
+| `generate --proto P [--target T]` | Generate code from IR (targets: `c`, `etherparse`, `scapy`, `pcap`) |
+| `validate --proto P` | Round-trip validation: IR → PCAP → tshark → IR → compare |
 
 All commands accept `--json` for machine-readable output.
 Filtering: `--protos P1,P2` and `--sources S1,S2` narrow scope on audit/matrix/findings.
@@ -104,7 +110,7 @@ entry includes a `reason` field documenting the rationale. No Rust changes neede
 ```bash
 nix build .#proto-audit          # wrapped with all source paths
 nix build .#proto-audit-bin      # raw binary (no env var defaults)
-nix develop --command cargo test  # 145 unit tests
+nix develop --command cargo test  # 321 unit tests
 ```
 
 The Nix wrapper sets all `PROTO_AUDIT_*` variables automatically.
@@ -117,10 +123,11 @@ See [Nix Packaging](docs/nix-packaging.md) for flake outputs and source pinning.
 | [Architecture](docs/architecture.md) | System overview, component diagram, data flow, type mapping |
 | [Extractors](docs/extractors.md) | Per-source extractor details, TOML mapping usage |
 | [IR Format](docs/ir-format.md) | Complete IR schema, JSON examples |
-| [Code Generation](docs/code-generation.md) | Generator targets (C, Rust, Python), TOML schemas |
+| [Code Generation](docs/code-generation.md) | Generator targets (C, Rust, Python, PCAP), TOML schemas |
 | [Field Matching](docs/field-matching.md) | Structural vs semantic agreement, audit algorithm, report interpretation |
 | [Adding a Source](docs/adding-a-source.md) | Step-by-step guide using etherparse as a worked example |
 | [Nix Packaging](docs/nix-packaging.md) | Build, source pinning, flake outputs |
+| [Round-Trip Validation](docs/validation.md) | IR → PCAP → tshark round-trip verification |
 | [Status](docs/status.md) | Iteration history, expected impact, known issues |
 | [Coverage](docs/proto-audit-coverage.md) | Per-protocol source coverage analysis |
 | [Mapping Pipeline](docs/mapping-pipeline.md) | Bidirectional extraction/generation pipeline, per-source fidelity |
@@ -137,7 +144,7 @@ samples/proto_audit/
     name_mapping/          207-protocol canonical name table (6 sources)
     type_mapping/          TOML loading + per-source type inference (7 modules)
     report/                Text/JSON output (matrix, findings)
-    generator/             IR → C / Rust / Scapy code generation
+    generator/             IR → C / Rust / Scapy / PCAP code generation
     extractors/            6 source-specific parsers (kernel, scapy, tshark, etherparse, libpcap, xdp2)
   helpers/scapy_dump.py    Python helper for Scapy introspection
   mappings/                7 TOML files (5 extraction + 2 generation)

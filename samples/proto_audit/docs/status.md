@@ -1,11 +1,99 @@
 # proto-audit Status
 
-## Current State (Iteration 13)
+## Current State (Iteration 16)
 
-113 protocols audited across 5 sources (XDP2, kernel, scapy, tshark, etherparse).
+113 protocols audited across 6 sources (XDP2, kernel, scapy, tshark, etherparse, libpcap).
 109 protocols have Scapy coverage (up from ~71). 9 have etherparse coverage.
-122 unit tests including roundtrip, cross-source, and exhaustive TOML coverage validation.
+321 unit tests including roundtrip, cross-source, PCAP generation, and exhaustive TOML coverage validation.
 79 protocols with full cross-source agreement, 28 with field splits.
+205 protocols routable through PCAP validation (up from ~120). Only TPLINK_SMARTHOME remains unsupported.
+
+### Iteration 16: Universal PCAP Generation — All 207 Protocols (120 → 205)
+
+Extended the PCAP generator from ~120 Ethernet-rooted protocols to **205/206**
+by adding multi-DLT support, allowing non-Ethernet link types (Bluetooth,
+InfiniBand, CAN, 802.15.4, Netlink, etc.) and a Wireshark Upper PDU fallback.
+
+**Multi-DLT architecture:**
+- `LINK_ROOTS` table maps 18 root protocols to their PCAP Data Link Types
+- `build_protocol_stack` now terminates at any root, not just Ethernet
+- `pcap_global_header` parameterized with `link_type` from the root
+- `PcapOutput` carries `link_type` for downstream consumers
+- `is_root()` and `stack_route_for()` exported for dynamic stack walking
+
+**New protocol families:**
+- **Bluetooth** (+13): HCI root (DLT=187) → HCI_CMD/ACL/SCO/Event/ISO → L2CAP → BT_ATT/SMP; BT_RFCOMM/BNEP/SDP/AVDTP via UpperPDU
+- **InfiniBand** (+10): IB_LRH root (DLT=247) → IB_GRH/BTH → DETH/RETH/AETH/RDETH/AtomicETH/ImmDt/MAD
+- **CAN bus** (+3): CAN/CAN_FD/CAN_XL as standalone roots (DLT=227)
+- **802.2 LLC/SNAP** (+5): Ethernet_802_3 → LLC → STP/ISIS; LLC → SNAP → CDP
+- **Standalone roots** (+17): IEEE802.11, IEEE802154, SLL, SLL2, Netlink, PPP, ATM, FC, ERF, MPEG_TS + children (Zigbee, GenNetlink)
+- **UpperPDU fallback** (+12): DLT=252 with TLV dissector preamble for SCSI, iSER, NTLMSSP, OCSP, Phonet, MCTP, X25, DSA, BT_RFCOMM/BNEP/SDP/AVDTP
+
+**Easy route additions** (+23): WOL, LLTD, EDSA, CARP, RSVP, BACnet, GLBP, GUE, HSRP, MGCP, MPLS_OAM, Teredo, NetFlow_v9, ONC_RPC, HTTP2, IEC_MMS, SMB2, STT, ZeroMQ, LDP, iSCSI, NFS, NVMe
+
+**Sub-protocol dispatch** (+9): IGMPv3_Query/Report (via IGMP type), IPv6_ND/MLD/MLDv2_Query/MLDv2_Report (via ICMPv6 type), SCTP_Chunk, EAP, CIP
+
+**New embedded protocol definitions** (~30): IGMP, ICMPv6, SCTP, EAPOL, ENIP, HCI, HCI_ACL, L2CAP, IB_LRH, IB_GRH, IB_BTH, CAN, CAN_FD, CAN_XL, IEEE802.11, IEEE802154, SLL, SLL2, Netlink, GenNetlink, PPP, ATM, FC, ERF, MPEG_TS, Zigbee_NWK, Ethernet_802_3, LLC, SNAP, UpperPDU
+
+**Dynamic `build_proto_map`** walks STACK_ROUTES from target to root, extracting only the protocols actually needed for the stack.
+
+**Tests:** 321 total (up from 293). New tests: per-family stack verification, multi-DLT integration (BT_ATT DLT=187, STP 802.3 framing, SCSI UpperPDU DLT=252), link type verification for all roots, UpperPDU preamble format, `is_root` helper.
+
+### Iteration 15: PCAP Route Expansion (12 → ~120 protocols)
+
+Expanded `STACK_ROUTES` from 12 to ~120 protocols across 5 dispatch layers,
+making the PCAP generator and `validate` command usable for the vast majority
+of Ethernet-routable protocols.
+
+**STACK_ROUTES expansion:**
+- **Phase 1 (L2):** +31 Ethernet-direct protocols (RARP, MPLS, PPPoE, LLDP, PTP, EAPOL, MACsec, QinQ, PBB, TRILL, EtherCAT, PROFINET, FCoE, FIP, Slow_Protocols, LACP, MAC_Control, CFM, HSR, BATMAN, NSH, HomePlug_AV, AoE, MVRP, NC_SI, IEC_GOOSE, IEC_SV, IPX, AppleTalk, TIPC, PPPoED)
+- **Phase 2 (L3):** +15 IPv4/IPv6 protocols (OSPF, VRRP, PIM, L2TP, ESP, AH, IP_in_IP, DCCP, UDPLite, EIGRP, IPv6_EH, IPv6_DestOpts, IPv6_Routing, IPv6_Fragment, SRv6)
+- **Phase 3 (L4):** +35 UDP-routed, +23 TCP-routed, +3 GRE-tunneled protocols
+
+**New embedded protocol definitions:**
+- UDP (64-bit, 4 fields, dispatches on `dst_port`)
+- TCP (160-bit, 10 fields, dispatches on `dst_port`)
+- GRE (32-bit, 2 fields, dispatches on `protocol_type`)
+
+**New fixup functions:**
+- `fixup_ipv6()`: sets IPv6 `payload_length` after serialization
+- `fixup_udp_length()`: sets UDP `length` after serialization
+
+**`build_proto_map` expanded** to resolve UDP, TCP, and GRE as intermediate
+stack protocols (commands.rs).
+
+**Documentation:** PCAP_UNSUPPORTED list (~30 unreachable protocols), updated
+validation.md with full route table and unreachable protocol documentation.
+
+**Tests:** 121 new tests (293 total, up from 172). Includes per-route stack
+verification, embedded protocol serialization, fixup validation, full PCAP
+generation for UDP/TCP/GRE multi-layer stacks, and a comprehensive
+`test_all_stack_routes_resolve` sweep.
+
+### Iteration 14: PCAP Generation & Round-Trip Validation
+
+Added PCAP as the **4th code generation target** and `validate` as the **9th
+CLI command**, enabling true round-trip IR validation through wire bytes.
+
+**PCAP generator (`src/generator/pcap.rs`):**
+- Generates a complete PCAP file containing one minimal packet for a target protocol
+- Builds full encapsulation stack via `STACK_ROUTES` dispatch table (child → parent → dispatch field → value)
+- Covers Ethernet-rooted L2–L4 protocols (IPv4, IPv6, ARP, VLAN, TCP, UDP, ICMP, GRE, SCTP, IGMP)
+- Embedded fallback `ProtocolDef` for Ethernet, IPv4, IPv6 when extracted IR unavailable
+- Field-level bitpacking serializer with type-based defaults (addresses, version, TTL)
+- IPv4 `total_length` and header checksum fixup (RFC 791 ones-complement)
+- Hex dump output via `--dry-run`
+
+**Validate command:**
+- Full round-trip: IR → PCAP → tshark → IR → compare
+- Uses standard comparator for field-by-field agreement analysis
+- `--keep-pcap` to save generated PCAP for manual inspection
+- Text and JSON output formats
+
+**Tests:** 27 new tests (22 PCAP unit tests + 5 round-trip validation tests).
+Total: 145 → 172.
+
+See [Round-Trip Validation](validation.md) for usage and design details.
 
 ### Iteration 13: Comprehensive Scapy Coverage
 
@@ -37,17 +125,10 @@ MLDv2_Query (`ICMPv6MLQuery2`), MLDv2_Report (`ICMPv6MLReport2`), ONC_RPC
 - QUIC: `QUIC` (0 fields, dispatch-only) → `QUIC_Initial` (14 fields)
 - MAC_Control: `MACControl` (0 fields) → `MACControlPause` (2 fields)
 
-**Supporting changes:**
-- `scapy_dump.py`: Added 27 new contrib/layer imports (total ~40)
-- `name_mapping.rs`: All 38 `scapy: None` entries populated
-
 **Remaining 4 without Scapy (pre-existing):**
 - HSR: `scapy.contrib.hsr` does not exist in this Scapy version
 - CAN/CAN_FD: CAN classes require SocketCAN, not importable in standard context
 - HCI_SCO: HCI_SCO_Hdr is socket-level, not a Packet subclass
-
-**Protocol count adjustment:** 114 → 113 (RARP counted separately from ARP
-but uses same Scapy class; this was already the case, just corrected in docs).
 
 **Matrix results after this iteration:**
 - 113 protocols, 109 with Scapy coverage
@@ -71,283 +152,31 @@ Added **9 protocols** for storage and network storage.
 - SMB/SMB2 have Scapy classes (`SMB_Header`, `SMB2_Header` in `scapy.layers.smb*`)
 - ONC_RPC is tshark-only (`rpc`)
 
-**Supporting changes:**
-- `scapy_dump.py`: Added `scapy.contrib.nfs` import
-
-### Iteration 11b: Kernel Extractor — Embedded Struct Support
-
-Enhanced the kernel C struct parser to handle embedded `struct X` fields
-(e.g., `struct icmp6hdr mld_hdr;`) instead of silently skipping them.
-
-**Core change:** When the parser encounters `struct X name;`, it now treats
-the struct name as a type and looks it up in a new `[struct_sizes]` TOML table.
-
-**New TOML section** (`kernel.toml`):
-```toml
-[struct_sizes]
-icmp6hdr = 64    # 8 bytes
-in6_addr = 128   # 16 bytes
-in_addr = 32     # 4 bytes
-```
-
-**Files modified:**
-- `mappings/kernel.toml`: Added `[struct_sizes]` table
-- `src/type_mapping.rs`: Added `struct_sizes` field to `KernelMappings`, extended `type_bits()`
-- `src/extractors/kernel.rs`: Changed `struct` handling from skip to parse-as-type
-
-**Impact:** MLD structs (`mld_msg`, `mld2_query`, `mld2_report`) now produce
-fields instead of empty results. Any future kernel struct with embedded
-`struct in6_addr` or `struct icmp6hdr` fields will also work.
-
-Test count: 109 → 110 (+1 test: `test_mld_msg_embedded_structs`).
-
-### Iteration 11: Multicast & Media/Streaming Protocols (97 → 105)
-
-Added **8 protocols** for multicast and media streaming.
-
-**Multicast (5):** IGMPv3_Query, IGMPv3_Report, MLD, MLDv2_Query, MLDv2_Report
-- IGMPv3 has kernel structs in `linux/igmp.h` + Scapy classes in `scapy.contrib.igmpv3`
-- MLD/MLDv2 have kernel structs in `net/mld.h` (internal, not UAPI)
-- MLD maps to `ICMPv6MLQuery` in Scapy; MLDv2 has no Scapy support
-- Existing `IGMP` entry covers v1/v2 (`igmphdr`)
-
-**Media/Streaming (3):** RTP, MPEG_TS, SRT
-- RTP has Scapy class (`scapy.layers.rtp`) + tshark
-- MPEG_TS is tshark-only (`mp2t`), fixed 188-byte packets
-- SRT is tshark-only (UDP-based low-latency streaming)
-
-**Supporting changes:**
-- `scapy_dump.py`: Added `scapy.contrib.igmpv3` import
-
-### Iteration 10: UDP Application Protocols (91 → 97)
-
-Added **6 UDP application-layer protocols** — none have XDP2 parsers or kernel
-structs, but all are fundamental network protocols with broad Scapy and/or
-tshark coverage.
-
-**Added:** DNS, NTP, SNMP, DHCP (BOOTP-based), DHCPv6, QUIC
-- DNS, NTP, SNMP, DHCP, DHCPv6 have Scapy classes (all in standard `scapy.layers.*`)
-- QUIC is tshark-only (no Scapy support yet)
-- MoQ (Media over QUIC) skipped — still a draft protocol with no dissector support
-
-### Iteration 9: Bluetooth & InfiniBand Upper Layers (77 → 90)
-
-Added **13 protocols** to deepen Bluetooth and InfiniBand family coverage beyond
-the base headers already mapped.
-
-**Bluetooth upper layers (6):** BT_ATT, BT_SMP, BT_RFCOMM, BT_BNEP, BT_SDP, BT_AVDTP
-- ATT and SMP have Scapy classes (`ATT_Hdr`, `SM_Hdr` in `scapy.layers.bluetooth`)
-- RFCOMM, BNEP, SDP, AVDTP are tshark-only (no Scapy core classes)
-- None have XDP2 parsers — these operate above L2CAP
-
-**InfiniBand extended transport headers (7):** IB_DETH, IB_RETH, IB_AETH, IB_RDETH,
-IB_AtomicETH, IB_ImmDt, IB_MAD
-- All tshark-only (Scapy's `scapy.contrib.roce` only covers BTH/GRH)
-- These are the per-operation headers that follow BTH in IB packets
-
-### Iteration 8: Routing & Redundancy Protocols (69 → 77)
-
-Added **8 scapy+tshark protocols** with no XDP2 or kernel coverage — these are
-higher-layer routing and redundancy protocols that XDP2 doesn't parse but are
-valuable for understanding cross-source coverage gaps.
-
-**Redundancy (2):** VRRP (VRRPv3), HSRP
-**Discovery (1):** CDP
-**Routing (5):** RIP, OSPF, ISIS, BGP, EIGRP
-
-**Supporting changes:**
-- `scapy_dump.py`: Added 5 contrib imports (cdp, ospf, isis, bgp, eigrp)
-- VRRP, HSRP, RIP are in standard `scapy.layers` (loaded by `scapy.all`)
-
-These protocols highlight the audit matrix's value: they show where XDP2 has
-no coverage while Scapy and tshark both do — useful for prioritizing future
-XDP2 parser development.
-
-### Iteration 7: Expanded Protocol Coverage (41 → 69)
-
-Added **28 new protocols** to the audit matrix, making it a near-complete inventory
-of XDP2's protocol coverage. The additions span UAPI kernel protocols, Bluetooth
-variants, management/industrial protocols, and legacy/niche protocols.
-
-**Batch 1 — UAPI Kernel Protocols (8):**
-IPv6_EH, IPv6_ND, IEEE802154, MCTP, Phonet, GenNetlink, NLAttr, TIPC
-
-**Batch 2 — Bluetooth Variants + EAPOL + CAN_XL (7):**
-HCI_CMD, HCI_ACL, HCI_Event, HCI_SCO, HCI_ISO, EAPOL, CAN_XL
-
-**Batch 3 — Management & Industrial (10):**
-TRILL, BATMAN, DSA, EDSA, CFM, FIP, MAC_Control, MVRP, NC_SI, Slow_Protocols
-
-**Batch 4 — Legacy/Niche (3):**
-PROFINET, X25, ATM
-
-**Supporting changes:**
-- `kernel.toml`: Added `__be32:4` array_endian_override for TIPC
-- `scapy_dump.py`: Added `dot15d4`, `bluetooth`, `eap` imports
-- 2 new cross-source tests (IPv6_EH kernel+scapy, IEEE802154 kernel+scapy)
-
-**Protocols deliberately excluded:** version dispatchers (`xdp2_parse_ip`),
-encap duplicates (`ipv4ip`/`ipv6ip`), sub-parsers (`l2tp_v0_*`, `ipv6_routing_hdr`),
-generic wrappers (`ports`, `protobufs`).
-
-Test count: 107 → 109 (+2 tests).
-
-### Iteration 6: Etherparse Source + "Adding a Source" Guide
-
-Added **etherparse** as a 5th protocol definition source, proving the architecture
-is extensible across languages (Rust vs C vs Python vs XML). Shipped alongside a
-comprehensive guide document (`docs/adding-a-source.md`) using etherparse as the
-worked example.
-
-**New modules:**
-- `src/extractors/etherparse.rs` — Rust struct parser + IR conversion (~320 lines + ~210 lines tests)
-- `mappings/etherparse.toml` — type/endian/field/implicit-field/flag mappings
-
-**Key design decisions:**
-- Wire-accurate bit widths in TOML (e.g., `IpDscp` → 6 bits, not 8)
-- Implicit field handling via TOML `start_offset_bits` and `gaps` (IPv4 version/IHL, IPv6 version, TCP data_offset/reserved)
-- TCP flag wire ordering via `flag_bit_offsets` table (struct order ≠ wire order)
-- `EtherparseMappings` struct with extra sections beyond `KernelMappings`
-
-**New type mapping structs:**
-- `EtherparseMappings` — extends base with `implicit_fields` and `flag_bit_offsets`
-- `ImplicitFieldConfig` — start_offset_bits + gaps
-- `GapEntry` — after field name + skip_bits
-
-**Name mapping extensions:**
-- Added `etherparse_struct` and `etherparse_file` fields to `ProtocolNames`
-- Populated 9 protocols, `find_by_etherparse_struct()` lookup
-
-**Tests added:**
-- 7 extractor unit tests (parsing, array fields, non-pub field skipping, offset calculations)
-- 5 roundtrip tests (Ethernet, UDP, IPv4, TCP, IPv6)
-- 2 four-way cross-source tests (Ethernet: kernel+scapy+tshark+etherparse, UDP: same)
-
-**Nix integration:**
-- `etherparseSrc` in `nix/proto-audit-sources.nix` (fetchFromGitHub, pinned hash)
-- `PROTO_AUDIT_ETHERPARSE_SRC` env var in proto-audit wrapper
-- `--etherparse-src` flag in `protoAuditFlags`
-
-Test count: 93 → 107 (+14 tests).
-
-### Iteration 5: Roundtrip & Cross-Mapping Tests
-
-Added bidirectional verification of the TOML translation layer — proving that
-source → IR → reverse-lookup is consistent, and that different sources agree
-when mapped through the IR.
-
-**New modules:**
-- `src/test_data.rs` — shared test constants (7 kernel structs, 5 Scapy JSON, 2 tshark PDML)
-- `src/roundtrip_tests.rs` — 14 roundtrip golden-output tests (kernel×7, scapy×4, tshark×3)
-
-**Reverse lookup methods** added to `type_mapping.rs`:
-- `KernelMappings::field_names_for_type()` — invert field_type_overrides
-- `KernelMappings::c_types_for()` — find C types matching bit width + endian
-- `ScapyMappings::classes_for_type()` — invert field_types table
-- `TsharkMappings::matches_for()` — check if a type+bits combo is reachable
-
-**Cross-source tests upgraded** (comparator.rs):
-- IPv4, Ethernet, UDP upgraded from 2-way → 3-way (kernel+scapy+tshark)
-- ARP (kernel+scapy) and TCP (kernel+scapy) added as new cross-source tests
-
-**Exhaustive TOML coverage tests** (type_mapping.rs):
-- `test_kernel_all_field_overrides_roundtrip` — every kernel override is forward+reverse consistent
-- `test_scapy_all_field_types_roundtrip` — every scapy class mapping is forward+reverse consistent
-- `test_tshark_all_patterns_exercised` — every tshark pattern produces the declared type
-
-Test count: 71 → 93 (+22 tests).
-
-### Iteration 4: Expanded Translations & Cross-Source Testing
-
-**Kernel field type overrides added:**
-
-| Field | Type | Rationale |
-|-------|------|-----------|
-| `code` | Enum | ICMP/IGMP code (IANA sub-type registry) |
-| `icmp6_code` | Enum | ICMPv6 code (IANA sub-type registry) |
-| `h_vlan_encapsulated_proto` | Enum | VLAN encapsulated EtherType (IEEE 802) |
-| `h_vlan_TCI` | Flags | VLAN tag control info (PCP + DEI + VID packed) |
-
-**Scapy class mappings added:**
-
-| Class | Type | Rationale |
-|-------|------|-----------|
-| `EnumField` | Enum | Generic Scapy enum field |
-| `XShortEnumField` | Enum | Hex-display enum (EtherType fields in Ether/VLAN) |
-| `LongEnumField` | Enum | 64-bit enum field |
-| `MultiEnumField` | Enum | Multi-value enum field |
-
-**Key distinction**: `XShortEnumField` → Enum (used for EtherType — closed registry),
-but `ShortEnumField` stays Uint (used for ports — open namespace).
-
-**tshark patterns added:**
-- `.code` at ≤8 bits → Enum (ICMP/ICMPv6 code)
-- `.addr` at 128 bits → Ipv6Addr
-- Extended blocklist: `.stream`, `.segment`, `.analysis`, `.reassembled_in`, `.reassembled.length`
-
-**Cross-source agreement tests:**
-- IPv4: kernel `iphdr` + scapy `IP` — validates `protocol`/`proto` both Enum, `saddr`/`src` both Ipv4Addr
-- Ethernet: kernel `ethhdr` + scapy `Ether` — validates MAC types and `h_proto`/`type` both Enum
-- UDP: kernel `udphdr` + scapy `UDP` — validates all 4 fields agree (ShortEnumField→Uint fix)
-
-### Iteration 3: Extensible Type Mapping System
-
-**Core change**: Replaced hardcoded type inference logic in all three extractors
-(kernel, scapy, tshark) with an extensible TOML-based mapping system. Developers
-can now add or correct type mappings by editing `mappings/*.toml` — no Rust code
-changes needed.
-
-#### Type Mapping System
-
-- **`mappings/kernel.toml`** — C type → bit width/endianness, field name overrides
-  (e.g., `protocol` → Enum, `h_proto` → Enum, `nexthdr` → Enum)
-- **`mappings/scapy.toml`** — Scapy field class → IR type, with documented
-  rationale for deliberate non-mappings (e.g., `ShortEnumField` stays Uint)
-- **`mappings/tshark.toml`** — tshark field name patterns → IR type, blocklist
-- **`src/type_mapping.rs`** — TOML loader with embedded defaults via `include_str!()`
-- Mappings are overridable via `--mappings-dir` or `PROTO_AUDIT_MAPPINGS_DIR`
-
-#### Kernel field type overrides (new Enum/address classifications)
-
-| Field | Type | Rationale |
-|-------|------|-----------|
-| `protocol` | Enum | IPv4 protocol number (IANA registry) |
-| `h_proto` | Enum | EtherType (IEEE 802 registry) |
-| `nexthdr` | Enum | IPv6/extension header next-header (IANA) |
-| `ar_hrd` | Enum | ARP hardware type (IANA) |
-| `ar_pro` | Enum | ARP protocol type (EtherType) |
-| `ar_op` | Enum | ARP operation code (IANA) |
-| `type` | Enum | ICMP/IGMP message type (IANA) |
-| `icmp6_type` | Enum | ICMPv6 message type (IANA) |
-| `group` | Ipv4Addr | IGMP multicast group address (32-bit only) |
-
-#### Scapy ShortEnumField → Uint (not Enum)
-
-Scapy uses `ShortEnumField` for TCP/UDP ports because it has a well-known-port
-lookup table. But kernel headers declare ports as `__be16` (Uint). Ports are an
-open 16-bit namespace, not a closed enumeration like EtherType. This eliminates
-false type-diff findings for TCP/UDP port fields.
-
-#### tshark operator precedence fix
-
-Fixed `name.contains("proto") || name.contains("type") && bits <= 16` →
-proper parenthesization via the TOML mapping system. The `enum_patterns` table
-applies `max_bits` to each pattern independently.
-
-#### Scapy helper improvements
-
-- **5 new contrib imports**: `macsec`, `lldp`, `erspan`, `nsh`, `hsr` — enables
-  extraction of these protocols from Scapy
-- **Recursive subclass search**: replaced 2-level search with full recursive
-  `search(Packet)` function, catching deeply nested packet classes
-
-#### Comparator fix
-
-- **Pairwise endian comparison**: compares all pairs in a field slot, not just
-  against the first source. Catches B-vs-C disagreements even when A agrees
-  with both individually.
-
-### Expected Impact
+### Iteration 11: Multicast, Media, Embedded Structs (97 → 105)
+
+Added **8 protocols** (IGMPv3_Query, IGMPv3_Report, MLD, MLDv2_Query,
+MLDv2_Report, RTP, MPEG_TS, SRT). Enhanced kernel extractor to handle
+embedded `struct X name;` fields via `[struct_sizes]` TOML table, fixing
+MLD struct extraction.
+
+Test count: 107 → 110.
+
+### Iterations 1–10 Summary
+
+| Iter | Protocols | Key Change | Tests |
+|------|-----------|------------|-------|
+| 10 | 91 → 97 | UDP application protocols (DNS, NTP, SNMP, DHCP, DHCPv6, QUIC) | 109 |
+| 9 | 77 → 90 | Bluetooth upper layers (6) + InfiniBand extended headers (7) | 109 |
+| 8 | 69 → 77 | Routing & redundancy (VRRP, HSRP, CDP, RIP, OSPF, ISIS, BGP, EIGRP) | 107 |
+| 7 | 41 → 69 | 28 protocols: UAPI kernel, Bluetooth, management/industrial, legacy | 107 |
+| 6 | — | etherparse as 5th source + "Adding a Source" guide | 93 → 107 |
+| 5 | — | Roundtrip & cross-mapping tests, reverse lookup methods | 71 → 93 |
+| 4 | — | Expanded kernel/scapy/tshark type overrides, cross-source tests | 71 |
+| 3 | — | TOML-based type mapping system (replaced hardcoded inference) | — |
+| 2 | — | Zero-field filtering, scapy contrib imports, tshark blocklist | — |
+| 1 | — | Structural vs semantic separation, unified field map, matrix/findings CLI | — |
+
+### Expected Impact (from iteration 3)
 
 | Protocol | Before (Agree/TDiff) | After (Agree/TDiff) | Key change |
 |----------|---------------------|---------------------|------------|
@@ -357,11 +186,6 @@ applies `max_bits` to each pattern independently.
 | UDP | 2/2 | 4/0 | ShortEnumField → Uint |
 | TCP | 5/2 | 7/0 | ShortEnumField → Uint |
 | ARP | 1/4 | 5/0 | `ar_hrd`/`ar_pro`/`ar_op` → Enum |
-| IGMP | 2/2 | 4/0 | `type` → Enum, `group` → Ipv4Addr |
-| ICMPv4 | 3/1 | 4/0 | `type` → Enum |
-| ICMPv6 | 2/1 | 3/0 | `icmp6_type` → Enum |
-| AH | 4/1 | 5/0 | `nexthdr` → Enum |
-| SRv6 | 5/1 | 6/0 | `nexthdr` → Enum |
 
 ### Known Remaining Issues
 
@@ -384,23 +208,3 @@ causes all subsequent MAC address fields to misalign.
 message-type-specific payload fields like `id`, `seq`, `ts_ori`, etc.) vs
 kernel's 4-field `icmphdr`. This is expected — the kernel struct is minimal
 and message-specific fields are handled elsewhere.
-
-## Iteration 2 Changes
-
-1. Zero-field source filtering (XDP2 excluded from field comparison)
-2. Scapy contrib imports (igmp, geneve)
-3. tshark non-header field filtering (payload/padding/trailer blocklist)
-4. Kernel `__sum16` endian fix → Big
-5. Kernel MAC address endian fix → Big
-6. Scapy `Emph`/`ConditionalField` unwrapping
-
-## Iteration 1 Changes
-
-- Structural vs semantic agreement separation
-- Unified field map (no reference-source bias)
-- Kernel inline `/* ... */` comment handling
-- Kernel `#if 0` dead-code block skipping
-- Kernel `__struct_group()` macro unwrapping
-- IGMP PCAP packet generation
-- Geneve→scapy name mapping
-- `matrix` and `findings` CLI commands

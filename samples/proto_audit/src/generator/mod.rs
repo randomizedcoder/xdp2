@@ -1,16 +1,19 @@
 //! Code generators: IR ProtocolDef → target language output.
 //!
-//! Supports three targets:
+//! Supports four targets:
 //! - **C** (XDP2 proto_def header): the original generator
 //! - **etherparse** (Rust struct): generates `pub struct` with derives
 //! - **Scapy** (Python Packet class): generates `fields_desc` + `bind_layers`
+//! - **PCAP** (wire bytes): generates a PCAP file with one packet for round-trip validation
 
 mod c;
 mod etherparse;
+pub mod pcap;
 mod scapy;
 
 pub use c::generate_proto_def;
 pub use etherparse::generate_etherparse;
+pub use pcap::{generate_pcap, is_root, stack_route_for, PcapOutput};
 pub use scapy::generate_scapy;
 
 // ── Shared helpers ──
