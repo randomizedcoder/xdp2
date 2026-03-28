@@ -25,6 +25,7 @@ const DEFAULT_TSHARK_TOML: &str = include_str!("../mappings/tshark.toml");
 const DEFAULT_ETHERPARSE_TOML: &str = include_str!("../mappings/etherparse.toml");
 const DEFAULT_ETHERPARSE_GEN_TOML: &str = include_str!("../mappings/etherparse_gen.toml");
 const DEFAULT_SCAPY_GEN_TOML: &str = include_str!("../mappings/scapy_gen.toml");
+const DEFAULT_LIBPCAP_TOML: &str = include_str!("../mappings/libpcap.toml");
 
 // ── Kernel mappings ──
 
@@ -437,6 +438,78 @@ impl ScapyGenMappings {
     }
 }
 
+// ── Libpcap mappings ──
+
+#[derive(Debug, Deserialize)]
+pub struct LibpcapMappings {
+    pub type_bits: HashMap<String, u32>,
+    #[serde(default)]
+    pub type_endian: HashMap<String, String>,
+    #[serde(default)]
+    pub field_type_overrides: HashMap<String, FieldTypeOverride>,
+    #[serde(default)]
+    pub array_endian_overrides: HashMap<String, ArrayEndianOverride>,
+    #[serde(default)]
+    pub gencode_protocols: HashMap<String, HashMap<String, GencodeField>>,
+    #[serde(default)]
+    pub struct_protocols: HashMap<String, StructProtocol>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GencodeField {
+    pub byte_offset: u32,
+    pub size_bytes: u32,
+    #[serde(default)]
+    pub field_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StructProtocol {
+    pub source_file: String,
+    pub struct_name: String,
+}
+
+impl LibpcapMappings {
+    /// Look up bit width for a C type.
+    pub fn type_bits(&self, c_type: &str) -> Option<u32> {
+        self.type_bits.get(c_type).copied()
+    }
+
+    /// Determine endianness from C type using prefix/exact rules.
+    pub fn type_endian(&self, c_type: &str) -> Endian {
+        for (key, val) in &self.type_endian {
+            if let Some(exact) = key.strip_prefix("exact:") {
+                if c_type == exact {
+                    return parse_endian(val).unwrap_or(Endian::Na);
+                }
+            }
+        }
+        for (key, val) in &self.type_endian {
+            if let Some(prefix) = key.strip_prefix("prefix:") {
+                if c_type.starts_with(prefix) {
+                    return parse_endian(val).unwrap_or(Endian::Na);
+                }
+            }
+        }
+        Endian::Na
+    }
+
+    /// Check for field name type override.
+    pub fn field_type_override(&self, name: &str) -> Option<FieldType> {
+        self.field_type_overrides
+            .get(name)
+            .and_then(|ovr| parse_field_type(&ovr.field_type))
+    }
+
+    /// Check for array endian override.
+    pub fn array_endian_override(&self, c_type: &str, array_size: u32) -> Option<Endian> {
+        let key = format!("{}:{}", c_type, array_size);
+        self.array_endian_overrides
+            .get(&key)
+            .and_then(|ovr| parse_endian(&ovr.endian))
+    }
+}
+
 // ── Parsing helpers ──
 
 /// Parse a FieldType string into the enum.
@@ -495,6 +568,11 @@ pub fn load_etherparse_gen_mappings(dir: Option<&Path>) -> Result<EtherparseGenM
 /// Load scapy generation mappings from a directory, or use embedded defaults.
 pub fn load_scapy_gen_mappings(dir: Option<&Path>) -> Result<ScapyGenMappings> {
     load_mappings(dir, "scapy_gen.toml", DEFAULT_SCAPY_GEN_TOML)
+}
+
+/// Load libpcap mappings from a directory, or use embedded defaults.
+pub fn load_libpcap_mappings(dir: Option<&Path>) -> Result<LibpcapMappings> {
+    load_mappings(dir, "libpcap.toml", DEFAULT_LIBPCAP_TOML)
 }
 
 fn load_mappings<T: serde::de::DeserializeOwned>(
@@ -742,5 +820,63 @@ mod tests {
                 entry.max_bits
             );
         }
+    }
+
+    #[test]
+    fn test_load_libpcap_defaults() {
+        let lm = load_libpcap_mappings(None).unwrap();
+        assert_eq!(lm.type_bits("uint8_t"), Some(8));
+        assert_eq!(lm.type_bits("uint16_t"), Some(16));
+        assert_eq!(lm.type_bits("uint32_t"), Some(32));
+        assert!(lm.gencode_protocols.contains_key("IPv4"));
+        assert!(lm.gencode_protocols.contains_key("UDP"));
+        assert!(lm.gencode_protocols.contains_key("TCP"));
+        assert!(lm.gencode_protocols.contains_key("IPv6"));
+        assert!(lm.gencode_protocols.contains_key("ARP"));
+    }
+
+    #[test]
+    fn test_libpcap_gencode_ipv4_fields() {
+        let lm = load_libpcap_mappings(None).unwrap();
+        let ipv4 = &lm.gencode_protocols["IPv4"];
+        assert_eq!(ipv4["protocol"].byte_offset, 9);
+        assert_eq!(ipv4["protocol"].size_bytes, 1);
+        assert_eq!(ipv4["protocol"].field_type, Some("Enum".to_string()));
+        assert_eq!(ipv4["src_addr"].byte_offset, 12);
+        assert_eq!(ipv4["src_addr"].size_bytes, 4);
+    }
+
+    #[test]
+    fn test_libpcap_type_endian() {
+        let lm = load_libpcap_mappings(None).unwrap();
+        assert_eq!(lm.type_endian("uint16_t"), Endian::Big);
+        assert_eq!(lm.type_endian("uint32_t"), Endian::Big);
+        assert_eq!(lm.type_endian("uint8_t"), Endian::Na);
+    }
+
+    #[test]
+    fn test_libpcap_field_overrides() {
+        let lm = load_libpcap_mappings(None).unwrap();
+        assert_eq!(lm.field_type_override("sll_protocol"), Some(FieldType::Enum));
+        assert_eq!(lm.field_type_override("vlan_tci"), Some(FieldType::Flags));
+        assert_eq!(lm.field_type_override("vlan_tpid"), Some(FieldType::Enum));
+    }
+
+    #[test]
+    fn test_libpcap_array_endian() {
+        let lm = load_libpcap_mappings(None).unwrap();
+        assert_eq!(
+            lm.array_endian_override("uint8_t", 8),
+            Some(Endian::Big)
+        );
+        assert_eq!(lm.array_endian_override("uint8_t", 4), None);
+    }
+
+    #[test]
+    fn test_libpcap_struct_protocols() {
+        let lm = load_libpcap_mappings(None).unwrap();
+        let vlan = &lm.struct_protocols["vlan_tag"];
+        assert_eq!(vlan.source_file, "pcap/vlan.h");
+        assert_eq!(vlan.struct_name, "vlan_tag");
     }
 }

@@ -294,3 +294,24 @@ pub struct Ipv6Header {
     pub destination: [u8; 16],
 }
 "#;
+
+// ── libpcap C struct definitions ──
+
+pub const LIBPCAP_SLL_HEADER: &str = r#"
+#define SLL_ADDRLEN 8
+
+struct sll_header {
+    uint16_t sll_pkttype;
+    uint16_t sll_hatype;
+    uint16_t sll_halen;
+    uint8_t  sll_addr[SLL_ADDRLEN];
+    uint16_t sll_protocol;
+};
+"#;
+
+pub const LIBPCAP_VLAN_TAG: &str = r#"
+struct vlan_tag {
+    uint16_t vlan_tci;
+    uint16_t vlan_tpid;
+};
+"#;

@@ -121,6 +121,7 @@
             export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"
             export PROTO_AUDIT_PCAP="''${PROTO_AUDIT_PCAP:-${test-pcap}/combo.pcap}"
             export PROTO_AUDIT_ETHERPARSE_SRC="''${PROTO_AUDIT_ETHERPARSE_SRC:-${protoAuditSources.etherparseSrc}}"
+            export PROTO_AUDIT_LIBPCAP_SRC="''${PROTO_AUDIT_LIBPCAP_SRC:-${protoAuditSources.libpcapSrc}}"
             exec proto-audit "$@"
           '';
         };
@@ -134,6 +135,7 @@
           "--tshark-bin ${protoAuditSources.tshark}/bin/tshark"
           "--pcap ${test-pcap}/combo.pcap"
           "--etherparse-src ${protoAuditSources.etherparseSrc}"
+          "--libpcap-src ${protoAuditSources.libpcapSrc}"
         ];
 
         # Full audit report (cached Nix derivation)

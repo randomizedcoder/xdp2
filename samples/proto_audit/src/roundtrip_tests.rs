@@ -4,7 +4,7 @@
 //! 1. Forward: extractor produces correct IR field properties
 //! 2. Reverse: TOML reverse lookup confirms the original mapping is consistent
 
-use crate::extractors::{etherparse, kernel, scapy, tshark};
+use crate::extractors::{etherparse, kernel, libpcap, scapy, tshark};
 use crate::ir::{Endian, FieldDef, FieldType};
 use crate::test_data::*;
 use crate::type_mapping;
@@ -470,4 +470,174 @@ fn roundtrip_etherparse_ipv6() {
 
     let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
     assert_eq!(total, 320); // 40 bytes
+}
+
+// ── libpcap gencode roundtrip tests ──
+
+#[test]
+fn roundtrip_libpcap_ipv4_gencode() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let def = libpcap::extract_from_gencode("IPv4", "IPv4", &mappings)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(def.fields.len(), 4);
+    assert_field(&def.fields, "protocol", 72, 8, FieldType::Enum, Endian::Na);
+    assert_field(&def.fields, "frag_off", 48, 16, FieldType::Uint, Endian::Big);
+    assert_field(
+        &def.fields,
+        "src_addr",
+        96,
+        32,
+        FieldType::Ipv4Addr,
+        Endian::Big,
+    );
+    assert_field(
+        &def.fields,
+        "dst_addr",
+        128,
+        32,
+        FieldType::Ipv4Addr,
+        Endian::Big,
+    );
+
+    // Source info
+    let info = def.sources.get("libpcap").unwrap();
+    assert!(info.present);
+    assert_eq!(info.field_count, 4);
+}
+
+#[test]
+fn roundtrip_libpcap_udp_gencode() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let def = libpcap::extract_from_gencode("UDP", "UDP", &mappings)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(def.fields.len(), 2);
+    assert_field(&def.fields, "src_port", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&def.fields, "dst_port", 16, 16, FieldType::Uint, Endian::Big);
+
+    let total = def
+        .fields
+        .last()
+        .map(|f| f.offset_bits + f.size_bits)
+        .unwrap();
+    assert_eq!(total, 32);
+}
+
+#[test]
+fn roundtrip_libpcap_tcp_gencode() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let def = libpcap::extract_from_gencode("TCP", "TCP", &mappings)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(def.fields.len(), 2);
+    assert_field(&def.fields, "src_port", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&def.fields, "dst_port", 16, 16, FieldType::Uint, Endian::Big);
+}
+
+#[test]
+fn roundtrip_libpcap_ipv6_gencode() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let def = libpcap::extract_from_gencode("IPv6", "IPv6", &mappings)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(def.fields.len(), 3);
+    assert_field(&def.fields, "next_header", 48, 8, FieldType::Enum, Endian::Na);
+    assert_field(
+        &def.fields,
+        "src_addr",
+        64,
+        128,
+        FieldType::Ipv6Addr,
+        Endian::Big,
+    );
+    assert_field(
+        &def.fields,
+        "dst_addr",
+        192,
+        128,
+        FieldType::Ipv6Addr,
+        Endian::Big,
+    );
+
+    let total = def
+        .fields
+        .last()
+        .map(|f| f.offset_bits + f.size_bits)
+        .unwrap();
+    assert_eq!(total, 320); // 40 bytes
+}
+
+#[test]
+fn roundtrip_libpcap_arp_gencode() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let def = libpcap::extract_from_gencode("ARP", "ARP", &mappings)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(def.fields.len(), 2);
+    assert_field(
+        &def.fields,
+        "src_addr",
+        112,
+        32,
+        FieldType::Ipv4Addr,
+        Endian::Big,
+    );
+    assert_field(
+        &def.fields,
+        "dst_addr",
+        192,
+        32,
+        FieldType::Ipv4Addr,
+        Endian::Big,
+    );
+}
+
+// ── libpcap struct roundtrip tests ──
+
+#[test]
+fn roundtrip_libpcap_sll_struct() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let ls = libpcap::parse_libpcap_struct(LIBPCAP_SLL_HEADER, "sll_header")
+        .unwrap()
+        .unwrap();
+    let fields = libpcap::struct_to_field_defs(&ls, &mappings);
+
+    assert_eq!(fields.len(), 5);
+    assert_field(&fields, "sll_pkttype", 0, 16, FieldType::Enum, Endian::Big);
+    assert_field(&fields, "sll_hatype", 16, 16, FieldType::Enum, Endian::Big);
+    assert_field(&fields, "sll_halen", 32, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "sll_addr", 48, 64, FieldType::Uint, Endian::Big);
+    assert_field(
+        &fields,
+        "sll_protocol",
+        112,
+        16,
+        FieldType::Enum,
+        Endian::Big,
+    );
+
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 128); // 16 bytes
+}
+
+#[test]
+fn roundtrip_libpcap_vlan_struct() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let ls = libpcap::parse_libpcap_struct(LIBPCAP_VLAN_TAG, "vlan_tag")
+        .unwrap()
+        .unwrap();
+    let fields = libpcap::struct_to_field_defs(&ls, &mappings);
+
+    assert_eq!(fields.len(), 2);
+    assert_field(&fields, "vlan_tci", 0, 16, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "vlan_tpid", 16, 16, FieldType::Enum, Endian::Big);
+
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 32); // 4 bytes
 }

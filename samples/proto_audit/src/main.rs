@@ -58,6 +58,10 @@ struct SourcePaths {
     /// Path to etherparse source tree
     #[arg(long, env = "PROTO_AUDIT_ETHERPARSE_SRC")]
     etherparse_src: Option<PathBuf>,
+
+    /// Path to libpcap source tree
+    #[arg(long, env = "PROTO_AUDIT_LIBPCAP_SRC")]
+    libpcap_src: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -321,6 +325,24 @@ fn try_extract(
             def.is_variable_length = names.variable_length;
             Some(def)
         }
+        "libpcap" => {
+            let names = name_mapping::find_by_canonical(proto)?;
+            let libpcap_name = names.libpcap_name?;
+            let libpcap_file = names.libpcap_file?;
+            let mappings = type_mapping::load_libpcap_mappings(None).ok()?;
+            let mut def = extractors::libpcap::extract_protocol(
+                paths.libpcap_src.as_deref(),
+                proto,
+                libpcap_name,
+                libpcap_file,
+                &mappings,
+            )
+            .ok()
+            .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         _ => None,
     }
 }
@@ -343,7 +365,7 @@ fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {
@@ -655,6 +677,8 @@ fn cmd_list(json_output: bool) -> Result<()> {
                     "tshark": p.tshark,
                     "etherparse_struct": p.etherparse_struct,
                     "etherparse_file": p.etherparse_file,
+                    "libpcap_name": p.libpcap_name,
+                    "libpcap_file": p.libpcap_file,
                     "min_header_bytes": p.min_header_bytes,
                     "variable_length": p.variable_length,
                 })
@@ -663,22 +687,23 @@ fn cmd_list(json_output: bool) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&json_list)?);
     } else {
         println!(
-            "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:>4}",
-            "Protocol", "XDP2", "Kernel", "Scapy", "tshark", "etherparse", "Bytes"
+            "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:<12}  {:>4}",
+            "Protocol", "XDP2", "Kernel", "Scapy", "tshark", "etherparse", "libpcap", "Bytes"
         );
         println!(
-            "  {}  {}  {}  {}  {}  {}  {}",
-            "-".repeat(16), "-".repeat(30), "-".repeat(14), "-".repeat(8), "-".repeat(8), "-".repeat(20), "-".repeat(4)
+            "  {}  {}  {}  {}  {}  {}  {}  {}",
+            "-".repeat(16), "-".repeat(30), "-".repeat(14), "-".repeat(8), "-".repeat(8), "-".repeat(20), "-".repeat(12), "-".repeat(4)
         );
         for p in &table {
             println!(
-                "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:>4}",
+                "  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:<12}  {:>4}",
                 p.canonical,
                 p.xdp2.unwrap_or("-"),
                 p.kernel_struct.unwrap_or("-"),
                 p.scapy.unwrap_or("-"),
                 p.tshark.unwrap_or("-"),
                 p.etherparse_struct.unwrap_or("-"),
+                p.libpcap_name.unwrap_or("-"),
                 p.min_header_bytes,
             );
         }

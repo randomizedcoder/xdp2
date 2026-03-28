@@ -1,0 +1,75 @@
+# libpcap → IR Type Mappings
+#
+# Maps libpcap's BPF compiler offset knowledge (gencode.c) and
+# C struct definitions (pcap/*.h) to proto-audit IR.
+#
+# The gencode_protocols section declaratively captures #define offsets
+# from gencode.c — the BPF compiler's independent protocol knowledge.
+# These offsets are derived from RFCs, independent of kernel structs.
+
+[type_bits]
+# C types used in pcap header structs (sll.h, vlan.h)
+uint8_t = 8
+uint16_t = 16
+uint32_t = 32
+uint64_t = 64
+
+[type_endian]
+# Most multi-byte network fields are big-endian
+"prefix:uint16" = "Big"
+"prefix:uint32" = "Big"
+"prefix:uint64" = "Big"
+"exact:uint8_t" = "Na"
+
+[field_type_overrides]
+# For SLL/VLAN struct fields
+sll_protocol = { type = "Enum", reason = "EtherType in SLL header" }
+sll_pkttype = { type = "Enum", reason = "Packet type (incoming, outgoing, etc.)" }
+sll_hatype = { type = "Enum", reason = "ARP hardware type" }
+vlan_tci = { type = "Flags", reason = "VLAN TCI (priority + CFI + VID)" }
+vlan_tpid = { type = "Enum", reason = "VLAN TPID (EtherType)" }
+
+[array_endian_overrides]
+# SLL address bytes
+
+[array_endian_overrides."uint8_t:8"]
+endian = "Big"
+reason = "SLL hardware address"
+
+# ── Gencode Protocol Offsets ──
+# From libpcap gencode.c #define constants.
+# Each field: byte_offset (from protocol header start), size_bytes, optional field_type.
+
+[gencode_protocols.IPv4]
+protocol = { byte_offset = 9, size_bytes = 1, field_type = "Enum" }
+frag_off = { byte_offset = 6, size_bytes = 2 }
+src_addr = { byte_offset = 12, size_bytes = 4, field_type = "Ipv4Addr" }
+dst_addr = { byte_offset = 16, size_bytes = 4, field_type = "Ipv4Addr" }
+
+[gencode_protocols.UDP]
+src_port = { byte_offset = 0, size_bytes = 2 }
+dst_port = { byte_offset = 2, size_bytes = 2 }
+
+[gencode_protocols.TCP]
+src_port = { byte_offset = 0, size_bytes = 2 }
+dst_port = { byte_offset = 2, size_bytes = 2 }
+
+[gencode_protocols.IPv6]
+next_header = { byte_offset = 6, size_bytes = 1, field_type = "Enum" }
+src_addr = { byte_offset = 8, size_bytes = 16, field_type = "Ipv6Addr" }
+dst_addr = { byte_offset = 24, size_bytes = 16, field_type = "Ipv6Addr" }
+
+[gencode_protocols.ARP]
+src_addr = { byte_offset = 14, size_bytes = 4, field_type = "Ipv4Addr" }
+dst_addr = { byte_offset = 24, size_bytes = 4, field_type = "Ipv4Addr" }
+
+[gencode_protocols.RARP]
+src_addr = { byte_offset = 14, size_bytes = 4, field_type = "Ipv4Addr" }
+dst_addr = { byte_offset = 24, size_bytes = 4, field_type = "Ipv4Addr" }
+
+# ── Struct Protocol Definitions ──
+# For protocols defined as C structs in pcap/*.h headers.
+
+[struct_protocols.vlan_tag]
+source_file = "pcap/vlan.h"
+struct_name = "vlan_tag"
