@@ -1,0 +1,142 @@
+# Extractors
+
+Each source has a dedicated extractor that reads native definitions (C structs,
+Python field descriptors, Rust types, XML dissections, BPF gencode offsets) and
+normalizes them into the common IR (`ProtocolDef`). Every field is indexed by
+its wire bit offset and size. Type inference is driven by per-source TOML
+mapping files in `mappings/`.
+
+See [IR Format](ir-format.md) for the full schema, [Field Matching](field-matching.md)
+for how extracted fields are compared across sources.
+
+## Kernel (`src/extractors/kernel.rs`)
+
+Parses C struct definitions from Linux UAPI headers. Handles:
+- Regular fields, bitfields, arrays
+- `#if defined(__BIG_ENDIAN_BITFIELD)` conditional sections (picks network byte order)
+- `__struct_group()` macro unwrapping
+- Inline `/* ... */` comment stripping
+- `#if 0` dead-code block skipping
+- Embedded `struct X name;` fields via `[struct_sizes]` TOML table
+
+Type inference uses `mappings/kernel.toml`:
+- `type_bits`: C type → bit width (includes `__be16`, `__u8`, etc.)
+- `type_endian`: C type prefix/exact → endianness (e.g., `__sum16` → Big)
+- `field_type_overrides`: field name → semantic type (e.g., `protocol` → Enum)
+- `array_endian_overrides`: C type + array size → endianness (e.g., `unsigned char[6]` → Big for MAC)
+- `struct_sizes`: embedded struct name → bit width (e.g., `icmp6hdr` → 64)
+
+## Scapy (`src/extractors/scapy.rs`)
+
+Consumes JSON output from `helpers/scapy_dump.py`, which introspects Scapy's
+`fields_desc` at runtime. The helper imports ~40 contrib modules covering
+all 109 Scapy-mapped protocols, including custom modules for PBB, TRILL,
+MPEG-TS, SRT, DSA/EDSA, BATMAN, CFM, NC-SI, FIP, MVRP, Netlink, IPX,
+AppleTalk, X.25, ATM, iSCSI, NVMe, SCSI, and iSER.
+
+Type inference uses `mappings/scapy.toml`:
+- `field_types`: class name → IR type (e.g., `IPField` → Ipv4Addr)
+- `endian_prefixes`: class name prefix → endianness (e.g., `LE` → Little)
+- `name_patterns`: field name substring fallback (e.g., `flags` → Flags)
+
+Note: `ShortEnumField` is deliberately **not** mapped to Enum — it's used
+for TCP/UDP ports, which are an open namespace, not a closed enumeration.
+
+### Scapy Helper (`helpers/scapy_dump.py`)
+
+```bash
+python3 scapy_dump.py IP      # dump one protocol as JSON
+python3 scapy_dump.py --list  # list all available Packet classes
+```
+
+The helper imports ~40 Scapy contrib/layers modules to ensure full coverage.
+19 of these are custom modules created for proto-audit (PBB, TRILL, MPEG-TS,
+etc.) living in the local Scapy tree at `~/Downloads/scapy/scapy/contrib/`.
+
+## tshark (`src/extractors/tshark.rs`)
+
+Runs `tshark -T pdml` on a test PCAP and parses the XML output. Each
+`<proto>` element becomes a protocol, each `<field>` with `pos` and `size`
+attributes becomes a field definition.
+
+Type inference uses `mappings/tshark.toml`:
+- `suffix_types`: unconditional suffix → type (e.g., `.src_hw` → MacAddr)
+- `suffix_types_by_size`: suffix + bit width → type (e.g., `.src` at 32 bits → Ipv4Addr)
+- `contains_types`: substring → type (e.g., `flags` → Flags)
+- `enum_patterns`: substring + max bits → Enum (e.g., `proto` at ≤16 bits)
+- `blocklist_suffixes`: filtered out (`.payload`, `.padding`, `.trailer`, etc.)
+
+## etherparse (`src/extractors/etherparse.rs`)
+
+Parses Rust `pub struct` definitions from etherparse source files. Handles:
+- Array fields (`[u8; 6]` for MAC addresses)
+- Non-pub field filtering (ARP private fields skipped)
+- Newtype wrappers mapped to wire bit widths via TOML
+- Sub-byte types (`Bits2`–`Bits29`) for fine-grained overlay struct fields
+- Implicit wire fields (IPv4 version/IHL, IPv6 version, TCP data_offset/reserved)
+- TCP flag reordering (struct order ≠ wire order)
+
+Type inference uses `mappings/etherparse.toml`:
+- `type_bits`: Rust type → wire bit width (including newtypes and sub-byte types)
+- `field_type_overrides`: field name → semantic type
+- `implicit_fields`: start_offset_bits + gaps for missing wire fields
+- `flag_bit_offsets`: field name → absolute wire bit position
+- `array_endian_overrides`: Rust type + array size → endianness
+
+Covers 9 native protocols (Ethernet, VLAN, IPv4, IPv6, ARP, TCP, UDP,
+ICMPv4, ICMPv6) plus 31 overlay protocols added via per-protocol patches
+(GRE, VXLAN, MPLS, Geneve, NSH, NTP, BFD, etc.). Overlay structs use
+RFC-level field granularity with sub-byte types for individual bit-fields.
+See [Source Patching](patching.md) for details.
+
+See [Adding a Source](adding-a-source.md) for the complete guide using
+etherparse as a worked example.
+
+## libpcap (`src/extractors/libpcap.rs`)
+
+Dual-path extractor for libpcap's protocol knowledge:
+
+- **Gencode offsets**: Protocol field offsets from `gencode.c`'s BPF compiler,
+  captured declaratively in TOML (`[gencode_protocols]` tables). These offsets
+  are derived from RFCs, independent of kernel structs.
+- **C struct parsing**: For protocols defined as structs in `pcap/*.h` headers
+  (SLL, SLL2, VLAN) and overlay headers in `pcap/proto_audit/*.h`.
+- **C bitfield support**: Parses `uint16_t field:N;` bitfield syntax for
+  fine-grained sub-field extraction in overlay structs.
+
+The extractor dispatches based on the `libpcap_file` hint in the name mapping
+table — `gencode.c` triggers TOML-declared offset extraction, while a
+`pcap/*.h` path triggers C struct parsing using regex.
+
+Type inference uses `mappings/libpcap.toml`:
+- `type_bits`: C type → bit width (`uint8_t`, `uint16_t`, etc.)
+- `type_endian`: type prefix → endianness (big-endian for multi-byte network fields)
+- `field_type_overrides`: field name → semantic type (e.g., `sll_protocol` → Enum)
+- `gencode_protocols`: declarative field offset tables per protocol (byte offset, size, optional type)
+- `struct_protocols`: struct name → source file + struct name for C header parsing
+
+Covers 6 gencode protocols (IPv4, IPv6, TCP, UDP, ARP, SCTP), 3 native
+struct protocols (SLL, SLL2, VLAN), and 18 overlay protocols added via
+per-protocol patches (GRE, VXLAN, MPLS, etc.). Overlay structs use C
+bitfields for RFC-level field granularity.
+See [Source Patching](patching.md) for details.
+
+## XDP2 (`src/extractors/xdp2.rs`)
+
+Scans XDP2's `proto_defs/` directory for `xdp2_proto_def` struct
+initializations. Extracts:
+- Variable name (e.g., `xdp2_parse_ipv4`)
+- Display name from `.name` field
+- Kernel struct reference (via `sizeof(struct ...)`)
+- Dispatch function (`.ops.next_proto`) and length function (`.ops.len`)
+- TLV vs regular protocol flag, overlay flag
+
+XDP2 proto_defs don't define fields directly — they reference kernel structs
+via `#include <linux/ip.h>` and provide type-safe accessor functions (e.g.,
+`ipv4_proto()`, `ipv4_len()`) for BPF packet processing. The extractor yields
+metadata (`present: true`, `field_count: 0`), shown as `0*` in the matrix.
+Field-level comparison uses the kernel extractor instead.
+
+This is by design: XDP2's role is protocol graph traversal and eBPF program
+generation, not field-level reflection. The field definitions live in the
+kernel UAPI headers, which proto-audit extracts separately.

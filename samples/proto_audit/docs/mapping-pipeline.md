@@ -45,8 +45,8 @@ More entries means richer type inference without Rust code changes.
 |--------|-------------|-----------------|-----------|----------|
 | kernel | 23 type_bits, 3 struct_sizes, 5 endian rules | 14 (12 with IANA reasons) | ~48 | Highest |
 | scapy | 24 class→type mappings, 4 name patterns | 0 (class names carry type) | 109 | Medium |
-| etherparse | 19 type_bits (14 newtypes), 3 implicit field defs | 7 + flag_bit_offsets | 9 | High (narrow) |
-| libpcap | 4 type_bits, 7 gencode protocols, 3 struct defs | 5 | ~20 | Medium |
+| etherparse | 30 type_bits (14 newtypes + 11 sub-byte), 3 implicit field defs | 12 + flag_bit_offsets | 9 + 31 overlay | High |
+| libpcap | 4 type_bits, 7 gencode protocols, 21 struct defs | 12 | 6 + 18 overlay | Medium |
 | tshark | 0 type_bits (pure heuristics: suffixes, patterns) | 0 | ~80 | Lowest |
 | xdp2 | No TOML (metadata-only extraction) | N/A | ~70 | Metadata only |
 
@@ -141,6 +141,7 @@ For IPv4, it finds that `flags` (offset 48, 3 bits) and `fragment_offset`
 ## Further Reading
 
 - [Architecture](architecture.md) — system overview and component diagram
+- [Source Patching](patching.md) — overlay patches, fine-grained analysis, upstream PR workflow
 - [Extractors](extractors.md) — per-source extractor implementation details
 - [Code Generation](code-generation.md) — generator targets and TOML schemas
 - [Inconsistency Analysis](inconsistency-analysis.md) — why sources disagree

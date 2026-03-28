@@ -4,16 +4,17 @@ Extracts protocol header definitions from six independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**207 protocols** across every network layer, code generation in 3 languages + PCAP wire output, 321 unit tests.
+**207 protocols** across every network layer, code generation in 3 languages + PCAP wire output, 49 per-protocol overlay patches for fine-grained RFC-level field comparison, 330 unit tests.
 
 ## Highlights
 
 - **207 protocols** across 6 independent sources (XDP2, kernel, Scapy, tshark, etherparse, libpcap)
+- **49 per-protocol overlay patches** (31 etherparse + 18 libpcap) with RFC-level sub-field granularity
 - Field-level comparison by wire bit offset — not name — catches real layout disagreements
 - Code generation from IR to C headers, Rust structs, Scapy packet classes, and PCAP packets
 - Extensible TOML-based type mappings — no Rust code changes needed
 - Nix-reproducible builds with pinned external sources and cached report derivation
-- 321 unit tests, JSON output on every command
+- 330 unit tests, JSON output on every command
 
 ## Vision
 
@@ -43,10 +44,12 @@ nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 | `kernel` | Linux UAPI struct field definitions | Nix-pinned source, regex C parse | ~80 protocols |
 | `scapy` | Scapy `fields_desc` with dispatch/length | Python runtime introspection (JSON) | 109+ protocols |
 | `tshark` | Wireshark protocol dissection fields | `tshark -T pdml` subprocess (XML) | ~60 protocols |
-| `etherparse` | Rust packet parsing crate structs | Nix-pinned source, regex Rust parse | 9 core protocols |
-| `libpcap` | BPF gencode struct definitions | Nix-pinned source, C header parse | ~20 protocols |
+| `etherparse` | Rust packet parsing crate structs | Nix-pinned + 31 overlay patches | 9 core + 31 overlay |
+| `libpcap` | BPF gencode + C struct definitions | Nix-pinned + 18 overlay patches | ~6 native + 18 overlay |
 
-All external sources are Nix-pinned for reproducibility. See [Architecture](docs/architecture.md) for details.
+All external sources are Nix-pinned for reproducibility. etherparse and libpcap
+are extended with per-protocol overlay patches for cross-source comparison of
+49 additional protocols. See [Source Patching](docs/patching.md) for details.
 
 ## How It Works
 
@@ -60,8 +63,13 @@ packet classes, and PCAP packets from the canonical IR.
 to tshark, extracts the result back to IR, and compares — a true round-trip
 through wire bytes.
 
-See [Architecture](docs/architecture.md), [IR Format](docs/ir-format.md),
-[Field Matching](docs/field-matching.md) for details.
+**Patching.** etherparse and libpcap are extended with 49 per-protocol overlay
+patches that add RFC-level struct definitions for protocols beyond their native
+coverage. Each patch splits coarse combined fields into individual sub-fields
+(e.g., GRE `flags_version:u16` becomes 6 separate bit-level fields).
+
+See [Architecture](docs/architecture.md), [Source Patching](docs/patching.md),
+[IR Format](docs/ir-format.md), [Field Matching](docs/field-matching.md) for details.
 
 ## Commands
 
@@ -105,12 +113,48 @@ etherparse as a worked example.
 **Correcting types.** Edit the appropriate `mappings/*.toml` file. Each override
 entry includes a `reason` field documenting the rationale. No Rust changes needed.
 
+**Adding an overlay patch.** To add a protocol to etherparse or libpcap, add
+the struct definition to `gen_fine_grained.py`, run it, and drop the `.patch`
+file into `patches/etherparse/` or `patches/libpcap/`. See
+[Source Patching](docs/patching.md).
+
+## Understanding Field Coverage
+
+### Why XDP2 Shows 0 Fields
+
+XDP2 is an eBPF/XDP packet processing framework. Its `xdp2_proto_def` structs
+define metadata only — protocol name, `sizeof()` for minimum length, dispatch
+and length functions. They reference kernel structs directly (e.g.,
+`#include <linux/ip.h>`) and provide type-safe accessor functions. XDP2 shows
+`0*` in the matrix (metadata present, zero extracted fields) because field-level
+definitions live in the kernel UAPI headers, extracted separately by the kernel
+extractor. This is by design — XDP2 focuses on protocol graph traversal and
+BPF program generation, not field-level reflection.
+
+### Why Kernel Fields Can Be Coarser
+
+The Linux kernel UAPI headers are authoritative upstream definitions. Some
+kernel fields are deliberately coarser than what Scapy or tshark extract.
+For example, IPv4's `frag_off` is a single `__be16` combining 3-bit flags and
+13-bit fragment offset, while Scapy splits these into separate fields. Similarly,
+VLAN's `h_vlan_TCI` combines priority, CFI, and VLAN ID into one `__be16`.
+These are intentional kernel design choices for fast BPF access — proto-audit
+documents these granularity differences as findings rather than patching them.
+
+### Where Overlay Patches Add Coverage
+
+The 49 overlay patches extend etherparse (31 protocols) and libpcap (18
+protocols) with struct definitions for protocols beyond their native coverage.
+These use RFC-level granularity, splitting coarse combined fields into
+individual sub-fields. See [Source Patching](docs/patching.md) for the
+complete list and before/after examples.
+
 ## Building & Testing
 
 ```bash
 nix build .#proto-audit          # wrapped with all source paths
 nix build .#proto-audit-bin      # raw binary (no env var defaults)
-nix develop --command cargo test  # 321 unit tests
+nix develop --command cargo test  # 330 unit tests
 ```
 
 The Nix wrapper sets all `PROTO_AUDIT_*` variables automatically.
@@ -125,8 +169,9 @@ See [Nix Packaging](docs/nix-packaging.md) for flake outputs and source pinning.
 | [IR Format](docs/ir-format.md) | Complete IR schema, JSON examples |
 | [Code Generation](docs/code-generation.md) | Generator targets (C, Rust, Python, PCAP), TOML schemas |
 | [Field Matching](docs/field-matching.md) | Structural vs semantic agreement, audit algorithm, report interpretation |
+| [Source Patching](docs/patching.md) | Overlay patches, fine-grained analysis, sub-byte types, upstream PR workflow |
 | [Adding a Source](docs/adding-a-source.md) | Step-by-step guide using etherparse as a worked example |
-| [Nix Packaging](docs/nix-packaging.md) | Build, source pinning, flake outputs |
+| [Nix Packaging](docs/nix-packaging.md) | Build, source pinning, `applyPatches`, flake outputs |
 | [Round-Trip Validation](docs/validation.md) | IR → PCAP → tshark round-trip verification |
 | [Status](docs/status.md) | Iteration history, expected impact, known issues |
 | [Coverage](docs/proto-audit-coverage.md) | Per-protocol source coverage analysis |
@@ -148,7 +193,11 @@ samples/proto_audit/
     extractors/            6 source-specific parsers (kernel, scapy, tshark, etherparse, libpcap, xdp2)
   helpers/scapy_dump.py    Python helper for Scapy introspection
   mappings/                7 TOML files (5 extraction + 2 generation)
-  docs/                    9 reference documents (see Documentation)
+  patches/
+    gen_fine_grained.py    Generator script for overlay struct patches
+    etherparse/            31 per-protocol Rust overlay patches
+    libpcap/               18 per-protocol C header overlay patches
+  docs/                    14 reference documents (see Documentation)
 ```
 
 ## Status

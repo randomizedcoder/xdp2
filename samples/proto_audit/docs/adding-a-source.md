@@ -41,6 +41,19 @@ etherparseSrc = pkgs.fetchFromGitHub {
 Set `hash = ""` initially, run `nix build .#proto-audit`, copy the hash from
 the error message, and paste it back.
 
+If your source needs overlay patches (to add protocol structs beyond its
+native coverage), use `pkgs.applyPatches` with the `patchesIn` helper:
+
+```nix
+etherparseSrc = pkgs.applyPatches {
+  src = pkgs.fetchFromGitHub { ... };
+  patches = patchesIn ../samples/proto_audit/patches/etherparse;
+};
+```
+
+See [Source Patching](patching.md) and [Nix Packaging](nix-packaging.md)
+for details on the patching system.
+
 ## Step 2: Inventory the Protocols
 
 Before writing code, catalogue every protocol your source defines:

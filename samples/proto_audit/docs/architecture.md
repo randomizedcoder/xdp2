@@ -44,6 +44,9 @@ normalizes them into a common IR, then compares, reports, and generates code.
                                   ═ (Generation)═
 ```
 
+Note: etherparse and libpcap sources are patched with per-protocol overlay
+structs before extraction. See [Source Patching](patching.md) for details.
+
 See [Mapping Pipeline](mapping-pipeline.md) for a detailed walkthrough of
 both directions, per-source fidelity tables, and a worked IPv4 example.
 
@@ -75,8 +78,8 @@ both directions, per-source fidelity tables, and a worked IPv4 example.
 | **Linux kernel** | C structs (UAPI headers) | Nix-pinned source tree | ~48 with field definitions |
 | **Scapy** | Python classes (`fields_desc`) | Runtime introspection via JSON | 109 protocols |
 | **tshark** | PDML XML (`<proto>`/`<field>`) | `tshark -T pdml` subprocess | ~80 with PCAP packets |
-| **etherparse** | Rust structs (`pub struct`) | Nix-pinned source (regex parse) | 9 core protocols |
-| **libpcap** | C structs + BPF gencode offsets | Nix-pinned source (C parse + TOML) | ~20 protocols |
+| **etherparse** | Rust structs (`pub struct`) | Nix-pinned + 31 overlay patches | 9 core + 31 overlay |
+| **libpcap** | C structs + BPF gencode offsets | Nix-pinned + 18 overlay patches | ~6 native + 18 overlay |
 
 ## Intermediate Representation
 
@@ -141,6 +144,7 @@ The report module (`src/report/`) produces:
 
 ## Further Reading
 
+- [Source Patching](patching.md) — overlay patches, fine-grained analysis, upstream PR workflow
 - [Extractors](extractors.md) — per-source extractor details
 - [Code Generation](code-generation.md) — generator targets and TOML schemas
 - [Mapping Pipeline](mapping-pipeline.md) — bidirectional pipeline walkthrough with fidelity tables
