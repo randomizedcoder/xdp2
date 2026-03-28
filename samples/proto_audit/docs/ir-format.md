@@ -1,9 +1,13 @@
 # Intermediate Representation (IR) Format
 
-proto-audit normalizes protocol definitions from all five sources (XDP2,
-Linux kernel, Scapy, tshark, etherparse) into a common IR defined in
-`src/ir.rs`. This document is the authoritative reference for the IR
+proto-audit normalizes protocol definitions from all six sources (XDP2,
+Linux kernel, Scapy, tshark, etherparse, libpcap) into a common IR defined
+in `src/ir.rs`. This document is the authoritative reference for the IR
 schema.
+
+The IR is also positioned as a candidate for a universal machine-readable
+protocol header format — a gap that the IETF has never filled. See
+[IR as Standard](ir-as-standard.md) for the rationale and evidence.
 
 All IR types implement `Serialize` and `Deserialize` via serde. The
 canonical serialization is JSON, produced by any command with `--json`.
@@ -263,51 +267,6 @@ nix run .#proto-audit -- audit --json | jq '.[] | select(.fields_mismatch > 0)'
 
 ## Code Generation from IR
 
-The generator (`src/generator.rs`) converts `ProtocolDef` instances into
-source code for three targets. Each target has a TOML configuration file
-for reverse type mapping (IR types back to target-language types).
-
-| Target | Command | Config | Output |
-|--------|---------|--------|--------|
-| C (XDP2 proto_def) | `generate --target c` | — | C header with `xdp2_proto_def` struct |
-| Rust (etherparse) | `generate --target etherparse` | `mappings/etherparse_gen.toml` | Rust struct with derives |
-| Python (Scapy) | `generate --target scapy` | `mappings/scapy_gen.toml` | Scapy Packet class |
-
-### etherparse_gen.toml
-
-Maps IR `(FieldType, size_bits)` to Rust types:
-
-```toml
-[rust_types]
-"Uint:16" = "u16"
-"Ipv4Addr:32" = "[u8; 4]"
-"MacAddr:48" = "[u8; 6]"
-
-[newtypes]
-ether_type = "EtherType"     # field-name → newtype override
-protocol = "IpNumber"
-
-[derives]
-default = ["Debug", "Clone", "PartialEq", "Eq"]
-
-[skip_fields]
-Ipv4Header = ["version", "ihl"]   # implicit in etherparse
-```
-
-### scapy_gen.toml
-
-Maps IR `(FieldType, size_bits)` to Scapy field classes:
-
-```toml
-[field_classes]
-"Uint:16" = "ShortField"
-"Ipv4Addr:32" = "IPField"
-"Enum:16" = "ShortEnumField"
-
-[name_overrides]
-src_addr = "SourceIPField"   # field-name → class override
-checksum = "XShortField"
-
-[le_prefixes]
-ShortField = "LEShortField"  # Little-endian variant
-```
+See [Code Generation](code-generation.md) for full details on the three
+generator targets (C, etherparse, Scapy), their TOML mapping schemas,
+and the reverse type mapping pipeline.
