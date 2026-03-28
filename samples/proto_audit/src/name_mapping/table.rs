@@ -70,7 +70,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_igmp")
             .kernel("igmphdr", "linux/igmp.h")
             .scapy("IGMP")
-            .tshark("igmp"),
+            .tshark("igmp")
+            .etherparse("IgmpHeader", "src/proto_audit.rs")
+            .libpcap("igmp_header", "pcap/proto_audit.h"),
         // ── Layer 4 ──
         PN::new("TCP", 20)
             .xdp2("xdp2_parse_tcp_notlvs")
@@ -93,73 +95,98 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("gre_base_hdr", "linux/gre.h")
             .scapy("GRE")
             .tshark("gre")
+            .etherparse("GreHeader", "src/proto_audit.rs")
+            .libpcap("gre_header", "pcap/proto_audit.h")
             .variable(),
         PN::new("VXLAN", 8)
             .xdp2("xdp2_parse_vxlan")
             .kernel("vxlanhdr", "linux/vxlan.h")
             .scapy("VXLAN")
-            .tshark("vxlan"),
+            .tshark("vxlan")
+            .etherparse("VxlanHeader", "src/proto_audit.rs")
+            .libpcap("vxlan_header", "pcap/proto_audit.h"),
         PN::new("Geneve", 8)
             .xdp2("xdp2_parse_geneve")
             .kernel("genevehdr", "linux/geneve.h")
             .scapy("GENEVE")
             .tshark("geneve")
+            .etherparse("GeneveHeader", "src/proto_audit.rs")
+            .libpcap("geneve_header", "pcap/proto_audit.h")
             .variable(),
         PN::new("MPLS", 4)
             .xdp2("xdp2_parse_mpls")
             .kernel("mpls_label", "linux/mpls.h")
             .scapy("MPLS")
-            .tshark("mpls"),
+            .tshark("mpls")
+            .etherparse("MplsHeader", "src/proto_audit.rs")
+            .libpcap("mpls_header", "pcap/proto_audit.h"),
         PN::new("PPP", 2)
             .xdp2("xdp2_parse_ppp")
             .kernel_header_only("linux/ppp_defs.h")
             .scapy("PPP")
-            .tshark("ppp"),
+            .tshark("ppp")
+            .etherparse("PppHeader", "src/proto_audit.rs")
+            .libpcap("ppp_header", "pcap/proto_audit.h"),
         PN::new("PPPoE", 6)
             .xdp2("xdp2_parse_pppoe")
             .kernel("pppoe_hdr", "linux/ppp_defs.h")
             .scapy("PPPoE")
-            .tshark("pppoes"),
+            .tshark("pppoes")
+            .etherparse("PppoeHeader", "src/proto_audit.rs")
+            .libpcap("pppoe_header", "pcap/proto_audit.h"),
         PN::new("L2TP", 6)
             .xdp2("xdp2_parse_l2tp")
             .kernel("l2tp_control_hdr", "linux/l2tp.h")
             .scapy("L2TP")
             .tshark("l2tp")
+            .etherparse("L2tpHeader", "src/proto_audit.rs")
+            .libpcap("l2tp_header", "pcap/proto_audit.h")
             .variable(),
         PN::new("ERSPAN", 8)
             .xdp2("xdp2_parse_erspan")
             .kernel("erspan_base_hdr", "linux/erspan.h")
             .scapy("ERSPAN_II")
-            .tshark("erspan"),
+            .tshark("erspan")
+            .etherparse("ErspanHeader", "src/proto_audit.rs")
+            .libpcap("erspan_header", "pcap/proto_audit.h"),
         PN::new("NSH", 8)
             .xdp2("xdp2_parse_nsh")
             .kernel("nshhdr", "linux/nsh.h")
             .scapy("NSH")
             .tshark("nsh")
+            .etherparse("NshHeader", "src/proto_audit.rs")
+            .libpcap("nsh_header", "pcap/proto_audit.h")
             .variable(),
         PN::new("HSR", 6)
             .xdp2("xdp2_parse_hsr")
             .kernel("hsr_tag", "linux/hsr_tag.h")
             .scapy("HSRTag")
-            .tshark("hsr"),
+            .tshark("hsr")
+            .etherparse("HsrHeader", "src/proto_audit.rs")
+            .libpcap("hsr_header", "pcap/proto_audit.h"),
         // ── Security ──
         PN::new("ESP", 8)
             .xdp2("xdp2_parse_esp")
             .kernel("ip_esp_hdr", "linux/ip.h")
             .scapy("ESP")
             .tshark("esp")
+            .etherparse("EspHeader", "src/proto_audit.rs")
+            .libpcap("esp_header", "pcap/proto_audit.h")
             .variable(),
         PN::new("AH", 12)
             .xdp2("xdp2_parse_ah")
             .kernel("ip_auth_hdr", "linux/ip.h")
             .scapy("AH")
             .tshark("ah")
+            .etherparse("AhHeader", "src/proto_audit.rs")
+            .libpcap("ah_header", "pcap/proto_audit.h")
             .variable(),
         PN::new("MACsec", 8)
             .xdp2("xdp2_parse_macsec")
             .kernel("macsec_sci", "linux/if_macsec.h")
             .scapy("MACsecSCI")
-            .tshark("macsec"),
+            .tshark("macsec")
+            .etherparse("MacsecHeader", "src/proto_audit.rs"),
         // ── Management ──
         PN::new("LLDP", 2)
             .xdp2("xdp2_parse_lldp")
@@ -170,7 +197,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_ptp")
             .kernel("ptp_header", "linux/ptp_classify.h")
             .scapy("PTP")
-            .tshark("ptp"),
+            .tshark("ptp")
+            .etherparse("PtpHeader", "src/proto_audit.rs"),
         // ── SRv6 ──
         PN::new("SRv6", 8)
             .xdp2("xdp2_parse_srv6")
@@ -207,12 +235,14 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_can")
             .kernel("can_frame", "linux/can.h")
             .scapy("CAN")
-            .tshark("can"),
+            .tshark("can")
+            .etherparse("CanHeader", "src/proto_audit.rs"),
         PN::new("CAN_FD", 72)
             .xdp2("xdp2_parse_canfd")
             .kernel("canfd_frame", "linux/can.h")
             .scapy("CANFD")
-            .tshark("can"),
+            .tshark("can")
+            .etherparse("CanFdHeader", "src/proto_audit.rs"),
         // ── Bluetooth ──
         PN::new("HCI", 1)
             .xdp2("xdp2_parse_hci")
@@ -335,7 +365,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("EAPOL", 4)
             .xdp2("xdp2_parse_eapol")
             .scapy("EAPOL")
-            .tshark("eapol"),
+            .tshark("eapol")
+            .etherparse("EapolHeader", "src/proto_audit.rs")
+            .libpcap("eapol_header", "pcap/proto_audit.h"),
         // ── CAN XL ──
         PN::new("CAN_XL", 12)
             .xdp2("xdp2_parse_canxl")
@@ -448,11 +480,16 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .variable(),
         // ── Media/Streaming ──
         PN::new("MPEG_TS", 188).scapy("MPEG_TS").tshark("mp2t"),
-        PN::new("RTP", 12).scapy("RTP").tshark("rtp").variable(),
+        PN::new("RTP", 12).scapy("RTP").tshark("rtp")
+            .etherparse("RtpHeader", "src/proto_audit.rs").variable(),
         PN::new("SRT", 16).scapy("SRT").tshark("srt").variable(),
         // ── UDP Application Protocols ──
-        PN::new("DNS", 12).scapy("DNS").tshark("dns").variable(),
-        PN::new("NTP", 48).scapy("NTPHeader").tshark("ntp").variable(),
+        PN::new("DNS", 12).scapy("DNS").tshark("dns")
+            .etherparse("DnsHeader", "src/proto_audit.rs")
+            .libpcap("dns_header", "pcap/proto_audit.h").variable(),
+        PN::new("NTP", 48).scapy("NTPHeader").tshark("ntp")
+            .etherparse("NtpHeader", "src/proto_audit.rs")
+            .libpcap("ntp_header", "pcap/proto_audit.h").variable(),
         PN::new("SNMP", 10).scapy("SNMP").tshark("snmp").variable(),
         PN::new("DHCP", 236).scapy("BOOTP").tshark("dhcp").variable(),
         PN::new("DHCPv6", 4).scapy("DHCP6").tshark("dhcpv6").variable(),
@@ -499,9 +536,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("LLC", 3)
             .kernel("llc_snap_hdr", "linux/llc.h")
             .scapy("LLC")
-            .tshark("llc"),
-        PN::new("SNAP", 5).scapy("SNAP").tshark("llc"),
-        PN::new("STP", 35).scapy("STP").tshark("stp"),
+            .tshark("llc")
+            .etherparse("LlcHeader", "src/proto_audit.rs")
+            .libpcap("llc_header", "pcap/proto_audit.h"),
+        PN::new("SNAP", 5).scapy("SNAP").tshark("llc")
+            .etherparse("SnapHeader", "src/proto_audit.rs"),
+        PN::new("STP", 35).scapy("STP").tshark("stp")
+            .etherparse("StpHeader", "src/proto_audit.rs"),
         PN::new("LACP", 110).scapy("SlowProtocol").tshark("lacp"),
         PN::new("QinQ", 8)
             .kernel("vlan_hdr", "linux/if_vlan.h")
@@ -514,11 +555,14 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("sctphdr", "linux/sctp.h")
             .scapy("SCTP")
             .tshark("sctp")
+            .etherparse("SctpHeader", "src/proto_audit.rs")
             .libpcap("SCTP", "gencode.c")
             .variable(),
         PN::new("DCCP", 12)
             .kernel("dccp_hdr", "linux/dccp.h")
+            .scapy("DCCP")
             .tshark("dccp")
+            .etherparse("DccpHeader", "src/proto_audit.rs")
             .variable(),
         PN::new("GTP_U", 8).scapy("GTP_U_Header").tshark("gtp").variable(),
         PN::new("GTP_C", 8).scapy("GTPHeader").tshark("gtpv2").variable(),
@@ -545,22 +589,25 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("sctp.chunk")
             .variable(),
         // ── Tunneling Additions ──
-        PN::new("WireGuard", 4).scapy("WireGuard").tshark("wireguard").variable(),
-        PN::new("IP_in_IP", 20).tshark("ipip").variable(),
-        PN::new("NVGRE", 8).scapy("NVGRE").tshark("nvgre"),
+        PN::new("WireGuard", 4).scapy("WireGuard").tshark("wireguard")
+            .etherparse("WireGuardHeader", "src/proto_audit.rs").variable(),
+        PN::new("IP_in_IP", 20).scapy("IP").tshark("ipip").variable(),
+        PN::new("NVGRE", 8).scapy("NVGRE").tshark("nvgre")
+            .etherparse("NvgreHeader", "src/proto_audit.rs"),
         PN::new("LISP", 8).scapy("LISP").tshark("lisp").variable(),
         PN::new("STT", 18).tshark("stt").variable(),
         PN::new("Teredo", 2).tshark("teredo").variable(),
         PN::new("GUE", 4).tshark("gue").variable(),
-        PN::new("VXLAN_GPE", 8).scapy("VXLAN_GPE").tshark("vxlan"),
+        PN::new("VXLAN_GPE", 8).scapy("VXLAN_GPE").tshark("vxlan")
+            .etherparse("VxlanGpeHeader", "src/proto_audit.rs"),
         // ── Security Additions ──
         PN::new("TLS", 5).scapy("TLS").tshark("tls").variable(),
         PN::new("DTLS", 13).scapy("DTLS").tshark("dtls").variable(),
         PN::new("IKEv2", 28).scapy("IKEv2").tshark("isakmp").variable(),
         PN::new("EAP", 4).scapy("EAP").tshark("eap").variable(),
         // ── DNS Family & Discovery ──
-        PN::new("mDNS", 12).tshark("mdns").variable(),
-        PN::new("LLMNR", 12).tshark("llmnr").variable(),
+        PN::new("mDNS", 12).scapy("DNS").tshark("mdns").variable(),
+        PN::new("LLMNR", 12).scapy("DNS").tshark("llmnr").variable(),
         PN::new("NBNS", 12).scapy("NBNSQueryRequest").tshark("nbns").variable(),
         PN::new("PPPoED", 6).scapy("PPPoED").tshark("pppoed").variable(),
         PN::new("LLTD", 14).tshark("lltd").variable(),
@@ -569,16 +616,16 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("RTCP", 8).scapy("RTCP").tshark("rtcp").variable(),
         PN::new("RTSP", 12).tshark("rtsp").variable(),
         PN::new("STUN", 20).scapy("STUN").tshark("stun"),
-        PN::new("Skinny", 12).tshark("skinny").variable(),
+        PN::new("Skinny", 12).scapy("Skinny").tshark("skinny").variable(),
         PN::new("MGCP", 4).tshark("mgcp").variable(),
         // ── IoT / Industrial ──
         PN::new("MQTT", 2).scapy("MQTT").tshark("mqtt").variable(),
         PN::new("CoAP", 4).scapy("CoAP").tshark("coap").variable(),
         PN::new("MODBUS_TCP", 7).scapy("ModbusADU").tshark("modbus").variable(),
-        PN::new("BACnet", 4).tshark("bacnet").variable(),
+        PN::new("BACnet", 4).scapy("BVLC").tshark("bacnet").variable(),
         PN::new("DNP3", 10).scapy("DNP3").tshark("dnp3").variable(),
-        PN::new("ENIP", 24).tshark("enip").variable(),
-        PN::new("CIP", 2).tshark("cip").variable(),
+        PN::new("ENIP", 24).scapy("ENIP_TCP").tshark("enip").variable(),
+        PN::new("CIP", 2).scapy("CIP").tshark("cip").variable(),
         PN::new("OPC_UA", 8).tshark("opcua").variable(),
         PN::new("IEC_GOOSE", 8).scapy("GOOSE").tshark("goose").variable(),
         // ── ICS / Power & Zigbee ──
@@ -587,14 +634,15 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("Zigbee_NWK", 2).scapy("ZigbeeNWK").tshark("zbee_nwk").variable(),
         PN::new("Zigbee_APS", 2).scapy("ZigbeeAppDataPayload").tshark("zbee_aps").variable(),
         // ── Network Management ──
-        PN::new("RADIUS", 20).scapy("Radius").tshark("radius").variable(),
-        PN::new("Diameter", 20).tshark("diameter").variable(),
+        PN::new("RADIUS", 20).scapy("Radius").tshark("radius")
+            .etherparse("RadiusHeader", "src/proto_audit.rs").variable(),
+        PN::new("Diameter", 20).scapy("DiamG").tshark("diameter").variable(),
         PN::new("TACACS", 12).scapy("TACACS").tshark("tacacs").variable(),
         PN::new("Syslog", 1).scapy("Syslog").tshark("syslog").variable(),
         PN::new("TFTP", 4).scapy("TFTP").tshark("tftp").variable(),
         PN::new("NetFlow_v5", 24).scapy("NetflowHeaderV5").tshark("cflow").variable(),
-        PN::new("NetFlow_v9", 20).scapy("NetflowHeaderV9").variable(),
-        PN::new("IPFIX", 16).scapy("IPFIXHeader").variable(),
+        PN::new("NetFlow_v9", 20).scapy("NetflowHeaderV9").tshark("cflow").variable(),
+        PN::new("IPFIX", 16).scapy("IPFIXHeader").tshark("cflow").variable(),
         // ── Auth & Directory ──
         PN::new("LDAP", 1).tshark("ldap").variable(),
         PN::new("Kerberos", 4).scapy("Kerberos").tshark("kerberos").variable(),
@@ -615,17 +663,18 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("Memcache", 24).tshark("memcache").variable(),
         PN::new("Redis", 1).tshark("resp").variable(),
         // ── Routing & Misc ──
-        PN::new("BFD", 24).scapy("BFD").tshark("bfd"),
-        PN::new("LDP", 10).tshark("ldp").variable(),
-        PN::new("RSVP", 8).tshark("rsvp").variable(),
+        PN::new("BFD", 24).scapy("BFD").tshark("bfd")
+            .etherparse("BfdHeader", "src/proto_audit.rs"),
+        PN::new("LDP", 10).scapy("LDP").tshark("ldp").variable(),
+        PN::new("RSVP", 8).scapy("RSVP").tshark("rsvp").variable(),
         PN::new("MPLS_OAM", 4).tshark("mpls-echo").variable(),
-        PN::new("CARP", 8).tshark("carp").variable(),
+        PN::new("CARP", 8).scapy("VRRPv3").tshark("carp").variable(),
         PN::new("GLBP", 2).tshark("glbp").variable(),
-        PN::new("OpenFlow", 8).tshark("openflow_v4").variable(),
+        PN::new("OpenFlow", 8).scapy("OFPTHello").tshark("openflow_v4").variable(),
         PN::new("TZSP", 4).tshark("tzsp").variable(),
-        PN::new("GRE_PPTP", 8).tshark("pptp").variable(),
-        PN::new("CAPWAP", 8).tshark("capwap").variable(),
-        PN::new("LWAPP", 6).tshark("lwapp").variable(),
-        PN::new("TPLINK_SMARTHOME", 4).variable(),
+        PN::new("GRE_PPTP", 8).scapy("GRE_PPTP").tshark("pptp").variable(),
+        PN::new("CAPWAP", 8).scapy("CAPWAP_CTRL").tshark("capwap").variable(),
+        PN::new("LWAPP", 6).scapy("LWAPP").tshark("lwapp").variable(),
+        PN::new("TPLINK_SMARTHOME", 4).tshark("tplink_smarthome").variable(),
     ]
 }

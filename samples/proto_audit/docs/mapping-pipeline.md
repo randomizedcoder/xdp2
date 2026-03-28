@@ -19,19 +19,21 @@ generation ("mapping out") converts the IR back into compilable source code.
    ├──────────┤  ├──────────────────▶ │    IR    │──────┤    │ parse_gen│
    │  ether-  │──┤  etherparse.toml  │ (Proto-  │      │    │ .toml    │
    │  parse   │  │                    │  colDef) │      │    ├──────────┤
-   ├──────────┤  │  libpcap.toml     │          │      └───▶│ Scapy    │
-   │  libpcap │──┤                    └────┬────┘           │ scapy_gen│
-   ├──────────┤  │  (no TOML)              │                │ .toml    │
-   │  xdp2    │──┘                         │                └──────────┘
-   └──────────┘                            ▼
-                                     ┌───────────┐     ┌──────────┐
-    5 extraction TOMLs               │Comparator │────▶│  Report  │
-                                     └───────────┘     └──────────┘
+   ├──────────┤  │  libpcap.toml     │          │      ├───▶│ Scapy    │
+   │  libpcap │──┤                    └────┬────┘      │    │ scapy_gen│
+   ├──────────┤  │  (no TOML)              │           │    │ .toml    │
+   │  xdp2    │──┘                         │           │    ├──────────┤
+   └──────────┘                            │           └───▶│ PCAP     │
+                                           ▼                │ (no TOML)│
+                                     ┌───────────┐         └──────────┘
+    5 extraction TOMLs               │Comparator │     ┌──────────┐
+                                     └─────┬─────┘     │  Report  │
+                                           └──────────▶└──────────┘
                                                      2 generation TOMLs
 ```
 
 Left: six sources feed through five TOML-driven extractors into the IR.
-Right: three generators read the IR and produce compilable output.
+Right: four generators read the IR and produce compilable output or wire bytes.
 Center: the comparator branches off the IR for cross-source analysis.
 
 ## Per-Source Extraction Fidelity
@@ -60,6 +62,7 @@ information — the extractor infers types from field name patterns alone.
 | C | None | Direct from IR field names | Uses kernel struct naming conventions |
 | etherparse | `etherparse_gen.toml` | 34 (type,size)→Rust entries | 11 newtypes, 3 skip-field lists |
 | Scapy | `scapy_gen.toml` | 34 (type,size)→class entries | 11 name overrides, 7 LE prefixes |
+| PCAP | None | Direct from IR FieldDefs | Protocol stack construction + IPv4 checksum |
 
 ## Asymmetry: 5 Extraction TOMLs, 2 Generation TOMLs
 
@@ -69,9 +72,10 @@ classes like `XShortEnumField`, etherparse uses Rust newtypes like `IpDscp`.
 Each needs its own mapping to reach the common IR.
 
 Generation is simpler. The C generator maps directly from IR field names
-(which already use kernel-style naming), so no TOML is needed. Only
-etherparse and Scapy generators need reverse mappings because their type
-systems diverge from the IR's naming conventions.
+(which already use kernel-style naming), so no TOML is needed. The PCAP
+generator also needs no TOML — it serializes IR `FieldDef` values directly
+to wire bytes. Only etherparse and Scapy generators need reverse mappings
+because their type systems diverge from the IR's naming conventions.
 
 ## Worked Example: IPv4 Through the Pipeline
 

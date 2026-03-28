@@ -8,9 +8,184 @@
 //! - **Structural agreement**: same offset + size (the layout matches)
 //! - **Semantic agreement**: same offset + size + type + endian (full match)
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use crate::ir::*;
+
+// ── Shared helpers ──
+
+/// Find fields in `fields` that overlap the bit range [offset, offset+size).
+fn find_overlapping_fields<'a>(
+    offset: u32,
+    size: u32,
+    fields: &'a [FieldDef],
+) -> Vec<&'a FieldDef> {
+    let start = offset;
+    let end = offset + size;
+    fields
+        .iter()
+        .filter(|f| {
+            let f_start = f.offset_bits;
+            let f_end = f_start + f.size_bits;
+            f_start < end && start < f_end
+        })
+        .collect()
+}
+
+/// Build a unified field map: (offset, size) → Vec<(source_name, &FieldDef)>.
+fn build_field_map<'a>(
+    field_sources: &[(&'a str, &'a ProtocolDef)],
+) -> BTreeMap<(u32, u32), Vec<(&'a str, &'a FieldDef)>> {
+    let mut map: BTreeMap<(u32, u32), Vec<(&str, &FieldDef)>> = BTreeMap::new();
+    for (src_name, proto) in field_sources {
+        for field in &proto.fields {
+            map.entry((field.offset_bits, field.size_bits))
+                .or_default()
+                .push((src_name, field));
+        }
+    }
+    map
+}
+
+/// Compare a single field-map slot against all sources, producing a FieldComparison.
+fn compare_slot(
+    offset: u32,
+    size: u32,
+    slot_sources: &[(&str, &FieldDef)],
+    field_sources: &[(&str, &ProtocolDef)],
+) -> FieldComparison {
+    let name = slot_sources[0].1.name.clone();
+    let slot_source_names: Vec<String> =
+        slot_sources.iter().map(|(s, _)| s.to_string()).collect();
+
+    // Check for overlaps from sources that don't have this exact slot
+    let mut overlap_mismatches = Vec::new();
+    for (src_name, proto) in field_sources {
+        if slot_source_names.contains(&src_name.to_string()) {
+            continue;
+        }
+        let overlaps = find_overlapping_fields(offset, size, &proto.fields);
+        if !overlaps.is_empty() {
+            let overlap_names: Vec<_> = overlaps.iter().map(|f| f.name.clone()).collect();
+            overlap_mismatches.push(FieldMismatch {
+                source: src_name.to_string(),
+                field: "split".to_string(),
+                expected: format!("{}[{}:{}]", name, offset, offset + size),
+                actual: format!("overlaps with: {}", overlap_names.join(", ")),
+            });
+        }
+    }
+
+    // Compare type+endian within the slot (all pairs)
+    let mut type_mismatches = Vec::new();
+    if slot_sources.len() >= 2 {
+        for i in 0..slot_sources.len() {
+            for j in (i + 1)..slot_sources.len() {
+                let (_name_i, field_i) = &slot_sources[i];
+                let (name_j, field_j) = &slot_sources[j];
+
+                if field_i.field_type != field_j.field_type {
+                    type_mismatches.push(FieldMismatch {
+                        source: name_j.to_string(),
+                        field: "field_type".to_string(),
+                        expected: format!("{:?}", field_i.field_type),
+                        actual: format!("{:?}", field_j.field_type),
+                    });
+                }
+                if field_i.endian != field_j.endian
+                    && field_i.endian != Endian::Na
+                    && field_j.endian != Endian::Na
+                {
+                    type_mismatches.push(FieldMismatch {
+                        source: name_j.to_string(),
+                        field: "endian".to_string(),
+                        expected: format!("{:?}", field_i.endian),
+                        actual: format!("{:?}", field_j.endian),
+                    });
+                }
+            }
+        }
+    }
+
+    let sources_structural = slot_source_names.clone();
+
+    let mismatched_sources: HashSet<&str> = type_mismatches
+        .iter()
+        .map(|m| m.source.as_str())
+        .collect();
+    let sources_agree: Vec<String> = slot_source_names
+        .iter()
+        .filter(|s| !mismatched_sources.contains(s.as_str()))
+        .cloned()
+        .collect();
+
+    // Check which sources are missing this field entirely (no overlap either)
+    let mut presence_mismatches = Vec::new();
+    for (src_name, _proto) in field_sources {
+        if slot_source_names.contains(&src_name.to_string()) {
+            continue;
+        }
+        if overlap_mismatches.iter().any(|m| m.source == *src_name) {
+            continue;
+        }
+        presence_mismatches.push(FieldMismatch {
+            source: src_name.to_string(),
+            field: "presence".to_string(),
+            expected: "present".to_string(),
+            actual: "missing".to_string(),
+        });
+    }
+
+    let mut all_mismatches = Vec::new();
+    all_mismatches.extend(type_mismatches);
+    all_mismatches.extend(overlap_mismatches);
+    all_mismatches.extend(presence_mismatches);
+
+    FieldComparison {
+        name,
+        offset_bits: offset,
+        size_bits: size,
+        sources_agree,
+        sources_structural,
+        mismatches: all_mismatches,
+    }
+}
+
+/// Compute aggregate statistics from a list of field comparisons.
+fn compute_statistics(comparisons: &[FieldComparison]) -> (u32, u32, u32, u32, u32) {
+    let total = comparisons.len() as u32;
+
+    let agree = comparisons
+        .iter()
+        .filter(|c| c.mismatches.is_empty())
+        .count() as u32;
+
+    let type_differ = comparisons
+        .iter()
+        .filter(|c| {
+            !c.mismatches.is_empty()
+                && c.sources_structural.len() >= 2
+                && c.mismatches
+                    .iter()
+                    .all(|m| m.field == "field_type" || m.field == "endian")
+        })
+        .count() as u32;
+
+    let mismatch = comparisons
+        .iter()
+        .filter(|c| c.mismatches.iter().any(|m| m.field == "split"))
+        .count() as u32;
+
+    let missing = comparisons
+        .iter()
+        .filter(|c| {
+            c.mismatches.iter().any(|m| m.field == "presence")
+                && !c.mismatches.iter().any(|m| m.field == "split")
+        })
+        .count() as u32;
+
+    (total, agree, type_differ, mismatch, missing)
+}
 
 /// Match fields across two protocol definitions by offset+size.
 ///
@@ -83,17 +258,9 @@ pub fn compare_fields(
             });
         } else {
             // Field in A but not B — try overlap matching
-            let overlaps: Vec<_> = proto_b
-                .fields
-                .iter()
-                .filter(|fb| {
-                    let a_start = field_a.offset_bits;
-                    let a_end = a_start + field_a.size_bits;
-                    let b_start = fb.offset_bits;
-                    let b_end = b_start + fb.size_bits;
-                    a_start < b_end && b_start < a_end
-                })
-                .collect();
+            let overlaps = find_overlapping_fields(
+                field_a.offset_bits, field_a.size_bits, &proto_b.fields,
+            );
 
             if overlaps.is_empty() {
                 // Only in source A
@@ -192,139 +359,11 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
     let mut all_comparisons = Vec::new();
 
     if field_sources.len() >= 2 {
-        // Build unified field map: (offset, size) → Vec<(source_name, &FieldDef)>
-        let mut field_map: BTreeMap<(u32, u32), Vec<(&str, &FieldDef)>> = BTreeMap::new();
-        for (src_name, proto) in &field_sources {
-            for field in &proto.fields {
-                field_map
-                    .entry((field.offset_bits, field.size_bits))
-                    .or_default()
-                    .push((src_name, field));
-            }
+        let field_map = build_field_map(&field_sources);
+
+        for (&(offset, size), slot_sources) in &field_map {
+            all_comparisons.push(compare_slot(offset, size, slot_sources, &field_sources));
         }
-
-        for (key, slot_sources) in &field_map {
-            let (offset, size) = *key;
-            // Pick the first field's name as canonical
-            let name = slot_sources[0].1.name.clone();
-
-            // All sources that have a field at exactly this (offset, size)
-            let slot_source_names: Vec<String> =
-                slot_sources.iter().map(|(s, _)| s.to_string()).collect();
-
-            // Check for overlaps from other sources that don't have this exact slot
-            // but have fields that overlap with this bit range
-            let mut overlap_mismatches = Vec::new();
-            for (src_name, proto) in &field_sources {
-                if slot_source_names.contains(&src_name.to_string()) {
-                    continue;
-                }
-                // Check if this source has any field overlapping this range
-                let overlaps: Vec<_> = proto
-                    .fields
-                    .iter()
-                    .filter(|f| {
-                        let f_start = f.offset_bits;
-                        let f_end = f_start + f.size_bits;
-                        let s_start = offset;
-                        let s_end = offset + size;
-                        f_start < s_end && s_start < f_end
-                    })
-                    .collect();
-
-                if !overlaps.is_empty() {
-                    let overlap_names: Vec<_> =
-                        overlaps.iter().map(|f| f.name.clone()).collect();
-                    overlap_mismatches.push(FieldMismatch {
-                        source: src_name.to_string(),
-                        field: "split".to_string(),
-                        expected: format!("{}[{}:{}]", name, offset, offset + size),
-                        actual: format!("overlaps with: {}", overlap_names.join(", ")),
-                    });
-                }
-            }
-
-            // Compare type+endian within the slot (all pairs, not just vs first)
-            let mut type_mismatches = Vec::new();
-            if slot_sources.len() >= 2 {
-                for i in 0..slot_sources.len() {
-                    for j in (i + 1)..slot_sources.len() {
-                        let (_name_i, field_i) = &slot_sources[i];
-                        let (name_j, field_j) = &slot_sources[j];
-
-                        if field_i.field_type != field_j.field_type {
-                            // Report mismatch from j's perspective vs i
-                            type_mismatches.push(FieldMismatch {
-                                source: name_j.to_string(),
-                                field: "field_type".to_string(),
-                                expected: format!("{:?}", field_i.field_type),
-                                actual: format!("{:?}", field_j.field_type),
-                            });
-                        }
-                        if field_i.endian != field_j.endian
-                            && field_i.endian != Endian::Na
-                            && field_j.endian != Endian::Na
-                        {
-                            type_mismatches.push(FieldMismatch {
-                                source: name_j.to_string(),
-                                field: "endian".to_string(),
-                                expected: format!("{:?}", field_i.endian),
-                                actual: format!("{:?}", field_j.endian),
-                            });
-                        }
-                    }
-                }
-            }
-
-            // Structural: all sources at this slot
-            let sources_structural = slot_source_names.clone();
-
-            // Semantic: only sources with no type/endian mismatch
-            let mismatched_sources: std::collections::HashSet<&str> = type_mismatches
-                .iter()
-                .map(|m| m.source.as_str())
-                .collect();
-            let sources_agree: Vec<String> = slot_source_names
-                .iter()
-                .filter(|s| !mismatched_sources.contains(s.as_str()))
-                .cloned()
-                .collect();
-
-            // Check which sources are missing this field entirely (no overlap either)
-            let mut presence_mismatches = Vec::new();
-            for (src_name, _proto) in &field_sources {
-                if slot_source_names.contains(&src_name.to_string()) {
-                    continue;
-                }
-                // Already handled as overlap above?
-                if overlap_mismatches.iter().any(|m| m.source == *src_name) {
-                    continue;
-                }
-                presence_mismatches.push(FieldMismatch {
-                    source: src_name.to_string(),
-                    field: "presence".to_string(),
-                    expected: "present".to_string(),
-                    actual: "missing".to_string(),
-                });
-            }
-
-            let mut all_mismatches = Vec::new();
-            all_mismatches.extend(type_mismatches);
-            all_mismatches.extend(overlap_mismatches);
-            all_mismatches.extend(presence_mismatches);
-
-            all_comparisons.push(FieldComparison {
-                name,
-                offset_bits: offset,
-                size_bits: size,
-                sources_agree,
-                sources_structural,
-                mismatches: all_mismatches,
-            });
-        }
-
-        // Detect overlapping slots from the same source (field splits)
-        // This is already handled above via overlap_mismatches
     } else if field_sources.len() == 1 {
         // Single source — all fields agree trivially
         let (name, proto) = &field_sources[0];
@@ -342,41 +381,8 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
 
     all_comparisons.sort_by_key(|c| (c.offset_bits, c.size_bits));
 
-    let total = all_comparisons.len() as u32;
-
-    // fields_agree: all present sources structurally agree (use structural for primary metric)
-    let agree = all_comparisons
-        .iter()
-        .filter(|c| c.mismatches.is_empty())
-        .count() as u32;
-
-    // fields_type_differ: structural match but type/endian mismatch
-    let type_differ = all_comparisons
-        .iter()
-        .filter(|c| {
-            !c.mismatches.is_empty()
-                && c.sources_structural.len() >= 2
-                && c.mismatches
-                    .iter()
-                    .all(|m| m.field == "field_type" || m.field == "endian")
-        })
-        .count() as u32;
-
-    // fields_mismatch: structural disagreement (split/overlap)
-    let mismatch = all_comparisons
-        .iter()
-        .filter(|c| {
-            c.mismatches.iter().any(|m| m.field == "split")
-        })
-        .count() as u32;
-
-    let field_missing = all_comparisons
-        .iter()
-        .filter(|c| {
-            c.mismatches.iter().any(|m| m.field == "presence")
-                && !c.mismatches.iter().any(|m| m.field == "split")
-        })
-        .count() as u32;
+    let (total, agree, type_differ, mismatch, field_missing) =
+        compute_statistics(&all_comparisons);
 
     AuditResult {
         protocol: canonical_name.to_string(),
@@ -396,36 +402,12 @@ mod tests {
     use super::*;
 
     fn make_field(name: &str, offset: u32, size: u32, ft: FieldType) -> FieldDef {
-        FieldDef {
-            name: name.to_string(),
-            offset_bits: offset,
-            size_bits: size,
-            field_type: ft,
-            endian: Endian::Na,
-            description: String::new(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::new(),
-            default_value: None,
-            flag_names: None,
-        }
+        FieldDef::new(name, offset, size, ft)
     }
 
     fn make_proto(name: &str, fields: Vec<FieldDef>) -> ProtocolDef {
-        ProtocolDef {
-            name: name.to_string(),
-            min_header_bits: fields
-                .last()
-                .map(|f| f.offset_bits + f.size_bits)
-                .unwrap_or(0),
-            is_variable_length: false,
-            fields,
-            dispatch_field: None,
-            dispatch_table: vec![],
-            identifiers: BTreeMap::new(),
-            sources: BTreeMap::new(),
-        }
+        let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap_or(0);
+        ProtocolDef::new(name, total).with_fields(fields)
     }
 
     #[test]

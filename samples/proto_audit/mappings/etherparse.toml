@@ -42,6 +42,18 @@ proto_addr_type = { type = "Enum", reason = "ARP protocol type" }
 operation = { type = "Enum", reason = "ARP operation code" }
 icmp_type = { type = "Enum", reason = "ICMP type+code" }
 
+# ── Proto-audit overlay struct overrides ──
+# For structs in patches/etherparse/src/proto_audit.rs
+protocol_type = { type = "Enum", reason = "GRE/Geneve encapsulated protocol type" }
+protocol_id = { type = "Enum", reason = "SNAP protocol ID (EtherType)" }
+msg_type = { type = "Enum", reason = "IGMP message type" }
+packet_type = { type = "Enum", reason = "EAPOL packet type" }
+bpdu_type = { type = "Enum", reason = "STP BPDU type" }
+code = { type = "Enum", reason = "PPPoE/RADIUS code" }
+ppp_protocol = { type = "Enum", reason = "PPP protocol number" }
+marker_pt = { type = "Enum", reason = "RTP payload type" }
+ver_diag = { type = "Enum", reason = "BFD version + diagnostic" }
+
 [implicit_fields]
 # Some wire fields are not present in etherparse structs.
 # start_offset_bits: skip this many bits at the beginning of the wire header.

@@ -9,7 +9,6 @@
 
 use anyhow::{Context, Result};
 use roxmltree::Document;
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
 
@@ -232,20 +231,12 @@ pub fn to_protocol_def_with(pdml: &PdmlProtocol, mappings: &TsharkMappings) -> P
             Endian::Big // Network protocols default to big-endian
         };
 
-        fields.push(FieldDef {
-            name: pf.name.clone(),
-            offset_bits,
-            size_bits,
-            field_type,
-            endian,
-            description: pf.show_name.clone(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::from([("tshark".to_string(), pf.name.clone())]),
-            default_value: None,
-            flag_names: None,
-        });
+        fields.push(
+            FieldDef::new(pf.name.clone(), offset_bits, size_bits, field_type)
+                .with_endian(endian)
+                .with_description(pf.show_name.clone())
+                .with_source_name("tshark", pf.name.clone()),
+        );
     }
 
     // Deduplicate fields with same offset (tshark sometimes expands bitfields)
@@ -254,26 +245,11 @@ pub fn to_protocol_def_with(pdml: &PdmlProtocol, mappings: &TsharkMappings) -> P
 
     let field_count = fields.len() as u32;
 
-    ProtocolDef {
-        name: pdml.name.clone(),
-        min_header_bits: pdml.size * 8,
-        is_variable_length: false,
-        fields,
-        dispatch_field: None,
-        dispatch_table: vec![],
-        identifiers: BTreeMap::new(),
-        sources: BTreeMap::from([(
-            "tshark".to_string(),
-            SourceInfo {
-                present: true,
-                file_path: None,
-                source_name: pdml.name.clone(),
-                field_count,
-                min_header_bytes: pdml.size,
-                notes: vec![],
-            },
-        )]),
-    }
+    ProtocolDef::new(pdml.name.clone(), pdml.size * 8)
+        .with_fields(fields)
+        .with_source("tshark", SourceInfo::new(pdml.name.clone())
+            .with_field_count(field_count)
+            .with_min_header_bytes(pdml.size))
 }
 
 #[cfg(test)]

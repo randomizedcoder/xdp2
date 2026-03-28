@@ -36,18 +36,30 @@ in
   tshark = pkgs.wireshark-cli;
 
   # etherparse Rust crate source (for struct parsing)
-  etherparseSrc = pkgs.fetchFromGitHub {
-    owner = "JulianSchmid";
-    repo = "etherparse";
-    rev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";
-    hash = "sha256-5Ng3OFI4/OcLGlNJpfJamJwzA9xNQdwu5bUUGB4m6Ic=";
+  # Patched with proto-audit protocol struct overlays for cross-source comparison.
+  etherparseSrc = pkgs.applyPatches {
+    src = pkgs.fetchFromGitHub {
+      owner = "JulianSchmid";
+      repo = "etherparse";
+      rev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";
+      hash = "sha256-5Ng3OFI4/OcLGlNJpfJamJwzA9xNQdwu5bUUGB4m6Ic=";
+    };
+    patches = [
+      ../samples/proto_audit/patches/etherparse-proto-structs.patch
+    ];
   };
 
   # libpcap source (for gencode.c offsets and pcap/*.h struct parsing)
-  libpcapSrc = pkgs.fetchFromGitHub {
-    owner = "the-tcpdump-group";
-    repo = "libpcap";
-    rev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";
-    hash = "sha256-V+ofdQ0jlSY85XM+6c36XV/ghGDVNkhoEN+s7KItH1M=";
+  # Patched with proto-audit protocol header overlays for cross-source comparison.
+  libpcapSrc = pkgs.applyPatches {
+    src = pkgs.fetchFromGitHub {
+      owner = "the-tcpdump-group";
+      repo = "libpcap";
+      rev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";
+      hash = "sha256-V+ofdQ0jlSY85XM+6c36XV/ghGDVNkhoEN+s7KItH1M=";
+    };
+    patches = [
+      ../samples/proto_audit/patches/libpcap-proto-headers.patch
+    ];
   };
 }

@@ -238,6 +238,7 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("MPLS_OAM", "UDP", "dst_port", 3503),
     ("Teredo", "UDP", "dst_port", 3544),
     ("NetFlow_v9", "UDP", "dst_port", 2055),
+    ("TPLINK_SMARTHOME", "UDP", "dst_port", 9999),
     ("ONC_RPC", "UDP", "dst_port", 111),
     // ── Additional TCP routes ──
     ("HTTP2", "TCP", "dst_port", 443),
@@ -307,7 +308,7 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
 /// Protocols that cannot round-trip through PCAP validation because they lack
 /// a tshark dissector.
 #[allow(dead_code)]
-const PCAP_UNSUPPORTED: &[&str] = &["TPLINK_SMARTHOME"];
+const PCAP_UNSUPPORTED: &[&str] = &[];
 
 /// Generate a complete PCAP file containing one packet for the target protocol.
 pub fn generate_pcap(

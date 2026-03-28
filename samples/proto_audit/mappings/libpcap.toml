@@ -28,6 +28,16 @@ sll_pkttype = { type = "Enum", reason = "Packet type (incoming, outgoing, etc.)"
 sll_hatype = { type = "Enum", reason = "ARP hardware type" }
 vlan_tci = { type = "Flags", reason = "VLAN TCI (priority + CFI + VID)" }
 vlan_tpid = { type = "Enum", reason = "VLAN TPID (EtherType)" }
+# Proto-audit overlay struct overrides
+gre_protocol_type = { type = "Enum", reason = "GRE encapsulated protocol (EtherType)" }
+geneve_protocol_type = { type = "Enum", reason = "Geneve encapsulated protocol (EtherType)" }
+ppp_protocol = { type = "Enum", reason = "PPP protocol number" }
+pppoe_code = { type = "Enum", reason = "PPPoE code" }
+ah_next_header = { type = "Enum", reason = "AH next header (IP protocol number)" }
+hsr_ether_type = { type = "Enum", reason = "HSR encapsulated protocol (EtherType)" }
+eapol_type = { type = "Enum", reason = "EAPOL packet type" }
+igmp_type = { type = "Enum", reason = "IGMP message type" }
+dns_flags = { type = "Flags", reason = "DNS header flags" }
 
 [array_endian_overrides]
 # SLL address bytes
@@ -67,9 +77,95 @@ dst_addr = { byte_offset = 24, size_bytes = 4, field_type = "Ipv4Addr" }
 src_addr = { byte_offset = 14, size_bytes = 4, field_type = "Ipv4Addr" }
 dst_addr = { byte_offset = 24, size_bytes = 4, field_type = "Ipv4Addr" }
 
+[gencode_protocols.SCTP]
+src_port = { byte_offset = 0, size_bytes = 2 }
+dst_port = { byte_offset = 2, size_bytes = 2 }
+
 # ── Struct Protocol Definitions ──
 # For protocols defined as C structs in pcap/*.h headers.
 
 [struct_protocols.vlan_tag]
 source_file = "pcap/vlan.h"
 struct_name = "vlan_tag"
+
+[struct_protocols.sll_header]
+source_file = "pcap/sll.h"
+struct_name = "sll_header"
+
+[struct_protocols.sll2_header]
+source_file = "pcap/sll.h"
+struct_name = "sll2_header"
+
+# ── Proto-audit overlay structs (pcap/proto_audit.h) ──
+
+[struct_protocols.gre_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "gre_header"
+
+[struct_protocols.vxlan_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "vxlan_header"
+
+[struct_protocols.geneve_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "geneve_header"
+
+[struct_protocols.mpls_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "mpls_header"
+
+[struct_protocols.ppp_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "ppp_header"
+
+[struct_protocols.pppoe_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "pppoe_header"
+
+[struct_protocols.esp_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "esp_header"
+
+[struct_protocols.ah_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "ah_header"
+
+[struct_protocols.l2tp_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "l2tp_header"
+
+[struct_protocols.erspan_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "erspan_header"
+
+[struct_protocols.nsh_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "nsh_header"
+
+[struct_protocols.hsr_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "hsr_header"
+
+[struct_protocols.llc_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "llc_header"
+
+[struct_protocols.eapol_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "eapol_header"
+
+[struct_protocols.igmp_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "igmp_header"
+
+[struct_protocols.sctp_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "sctp_header"
+
+[struct_protocols.dns_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "dns_header"
+
+[struct_protocols.ntp_header]
+source_file = "pcap/proto_audit.h"
+struct_name = "ntp_header"

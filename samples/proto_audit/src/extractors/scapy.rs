@@ -8,7 +8,6 @@
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
 
@@ -139,50 +138,29 @@ pub fn to_protocol_def_with(sp: &ScapyProtocol, mappings: &ScapyMappings) -> Pro
         let field_type = scapy_field_type(&sf.field_class, &sf.name, mappings);
         let endian = scapy_endian(&sf.field_class, sf.size_bits, mappings);
 
-        fields.push(FieldDef {
-            name: sf.name.clone(),
-            offset_bits,
-            size_bits: sf.size_bits,
-            field_type,
-            endian,
-            description: String::new(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::from([("scapy".to_string(), sf.name.clone())]),
-            default_value: sf.default.clone(),
-            flag_names: None,
-        });
+        let mut field = FieldDef::new(sf.name.clone(), offset_bits, sf.size_bits, field_type)
+            .with_endian(endian)
+            .with_source_name("scapy", sf.name.clone());
+        if let Some(ref d) = sf.default {
+            field = field.with_default_value(d.clone());
+        }
+        fields.push(field);
 
         offset_bits += sf.size_bits;
     }
 
     let field_count = fields.len() as u32;
 
-    ProtocolDef {
-        name: sp.name.clone(),
-        min_header_bits: offset_bits,
-        is_variable_length: false,
-        fields,
-        dispatch_field: None,
-        dispatch_table: vec![],
-        identifiers: BTreeMap::new(),
-        sources: BTreeMap::from([(
-            "scapy".to_string(),
-            SourceInfo {
-                present: true,
-                file_path: if sp.module.is_empty() {
-                    None
-                } else {
-                    Some(sp.module.replace('.', "/") + ".py")
-                },
-                source_name: sp.name.clone(),
-                field_count,
-                min_header_bytes: sp.min_bytes,
-                notes: vec![],
-            },
-        )]),
+    let mut source_info = SourceInfo::new(sp.name.clone())
+        .with_field_count(field_count)
+        .with_min_header_bytes(sp.min_bytes);
+    if !sp.module.is_empty() {
+        source_info = source_info.with_file(sp.module.replace('.', "/") + ".py");
     }
+
+    ProtocolDef::new(sp.name.clone(), offset_bits)
+        .with_fields(fields)
+        .with_source("scapy", source_info)
 }
 
 #[cfg(test)]

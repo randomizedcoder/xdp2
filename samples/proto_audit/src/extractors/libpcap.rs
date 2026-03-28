@@ -8,7 +8,6 @@
 
 use anyhow::Result;
 use regex::Regex;
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
@@ -86,20 +85,10 @@ pub fn extract_from_gencode(
             .and_then(|ft| type_mapping::parse_field_type(ft))
             .unwrap_or(FieldType::Uint);
 
-        fields.push(FieldDef {
-            name: name.clone(),
-            offset_bits,
-            size_bits,
-            field_type,
-            endian,
-            description: String::new(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::new(),
-            default_value: None,
-            flag_names: None,
-        });
+        fields.push(
+            FieldDef::new(name.clone(), offset_bits, size_bits, field_type)
+                .with_endian(endian),
+        );
     }
 
     // Sort by offset for consistent output
@@ -110,29 +99,15 @@ pub fn extract_from_gencode(
         .map(|f| f.offset_bits + f.size_bits)
         .unwrap_or(0);
 
-    let mut sources = BTreeMap::new();
-    sources.insert(
-        "libpcap".to_string(),
-        SourceInfo {
-            present: true,
-            file_path: Some("gencode.c".to_string()),
-            source_name: libpcap_name.to_string(),
-            field_count: fields.len() as u32,
-            min_header_bytes: total_bits / 8,
-            notes: vec!["Offsets from BPF compiler #define constants".to_string()],
-        },
-    );
+    let field_count = fields.len() as u32;
 
-    Ok(Some(ProtocolDef {
-        name: proto.to_string(),
-        min_header_bits: total_bits,
-        is_variable_length: false,
-        fields,
-        dispatch_field: None,
-        dispatch_table: vec![],
-        identifiers: BTreeMap::new(),
-        sources,
-    }))
+    Ok(Some(ProtocolDef::new(proto, total_bits)
+        .with_fields(fields)
+        .with_source("libpcap", SourceInfo::new(libpcap_name)
+            .with_file("gencode.c")
+            .with_field_count(field_count)
+            .with_min_header_bytes(total_bits / 8)
+            .with_note("Offsets from BPF compiler #define constants"))))
 }
 
 // ── C struct parsing (for pcap/*.h headers) ──
@@ -241,20 +216,10 @@ pub fn struct_to_field_defs(ls: &LibpcapStruct, mappings: &LibpcapMappings) -> V
             FieldType::Uint
         };
 
-        fields.push(FieldDef {
-            name: lf.name.clone(),
-            offset_bits: offset,
-            size_bits: total_bits,
-            field_type,
-            endian,
-            description: String::new(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::new(),
-            default_value: None,
-            flag_names: None,
-        });
+        fields.push(
+            FieldDef::new(lf.name.clone(), offset, total_bits, field_type)
+                .with_endian(endian),
+        );
 
         offset += total_bits;
     }
@@ -280,29 +245,15 @@ fn extract_from_struct(
         .map(|f| f.offset_bits + f.size_bits)
         .unwrap_or(0);
 
-    let mut sources = BTreeMap::new();
-    sources.insert(
-        "libpcap".to_string(),
-        SourceInfo {
-            present: true,
-            file_path: Some(source_file.to_string()),
-            source_name: struct_name.to_string(),
-            field_count: fields.len() as u32,
-            min_header_bytes: total_bits / 8,
-            notes: vec![format!("C struct from {}", source_file)],
-        },
-    );
+    let field_count = fields.len() as u32;
 
-    Ok(Some(ProtocolDef {
-        name: proto.to_string(),
-        min_header_bits: total_bits,
-        is_variable_length: false,
-        fields,
-        dispatch_field: None,
-        dispatch_table: vec![],
-        identifiers: BTreeMap::new(),
-        sources,
-    }))
+    Ok(Some(ProtocolDef::new(proto, total_bits)
+        .with_fields(fields)
+        .with_source("libpcap", SourceInfo::new(struct_name)
+            .with_file(source_file)
+            .with_field_count(field_count)
+            .with_min_header_bytes(total_bits / 8)
+            .with_note(format!("C struct from {}", source_file)))))
 }
 
 #[cfg(test)]

@@ -106,6 +106,10 @@ type = "Ipv4Addr"
 reason = "IGMP multicast group address"
 require_bits = 32
 
+[field_type_overrides.dccph_type]
+type = "Enum"
+reason = "DCCP packet type (IANA)"
+
 [array_endian_overrides]
 # C_type:array_size → endianness for specific array patterns.
 

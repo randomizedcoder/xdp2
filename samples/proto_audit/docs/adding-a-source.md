@@ -14,8 +14,8 @@ using **etherparse** (a Rust packet parsing crate) as the worked example.
 |---|------|--------|
 | 1 | `nix/proto-audit-sources.nix` | Pin external source |
 | 2 | `mappings/<source>.toml` | Create type mappings |
-| 3 | `src/type_mapping.rs` | Add mappings struct + loader |
-| 4 | `src/name_mapping.rs` | Add fields to `ProtocolNames`, populate table |
+| 3 | `src/type_mapping/<source>.rs` + `mod.rs` | Add mappings struct + loader |
+| 4 | `src/name_mapping/mod.rs` + `table.rs` | Add fields to `ProtocolNames`, populate table |
 | 5 | `src/extractors/<source>.rs` | Create extractor module |
 | 6 | `src/extractors/mod.rs` | Register module |
 | 7 | `src/main.rs` | Wire into CLI (SourcePaths, try_extract, ALL_SOURCES) |
@@ -153,7 +153,7 @@ reason = "IPv6 address"
 
 ## Step 4: Register in Type Mapping
 
-In `src/type_mapping.rs`:
+In `src/type_mapping/` (create a new `<source>.rs` module and register it in `mod.rs`):
 
 1. Add `const DEFAULT_<SOURCE>_TOML: &str = include_str!("../mappings/<source>.toml");`
 
@@ -235,7 +235,7 @@ In `src/main.rs`:
 
 ## Step 7: Add Name Mappings
 
-In `src/name_mapping.rs`:
+In `src/name_mapping/` (`table.rs` for the protocol table, `mod.rs` for lookup functions):
 
 1. Add two fields to `ProtocolNames`:
    ```rust
@@ -353,14 +353,5 @@ absolute wire position.
 
 ## Appendix: Etherparse Protocol Coverage
 
-| Protocol | Fields Extracted | Missing vs Wire |
-|----------|-----------------|-----------------|
-| Ethernet | 3 (source, destination, ether_type) | None |
-| UDP | 4 (source_port, destination_port, length, checksum) | None |
-| IPv4 | 12 (dscp through destination) | version, ihl (implicit) |
-| TCP | 16 (ports, seq/ack, 9 flags, window, checksum, urgent_pointer) | data_offset, reserved (implicit) |
-| IPv6 | 7 (traffic_class through destination) | version (implicit) |
-| VLAN | 4 (pcp, drop_eligible_indicator, vlan_id, ether_type) | None |
-| ARP | 3 (hw_addr_type, proto_addr_type, operation) | hw/proto addr sizes (private) |
-| ICMPv4 | 2 (icmp_type, checksum) | code embedded in type enum |
-| ICMPv6 | 2 (icmp_type, checksum) | code embedded in type enum |
+See the [etherparse coverage table](proto-audit-coverage.md#etherparse-protocol-coverage)
+in the coverage doc.

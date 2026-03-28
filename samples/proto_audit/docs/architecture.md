@@ -38,7 +38,7 @@ normalizes them into a common IR, then compares, reports, and generates code.
     ┌─────────────┐ ┌───────────┐ ┌───────────┐
     │ Comparator  │ │  Report   │ │ Generator │
     │ (field      │ │ (text /   │ │ (IR → C / │
-    │  matching)  │ │  JSON)    │ │ Rust / Py)│
+    │  matching)  │ │  JSON)    │ │Rust/Py/PCAP│
     └─────────────┘ └───────────┘ └───────────┘
                                   ═ MAPPING OUT ═
                                   ═ (Generation)═
@@ -61,7 +61,11 @@ both directions, per-source fidelity tables, and a worked IPv4 example.
    as text tables (matrix, findings, audit) or JSON for machine consumption.
 
 4. **Generation**: The generator converts a `ProtocolDef` into source code
-   for C, Rust, or Python. See [Code Generation](code-generation.md).
+   for C, Rust, or Python, or into wire bytes as PCAP. See [Code Generation](code-generation.md).
+
+5. **Validation**: The `validate` command generates a PCAP from the IR,
+   feeds it to tshark, extracts the result back to IR, and compares — a
+   true round-trip through wire bytes. See [Round-Trip Validation](validation.md).
 
 ## Sources
 
@@ -141,4 +145,5 @@ The report module (`src/report/`) produces:
 - [Code Generation](code-generation.md) — generator targets and TOML schemas
 - [Mapping Pipeline](mapping-pipeline.md) — bidirectional pipeline walkthrough with fidelity tables
 - [IR as Standard](ir-as-standard.md) — positioning the IR as a universal protocol header format
+- [Round-Trip Validation](validation.md) — IR → wire → tshark → IR round-trip verification
 - [Nix Packaging](nix-packaging.md) — build, source pinning, flake outputs

@@ -1,0 +1,171 @@
+--- a/pcap/proto_audit.h	1969-12-31 16:00:00.000000000 -0800
++++ b/pcap/proto_audit.h	1969-12-31 16:00:00.000000000 -0800
+@@ -0,0 +1,168 @@
++/*
++ * proto_audit.h — Protocol header structs for proto-audit cross-source
++ * comparison.
++ *
++ * These structs define wire-accurate protocol header layouts that the
++ * proto-audit libpcap extractor can parse. Each struct's field order,
++ * types, and sizes match the on-wire binary format per the relevant RFC
++ * or standard.
++ *
++ * The libpcap extractor reads `type name;` and `type name[N];`
++ * declarations and computes bit offsets sequentially.
++ */
++
++#ifndef PROTO_AUDIT_H
++#define PROTO_AUDIT_H
++
++#include <stdint.h>
++
++/* ── Tunneling ── */
++
++/* GRE header (RFC 2784) — 4 bytes minimum */
++struct gre_header {
++    uint16_t gre_flags_version;
++    uint16_t gre_protocol_type;
++};
++
++/* VXLAN header (RFC 7348) — 8 bytes */
++struct vxlan_header {
++    uint8_t  vxlan_flags;
++    uint8_t  vxlan_reserved1[3];
++    uint8_t  vxlan_vni[3];
++    uint8_t  vxlan_reserved2;
++};
++
++/* Geneve header (RFC 8926) — 8 bytes minimum */
++struct geneve_header {
++    uint8_t  geneve_ver_opt_len;
++    uint8_t  geneve_flags;
++    uint16_t geneve_protocol_type;
++    uint8_t  geneve_vni[3];
++    uint8_t  geneve_reserved;
++};
++
++/* MPLS label stack entry (RFC 3032) — 4 bytes */
++struct mpls_header {
++    uint32_t mpls_label_tc_s_ttl;
++};
++
++/* PPP header (RFC 1661) — 2 bytes */
++struct ppp_header {
++    uint16_t ppp_protocol;
++};
++
++/* PPPoE header (RFC 2516) — 6 bytes */
++struct pppoe_header {
++    uint8_t  pppoe_version_type;
++    uint8_t  pppoe_code;
++    uint16_t pppoe_session_id;
++    uint16_t pppoe_length;
++};
++
++/* ESP header (RFC 4303) — 8 bytes */
++struct esp_header {
++    uint32_t esp_spi;
++    uint32_t esp_seq;
++};
++
++/* AH header (RFC 4302) — 12 bytes minimum */
++struct ah_header {
++    uint8_t  ah_next_header;
++    uint8_t  ah_payload_len;
++    uint16_t ah_reserved;
++    uint32_t ah_spi;
++    uint32_t ah_seq;
++};
++
++/* L2TP header (RFC 2661) — 6 bytes minimum */
++struct l2tp_header {
++    uint16_t l2tp_flags_version;
++    uint16_t l2tp_tunnel_id;
++    uint16_t l2tp_session_id;
++};
++
++/* ERSPAN Type II header (Cisco) — 8 bytes */
++struct erspan_header {
++    uint16_t erspan_ver_vlan;
++    uint16_t erspan_cos_bso_t_session;
++    uint32_t erspan_reserved_index;
++};
++
++/* NSH header (RFC 8300) — 8 bytes */
++struct nsh_header {
++    uint16_t nsh_flags_length;
++    uint16_t nsh_md_type_next_proto;
++    uint32_t nsh_spi_si;
++};
++
++/* HSR tag (IEC 62439-3) — 6 bytes */
++struct hsr_header {
++    uint16_t hsr_path_lsdu_size;
++    uint16_t hsr_seq_nr;
++    uint16_t hsr_ether_type;
++};
++
++/* ── Layer 2 ── */
++
++/* LLC header (IEEE 802.2) — 3 bytes */
++struct llc_header {
++    uint8_t llc_dsap;
++    uint8_t llc_ssap;
++    uint8_t llc_ctrl;
++};
++
++/* EAPOL header (IEEE 802.1X) — 4 bytes */
++struct eapol_header {
++    uint8_t  eapol_version;
++    uint8_t  eapol_type;
++    uint16_t eapol_length;
++};
++
++/* ── Layer 3 / Multicast ── */
++
++/* IGMP header (RFC 2236) — 8 bytes */
++struct igmp_header {
++    uint8_t  igmp_type;
++    uint8_t  igmp_max_resp;
++    uint16_t igmp_checksum;
++    uint8_t  igmp_group[4];
++};
++
++/* ── Layer 4 ── */
++
++/* SCTP common header (RFC 9260) — 12 bytes */
++struct sctp_header {
++    uint16_t sctp_src_port;
++    uint16_t sctp_dst_port;
++    uint32_t sctp_vtag;
++    uint32_t sctp_checksum;
++};
++
++/* ── Application Binary Protocols ── */
++
++/* DNS header (RFC 1035) — 12 bytes */
++struct dns_header {
++    uint16_t dns_id;
++    uint16_t dns_flags;
++    uint16_t dns_qd_count;
++    uint16_t dns_an_count;
++    uint16_t dns_ns_count;
++    uint16_t dns_ar_count;
++};
++
++/* NTP header (RFC 5905) — 48 bytes */
++struct ntp_header {
++    uint8_t  ntp_li_vn_mode;
++    uint8_t  ntp_stratum;
++    uint8_t  ntp_poll;
++    uint8_t  ntp_precision;
++    uint32_t ntp_root_delay;
++    uint32_t ntp_root_dispersion;
++    uint32_t ntp_reference_id;
++    uint8_t  ntp_reference_ts[8];
++    uint8_t  ntp_origin_ts[8];
++    uint8_t  ntp_receive_ts[8];
++    uint8_t  ntp_transmit_ts[8];
++};
++
++#endif /* PROTO_AUDIT_H */

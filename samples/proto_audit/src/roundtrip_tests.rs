@@ -641,3 +641,287 @@ fn roundtrip_libpcap_vlan_struct() {
     let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
     assert_eq!(total, 32); // 4 bytes
 }
+
+// ── Etherparse overlay roundtrip tests ──
+
+#[test]
+fn roundtrip_etherparse_overlay_gre() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_GRE_HEADER, "GreHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 2);
+    assert_field(&fields, "flags_version", 0, 16, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "protocol_type", 16, 16, FieldType::Enum, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 32); // 4 bytes
+}
+
+#[test]
+fn roundtrip_etherparse_overlay_sctp() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_SCTP_HEADER, "SctpHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 4);
+    assert_field(&fields, "source_port", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "destination_port", 16, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "verification_tag", 32, 32, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "checksum", 64, 32, FieldType::Uint, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 96); // 12 bytes
+}
+
+#[test]
+fn roundtrip_etherparse_overlay_esp() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_ESP_HEADER, "EspHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 2);
+    assert_field(&fields, "spi", 0, 32, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "seq_number", 32, 32, FieldType::Uint, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 64); // 8 bytes
+}
+
+#[test]
+fn roundtrip_etherparse_overlay_ah() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_AH_HEADER, "AhHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 5);
+    assert_field(&fields, "next_header", 0, 8, FieldType::Enum, Endian::Na);
+    assert_field(&fields, "payload_len", 8, 8, FieldType::Uint, Endian::Na);
+    assert_field(&fields, "reserved", 16, 16, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "spi", 32, 32, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "seq_number", 64, 32, FieldType::Uint, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 96); // 12 bytes
+}
+
+#[test]
+fn roundtrip_etherparse_overlay_dns() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_DNS_HEADER, "DnsHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 6);
+    assert_field(&fields, "id", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "flags", 16, 16, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "qd_count", 32, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "ar_count", 80, 16, FieldType::Uint, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 96); // 12 bytes
+}
+
+#[test]
+fn roundtrip_etherparse_overlay_vxlan() {
+    let mappings = type_mapping::load_etherparse_mappings(None).unwrap();
+    let es = etherparse::parse_etherparse_struct(ETHERPARSE_VXLAN_HEADER, "VxlanHeader")
+        .unwrap()
+        .unwrap();
+    let fields = etherparse::to_field_defs_with(&es, &mappings);
+
+    assert_eq!(fields.len(), 4);
+    assert_field(&fields, "flags", 0, 8, FieldType::Flags, Endian::Na);
+    assert_field(&fields, "reserved1", 8, 24, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "vni", 32, 24, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "reserved2", 56, 8, FieldType::Flags, Endian::Na);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 64); // 8 bytes
+}
+
+// ── libpcap overlay roundtrip tests ──
+
+#[test]
+fn roundtrip_libpcap_overlay_gre() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let ls = libpcap::parse_libpcap_struct(LIBPCAP_GRE_HEADER, "gre_header")
+        .unwrap()
+        .unwrap();
+    let fields = libpcap::struct_to_field_defs(&ls, &mappings);
+
+    assert_eq!(fields.len(), 2);
+    assert_field(&fields, "gre_flags_version", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "gre_protocol_type", 16, 16, FieldType::Enum, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 32); // 4 bytes
+}
+
+#[test]
+fn roundtrip_libpcap_overlay_esp() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let ls = libpcap::parse_libpcap_struct(LIBPCAP_ESP_HEADER, "esp_header")
+        .unwrap()
+        .unwrap();
+    let fields = libpcap::struct_to_field_defs(&ls, &mappings);
+
+    assert_eq!(fields.len(), 2);
+    assert_field(&fields, "esp_spi", 0, 32, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "esp_seq", 32, 32, FieldType::Uint, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 64); // 8 bytes
+}
+
+#[test]
+fn roundtrip_libpcap_overlay_dns() {
+    let mappings = type_mapping::load_libpcap_mappings(None).unwrap();
+    let ls = libpcap::parse_libpcap_struct(LIBPCAP_DNS_HEADER, "dns_header")
+        .unwrap()
+        .unwrap();
+    let fields = libpcap::struct_to_field_defs(&ls, &mappings);
+
+    assert_eq!(fields.len(), 6);
+    assert_field(&fields, "dns_id", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "dns_flags", 16, 16, FieldType::Flags, Endian::Big);
+    assert_field(&fields, "dns_qd_count", 32, 16, FieldType::Uint, Endian::Big);
+    assert_field(&fields, "dns_ar_count", 80, 16, FieldType::Uint, Endian::Big);
+    let total = fields.last().map(|f| f.offset_bits + f.size_bits).unwrap();
+    assert_eq!(total, 96); // 12 bytes
+}
+
+// ── PCAP generation unit tests ──
+// These test the generator directly without tshark (no #[ignore]).
+
+use crate::generator::pcap;
+use std::collections::BTreeMap;
+use crate::ir::ProtocolDef;
+
+#[test]
+fn pcap_generate_ipv4_valid_checksum() {
+    let protos = BTreeMap::new();
+    let target = ProtocolDef::new("IPv4", 160);
+    let output = pcap::generate_pcap(&target, &protos).unwrap();
+
+    // IPv4 header starts at byte 14 (after Ethernet)
+    let ipv4_hdr = &output.packet_bytes[14..34];
+    assert_eq!(pcap::ipv4_checksum(ipv4_hdr), 0, "IPv4 checksum should verify to 0");
+}
+
+#[test]
+fn pcap_generate_tcp_stack_correct() {
+    let mut protos = BTreeMap::new();
+    protos.insert(
+        "TCP".to_string(),
+        ProtocolDef::new("TCP", 160).with_fields(vec![
+            FieldDef::new("src_port", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("dst_port", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("seq", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("ack", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("data_offset", 96, 4, FieldType::Uint).with_default_value("5"),
+            FieldDef::new("reserved", 100, 3, FieldType::Pad),
+            FieldDef::new("flags", 103, 9, FieldType::Flags),
+            FieldDef::new("window", 112, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("checksum", 128, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("urgent_ptr", 144, 16, FieldType::Uint).with_endian(Endian::Big),
+        ]),
+    );
+    let target = protos.get("TCP").unwrap().clone();
+    let output = pcap::generate_pcap(&target, &protos).unwrap();
+
+    // Ethernet + IPv4 + TCP = 14 + 20 + 20 = 54 bytes
+    assert_eq!(output.packet_bytes.len(), 54);
+    assert_eq!(output.stack, vec!["Ethernet", "IPv4", "TCP"]);
+
+    // EtherType = 0x0800
+    assert_eq!(&output.packet_bytes[12..14], &[0x08, 0x00]);
+    // IPv4 protocol = 6 (TCP)
+    assert_eq!(output.packet_bytes[23], 6);
+}
+
+#[test]
+fn pcap_generate_udp_stack_correct() {
+    let mut protos = BTreeMap::new();
+    protos.insert(
+        "UDP".to_string(),
+        ProtocolDef::new("UDP", 64).with_fields(vec![
+            FieldDef::new("src_port", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("dst_port", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("length", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("checksum", 48, 16, FieldType::Uint).with_endian(Endian::Big),
+        ]),
+    );
+    let target = protos.get("UDP").unwrap().clone();
+    let output = pcap::generate_pcap(&target, &protos).unwrap();
+
+    // Ethernet + IPv4 + UDP = 14 + 20 + 8 = 42 bytes
+    assert_eq!(output.packet_bytes.len(), 42);
+    // IPv4 protocol = 17 (UDP)
+    assert_eq!(output.packet_bytes[23], 17);
+}
+
+#[test]
+fn pcap_file_starts_with_magic() {
+    let protos = BTreeMap::new();
+    let target = ProtocolDef::new("IPv4", 160);
+    let output = pcap::generate_pcap(&target, &protos).unwrap();
+    // Little-endian PCAP magic: D4 C3 B2 A1
+    assert_eq!(&output.pcap_bytes[0..4], &[0xD4, 0xC3, 0xB2, 0xA1]);
+}
+
+// ── PCAP round-trip tests (require tshark at runtime) ──
+
+#[test]
+#[ignore]
+fn pcap_roundtrip_ipv4_tshark() {
+    let protos = BTreeMap::new();
+    let target = ProtocolDef::new("IPv4", 160);
+    let output = pcap::generate_pcap(&target, &protos).unwrap();
+
+    // Write PCAP to temp file
+    let tmp = std::env::temp_dir().join("proto-audit-test-ipv4.pcap");
+    std::fs::write(&tmp, &output.pcap_bytes).unwrap();
+
+    // Run tshark
+    let xml = tshark::run_tshark(&tmp, "tshark", 1).unwrap();
+    let packets = tshark::parse_pdml(&xml).unwrap();
+    let ip = tshark::extract_protocol_from_pdml(&packets, "ip");
+    assert!(ip.is_some(), "tshark should find IP protocol in generated PCAP");
+
+    let _ = std::fs::remove_file(&tmp);
+}
+
+#[test]
+#[ignore]
+fn pcap_roundtrip_tcp_tshark() {
+    let mut protos = BTreeMap::new();
+    protos.insert(
+        "TCP".to_string(),
+        ProtocolDef::new("TCP", 160).with_fields(vec![
+            FieldDef::new("src_port", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("dst_port", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("seq", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("ack", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("data_offset", 96, 4, FieldType::Uint).with_default_value("5"),
+            FieldDef::new("reserved", 100, 3, FieldType::Pad),
+            FieldDef::new("flags", 103, 9, FieldType::Flags),
+            FieldDef::new("window", 112, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("checksum", 128, 16, FieldType::Uint).with_endian(Endian::Big),
+            FieldDef::new("urgent_ptr", 144, 16, FieldType::Uint).with_endian(Endian::Big),
+        ]),
+    );
+    let target = protos.get("TCP").unwrap().clone();
+    let output = pcap::generate_pcap(&target, &protos).unwrap();
+
+    let tmp = std::env::temp_dir().join("proto-audit-test-tcp.pcap");
+    std::fs::write(&tmp, &output.pcap_bytes).unwrap();
+
+    let xml = tshark::run_tshark(&tmp, "tshark", 1).unwrap();
+    let packets = tshark::parse_pdml(&xml).unwrap();
+    let tcp = tshark::extract_protocol_from_pdml(&packets, "tcp");
+    assert!(tcp.is_some(), "tshark should find TCP protocol in generated PCAP");
+
+    let _ = std::fs::remove_file(&tmp);
+}

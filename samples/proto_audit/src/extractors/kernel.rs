@@ -19,7 +19,6 @@
 
 use anyhow::Result;
 use regex::Regex;
-use std::collections::BTreeMap;
 
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
 use crate::type_mapping::{self, KernelMappings};
@@ -446,20 +445,11 @@ pub fn to_field_defs_with(ks: &KernelStruct, mappings: &KernelMappings) -> Vec<F
 
         let field_type = infer_field_type(&kf.c_type, &kf.name, bits, mappings);
 
-        fields.push(FieldDef {
-            name: kf.name.clone(),
-            offset_bits,
-            size_bits: bits,
-            field_type,
-            endian,
-            description: String::new(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::from([("kernel".to_string(), kf.name.clone())]),
-            default_value: None,
-            flag_names: None,
-        });
+        fields.push(
+            FieldDef::new(kf.name.clone(), offset_bits, bits, field_type)
+                .with_endian(endian)
+                .with_source_name("kernel", kf.name.clone()),
+        );
 
         offset_bits += bits;
     }
@@ -482,26 +472,12 @@ pub fn extract_protocol(
     let total_bits: u32 = fields.iter().map(|f| f.offset_bits + f.size_bits).max().unwrap_or(0);
     let field_count = fields.len() as u32;
 
-    Ok(Some(ProtocolDef {
-        name: struct_name.to_string(),
-        min_header_bits: total_bits,
-        is_variable_length: false,
-        fields,
-        dispatch_field: None,
-        dispatch_table: vec![],
-        identifiers: BTreeMap::new(),
-        sources: BTreeMap::from([(
-            "kernel".to_string(),
-            SourceInfo {
-                present: true,
-                file_path: Some(file_path.to_string()),
-                source_name: struct_name.to_string(),
-                field_count,
-                min_header_bytes: total_bits / 8,
-                notes: vec![],
-            },
-        )]),
-    }))
+    Ok(Some(ProtocolDef::new(struct_name, total_bits)
+        .with_fields(fields)
+        .with_source("kernel", SourceInfo::new(struct_name)
+            .with_file(file_path)
+            .with_field_count(field_count)
+            .with_min_header_bytes(total_bits / 8))))
 }
 
 #[cfg(test)]

@@ -174,7 +174,7 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             _ => None,
         };
         if let Some(n) = name {
-            map.insert(n, p.canonical.to_string());
+            map.entry(n).or_insert_with(|| p.canonical.to_string());
         }
     }
     map

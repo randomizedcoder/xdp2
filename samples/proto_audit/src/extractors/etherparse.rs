@@ -6,8 +6,6 @@
 
 use anyhow::Result;
 use regex::Regex;
-use std::collections::BTreeMap;
-
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
 use crate::type_mapping::{self, EtherparseMappings};
 
@@ -65,7 +63,8 @@ fn parse_struct_fields(body: &str) -> Vec<EtherparseField> {
 
     // Match: pub name: Type, or pub name: [Type; N],
     let field_re =
-        Regex::new(r"pub\s+(\w+)\s*:\s*(\[(\w+)\s*;\s*(\d+)\]|(\w+))\s*,").unwrap();
+        Regex::new(r"pub\s+(\w+)\s*:\s*(\[(\w+)\s*;\s*(\d+)\]|(\w+))\s*,")
+            .expect("static regex pattern is valid");
 
     for line in body.lines() {
         let line = line.trim();
@@ -142,20 +141,9 @@ pub fn to_field_defs_with(
                 let ft = mappings
                     .field_type_override(&ef.name)
                     .unwrap_or(FieldType::Flags);
-                fields.push(FieldDef {
-                    name: ef.name.clone(),
-                    offset_bits: bit_pos,
-                    size_bits: base_bits,
-                    field_type: ft,
-                    endian: Endian::Na,
-                    description: String::new(),
-                    is_dispatch: false,
-                    is_length: false,
-                    length_multiplier: None,
-                    source_names: BTreeMap::new(),
-                    default_value: None,
-                    flag_names: None,
-                });
+                fields.push(
+                    FieldDef::new(ef.name.clone(), bit_pos, base_bits, ft),
+                );
                 // Track the end of the flag region
                 let end = bit_pos + base_bits;
                 if end > flag_region_end {
@@ -197,20 +185,10 @@ pub fn to_field_defs_with(
             infer_field_type(&ef.name, &ef.rust_type, total_bits, ef.array_size)
         };
 
-        fields.push(FieldDef {
-            name: ef.name.clone(),
-            offset_bits: offset,
-            size_bits: total_bits,
-            field_type,
-            endian,
-            description: String::new(),
-            is_dispatch: false,
-            is_length: false,
-            length_multiplier: None,
-            source_names: BTreeMap::new(),
-            default_value: None,
-            flag_names: None,
-        });
+        fields.push(
+            FieldDef::new(ef.name.clone(), offset, total_bits, field_type)
+                .with_endian(endian),
+        );
 
         offset += total_bits;
 
@@ -294,29 +272,14 @@ pub fn extract_protocol_with(
         .map(|f| f.offset_bits + f.size_bits)
         .unwrap_or(0);
 
-    let mut sources = BTreeMap::new();
-    sources.insert(
-        "etherparse".to_string(),
-        SourceInfo {
-            present: true,
-            file_path: Some(file_path.to_string()),
-            source_name: struct_name.to_string(),
-            field_count: fields.len() as u32,
-            min_header_bytes: total_bits / 8,
-            notes: vec![],
-        },
-    );
+    let field_count = fields.len() as u32;
 
-    Ok(Some(ProtocolDef {
-        name: struct_name.to_string(),
-        min_header_bits: total_bits,
-        is_variable_length: false,
-        fields,
-        dispatch_field: None,
-        dispatch_table: vec![],
-        identifiers: BTreeMap::new(),
-        sources,
-    }))
+    Ok(Some(ProtocolDef::new(struct_name, total_bits)
+        .with_fields(fields)
+        .with_source("etherparse", SourceInfo::new(struct_name)
+            .with_file(file_path)
+            .with_field_count(field_count)
+            .with_min_header_bytes(total_bits / 8))))
 }
 
 #[cfg(test)]

@@ -315,3 +315,85 @@ struct vlan_tag {
     uint16_t vlan_tpid;
 };
 "#;
+
+// ── Proto-audit overlay structs (etherparse) ──
+
+pub const ETHERPARSE_GRE_HEADER: &str = r#"
+pub struct GreHeader {
+    pub flags_version: u16,
+    pub protocol_type: u16,
+}
+"#;
+
+pub const ETHERPARSE_SCTP_HEADER: &str = r#"
+pub struct SctpHeader {
+    pub source_port: u16,
+    pub destination_port: u16,
+    pub verification_tag: u32,
+    pub checksum: u32,
+}
+"#;
+
+pub const ETHERPARSE_ESP_HEADER: &str = r#"
+pub struct EspHeader {
+    pub spi: u32,
+    pub seq_number: u32,
+}
+"#;
+
+pub const ETHERPARSE_AH_HEADER: &str = r#"
+pub struct AhHeader {
+    pub next_header: u8,
+    pub payload_len: u8,
+    pub reserved: u16,
+    pub spi: u32,
+    pub seq_number: u32,
+}
+"#;
+
+pub const ETHERPARSE_DNS_HEADER: &str = r#"
+pub struct DnsHeader {
+    pub id: u16,
+    pub flags: u16,
+    pub qd_count: u16,
+    pub an_count: u16,
+    pub ns_count: u16,
+    pub ar_count: u16,
+}
+"#;
+
+pub const ETHERPARSE_VXLAN_HEADER: &str = r#"
+pub struct VxlanHeader {
+    pub flags: u8,
+    pub reserved1: [u8; 3],
+    pub vni: [u8; 3],
+    pub reserved2: u8,
+}
+"#;
+
+// ── Proto-audit overlay structs (libpcap) ──
+
+pub const LIBPCAP_GRE_HEADER: &str = r#"
+struct gre_header {
+    uint16_t gre_flags_version;
+    uint16_t gre_protocol_type;
+};
+"#;
+
+pub const LIBPCAP_ESP_HEADER: &str = r#"
+struct esp_header {
+    uint32_t esp_spi;
+    uint32_t esp_seq;
+};
+"#;
+
+pub const LIBPCAP_DNS_HEADER: &str = r#"
+struct dns_header {
+    uint16_t dns_id;
+    uint16_t dns_flags;
+    uint16_t dns_qd_count;
+    uint16_t dns_an_count;
+    uint16_t dns_ns_count;
+    uint16_t dns_ar_count;
+};
+"#;
