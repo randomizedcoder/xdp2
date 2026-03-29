@@ -27,6 +27,9 @@ pkgs.rustPlatform.buildRustPackage {
   postInstall = ''
     mkdir -p $out/share/proto-audit
     cp ${../samples/proto_audit/helpers/scapy_dump.py} $out/share/proto-audit/scapy_dump.py
+    cp ${../samples/proto_audit/helpers/tshark_registry.py} $out/share/proto-audit/tshark_registry.py
+    cp ${../samples/proto_audit/helpers/kernel_scan.py} $out/share/proto-audit/kernel_scan.py
+    cp ${../samples/proto_audit/helpers/gen_pcap_templates.py} $out/share/proto-audit/gen_pcap_templates.py
   '';
 
   meta = {

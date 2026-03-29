@@ -163,6 +163,48 @@ pub fn to_protocol_def_with(sp: &ScapyProtocol, mappings: &ScapyMappings) -> Pro
         .with_source("scapy", source_info)
 }
 
+/// Run `scapy_dump.py --dump-all` and parse the output: all protocols in one call.
+///
+/// Returns a map from Scapy class name → ProtocolDef.
+/// This eliminates per-protocol subprocess calls for audit/matrix at scale.
+pub fn run_scapy_dump_all(
+    helper_path: &Path,
+    python_bin: &str,
+) -> Result<std::collections::HashMap<String, ProtocolDef>> {
+    let output = Command::new(python_bin)
+        .arg(helper_path)
+        .arg("--dump-all")
+        .output()
+        .with_context(|| {
+            format!(
+                "running scapy helper --dump-all: {} {}",
+                python_bin,
+                helper_path.display(),
+            )
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("scapy --dump-all failed: {}", stderr.trim());
+    }
+
+    let stdout =
+        String::from_utf8(output.stdout).context("scapy --dump-all output is not valid UTF-8")?;
+    let protocols: Vec<ScapyProtocol> =
+        serde_json::from_str(&stdout).context("parsing scapy --dump-all JSON")?;
+
+    let mappings = type_mapping::load_scapy_mappings(None)
+        .expect("embedded scapy mappings should always parse");
+
+    let mut result = std::collections::HashMap::new();
+    for sp in &protocols {
+        let def = to_protocol_def_with(sp, &mappings);
+        result.insert(sp.name.clone(), def);
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

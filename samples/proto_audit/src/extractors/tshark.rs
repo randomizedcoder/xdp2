@@ -252,6 +252,44 @@ pub fn to_protocol_def_with(pdml: &PdmlProtocol, mappings: &TsharkMappings) -> P
             .with_min_header_bytes(pdml.size))
 }
 
+/// Extract ALL protocols from pre-parsed PDML packets in one pass.
+///
+/// Returns a map from dissector name → ProtocolDef.
+/// This eliminates per-protocol tshark subprocess calls for audit/matrix at scale.
+pub fn extract_all_protocols_from_pdml(
+    packets: &[Vec<PdmlProtocol>],
+) -> std::collections::HashMap<String, ProtocolDef> {
+    let mappings = type_mapping::load_tshark_mappings(None)
+        .expect("embedded tshark mappings should always parse");
+
+    let mut result = std::collections::HashMap::new();
+
+    for packet in packets {
+        for proto in packet {
+            // Skip frame/data pseudo-protocols and already-seen ones
+            if proto.name == "frame"
+                || proto.name == "data"
+                || proto.name == "_ws.malformed"
+                || proto.name.is_empty()
+            {
+                continue;
+            }
+
+            // Keep the first occurrence (like extract_protocol_from_pdml)
+            if result.contains_key(&proto.name) {
+                continue;
+            }
+
+            let def = to_protocol_def_with(proto, &mappings);
+            if !def.fields.is_empty() {
+                result.insert(proto.name.clone(), def);
+            }
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,5 +407,24 @@ mod tests {
         assert_eq!(dst.offset_bits, 0);
         assert_eq!(dst.size_bits, 48);
         assert_eq!(dst.field_type, FieldType::MacAddr);
+    }
+
+    #[test]
+    fn test_extract_all_protocols_from_pdml() {
+        let packets = parse_pdml(SAMPLE_PDML).unwrap();
+        let all = extract_all_protocols_from_pdml(&packets);
+
+        // Should find both eth and ip (but not frame/data)
+        assert!(all.contains_key("eth"), "should contain eth");
+        assert!(all.contains_key("ip"), "should contain ip");
+        assert!(!all.contains_key("frame"), "should skip frame pseudo-protocol");
+
+        // Verify the extracted definitions are correct
+        let ip = &all["ip"];
+        assert_eq!(ip.min_header_bits, 160);
+        assert!(!ip.fields.is_empty());
+
+        let eth = &all["eth"];
+        assert_eq!(eth.min_header_bits, 112);
     }
 }

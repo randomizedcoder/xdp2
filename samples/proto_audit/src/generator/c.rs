@@ -3,16 +3,22 @@ use crate::name_mapping;
 
 use super::{canonical_to_snake, canonical_to_upper};
 
+/// Generate a complete XDP2 proto_def C header using explicit kernel names.
+/// Used for discovered protocols that have kernel struct matches but aren't curated.
+pub fn generate_proto_def_with_names(
+    proto: &ProtocolDef,
+    kernel_struct: &str,
+    kernel_header: &str,
+) -> String {
+    generate_proto_def_inner(proto, kernel_struct, kernel_header)
+}
+
 /// Generate a complete XDP2 proto_def C header from a ProtocolDef.
 pub fn generate_proto_def(proto: &ProtocolDef) -> String {
     let canonical = &proto.name;
 
     // Look up names from the mapping table
     let names = name_mapping::find_by_canonical(canonical);
-
-    let snake = canonical_to_snake(canonical);
-    let upper = canonical_to_upper(canonical);
-    let guard = format!("__XDP2_PROTO_{}_H__", upper);
 
     let kernel_header = names
         .as_ref()
@@ -23,6 +29,16 @@ pub fn generate_proto_def(proto: &ProtocolDef) -> String {
         .as_ref()
         .and_then(|n| n.kernel_struct)
         .unwrap_or("unknown_hdr");
+
+    generate_proto_def_inner(proto, kernel_struct, kernel_header)
+}
+
+fn generate_proto_def_inner(proto: &ProtocolDef, kernel_struct: &str, kernel_header: &str) -> String {
+    let canonical = &proto.name;
+
+    let snake = canonical_to_snake(canonical);
+    let upper = canonical_to_upper(canonical);
+    let guard = format!("__XDP2_PROTO_{}_H__", upper);
 
     let has_next_proto = proto.dispatch_field.is_some();
     let has_variable_len = proto.is_variable_length;

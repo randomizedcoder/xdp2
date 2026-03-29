@@ -7,21 +7,31 @@ use super::truncate;
 /// Source-by-protocol coverage matrix.
 ///
 /// Shows field counts per source, cross-source agreement, and XDP2 coverage.
+/// Protocols tagged with `[D]` suffix are auto-discovered (Tier 2).
 pub fn format_matrix(results: &[AuditResult]) -> String {
     let mut out = String::new();
     let sources = ["kernel", "scapy", "tshark", "xdp2"];
 
+    let curated = results.iter().filter(|r| !r.protocol.ends_with("[D]")).count();
+    let discovered = results.iter().filter(|r| r.protocol.ends_with("[D]")).count();
+    let tier_note = if discovered > 0 {
+        format!(" ({} curated, {} discovered)", curated, discovered)
+    } else {
+        String::new()
+    };
+
     out.push_str(&format!(
-        "Source × Protocol Coverage Matrix ({} protocols)\n\n",
-        results.len()
+        "Source × Protocol Coverage Matrix ({} protocols{})\n\n",
+        results.len(),
+        tier_note,
     ));
     out.push_str(&format!(
-        "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5} {:>5}  {}\n",
+        "  {:<20} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5} {:>5}  {}\n",
         "Protocol", "kernel", "scapy", "tshark", "xdp2", "Agree", "TDiff", "Split", "Miss.", "Notes"
     ));
     out.push_str(&format!(
         "  {} {} {} {} {}  {} {} {} {}  {}\n",
-        "-".repeat(16),
+        "-".repeat(20),
         "-".repeat(8),
         "-".repeat(8),
         "-".repeat(8),
@@ -75,8 +85,8 @@ pub fn format_matrix(results: &[AuditResult]) -> String {
         }
 
         out.push_str(&format!(
-            "  {:<16} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5} {:>5}  {}\n",
-            truncate(&r.protocol, 16),
+            "  {:<20} {:>8} {:>8} {:>8} {:>8}  {:>6} {:>5} {:>5} {:>5}  {}\n",
+            truncate(&r.protocol, 20),
             cell("kernel"),
             cell("scapy"),
             cell("tshark"),

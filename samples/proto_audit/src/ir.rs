@@ -193,6 +193,7 @@ impl ProtocolDef {
             dispatch_table: vec![],
             identifiers: BTreeMap::new(),
             sources: BTreeMap::new(),
+            generation_source: None,
         }
     }
 
@@ -268,6 +269,10 @@ pub struct ProtocolDef {
     /// Per-source metadata
     #[serde(default)]
     pub sources: BTreeMap<String, SourceInfo>,
+
+    /// How this IR was generated: "curated", "scapy-batch", "tshark-pdml", "tshark-registry"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation_source: Option<String>,
 }
 
 /// What one source says about this protocol.

@@ -5,4 +5,5 @@ pub mod kernel;
 pub mod libpcap;
 pub mod scapy;
 pub mod tshark;
+pub mod tshark_registry;
 pub mod xdp2;

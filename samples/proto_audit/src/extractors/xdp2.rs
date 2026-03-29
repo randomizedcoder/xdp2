@@ -203,6 +203,7 @@ pub fn to_protocol_def(xdp2_def: &Xdp2ProtoDef) -> ProtocolDef {
                 notes,
             },
         )]),
+        generation_source: None,
     }
 }
 

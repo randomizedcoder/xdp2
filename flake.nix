@@ -122,6 +122,10 @@
             export PROTO_AUDIT_PCAP="''${PROTO_AUDIT_PCAP:-${test-pcap}/combo.pcap}"
             export PROTO_AUDIT_ETHERPARSE_SRC="''${PROTO_AUDIT_ETHERPARSE_SRC:-${protoAuditSources.etherparseSrc}}"
             export PROTO_AUDIT_LIBPCAP_SRC="''${PROTO_AUDIT_LIBPCAP_SRC:-${protoAuditSources.libpcapSrc}}"
+            export PROTO_AUDIT_TSHARK_REGISTRY="''${PROTO_AUDIT_TSHARK_REGISTRY:-${protoAuditSources.tsharkRegistry}/tshark_registry.json}"
+            export PROTO_AUDIT_SCAPY_REGISTRY="''${PROTO_AUDIT_SCAPY_REGISTRY:-${protoAuditSources.scapyRegistry}/scapy_registry.json}"
+            export PROTO_AUDIT_KERNEL_REGISTRY="''${PROTO_AUDIT_KERNEL_REGISTRY:-${protoAuditSources.kernelRegistry}/kernel_registry.json}"
+            export PROTO_AUDIT_PCAP_TEMPLATES="''${PROTO_AUDIT_PCAP_TEMPLATES:-${protoAuditSources.pcapTemplates}}"
             exec proto-audit "$@"
           '';
         };

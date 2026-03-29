@@ -196,14 +196,127 @@ def list_protocols():
     print(json.dumps(names, indent=2))
 
 
+def discover_all():
+    """Discover ALL Scapy Packet subclasses by importing all contrib modules.
+
+    Outputs a JSON mapping of class_name → module_path for every Packet
+    subclass that has fields_desc defined.
+    """
+    import importlib
+    import pkgutil
+    import scapy.all  # noqa: F401
+    import scapy.contrib
+    import scapy.layers
+    from scapy.packet import Packet
+
+    # Walk and import all scapy.contrib.* and scapy.layers.* modules
+    for pkg in [scapy.contrib, scapy.layers]:
+        for _, modname, _ in pkgutil.walk_packages(
+            pkg.__path__, prefix=pkg.__name__ + '.'
+        ):
+            try:
+                importlib.import_module(modname)
+            except Exception:
+                pass
+
+    # Enumerate all Packet subclasses recursively
+    def all_subclasses(cls):
+        result = set()
+        for sub in cls.__subclasses__():
+            result.add(sub)
+            result.update(all_subclasses(sub))
+        return result
+
+    registry = {}
+    for cls in all_subclasses(Packet):
+        if hasattr(cls, 'fields_desc') and cls.fields_desc:
+            registry[cls.__name__] = cls.__module__
+
+    print(json.dumps(registry, indent=2))
+    print(f"Discovered {len(registry)} Packet subclasses", file=sys.stderr)
+
+
+def safe_default(val):
+    """Safely convert a Scapy field default to a string."""
+    if val is None:
+        return None
+    try:
+        return str(val)
+    except Exception:
+        return repr(val)
+
+
+def dump_all():
+    """Dump ALL protocols' fields in one subprocess call.
+
+    Outputs a JSON array of protocol objects (same format as dump_protocol).
+    For batch extraction to avoid per-protocol subprocess overhead.
+    """
+    import importlib
+    import pkgutil
+    import scapy.all  # noqa: F401
+    import scapy.contrib
+    import scapy.layers
+    from scapy.packet import Packet
+
+    # Import everything
+    for pkg in [scapy.contrib, scapy.layers]:
+        for _, modname, _ in pkgutil.walk_packages(
+            pkg.__path__, prefix=pkg.__name__ + '.'
+        ):
+            try:
+                importlib.import_module(modname)
+            except Exception:
+                pass
+
+    def all_subclasses(cls):
+        result = set()
+        for sub in cls.__subclasses__():
+            result.add(sub)
+            result.update(all_subclasses(sub))
+        return result
+
+    results = []
+    for cls in sorted(all_subclasses(Packet), key=lambda c: c.__name__):
+        if not hasattr(cls, 'fields_desc') or not cls.fields_desc:
+            continue
+        fields = []
+        total_bits = 0
+        for f in cls.fields_desc:
+            inner = unwrap_field(f)
+            bits = field_size_bits(inner)
+            fields.append({
+                "name": f.name,
+                "field_class": type(inner).__name__,
+                "size_bits": bits,
+                "default": safe_default(f.default),
+            })
+            total_bits += bits
+        results.append({
+            "name": cls.__name__,
+            "module": cls.__module__,
+            "min_bytes": (total_bits + 7) // 8,
+            "fields": fields,
+        })
+
+    print(json.dumps(results, indent=2))
+    print(f"Dumped {len(results)} protocols", file=sys.stderr)
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <ProtocolName>", file=sys.stderr)
         print(f"       {sys.argv[0]} --list", file=sys.stderr)
+        print(f"       {sys.argv[0]} --discover-all", file=sys.stderr)
+        print(f"       {sys.argv[0]} --dump-all", file=sys.stderr)
         sys.exit(1)
 
     arg = sys.argv[1]
     if arg == "--list":
         list_protocols()
+    elif arg == "--discover-all":
+        discover_all()
+    elif arg == "--dump-all":
+        dump_all()
     else:
         dump_protocol(arg)

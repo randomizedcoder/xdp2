@@ -5,6 +5,7 @@
 
 mod commands;
 mod comparator;
+mod discovery;
 mod extractors;
 mod generator;
 mod ir;
@@ -114,6 +115,18 @@ enum Commands {
         #[arg(long)]
         sources: Option<String>,
 
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "curated")]
+        tier: String,
+
+        /// Omit protocols with no extracted fields (for large output)
+        #[arg(long)]
+        compact: bool,
+
+        /// Limit output to first N protocols
+        #[arg(long)]
+        limit: Option<usize>,
+
         #[command(flatten)]
         paths: SourcePaths,
 
@@ -131,6 +144,36 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+    },
+
+    /// Batch generate code for all discoverable protocols
+    GenerateAll {
+        /// Target output format: etherparse, scapy
+        #[arg(long, default_value = "etherparse")]
+        target: String,
+
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "all")]
+        tier: String,
+
+        /// Output directory for generated files
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
+
+        /// Only count translatable protocols, don't generate code
+        #[arg(long)]
+        count_only: bool,
+
+        /// Minimum number of fields to include a protocol
+        #[arg(long)]
+        min_fields: Option<usize>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
     },
 
     /// Generate code from IR (C header, etherparse Rust struct, or Scapy class)
@@ -161,6 +204,10 @@ enum Commands {
 
     /// List known protocols from the name mapping table
     List {
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "curated")]
+        tier: String,
+
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -175,6 +222,18 @@ enum Commands {
         /// Only use these sources (comma-separated)
         #[arg(long)]
         sources: Option<String>,
+
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "curated")]
+        tier: String,
+
+        /// Omit protocols with no extracted fields
+        #[arg(long)]
+        compact: bool,
+
+        /// Limit output to first N protocols
+        #[arg(long)]
+        limit: Option<usize>,
 
         #[command(flatten)]
         paths: SourcePaths,
@@ -194,6 +253,18 @@ enum Commands {
         #[arg(long)]
         sources: Option<String>,
 
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "curated")]
+        tier: String,
+
+        /// Omit protocols with no findings
+        #[arg(long)]
+        compact: bool,
+
+        /// Limit output to first N protocols
+        #[arg(long)]
+        limit: Option<usize>,
+
         #[command(flatten)]
         paths: SourcePaths,
 
@@ -207,6 +278,10 @@ enum Commands {
         /// Protocol name (canonical: IPv4, TCP, etc.)
         #[arg(long)]
         proto: String,
+
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "curated")]
+        tier: String,
 
         /// Save generated PCAP to this path (otherwise uses a temp file)
         #[arg(long)]
@@ -240,10 +315,22 @@ fn main() -> Result<()> {
         Commands::Audit {
             protos,
             sources,
+            tier,
+            compact,
+            limit,
             paths,
             json,
-        } => cmd_audit(protos.as_deref(), sources.as_deref(), &paths, json),
+        } => cmd_audit(protos.as_deref(), sources.as_deref(), &tier, compact, limit, &paths, json),
         Commands::Scan { proto_defs_dir, json } => cmd_scan(&proto_defs_dir, json),
+        Commands::GenerateAll {
+            target,
+            tier,
+            output_dir,
+            count_only,
+            min_fields,
+            json,
+            paths,
+        } => cmd_generate_all(&target, &tier, output_dir, count_only, min_fields, json, &paths),
         Commands::Generate {
             proto,
             from_json,
@@ -252,24 +339,31 @@ fn main() -> Result<()> {
             output,
             paths,
         } => cmd_generate(&proto, from_json, &target, dry_run, output, &paths),
-        Commands::List { json } => cmd_list(json),
+        Commands::List { tier, json } => cmd_list(&tier, json),
         Commands::Matrix {
             protos,
             sources,
+            tier,
+            compact,
+            limit,
             paths,
             json,
-        } => cmd_matrix(protos.as_deref(), sources.as_deref(), &paths, json),
+        } => cmd_matrix(protos.as_deref(), sources.as_deref(), &tier, compact, limit, &paths, json),
         Commands::Findings {
             protos,
             sources,
+            tier,
+            compact,
+            limit,
             paths,
             json,
-        } => cmd_findings(protos.as_deref(), sources.as_deref(), &paths, json),
+        } => cmd_findings(protos.as_deref(), sources.as_deref(), &tier, compact, limit, &paths, json),
         Commands::Validate {
             proto,
+            tier,
             keep_pcap,
             paths,
             json,
-        } => cmd_validate(&proto, keep_pcap, json, &paths),
+        } => cmd_validate(&proto, &tier, keep_pcap, json, &paths),
     }
 }

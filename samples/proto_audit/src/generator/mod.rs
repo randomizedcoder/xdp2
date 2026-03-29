@@ -11,9 +11,9 @@ mod etherparse;
 pub mod pcap;
 mod scapy;
 
-pub use c::generate_proto_def;
+pub use c::{generate_proto_def, generate_proto_def_with_names};
 pub use etherparse::generate_etherparse;
-pub use pcap::{generate_pcap, is_root, stack_route_for, PcapOutput};
+pub use pcap::{generate_pcap, generate_pcap_with_discovery, is_root, load_pcap_template, stack_route_for, PcapOutput};
 pub use scapy::generate_scapy;
 
 // ── Shared helpers ──

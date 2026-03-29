@@ -315,7 +315,35 @@ pub fn generate_pcap(
     target_proto: &ProtocolDef,
     all_protos: &BTreeMap<String, ProtocolDef>,
 ) -> Result<PcapOutput, String> {
-    let result = build_protocol_stack(&target_proto.name, all_protos)?;
+    let discovery_state = crate::discovery::DiscoveryState::load_from_env();
+    generate_pcap_with_discovery(target_proto, all_protos, &discovery_state)
+}
+
+/// Generate a PCAP with an externally-provided DiscoveryState (avoids reloading).
+pub fn generate_pcap_with_discovery(
+    target_proto: &ProtocolDef,
+    all_protos: &BTreeMap<String, ProtocolDef>,
+    discovery_state: &crate::discovery::DiscoveryState,
+) -> Result<PcapOutput, String> {
+    // Pre-build the protocol map once for discovery route lookups
+    let discovered_protos = crate::discovery::all_protocols(discovery_state);
+
+    // Try normal stack construction; on failure, fall back to PCAP template
+    let result = match build_protocol_stack(&target_proto.name, all_protos, discovery_state, &discovered_protos) {
+        Ok(r) => r,
+        Err(e) => {
+            // Last resort: try loading a pre-built PCAP template
+            if let Some(tmpl) = load_pcap_template(&target_proto.name) {
+                return Ok(PcapOutput {
+                    pcap_bytes: tmpl.pcap_bytes,
+                    packet_bytes: tmpl.packet_bytes,
+                    stack: vec![target_proto.name.clone()],
+                    link_type: tmpl.link_type,
+                });
+            }
+            return Err(e);
+        }
+    };
     let link_type = result.link_type;
 
     // Serialize each layer
@@ -377,6 +405,8 @@ fn upper_pdu_preamble(dissector: &str) -> Vec<u8> {
 fn build_protocol_stack(
     target: &str,
     all_protos: &BTreeMap<String, ProtocolDef>,
+    discovery_state: &crate::discovery::DiscoveryState,
+    discovered_protos: &BTreeMap<String, crate::discovery::DiscoveredProtocol>,
 ) -> Result<StackResult, String> {
     // If target is itself a root, return single-layer stack
     if is_root(target) {
@@ -392,30 +422,45 @@ fn build_protocol_stack(
     }
 
     // Walk from target back to a root
-    let mut chain: Vec<(&str, &str, u64)> = Vec::new(); // (proto, parent_dispatch_field, value)
-    let mut current = target;
+    // We use owned strings to handle both static routes and discovered routes
+    let mut chain: Vec<(String, String, u64)> = Vec::new(); // (proto, parent_dispatch_field, value)
+    let mut current = target.to_string();
 
     for _ in 0..10 {
         // max depth guard
-        let route = STACK_ROUTES
+        // Try curated routes first
+        if let Some(route) = STACK_ROUTES
             .iter()
-            .find(|(child, _, _, _)| *child == current)
-            .ok_or_else(|| {
-                format!(
-                    "No route to '{}': protocol not in STACK_ROUTES",
-                    target
-                )
-            })?;
+            .find(|(child, _, _, _)| *child == current.as_str())
+        {
+            chain.push((route.0.to_string(), route.2.to_string(), route.3));
+            current = route.1.to_string();
+        }
+        // Fallback: try discovered routes from tshark registry (uses pre-built map)
+        else if let Some(disc_route) = try_discovery_route(&current, discovery_state, discovered_protos) {
+            chain.push((
+                current.clone(),
+                disc_route.dispatch_field.clone(),
+                disc_route.dispatch_value,
+            ));
+            current = disc_route.parent.clone();
+        }
+        // Fallback: check PCAP templates
+        else if let Some(template_result) = try_pcap_template(target) {
+            return Ok(template_result);
+        } else {
+            return Err(format!(
+                "No route to '{}': protocol not in STACK_ROUTES or discovery",
+                target
+            ));
+        }
 
-        chain.push((route.0, route.2, route.3));
-        current = route.1;
-
-        if is_root(current) {
+        if is_root(&current) {
             break;
         }
     }
 
-    if !is_root(current) {
+    if !is_root(&current) {
         return Err(format!(
             "Could not reach a link-layer root from '{}' within 10 hops",
             target
@@ -423,7 +468,7 @@ fn build_protocol_stack(
     }
 
     let root_name = current;
-    let link_type = dlt_for_root(root_name);
+    let link_type = dlt_for_root(&root_name);
 
     // Reverse: root first, target last
     chain.reverse();
@@ -432,21 +477,21 @@ fn build_protocol_stack(
 
     // Root layer with dispatch override from first chain entry
     let mut root_overrides = BTreeMap::new();
-    root_overrides.insert(chain[0].1.to_string(), chain[0].2);
+    root_overrides.insert(chain[0].1.clone(), chain[0].2);
     layers.push(StackLayer {
         proto_name: root_name.to_string(),
-        proto_def: resolve_proto(root_name, all_protos),
+        proto_def: resolve_proto(&root_name, all_protos),
         overrides: root_overrides,
     });
 
     // Intermediate + target layers
     for i in 0..chain.len() {
-        let proto_name = chain[i].0;
+        let proto_name = &chain[i].0;
         let mut overrides = BTreeMap::new();
 
         // If not the last layer, set dispatch field for next layer
         if i + 1 < chain.len() {
-            overrides.insert(chain[i + 1].1.to_string(), chain[i + 1].2);
+            overrides.insert(chain[i + 1].1.clone(), chain[i + 1].2);
         }
 
         layers.push(StackLayer {
@@ -1182,7 +1227,79 @@ fn pcap_record_header(packet_len: u32) -> [u8; 16] {
     hdr
 }
 
-/// Format packet bytes as hex dump (for --dry-run output).
+/// Try to find a discovered route via the tshark registry.
+/// Uses a pre-built protocol map to avoid rebuilding it on every call.
+fn try_discovery_route(
+    proto: &str,
+    state: &crate::discovery::DiscoveryState,
+    discovered_protos: &std::collections::BTreeMap<String, crate::discovery::DiscoveredProtocol>,
+) -> Option<crate::discovery::routes::StackRoute> {
+    let registry = state.tshark.as_ref()?;
+    // The proto might be a canonical name; look up its tshark filter from the pre-built map
+    let dp = discovered_protos.get(proto)?;
+    let filter = dp.tshark_filter.as_deref()?;
+    crate::discovery::routes::discovered_route(filter, registry)
+}
+
+/// A PCAP template loaded from disk.
+pub struct PcapTemplate {
+    pub pcap_bytes: Vec<u8>,
+    pub packet_bytes: Vec<u8>,
+    pub link_type: u32,
+}
+
+/// Try to load a PCAP template for protocols that can't be auto-routed.
+fn try_pcap_template(target: &str) -> Option<StackResult> {
+    load_pcap_template(target).map(|tmpl| {
+        let def = ProtocolDef::new(target, 0);
+        StackResult {
+            layers: vec![StackLayer {
+                proto_name: target.to_string(),
+                proto_def: def,
+                overrides: BTreeMap::new(),
+            }],
+            link_type: tmpl.link_type,
+        }
+    })
+}
+
+/// Load a PCAP template file for a given protocol name.
+///
+/// Looks for `$PROTO_AUDIT_PCAP_TEMPLATES/<proto>.pcap`.
+pub fn load_pcap_template(target: &str) -> Option<PcapTemplate> {
+    let template_dir = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES").ok()?;
+    let template_path = std::path::Path::new(&template_dir)
+        .join(format!("{}.pcap", target.to_lowercase()));
+
+    if !template_path.exists() {
+        return None;
+    }
+
+    let data = std::fs::read(&template_path).ok()?;
+    if data.len() < 24 + 16 {
+        return None; // Too short for global header + record header
+    }
+
+    // Parse global header (24 bytes, little-endian)
+    let link_type = u32::from_le_bytes([data[20], data[21], data[22], data[23]]);
+
+    // Parse first record header (16 bytes at offset 24)
+    let incl_len = u32::from_le_bytes([data[32], data[33], data[34], data[35]]) as usize;
+
+    // Extract packet bytes
+    let pkt_start = 40; // 24 (global) + 16 (record)
+    if pkt_start + incl_len > data.len() {
+        return None;
+    }
+    let packet_bytes = data[pkt_start..pkt_start + incl_len].to_vec();
+
+    Some(PcapTemplate {
+        pcap_bytes: data,
+        packet_bytes,
+        link_type,
+    })
+}
+
 pub fn hex_dump(bytes: &[u8]) -> String {
     let mut out = String::new();
     for (i, chunk) in bytes.chunks(16).enumerate() {
@@ -1216,6 +1333,21 @@ pub fn hex_dump(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Helper: build_protocol_stack with empty discovery state (for tests that
+    /// only exercise curated STACK_ROUTES).
+    fn build_stack_no_discovery(
+        target: &str,
+        all_protos: &BTreeMap<String, ProtocolDef>,
+    ) -> Result<StackResult, String> {
+        let ds = crate::discovery::DiscoveryState {
+            tshark: None,
+            scapy: None,
+            kernel: None,
+        };
+        let dp = BTreeMap::new();
+        build_protocol_stack(target, all_protos, &ds, &dp)
+    }
 
     #[test]
     fn test_pack_field_byte_aligned_u8() {
@@ -1382,7 +1514,7 @@ mod tests {
     #[test]
     fn test_build_stack_ethernet() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("Ethernet", &protos).unwrap();
+        let result = build_stack_no_discovery("Ethernet", &protos).unwrap();
         assert_eq!(result.layers.len(), 1);
         assert_eq!(result.layers[0].proto_name, "Ethernet");
         assert_eq!(result.link_type, 1);
@@ -1391,7 +1523,7 @@ mod tests {
     #[test]
     fn test_build_stack_ipv4() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("IPv4", &protos).unwrap();
+        let result = build_stack_no_discovery("IPv4", &protos).unwrap();
         assert_eq!(result.layers.len(), 2);
         assert_eq!(result.layers[0].proto_name, "Ethernet");
         assert_eq!(result.layers[1].proto_name, "IPv4");
@@ -1402,7 +1534,7 @@ mod tests {
     #[test]
     fn test_build_stack_tcp() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("TCP", &protos).unwrap();
+        let result = build_stack_no_discovery("TCP", &protos).unwrap();
         assert_eq!(result.layers.len(), 3);
         assert_eq!(result.layers[0].proto_name, "Ethernet");
         assert_eq!(result.layers[1].proto_name, "IPv4");
@@ -1414,7 +1546,7 @@ mod tests {
     #[test]
     fn test_build_stack_unknown_proto() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("UnknownProto", &protos);
+        let result = build_stack_no_discovery("UnknownProto", &protos);
         assert!(result.is_err());
     }
 
@@ -1500,7 +1632,7 @@ mod tests {
         dispatch_value: u64,
     ) {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack(proto, &protos).unwrap();
+        let result = build_stack_no_discovery(proto, &protos).unwrap();
         assert_eq!(
             result.layers.len(),
             expected_layers.len(),
@@ -2281,7 +2413,7 @@ mod tests {
     fn test_all_stack_routes_resolve() {
         let protos = BTreeMap::new();
         for &(child, _, _, _) in STACK_ROUTES {
-            let result = build_protocol_stack(child, &protos);
+            let result = build_stack_no_discovery(child, &protos);
             assert!(
                 result.is_ok(),
                 "STACK_ROUTE for '{}' failed to build: {:?}",
@@ -2385,7 +2517,7 @@ mod tests {
     #[test]
     fn test_build_stack_hci_cmd() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("HCI_CMD", &protos).unwrap();
+        let result = build_stack_no_discovery("HCI_CMD", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "HCI");
         assert_eq!(result.layers[1].proto_name, "HCI_CMD");
         assert_eq!(result.link_type, 187);
@@ -2394,7 +2526,7 @@ mod tests {
     #[test]
     fn test_build_stack_bt_att() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("BT_ATT", &protos).unwrap();
+        let result = build_stack_no_discovery("BT_ATT", &protos).unwrap();
         assert_eq!(result.layers.len(), 4);
         assert_eq!(result.layers[0].proto_name, "HCI");
         assert_eq!(result.layers[1].proto_name, "HCI_ACL");
@@ -2406,7 +2538,7 @@ mod tests {
     #[test]
     fn test_build_stack_bt_rfcomm_upper_pdu() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("BT_RFCOMM", &protos).unwrap();
+        let result = build_stack_no_discovery("BT_RFCOMM", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "UpperPDU");
         assert_eq!(result.layers[1].proto_name, "BT_RFCOMM");
         assert_eq!(result.link_type, 252);
@@ -2417,7 +2549,7 @@ mod tests {
     #[test]
     fn test_build_stack_ib_deth() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("IB_DETH", &protos).unwrap();
+        let result = build_stack_no_discovery("IB_DETH", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "IB_LRH");
         assert_eq!(result.layers[1].proto_name, "IB_BTH");
         assert_eq!(result.layers[2].proto_name, "IB_DETH");
@@ -2429,7 +2561,7 @@ mod tests {
     #[test]
     fn test_build_stack_can_root() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("CAN", &protos).unwrap();
+        let result = build_stack_no_discovery("CAN", &protos).unwrap();
         assert_eq!(result.layers.len(), 1);
         assert_eq!(result.layers[0].proto_name, "CAN");
         assert_eq!(result.link_type, 227);
@@ -2438,7 +2570,7 @@ mod tests {
     #[test]
     fn test_build_stack_zigbee_aps() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("Zigbee_APS", &protos).unwrap();
+        let result = build_stack_no_discovery("Zigbee_APS", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "IEEE802154");
         assert_eq!(result.layers[1].proto_name, "Zigbee_NWK");
         assert_eq!(result.layers[2].proto_name, "Zigbee_APS");
@@ -2448,7 +2580,7 @@ mod tests {
     #[test]
     fn test_build_stack_nlattr() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("NLAttr", &protos).unwrap();
+        let result = build_stack_no_discovery("NLAttr", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "Netlink");
         assert_eq!(result.layers[1].proto_name, "GenNetlink");
         assert_eq!(result.layers[2].proto_name, "NLAttr");
@@ -2460,7 +2592,7 @@ mod tests {
     #[test]
     fn test_build_stack_stp() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("STP", &protos).unwrap();
+        let result = build_stack_no_discovery("STP", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "Ethernet_802_3");
         assert_eq!(result.layers[1].proto_name, "LLC");
         assert_eq!(result.layers[2].proto_name, "STP");
@@ -2470,7 +2602,7 @@ mod tests {
     #[test]
     fn test_build_stack_cdp() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("CDP", &protos).unwrap();
+        let result = build_stack_no_discovery("CDP", &protos).unwrap();
         assert_eq!(result.layers.len(), 4);
         assert_eq!(result.layers[0].proto_name, "Ethernet_802_3");
         assert_eq!(result.layers[1].proto_name, "LLC");
@@ -2483,7 +2615,7 @@ mod tests {
     #[test]
     fn test_build_stack_scsi_upper_pdu() {
         let protos = BTreeMap::new();
-        let result = build_protocol_stack("SCSI", &protos).unwrap();
+        let result = build_stack_no_discovery("SCSI", &protos).unwrap();
         assert_eq!(result.layers[0].proto_name, "UpperPDU");
         assert_eq!(result.layers[1].proto_name, "SCSI");
         assert_eq!(result.link_type, 252);
@@ -2549,7 +2681,7 @@ mod tests {
     fn test_link_type_for_roots() {
         for &(name, expected_dlt) in LINK_ROOTS {
             let protos = BTreeMap::new();
-            let result = build_protocol_stack(name, &protos).unwrap();
+            let result = build_stack_no_discovery(name, &protos).unwrap();
             assert_eq!(
                 result.link_type, expected_dlt,
                 "DLT mismatch for root '{}'",
