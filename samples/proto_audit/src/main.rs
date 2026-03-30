@@ -299,6 +299,20 @@ enum Commands {
         json: bool,
     },
 
+    /// Show cross-source coverage gaps and improvement opportunities
+    Coverage {
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "curated")]
+        tier: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Show comprehensive system statistics
     Stats {
         /// Output as JSON
@@ -433,6 +447,7 @@ fn main() -> Result<()> {
             json,
         } => cmd_auto_match(min_confidence, output, json),
         Commands::Corpus { proto, json } => cmd_corpus(proto.as_deref(), json),
+        Commands::Coverage { tier, json, paths } => cmd_coverage(&tier, json, &paths),
         Commands::Stats { json, paths } => cmd_stats(json, &paths),
         Commands::Standards {
             proto,

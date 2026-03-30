@@ -1746,6 +1746,175 @@ pub fn cmd_corpus(proto_filter: Option<&str>, json_output: bool) -> Result<()> {
     Ok(())
 }
 
+/// Show cross-source coverage gaps and improvement opportunities.
+pub fn cmd_coverage(tier: &str, json_output: bool, paths: &SourcePaths) -> Result<()> {
+    let tier_filter = TierFilter::from_str(tier);
+    let discovery_state = DiscoveryState::load_from_env();
+    let all_protos = discovery::all_protocols(&discovery_state);
+    let vcache = load_validation_cache();
+
+    let filtered: Vec<_> = all_protos
+        .iter()
+        .filter(|(_, dp)| tier_filter.matches(dp.tier))
+        .collect();
+
+    // Classify each protocol's coverage
+    struct CoverageEntry {
+        name: String,
+        has_xdp2: bool,
+        has_kernel: bool,
+        has_scapy: bool,
+        has_tshark: bool,
+        has_etherparse: bool,
+        has_libpcap: bool,
+        source_count: u32,
+        is_routable: bool,
+        validation: String,
+        xdp2_tier: &'static str,
+    }
+
+    let mut entries: Vec<CoverageEntry> = Vec::new();
+
+    for (name, dp) in &filtered {
+        let names = name_mapping::find_by_canonical(name);
+
+        let has_xdp2 = names.as_ref().and_then(|n| n.xdp2).is_some();
+        let has_kernel = dp.kernel_struct.is_some()
+            || names.as_ref().and_then(|n| n.kernel_struct).is_some();
+        let has_scapy = dp.scapy_class.is_some()
+            || names.as_ref().and_then(|n| n.scapy).is_some();
+        let has_tshark = dp.tshark_filter.is_some()
+            || names.as_ref().and_then(|n| n.tshark).is_some();
+        let has_etherparse = names.as_ref().and_then(|n| n.etherparse_struct).is_some();
+        let has_libpcap = names.as_ref().and_then(|n| n.libpcap_name).is_some();
+
+        let source_count = [has_xdp2, has_kernel, has_scapy, has_tshark, has_etherparse, has_libpcap]
+            .iter()
+            .filter(|&&x| x)
+            .count() as u32;
+
+        let is_routable = generator::stack_route_for(name).is_some();
+
+        let validation = dp.validation_tier.as_ref()
+            .or_else(|| vcache.get(name.as_str()))
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "-".to_string());
+
+        let xdp2_tier = classify_xdp2_tier(name, dp);
+
+        entries.push(CoverageEntry {
+            name: name.to_string(),
+            has_xdp2,
+            has_kernel,
+            has_scapy,
+            has_tshark,
+            has_etherparse,
+            has_libpcap,
+            source_count,
+            is_routable,
+            validation,
+            xdp2_tier,
+        });
+    }
+
+    // Sort: most sources first, then by name
+    entries.sort_by(|a, b| b.source_count.cmp(&a.source_count).then(a.name.cmp(&b.name)));
+
+    if json_output {
+        let json_entries: Vec<_> = entries.iter().map(|e| {
+            serde_json::json!({
+                "protocol": e.name,
+                "sources": e.source_count,
+                "xdp2": e.has_xdp2,
+                "kernel": e.has_kernel,
+                "scapy": e.has_scapy,
+                "tshark": e.has_tshark,
+                "etherparse": e.has_etherparse,
+                "libpcap": e.has_libpcap,
+                "routable": e.is_routable,
+                "validation": e.validation,
+                "xdp2_tier": e.xdp2_tier,
+            })
+        }).collect();
+
+        let summary = serde_json::json!({
+            "total": entries.len(),
+            "with_xdp2": entries.iter().filter(|e| e.has_xdp2).count(),
+            "with_2_plus_sources": entries.iter().filter(|e| e.source_count >= 2).count(),
+            "routable": entries.iter().filter(|e| e.is_routable).count(),
+            "protocols": json_entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&summary)?);
+    } else {
+        // Summary stats
+        let total = entries.len();
+        let with_xdp2 = entries.iter().filter(|e| e.has_xdp2).count();
+        let multi_source = entries.iter().filter(|e| e.source_count >= 2).count();
+        let routable = entries.iter().filter(|e| e.is_routable).count();
+        let gold = entries.iter().filter(|e| e.validation == "Gold").count();
+
+        println!("Cross-Source Coverage Report (tier: {})", tier);
+        println!("  Total protocols:     {:>4}", total);
+        println!("  With XDP2 proto_def: {:>4}  ({:.0}%)", with_xdp2,
+            100.0 * with_xdp2 as f64 / total.max(1) as f64);
+        println!("  Multi-source (2+):   {:>4}  ({:.0}%)", multi_source,
+            100.0 * multi_source as f64 / total.max(1) as f64);
+        println!("  Routable (PCAP gen): {:>4}  ({:.0}%)", routable,
+            100.0 * routable as f64 / total.max(1) as f64);
+        println!("  Gold-validated:      {:>4}  ({:.0}%)", gold,
+            100.0 * gold as f64 / total.max(1) as f64);
+
+        // Gap analysis: protocols missing from important sources
+        let missing_xdp2: Vec<_> = entries.iter()
+            .filter(|e| !e.has_xdp2 && matches!(e.xdp2_tier, "1-core" | "2-production"))
+            .collect();
+        if !missing_xdp2.is_empty() {
+            println!("\n  Missing from XDP2 (tier 1-2 candidates):");
+            for e in &missing_xdp2 {
+                println!("    {:<30}  sources: {}  routable: {}",
+                    truncate(&e.name, 30), e.source_count,
+                    if e.is_routable { "yes" } else { "no" });
+            }
+        }
+
+        let single_source: Vec<_> = entries.iter()
+            .filter(|e| e.source_count == 1 && e.has_tshark)
+            .take(20)
+            .collect();
+        if !single_source.is_empty() {
+            println!("\n  Single-source (tshark only, need cross-validation):");
+            for e in &single_source {
+                println!("    {:<30}  validation: {}", truncate(&e.name, 30), e.validation);
+            }
+        }
+
+        // Coverage matrix header
+        println!("\n  {:<30}  {:>3}  {:<6}  {:<6}  {:<6}  {:<6}  {:<6}  {:<6}  {:<5}  {:<11}",
+            "Protocol", "Src", "XDP2", "Kernel", "Scapy", "tshark", "EParse", "libpcap", "Route", "Valid.");
+        println!("  {}  {}  {}  {}  {}  {}  {}  {}  {}  {}",
+            "-".repeat(30), "-".repeat(3), "-".repeat(6), "-".repeat(6),
+            "-".repeat(6), "-".repeat(6), "-".repeat(6), "-".repeat(6),
+            "-".repeat(5), "-".repeat(11));
+
+        for e in &entries {
+            println!("  {:<30}  {:>3}  {:<6}  {:<6}  {:<6}  {:<6}  {:<6}  {:<6}  {:<5}  {:<11}",
+                truncate(&e.name, 30),
+                e.source_count,
+                if e.has_xdp2 { "✓" } else { "-" },
+                if e.has_kernel { "✓" } else { "-" },
+                if e.has_scapy { "✓" } else { "-" },
+                if e.has_tshark { "✓" } else { "-" },
+                if e.has_etherparse { "✓" } else { "-" },
+                if e.has_libpcap { "✓" } else { "-" },
+                if e.is_routable { "✓" } else { "-" },
+                e.validation,
+            );
+        }
+    }
+
+    Ok(())
+}
+
 /// Show comprehensive system statistics.
 pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
     let discovery_state = DiscoveryState::load_from_env();

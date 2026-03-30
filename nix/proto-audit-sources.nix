@@ -99,13 +99,13 @@ in
   '';
 
   # Scapy protocol registry: all Packet subclasses from scapy.contrib + scapy.layers
-  # Provides ~300+ protocol class→module mappings
+  # Uses --discover-all-rich for field names, bind_layers, and docstrings
   scapyRegistry = pkgs.runCommand "scapy-registry" {
     nativeBuildInputs = [ scapyPython ];
   } ''
     mkdir -p $out
     python3 ${../samples/proto_audit/helpers/scapy_dump.py} \
-      --discover-all > $out/scapy_registry.json
+      --discover-all-rich > $out/scapy_registry.json
   '';
 
   # Kernel UAPI struct registry: protocol header structs from include/uapi/linux/
