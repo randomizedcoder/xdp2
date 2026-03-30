@@ -17,7 +17,12 @@
 { pkgs }:
 
 let
+  # ── Source Version Tracking (Phase 6.1) ──
+  # Update these when bumping upstream sources.
   kernelVersion = "6.12";
+  etherparseRev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";  # etherparse git rev
+  libpcapRev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";  # libpcap git rev
+  packetlifeRev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";  # packetlife-backup git rev
 
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
@@ -34,7 +39,7 @@ let
   packetlifePcaps = pkgs.fetchFromGitHub {
     owner = "epiecs";
     repo = "packetlife-backup";
-    rev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";
+    rev = packetlifeRev;
     hash = "sha256-9ruDO6fB/Smtx5tsHXCHF/EUPI7/Y0naxgrrJH1PFI8=";
   };
 
@@ -61,7 +66,7 @@ in
     src = pkgs.fetchFromGitHub {
       owner = "JulianSchmid";
       repo = "etherparse";
-      rev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";
+      rev = etherparseRev;
       hash = "sha256-5Ng3OFI4/OcLGlNJpfJamJwzA9xNQdwu5bUUGB4m6Ic=";
     };
     patches = patchesIn ../samples/proto_audit/patches/etherparse;
@@ -74,7 +79,7 @@ in
     src = pkgs.fetchFromGitHub {
       owner = "the-tcpdump-group";
       repo = "libpcap";
-      rev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";
+      rev = libpcapRev;
       hash = "sha256-V+ofdQ0jlSY85XM+6c36XV/ghGDVNkhoEN+s7KItH1M=";
     };
     patches = patchesIn ../samples/proto_audit/patches/libpcap;
@@ -193,4 +198,14 @@ in
       --pdml-dir $out/pdml \
       --output $out/corpus_summary.json
   '';
+
+  # Source version metadata (for regression tracking and audit reports)
+  sourceVersions = {
+    kernel = kernelVersion;
+    etherparse = etherparseRev;
+    libpcap = libpcapRev;
+    packetlife = packetlifeRev;
+    tshark = tshark.version or "unknown";
+    scapy = scapyPython.version or "unknown";
+  };
 }
