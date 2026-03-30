@@ -124,29 +124,26 @@ in
 
   ianaProtocolNumbers = pkgs.fetchurl {
     url = "https://www.iana.org/assignments/protocol-numbers/protocol-numbers-1.csv";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-5wTuFOaTR2gbOmJxrwIZWpdBI2B0/DEUSeuwMhAb3yw=";
   };
 
   ianaEthertypes = pkgs.fetchurl {
     url = "https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers-1.csv";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-O0yeuvYiUB+LjvDsDSLBQziyDPatkTF/AJN3ceiCz0w=";
   };
 
-  ianaServiceNames = pkgs.fetchurl {
-    url = "https://www.iana.org/assignments/service-name-port-numbers/service-name-port-numbers.csv";
-    hash = pkgs.lib.fakeHash;
-  };
+  # Note: service-name-port-numbers CSV is ~7MB and URL may change.
+  # Pass --service-names only when available.
 
   # Parse IANA CSVs into unified JSON at build time
   ianaRegistries = pkgs.runCommand "iana-registries" {
     nativeBuildInputs = [ pkgs.python314 ];
-    inherit ianaProtocolNumbers ianaEthertypes ianaServiceNames;
+    inherit ianaProtocolNumbers ianaEthertypes;
   } ''
     mkdir -p $out
     python3 ${../samples/proto_audit/helpers/parse_iana.py} \
       --protocol-numbers $ianaProtocolNumbers \
       --ethertypes $ianaEthertypes \
-      --service-names $ianaServiceNames \
       --output-dir $out
   '';
 

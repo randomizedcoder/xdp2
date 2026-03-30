@@ -118,7 +118,8 @@ def main():
     parser = argparse.ArgumentParser(description='Parse IANA registry CSVs')
     parser.add_argument('--protocol-numbers', required=True)
     parser.add_argument('--ethertypes', required=True)
-    parser.add_argument('--service-names', required=True)
+    parser.add_argument('--service-names', default=None,
+                        help='Optional: service-name-port-numbers CSV')
     parser.add_argument('--output-dir', required=True)
     args = parser.parse_args()
 
@@ -132,8 +133,12 @@ def main():
     with open(f'{args.output_dir}/ethertypes.json', 'w') as f:
         json.dump(ethers, f, indent=2)
 
-    services = parse_service_names(args.service_names)
-    print(f'Parsed {len(services)} service port assignments', file=sys.stderr)
+    services = {}
+    if args.service_names:
+        services = parse_service_names(args.service_names)
+        print(f'Parsed {len(services)} service port assignments', file=sys.stderr)
+    else:
+        print('Skipping service-name-port-numbers (not provided)', file=sys.stderr)
     with open(f'{args.output_dir}/service_ports.json', 'w') as f:
         json.dump(services, f, indent=2)
 

@@ -23,7 +23,7 @@ with XDP2 as the primary beneficiary.
 | Overlay patches | 49 (31 etherparse, 18 libpcap) |
 | XDP2 proto_defs | ~69 |
 | Unit tests | 369 |
-| Decode table entries | 72 |
+| Decode table entries | 109 |
 | RFC references (curated) | 207 protocols annotated |
 | CLI commands | 13 (audit, compare, extract, generate, generate-all, list, matrix, findings, validate, auto-match, prioritize, standards, stats) |
 

@@ -104,6 +104,54 @@ const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
     ("dns.qry.type",        "DNS",            "query_type"),
     ("amqp.type",           "AMQP",           "type"),
     ("kafka.api_key",       "Kafka",          "api_key"),
+    // ── Additional L2 / WLAN ──
+    ("wlan.fc.type_subtype", "IEEE_802_11",   "type_subtype"),
+    ("wlan_mgt.tag.number", "IEEE_802_11",    "tag_number"),
+    ("eapol.type",          "EAPOL",          "type"),
+    ("macsec.an",           "MACsec",         "an"),
+    // ── Additional Tunneling ──
+    ("erspan.ver",          "ERSPAN",         "version"),
+    ("lisp.type",           "LISP",           "type"),
+    ("capwap.control.msg_type", "CAPWAP",     "message_type"),
+    ("nvgre.vsid",          "NVGRE",          "vsid"),
+    ("wireguard.type",      "WireGuard",      "type"),
+    ("gre.key",             "GRE",            "key"),
+    // ── Additional Routing ──
+    ("eigrp.opcode",        "EIGRP",          "opcode"),
+    ("vrrp.type",           "VRRP",           "type"),
+    ("hsrp.opcode",         "HSRP",           "opcode"),
+    ("lacp.type",           "LACP",           "type"),
+    // ── Data Center / Fabric ──
+    ("roce.opcode",         "RoCEv2",         "opcode"),
+    ("ceph.type",           "Ceph",           "type"),
+    ("grpc.message_type",   "gRPC",           "message_type"),
+    ("quic.long.packet_type", "QUIC",         "packet_type"),
+    // ── IoT / Industrial extended ──
+    ("enip.command",        "EtherNetIP",     "command"),
+    ("cip.service",         "CIP",            "service"),
+    ("opcua.transport.type", "OPC_UA",        "transport_type"),
+    ("s7comm.rosctr",       "S7comm",         "rosctr"),
+    ("profinet.frame_id",   "PROFINET",       "frame_id"),
+    ("knxnetip.service_type", "KNXnetIP",     "service_type"),
+    ("omron.command",       "OMRON_FINS",     "command"),
+    // ── MPLS / Segment Routing ──
+    ("mpls_pm.query_type",  "MPLS_PM",        "query_type"),
+    ("sr.nai.type",         "SRv6",           "nai_type"),
+    // ── DNS / DHCP extended ──
+    ("dhcp.option.type",    "DHCP",           "option_type"),
+    ("dhcpv6.msgtype",      "DHCPv6",         "message_type"),
+    ("dns.resp.type",       "DNS",            "response_type"),
+    ("mdns.qry.type",       "mDNS",           "query_type"),
+    ("llmnr.qry.type",      "LLMNR",          "query_type"),
+    // ── Network services ──
+    ("ntp.flags.mode",      "NTP",            "mode"),
+    ("syslog.facility",     "Syslog",         "facility"),
+    ("tftp.opcode",         "TFTP",           "opcode"),
+    ("telnet.cmd",          "Telnet",         "command"),
+    ("ssh.message_code",    "SSH",            "message_code"),
+    // ── USB ──
+    ("usb.transfer_type",   "USB",            "transfer_type"),
+    ("usb.bInterfaceClass", "USB",            "interface_class"),
 ];
 
 /// Try to find a stack route for a discovered protocol using tshark decode tables.

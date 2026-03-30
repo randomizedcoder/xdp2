@@ -127,6 +127,7 @@
             export PROTO_AUDIT_KERNEL_REGISTRY="''${PROTO_AUDIT_KERNEL_REGISTRY:-${protoAuditSources.kernelRegistry}/kernel_registry.json}"
             export PROTO_AUDIT_PCAP_TEMPLATES="''${PROTO_AUDIT_PCAP_TEMPLATES:-${protoAuditSources.pcapTemplates}}"
             export PROTO_AUDIT_PCAP_CORPUS="''${PROTO_AUDIT_PCAP_CORPUS:-${protoAuditSources.pcapCorpus}/pdml}"
+            export PROTO_AUDIT_IANA_DIR="''${PROTO_AUDIT_IANA_DIR:-${protoAuditSources.ianaRegistries}}"
             exec proto-audit "$@"
           '';
         };
