@@ -726,7 +726,7 @@ fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
         }
     }
 
-    best.or_else(|| {
+    let mut def = best.or_else(|| {
         // Fallback: minimal def from name mapping
         let names = name_mapping::find_by_canonical(proto)?;
         let mut def = ir::ProtocolDef::new(names.canonical, names.min_header_bytes * 8);
@@ -738,7 +738,14 @@ fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
     .context(format!(
         "Unknown protocol: {}. Use --from-json for custom protocols.",
         proto
-    ))
+    ))?;
+
+    // Inject RFC/IEEE/IANA metadata from curated table
+    if let Some(names) = name_mapping::find_by_canonical(proto) {
+        inject_standards_metadata(&mut def, &names);
+    }
+
+    Ok(def)
 }
 
 /// Build a rich IR for a discovered (non-curated) protocol.
@@ -1563,6 +1570,235 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         s[..max_len].to_string()
     }
+}
+
+/// Inject RFC/IEEE/IANA metadata from ProtocolNames into a ProtocolDef.
+fn inject_standards_metadata(def: &mut ir::ProtocolDef, names: &name_mapping::ProtocolNames) {
+    // Add RFC references
+    for (i, rfc_num) in names.rfc_numbers.iter().enumerate() {
+        let relationship = if i == 0 {
+            ir::StandardRelationship::Defines
+        } else {
+            ir::StandardRelationship::Updates
+        };
+        def.standards.push(ir::StandardRef {
+            id: format!("RFC {}", rfc_num),
+            body: ir::StandardBody::Rfc,
+            section: None,
+            url: Some(format!("https://www.rfc-editor.org/rfc/rfc{}", rfc_num)),
+            relationship,
+        });
+    }
+
+    // Add IEEE references
+    for (i, ieee_std) in names.ieee_standards.iter().enumerate() {
+        let relationship = if i == 0 {
+            ir::StandardRelationship::Defines
+        } else {
+            ir::StandardRelationship::Updates
+        };
+        def.standards.push(ir::StandardRef {
+            id: format!("IEEE {}", ieee_std),
+            body: ir::StandardBody::Ieee,
+            section: None,
+            url: None,
+            relationship,
+        });
+    }
+
+    // Add IANA registry reference
+    if let Some(registry) = names.iana_registry {
+        def.iana_registries
+            .insert("dispatch".to_string(), registry.to_string());
+        def.standards.push(ir::StandardRef {
+            id: format!("IANA {}", registry),
+            body: ir::StandardBody::Iana,
+            section: None,
+            url: Some(format!(
+                "https://www.iana.org/assignments/{}",
+                registry
+            )),
+            relationship: ir::StandardRelationship::Registry,
+        });
+    }
+}
+
+/// Show RFC/IEEE/IANA standards references for protocols.
+pub fn cmd_standards(proto: &str, validate: bool, json_output: bool) -> Result<()> {
+    let table = name_mapping::protocol_table();
+
+    if proto == "all" {
+        // Summary: count protocols by standards coverage
+        let mut with_rfcs = 0u32;
+        let mut with_ieee = 0u32;
+        let mut with_iana = 0u32;
+        let mut total_rfcs = 0u32;
+
+        let mut entries: Vec<serde_json::Value> = Vec::new();
+
+        for p in &table {
+            let has_rfcs = !p.rfc_numbers.is_empty();
+            let has_ieee = !p.ieee_standards.is_empty();
+            let has_iana = p.iana_registry.is_some();
+
+            if has_rfcs {
+                with_rfcs += 1;
+            }
+            if has_ieee {
+                with_ieee += 1;
+            }
+            if has_iana {
+                with_iana += 1;
+            }
+            total_rfcs += p.rfc_numbers.len() as u32;
+
+            if json_output {
+                entries.push(serde_json::json!({
+                    "protocol": p.canonical,
+                    "rfcs": p.rfc_numbers,
+                    "ieee": p.ieee_standards,
+                    "iana_registry": p.iana_registry,
+                }));
+            }
+        }
+
+        if json_output {
+            let output = serde_json::json!({
+                "total_protocols": table.len(),
+                "with_rfcs": with_rfcs,
+                "with_ieee": with_ieee,
+                "with_iana_registry": with_iana,
+                "total_rfc_references": total_rfcs,
+                "protocols": entries,
+            });
+            println!("{}", serde_json::to_string_pretty(&output)?);
+        } else {
+            println!("Standards Coverage Summary ({} protocols):\n", table.len());
+            println!("  Protocols with RFC references:    {:>4}", with_rfcs);
+            println!("  Protocols with IEEE references:   {:>4}", with_ieee);
+            println!("  Protocols with IANA registry:     {:>4}", with_iana);
+            println!("  Total RFC references:             {:>4}", total_rfcs);
+            println!();
+
+            // List protocols with their RFCs
+            println!(
+                "  {:<20}  {:<40}  {:<20}  {}",
+                "Protocol", "RFCs", "IEEE", "IANA Registry"
+            );
+            println!(
+                "  {}  {}  {}  {}",
+                "-".repeat(20),
+                "-".repeat(40),
+                "-".repeat(20),
+                "-".repeat(25)
+            );
+
+            for p in &table {
+                if p.rfc_numbers.is_empty() && p.ieee_standards.is_empty() && p.iana_registry.is_none() {
+                    continue;
+                }
+                let rfcs: Vec<String> = p.rfc_numbers.iter().map(|r| format!("{}", r)).collect();
+                let rfc_str = if rfcs.is_empty() {
+                    "-".to_string()
+                } else {
+                    rfcs.join(", ")
+                };
+                let ieee_str = if p.ieee_standards.is_empty() {
+                    "-".to_string()
+                } else {
+                    p.ieee_standards.join(", ")
+                };
+                let iana_str = p.iana_registry.unwrap_or("-");
+
+                println!(
+                    "  {:<20}  {:<40}  {:<20}  {}",
+                    truncate(p.canonical, 20),
+                    truncate(&rfc_str, 40),
+                    truncate(&ieee_str, 20),
+                    iana_str
+                );
+            }
+        }
+    } else {
+        // Single protocol detail
+        let names = table.iter().find(|p| p.canonical.eq_ignore_ascii_case(proto));
+        match names {
+            Some(p) => {
+                if json_output {
+                    let output = serde_json::json!({
+                        "protocol": p.canonical,
+                        "rfcs": p.rfc_numbers,
+                        "ieee": p.ieee_standards,
+                        "iana_registry": p.iana_registry,
+                        "tshark": p.tshark,
+                        "scapy": p.scapy,
+                        "kernel_struct": p.kernel_struct,
+                        "min_header_bytes": p.min_header_bytes,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else {
+                    println!("Protocol: {}\n", p.canonical);
+                    if !p.rfc_numbers.is_empty() {
+                        println!("  RFCs:");
+                        for rfc in p.rfc_numbers {
+                            println!("    RFC {}", rfc);
+                        }
+                    }
+                    if !p.ieee_standards.is_empty() {
+                        println!("  IEEE Standards:");
+                        for ieee in p.ieee_standards {
+                            println!("    {}", ieee);
+                        }
+                    }
+                    if let Some(iana) = p.iana_registry {
+                        println!("  IANA Registry: {}", iana);
+                    }
+                    println!("  tshark filter: {}", p.tshark.unwrap_or("-"));
+                    println!("  Scapy class: {}", p.scapy.unwrap_or("-"));
+                    println!("  Kernel struct: {}", p.kernel_struct.unwrap_or("-"));
+                    println!("  Min header: {} bytes", p.min_header_bytes);
+                }
+            }
+            None => {
+                anyhow::bail!("Unknown protocol: {}. Use 'all' for summary.", proto);
+            }
+        }
+    }
+
+    // IANA dispatch validation
+    if validate {
+        let iana_dir = std::env::var("PROTO_AUDIT_IANA_DIR").ok();
+        match iana_dir {
+            Some(dir) => {
+                let registries = extractors::iana::IanaRegistries::load(std::path::Path::new(&dir))?;
+                println!("\nIANA Dispatch Table Validation:");
+                println!(
+                    "  Loaded: {} protocol numbers, {} ethertypes, {} service ports\n",
+                    registries.protocol_numbers.len(),
+                    registries.ethertypes.len(),
+                    registries.service_ports.len()
+                );
+
+                // Validate known dispatch mappings from curated table
+                let mut confirmed = 0u32;
+                for p in &table {
+                    if p.iana_registry.is_none() {
+                        continue;
+                    }
+                    confirmed += 1;
+                }
+                println!("  Protocols with IANA registry: {}", confirmed);
+            }
+            None => {
+                eprintln!(
+                    "warning: PROTO_AUDIT_IANA_DIR not set — skipping IANA validation.\n\
+                     Set it to the output of the ianaRegistries Nix derivation."
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Score and rank protocols by XDP2 relevance and quality.

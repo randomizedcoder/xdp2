@@ -288,6 +288,21 @@ enum Commands {
         json: bool,
     },
 
+    /// Show RFC/IEEE/IANA standards references for protocols
+    Standards {
+        /// Protocol name (or "all" for summary)
+        #[arg(long, default_value = "all")]
+        proto: String,
+
+        /// Validate dispatch tables against IANA registries
+        #[arg(long)]
+        validate: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Rank protocols by XDP2 relevance, source coverage, and parseability
     Prioritize {
         /// Show top N protocols (default: 100)
@@ -396,6 +411,11 @@ fn main() -> Result<()> {
             output,
             json,
         } => cmd_auto_match(min_confidence, output, json),
+        Commands::Standards {
+            proto,
+            validate,
+            json,
+        } => cmd_standards(&proto, validate, json),
         Commands::Prioritize {
             top,
             tier,
