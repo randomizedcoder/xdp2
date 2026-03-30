@@ -67,8 +67,8 @@ mod tests {
     fn test_load_auto_mappings_count() {
         let mappings = load_auto_mappings();
         assert!(
-            mappings.protocols.len() >= 900,
-            "Expected 900+ auto-mapped protocols, got {}",
+            mappings.protocols.len() >= 1100,
+            "Expected 1100+ auto-mapped protocols, got {}",
             mappings.protocols.len()
         );
     }

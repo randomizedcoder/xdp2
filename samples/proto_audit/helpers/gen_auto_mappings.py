@@ -1517,6 +1517,364 @@ PROTOCOLS += [
 ]
 
 
+# ═══════════════════════════════════════════════════════════════
+# Phase 2: Push to 1,500+ protocols
+# ═══════════════════════════════════════════════════════════════
+
+# ── 3GPP / LTE / 5G NR extended ──
+PROTOCOLS += [
+    proto("GTPv2 IE", "gtpv2_ie", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("GTP IE", "gtp_ie", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("Diameter AVP", "diameter_avp", min_hdr=8, variable=True, confidence=0.8),
+    proto("Diameter 3GPP", "diameter_3gpp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PFCP IE", "pfcp_ie", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("NGAP IE", "ngap_ie", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("S1AP IE", "s1ap_ie", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NAS 5GS Common", "nas_5gs_common", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GTPv1-U", "gtpv1u", min_hdr=8, variable=True, confidence=0.8),
+    proto("SIP Transport", "sip_transport", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RTP H.264", "rtp_h264", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RTP H.265", "rtp_h265", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RTP VP8", "rtp_vp8", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RTP VP9", "rtp_vp9", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RTP Opus", "rtp_opus", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GTP TEID", "gtp_teid", min_hdr=4, confidence=0.7, method="long_name"),
+]
+
+# ── IEEE 802 family extended ──
+PROTOCOLS += [
+    proto("802.1AX LACP", "lacp_marker", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1CB FRER", "frer", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1Qat SRP", "srp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1Qav CBS", "cbs", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1Qbv TAS", "tas", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1Qbu Frame Preemption", "frame_preempt", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1Qcc", "ieee8021qcc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.1AS gPTP", "gptp", min_hdr=34, variable=True, confidence=0.8),
+    proto("802.3br", "ieee8023br", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11k RRM", "wlan_rrm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11r FT", "wlan_ft", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11v WNM", "wlan_wnm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11w PMF", "wlan_pmf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.15.4 MAC", "wpan_mac", min_hdr=5, variable=True, confidence=0.8),
+    proto("802.15.4g SUN", "wpan_sun", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── DNS extended (record types as sub-protocols) ──
+PROTOCOLS += [
+    proto("DNS CNAME", "dns_cname", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS NAPTR", "dns_naptr", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS TLSA", "dns_tlsa", min_hdr=3, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS HTTPS", "dns_https", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS SVCB", "dns_svcb", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS LOC", "dns_loc", min_hdr=16, confidence=0.7, method="long_name"),
+    proto("DNS CERT", "dns_cert", min_hdr=5, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS DNAME", "dns_dname", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS OPT (EDNS0)", "dns_opt", min_hdr=11, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS TSIG", "dns_tsig", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS TKEY", "dns_tkey", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS IPSECKEY", "dns_ipseckey", min_hdr=3, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS OPENPGPKEY", "dns_openpgpkey", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── ICMPv4/v6 message types ──
+PROTOCOLS += [
+    proto("ICMPv4 Echo", "icmp_echo", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("ICMPv4 Unreachable", "icmp_unreach", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv4 Redirect", "icmp_redirect", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv4 Time Exceeded", "icmp_timeexceeded", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv4 Timestamp", "icmp_timestamp", min_hdr=20, confidence=0.7, method="long_name"),
+    proto("ICMPv6 Echo", "icmpv6_echo", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("ICMPv6 RS", "icmpv6_rs", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv6 RA", "icmpv6_ra", min_hdr=16, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv6 NS", "icmpv6_ns", min_hdr=24, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv6 NA", "icmpv6_na", min_hdr=24, variable=True, confidence=0.7, method="long_name"),
+    proto("ICMPv6 Redirect", "icmpv6_redirect", min_hdr=40, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── TLS extensions / cipher suites ──
+PROTOCOLS += [
+    proto("TLS Certificate", "tls_cert", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("TLS Client Hello", "tls_client_hello", min_hdr=34, variable=True, confidence=0.7, method="long_name"),
+    proto("TLS Server Hello", "tls_server_hello", min_hdr=34, variable=True, confidence=0.7, method="long_name"),
+    proto("TLS Alert", "tls_alert", min_hdr=2, confidence=0.7, method="long_name"),
+    proto("TLS Change Cipher", "tls_change_cipher", min_hdr=1, confidence=0.7, method="long_name"),
+    proto("TLS Heartbeat", "tls_heartbeat", min_hdr=3, variable=True, confidence=0.7, method="long_name"),
+    proto("TLS 1.3", "tls13", min_hdr=5, variable=True, confidence=0.8),
+    proto("DTLS 1.3", "dtls13", min_hdr=14, variable=True, confidence=0.8),
+    proto("QUIC Initial", "quic_initial", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("QUIC Handshake", "quic_handshake", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("QUIC 0-RTT", "quic_0rtt", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("QUIC Retry", "quic_retry", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── HTTP/2 and HTTP/3 frame types ──
+PROTOCOLS += [
+    proto("HTTP/2 DATA", "http2_data", min_hdr=9, variable=True, confidence=0.7, method="long_name"),
+    proto("HTTP/2 HEADERS", "http2_headers", min_hdr=9, variable=True, confidence=0.7, method="long_name"),
+    proto("HTTP/2 SETTINGS", "http2_settings", min_hdr=9, variable=True, confidence=0.7, method="long_name"),
+    proto("HTTP/2 PUSH_PROMISE", "http2_push_promise", min_hdr=13, variable=True, confidence=0.7, method="long_name"),
+    proto("HTTP/2 GOAWAY", "http2_goaway", min_hdr=17, variable=True, confidence=0.7, method="long_name"),
+    proto("HTTP/2 WINDOW_UPDATE", "http2_window_update", min_hdr=13, confidence=0.7, method="long_name"),
+    proto("HTTP/2 PING", "http2_ping", min_hdr=17, confidence=0.7, method="long_name"),
+    proto("HTTP/3 Frame", "http3_frame", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("HTTP/3 QPACK", "http3_qpack", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── RADIUS attributes ──
+PROTOCOLS += [
+    proto("RADIUS Access-Request", "radius_access_request", min_hdr=20, variable=True, confidence=0.7, method="long_name"),
+    proto("RADIUS Access-Accept", "radius_access_accept", min_hdr=20, variable=True, confidence=0.7, method="long_name"),
+    proto("RADIUS Accounting", "radius_accounting", min_hdr=20, variable=True, confidence=0.7, method="long_name"),
+    proto("RADIUS CoA", "radius_coa", min_hdr=20, variable=True, confidence=0.7, method="long_name"),
+    proto("RADIUS EAP", "radius_eap", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── SNMP versions ──
+PROTOCOLS += [
+    proto("SNMPv1", "snmpv1", min_hdr=1, variable=True, confidence=0.8),
+    proto("SNMPv2c", "snmpv2c", min_hdr=1, variable=True, confidence=0.8),
+    proto("SNMPv3", "snmpv3", min_hdr=1, variable=True, confidence=0.85),
+    proto("SNMP Trap", "snmp_trap", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SNMP Inform", "snmp_inform", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Additional IoT protocols ──
+PROTOCOLS += [
+    proto("Matter", "matter", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("HomeKit", "homekit", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Weave", "weave", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LwM2M", "lwm2m", min_hdr=1, variable=True, confidence=0.85),
+    proto("LWP", "lwp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OCF", "ocf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("AllJoyn", "alljoyn", min_hdr=1, variable=True, confidence=0.85),
+    proto("AMQP 1.0", "amqp10", min_hdr=8, variable=True, confidence=0.8),
+    proto("STOMP", "stomp", min_hdr=1, variable=True, confidence=0.85),
+    proto("CoAP Block", "coap_block", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CoAP Observe", "coap_observe", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LPWan", "lpwan", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Sigfox", "sigfox", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NB-IoT", "nb_iot", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LoRaWAN MAC", "lorawan_mac", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Bluetooth Mesh", "btmesh", min_hdr=1, variable=True, confidence=0.85),
+    proto("Bluetooth Mesh Provisioning", "btmesh_prov", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Bluetooth Mesh Proxy", "btmesh_proxy", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BLE GATT", "btatt_gatt", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BLE GAP", "btatt_gap", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BLE SM", "btsmp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Zigbee Cluster", "zbee_zcl", min_hdr=3, variable=True, confidence=0.85),
+    proto("Zigbee GP", "zbee_gp", min_hdr=1, variable=True, confidence=0.8),
+    proto("Zigbee SE", "zbee_se", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Industrial / SCADA extended ──
+PROTOCOLS += [
+    proto("OPC UA Secure Channel", "opcua_sc", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("OPC UA Binary", "opcua_binary", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("OPC UA Services", "opcua_services", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CIP Safety", "cip_safety", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CIP Motion", "cip_motion", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("EtherNet/IP Encap", "enip_encap", min_hdr=24, variable=True, confidence=0.8),
+    proto("EtherNet/IP CPF", "enip_cpf", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("PROFINET IO", "pn_io", min_hdr=1, variable=True, confidence=0.85),
+    proto("PROFINET RT", "pn_rt", min_hdr=4, variable=True, confidence=0.85),
+    proto("PROFINET IRT", "pn_irt", min_hdr=4, variable=True, confidence=0.8),
+    proto("PROFINET CM", "pn_cm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Modbus TCP Unit ID", "modbus_uid", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNP3 Link", "dnp3_link", min_hdr=10, variable=True, confidence=0.7, method="long_name"),
+    proto("IEC 61850 SCL", "iec61850_scl", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("TSN Frame", "tsn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OPC UA PubSub", "opcua_pubsub", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Cisco / Vendor extended ──
+PROTOCOLS += [
+    proto("Cisco FabricPath", "fabricpath", min_hdr=16, variable=True, confidence=0.8),
+    proto("Cisco OTV", "otv", min_hdr=8, variable=True, confidence=0.8),
+    proto("Cisco VN-Tag", "vntag", min_hdr=4, confidence=0.85),
+    proto("Cisco IST", "cisco_ist", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco IAPP", "cisco_iapp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco WLCCP", "wlccp", min_hdr=1, variable=True, confidence=0.85),
+    proto("Cisco ACI", "cisco_aci", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco NSF", "cisco_nsf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco Smart Install", "cisco_smartinstall", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Juniper JNX", "juniper", min_hdr=1, variable=True, confidence=0.85),
+    proto("Juniper Packet Mirror", "jmirror", min_hdr=8, variable=True, confidence=0.8),
+    proto("Nokia SROS", "nokia_sros", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Arista DANZ", "arista_danz", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("F5 iRule", "f5_irule", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Brocade ISL", "brocade_isl", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Database / Middleware extended ──
+PROTOCOLS += [
+    proto("Oracle TNS", "tns", min_hdr=8, variable=True, confidence=0.85),
+    proto("Oracle Net8", "net8", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MSSQL TDS", "tds", min_hdr=8, variable=True, confidence=0.85),
+    proto("Sybase TDS", "sybase_tds", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CouchDB", "couchdb", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("HBase", "hbase", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Couchbase MCBP", "couchbase", min_hdr=24, variable=True, confidence=0.8),
+    proto("InfluxDB", "influxdb", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ClickHouse", "clickhouse", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ScyllaDB CQL", "scylladb", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RabbitMQ", "rabbitmq", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ActiveMQ OpenWire", "activemq", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Apache Pulsar", "pulsar", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NATS", "nats", min_hdr=1, variable=True, confidence=0.85),
+]
+
+# ── Container / Orchestration extended ──
+PROTOCOLS += [
+    proto("Docker API", "docker_api", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("containerd", "containerd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CRI-O", "crio", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Kubernetes API", "k8s_api", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Kubernetes DNS", "k8s_dns", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Linkerd", "linkerd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Consul", "consul", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Vault", "vault", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Nomad", "nomad", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Prometheus Remote Write", "prom_remote_write", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OpenTelemetry OTLP", "otlp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Jaeger Thrift", "jaeger_thrift", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Zipkin", "zipkin", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Routing protocol extensions ──
+PROTOCOLS += [
+    proto("BGP MP-REACH-NLRI", "bgp_mp_reach", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BGP MP-UNREACH-NLRI", "bgp_mp_unreach", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BGP Extended Community", "bgp_ext_community", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("BGP Large Community", "bgp_large_community", min_hdr=12, confidence=0.7, method="long_name"),
+    proto("OSPF Hello", "ospf_hello", min_hdr=20, variable=True, confidence=0.7, method="long_name"),
+    proto("OSPF DB Description", "ospf_dbdesc", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("OSPF LS Request", "ospf_lsr", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("OSPF LS Update", "ospf_lsu", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("OSPF LS Ack", "ospf_lsack", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IS-IS CSN", "isis_csnp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IS-IS PSN", "isis_psnp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IS-IS TLV", "isis_tlv", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("LDP Hello", "ldp_hello", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LDP Address", "ldp_address", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LDP Label Mapping", "ldp_label_mapping", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RSVP Path", "rsvp_path", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RSVP Resv", "rsvp_resv", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RSVP-TE", "rsvp_te", min_hdr=1, variable=True, confidence=0.8),
+    proto("PIM Hello", "pim_hello", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PIM Join/Prune", "pim_join_prune", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PIM Register", "pim_register", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("MSDP", "msdp", min_hdr=1, variable=True, confidence=0.85),
+]
+
+# ── Security / Crypto extended ──
+PROTOCOLS += [
+    proto("IKEv1", "isakmp_v1", min_hdr=28, variable=True, confidence=0.8),
+    proto("IKEv2 AUTH", "ikev2_auth", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IKEv2 SA Init", "ikev2_sa_init", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("EAP-TLS", "eap_tls", min_hdr=1, variable=True, confidence=0.8),
+    proto("EAP-TTLS", "eap_ttls", min_hdr=1, variable=True, confidence=0.8),
+    proto("EAP-PEAP", "eap_peap", min_hdr=1, variable=True, confidence=0.8),
+    proto("EAP-SIM", "eap_sim", min_hdr=1, variable=True, confidence=0.8),
+    proto("EAP-AKA", "eap_aka", min_hdr=1, variable=True, confidence=0.8),
+    proto("EAP-FAST", "eap_fast", min_hdr=1, variable=True, confidence=0.8),
+    proto("MACsec SecY", "macsec_secy", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MACsec SecTAG", "macsec_sectag", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("WPA3 SAE", "wpa3_sae", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("WPA3 OWE", "wpa3_owe", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEEE 802.1AE", "ieee8021ae", min_hdr=8, variable=True, confidence=0.8),
+    proto("RADIUS/TLS", "radsec", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Wireguard Handshake Init", "wg_init", min_hdr=148, confidence=0.7, method="long_name"),
+    proto("Wireguard Handshake Resp", "wg_resp", min_hdr=92, confidence=0.7, method="long_name"),
+    proto("Wireguard Transport", "wg_transport", min_hdr=16, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Multicast / Anycast ──
+PROTOCOLS += [
+    proto("PIM-SM", "pim_sm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PIM-DM", "pim_dm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PIM-SSM", "pim_ssm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PIM-BIDIR", "pim_bidir", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IGMP Membership Query", "igmp_query", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("IGMP Membership Report", "igmp_report", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("IGMP Leave", "igmp_leave", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("MLD Query", "mld_query", min_hdr=24, variable=True, confidence=0.7, method="long_name"),
+    proto("MLD Report", "mld_report", min_hdr=24, confidence=0.7, method="long_name"),
+    proto("DVMRP", "dvmrp", min_hdr=1, variable=True, confidence=0.85),
+    proto("MOSPF", "mospf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("AMT Relay", "amt_relay", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── IPv6 extensions ──
+PROTOCOLS += [
+    proto("IPv6 HBH Options", "ipv6_hbh", min_hdr=8, variable=True, confidence=0.8),
+    proto("IPv6 MH", "mipv6", min_hdr=8, variable=True, confidence=0.85),
+    proto("IPv6 Shim6", "shim6", min_hdr=1, variable=True, confidence=0.85),
+    proto("IPv6 HIP", "hip", min_hdr=40, variable=True, confidence=0.85),
+    proto("IPv6 ILNPv6", "ilnpv6", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IPv6 SRH TLV", "srv6_tlv", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Well-known tshark dissectors batch 2 ──
+PROTOCOLS += [
+    proto("ANCP", "ancp", min_hdr=4, variable=True, confidence=0.85),
+    proto("ASAP", "asap", min_hdr=1, variable=True, confidence=0.85),
+    proto("BEEP", "beep", min_hdr=1, variable=True, confidence=0.85),
+    proto("BACnet BVLC", "bvlc", min_hdr=4, variable=True, confidence=0.85),
+    proto("CAPWAP Data", "capwap_data", min_hdr=8, variable=True, confidence=0.8),
+    proto("COPS", "cops", min_hdr=8, variable=True, confidence=0.85),
+    proto("DCCP Service Code", "dccp_sc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DIS", "dis", min_hdr=12, variable=True, confidence=0.85),
+    proto("DTCP", "dtcp", min_hdr=1, variable=True, confidence=0.85),
+    proto("ENRP", "enrp", min_hdr=1, variable=True, confidence=0.85),
+    proto("FCIP", "fcip", min_hdr=1, variable=True, confidence=0.85),
+    proto("iFCP", "ifcp", min_hdr=1, variable=True, confidence=0.85),
+    proto("FORCES FE", "forces_fe", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GTP' CDR", "gtp_cdr", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("HiQnet", "hiqnet", min_hdr=1, variable=True, confidence=0.85),
+    proto("HL7 MLLP", "hl7_mllp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IPDC", "ipdc", min_hdr=1, variable=True, confidence=0.85),
+    proto("L2TP AVP", "l2tp_avp", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("LISP Control", "lisp_control", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LMP", "lmp", min_hdr=12, variable=True, confidence=0.85),
+    proto("Mojito", "mojito", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MPTCP", "mptcp", min_hdr=4, variable=True, confidence=0.85),
+    proto("NCS", "ncs", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NORM", "norm", min_hdr=1, variable=True, confidence=0.85),
+    proto("OMAPI", "omapi", min_hdr=24, variable=True, confidence=0.85),
+    proto("PCP", "pcp", min_hdr=24, variable=True, confidence=0.85),
+    proto("PKTC", "pktc", min_hdr=1, variable=True, confidence=0.85),
+    proto("R-GOOSE", "r_goose", min_hdr=1, variable=True, confidence=0.8),
+    proto("R-SV", "r_sv", min_hdr=1, variable=True, confidence=0.8),
+    proto("RELOAD", "reload", min_hdr=1, variable=True, confidence=0.85),
+    proto("ROC", "roc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RSERPOOL", "rserpool", min_hdr=1, variable=True, confidence=0.85),
+    proto("SABP", "sabp_proto", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SCTP Init", "sctp_init", min_hdr=16, variable=True, confidence=0.7, method="long_name"),
+    proto("SCTP Data", "sctp_data", min_hdr=16, variable=True, confidence=0.7, method="long_name"),
+    proto("SCTP SACK", "sctp_sack", min_hdr=16, variable=True, confidence=0.7, method="long_name"),
+    proto("SLP", "srvloc", min_hdr=1, variable=True, confidence=0.85),
+    proto("SMPP Operations", "smpp_ops", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("TALI", "tali", min_hdr=16, variable=True, confidence=0.85),
+    proto("TCP Option MSS", "tcp_mss", min_hdr=4, confidence=0.7, method="long_name"),
+    proto("TCP Option Window Scale", "tcp_ws", min_hdr=3, confidence=0.7, method="long_name"),
+    proto("TCP Option SACK", "tcp_sack", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("TCP Option Timestamp", "tcp_ts", min_hdr=10, confidence=0.7, method="long_name"),
+    proto("TCP Option Fast Open", "tcp_tfo", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("TURN", "turn", min_hdr=20, variable=True, confidence=0.85),
+    proto("ULP", "ulp", min_hdr=1, variable=True, confidence=0.85),
+    proto("V5DL", "v5dl", min_hdr=1, variable=True, confidence=0.85),
+    proto("VINES IP", "vines_ip", min_hdr=18, variable=True, confidence=0.85),
+    proto("VUZE DHT", "vuze_dht", min_hdr=1, variable=True, confidence=0.85),
+    proto("WBXML", "wbxml", min_hdr=1, variable=True, confidence=0.85),
+    proto("WTP", "wtp", min_hdr=3, variable=True, confidence=0.85),
+    proto("XMPP IQ", "xmpp_iq", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("XMPP Message", "xmpp_message", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("XMPP Presence", "xmpp_presence", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("YAMI", "yami", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+
 def main():
     # Deduplicate and remove curated
     seen = set()
