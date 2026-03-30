@@ -1294,6 +1294,15 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
                     .or_else(|| vcache.get(&dp.canonical))
                     == Some(&discovery::ValidationTier::Gold)
             }).count();
+            let with_tshark = filtered.iter().filter(|dp| dp.tshark_filter.is_some()).count();
+            let with_scapy = filtered.iter().filter(|dp| dp.scapy_class.is_some()).count();
+            let with_kernel = filtered.iter().filter(|dp| dp.kernel_struct.is_some()).count();
+            let multi_source = filtered.iter().filter(|dp| {
+                let n = dp.tshark_filter.is_some() as u32
+                    + dp.scapy_class.is_some() as u32
+                    + dp.kernel_struct.is_some() as u32;
+                n >= 2
+            }).count();
             println!(
                 "\n  Total: {} protocols ({} curated, {} discovered, {} Gold-validated)",
                 filtered.len(),
@@ -1303,6 +1312,10 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
                     .filter(|dp| dp.tier == Tier::Discovered)
                     .count(),
                 gold_count,
+            );
+            println!(
+                "  Sources: {} tshark, {} Scapy, {} kernel, {} multi-source (2+)",
+                with_tshark, with_scapy, with_kernel, multi_source,
             );
         }
     }
@@ -2051,6 +2064,18 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
     let with_tshark = all_protos.values().filter(|dp| dp.tshark_filter.is_some()).count();
     let with_scapy = all_protos.values().filter(|dp| dp.scapy_class.is_some()).count();
     let with_kernel = all_protos.values().filter(|dp| dp.kernel_struct.is_some()).count();
+    let multi_source = all_protos.values().filter(|dp| {
+        let n = dp.tshark_filter.is_some() as u32
+            + dp.scapy_class.is_some() as u32
+            + dp.kernel_struct.is_some() as u32;
+        n >= 2
+    }).count();
+
+    // Validation cache
+    let vcache = load_validation_cache();
+    let gold_count = vcache.values().filter(|t| **t == discovery::ValidationTier::Gold).count();
+    let silver_count = vcache.values().filter(|t| **t == discovery::ValidationTier::Silver).count();
+    let bronze_count = vcache.values().filter(|t| **t == discovery::ValidationTier::Bronze).count();
 
     // Standards coverage
     let with_rfcs = curated_table.iter().filter(|p| !p.rfc_numbers.is_empty()).count();
@@ -2097,7 +2122,14 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
                 "tshark_filter": with_tshark,
                 "scapy_class": with_scapy,
                 "kernel_struct": with_kernel,
+                "multi_source_2plus": multi_source,
                 "xdp2_proto_defs": xdp2_count,
+            },
+            "validation": {
+                "gold": gold_count,
+                "silver": silver_count,
+                "bronze": bronze_count,
+                "cached_total": vcache.len(),
             },
             "registries": {
                 "tshark_protocols": tshark_reg_count,
@@ -2126,7 +2158,13 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
         println!("    With tshark filter:   {:>6}", with_tshark);
         println!("    With Scapy class:     {:>6}", with_scapy);
         println!("    With kernel struct:   {:>6}", with_kernel);
+        println!("    Multi-source (2+):    {:>6}", multi_source);
         println!("    XDP2 proto_defs:      {:>6}", xdp2_count);
+        println!();
+        println!("  Validation (cached):");
+        println!("    Gold (round-trip):    {:>6}", gold_count);
+        println!("    Silver (2+ agree):    {:>6}", silver_count);
+        println!("    Bronze (single-src):  {:>6}", bronze_count);
         println!();
         println!("  Registries Loaded:");
         println!("    tshark protocols:     {:>6}", tshark_reg_count);
