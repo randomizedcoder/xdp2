@@ -1,164 +1,9 @@
 {
   "protocols": [
     {
-      "canonical": "SOME/IP",
-      "tshark": "someip",
-      "scapy": "SOMEIP",
-      "min_header_bytes": 16,
-      "confidence": 0.95,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "SOME/IP-SD",
-      "tshark": "someipsd",
-      "scapy": "SD",
-      "min_header_bytes": 12,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "DoIP",
-      "tshark": "doip",
-      "scapy": "DoIP",
-      "min_header_bytes": 8,
-      "confidence": 0.95,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "AVB/AVTP",
-      "tshark": "avtp",
-      "scapy": "AVTP",
-      "min_header_bytes": 12,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "TSN",
-      "tshark": "ieee8021cb",
-      "min_header_bytes": 6,
-      "confidence": 0.8,
-      "match_method": "decode_table"
-    },
-    {
-      "canonical": "RoCEv2",
-      "tshark": "infiniband",
-      "scapy": "BTH",
-      "min_header_bytes": 12,
-      "confidence": 0.85,
-      "match_method": "decode_table"
-    },
-    {
-      "canonical": "Ceph",
-      "tshark": "ceph",
-      "min_header_bytes": 32,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "gRPC",
-      "tshark": "grpc",
-      "scapy": "GRPC",
-      "min_header_bytes": 5,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "Protobuf",
-      "tshark": "protobuf",
+      "canonical": "5G NR MAC",
+      "tshark": "mac-nr",
       "min_header_bytes": 1,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "OMRON FINS",
-      "tshark": "omron",
-      "min_header_bytes": 12,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "KNXnet/IP",
-      "tshark": "knxnetip",
-      "scapy": "KNXnetIP",
-      "min_header_bytes": 6,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "HART-IP",
-      "tshark": "hartip",
-      "min_header_bytes": 8,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "S7comm",
-      "tshark": "s7comm",
-      "min_header_bytes": 10,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "S7comm Plus",
-      "tshark": "s7comm-plus",
-      "min_header_bytes": 4,
-      "variable": true,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "LIN",
-      "tshark": "lin",
-      "min_header_bytes": 2,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "FlexRay",
-      "tshark": "flexray",
-      "min_header_bytes": 5,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "J1939",
-      "tshark": "j1939",
-      "min_header_bytes": 8,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "UDS",
-      "tshark": "uds",
-      "min_header_bytes": 2,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "XCP",
-      "tshark": "xcp",
-      "min_header_bytes": 4,
-      "variable": true,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "LTE RRC",
-      "tshark": "lte-rrc",
-      "min_header_bytes": 1,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "LTE NAS",
-      "tshark": "nas-eps",
-      "min_header_bytes": 2,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -172,61 +17,214 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "GTP Prime",
-      "tshark": "gtp-prime",
-      "min_header_bytes": 6,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "PFCP",
-      "tshark": "pfcp",
-      "scapy": "PFCP",
-      "min_header_bytes": 8,
-      "variable": true,
-      "confidence": 0.95,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "ZigBee ZCL",
-      "tshark": "zbee_zcl",
-      "scapy": "ZigbeeClusterLibrary",
-      "min_header_bytes": 3,
+      "canonical": "5G NR PDCP",
+      "tshark": "pdcp-nr",
+      "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "Z-Wave",
-      "tshark": "zwave",
-      "min_header_bytes": 10,
-      "confidence": 0.9,
+      "canonical": "5G NR RLC",
+      "tshark": "rlc-nr",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "Thread",
-      "tshark": "thread",
+      "canonical": "5G NR RRC",
+      "tshark": "nr-rrc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "6LoWPAN",
+      "tshark": "6lowpan",
+      "scapy": "SixLoWPAN",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "6LoWPAN IPHC",
+      "tshark": "6lowpan.iphc",
       "min_header_bytes": 2,
       "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "6in4",
+      "tshark": "6in4",
+      "min_header_bytes": 20,
       "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "Matter",
-      "tshark": "matter",
+      "canonical": "6to4",
+      "tshark": "6to4",
+      "min_header_bytes": 20,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "802.11 PPI",
+      "tshark": "ppi",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "802.11 Radiotap",
+      "tshark": "radiotap",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "802.1BR",
+      "tshark": "ieee8021br",
+      "min_header_bytes": 8,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "802.1X",
+      "tshark": "ieee8021x",
+      "min_header_bytes": 4,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "802.3 OAM",
+      "tshark": "efm",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "LoRaWAN",
-      "tshark": "lorawan",
-      "scapy": "LoRa",
-      "min_header_bytes": 7,
+      "canonical": "ACME",
+      "tshark": "acme",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "AFP",
+      "tshark": "afp",
+      "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "AFP over TCP",
+      "tshark": "afp.tcp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "AMT",
+      "tshark": "amt",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ANT",
+      "tshark": "ant",
+      "min_header_bytes": 5,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ARP Probe",
+      "tshark": "arp.probe",
+      "min_header_bytes": 28,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "AUTOSAR E2E",
+      "tshark": "autosar",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "AVB/AVTP",
+      "tshark": "avtp",
+      "scapy": "AVTP",
+      "min_header_bytes": 12,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "AYIYA",
+      "tshark": "ayiya",
+      "min_header_bytes": 44,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Apache Pulsar",
+      "tshark": "pulsar",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Avro",
+      "tshark": "avro",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "BGP-4",
+      "tshark": "bgp.update",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "BGP-LS",
+      "tshark": "bgp-ls",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "BICC",
+      "tshark": "bicc",
+      "min_header_bytes": 3,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "BIER",
+      "tshark": "bier",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.9,
       "match_method": "exact_normalized"
     },
     {
@@ -239,73 +237,9 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "PostgreSQL",
-      "tshark": "pgsql",
-      "min_header_bytes": 5,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "MySQL",
-      "tshark": "mysql",
-      "min_header_bytes": 4,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "MongoDB Wire",
-      "tshark": "mongo",
-      "min_header_bytes": 16,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "Cassandra",
-      "tshark": "cassandra",
-      "min_header_bytes": 9,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "Thrift",
-      "tshark": "thrift",
-      "min_header_bytes": 4,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "WebSocket",
-      "tshark": "websocket",
-      "min_header_bytes": 2,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "POP3",
-      "tshark": "pop",
-      "min_header_bytes": 4,
-      "variable": true,
-      "confidence": 0.9,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "Segment Routing Header",
-      "tshark": "ipv6.routing.type.srh",
-      "min_header_bytes": 8,
-      "variable": true,
-      "confidence": 0.85,
-      "match_method": "decode_table"
-    },
-    {
-      "canonical": "MPLS Echo Request",
-      "tshark": "mpls_echo",
-      "min_header_bytes": 4,
+      "canonical": "BSSGP",
+      "tshark": "bssgp",
+      "min_header_bytes": 3,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -320,49 +254,404 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "FabricPath",
-      "tshark": "fabricpath",
-      "min_header_bytes": 16,
+      "canonical": "BitTorrent",
+      "tshark": "bittorrent",
+      "min_header_bytes": 20,
+      "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "TWAMP",
-      "tshark": "twamp",
-      "min_header_bytes": 14,
-      "confidence": 0.9,
+      "canonical": "Bitcoin",
+      "tshark": "bitcoin",
+      "min_header_bytes": 24,
+      "variable": true,
+      "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "OWAMP",
-      "tshark": "owamp",
-      "min_header_bytes": 14,
-      "confidence": 0.9,
+      "canonical": "Bluetooth HCI USB",
+      "tshark": "hci_usb",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "NetConf",
-      "tshark": "netconf",
+      "canonical": "Bluetooth SBC",
+      "tshark": "sbc",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Bolt (Neo4j)",
+      "tshark": "bolt",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Bonjour Sleep Proxy",
+      "tshark": "bsp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "CANopen",
+      "tshark": "canopen",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.9,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "gNMI",
-      "tshark": "gnmi",
-      "min_header_bytes": 5,
+      "canonical": "CAP",
+      "tshark": "camel",
+      "min_header_bytes": 2,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "P4Runtime",
-      "tshark": "p4runtime",
-      "min_header_bytes": 5,
+      "canonical": "CBOR",
+      "tshark": "cbor",
+      "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "CC-Link IE",
+      "tshark": "cclink",
+      "min_header_bytes": 8,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "CIFS",
+      "tshark": "cifs",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "CLDAP",
+      "tshark": "cldap",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "COSE",
+      "tshark": "cose",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "CQL (Cassandra)",
+      "tshark": "cql",
+      "min_header_bytes": 9,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "CUPS",
+      "tshark": "cups",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Cap'n Proto",
+      "tshark": "capnp",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Cassandra",
+      "tshark": "cassandra",
+      "min_header_bytes": 9,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Ceph",
+      "tshark": "ceph",
+      "min_header_bytes": 32,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Ceph Messenger v2",
+      "tshark": "ceph.msgr2",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ClickHouse Native",
+      "tshark": "clickhouse",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "CoAP Block",
+      "tshark": "coap.block",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ControlNet",
+      "tshark": "controlnet",
+      "min_header_bytes": 8,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DALI",
+      "tshark": "dali",
+      "min_header_bytes": 2,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DCE/RPC",
+      "tshark": "dcerpc",
+      "min_header_bytes": 16,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DHCP Relay",
+      "tshark": "dhcp.relay",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DHCPv6-PD",
+      "tshark": "dhcpv6.pd",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DLNA",
+      "tshark": "dlna",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DNS over HTTPS",
+      "tshark": "doh",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DNS over QUIC",
+      "tshark": "doq",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DNS over TLS",
+      "tshark": "dot",
+      "min_header_bytes": 14,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DNSSEC",
+      "tshark": "dnssec",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DRDA (DB2)",
+      "tshark": "drda",
+      "min_header_bytes": 10,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DS-Lite",
+      "tshark": "dslite",
+      "min_header_bytes": 40,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DTLS 1.2",
+      "tshark": "dtls",
+      "scapy": "DTLS",
+      "min_header_bytes": 13,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DTP",
+      "tshark": "dtp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DVMRP",
+      "tshark": "dvmrp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DetNet",
+      "tshark": "detnet",
+      "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DeviceNet",
+      "tshark": "devicenet",
+      "min_header_bytes": 4,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Diameter Gx",
+      "tshark": "diameter.3gpp",
+      "min_header_bytes": 20,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DoIP",
+      "tshark": "doip",
+      "scapy": "DoIP",
+      "min_header_bytes": 8,
+      "confidence": 0.95,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "E.164",
+      "tshark": "e164",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "E.212",
+      "tshark": "e212",
+      "min_header_bytes": 3,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "E1AP",
+      "tshark": "e1ap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "EDNS",
+      "tshark": "dns.opt",
+      "min_header_bytes": 11,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "EGP",
+      "tshark": "egp",
+      "min_header_bytes": 10,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ERSPAN Type II",
+      "tshark": "erspan2",
+      "min_header_bytes": 8,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "EVB/VDP",
+      "tshark": "evb",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "EVPN",
+      "tshark": "bgp.evpn",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "EnOcean",
+      "tshark": "enocean",
+      "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "EtherCAT Mailbox",
+      "tshark": "ecat_mailbox",
+      "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Ethereum P2P",
+      "tshark": "eth_p2p",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "Ethernet OAM",
@@ -372,43 +661,81 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "Y.1731",
-      "tshark": "cfm",
+      "canonical": "F1AP",
+      "tshark": "f1ap",
       "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "FINS TCP",
+      "tshark": "omron-fins-tcp",
+      "min_header_bytes": 16,
+      "variable": true,
       "confidence": 0.8,
-      "match_method": "long_name"
+      "match_method": "exact_normalized"
     },
     {
-      "canonical": "Wireguard Handshake",
-      "tshark": "wg",
-      "scapy": "Wireguard",
+      "canonical": "FTP Data",
+      "tshark": "ftp-data",
+      "min_header_bytes": 0,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "FabricPath",
+      "tshark": "fabricpath",
+      "min_header_bytes": 16,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "FlatBuffers",
+      "tshark": "flatbuf",
       "min_header_bytes": 4,
       "variable": true,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "MACsec Key Agreement",
-      "tshark": "mka",
-      "min_header_bytes": 32,
-      "variable": true,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "IEEE 1588 PTP v2",
-      "tshark": "ptp",
-      "scapy": "PTP",
-      "min_header_bytes": 34,
-      "confidence": 0.85,
+      "confidence": 0.7,
       "match_method": "long_name"
     },
     {
-      "canonical": "BIER",
-      "tshark": "bier",
+      "canonical": "FlexRay",
+      "tshark": "flexray",
+      "min_header_bytes": 5,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "FlowSpec",
+      "tshark": "bgp.flowspec",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Foundation Fieldbus HSE",
+      "tshark": "ff-hse",
       "min_header_bytes": 8,
       "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Frame Relay",
+      "tshark": "fr",
+      "min_header_bytes": 2,
+      "variable": true,
       "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "GE SRTP",
+      "tshark": "ge_srtp",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.8,
       "match_method": "exact_normalized"
     },
     {
@@ -420,12 +747,195 @@
       "match_method": "decode_table"
     },
     {
-      "canonical": "NSH MD Type 2",
-      "tshark": "nsh.md.type2",
+      "canonical": "GRE ERSPAN Type III",
+      "tshark": "erspan3",
+      "min_header_bytes": 12,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "GSM A-bis OML",
+      "tshark": "gsm_abis_oml",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "GSM A-bis RSL",
+      "tshark": "rsl",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "GSS-API",
+      "tshark": "gssapi",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "GTP Prime",
+      "tshark": "gtp-prime",
+      "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "GTP' CDR",
+      "tshark": "gtp-prime.cdr",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "GTP-U Extension",
+      "tshark": "gtp.ext",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.8,
       "match_method": "decode_table"
+    },
+    {
+      "canonical": "GTPv1-C",
+      "tshark": "gtpv1c",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Geneve TLV",
+      "tshark": "geneve.tlv",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "GraphQL",
+      "tshark": "graphql",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "H.225",
+      "tshark": "h225",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "H.245",
+      "tshark": "h245",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "H.323",
+      "tshark": "h323",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "HART-IP",
+      "tshark": "hartip",
+      "min_header_bytes": 8,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "HDLC",
+      "tshark": "hdlc",
+      "min_header_bytes": 4,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "HTTP/3",
+      "tshark": "http3",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "HomePlug GP",
+      "tshark": "homeplug_gp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IEC 60870-5-101",
+      "tshark": "iec60870_101",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IEC 60870-5-104",
+      "tshark": "iec60870_104",
+      "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IEC 61850 GOOSE",
+      "tshark": "goose",
+      "scapy": "GOOSE",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "IEC 61850 MMS",
+      "tshark": "mms",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IEC 61850 SV",
+      "tshark": "sv",
+      "scapy": "SV",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "IEEE 1588 PTP v2",
+      "tshark": "ptp",
+      "scapy": "PTP",
+      "min_header_bytes": 34,
+      "confidence": 0.85,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "IGRP",
+      "tshark": "igrp",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
     },
     {
       "canonical": "INT",
@@ -444,16 +954,693 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "STAMP",
-      "tshark": "stamp",
-      "min_header_bytes": 44,
+      "canonical": "IP-in-IP v6",
+      "tshark": "ip6ip6",
+      "kernel_struct": "ipv6hdr",
+      "kernel_header": "linux/ipv6.h",
+      "min_header_bytes": 40,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IPFIX Options",
+      "tshark": "ipfix.options",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "IPP",
+      "tshark": "ipp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IPsec IKEv1",
+      "tshark": "isakmp.v1",
+      "min_header_bytes": 28,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "IRC",
+      "tshark": "irc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "IS-IS TLV",
+      "tshark": "isis.lsp",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ISUP",
+      "tshark": "isup",
+      "min_header_bytes": 3,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Insteon",
+      "tshark": "insteon",
+      "min_header_bytes": 7,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "J1939",
+      "tshark": "j1939",
+      "min_header_bytes": 8,
       "confidence": 0.9,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "DetNet",
-      "tshark": "detnet",
+      "canonical": "JSON-RPC",
+      "tshark": "jsonrpc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "KNX",
+      "tshark": "knx",
       "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "KNXnet/IP",
+      "tshark": "knxnetip",
+      "scapy": "KNXnetIP",
+      "min_header_bytes": 6,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "L2F",
+      "tshark": "l2f",
+      "min_header_bytes": 6,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "L2TPv3",
+      "tshark": "l2tpv3",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LAPD",
+      "tshark": "lapd",
+      "min_header_bytes": 3,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LBMS",
+      "tshark": "lbm",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LDAPS",
+      "tshark": "ldaps",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "LIN",
+      "tshark": "lin",
+      "min_header_bytes": 2,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LISP Control",
+      "tshark": "lisp-control",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LISP GPE",
+      "tshark": "lisp-gpe",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LISP Map",
+      "tshark": "lisp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "LLDP-MED",
+      "tshark": "lldp-med",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "LMP",
+      "tshark": "lmp",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LPD",
+      "tshark": "lpd",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LTE MAC",
+      "tshark": "mac-lte",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LTE NAS",
+      "tshark": "nas-eps",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LTE PDCP",
+      "tshark": "pdcp-lte",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LTE RLC",
+      "tshark": "rlc-lte",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LTE RRC",
+      "tshark": "lte-rrc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LoRa PHY",
+      "tshark": "lora_phy",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "LoRaWAN",
+      "tshark": "lorawan",
+      "scapy": "LoRa",
+      "min_header_bytes": 7,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LwM2M",
+      "tshark": "lwm2m",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "M2PA",
+      "tshark": "m2pa",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "M2UA",
+      "tshark": "m2ua",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "M3UA",
+      "tshark": "m3ua",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MACSEC GCM-AES-256",
+      "tshark": "macsec.gcm256",
+      "min_header_bytes": 8,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MACsec Key Agreement",
+      "tshark": "mka",
+      "min_header_bytes": 32,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MACsec XPN",
+      "tshark": "macsec.xpn",
+      "min_header_bytes": 8,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MAP",
+      "tshark": "gsm_map",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MAP-E",
+      "tshark": "map-e",
+      "min_header_bytes": 40,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MEGACO / H.248",
+      "tshark": "megaco",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MLAG",
+      "tshark": "mlag",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MOSPF",
+      "tshark": "mospf",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MPLS Echo Request",
+      "tshark": "mpls_echo",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MSRP",
+      "tshark": "msrp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MSRPC",
+      "tshark": "msrpc",
+      "min_header_bytes": 16,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MSTP",
+      "tshark": "mstp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MTP2",
+      "tshark": "mtp2",
+      "min_header_bytes": 3,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MTP3",
+      "tshark": "mtp3",
+      "min_header_bytes": 4,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Matter",
+      "tshark": "matter",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MessagePack",
+      "tshark": "msgpack",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MiCOM P14x",
+      "tshark": "micom",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Modbus ASCII",
+      "tshark": "mbascii",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Modbus RTU",
+      "tshark": "mbrtu",
+      "min_header_bytes": 4,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MongoDB Wire",
+      "tshark": "mongo",
+      "min_header_bytes": 16,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MySQL",
+      "tshark": "mysql",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MySQL X Protocol",
+      "tshark": "mysqlx",
+      "min_header_bytes": 5,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NATS",
+      "tshark": "nats",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NB-IoT",
+      "tshark": "nbiot",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NBAP",
+      "tshark": "nbap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NBSS",
+      "tshark": "nbss",
+      "min_header_bytes": 4,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NETCONF Notifications",
+      "tshark": "netconf.notification",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "NFS v4",
+      "tshark": "nfs4",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NGAP",
+      "tshark": "ngap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NHRP",
+      "tshark": "nhrp",
+      "min_header_bytes": 20,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NNTP",
+      "tshark": "nntp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NR-DC",
+      "tshark": "nr-dc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "NSH MD Type 2",
+      "tshark": "nsh.md.type2",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "NTP Autokey",
+      "tshark": "ntp.autokey",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "NVMe over Fabrics",
+      "tshark": "nvme-of",
+      "min_header_bytes": 24,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NVMe-TCP",
+      "tshark": "nvme-tcp",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NetBIOS Datagram",
+      "tshark": "nbdgm",
+      "min_header_bytes": 10,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NetConf",
+      "tshark": "netconf",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NetFlow v1",
+      "tshark": "netflow.v1",
+      "min_header_bytes": 16,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "OBD-II",
+      "tshark": "obd-ii",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OCSP Online",
+      "tshark": "ocsp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "OF-Config",
+      "tshark": "of-config",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OMRON FINS",
+      "tshark": "omron",
+      "min_header_bytes": 12,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OPC HDA",
+      "tshark": "opchda",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OSPF LSA",
+      "tshark": "ospf.lsa",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "OVSDB",
+      "tshark": "ovsdb",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OVSDB Monitor",
+      "tshark": "ovsdb.monitor",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "OWAMP",
+      "tshark": "owamp",
+      "min_header_bytes": 14,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OpenFlow 1.3",
+      "tshark": "openflow_v4",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OpenFlow 1.5",
+      "tshark": "openflow_v6",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "OpenStack Neutron",
+      "tshark": "neutron",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "P4Runtime",
+      "tshark": "p4runtime",
+      "min_header_bytes": 5,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PAGP",
+      "tshark": "pagp",
+      "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -467,48 +1654,145 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "LMP",
-      "tshark": "lmp",
+      "canonical": "PDCP NR",
+      "tshark": "pdcp.nr",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PFCP",
+      "tshark": "pfcp",
+      "scapy": "PFCP",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.95,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PIM-SM",
+      "tshark": "pim.sm",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PKCS#7 / CMS",
+      "tshark": "cms",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PKIX",
+      "tshark": "pkix",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "POP3",
+      "tshark": "pop",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PPP CCP",
+      "tshark": "ccp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PPP IPCP",
+      "tshark": "ipcp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PPP LCP",
+      "tshark": "lcp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PPP Multilink",
+      "tshark": "mp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PPTP",
+      "tshark": "pptp",
       "min_header_bytes": 12,
       "variable": true,
       "confidence": 0.9,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "LISP Map",
-      "tshark": "lisp",
+      "canonical": "PROFINET DCP",
+      "tshark": "pn_dcp",
       "min_header_bytes": 4,
       "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PROFINET MRP",
+      "tshark": "pn_mrp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PROFINET PTCP",
+      "tshark": "pn_ptcp",
+      "min_header_bytes": 12,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PTPv1",
+      "tshark": "ptpv1",
+      "min_header_bytes": 34,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PVST+",
+      "tshark": "pvst",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "PWE3",
+      "tshark": "pw_eth",
+      "min_header_bytes": 4,
       "confidence": 0.8,
       "match_method": "long_name"
     },
     {
-      "canonical": "VXLAN-GBP",
-      "tshark": "vxlan",
-      "min_header_bytes": 8,
-      "confidence": 0.7,
-      "match_method": "long_name"
-    },
-    {
-      "canonical": "EtherCAT Mailbox",
-      "tshark": "ecat_mailbox",
-      "min_header_bytes": 6,
+      "canonical": "PostgreSQL",
+      "tshark": "pgsql",
+      "min_header_bytes": 5,
       "variable": true,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "SERCOS III",
-      "tshark": "sercosiii",
-      "min_header_bytes": 6,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "CC-Link IE",
-      "tshark": "cclink",
-      "min_header_bytes": 8,
-      "confidence": 0.85,
+      "confidence": 0.9,
       "match_method": "exact_normalized"
     },
     {
@@ -520,33 +1804,753 @@
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "DeviceNet",
-      "tshark": "devicenet",
-      "min_header_bytes": 4,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "ControlNet",
-      "tshark": "controlnet",
-      "min_header_bytes": 8,
-      "confidence": 0.85,
-      "match_method": "exact_normalized"
-    },
-    {
-      "canonical": "CANopen",
-      "tshark": "canopen",
+      "canonical": "Protobuf",
+      "tshark": "protobuf",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.9,
       "match_method": "exact_normalized"
     },
     {
-      "canonical": "OPC HDA",
-      "tshark": "opchda",
+      "canonical": "QUIC v1",
+      "tshark": "quic",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "QUIC v2",
+      "tshark": "quic.v2",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "RANAP",
+      "tshark": "ranap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "REST",
+      "tshark": "http",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.5,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "RIPng",
+      "tshark": "ripng",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "RMON",
+      "tshark": "rmon",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "RNSAP",
+      "tshark": "rnsap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "RPL",
+      "tshark": "rpl",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "RSTP",
+      "tshark": "rstp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "RTCP XR",
+      "tshark": "rtcp.xr",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "RTSP 2.0",
+      "tshark": "rtsp2",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "RabbitMQ AMQP",
+      "tshark": "rabbitmq",
       "min_header_bytes": 8,
       "variable": true,
       "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "RoCEv2",
+      "tshark": "infiniband",
+      "scapy": "BTH",
+      "min_header_bytes": 12,
+      "confidence": 0.85,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "S1AP",
+      "tshark": "s1ap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "S3 (AWS)",
+      "tshark": "s3",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.5,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "S7comm",
+      "tshark": "s7comm",
+      "min_header_bytes": 10,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "S7comm Plus",
+      "tshark": "s7comm-plus",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SASL",
+      "tshark": "sasl",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SCCP",
+      "tshark": "sccp",
+      "min_header_bytes": 3,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SDP",
+      "tshark": "sdp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SERCOS III",
+      "tshark": "sercosiii",
+      "min_header_bytes": 6,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SIP over WebSocket",
+      "tshark": "sip.ws",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SLIP",
+      "tshark": "slip",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SMB3",
+      "tshark": "smb3",
+      "min_header_bytes": 64,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SMPP",
+      "tshark": "smpp",
+      "min_header_bytes": 16,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SNMP Trap",
+      "tshark": "snmp.trap",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SNMPv3",
+      "tshark": "snmpv3",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SOAP",
+      "tshark": "soap",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SOME/IP",
+      "tshark": "someip",
+      "scapy": "SOMEIP",
+      "min_header_bytes": 16,
+      "confidence": 0.95,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SOME/IP-SD",
+      "tshark": "someipsd",
+      "scapy": "SD",
+      "min_header_bytes": 12,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SPB",
+      "tshark": "spb",
+      "min_header_bytes": 8,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SPNEGO",
+      "tshark": "spnego",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "SRTP",
+      "tshark": "srtp",
+      "min_header_bytes": 12,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "STAMP",
+      "tshark": "stamp",
+      "min_header_bytes": 44,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "STP BPDU",
+      "tshark": "stp.bpdu",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SUA",
+      "tshark": "sua",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Segment Routing Header",
+      "tshark": "ipv6.routing.type.srh",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "SigFox",
+      "tshark": "sigfox",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "T.38 Fax",
+      "tshark": "t38",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "TASE.2 / ICCP",
+      "tshark": "tase2",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "TCAP",
+      "tshark": "tcap",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "TDS (SQL Server)",
+      "tshark": "tds",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "TFTP Data",
+      "tshark": "tftp.data",
+      "min_header_bytes": 4,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "TLS 1.3",
+      "tshark": "tls13",
+      "min_header_bytes": 5,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "TNS (Oracle)",
+      "tshark": "tns",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "TRILL Fine-Grained",
+      "tshark": "trill",
+      "min_header_bytes": 6,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "TSIG",
+      "tshark": "dns.tsig",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "TSN",
+      "tshark": "ieee8021cb",
+      "min_header_bytes": 6,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "TWAMP",
+      "tshark": "twamp",
+      "min_header_bytes": 14,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Teredo v2",
+      "tshark": "teredo2",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Thread",
+      "tshark": "thread",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Thrift",
+      "tshark": "thrift",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "UDLD",
+      "tshark": "udld",
+      "min_header_bytes": 8,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "UDS",
+      "tshark": "uds",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "UPnP SSDP",
+      "tshark": "ssdp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "USB Audio",
+      "tshark": "usbaudio",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "USB Bulk",
+      "tshark": "usb.bulk",
+      "min_header_bytes": 0,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "USB CCID",
+      "tshark": "usbccid",
+      "min_header_bytes": 10,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "USB CDC",
+      "tshark": "usb_cdc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "USB HID",
+      "tshark": "usbhid",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "USB Mass Storage",
+      "tshark": "usbms",
+      "min_header_bytes": 31,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "USB Video",
+      "tshark": "usbvideo",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "V5DL",
+      "tshark": "v5dl",
+      "min_header_bytes": 3,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "VRRP3",
+      "tshark": "vrrpv3",
+      "min_header_bytes": 8,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "VTP",
+      "tshark": "vtp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "VXLAN-GBP",
+      "tshark": "vxlan",
+      "min_header_bytes": 8,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "WINS",
+      "tshark": "wins",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "WPA Key",
+      "tshark": "wlan_rsna_eapol",
+      "min_header_bytes": 99,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "decode_table"
+    },
+    {
+      "canonical": "WPAD",
+      "tshark": "wpad",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "WebSocket",
+      "tshark": "websocket",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Wi-Fi Direct",
+      "tshark": "wifi-direct",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Wi-SUN",
+      "tshark": "wisun",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "WiMax",
+      "tshark": "wimaxasncp",
+      "min_header_bytes": 20,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Wireguard Handshake",
+      "tshark": "wg",
+      "scapy": "Wireguard",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "X.509 CRL",
+      "tshark": "x509ce",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "X.509 Certificate",
+      "tshark": "x509af",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "X2AP",
+      "tshark": "x2ap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "XCP",
+      "tshark": "xcp",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "XML-RPC",
+      "tshark": "xmlrpc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "XMPP",
+      "tshark": "xmpp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "XnAP",
+      "tshark": "xnap",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Y.1731",
+      "tshark": "cfm",
+      "min_header_bytes": 4,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "YANG Push",
+      "tshark": "yang.push",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "Z-Wave",
+      "tshark": "zwave",
+      "min_header_bytes": 10,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ZRTP",
+      "tshark": "zrtp",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ZigBee GP",
+      "tshark": "zbee_gp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ZigBee ZCL",
+      "tshark": "zbee_zcl",
+      "scapy": "ZigbeeClusterLibrary",
+      "min_header_bytes": 3,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ZigBee ZDP",
+      "tshark": "zbee_zdp",
+      "min_header_bytes": 2,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "gNMI",
+      "tshark": "gnmi",
+      "min_header_bytes": 5,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "gRPC",
+      "tshark": "grpc",
+      "scapy": "GRPC",
+      "min_header_bytes": 5,
+      "variable": true,
+      "confidence": 0.9,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "iSCSI Login",
+      "tshark": "iscsi.login",
+      "min_header_bytes": 48,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "mDNS Bonjour",
+      "tshark": "mdns.bonjour",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.6,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "mDNS-SD",
+      "tshark": "mdns-sd",
+      "min_header_bytes": 12,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "sFlow",
+      "tshark": "sflow",
+      "min_header_bytes": 28,
+      "variable": true,
+      "confidence": 0.9,
       "match_method": "exact_normalized"
     }
   ]
