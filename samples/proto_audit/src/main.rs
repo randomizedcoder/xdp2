@@ -273,6 +273,21 @@ enum Commands {
         json: bool,
     },
 
+    /// Auto-match protocols across tshark, Scapy, and kernel registries
+    AutoMatch {
+        /// Minimum confidence threshold (0.0–1.0)
+        #[arg(long, default_value = "0.8")]
+        min_confidence: f32,
+
+        /// Output file for auto_mappings.json (default: stdout)
+        #[arg(long, short)]
+        output: Option<PathBuf>,
+
+        /// Output as JSON (always JSON, this controls pretty-print)
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Generate PCAP, feed to tshark, compare IR vs tshark round-trip
     Validate {
         /// Protocol name (canonical: IPv4, TCP, etc.)
@@ -358,6 +373,11 @@ fn main() -> Result<()> {
             paths,
             json,
         } => cmd_findings(protos.as_deref(), sources.as_deref(), &tier, compact, limit, &paths, json),
+        Commands::AutoMatch {
+            min_confidence,
+            output,
+            json,
+        } => cmd_auto_match(min_confidence, output, json),
         Commands::Validate {
             proto,
             tier,

@@ -4,6 +4,7 @@
 //! provides a canonical mapping table so extractors can normalize protocol
 //! names to a single canonical form.
 
+pub mod auto_matcher;
 pub mod auto_table;
 mod table;
 

@@ -862,6 +862,49 @@ impl BatchCache {
             }
         };
 
+        // Load PCAP corpus PDML files (pre-extracted at Nix build time)
+        let tshark_cache = {
+            let mut cache = tshark_cache.unwrap_or_default();
+            if let Ok(corpus_dir) = std::env::var("PROTO_AUDIT_PCAP_CORPUS") {
+                let corpus_path = std::path::Path::new(&corpus_dir);
+                if corpus_path.is_dir() {
+                    let before = cache.len();
+                    if let Ok(entries) = std::fs::read_dir(corpus_path) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.extension().and_then(|e| e.to_str()) != Some("xml") {
+                                continue;
+                            }
+                            if let Ok(xml) = std::fs::read_to_string(&path) {
+                                if let Ok(packets) = extractors::tshark::parse_pdml(&xml) {
+                                    let file_protos =
+                                        extractors::tshark::extract_all_protocols_from_pdml(
+                                            &packets,
+                                        );
+                                    for (name, def) in file_protos {
+                                        cache.entry(name).or_insert(def);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    let added = cache.len() - before;
+                    if added > 0 {
+                        eprintln!(
+                            "  [batch] Loaded {} new protocols from PCAP corpus ({} total tshark)",
+                            added,
+                            cache.len()
+                        );
+                    }
+                }
+            }
+            if cache.is_empty() {
+                None
+            } else {
+                Some(cache)
+            }
+        };
+
         // Build tshark registry cache from DiscoveryState
         let tshark_registry_cache = discovery_state.tshark.as_ref().map(|reg| {
             eprintln!("  [batch] Building tshark registry IR cache...");
@@ -1384,6 +1427,101 @@ pub(crate) fn cmd_generate_all(
         println!("  Skipped (0 fields):    {:>6}", stats.skipped);
         if let Some(ref dir) = output_dir {
             println!("\n  Output: {}", dir.display());
+        }
+    }
+
+    Ok(())
+}
+
+/// Run auto-matching engine across registries.
+pub fn cmd_auto_match(
+    min_confidence: f32,
+    output: Option<PathBuf>,
+    json: bool,
+) -> Result<()> {
+    let state = DiscoveryState::load_from_env();
+
+    // Build curated exclusion sets
+    let curated_table = name_mapping::protocol_table();
+    let curated_tshark_filters: std::collections::HashSet<String> = curated_table
+        .iter()
+        .filter_map(|p| p.tshark.map(|s| s.to_lowercase()))
+        .collect();
+    let curated_canonicals: std::collections::HashSet<String> = curated_table
+        .iter()
+        .map(|p| p.canonical.to_lowercase())
+        .collect();
+
+    let result = name_mapping::auto_matcher::auto_match(
+        state.tshark.as_ref(),
+        state.scapy.as_ref(),
+        state.kernel.as_ref(),
+        min_confidence,
+        &curated_tshark_filters,
+        &curated_canonicals,
+    );
+
+    let mappings = name_mapping::auto_matcher::candidates_to_auto_mappings(&result.new_matches);
+
+    if json || output.is_some() {
+        let auto_mappings = name_mapping::auto_table::AutoMappings {
+            protocols: mappings,
+        };
+        let json_str = serde_json::to_string_pretty(&auto_mappings)?;
+
+        if let Some(ref path) = output {
+            std::fs::write(path, &json_str)?;
+            eprintln!("Wrote {} protocols to {}", result.new_matches.len(), path.display());
+        } else {
+            println!("{}", json_str);
+        }
+    } else {
+        // Human-readable summary
+        println!("Auto-Match Results (min_confidence >= {:.1})", min_confidence);
+        println!("═══════════════════════════════════════════");
+        println!();
+        println!("Registry sizes:");
+        println!("  tshark:  {} protocols", result.stats.tshark_total);
+        println!("  Scapy:   {} classes", result.stats.scapy_total);
+        println!("  kernel:  {} structs", result.stats.kernel_total);
+        println!();
+        println!("Match breakdown:");
+        println!("  Already curated:  {}", result.stats.already_curated);
+        println!("  Exact normalized: {}", result.stats.new_exact);
+        println!("  Decode table:     {}", result.stats.new_decode_table);
+        println!("  Long name:        {}", result.stats.new_long_name);
+        println!("  Abbreviation:     {}", result.stats.new_abbreviation);
+        println!("  Containment:      {}", result.stats.new_containment);
+        println!("  Below threshold:  {}", result.stats.below_threshold);
+        println!();
+        println!("New matches: {}", result.new_matches.len());
+        println!();
+
+        // Show top matches sorted by confidence
+        let mut sorted = result.new_matches.clone();
+        sorted.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+
+        for m in sorted.iter().take(50) {
+            let sources: Vec<&str> = [
+                m.tshark.as_ref().map(|_| "tshark"),
+                m.scapy.as_ref().map(|_| "scapy"),
+                m.kernel_struct.as_ref().map(|_| "kernel"),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+
+            println!(
+                "  {:.2} {:<35} [{}] ({})",
+                m.confidence,
+                truncate(&m.canonical, 35),
+                sources.join(", "),
+                m.match_method,
+            );
+        }
+
+        if sorted.len() > 50 {
+            println!("  ... and {} more", sorted.len() - 50);
         }
     }
 

@@ -4,10 +4,10 @@
 //! externally-generated protocol entries. Loaded at compile time via
 //! `include_str!()` to avoid runtime file I/O.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A single auto-mapped protocol entry from JSON.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutoMapping {
     /// Canonical protocol name
     pub canonical: String,
@@ -42,7 +42,7 @@ fn default_confidence() -> f32 {
 }
 
 /// Root structure of auto_mappings.json.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutoMappings {
     pub protocols: Vec<AutoMapping>,
 }
