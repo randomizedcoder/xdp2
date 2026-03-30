@@ -25,7 +25,7 @@ with XDP2 as the primary beneficiary.
 | Unit tests | 369 |
 | Decode table entries | 109 |
 | RFC references (curated) | 207 protocols annotated |
-| CLI commands | 13 (audit, compare, extract, generate, generate-all, list, matrix, findings, validate, auto-match, prioritize, standards, stats) |
+| CLI commands | 14 (audit, compare, corpus, extract, generate, generate-all, list, matrix, findings, validate, auto-match, prioritize, standards, stats) |
 
 ## Architecture Bottlenecks
 

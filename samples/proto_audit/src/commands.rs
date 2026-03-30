@@ -1603,6 +1603,144 @@ fn truncate(s: &str, max_len: usize) -> String {
     }
 }
 
+/// Show PCAP corpus coverage.
+pub fn cmd_corpus(proto_filter: Option<&str>, json_output: bool) -> Result<()> {
+    let corpus_dir = std::env::var("PROTO_AUDIT_PCAP_CORPUS")
+        .unwrap_or_default();
+
+    if corpus_dir.is_empty() {
+        anyhow::bail!(
+            "PROTO_AUDIT_PCAP_CORPUS not set. Run via `nix run .#proto-audit -- corpus`"
+        );
+    }
+
+    let corpus_path = std::path::Path::new(&corpus_dir);
+    if !corpus_path.exists() {
+        anyhow::bail!("Corpus directory does not exist: {}", corpus_dir);
+    }
+
+    // Check for pre-built corpus_summary.json (from Nix build)
+    let summary_path = corpus_path.parent()
+        .map(|p| p.join("corpus_summary.json"))
+        .unwrap_or_default();
+
+    if summary_path.exists() {
+        let data = std::fs::read_to_string(&summary_path)?;
+        let summary: serde_json::Value = serde_json::from_str(&data)?;
+
+        if json_output {
+            if let Some(filter) = proto_filter {
+                let norm = discovery::normalize_name(filter);
+                if let Some(protos) = summary.get("protocols").and_then(|p| p.as_object()) {
+                    let filtered: serde_json::Map<String, serde_json::Value> = protos.iter()
+                        .filter(|(k, _)| discovery::normalize_name(k).contains(&norm))
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect();
+                    println!("{}", serde_json::to_string_pretty(&filtered)?);
+                }
+            } else {
+                println!("{}", serde_json::to_string_pretty(&summary)?);
+            }
+        } else {
+            let proto_count = summary.get("protocol_count")
+                .and_then(|v| v.as_u64()).unwrap_or(0);
+            let pcap_count = summary.get("pcap_file_count")
+                .and_then(|v| v.as_u64()).unwrap_or(0);
+
+            println!("PCAP Corpus Summary");
+            println!("  PDML files:      {}", pcap_count);
+            println!("  Unique protocols: {}", proto_count);
+
+            if let Some(protos) = summary.get("protocols").and_then(|p| p.as_object()) {
+                let norm_filter = proto_filter.map(|f| discovery::normalize_name(f));
+                let mut entries: Vec<_> = protos.iter()
+                    .filter(|(k, _)| {
+                        norm_filter.as_ref()
+                            .map(|f| discovery::normalize_name(k).contains(f.as_str()))
+                            .unwrap_or(true)
+                    })
+                    .collect();
+                entries.sort_by(|a, b| {
+                    let ac = a.1.get("pcap_count").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let bc = b.1.get("pcap_count").and_then(|v| v.as_u64()).unwrap_or(0);
+                    bc.cmp(&ac)
+                });
+
+                println!("\n  {:<30}  {:>5}  {:>6}  {:>8}  {:>8}",
+                    "Protocol", "PCAPs", "Fields", "MinBytes", "MaxBytes");
+                println!("  {}  {}  {}  {}  {}",
+                    "-".repeat(30), "-".repeat(5), "-".repeat(6),
+                    "-".repeat(8), "-".repeat(8));
+
+                for (name, info) in &entries {
+                    let pcaps = info.get("pcap_count").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let fields = info.get("field_count").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let min_b = info.get("min_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let max_b = info.get("max_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
+                    println!("  {:<30}  {:>5}  {:>6}  {:>8}  {:>8}",
+                        truncate(name, 30), pcaps, fields, min_b, max_b);
+                }
+                println!("\n  Showing {} protocols", entries.len());
+            }
+        }
+        return Ok(());
+    }
+
+    // Fallback: scan PDML directory directly
+    let mut proto_pcap_count: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut total_files = 0u32;
+
+    if let Ok(entries) = std::fs::read_dir(corpus_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "xml").unwrap_or(false) {
+                total_files += 1;
+                if let Ok(xml) = std::fs::read_to_string(&path) {
+                    if let Ok(packets) = extractors::tshark::parse_pdml(&xml) {
+                        for packet in &packets {
+                            for proto in packet {
+                                *proto_pcap_count.entry(proto.name.clone()).or_default() += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let norm_filter = proto_filter.map(|f| discovery::normalize_name(f));
+    let filtered: Vec<_> = proto_pcap_count.iter()
+        .filter(|(k, _)| {
+            norm_filter.as_ref()
+                .map(|f| discovery::normalize_name(k).contains(f.as_str()))
+                .unwrap_or(true)
+        })
+        .collect();
+
+    if json_output {
+        let out: serde_json::Map<String, serde_json::Value> = filtered.iter()
+            .map(|(k, v)| (k.to_string(), serde_json::json!({"pcap_count": v})))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&out)?);
+    } else {
+        println!("PCAP Corpus (live scan)");
+        println!("  PDML files: {}", total_files);
+        println!("  Unique protocols: {}", filtered.len());
+
+        let mut sorted: Vec<_> = filtered;
+        sorted.sort_by(|a, b| b.1.cmp(a.1));
+
+        println!("\n  {:<30}  {:>5}", "Protocol", "Count");
+        println!("  {}  {}", "-".repeat(30), "-".repeat(5));
+        for (name, count) in &sorted {
+            println!("  {:<30}  {:>5}", truncate(name, 30), count);
+        }
+    }
+
+    Ok(())
+}
+
 /// Show comprehensive system statistics.
 pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
     let discovery_state = DiscoveryState::load_from_env();

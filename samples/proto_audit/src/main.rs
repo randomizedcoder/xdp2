@@ -288,6 +288,17 @@ enum Commands {
         json: bool,
     },
 
+    /// Show PCAP corpus coverage (which protocols have PDML data)
+    Corpus {
+        /// Filter to show only protocols matching this name
+        #[arg(long)]
+        proto: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Show comprehensive system statistics
     Stats {
         /// Output as JSON
@@ -421,6 +432,7 @@ fn main() -> Result<()> {
             output,
             json,
         } => cmd_auto_match(min_confidence, output, json),
+        Commands::Corpus { proto, json } => cmd_corpus(proto.as_deref(), json),
         Commands::Stats { json, paths } => cmd_stats(json, &paths),
         Commands::Standards {
             proto,
