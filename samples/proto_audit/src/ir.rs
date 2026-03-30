@@ -434,6 +434,9 @@ pub struct AuditResult {
     pub fields_type_differ: u32,
     pub fields_mismatch: u32,
     pub fields_missing: u32,
+    /// Validation quality tier (computed from audit results)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation_tier: Option<crate::discovery::ValidationTier>,
 }
 
 #[cfg(test)]

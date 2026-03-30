@@ -194,13 +194,13 @@ pub fn format_audit_summary(results: &[AuditResult]) -> String {
 
     out.push_str(&format!("Audit Summary: {} protocols\n\n", results.len()));
     out.push_str(&format!(
-        "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {:>5}  {}\n",
-        "Protocol", "Sources", "Agree", "TDiff", "Split", "Miss.", "Status"
+        "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {:>5}  {:<11}  {}\n",
+        "Protocol", "Sources", "Agree", "TDiff", "Split", "Miss.", "Validation", "Status"
     ));
     out.push_str(&format!(
-        "  {}  {}  {}  {}  {}  {}  {}\n",
+        "  {}  {}  {}  {}  {}  {}  {}  {}\n",
         "-".repeat(20), "-".repeat(7), "-".repeat(5), "-".repeat(5),
-        "-".repeat(5), "-".repeat(5), "-".repeat(12)
+        "-".repeat(5), "-".repeat(5), "-".repeat(11), "-".repeat(12)
     ));
 
     for r in results {
@@ -216,14 +216,21 @@ pub fn format_audit_summary(results: &[AuditResult]) -> String {
             "PARTIAL"
         };
 
+        let vtier = r
+            .validation_tier
+            .as_ref()
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "-".to_string());
+
         out.push_str(&format!(
-            "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {:>5}  {}\n",
+            "  {:<20}  {:>7}  {:>5}  {:>5}  {:>5}  {:>5}  {:<11}  {}\n",
             truncate(&r.protocol, 20),
             r.sources_present.len(),
             r.fields_agree,
             r.fields_type_differ,
             r.fields_mismatch,
             r.fields_missing,
+            vtier,
             status,
         ));
     }
@@ -264,6 +271,7 @@ mod tests {
             fields_type_differ: 0,
             fields_mismatch: 0,
             fields_missing: 0,
+            validation_tier: None,
         };
 
         let text = format_audit_text(&result);

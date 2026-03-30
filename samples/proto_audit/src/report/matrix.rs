@@ -169,6 +169,9 @@ pub fn format_matrix_json(results: &[AuditResult]) -> serde_json::Value {
             "xdp2_struct_ref_only".into(),
             (present.contains("xdp2") && src_fields.get("xdp2").copied().unwrap_or(0) == 0).into(),
         );
+        if let Some(ref vtier) = r.validation_tier {
+            entry.insert("validation_tier".into(), vtier.to_string().into());
+        }
         entries.push(serde_json::Value::Object(entry));
     }
 

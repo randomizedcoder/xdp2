@@ -384,6 +384,18 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
     let (total, agree, type_differ, mismatch, field_missing) =
         compute_statistics(&all_comparisons);
 
+    // Compute validation tier from audit statistics
+    let validation_tier = {
+        let sources_with_fields = field_sources.len();
+        let is_roundtrip = false; // Set by cmd_validate, not here
+        Some(crate::discovery::compute_validation_tier(
+            sources_with_fields,
+            agree,
+            total,
+            is_roundtrip,
+        ))
+    };
+
     AuditResult {
         protocol: canonical_name.to_string(),
         sources_present: present,
@@ -394,6 +406,7 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
         fields_type_differ: type_differ,
         fields_mismatch: mismatch,
         fields_missing: field_missing,
+        validation_tier,
     }
 }
 
@@ -1242,5 +1255,30 @@ struct ieee802154_hdr_fc {
             "all 4 UDP fields should fully agree, got {} agree, {} type_differ",
             result.fields_agree, result.fields_type_differ
         );
+    }
+
+    #[test]
+    fn test_validation_tier_silver_two_sources() {
+        use crate::discovery::ValidationTier;
+        let a = make_proto("test", vec![make_field("f", 0, 8, FieldType::Uint)]);
+        let b = make_proto("test", vec![make_field("f", 0, 8, FieldType::Uint)]);
+        let result = audit_protocol("test", &[("kernel", &a), ("scapy", &b)]);
+        assert_eq!(result.validation_tier, Some(ValidationTier::Silver));
+    }
+
+    #[test]
+    fn test_validation_tier_bronze_single_source() {
+        use crate::discovery::ValidationTier;
+        let a = make_proto("test", vec![make_field("f", 0, 8, FieldType::Uint)]);
+        let result = audit_protocol("test", &[("kernel", &a)]);
+        assert_eq!(result.validation_tier, Some(ValidationTier::Bronze));
+    }
+
+    #[test]
+    fn test_validation_tier_unvalidated_no_fields() {
+        use crate::discovery::ValidationTier;
+        let a = make_proto("test", vec![]);
+        let result = audit_protocol("test", &[("kernel", &a)]);
+        assert_eq!(result.validation_tier, Some(ValidationTier::Unvalidated));
     }
 }
