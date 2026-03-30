@@ -235,6 +235,29 @@
           echo "Compile test results in $out/logs/"
         '';
 
+        # Run round-trip validation for all curated protocols (batch)
+        proto-audit-validate-all = pkgs.runCommand "proto-audit-validate-all" {
+          nativeBuildInputs = [
+            proto-audit-bin
+            protoAuditSources.scapyPython
+            protoAuditSources.tshark
+          ];
+        } ''
+          mkdir -p $out
+
+          # Run validate-all: validates each protocol's IR→PCAP→tshark round-trip
+          proto-audit validate --proto all --tier curated --json \
+            ${protoAuditFlags} \
+            > $out/validate_all.json 2>$out/validate.log || true
+
+          # Also produce audit baseline for regression tracking
+          proto-audit audit --json ${protoAuditFlags} \
+            > $out/audit_baseline.json 2>/dev/null || true
+
+          echo "Validation results in $out/"
+          echo "Use as baseline: nix build .#proto-audit-validate-all"
+        '';
+
         # Import development shell module
         devshell = import ./nix/devshell.nix {
           inherit pkgs lib llvmConfig compilerConfig envVars;
@@ -344,7 +367,7 @@
           # Usage: nix run .#proto-audit -- list
           #        nix run .#proto-audit -- compare --proto IPv4
           #        nix build .#proto-audit-report
-          inherit proto-audit proto-audit-bin proto-audit-report proto-audit-c-check;
+          inherit proto-audit proto-audit-bin proto-audit-report proto-audit-c-check proto-audit-validate-all;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

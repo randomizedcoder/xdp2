@@ -531,6 +531,11 @@ pub(crate) fn cmd_validate(
     json_output: bool,
     paths: &SourcePaths,
 ) -> Result<()> {
+    // Handle --proto all: validate all routable protocols
+    if proto == "all" {
+        return cmd_validate_all(tier, json_output, paths);
+    }
+
     let tier_filter = TierFilter::from_str(tier);
     let discovery_state = DiscoveryState::load_from_env();
     let discovered_protos = discovery::all_protocols(&discovery_state);
@@ -2402,6 +2407,136 @@ fn validation_cache_path() -> PathBuf {
 }
 
 /// Save a validation result to the cache file.
+/// Validate all routable curated protocols in batch.
+fn cmd_validate_all(tier: &str, json_output: bool, paths: &SourcePaths) -> Result<()> {
+    let tier_filter = TierFilter::from_str(tier);
+    let discovery_state = DiscoveryState::load_from_env();
+    let discovered_protos = discovery::all_protocols(&discovery_state);
+
+    // Collect routable protocols
+    let routable: Vec<String> = discovered_protos
+        .iter()
+        .filter(|(_, dp)| tier_filter.matches(dp.tier))
+        .filter(|(name, _)| generator::stack_route_for(name).is_some())
+        .map(|(name, _)| name.clone())
+        .collect();
+
+    eprintln!("Validating {} routable protocols...", routable.len());
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+    let mut pass = 0u32;
+    let mut fail = 0u32;
+    let mut error = 0u32;
+
+    for (i, name) in routable.iter().enumerate() {
+        eprint!("\r  [{}/{}] {}...", i + 1, routable.len(), truncate(name, 30));
+
+        // Try to validate (suppress errors for individual protocols)
+        match cmd_validate_single(name, paths, &discovery_state, &discovered_protos) {
+            Ok(result) => {
+                let is_pass = result.fields_mismatch == 0 && result.total_fields > 0;
+                if is_pass {
+                    pass += 1;
+                } else {
+                    fail += 1;
+                }
+                results.push(serde_json::json!({
+                    "protocol": name,
+                    "status": if is_pass { "pass" } else { "fail" },
+                    "validation_tier": result.validation_tier.as_ref().map(|t| t.to_string()),
+                    "fields_agree": result.fields_agree,
+                    "total_fields": result.total_fields,
+                    "fields_mismatch": result.fields_mismatch,
+                }));
+            }
+            Err(_) => {
+                error += 1;
+                results.push(serde_json::json!({
+                    "protocol": name,
+                    "status": "error",
+                }));
+            }
+        }
+    }
+    eprintln!("\r  Done: {} pass, {} fail, {} error          ", pass, fail, error);
+
+    if json_output {
+        let output = serde_json::json!({
+            "total": routable.len(),
+            "pass": pass,
+            "fail": fail,
+            "error": error,
+            "protocols": results,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("\nBatch Validation Results");
+        println!("  Total:  {}", routable.len());
+        println!("  Pass:   {} (Gold)", pass);
+        println!("  Fail:   {}", fail);
+        println!("  Error:  {}", error);
+    }
+
+    Ok(())
+}
+
+/// Validate a single protocol, returning the AuditResult.
+fn cmd_validate_single(
+    proto: &str,
+    paths: &SourcePaths,
+    discovery_state: &DiscoveryState,
+    _discovered_protos: &std::collections::BTreeMap<String, discovery::DiscoveredProtocol>,
+) -> Result<ir::AuditResult> {
+    // Build rich IR
+    let protocol_def = build_rich_ir(proto, paths)?;
+
+    // Build proto map for PCAP generation
+    let proto_map = build_proto_map(proto, paths, discovery_state);
+
+    // Generate PCAP
+    let pcap_output = generator::generate_pcap(&protocol_def, &proto_map)
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+    // Write temp pcap and run tshark
+    let pcap_path = std::env::temp_dir().join(format!("proto_audit_validate_{}.pcap", proto));
+    std::fs::write(&pcap_path, &pcap_output.pcap_bytes)?;
+
+    let xml = extractors::tshark::run_tshark(&pcap_path, &paths.tshark_bin, 1)?;
+    let _ = std::fs::remove_file(&pcap_path);
+
+    let packets = extractors::tshark::parse_pdml(&xml)?;
+
+    // Find dissector name
+    let dissector = name_mapping::find_by_canonical(proto)
+        .and_then(|n| n.tshark.map(|s| s.to_string()));
+    let tshark_def = dissector
+        .as_deref()
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+
+    let tshark_def = match tshark_def {
+        Some(pdml) => extractors::tshark::to_protocol_def(&pdml),
+        None => anyhow::bail!("tshark did not dissect {}", proto),
+    };
+
+    // Compare
+    let refs: Vec<(&str, &ir::ProtocolDef)> = vec![
+        ("ir", &protocol_def),
+        ("tshark-roundtrip", &tshark_def),
+    ];
+    let mut result = comparator::audit_protocol(proto, &refs);
+
+    // Override validation tier
+    let is_pass = result.fields_mismatch == 0 && result.total_fields > 0;
+    if is_pass {
+        result.validation_tier = Some(discovery::ValidationTier::Gold);
+    }
+
+    // Persist
+    let _ = save_validation_result(proto, &result);
+
+    Ok(result)
+}
+
 fn save_validation_result(protocol: &str, result: &ir::AuditResult) -> Result<()> {
     let path = validation_cache_path();
     let mut cache: std::collections::BTreeMap<String, ValidationCacheEntry> =
