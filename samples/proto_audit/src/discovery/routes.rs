@@ -18,18 +18,92 @@ pub struct StackRoute {
 ///
 /// These are the tshark decode tables we know how to map to PCAP stack routes.
 const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
-    ("ethertype",     "Ethernet",  "ether_type"),
-    ("ip.proto",      "IPv4",      "protocol"),
-    ("ipv6.nxt",      "IPv6",      "next_header"),
-    ("udp.port",      "UDP",       "dst_port"),
-    ("tcp.port",      "TCP",       "dst_port"),
-    ("sctp.port",     "SCTP",      "dst_port"),
-    ("sctp.ppi",      "SCTP",      "ppid"),
-    ("gre.proto",     "GRE",       "protocol_type"),
-    ("ppp.protocol",  "PPP",       "protocol"),
-    ("wtap_encap",    "Ethernet",  "ether_type"),
-    ("dccp.port",     "DCCP",      "dst_port"),
-    ("l2tp.pw_type",  "L2TP",      "pw_type"),
+    // ── Core L2 ──
+    ("ethertype",           "Ethernet",       "ether_type"),
+    ("wtap_encap",          "Ethernet",       "ether_type"),
+    ("sll.ltype",           "SLL",            "protocol"),
+    ("llc.dsap",            "LLC",            "dsap"),
+    ("llc.type",            "LLC",            "type"),
+    ("snap.type",           "SNAP",           "type"),
+    ("vlan.etype",          "VLAN",           "ether_type"),
+    ("pbb.etype",           "PBB",            "ether_type"),
+    // ── Core L3 ──
+    ("ip.proto",            "IPv4",           "protocol"),
+    ("ipv6.nxt",            "IPv6",           "next_header"),
+    ("arp.opcode",          "ARP",            "opcode"),
+    // ── Core L4 ──
+    ("udp.port",            "UDP",            "dst_port"),
+    ("tcp.port",            "TCP",            "dst_port"),
+    ("sctp.port",           "SCTP",           "dst_port"),
+    ("sctp.ppi",            "SCTP",           "ppid"),
+    ("dccp.port",           "DCCP",           "dst_port"),
+    ("udplite.port",        "UDPLite",        "dst_port"),
+    // ── Tunneling ──
+    ("gre.proto",           "GRE",            "protocol_type"),
+    ("ppp.protocol",        "PPP",            "protocol"),
+    ("pppoe.session",       "PPPoE",          "session_id"),
+    ("l2tp.pw_type",        "L2TP",           "pw_type"),
+    ("geneve.protocol",     "Geneve",         "protocol_type"),
+    ("mpls.label",          "MPLS",           "label"),
+    ("vxlan.vni",           "VXLAN",          "vni"),
+    ("nsh.next_proto",      "NSH",            "next_protocol"),
+    ("gtp.message_type",    "GTP_U",          "message_type"),
+    ("gtpv2.message_type",  "GTP_C",          "message_type"),
+    // ── IPv6 Extensions ──
+    ("ipv6.routing.type",   "IPv6_Routing",   "routing_type"),
+    ("ipv6.opt.type",       "IPv6_EH",        "option_type"),
+    // ── Security ──
+    ("tls.handshake.type",  "TLS",            "content_type"),
+    ("dtls.record.content_type", "DTLS",      "content_type"),
+    ("isakmp.nextpayload",  "IKEv2",          "next_payload"),
+    ("eap.type",            "EAP",            "type"),
+    // ── Bluetooth ──
+    ("bthci_cmd.opcode",    "HCI_CMD",        "opcode"),
+    ("btl2cap.cid",         "L2CAP",          "cid"),
+    ("btl2cap.psm",         "L2CAP",          "psm"),
+    ("btrfcomm.dlci",       "BT_RFCOMM",      "dlci"),
+    ("btbnep.type",         "BT_BNEP",        "type"),
+    // ── InfiniBand ──
+    ("infiniband.opcode",   "IB_BTH",         "opcode"),
+    ("infiniband.mad.class", "IB_MAD",        "mgmt_class"),
+    // ── CAN ──
+    ("can.id",              "CAN",            "id"),
+    // ── Management ──
+    ("lldp.tlv.type",       "LLDP",           "tlv_type"),
+    // ── IoT / Industrial ──
+    ("mqtt.msgtype",        "MQTT",           "message_type"),
+    ("coap.code",           "CoAP",           "code"),
+    ("modbus.func_code",    "MODBUS_TCP",     "function_code"),
+    ("bacnet.function",     "BACnet",         "function"),
+    ("dnp3.ctl.func",       "DNP3",           "function"),
+    ("zbee_nwk.frame_type", "Zigbee_NWK",     "frame_type"),
+    // ── Storage ──
+    ("fc.type",             "FC",             "type"),
+    ("iscsi.opcode",        "iSCSI",          "opcode"),
+    // ── Routing ──
+    ("bgp.type",            "BGP",            "type"),
+    ("ospf.msg",            "OSPF",           "message_type"),
+    ("isis.type",           "ISIS",           "pdu_type"),
+    ("rip.command",         "RIP",            "command"),
+    ("pim.type",            "PIM",            "type"),
+    ("bfd.version",         "BFD",            "version"),
+    ("ldp.msg.type",        "LDP",            "message_type"),
+    ("rsvp.msg",            "RSVP",           "message_type"),
+    // ── VoIP ──
+    ("sip.method",          "SIP",            "method"),
+    ("rtp.p_type",          "RTP",            "payload_type"),
+    ("rtcp.pt",             "RTCP",           "packet_type"),
+    ("stun.type",           "STUN",           "message_type"),
+    // ── Network Management ──
+    ("radius.code",         "RADIUS",         "code"),
+    ("diameter.cmd.code",   "Diameter",       "command_code"),
+    ("snmp.version",        "SNMP",           "version"),
+    // ── Application ──
+    ("http.request.method", "HTTP",           "method"),
+    ("http2.type",          "HTTP2",          "type"),
+    ("dns.qry.type",        "DNS",            "query_type"),
+    ("amqp.type",           "AMQP",           "type"),
+    ("kafka.api_key",       "Kafka",          "api_key"),
 ];
 
 /// Try to find a stack route for a discovered protocol using tshark decode tables.
