@@ -1376,6 +1376,8 @@ pub(crate) fn cmd_generate_all(
                     "tier": dp.tier.to_string(),
                     "source": source,
                     "fields": ir.fields.len(),
+                    "has_kernel_struct": dp.kernel_struct.is_some(),
+                    "xdp2_tier": classify_xdp2_tier(name, dp),
                 }));
             }
             continue;
@@ -1679,6 +1681,45 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Classify a protocol into XDP2 implementation tiers.
+///
+/// - Tier 1 (Core): Already in XDP2 proto_defs — needs field enrichment only
+/// - Tier 2 (Production): Common transport/tunnel, has kernel struct, not yet in XDP2
+/// - Tier 3 (Specialty): Has fields but no kernel struct, or industrial/IoT
+/// - Tier 4 (Exclude): Text-based, stateful, no fixed header (HTTP, SIP, TLS post-handshake)
+fn classify_xdp2_tier(name: &str, dp: &DiscoveredProtocol) -> &'static str {
+    let lower = name.to_lowercase();
+
+    // Known text-based/stateful protocols that don't suit XDP/BPF
+    const EXCLUDED: &[&str] = &[
+        "http", "http2", "http3", "sip", "smtp", "ftp", "imap", "pop3",
+        "ssh", "telnet", "xmpp", "rtsp",
+    ];
+    if EXCLUDED.iter().any(|e| lower == *e) {
+        return "4-exclude";
+    }
+
+    // Tier 1: Already has an XDP2 proto_def
+    if name_mapping::find_by_canonical(name)
+        .map(|n| n.xdp2.is_some())
+        .unwrap_or(false)
+    {
+        return "1-core";
+    }
+
+    // Tier 2: Has kernel struct (easy C generation)
+    if dp.kernel_struct.is_some() {
+        return "2-production";
+    }
+
+    // Tier 3: Has fields, no kernel struct
+    if dp.estimated_field_count > 0 || dp.tier == Tier::Curated {
+        return "3-specialty";
+    }
+
+    "4-exclude"
 }
 
 /// Inject RFC/IEEE/IANA metadata from ProtocolNames into a ProtocolDef.

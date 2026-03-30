@@ -16,13 +16,16 @@ with XDP2 as the primary beneficiary.
 
 | Metric | Count |
 |--------|-------|
-| Total protocols tracked | 207 (206 curated + discovered) |
+| Total protocols tracked | 207 curated + discovered (tshark ~3,000) |
 | Protocols with extractable fields | 127 |
 | Cross-checkable (2+ sources) | 38 |
 | Round-trip validated (Gold) | 205 |
 | Overlay patches | 49 (31 etherparse, 18 libpcap) |
 | XDP2 proto_defs | ~69 |
-| Unit tests | 355 |
+| Unit tests | 369 |
+| Decode table entries | 72 |
+| RFC references (curated) | 207 protocols annotated |
+| CLI commands | 13 (audit, compare, extract, generate, generate-all, list, matrix, findings, validate, auto-match, prioritize, standards, stats) |
 
 ## Architecture Bottlenecks
 

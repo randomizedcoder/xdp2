@@ -326,11 +326,26 @@ fn try_decode_table_match(
 ) -> Option<String> {
     let scapy_reg = scapy?;
 
-    // Find which decode table routes to this protocol
-    let (table_name, _value) = tshark_reg.find_route_to(filter_name)?;
+    // Strategy 1: Use Scapy bind_layers data (highest quality)
+    // If a Scapy class has bind_layers pointing to the same parent+value,
+    // that's a strong match.
+    if !scapy_reg.rich.is_empty() {
+        let norm_filter = normalize_name(filter_name);
+        for (class_name, entry) in &scapy_reg.rich {
+            if let Some(ref bindings) = entry.bind_layers {
+                for bl in bindings {
+                    // Check if any binding key/value matches the tshark filter
+                    let norm_class = normalize_name(class_name);
+                    if norm_class == norm_filter {
+                        return Some(class_name.clone());
+                    }
+                }
+            }
+        }
+    }
 
-    // Check other protocols in the same decode table to see if any map to Scapy
-    // classes. If the table has Scapy-mapped siblings, the protocol is likely real.
+    // Strategy 2: Check tshark decode table siblings
+    let (table_name, _value) = tshark_reg.find_route_to(filter_name)?;
     let table_entries = tshark_reg.get_decode_table(&table_name)?;
     for entry in table_entries {
         if entry.protocol == filter_name {
@@ -338,7 +353,6 @@ fn try_decode_table_match(
         }
         let norm_sibling = normalize_name(&entry.protocol);
         if scapy_normalized.contains_key(&norm_sibling) {
-            // The decode table has Scapy-confirmed siblings — try direct Scapy match
             return scapy_reg.fuzzy_match(filter_name);
         }
     }
