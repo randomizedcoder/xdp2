@@ -287,6 +287,7 @@
     {
       "canonical": "AJP13",
       "tshark": "ajp13",
+      "scapy": "AJP",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.85,
@@ -698,6 +699,7 @@
     {
       "canonical": "BOOTP",
       "tshark": "bootp",
+      "scapy": "BOOTP",
       "min_header_bytes": 236,
       "variable": true,
       "confidence": 0.85,
@@ -851,6 +853,7 @@
     {
       "canonical": "CAN ISO-TP",
       "tshark": "iso_tp",
+      "scapy": "ISOTP",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -914,6 +917,7 @@
     {
       "canonical": "CCSDS",
       "tshark": "ccsds",
+      "scapy": "CCSDS",
       "min_header_bytes": 6,
       "variable": true,
       "confidence": 0.85,
@@ -930,6 +934,7 @@
     {
       "canonical": "CCSDS Space Packet",
       "tshark": "ccsds",
+      "scapy": "CCSDS",
       "min_header_bytes": 6,
       "variable": true,
       "confidence": 0.85,
@@ -1026,6 +1031,7 @@
     {
       "canonical": "COTP",
       "tshark": "cotp",
+      "scapy": "COTP",
       "min_header_bytes": 7,
       "variable": true,
       "confidence": 0.85,
@@ -1419,6 +1425,7 @@
     {
       "canonical": "DICOM",
       "tshark": "dicom",
+      "scapy": "DICOM",
       "min_header_bytes": 6,
       "variable": true,
       "confidence": 0.9,
@@ -2313,6 +2320,7 @@
     {
       "canonical": "FlexRay",
       "tshark": "flexray",
+      "scapy": "FlexRay",
       "min_header_bytes": 5,
       "confidence": 0.9,
       "match_method": "exact_normalized"
@@ -2416,6 +2424,7 @@
     {
       "canonical": "GPRS LLC",
       "tshark": "gprs_llc",
+      "scapy": "GprsLlc",
       "min_header_bytes": 3,
       "variable": true,
       "confidence": 0.85,
@@ -2591,6 +2600,7 @@
     {
       "canonical": "GTPv1-C",
       "tshark": "gtpv1c",
+      "scapy": "GTPHeader",
       "min_header_bytes": 8,
       "variable": true,
       "confidence": 0.85,
@@ -2702,6 +2712,7 @@
     {
       "canonical": "H.264 NAL",
       "tshark": "h264",
+      "scapy": "H264_NAL",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -2710,6 +2721,7 @@
     {
       "canonical": "H.265 NAL",
       "tshark": "h265",
+      "scapy": "H265_NAL",
       "min_header_bytes": 2,
       "variable": true,
       "confidence": 0.85,
@@ -2820,6 +2832,7 @@
     {
       "canonical": "HomePlug 1.0",
       "tshark": "homeplug",
+      "scapy": "HomePlug",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -2828,6 +2841,7 @@
     {
       "canonical": "HomePlug AV",
       "tshark": "homeplug_av",
+      "scapy": "HomePlugAV",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.8,
@@ -2868,6 +2882,7 @@
     {
       "canonical": "IAX2",
       "tshark": "iax2",
+      "scapy": "IAX2",
       "min_header_bytes": 12,
       "variable": true,
       "confidence": 0.85,
@@ -2941,6 +2956,7 @@
     {
       "canonical": "IEC 61850 MMS",
       "tshark": "mms",
+      "scapy": "MMS",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.8,
@@ -3230,6 +3246,7 @@
     {
       "canonical": "IRC",
       "tshark": "irc",
+      "scapy": "IRC",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -3602,6 +3619,7 @@
     {
       "canonical": "LIN",
       "tshark": "lin",
+      "scapy": "LIN",
       "min_header_bytes": 2,
       "confidence": 0.9,
       "match_method": "exact_normalized"
@@ -3826,6 +3844,7 @@
     {
       "canonical": "M-Bus",
       "tshark": "mbus",
+      "scapy": "MBus",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.85,
@@ -4029,6 +4048,7 @@
     {
       "canonical": "MPEG-TS",
       "tshark": "mp2t",
+      "scapy": "MPEG_TS",
       "min_header_bytes": 4,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -4279,6 +4299,7 @@
     {
       "canonical": "Memcached",
       "tshark": "memcache",
+      "scapy": "Memcached",
       "min_header_bytes": 24,
       "variable": true,
       "confidence": 0.85,
@@ -4645,6 +4666,7 @@
     {
       "canonical": "NTLM",
       "tshark": "ntlmssp",
+      "scapy": "NTLM_Header",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -4874,6 +4896,7 @@
     {
       "canonical": "OVSDB",
       "tshark": "ovsdb",
+      "scapy": "OVSDB",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -5259,6 +5282,7 @@
     {
       "canonical": "PPTP",
       "tshark": "pptp",
+      "scapy": "PPTP",
       "min_header_bytes": 12,
       "variable": true,
       "confidence": 0.9,
@@ -5445,6 +5469,7 @@
     {
       "canonical": "Protocol Buffers",
       "tshark": "protobuf",
+      "scapy": "Protobuf",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -5565,6 +5590,7 @@
     {
       "canonical": "RDP",
       "tshark": "rdp",
+      "scapy": "RDP",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -5717,6 +5743,7 @@
     {
       "canonical": "RTMP",
       "tshark": "rtmp",
+      "scapy": "RTMP",
       "min_header_bytes": 12,
       "variable": true,
       "confidence": 0.85,
@@ -6100,6 +6127,7 @@
     {
       "canonical": "SLIP",
       "tshark": "slip",
+      "scapy": "SLIP",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.9,
@@ -6172,6 +6200,7 @@
     {
       "canonical": "SOCKS",
       "tshark": "socks",
+      "scapy": "SOCKS",
       "min_header_bytes": 3,
       "variable": true,
       "confidence": 0.85,
@@ -6567,6 +6596,7 @@
     {
       "canonical": "TPKT",
       "tshark": "tpkt",
+      "scapy": "TPKT",
       "min_header_bytes": 4,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -6651,6 +6681,7 @@
     {
       "canonical": "Thrift",
       "tshark": "thrift",
+      "scapy": "Thrift",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.9,
@@ -7005,6 +7036,7 @@
     {
       "canonical": "WebSocket",
       "tshark": "websocket",
+      "scapy": "WebSocket",
       "min_header_bytes": 2,
       "variable": true,
       "confidence": 0.9,
@@ -7181,6 +7213,7 @@
     {
       "canonical": "XMPP",
       "tshark": "xmpp",
+      "scapy": "XMPP",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -7429,6 +7462,7 @@
     {
       "canonical": "sFlow",
       "tshark": "sflow",
+      "scapy": "sFlow5",
       "min_header_bytes": 28,
       "variable": true,
       "confidence": 0.9,
