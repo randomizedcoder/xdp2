@@ -13,6 +13,9 @@ pub struct KernelStructEntry {
     pub struct_name: String,
     pub header: String,
     pub field_count: u32,
+    /// Individual field names within the struct
+    #[serde(default)]
+    pub field_names: Vec<String>,
 }
 
 /// The kernel UAPI struct registry.
@@ -94,6 +97,7 @@ mod tests {
                 struct_name: "iphdr".to_string(),
                 header: "linux/ip.h".to_string(),
                 field_count: 12,
+                field_names: vec![],
             },
         );
         structs.insert(
@@ -102,6 +106,7 @@ mod tests {
                 struct_name: "tcphdr".to_string(),
                 header: "linux/tcp.h".to_string(),
                 field_count: 15,
+                field_names: vec![],
             },
         );
 

@@ -7,21 +7,66 @@ use std::collections::HashMap;
 
 use super::normalize_name;
 
+/// Rich metadata for a Scapy class (from --discover-all-rich).
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ScapyClassEntry {
+    pub module: String,
+    #[serde(default)]
+    pub field_names: Vec<String>,
+    #[serde(default)]
+    pub field_count: u32,
+    #[serde(default)]
+    pub docstring: Option<String>,
+    #[serde(default)]
+    pub bind_layers: Option<Vec<ScapyBindLayer>>,
+}
+
+/// A bind_layers relationship from Scapy.
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ScapyBindLayer {
+    pub parent: String,
+    #[serde(default)]
+    pub bindings: HashMap<String, String>,
+}
+
 /// The Scapy protocol registry.
 #[derive(Debug, Clone)]
 pub struct ScapyRegistry {
-    /// Map from Scapy class name → module path
+    /// Map from Scapy class name → module path (simple format)
     pub classes: HashMap<String, String>,
+    /// Rich metadata per class (from --discover-all-rich, if available)
+    pub rich: HashMap<String, ScapyClassEntry>,
     /// Normalized name → class name (for fuzzy matching)
     normalized_index: HashMap<String, String>,
 }
 
 impl ScapyRegistry {
     /// Load the registry from a JSON file path.
+    ///
+    /// Supports both simple format (class → module string) and rich format
+    /// (class → {module, field_names, ...}).
     pub fn load(path: &str) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let classes: HashMap<String, String> = serde_json::from_str(&content)?;
 
+        // Try rich format first
+        if let Ok(rich) = serde_json::from_str::<HashMap<String, ScapyClassEntry>>(&content) {
+            let classes: HashMap<String, String> = rich
+                .iter()
+                .map(|(name, entry)| (name.clone(), entry.module.clone()))
+                .collect();
+            let normalized_index = classes
+                .keys()
+                .map(|name| (normalize_name(name), name.clone()))
+                .collect();
+            return Ok(ScapyRegistry {
+                classes,
+                rich,
+                normalized_index,
+            });
+        }
+
+        // Fall back to simple format
+        let classes: HashMap<String, String> = serde_json::from_str(&content)?;
         let normalized_index = classes
             .keys()
             .map(|name| (normalize_name(name), name.clone()))
@@ -29,6 +74,7 @@ impl ScapyRegistry {
 
         Ok(ScapyRegistry {
             classes,
+            rich: HashMap::new(),
             normalized_index,
         })
     }
@@ -92,6 +138,7 @@ mod tests {
 
         ScapyRegistry {
             classes,
+            rich: HashMap::new(),
             normalized_index,
         }
     }

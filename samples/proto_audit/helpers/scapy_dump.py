@@ -236,6 +236,88 @@ def discover_all():
     print(f"Discovered {len(registry)} Packet subclasses", file=sys.stderr)
 
 
+def discover_all_rich():
+    """Discover ALL Scapy Packet subclasses with enriched metadata.
+
+    Outputs a JSON object per class with: module, field_names, bind_layers,
+    docstring, and field_count. Used by auto-matcher for cross-source matching.
+    """
+    import importlib
+    import pkgutil
+    import scapy.all  # noqa: F401
+    import scapy.contrib
+    import scapy.layers
+    from scapy.packet import Packet
+
+    for pkg in [scapy.contrib, scapy.layers]:
+        for _, modname, _ in pkgutil.walk_packages(
+            pkg.__path__, prefix=pkg.__name__ + '.'
+        ):
+            try:
+                importlib.import_module(modname)
+            except Exception:
+                pass
+
+    def all_subclasses(cls):
+        result = set()
+        for sub in cls.__subclasses__():
+            result.add(sub)
+            result.update(all_subclasses(sub))
+        return result
+
+    # Collect bind_layers relationships
+    from scapy.packet import bind_layers as _bl
+    bind_map = {}  # class_name → [(parent_class, field_bindings)]
+    try:
+        from scapy.packet import _all_bindings
+        # _all_bindings is a list of (cls1, cls2, fval_dict) tuples
+        for b in _all_bindings:
+            if len(b) >= 3:
+                parent_name = b[0].__name__ if hasattr(b[0], '__name__') else str(b[0])
+                child_name = b[1].__name__ if hasattr(b[1], '__name__') else str(b[1])
+                bindings = {str(k): str(v) for k, v in b[2].items()} if b[2] else {}
+                bind_map.setdefault(child_name, []).append({
+                    'parent': parent_name,
+                    'bindings': bindings,
+                })
+    except (ImportError, AttributeError):
+        pass
+
+    registry = {}
+    for cls in all_subclasses(Packet):
+        if not hasattr(cls, 'fields_desc') or not cls.fields_desc:
+            continue
+
+        field_names = []
+        for f in cls.fields_desc:
+            inner = unwrap_field(f)
+            field_names.append(f.name)
+
+        docstring = None
+        if cls.__doc__:
+            # First non-empty line of the docstring
+            for line in cls.__doc__.split('\n'):
+                line = line.strip()
+                if line:
+                    docstring = line
+                    break
+
+        entry = {
+            'module': cls.__module__,
+            'field_names': field_names,
+            'field_count': len(field_names),
+        }
+        if docstring:
+            entry['docstring'] = docstring
+        if cls.__name__ in bind_map:
+            entry['bind_layers'] = bind_map[cls.__name__]
+
+        registry[cls.__name__] = entry
+
+    print(json.dumps(registry, indent=2))
+    print(f"Discovered {len(registry)} Packet subclasses (rich)", file=sys.stderr)
+
+
 def safe_default(val):
     """Safely convert a Scapy field default to a string."""
     if val is None:
@@ -316,6 +398,8 @@ if __name__ == "__main__":
         list_protocols()
     elif arg == "--discover-all":
         discover_all()
+    elif arg == "--discover-all-rich":
+        discover_all_rich()
     elif arg == "--dump-all":
         dump_all()
     else:
