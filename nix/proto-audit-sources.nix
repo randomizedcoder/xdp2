@@ -115,6 +115,36 @@ in
       --output $out/kernel_registry.json
   '';
 
+  # ── IANA registries for dispatch table validation ──
+
+  ianaProtocolNumbers = pkgs.fetchurl {
+    url = "https://www.iana.org/assignments/protocol-numbers/protocol-numbers-1.csv";
+    hash = pkgs.lib.fakeHash;
+  };
+
+  ianaEthertypes = pkgs.fetchurl {
+    url = "https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers-1.csv";
+    hash = pkgs.lib.fakeHash;
+  };
+
+  ianaServiceNames = pkgs.fetchurl {
+    url = "https://www.iana.org/assignments/service-name-port-numbers/service-name-port-numbers.csv";
+    hash = pkgs.lib.fakeHash;
+  };
+
+  # Parse IANA CSVs into unified JSON at build time
+  ianaRegistries = pkgs.runCommand "iana-registries" {
+    nativeBuildInputs = [ pkgs.python314 ];
+    inherit ianaProtocolNumbers ianaEthertypes ianaServiceNames;
+  } ''
+    mkdir -p $out
+    python3 ${../samples/proto_audit/helpers/parse_iana.py} \
+      --protocol-numbers $ianaProtocolNumbers \
+      --ethertypes $ianaEthertypes \
+      --service-names $ianaServiceNames \
+      --output-dir $out
+  '';
+
   # PCAP templates for edge-case protocols (TLS, HTTP/2, etc.)
   # These protocols can't be auto-routed via standard dispatch tables.
   pcapTemplates = pkgs.runCommand "pcap-templates" {
