@@ -1987,6 +1987,112 @@ PROTOCOLS += [
     proto("BJNP", "bjnp", min_hdr=1, variable=True, confidence=0.85),
 ]
 
+# ── Acoustic / Audio networking ──
+PROTOCOLS += [
+    proto("AES67", "aes67", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Dante Audio", "dante", min_hdr=1, variable=True, confidence=0.85),
+    proto("AVB AVTP", "avtp", min_hdr=12, variable=True, confidence=0.85),
+    proto("IEEE 1722", "ieee1722", min_hdr=12, variable=True, confidence=0.8),
+    proto("Livewire", "livewire", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Ravenna", "ravenna", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("AES70 (OCA)", "aes70", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MIDI over IP (RTP-MIDI)", "rtpmidi", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Video / Broadcast ──
+PROTOCOLS += [
+    proto("SMPTE 2022", "smpte2022", min_hdr=1, variable=True, confidence=0.8),
+    proto("SMPTE 2110", "smpte2110", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SMPTE ST 2059 (PTP Profile)", "smpte2059", min_hdr=34, variable=True, confidence=0.7, method="long_name"),
+    proto("NDI", "ndi", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRT (Secure Reliable Transport)", "srt_proto", min_hdr=16, variable=True, confidence=0.8),
+    proto("RIST", "rist", min_hdr=1, variable=True, confidence=0.85),
+    proto("Zixi", "zixi", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SCTE-35", "scte35", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DVB-CI+", "dvb_ci_plus", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("HbbTV", "hbbtv", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Cloud / Object Storage ──
+PROTOCOLS += [
+    proto("S3 (HTTP)", "s3_http", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Swift (HTTP)", "swift_http", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Ceph RADOS", "ceph_rados", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Ceph RBD", "ceph_rbd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MinIO", "minio", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GlusterFS", "glusterfs", min_hdr=1, variable=True, confidence=0.85),
+    proto("Lustre", "lustre", min_hdr=1, variable=True, confidence=0.85),
+    proto("HDFS", "hdfs", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MapR-FS", "maprfs", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── DNS-over-X ──
+PROTOCOLS += [
+    proto("DNS-over-HTTPS (DoH)", "doh", min_hdr=1, variable=True, confidence=0.8),
+    proto("DNS-over-TLS (DoT)", "dot", min_hdr=1, variable=True, confidence=0.8),
+    proto("DNS-over-QUIC (DoQ)", "doq", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNSCrypt", "dnscrypt", min_hdr=1, variable=True, confidence=0.85),
+    proto("Oblivious DoH (ODoH)", "odoh", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Peer-to-peer / File sharing ──
+PROTOCOLS += [
+    proto("BitTorrent DHT", "bt_dht", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BitTorrent PEX", "bt_pex", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BitTorrent uTP", "bt_utp", min_hdr=20, variable=True, confidence=0.85),
+    proto("eDonkey", "edonkey", min_hdr=1, variable=True, confidence=0.85),
+    proto("Kad", "kad", min_hdr=1, variable=True, confidence=0.85),
+    proto("IPFS", "ipfs", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("libp2p Noise", "libp2p_noise", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("libp2p Yamux", "libp2p_yamux", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── QUIC applications ──
+PROTOCOLS += [
+    proto("QUIC DATAGRAM", "quic_datagram", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("WebTransport", "webtransport", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MASQUE", "masque", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("QUIC-LB", "quic_lb", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Additional Bluetooth ──
+PROTOCOLS += [
+    proto("BLE L2CAP CoC", "ble_l2cap_coc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BLE ISO", "ble_iso", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BLE CIS", "ble_cis", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BLE BIS", "ble_bis", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Bluetooth BR/EDR", "bt_bredr", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Bluetooth LMP", "bt_lmp", min_hdr=1, variable=True, confidence=0.85),
+    proto("Bluetooth Baseband", "bt_baseband", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── TSN (Time-Sensitive Networking) ──
+PROTOCOLS += [
+    proto("IEEE 802.1Qbv Gate Control", "tsn_gate", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEEE 802.1Qci PSFP", "tsn_psfp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEEE 802.1Qch CQF", "tsn_cqf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEEE 802.1CB FRER R-Tag", "frer_rtag", min_hdr=6, confidence=0.7, method="long_name"),
+    proto("DetNet", "detnet", min_hdr=1, variable=True, confidence=0.85),
+    proto("DetNet MPLS", "detnet_mpls", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DetNet IP", "detnet_ip", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Misc well-known ──
+PROTOCOLS += [
+    proto("ARPD", "arpd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CDP TLV Power", "cdp_power", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CIFS", "cifs", min_hdr=1, variable=True, confidence=0.85),
+    proto("DDP", "ddp", min_hdr=1, variable=True, confidence=0.85),
+    proto("DHCP Relay", "dhcp_relay", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DRBD", "drbd", min_hdr=1, variable=True, confidence=0.85),
+    proto("Ganglia", "ganglia", min_hdr=1, variable=True, confidence=0.85),
+    proto("Git Protocol", "git", min_hdr=1, variable=True, confidence=0.85),
+    proto("LLDP-MIB", "lldp_mib", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NAT-PMP", "nat_pmp", min_hdr=2, variable=True, confidence=0.85),
+    proto("UPnP IGD", "upnp_igd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("mDNS-SD", "dns_sd", min_hdr=12, variable=True, confidence=0.8),
+]
+
 
 def main():
     # Deduplicate and remove curated
