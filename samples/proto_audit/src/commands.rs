@@ -1572,6 +1572,115 @@ fn truncate(s: &str, max_len: usize) -> String {
     }
 }
 
+/// Show comprehensive system statistics.
+pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
+    let discovery_state = DiscoveryState::load_from_env();
+    let all_protos = discovery::all_protocols(&discovery_state);
+    let curated_table = name_mapping::protocol_table();
+
+    // Count by tier
+    let curated_count = all_protos.values().filter(|dp| dp.tier == Tier::Curated).count();
+    let discovered_count = all_protos.values().filter(|dp| dp.tier == Tier::Discovered).count();
+
+    // Source coverage
+    let with_tshark = all_protos.values().filter(|dp| dp.tshark_filter.is_some()).count();
+    let with_scapy = all_protos.values().filter(|dp| dp.scapy_class.is_some()).count();
+    let with_kernel = all_protos.values().filter(|dp| dp.kernel_struct.is_some()).count();
+
+    // Standards coverage
+    let with_rfcs = curated_table.iter().filter(|p| !p.rfc_numbers.is_empty()).count();
+    let with_ieee = curated_table.iter().filter(|p| !p.ieee_standards.is_empty()).count();
+    let with_iana = curated_table.iter().filter(|p| p.iana_registry.is_some()).count();
+    let total_rfcs: usize = curated_table.iter().map(|p| p.rfc_numbers.len()).sum();
+
+    // XDP2 proto_defs
+    let xdp2_count = paths
+        .proto_defs_dir
+        .as_ref()
+        .and_then(|dir| extractors::xdp2::scan_proto_defs_dir(dir).ok())
+        .map(|d| d.len())
+        .unwrap_or(0);
+
+    // Registry stats
+    let tshark_reg_count = discovery_state
+        .tshark
+        .as_ref()
+        .map(|r| r.protocols.len())
+        .unwrap_or(0);
+    let scapy_reg_count = discovery_state
+        .scapy
+        .as_ref()
+        .map(|r| r.classes.len())
+        .unwrap_or(0);
+    let kernel_reg_count = discovery_state
+        .kernel
+        .as_ref()
+        .map(|r| r.structs.len())
+        .unwrap_or(0);
+
+    // Decode table entries
+    let decode_table_count = 72; // From routes.rs DECODE_TABLE_MAP
+
+    if json_output {
+        let output = serde_json::json!({
+            "protocols": {
+                "total": all_protos.len(),
+                "curated": curated_count,
+                "discovered": discovered_count,
+            },
+            "source_coverage": {
+                "tshark_filter": with_tshark,
+                "scapy_class": with_scapy,
+                "kernel_struct": with_kernel,
+                "xdp2_proto_defs": xdp2_count,
+            },
+            "registries": {
+                "tshark_protocols": tshark_reg_count,
+                "scapy_classes": scapy_reg_count,
+                "kernel_structs": kernel_reg_count,
+            },
+            "standards": {
+                "protocols_with_rfcs": with_rfcs,
+                "protocols_with_ieee": with_ieee,
+                "protocols_with_iana": with_iana,
+                "total_rfc_references": total_rfcs,
+            },
+            "infrastructure": {
+                "decode_table_entries": decode_table_count,
+            },
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("Proto-Audit System Statistics\n");
+        println!("  Protocols:");
+        println!("    Total tracked:        {:>6}", all_protos.len());
+        println!("    Curated (Tier 1):     {:>6}", curated_count);
+        println!("    Discovered (Tier 2):  {:>6}", discovered_count);
+        println!();
+        println!("  Source Coverage:");
+        println!("    With tshark filter:   {:>6}", with_tshark);
+        println!("    With Scapy class:     {:>6}", with_scapy);
+        println!("    With kernel struct:   {:>6}", with_kernel);
+        println!("    XDP2 proto_defs:      {:>6}", xdp2_count);
+        println!();
+        println!("  Registries Loaded:");
+        println!("    tshark protocols:     {:>6}", tshark_reg_count);
+        println!("    Scapy classes:        {:>6}", scapy_reg_count);
+        println!("    Kernel structs:       {:>6}", kernel_reg_count);
+        println!();
+        println!("  Standards Coverage (curated):");
+        println!("    With RFC references:  {:>6}", with_rfcs);
+        println!("    With IEEE references: {:>6}", with_ieee);
+        println!("    With IANA registry:   {:>6}", with_iana);
+        println!("    Total RFC references: {:>6}", total_rfcs);
+        println!();
+        println!("  Infrastructure:");
+        println!("    Decode table entries:  {:>5}", decode_table_count);
+    }
+
+    Ok(())
+}
+
 /// Inject RFC/IEEE/IANA metadata from ProtocolNames into a ProtocolDef.
 fn inject_standards_metadata(def: &mut ir::ProtocolDef, names: &name_mapping::ProtocolNames) {
     // Add RFC references

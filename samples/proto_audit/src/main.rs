@@ -288,6 +288,16 @@ enum Commands {
         json: bool,
     },
 
+    /// Show comprehensive system statistics
+    Stats {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Show RFC/IEEE/IANA standards references for protocols
     Standards {
         /// Protocol name (or "all" for summary)
@@ -411,6 +421,7 @@ fn main() -> Result<()> {
             output,
             json,
         } => cmd_auto_match(min_confidence, output, json),
+        Commands::Stats { json, paths } => cmd_stats(json, &paths),
         Commands::Standards {
             proto,
             validate,
