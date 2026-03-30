@@ -185,6 +185,55 @@
           ls -la $out/
         '';
 
+        # Generate all C headers and compile-test with clang -target bpf
+        proto-audit-c-check = pkgs.runCommand "proto-audit-c-check" {
+          nativeBuildInputs = [
+            proto-audit-bin
+            protoAuditSources.scapyPython
+            protoAuditSources.tshark
+            pkgs.llvmPackages.clang
+          ];
+        } ''
+          mkdir -p $out/headers $out/logs
+
+          # Generate all C headers (curated tier only for compile check)
+          proto-audit generate-all --target c --tier curated \
+            --output-dir $out/headers \
+            ${protoAuditFlags} \
+            2>$out/logs/generate.log || true
+
+          echo "Generated $(ls $out/headers/*.h 2>/dev/null | wc -l) C headers"
+
+          # Compile-test each header
+          passed=0
+          failed=0
+          for h in $out/headers/*.h; do
+            [ -f "$h" ] || continue
+            base=$(basename "$h" .h)
+
+            # Create a test .c file that includes the header
+            cat > /tmp/test_$base.c <<TESTEOF
+          #include <linux/types.h>
+          #include "$h"
+          TESTEOF
+
+            if clang -fsyntax-only -target bpf \
+                -I${protoAuditSources.kernelSrc}/include \
+                -I${protoAuditSources.kernelSrc}/include/uapi \
+                -I${./src/include} \
+                -Wno-everything \
+                /tmp/test_$base.c 2>>$out/logs/compile.log; then
+              passed=$((passed + 1))
+            else
+              failed=$((failed + 1))
+              echo "FAIL: $base" >> $out/logs/failures.txt
+            fi
+          done
+
+          echo "Compile test: $passed passed, $failed failed" | tee $out/logs/summary.txt
+          echo "Compile test results in $out/logs/"
+        '';
+
         # Import development shell module
         devshell = import ./nix/devshell.nix {
           inherit pkgs lib llvmConfig compilerConfig envVars;
@@ -294,7 +343,7 @@
           # Usage: nix run .#proto-audit -- list
           #        nix run .#proto-audit -- compare --proto IPv4
           #        nix build .#proto-audit-report
-          inherit proto-audit proto-audit-bin proto-audit-report;
+          inherit proto-audit proto-audit-bin proto-audit-report proto-audit-c-check;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap
