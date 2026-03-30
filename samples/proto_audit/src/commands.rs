@@ -1564,3 +1564,217 @@ fn truncate(s: &str, max_len: usize) -> String {
         s[..max_len].to_string()
     }
 }
+
+/// Score and rank protocols by XDP2 relevance and quality.
+///
+/// Scoring axes:
+/// - **XDP2 relevance** (0–40): appears in XDP2 dispatch tables or existing proto_defs
+/// - **Source coverage** (0–30): more sources = more cross-validation potential
+/// - **Parseability** (0–20): fixed-length, byte-aligned = BPF-friendly
+/// - **Network prevalence** (0–10): IANA assignment, common protocol families
+pub fn cmd_prioritize(
+    top: usize,
+    tier: &str,
+    json_output: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    let discovery_state = DiscoveryState::load_from_env();
+    let tier_filter = TierFilter::from_str(tier);
+    let all_protos = discovery::all_protocols(&discovery_state);
+
+    // Check which protocols already have XDP2 proto_defs
+    let xdp2_protos: std::collections::HashSet<String> = paths
+        .proto_defs_dir
+        .as_ref()
+        .and_then(|dir| extractors::xdp2::scan_proto_defs_dir(dir).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|d| d.display_name.to_lowercase())
+        .collect();
+
+    // Known dispatch parent protocols (protocols that appear in DECODE_TABLE_MAP)
+    let dispatch_parents: std::collections::HashSet<&str> = [
+        "ethernet", "ipv4", "ipv6", "tcp", "udp", "sctp", "gre", "ppp",
+        "vlan", "mpls", "llc", "snap", "sll",
+    ]
+    .into();
+
+    let mut scored: Vec<(String, f64, PriorityBreakdown)> = all_protos
+        .iter()
+        .filter(|(_, dp)| tier_filter.matches(dp.tier))
+        .map(|(name, dp)| {
+            let breakdown = score_protocol(name, dp, &xdp2_protos, &dispatch_parents);
+            let total = breakdown.xdp2_relevance
+                + breakdown.source_coverage
+                + breakdown.parseability
+                + breakdown.prevalence;
+            (name.clone(), total, breakdown)
+        })
+        .collect();
+
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(top);
+
+    if json_output {
+        let entries: Vec<serde_json::Value> = scored
+            .iter()
+            .enumerate()
+            .map(|(i, (name, total, bd))| {
+                serde_json::json!({
+                    "rank": i + 1,
+                    "protocol": name,
+                    "score": total,
+                    "xdp2_relevance": bd.xdp2_relevance,
+                    "source_coverage": bd.source_coverage,
+                    "parseability": bd.parseability,
+                    "prevalence": bd.prevalence,
+                    "has_xdp2_proto_def": bd.has_xdp2,
+                    "has_kernel_struct": bd.has_kernel,
+                    "tier": bd.tier,
+                })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&entries)?);
+    } else {
+        println!(
+            "  {:<4}  {:<25}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:<6}  {}",
+            "Rank", "Protocol", "Total", "XDP2", "Src", "Parse", "Prev", "Tier", "Flags"
+        );
+        println!(
+            "  {}  {}  {}  {}  {}  {}  {}  {}  {}",
+            "-".repeat(4),
+            "-".repeat(25),
+            "-".repeat(5),
+            "-".repeat(5),
+            "-".repeat(5),
+            "-".repeat(5),
+            "-".repeat(5),
+            "-".repeat(6),
+            "-".repeat(15)
+        );
+
+        for (i, (name, total, bd)) in scored.iter().enumerate() {
+            let mut flags = Vec::new();
+            if bd.has_xdp2 {
+                flags.push("xdp2");
+            }
+            if bd.has_kernel {
+                flags.push("kern");
+            }
+            if bd.is_fixed_length {
+                flags.push("fixed");
+            }
+
+            println!(
+                "  {:<4}  {:<25}  {:>5.1}  {:>5.1}  {:>5.1}  {:>5.1}  {:>5.1}  {:<6}  {}",
+                i + 1,
+                truncate(name, 25),
+                total,
+                bd.xdp2_relevance,
+                bd.source_coverage,
+                bd.parseability,
+                bd.prevalence,
+                bd.tier,
+                flags.join(", "),
+            );
+        }
+        println!("\n  Showing top {} of {} protocols", scored.len(), all_protos.len());
+    }
+
+    Ok(())
+}
+
+struct PriorityBreakdown {
+    xdp2_relevance: f64,
+    source_coverage: f64,
+    parseability: f64,
+    prevalence: f64,
+    has_xdp2: bool,
+    has_kernel: bool,
+    is_fixed_length: bool,
+    tier: String,
+}
+
+fn score_protocol(
+    name: &str,
+    dp: &DiscoveredProtocol,
+    xdp2_protos: &std::collections::HashSet<String>,
+    dispatch_parents: &std::collections::HashSet<&str>,
+) -> PriorityBreakdown {
+    let lower = name.to_lowercase();
+
+    // XDP2 relevance (0–40)
+    let has_xdp2 = xdp2_protos.contains(&lower);
+    let is_dispatch_parent = dispatch_parents.contains(lower.as_str());
+    let xdp2_relevance = if has_xdp2 && is_dispatch_parent {
+        40.0 // Existing XDP2 protocol + dispatch parent
+    } else if has_xdp2 {
+        35.0 // Existing XDP2 protocol
+    } else if is_dispatch_parent {
+        30.0 // Not in XDP2 yet, but is a dispatch parent
+    } else if dp.kernel_struct.is_some() {
+        20.0 // Has kernel struct = easy to generate
+    } else if dp.tier == Tier::Curated {
+        15.0 // Curated but no kernel struct
+    } else {
+        5.0 // Discovered only
+    };
+
+    // Source coverage (0–30)
+    let mut source_count = 0u32;
+    if dp.tshark_filter.is_some() {
+        source_count += 1;
+    }
+    if dp.scapy_class.is_some() {
+        source_count += 1;
+    }
+    if dp.kernel_struct.is_some() {
+        source_count += 1;
+    }
+    if dp.tier == Tier::Curated {
+        source_count += 1; // curated = at least one additional source
+    }
+    let source_coverage = (source_count as f64 / 4.0) * 30.0;
+
+    // Parseability (0–20): fixed-length protocols are BPF-friendly
+    let is_fixed = dp.min_header_bytes > 0;
+    let has_fields = dp.estimated_field_count > 0 || dp.tier == Tier::Curated;
+    let parseability = if is_fixed && has_fields {
+        20.0
+    } else if has_fields {
+        12.0
+    } else if is_fixed {
+        8.0
+    } else {
+        2.0
+    };
+
+    // Prevalence (0–10): common protocol families score higher
+    let prevalence = if matches!(
+        lower.as_str(),
+        "ethernet" | "ipv4" | "ipv6" | "tcp" | "udp" | "arp" | "icmp" | "dns" | "dhcp" | "vlan"
+    ) {
+        10.0
+    } else if matches!(
+        lower.as_str(),
+        "gre" | "mpls" | "vxlan" | "geneve" | "sctp" | "icmpv6" | "igmp" | "ospf" | "bgp"
+        | "rip" | "ppp" | "pppoe" | "http" | "tls" | "stp" | "lldp" | "ntp"
+    ) {
+        7.0
+    } else if dp.tier == Tier::Curated {
+        4.0
+    } else {
+        1.0
+    };
+
+    PriorityBreakdown {
+        xdp2_relevance,
+        source_coverage,
+        parseability,
+        prevalence,
+        has_xdp2,
+        has_kernel: dp.kernel_struct.is_some(),
+        is_fixed_length: is_fixed,
+        tier: dp.tier.to_string(),
+    }
+}

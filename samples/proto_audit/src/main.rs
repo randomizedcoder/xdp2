@@ -288,6 +288,24 @@ enum Commands {
         json: bool,
     },
 
+    /// Rank protocols by XDP2 relevance, source coverage, and parseability
+    Prioritize {
+        /// Show top N protocols (default: 100)
+        #[arg(long, default_value = "100")]
+        top: usize,
+
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "all")]
+        tier: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Generate PCAP, feed to tshark, compare IR vs tshark round-trip
     Validate {
         /// Protocol name (canonical: IPv4, TCP, etc.)
@@ -378,6 +396,12 @@ fn main() -> Result<()> {
             output,
             json,
         } => cmd_auto_match(min_confidence, output, json),
+        Commands::Prioritize {
+            top,
+            tier,
+            json,
+            paths,
+        } => cmd_prioritize(top, &tier, json, &paths),
         Commands::Validate {
             proto,
             tier,
