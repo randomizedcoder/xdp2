@@ -222,6 +222,73 @@ const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
     ("mac-lte.rnti-type",   "LTE MAC",        "rnti_type"),
     ("pdcp-lte.direction",  "LTE PDCP",       "direction"),
     ("mac-nr.rnti-type",    "5G NR MAC",      "rnti_type"),
+    // ── Fibre Channel / SAN ──
+    ("fcoe.ver",            "FCoE",           "version"),
+    ("fip.opcode",          "FIP",            "opcode"),
+    ("fcels.opcode",        "FC ELS",         "opcode"),
+    ("fcct.revision",       "FC CT",          "revision"),
+    // ── Windows / DCERPC ──
+    ("nbss.type",           "NBSS",           "type"),
+    ("smb.cmd",             "SMB",            "command"),
+    ("smb2.cmd",            "SMB2",           "command"),
+    ("dcerpc.opnum",        "DCE/RPC",        "opnum"),
+    ("browser.command",     "BROWSER",        "command"),
+    // ── ASN.1 / OSI ──
+    ("acse.oid",            "ACSE",           "oid"),
+    ("pres.context_id",     "PRES",           "context_id"),
+    ("cotp.pdu_type",       "COTP",           "pdu_type"),
+    ("tpkt.version",        "TPKT",           "version"),
+    // ── VoIP extended ──
+    ("iax2.type",           "IAX2",           "type"),
+    ("skinny.msg_id",       "Skinny SCCP",    "message_id"),
+    ("mgcp.req_verb",       "MGCP",           "verb"),
+    ("rtsp.method",         "RTSP",           "method"),
+    // ── GTP extended ──
+    ("gtpv1.message_type",  "GTPv1-C",        "message_type"),
+    ("gtp.ext_hdr.type",    "GTP_U",          "ext_header_type"),
+    // ── Automotive ──
+    ("someip.messageid",    "SOME/IP",        "message_id"),
+    ("doip.type",           "DoIP",           "type"),
+    ("uds.service",         "UDS",            "service_id"),
+    ("can.id",              "CAN",            "id"),
+    ("j1939.pgn",           "SAE J1939",      "pgn"),
+    // ── IEC / Power ──
+    ("goose.appid",         "IEC 61850 GOOSE", "appid"),
+    ("sv.appid",            "IEC 61850 SV",   "appid"),
+    ("mms.confirmedServiceRequest", "IEC 61850 MMS", "service"),
+    ("dlms.type",           "DLMS/COSEM",     "type"),
+    // ── PPP extensions ──
+    ("ppp_chap.code",       "PPP CHAP",       "code"),
+    ("ppp_pap.code",        "PPP PAP",        "code"),
+    ("ppp_ccp.code",        "PPP CCP",        "code"),
+    ("ppp_ipv6cp.code",     "PPP IPv6CP",     "code"),
+    // ── ISDN / Legacy ──
+    ("q931.message_type",   "Q.931",          "message_type"),
+    ("q921.control",        "Q.921",          "control"),
+    ("lapb.control",        "LAPB",           "control"),
+    ("lapd.control",        "LAPD",           "control"),
+    // ── ATM ──
+    ("aal5.uu",             "AAL5",           "uu"),
+    ("atm.vpi",             "ATM",            "vpi"),
+    // ── Application extended ──
+    ("websocket.opcode",    "WebSocket",      "opcode"),
+    ("ajp13.type",          "AJP13",          "type"),
+    ("memcache.opcode",     "Memcached",      "opcode"),
+    ("irc.command",         "IRC",            "command"),
+    ("xmpp.type",           "XMPP",           "type"),
+    ("ftp.request.command",  "FTP",           "command"),
+    ("pop.command",         "POP",            "command"),
+    ("imap.command",        "IMAP",           "command"),
+    // ── Satellite / Space ──
+    ("ccsds.version",       "CCSDS Space Packet", "version"),
+    // ── Multimedia ──
+    ("mp2t.pid",            "MPEG-TS",        "pid"),
+    ("h264.nal_unit_type",  "H.264 NAL",      "nal_unit_type"),
+    ("h265.nal_unit_type",  "H.265 NAL",      "nal_unit_type"),
+    // ── Network Monitoring ──
+    ("sflow.sample_type",   "sFlow",          "sample_type"),
+    ("ipfix.version",       "IPFIX",          "version"),
+    ("bmp.type",            "BMP",            "type"),
 ];
 
 /// Number of entries in the decode table map.
