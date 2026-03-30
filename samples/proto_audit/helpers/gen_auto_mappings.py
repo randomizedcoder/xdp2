@@ -471,7 +471,7 @@ PROTOCOLS += [
     proto("MSRPC", "msrpc", min_hdr=16, variable=True, confidence=0.8, method="long_name"),
     proto("NBSS", "nbss", min_hdr=4, confidence=0.9),
     proto("NetBIOS Datagram", "nbdgm", min_hdr=10, variable=True, confidence=0.9),
-    proto("PPTP", "pptp", scapy="PPTP", min_hdr=12, variable=True, confidence=0.9),
+    proto("PPTP", "pptp", scapy="PPTP", min_hdr=12, variable=True, confidence=0.9, kernel_struct="pptp_addr", kernel_header="linux/if_pppox.h"),
     proto("L2F", "l2f", min_hdr=6, variable=True, confidence=0.85),
     proto("EGP", "egp", min_hdr=10, confidence=0.9),
     proto("IGRP", "igrp", min_hdr=12, variable=True, confidence=0.85),
@@ -1010,7 +1010,7 @@ PROTOCOLS += [
 
 # ── Fibre Channel / SAN ──
 PROTOCOLS += [
-    proto("FCoE", "fcoe", scapy="FCoE", min_hdr=14, variable=True, confidence=0.85),
+    proto("FCoE", "fcoe", scapy="FCoE", min_hdr=14, variable=True, confidence=0.85, kernel_struct="fcoe_hdr", kernel_header="uapi/scsi/fc/fc_fcoe.h"),
     proto("FIP", "fip", scapy="FIP", min_hdr=10, variable=True, confidence=0.85),
     proto("FC ELS", "fcels", min_hdr=4, variable=True, confidence=0.8),
     proto("FC NS", "fcns", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
@@ -1247,7 +1247,7 @@ PROTOCOLS += [
     proto("IEEE 1905.1", "ieee1905", min_hdr=1, variable=True, confidence=0.8),
     proto("TIPC", "tipc", min_hdr=28, variable=True, confidence=0.85),
     proto("RDP", "rdp", scapy="RDP", min_hdr=1, variable=True, confidence=0.85),
-    proto("PPTP", "pptp", scapy="PPTP", min_hdr=12, variable=True, confidence=0.85),
+    proto("PPTP", "pptp", scapy="PPTP", min_hdr=12, variable=True, confidence=0.85, kernel_struct="pptp_addr", kernel_header="linux/if_pppox.h"),
     proto("L2F", "l2f", min_hdr=8, variable=True, confidence=0.8),
     proto("TZSP", "tzsp", min_hdr=4, variable=True, confidence=0.85),
     proto("NetFlow v5", "netflow5", min_hdr=24, variable=True, confidence=0.8),

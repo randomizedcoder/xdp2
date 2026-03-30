@@ -5283,6 +5283,8 @@
       "canonical": "PPTP",
       "tshark": "pptp",
       "scapy": "PPTP",
+      "kernel_struct": "pptp_addr",
+      "kernel_header": "linux/if_pppox.h",
       "min_header_bytes": 12,
       "variable": true,
       "confidence": 0.9,
