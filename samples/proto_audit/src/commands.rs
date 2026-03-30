@@ -1722,8 +1722,50 @@ fn classify_xdp2_tier(name: &str, dp: &DiscoveredProtocol) -> &'static str {
     "4-exclude"
 }
 
-/// Inject RFC/IEEE/IANA metadata from ProtocolNames into a ProtocolDef.
+/// Infer protocol layer from canonical name (avoids needing per-protocol annotation).
+fn infer_protocol_layer(name: &str) -> Option<ir::ProtocolLayer> {
+    let lower = name.to_lowercase();
+    match lower.as_str() {
+        // L2
+        "ethernet" | "vlan" | "qinq" | "pbb" | "stp" | "rstp" | "lldp" | "lacp"
+        | "ieee802.1x" | "macsec" | "sll" | "llc" | "snap" | "pppoe" => {
+            Some(ir::ProtocolLayer::L2)
+        }
+        // L3
+        "ipv4" | "ipv6" | "arp" | "rarp" | "icmp" | "icmpv6" | "igmp"
+        | "ipv6_routing" | "ipv6_fragment" | "ipv6_hopbyhop" | "ipv6_destination"
+        | "ipv6_eh" => Some(ir::ProtocolLayer::L3),
+        // L4
+        "tcp" | "udp" | "sctp" | "dccp" | "udplite" => Some(ir::ProtocolLayer::L4),
+        // Tunnel
+        "gre" | "vxlan" | "geneve" | "mpls" | "nsh" | "gtp_u" | "gtp_c" | "l2tp"
+        | "wireguard" | "lisp" | "erspan" | "ppp" => Some(ir::ProtocolLayer::Tunnel),
+        // Security
+        "esp" | "ah" | "ipsec" | "tls" | "dtls" | "ikev2" | "eap" => {
+            Some(ir::ProtocolLayer::Security)
+        }
+        // Management
+        "bgp" | "ospf" | "isis" | "rip" | "pim" | "bfd" | "ldp" | "rsvp"
+        | "snmp" | "radius" | "diameter" | "ntp" => Some(ir::ProtocolLayer::Management),
+        // Industrial / IoT
+        "mqtt" | "coap" | "modbus_tcp" | "bacnet" | "dnp3" | "zigbee_nwk"
+        | "profinet" | "ethercat" | "can" | "can_fd" => Some(ir::ProtocolLayer::Industrial),
+        // Storage
+        "fc" | "iscsi" | "nvme_tcp" | "roce" => Some(ir::ProtocolLayer::Storage),
+        // L7
+        "dns" | "dhcp" | "dhcpv6" | "http" | "http2" | "sip" | "rtp" | "rtcp"
+        | "stun" | "amqp" | "kafka" => Some(ir::ProtocolLayer::L7),
+        _ => None,
+    }
+}
+
+/// Inject RFC/IEEE/IANA metadata and layer classification into a ProtocolDef.
 fn inject_standards_metadata(def: &mut ir::ProtocolDef, names: &name_mapping::ProtocolNames) {
+    // Infer protocol layer
+    if def.layer.is_none() {
+        def.layer = infer_protocol_layer(names.canonical);
+    }
+
     // Add RFC references
     for (i, rfc_num) in names.rfc_numbers.iter().enumerate() {
         let relationship = if i == 0 {
