@@ -8,6 +8,72 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// Standards body that published a protocol specification.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum StandardBody {
+    /// IETF Request for Comments
+    Rfc,
+    /// IEEE standard
+    Ieee,
+    /// IANA registry
+    Iana,
+    /// Other standards body (ITU, ETSI, etc.)
+    Other(String),
+}
+
+/// Relationship between a standard and a protocol definition.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum StandardRelationship {
+    /// This standard defines the protocol
+    Defines,
+    /// This standard updates the protocol
+    Updates,
+    /// This standard obsoletes a prior definition
+    Obsoletes,
+    /// This is an IANA registry reference
+    Registry,
+}
+
+/// A reference to an authoritative standard (RFC, IEEE, IANA registry).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StandardRef {
+    /// Standard identifier: "RFC 791", "IEEE 802.1Q-2022", etc.
+    pub id: String,
+    /// Which standards body
+    pub body: StandardBody,
+    /// Relevant section within the standard
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+    /// URL to the standard
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// How this standard relates to the protocol
+    pub relationship: StandardRelationship,
+}
+
+/// Protocol layer classification.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ProtocolLayer {
+    /// Data link layer (Ethernet, VLAN, etc.)
+    L2,
+    /// Network layer (IPv4, IPv6, etc.)
+    L3,
+    /// Transport layer (TCP, UDP, etc.)
+    L4,
+    /// Session/presentation/application
+    L7,
+    /// Tunneling / encapsulation
+    Tunnel,
+    /// Security (IPsec, MACsec, etc.)
+    Security,
+    /// Management / control plane
+    Management,
+    /// Industrial / IoT
+    Industrial,
+    /// Storage / SAN
+    Storage,
+}
+
 /// A single protocol header field.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FieldDef {
@@ -194,6 +260,9 @@ impl ProtocolDef {
             identifiers: BTreeMap::new(),
             sources: BTreeMap::new(),
             generation_source: None,
+            standards: vec![],
+            iana_registries: BTreeMap::new(),
+            layer: None,
         }
     }
 
@@ -224,6 +293,21 @@ impl ProtocolDef {
 
     pub fn with_source(mut self, name: impl Into<String>, info: SourceInfo) -> Self {
         self.sources.insert(name.into(), info);
+        self
+    }
+
+    pub fn with_standards(mut self, standards: Vec<StandardRef>) -> Self {
+        self.standards = standards;
+        self
+    }
+
+    pub fn with_iana_registry(mut self, field: impl Into<String>, url: impl Into<String>) -> Self {
+        self.iana_registries.insert(field.into(), url.into());
+        self
+    }
+
+    pub fn with_layer(mut self, layer: ProtocolLayer) -> Self {
+        self.layer = Some(layer);
         self
     }
 }
@@ -273,6 +357,18 @@ pub struct ProtocolDef {
     /// How this IR was generated: "curated", "scapy-batch", "tshark-pdml", "tshark-registry"
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generation_source: Option<String>,
+
+    /// Normative standard references (RFCs, IEEE standards, IANA registries)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub standards: Vec<StandardRef>,
+
+    /// Dispatch field → IANA registry URL mapping
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub iana_registries: BTreeMap<String, String>,
+
+    /// Protocol layer classification
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer: Option<ProtocolLayer>,
 }
 
 /// What one source says about this protocol.

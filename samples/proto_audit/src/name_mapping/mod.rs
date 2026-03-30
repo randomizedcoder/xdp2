@@ -4,6 +4,7 @@
 //! provides a canonical mapping table so extractors can normalize protocol
 //! names to a single canonical form.
 
+pub mod auto_table;
 mod table;
 
 use std::collections::HashMap;
@@ -35,6 +36,12 @@ pub struct ProtocolNames {
     pub min_header_bytes: u32,
     /// Whether header length is variable
     pub variable_length: bool,
+    /// Defining and updating RFC numbers (first = defines, rest = updates)
+    pub rfc_numbers: &'static [u32],
+    /// IEEE standard identifiers (e.g., "802.1Q-2022")
+    pub ieee_standards: &'static [&'static str],
+    /// IANA registry name for dispatch field (e.g., "protocol-numbers")
+    pub iana_registry: Option<&'static str>,
 }
 
 impl ProtocolNames {
@@ -54,6 +61,9 @@ impl ProtocolNames {
             libpcap_file: None,
             min_header_bytes,
             variable_length: false,
+            rfc_numbers: &[],
+            ieee_standards: &[],
+            iana_registry: None,
         }
     }
 
@@ -101,6 +111,24 @@ impl ProtocolNames {
 
     pub const fn variable(mut self) -> Self {
         self.variable_length = true;
+        self
+    }
+
+    /// Set RFC numbers: first = defining RFC, rest = updates.
+    pub const fn rfcs(mut self, numbers: &'static [u32]) -> Self {
+        self.rfc_numbers = numbers;
+        self
+    }
+
+    /// Set IEEE standard identifiers.
+    pub const fn ieee(mut self, standards: &'static [&'static str]) -> Self {
+        self.ieee_standards = standards;
+        self
+    }
+
+    /// Set IANA registry name for dispatch field.
+    pub const fn iana_registry(mut self, name: &'static str) -> Self {
+        self.iana_registry = Some(name);
         self
     }
 }
@@ -238,5 +266,44 @@ mod tests {
                 p.canonical
             );
         }
+    }
+
+    #[test]
+    fn test_rfc_metadata() {
+        let p = find_by_canonical("IPv4").unwrap();
+        assert!(p.rfc_numbers.contains(&791));
+        assert!(p.rfc_numbers.contains(&2474));
+        assert_eq!(p.iana_registry, Some("protocol-numbers"));
+    }
+
+    #[test]
+    fn test_ieee_metadata() {
+        let p = find_by_canonical("VLAN").unwrap();
+        assert!(!p.ieee_standards.is_empty());
+        assert!(p.ieee_standards.contains(&"802.1Q-2022"));
+    }
+
+    #[test]
+    fn test_tcp_rfcs() {
+        let p = find_by_canonical("TCP").unwrap();
+        // TCP should have RFC 9293 (current defining) and RFC 793 (original)
+        assert!(p.rfc_numbers.contains(&9293));
+        assert!(p.rfc_numbers.contains(&793));
+        assert_eq!(p.iana_registry, Some("service-name-port-numbers"));
+    }
+
+    #[test]
+    fn test_protocols_without_rfcs() {
+        // Proprietary/vendor protocols should have empty RFC lists
+        let p = find_by_canonical("EtherCAT").unwrap();
+        assert!(p.rfc_numbers.is_empty());
+        assert!(p.ieee_standards.is_empty());
+    }
+
+    #[test]
+    fn test_auto_table_loads() {
+        let mappings = auto_table::load_auto_mappings();
+        // Just verify it loads without panic
+        let _ = mappings.protocols.len();
     }
 }

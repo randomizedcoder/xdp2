@@ -52,6 +52,12 @@ pub struct DiscoveredProtocol {
     pub estimated_field_count: u32,
     /// Minimum header bytes (from curated table or estimated)
     pub min_header_bytes: u32,
+    /// Cross-source matching confidence (0.0–1.0, 1.0 = exact curated match)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub match_confidence: Option<f32>,
+    /// How the cross-source match was made (e.g., "exact_normalized", "decode_table", "fuzzy")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub match_method: Option<String>,
 }
 
 /// The tier filter from CLI --tier flag.
@@ -163,6 +169,8 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
             tier: Tier::Curated,
             estimated_field_count: 0,
             min_header_bytes: p.min_header_bytes,
+            match_confidence: Some(1.0),
+            match_method: Some("curated".to_string()),
         };
         result.insert(p.canonical.to_string(), dp);
     }
@@ -206,6 +214,8 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
                 tier: Tier::Discovered,
                 estimated_field_count: proto.field_count,
                 min_header_bytes: 0, // Unknown for discovered
+                match_confidence: None,
+                match_method: None,
             };
             result.insert(canonical, dp);
         }
@@ -239,6 +249,8 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
                 tier: Tier::Discovered,
                 estimated_field_count: 0,
                 min_header_bytes: 0,
+                match_confidence: None,
+                match_method: None,
             };
             result.insert(canonical, dp);
         }
