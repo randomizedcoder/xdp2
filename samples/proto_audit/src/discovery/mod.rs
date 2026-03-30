@@ -24,6 +24,30 @@ pub enum Tier {
     Discovered,
 }
 
+/// Validation quality tier for a protocol definition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub enum ValidationTier {
+    /// Round-trip validated (IR → PCAP → tshark → IR matches)
+    Gold,
+    /// 2+ independent sources agree on field layout
+    Silver,
+    /// Single-source, self-consistent (offsets monotonic, no gaps)
+    Bronze,
+    /// Discovered but not yet verified
+    Unvalidated,
+}
+
+impl std::fmt::Display for ValidationTier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationTier::Gold => write!(f, "Gold"),
+            ValidationTier::Silver => write!(f, "Silver"),
+            ValidationTier::Bronze => write!(f, "Bronze"),
+            ValidationTier::Unvalidated => write!(f, "Unvalidated"),
+        }
+    }
+}
+
 impl std::fmt::Display for Tier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -58,6 +82,9 @@ pub struct DiscoveredProtocol {
     /// How the cross-source match was made (e.g., "exact_normalized", "decode_table", "fuzzy")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub match_method: Option<String>,
+    /// Validation quality tier (Gold/Silver/Bronze/Unvalidated)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation_tier: Option<ValidationTier>,
 }
 
 /// The tier filter from CLI --tier flag.
@@ -171,6 +198,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
             min_header_bytes: p.min_header_bytes,
             match_confidence: Some(1.0),
             match_method: Some("curated".to_string()),
+            validation_tier: None,
         };
         result.insert(p.canonical.to_string(), dp);
     }
@@ -216,6 +244,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
                 min_header_bytes: 0, // Unknown for discovered
                 match_confidence: None,
                 match_method: None,
+                validation_tier: None,
             };
             result.insert(canonical, dp);
         }
@@ -251,6 +280,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
                 min_header_bytes: 0,
                 match_confidence: None,
                 match_method: None,
+                validation_tier: None,
             };
             result.insert(canonical, dp);
         }
@@ -281,6 +311,30 @@ fn sanitize_canonical(long_name: &str) -> String {
     }
 
     name.to_string()
+}
+
+/// Compute the validation tier for a protocol based on audit results.
+///
+/// - Gold: round-trip validated (needs explicit marking from validate command)
+/// - Silver: 2+ sources agree on field layout
+/// - Bronze: single source, self-consistent fields
+/// - Unvalidated: no extracted fields
+pub fn compute_validation_tier(
+    sources_present: usize,
+    fields_agree: u32,
+    total_fields: u32,
+    is_roundtrip_validated: bool,
+) -> ValidationTier {
+    if is_roundtrip_validated && total_fields > 0 {
+        return ValidationTier::Gold;
+    }
+    if sources_present >= 2 && fields_agree > 0 {
+        return ValidationTier::Silver;
+    }
+    if total_fields > 0 {
+        return ValidationTier::Bronze;
+    }
+    ValidationTier::Unvalidated
 }
 
 #[cfg(test)]

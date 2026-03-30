@@ -30,6 +30,14 @@ let
     tar xf $src --strip-components=1 -C $out --wildcards '*/include/*'
   '';
 
+  # PacketLife.net captures: ~100 single-protocol PCAPs (clean, one protocol each)
+  packetlifePcaps = pkgs.fetchFromGitHub {
+    owner = "epiecs";
+    repo = "packetlife-backup";
+    rev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";
+    hash = "sha256-9ruDO6fB/Smtx5tsHXCHF/EUPI7/Y0naxgrrJH1PFI8=";
+  };
+
   # Helper: collect all .patch files from a directory.
   patchesIn = dir:
     map (f: dir + "/${f}")
@@ -115,5 +123,44 @@ in
     mkdir -p $out
     python3 ${../samples/proto_audit/helpers/gen_pcap_templates.py} \
       --output-dir $out
+  '';
+
+  # ── Public PCAP collections for cross-source audit ──
+
+  # Merged PCAP corpus: runs tshark -T pdml over all public PCAPs at build time,
+  # producing a pre-extracted JSON cache of protocol fields for cross-source audit.
+  pcapCorpus = pkgs.runCommand "pcap-corpus" {
+    nativeBuildInputs = [ tshark pkgs.python314 ];
+    inherit packetlifePcaps;
+  } ''
+    mkdir -p $out/pdml
+
+    echo "Extracting PDML from PacketLife PCAPs..."
+    found=0
+    extracted=0
+    for f in $packetlifePcaps/captures/*.cap \
+             $packetlifePcaps/captures/*.pcap \
+             $packetlifePcaps/captures/*.pcapng; do
+      [ -f "$f" ] || continue
+      found=$((found + 1))
+      base=$(basename "$f" | sed 's/\.[^.]*$//')
+      # Extract up to 5 packets per file, ignore errors (some files may be malformed)
+      if ${tshark}/bin/tshark -r "$f" -T pdml -c 5 > "$out/pdml/$base.xml" 2>/dev/null; then
+        if [ -s "$out/pdml/$base.xml" ]; then
+          extracted=$((extracted + 1))
+        else
+          rm -f "$out/pdml/$base.xml"
+        fi
+      else
+        rm -f "$out/pdml/$base.xml"
+      fi
+    done
+    echo "PacketLife: found $found files, extracted $extracted PDML files"
+
+    # Build summary: list all unique dissector names found across all PDML files
+    echo "Building protocol summary..."
+    python3 ${../samples/proto_audit/helpers/summarize_corpus.py} \
+      --pdml-dir $out/pdml \
+      --output $out/corpus_summary.json
   '';
 }
