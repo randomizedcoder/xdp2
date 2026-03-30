@@ -477,6 +477,198 @@ PROTOCOLS += [
     proto("IGRP", "igrp", min_hdr=12, variable=True, confidence=0.85),
 ]
 
+# ── ASN.1 / Encoding ──
+PROTOCOLS += [
+    proto("ASN.1 BER", "ber", min_hdr=2, variable=True, confidence=0.9),
+    proto("ASN.1 PER", "per", min_hdr=1, variable=True, confidence=0.85),
+    proto("ASN.1 OER", "oer", min_hdr=1, variable=True, confidence=0.8),
+    proto("LDAP Bind", "ldap.bind", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LDAP Search", "ldap.search", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Multicast ──
+PROTOCOLS += [
+    proto("PGM", "pgm", min_hdr=16, variable=True, confidence=0.9,
+          kernel_struct="pgm_header", kernel_header="linux/pgm.h"),
+    proto("NORM", "norm", min_hdr=8, variable=True, confidence=0.85),
+    proto("LDP Multipoint", "ldp.mp", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("IGMP Snooping", "igmp.snoop", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("MLD Snooping", "mld.snoop", min_hdr=8, confidence=0.7, method="long_name"),
+    proto("SSM Mapping", "ssm", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("MSDP", "msdp", min_hdr=3, variable=True, confidence=0.85),
+    proto("BIDIR-PIM", "bidir-pim", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Grid / HPC ──
+PROTOCOLS += [
+    proto("MPI", "mpi", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("UCX", "ucx", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("Lustre", "lustre", min_hdr=4, variable=True, confidence=0.85),
+    proto("GPFS", "gpfs", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("GlusterFS", "glusterfs", min_hdr=4, variable=True, confidence=0.85),
+    proto("pNFS", "pnfs", min_hdr=1, variable=True, confidence=0.8),
+    proto("iWARP", "iwarp", min_hdr=4, variable=True, confidence=0.85),
+    proto("RDMA CM", "iwarp-mpa", min_hdr=16, variable=True, confidence=0.85),
+]
+
+# ── Streaming / Media ──
+PROTOCOLS += [
+    proto("MPEG-DASH", "dash", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("HLS", "hls", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RTMP", "rtmp", min_hdr=12, variable=True, confidence=0.85),
+    proto("RTMPS", "rtmps", min_hdr=12, variable=True, confidence=0.8, method="long_name"),
+    proto("RTMFP", "rtmfp", min_hdr=4, variable=True, confidence=0.85),
+    proto("WebRTC DTLS", "webrtc.dtls", min_hdr=13, variable=True, confidence=0.7, method="long_name"),
+    proto("SCTP DTLS", "sctp.dtls", min_hdr=13, variable=True, confidence=0.7, method="long_name"),
+    proto("ICE/STUN", "stun.ice", min_hdr=20, variable=True, confidence=0.7, method="long_name"),
+    proto("TURN", "turn", min_hdr=20, variable=True, confidence=0.85),
+    proto("RTP MIDI", "rtp-midi", min_hdr=4, variable=True, confidence=0.85),
+    proto("AES67", "aes67", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("Dante Audio", "dante", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("NDI", "ndi", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("SMPTE ST 2110", "smpte2110", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Cisco / Vendor protocols ──
+PROTOCOLS += [
+    proto("Cisco ISL", "isl", min_hdr=26, confidence=0.85),
+    proto("Cisco PVST", "pvst", min_hdr=4, variable=True, confidence=0.85),
+    proto("Cisco GLBP", "glbp", min_hdr=12, variable=True, confidence=0.85),
+    proto("Cisco WCCP", "wccp", min_hdr=8, variable=True, confidence=0.85),
+    proto("Cisco FabricPath", "fabricpath", min_hdr=16, confidence=0.85),
+    proto("Cisco OTV", "otv", min_hdr=8, confidence=0.85),
+    proto("Cisco LISP", "lisp.cisco", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco vPC", "vpc", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco Smart Install", "smartinstall", min_hdr=8, variable=True, confidence=0.8),
+    proto("Cisco ACI", "aci", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("Juniper JNPR", "juniper", min_hdr=6, variable=True, confidence=0.85),
+    proto("Arista EOS", "arista_eos", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("Nokia SROS", "sros", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("VMware VDP", "vmware_vdp", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("Hyper-V VMBus", "vmbus", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── ICS / Building Automation extended ──
+PROTOCOLS += [
+    proto("BACnet/IP", "bacnet.ip", min_hdr=10, variable=True, confidence=0.8, method="decode_table"),
+    proto("BACnet MSTP", "bacnet.mstp", min_hdr=8, variable=True, confidence=0.8, method="decode_table"),
+    proto("LonTalk", "lon", min_hdr=6, variable=True, confidence=0.85),
+    proto("M-Bus", "mbus", min_hdr=4, variable=True, confidence=0.85),
+    proto("DALI-2", "dali2", min_hdr=2, confidence=0.7, method="long_name"),
+    proto("ZigBee Green Power", "zbee_gp", min_hdr=1, variable=True, confidence=0.85),
+    proto("Z-Wave S2", "zwave.s2", min_hdr=10, variable=True, confidence=0.7, method="long_name"),
+    proto("Bluetooth Mesh", "btmesh", min_hdr=9, variable=True, confidence=0.85),
+    proto("Thread 1.3", "thread.1.3", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Power / Energy ──
+PROTOCOLS += [
+    proto("IEEE C37.118 Synchrophasor", "synchrophasor", min_hdr=14, variable=True, confidence=0.85),
+    proto("IEEE 2030.5 SEP", "sep2", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OpenADR", "openadr", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DLMS/COSEM", "dlms", min_hdr=8, variable=True, confidence=0.85),
+    proto("IEC 62056 OBIS", "obis", min_hdr=6, variable=True, confidence=0.8),
+    proto("IEC 62351", "iec62351", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNP3 Secure Auth", "dnp3.sa", min_hdr=10, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Aviation / Aerospace ──
+PROTOCOLS += [
+    proto("ARINC 429", "arinc429", min_hdr=4, confidence=0.85),
+    proto("ARINC 664 AFDX", "afdx", min_hdr=14, confidence=0.85),
+    proto("MIL-STD-1553", "milstd1553", min_hdr=3, confidence=0.85),
+    proto("SpaceWire", "spacewire", min_hdr=4, variable=True, confidence=0.8),
+    proto("CCSDS", "ccsds", min_hdr=6, variable=True, confidence=0.85),
+    proto("ADS-B", "adsb", min_hdr=14, confidence=0.85),
+    proto("ACARS", "acars", min_hdr=1, variable=True, confidence=0.85),
+    proto("VDL Mode 2", "vdl2", min_hdr=3, variable=True, confidence=0.8),
+]
+
+# ── Medical ──
+PROTOCOLS += [
+    proto("DICOM", "dicom", min_hdr=6, variable=True, confidence=0.9),
+    proto("HL7 v2", "hl7", min_hdr=1, variable=True, confidence=0.85),
+    proto("FHIR", "fhir", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IHE XDS", "xds", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Financial ──
+PROTOCOLS += [
+    proto("FIX", "fix", min_hdr=1, variable=True, confidence=0.85),
+    proto("FAST", "fast", min_hdr=1, variable=True, confidence=0.85),
+    proto("OUCH", "ouch", min_hdr=1, variable=True, confidence=0.8),
+    proto("ITCH", "itch", min_hdr=1, variable=True, confidence=0.8),
+    proto("SoupBinTCP", "soupbintcp", min_hdr=3, variable=True, confidence=0.85),
+    proto("MoldUDP64", "moldudp64", min_hdr=20, variable=True, confidence=0.85),
+    proto("BATS PITCH", "pitch", min_hdr=1, variable=True, confidence=0.8),
+    proto("CME MDP 3.0", "cme_mdp3", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("Eurex ETI", "eurex_eti", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("SWIFT FIN", "swift", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Container / Orchestration ──
+PROTOCOLS += [
+    proto("Docker API", "docker", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Kubernetes API", "k8s", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("etcd", "etcd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Consul", "consul", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Envoy xDS", "envoy.xds", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Cilium", "cilium", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("Calico BIRD", "bird", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("WireGuard Tunnel", "wg.tunnel", min_hdr=32, confidence=0.7, method="long_name"),
+]
+
+# ── Time Sync ──
+PROTOCOLS += [
+    proto("PTP Transparent Clock", "ptp.tc", min_hdr=34, confidence=0.7, method="long_name"),
+    proto("PTP Boundary Clock", "ptp.bc", min_hdr=34, confidence=0.7, method="long_name"),
+    proto("NTPv5", "ntpv5", min_hdr=48, confidence=0.7, method="long_name"),
+    proto("Roughtime", "roughtime", min_hdr=1, variable=True, confidence=0.8),
+    proto("TimeSync IEEE 802.1AS", "ieee8021as", min_hdr=34, confidence=0.85),
+]
+
+# ── Link Aggregation / Redundancy ──
+PROTOCOLS += [
+    proto("MC-LAG", "mc-lag", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("ICCP", "iccp", min_hdr=4, variable=True, confidence=0.8),
+    proto("PRP", "prp", min_hdr=6, confidence=0.85),
+    proto("DLR", "dlr", min_hdr=4, variable=True, confidence=0.85),
+    proto("MRP", "mrp", min_hdr=4, variable=True, confidence=0.85),
+    proto("ERPS", "erps", min_hdr=4, variable=True, confidence=0.85),
+    proto("REP", "rep", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("G.8032", "g8032", min_hdr=4, variable=True, confidence=0.8),
+]
+
+# ── MPLS extensions ──
+PROTOCOLS += [
+    proto("MPLS-TP OAM", "mpls-tp.oam", min_hdr=4, variable=True, confidence=0.8, method="decode_table"),
+    proto("MPLS Entropy Label", "mpls.entropy", min_hdr=4, confidence=0.7, method="long_name"),
+    proto("MPLS EVPN", "mpls.evpn", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS L3VPN", "mpls.l3vpn", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS L2VPN", "mpls.l2vpn", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS-SR", "mpls.sr", min_hdr=4, confidence=0.7, method="long_name"),
+    proto("MPLS FRR", "mpls.frr", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── DNS/Name Resolution extended ──
+PROTOCOLS += [
+    proto("DNS SRV", "dns.srv", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS NAPTR", "dns.naptr", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS CAA", "dns.caa", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS HTTPS", "dns.https", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("DNS SVCB", "dns.svcb", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Testing / Measurement ──
+PROTOCOLS += [
+    proto("Iperf3", "iperf3", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Iperf UDP", "iperf.udp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Netperf", "netperf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LMAP", "lmap", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Y.1564", "y1564", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RFC 2544", "rfc2544", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
 
 def main():
     # Deduplicate and remove curated
