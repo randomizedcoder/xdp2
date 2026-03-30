@@ -1845,8 +1845,11 @@ pub fn cmd_standards(proto: &str, validate: bool, json_output: bool) -> Result<(
             total_rfcs += p.rfc_numbers.len() as u32;
 
             if json_output {
+                let layer = infer_protocol_layer(p.canonical)
+                    .map(|l| format!("{:?}", l));
                 entries.push(serde_json::json!({
                     "protocol": p.canonical,
+                    "layer": layer,
                     "rfcs": p.rfc_numbers,
                     "ieee": p.ieee_standards,
                     "iana_registry": p.iana_registry,
