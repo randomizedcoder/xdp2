@@ -224,6 +224,11 @@ const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
     ("mac-nr.rnti-type",    "5G NR MAC",      "rnti_type"),
 ];
 
+/// Number of entries in the decode table map.
+pub fn decode_table_count() -> usize {
+    DECODE_TABLE_MAP.len()
+}
+
 /// Try to find a stack route for a discovered protocol using tshark decode tables.
 ///
 /// Returns None if the protocol is not found in any known decode table.

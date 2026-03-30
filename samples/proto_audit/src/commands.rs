@@ -1962,7 +1962,7 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
         .unwrap_or(0);
 
     // Decode table entries
-    let decode_table_count = 72; // From routes.rs DECODE_TABLE_MAP
+    let decode_table_count = discovery::routes::decode_table_count();
 
     if json_output {
         let output = serde_json::json!({
