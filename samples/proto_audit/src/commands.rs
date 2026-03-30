@@ -1278,17 +1278,15 @@ pub(crate) fn cmd_generate_all(
     json_output: bool,
     paths: &SourcePaths,
 ) -> Result<()> {
-    // Reject targets that require curated metadata
-    if target == "c" || target == "pcap" {
+    // Reject targets we can't batch-generate
+    if target == "pcap" {
         anyhow::bail!(
-            "generate-all does not support target '{}' — only 'etherparse' and 'scapy' are supported \
-             for batch generation (C and PCAP targets require curated metadata).",
-            target
+            "generate-all does not support target 'pcap' — use 'c', 'etherparse', or 'scapy'."
         );
     }
-    if target != "etherparse" && target != "scapy" {
+    if target != "c" && target != "etherparse" && target != "scapy" {
         anyhow::bail!(
-            "Unknown target '{}'. Valid targets for generate-all: etherparse, scapy",
+            "Unknown target '{}'. Valid targets for generate-all: c, etherparse, scapy",
             target
         );
     }
@@ -1378,6 +1376,22 @@ pub(crate) fn cmd_generate_all(
 
         // Generate code
         let generated = match target {
+            "c" => {
+                // C target: use kernel struct if available, otherwise synthetic
+                if let Some(names) = name_mapping::find_by_canonical(name) {
+                    if names.kernel_struct.is_some() {
+                        generator::generate_proto_def(&ir)
+                    } else {
+                        generator::generate_proto_def_synthetic(&ir)
+                    }
+                } else if let (Some(ref ks), Some(ref kh)) =
+                    (&dp.kernel_struct, &dp.kernel_header)
+                {
+                    generator::generate_proto_def_with_names(&ir, ks, kh)
+                } else {
+                    generator::generate_proto_def_synthetic(&ir)
+                }
+            }
             "etherparse" => generator::generate_etherparse(&ir),
             "scapy" => generator::generate_scapy(&ir),
             _ => unreachable!(),
@@ -1385,6 +1399,7 @@ pub(crate) fn cmd_generate_all(
 
         if let Some(ref dir) = output_dir {
             let ext = match target {
+                "c" => "h",
                 "etherparse" => "rs",
                 "scapy" => "py",
                 _ => "txt",
