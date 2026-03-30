@@ -405,6 +405,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "AF_XDP",
+      "tshark": "af_xdp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "AJP13",
       "tshark": "ajp13",
       "scapy": "AJP",
@@ -452,6 +460,14 @@
       "variable": true,
       "confidence": 0.8,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "ANSI C12.19",
+      "tshark": "c1219",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "ANSI C12.22",
@@ -894,6 +910,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "BJNP",
+      "tshark": "bjnp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "BLE",
       "tshark": "btle",
       "scapy": "BTLE",
@@ -1079,6 +1103,14 @@
       "variable": true,
       "confidence": 0.8,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "Bonjour",
+      "tshark": "bonjour",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "Bonjour Sleep Proxy",
@@ -1299,6 +1331,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "CNM",
+      "tshark": "cnm",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "COPS",
       "tshark": "cops",
       "min_header_bytes": 8,
@@ -1321,6 +1361,14 @@
       "variable": true,
       "confidence": 0.8,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "COSEM APDU",
+      "tshark": "cosem_apdu",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "COTP",
@@ -1748,6 +1796,22 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "DCB",
+      "tshark": "dcb",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DCBx",
+      "tshark": "dcbx",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "DCCP Service Code",
       "tshark": "dccp_sc",
       "min_header_bytes": 1,
@@ -1762,6 +1826,22 @@
       "variable": true,
       "confidence": 0.9,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "DCQCN",
+      "tshark": "dcqcn",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "DCTCP",
+      "tshark": "dctcp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "DHCP Relay",
@@ -2162,6 +2242,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "DPDK",
+      "tshark": "dpdk",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "DPNSS",
       "tshark": "dpnss",
       "min_header_bytes": 1,
@@ -2494,6 +2582,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "ECN",
+      "tshark": "ecn",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "EDNS",
       "tshark": "dns.opt",
       "min_header_bytes": 11,
@@ -2548,6 +2644,46 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "ETH-AIS",
+      "tshark": "eth_ais",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ETH-LB",
+      "tshark": "eth_lb",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ETH-LCK",
+      "tshark": "eth_lck",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ETH-LT",
+      "tshark": "eth_lt",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "ETS",
+      "tshark": "ets",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "EVB/VDP",
       "tshark": "evb",
       "min_header_bytes": 4,
@@ -2562,6 +2698,14 @@
       "variable": true,
       "confidence": 0.8,
       "match_method": "decode_table"
+    },
+    {
+      "canonical": "EVPN VXLAN",
+      "tshark": "evpn_vxlan",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "EWS",
@@ -2984,6 +3128,14 @@
       "variable": true,
       "confidence": 0.8,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "G3-PLC",
+      "tshark": "g3_plc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "GE SRTP",
@@ -3577,6 +3729,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "HomePlug Green PHY",
+      "tshark": "homeplug_gp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "Hyper-V VMBus",
       "tshark": "vmbus",
       "min_header_bytes": 8,
@@ -3823,6 +3983,14 @@
       "scapy": "PTP",
       "min_header_bytes": 34,
       "confidence": 0.85,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "IEEE 1901",
+      "tshark": "ieee1901",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
       "match_method": "long_name"
     },
     {
@@ -4161,6 +4329,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "IRIG-B",
+      "tshark": "irig_b",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "IS-IS CSN",
       "tshark": "isis_csnp",
       "min_header_bytes": 1,
@@ -4478,6 +4654,22 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "L2VPN",
+      "tshark": "l2vpn",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "L3VPN",
+      "tshark": "l3vpn",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "LANE",
       "tshark": "lane",
       "min_header_bytes": 2,
@@ -4695,6 +4887,14 @@
     {
       "canonical": "LPD",
       "tshark": "lpd",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "LPR",
+      "tshark": "lpr",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.85,
@@ -5113,6 +5313,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "MPLS BFD",
+      "tshark": "mpls_bfd",
+      "min_header_bytes": 24,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "MPLS EVPN",
       "tshark": "mpls.evpn",
       "min_header_bytes": 4,
@@ -5168,6 +5376,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "MPLS LDP FEC",
+      "tshark": "ldp_fec",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "MPLS PW ATM",
       "tshark": "mpls_pw_atm",
       "min_header_bytes": 4,
@@ -5208,12 +5424,44 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "MPLS RSVP-TE ERO",
+      "tshark": "rsvp_ero",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MPLS RSVP-TE RRO",
+      "tshark": "rsvp_rro",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "MPLS TE Tunnel",
+      "tshark": "mpls_te_tunnel",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "MPLS TP OAM",
       "tshark": "mpls_tp_oam",
       "min_header_bytes": 4,
       "variable": true,
       "confidence": 0.8,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MPLS VPN",
+      "tshark": "mpls_vpn",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "MPLS-SR",
@@ -5331,6 +5579,14 @@
       "min_header_bytes": 4,
       "confidence": 0.9,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "MVPN",
+      "tshark": "mvpn",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "Marker",
@@ -5683,6 +5939,22 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "NMEA 0183",
+      "tshark": "nmea0183",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NMEA 2000",
+      "tshark": "nmea2000",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "NNTP",
       "tshark": "nntp",
       "min_header_bytes": 4,
@@ -5795,9 +6067,33 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "NVMe over FC",
+      "tshark": "nvme_fc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "NVMe over Fabrics",
       "tshark": "nvme-of",
       "min_header_bytes": 24,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NVMe over RDMA",
+      "tshark": "nvme_rdma",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "NVMe over TCP",
+      "tshark": "nvme_tcp",
+      "min_header_bytes": 8,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -6113,6 +6409,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "Open vSwitch NX",
+      "tshark": "ovs_nx",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "OpenADR",
       "tshark": "openadr",
       "min_header_bytes": 1,
@@ -6294,6 +6598,14 @@
       "variable": true,
       "confidence": 0.7,
       "match_method": "long_name"
+    },
+    {
+      "canonical": "PFC",
+      "tshark": "pfc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
     },
     {
       "canonical": "PFCP",
@@ -6555,6 +6867,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "PPS",
+      "tshark": "pps",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "PPTP",
       "tshark": "pptp",
       "scapy": "PPTP",
@@ -6584,6 +6904,14 @@
     {
       "canonical": "PRI",
       "tshark": "isdn_pri",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PRIME PLC",
+      "tshark": "prime_plc",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.7,
@@ -6660,8 +6988,60 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "PTP Announce",
+      "tshark": "ptp_announce",
+      "min_header_bytes": 34,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "PTP Boundary Clock",
       "tshark": "ptp.bc",
+      "min_header_bytes": 34,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PTP Delay Req",
+      "tshark": "ptp_delay_req",
+      "min_header_bytes": 34,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PTP Delay Resp",
+      "tshark": "ptp_delay_resp",
+      "min_header_bytes": 34,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PTP Follow Up",
+      "tshark": "ptp_followup",
+      "min_header_bytes": 34,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PTP Management",
+      "tshark": "ptp_management",
+      "min_header_bytes": 34,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PTP Signaling",
+      "tshark": "ptp_signaling",
+      "min_header_bytes": 34,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "PTP Sync",
+      "tshark": "ptp_sync",
       "min_header_bytes": 34,
       "confidence": 0.7,
       "match_method": "long_name"
@@ -7299,6 +7679,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "RoCEv1",
+      "tshark": "rocev1",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "RoCEv2",
       "tshark": "infiniband",
       "scapy": "BTH",
@@ -7787,6 +8175,38 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "SR Policy",
+      "tshark": "sr_policy",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SR TE",
+      "tshark": "sr_te",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SR-IOV",
+      "tshark": "sriov",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SR-MPLS",
+      "tshark": "sr_mpls",
+      "min_header_bytes": 4,
+      "variable": true,
+      "confidence": 0.8,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "SRTP",
       "tshark": "srtp",
       "min_header_bytes": 12,
@@ -7796,6 +8216,62 @@
     {
       "canonical": "SRVSVC",
       "tshark": "srvsvc",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 End",
+      "tshark": "srv6_end",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 End.B6",
+      "tshark": "srv6_end_b6",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 End.DT4",
+      "tshark": "srv6_end_dt4",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 End.DT6",
+      "tshark": "srv6_end_dt6",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 End.T",
+      "tshark": "srv6_end_t",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 End.X",
+      "tshark": "srv6_end_x",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "SRv6 H.Encaps",
+      "tshark": "srv6_h_encaps",
       "min_header_bytes": 1,
       "variable": true,
       "confidence": 0.7,
@@ -8295,6 +8771,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "TWAMP Test",
+      "tshark": "twamp_test",
+      "min_header_bytes": 14,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "Tailscale",
       "tshark": "tailscale",
       "min_header_bytes": 1,
@@ -8534,9 +9018,25 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "VHOST-USER",
+      "tshark": "vhost_user",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "VINES IP",
       "tshark": "vines_ip",
       "min_header_bytes": 18,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "VIRTIO Net",
+      "tshark": "virtio_net",
+      "min_header_bytes": 10,
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
@@ -8572,6 +9072,22 @@
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "VPLS",
+      "tshark": "vpls",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "VPP",
+      "tshark": "vpp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "VRRP3",
@@ -8715,6 +9231,14 @@
       "match_method": "exact_normalized"
     },
     {
+      "canonical": "WSD",
+      "tshark": "wsd",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.85,
+      "match_method": "exact_normalized"
+    },
+    {
       "canonical": "WTP",
       "tshark": "wtp",
       "min_header_bytes": 3,
@@ -8769,6 +9293,14 @@
       "variable": true,
       "confidence": 0.9,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "White Rabbit",
+      "tshark": "white_rabbit",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "Whois",
@@ -9193,6 +9725,14 @@
       "match_method": "long_name"
     },
     {
+      "canonical": "eBPF",
+      "tshark": "ebpf",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
       "canonical": "etcd",
       "tshark": "etcd",
       "min_header_bytes": 1,
@@ -9248,6 +9788,30 @@
       "variable": true,
       "confidence": 0.85,
       "match_method": "exact_normalized"
+    },
+    {
+      "canonical": "iWARP DDP",
+      "tshark": "iwarp_ddp",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "iWARP MPA",
+      "tshark": "iwarp_mpa",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
+    },
+    {
+      "canonical": "iWARP RDMAP",
+      "tshark": "iwarp_rdmap",
+      "min_header_bytes": 1,
+      "variable": true,
+      "confidence": 0.7,
+      "match_method": "long_name"
     },
     {
       "canonical": "libp2p",

@@ -1875,6 +1875,119 @@ PROTOCOLS += [
 ]
 
 
+# ── MPLS applications ──
+PROTOCOLS += [
+    proto("MPLS LDP FEC", "ldp_fec", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS RSVP-TE ERO", "rsvp_ero", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS RSVP-TE RRO", "rsvp_rro", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS BFD", "mpls_bfd", min_hdr=24, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS TE Tunnel", "mpls_te_tunnel", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MPLS VPN", "mpls_vpn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("VPLS", "vpls", min_hdr=1, variable=True, confidence=0.85),
+    proto("EVPN VXLAN", "evpn_vxlan", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("L3VPN", "l3vpn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("L2VPN", "l2vpn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MVPN", "mvpn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Network Testing / Measurement ──
+PROTOCOLS += [
+    proto("TWAMP", "twamp", min_hdr=14, variable=True, confidence=0.85),
+    proto("TWAMP Test", "twamp_test", min_hdr=14, variable=True, confidence=0.7, method="long_name"),
+    proto("OWAMP", "owamp", min_hdr=1, variable=True, confidence=0.85),
+    proto("Y.1564", "y1564", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("RFC 2544", "rfc2544", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LBMS", "lbms", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ETH-LB", "eth_lb", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ETH-LT", "eth_lt", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ETH-AIS", "eth_ais", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ETH-LCK", "eth_lck", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Segment Routing ──
+PROTOCOLS += [
+    proto("SR-MPLS", "sr_mpls", min_hdr=4, variable=True, confidence=0.8),
+    proto("SRv6 End", "srv6_end", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRv6 End.X", "srv6_end_x", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRv6 End.T", "srv6_end_t", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRv6 End.DT4", "srv6_end_dt4", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRv6 End.DT6", "srv6_end_dt6", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRv6 End.B6", "srv6_end_b6", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SRv6 H.Encaps", "srv6_h_encaps", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SR Policy", "sr_policy", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SR TE", "sr_te", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Data Center extended ──
+PROTOCOLS += [
+    proto("RoCEv1", "rocev1", min_hdr=1, variable=True, confidence=0.8),
+    proto("iWARP", "iwarp", min_hdr=1, variable=True, confidence=0.85),
+    proto("iWARP MPA", "iwarp_mpa", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("iWARP DDP", "iwarp_ddp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("iWARP RDMAP", "iwarp_rdmap", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DCB", "dcb", min_hdr=1, variable=True, confidence=0.85),
+    proto("DCBx", "dcbx", min_hdr=1, variable=True, confidence=0.85),
+    proto("PFC", "pfc", min_hdr=1, variable=True, confidence=0.85),
+    proto("ETS", "ets", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CNM", "cnm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DCQCN", "dcqcn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ECN", "ecn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DCTCP", "dctcp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NVMe over TCP", "nvme_tcp", min_hdr=8, variable=True, confidence=0.85),
+    proto("NVMe over RDMA", "nvme_rdma", min_hdr=1, variable=True, confidence=0.8),
+    proto("NVMe over FC", "nvme_fc", min_hdr=1, variable=True, confidence=0.8),
+]
+
+# ── GPS / Timing ──
+PROTOCOLS += [
+    proto("NMEA 0183", "nmea0183", min_hdr=1, variable=True, confidence=0.85),
+    proto("NMEA 2000", "nmea2000", min_hdr=1, variable=True, confidence=0.85),
+    proto("IRIG-B", "irig_b", min_hdr=1, variable=True, confidence=0.8),
+    proto("PPS", "pps", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("White Rabbit", "white_rabbit", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PTP Announce", "ptp_announce", min_hdr=34, variable=True, confidence=0.7, method="long_name"),
+    proto("PTP Sync", "ptp_sync", min_hdr=34, confidence=0.7, method="long_name"),
+    proto("PTP Follow Up", "ptp_followup", min_hdr=34, confidence=0.7, method="long_name"),
+    proto("PTP Delay Req", "ptp_delay_req", min_hdr=34, confidence=0.7, method="long_name"),
+    proto("PTP Delay Resp", "ptp_delay_resp", min_hdr=34, confidence=0.7, method="long_name"),
+    proto("PTP Signaling", "ptp_signaling", min_hdr=34, variable=True, confidence=0.7, method="long_name"),
+    proto("PTP Management", "ptp_management", min_hdr=34, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── NFV / Virtualization ──
+PROTOCOLS += [
+    proto("VIRTIO Net", "virtio_net", min_hdr=10, variable=True, confidence=0.85),
+    proto("VHOST-USER", "vhost_user", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("AF_XDP", "af_xdp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DPDK", "dpdk", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("VPP", "vpp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("eBPF", "ebpf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SR-IOV", "sriov", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Open vSwitch NX", "ovs_nx", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Energy / Smart Meter ──
+PROTOCOLS += [
+    proto("ANSI C12.19", "c1219", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEC 62056-21", "iec62056_21", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("COSEM APDU", "cosem_apdu", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PRIME PLC", "prime_plc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("G3-PLC", "g3_plc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("HomePlug Green PHY", "homeplug_gp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEEE 1901", "ieee1901", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Printing / Document extended ──
+PROTOCOLS += [
+    proto("JetDirect", "jetdirect", min_hdr=1, variable=True, confidence=0.85),
+    proto("LPR", "lpr", min_hdr=1, variable=True, confidence=0.85),
+    proto("CUPS", "cups", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Bonjour", "bonjour", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("WSD", "wsd", min_hdr=1, variable=True, confidence=0.85),
+    proto("BJNP", "bjnp", min_hdr=1, variable=True, confidence=0.85),
+]
+
+
 def main():
     # Deduplicate and remove curated
     seen = set()
