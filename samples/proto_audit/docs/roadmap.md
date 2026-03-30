@@ -16,7 +16,7 @@ with XDP2 as the primary beneficiary.
 
 | Metric | Count |
 |--------|-------|
-| Total protocols tracked | 1,012 (207 curated + 805 auto-mapped) + discovered (tshark ~3,000) |
+| Total protocols tracked | 1,146 (207 curated + 939 auto-mapped) + discovered (tshark ~3,000) |
 | Protocols with extractable fields | 127 |
 | Cross-checkable (2+ sources) | 38 |
 | Round-trip validated (Gold) | 205 |

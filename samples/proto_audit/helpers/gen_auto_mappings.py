@@ -1256,6 +1256,266 @@ PROTOCOLS += [
     proto("IPFIX", "ipfix", min_hdr=16, variable=True, confidence=0.85),
 ]
 
+# ── Network Monitoring / Telemetry ──
+PROTOCOLS += [
+    proto("gNMI", "gnmi", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("gNOI", "gnoi", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OpenConfig", "openconfig", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("YANG", "yang", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NETCONF", "netconf", min_hdr=1, variable=True, confidence=0.85),
+    proto("RESTCONF", "restconf", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BMP", "bmp", min_hdr=6, variable=True, confidence=0.85),
+    proto("IPFIX Options", "ipfix_opts", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Cisco NetFlow Lite", "netflow_lite", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ERSPAN Type II", "erspan2", min_hdr=8, variable=True, confidence=0.8),
+    proto("ERSPAN Type III", "erspan3", min_hdr=12, variable=True, confidence=0.8),
+    proto("INT", "int_md", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("IFA", "ifa", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IOAM", "ioam", min_hdr=4, variable=True, confidence=0.8),
+]
+
+# ── SDN / OpenFlow extended ──
+PROTOCOLS += [
+    proto("OpenFlow 1.0", "of10", min_hdr=8, variable=True, confidence=0.8),
+    proto("OpenFlow 1.3", "of13", min_hdr=8, variable=True, confidence=0.8),
+    proto("OpenFlow 1.5", "of15", min_hdr=8, variable=True, confidence=0.8),
+    proto("P4Runtime", "p4rt", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OVSDB", "ovsdb", min_hdr=1, variable=True, confidence=0.85),
+    proto("VXLAN EVPN", "vxlan_evpn", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("EVPN", "evpn", min_hdr=1, variable=True, confidence=0.85),
+    proto("LISP Map Request", "lisp_map_request", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LISP Map Reply", "lisp_map_reply", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PCEP", "pcep", min_hdr=4, variable=True, confidence=0.85),
+    proto("ForCES", "forces", min_hdr=24, variable=True, confidence=0.85),
+    proto("I2RS", "i2rs", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── WLAN / Wireless extended ──
+PROTOCOLS += [
+    proto("802.11 Beacon", "wlan_beacon", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11 Probe Req", "wlan_probe_req", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11 Probe Resp", "wlan_probe_resp", min_hdr=12, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11 Auth", "wlan_auth", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11 Assoc Req", "wlan_assoc_req", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11 Assoc Resp", "wlan_assoc_resp", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11 Action", "wlan_action", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("802.11s Mesh", "wlan_mesh", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("WPS", "wps", min_hdr=4, variable=True, confidence=0.85),
+    proto("Wi-Fi Direct", "wifi_p2p", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("WiMAX", "wimaxasncp", min_hdr=1, variable=True, confidence=0.85),
+    proto("WiMAX MAC", "wmx_mac", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("LTE RLC AM", "rlc_lte_am", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("LTE RLC UM", "rlc_lte_um", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("NR SDAP", "sdap_nr", min_hdr=1, variable=True, confidence=0.8),
+    proto("NR BWP", "nr_bwp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Automotive extended ──
+PROTOCOLS += [
+    proto("CAN ISO-TP", "iso_tp", min_hdr=1, variable=True, confidence=0.85),
+    proto("CAN J1939 PGN", "j1939_pgn", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CAN J1939 DM", "j1939_dm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CAN NM", "can_nm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("FlexRay", "flexray", min_hdr=5, variable=True, confidence=0.85),
+    proto("FlexRay TP", "flexray_tp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LIN", "lin", min_hdr=1, variable=True, confidence=0.85),
+    proto("SENT", "sent", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PSI5", "psi5", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MOST", "most", min_hdr=1, variable=True, confidence=0.85),
+    proto("MOST50", "most50", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MOST150", "most150", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DoIP Header", "doip_hdr", min_hdr=8, confidence=0.8),
+]
+
+# ── Cloud / Container networking ──
+PROTOCOLS += [
+    proto("Cilium", "cilium", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Calico BIRD", "calico_bird", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Flannel VXLAN", "flannel_vxlan", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Weave Net", "weave", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CNI", "cni", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Consul DNS", "consul_dns", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("etcd", "etcd", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Envoy xDS", "envoy_xds", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Istio", "istio", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Serial / Legacy extended ──
+PROTOCOLS += [
+    proto("SLIP", "slip", min_hdr=1, variable=True, confidence=0.85),
+    proto("CSLIP", "cslip", min_hdr=1, variable=True, confidence=0.8),
+    proto("PPP CCP", "ppp_ccp", min_hdr=4, variable=True, confidence=0.8),
+    proto("PPP CHAP", "ppp_chap", min_hdr=4, variable=True, confidence=0.85),
+    proto("PPP PAP", "ppp_pap", min_hdr=4, variable=True, confidence=0.85),
+    proto("PPP ECP", "ppp_ecp", min_hdr=4, variable=True, confidence=0.8),
+    proto("PPP MP", "ppp_mp", min_hdr=4, variable=True, confidence=0.8),
+    proto("PPP IPv6CP", "ppp_ipv6cp", min_hdr=4, variable=True, confidence=0.8),
+    proto("PPP BACP", "ppp_bacp", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+    proto("SDLC", "sdlc", min_hdr=3, variable=True, confidence=0.85),
+    proto("BSC", "bsc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("X.21", "x21", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("V.110", "v110", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("LAPB", "lapb", min_hdr=2, variable=True, confidence=0.85),
+    proto("LAPD", "lapd", min_hdr=3, variable=True, confidence=0.85),
+    proto("LAPF", "lapf", min_hdr=2, variable=True, confidence=0.8),
+]
+
+# ── ATM / Frame Relay extended ──
+PROTOCOLS += [
+    proto("AAL1", "aal1", min_hdr=1, variable=True, confidence=0.85),
+    proto("AAL2", "aal2", min_hdr=3, variable=True, confidence=0.85),
+    proto("AAL3/4", "aal3_4", min_hdr=4, variable=True, confidence=0.8),
+    proto("AAL5", "aal5", min_hdr=8, variable=True, confidence=0.85),
+    proto("ATM OAM", "atm_oam", min_hdr=5, variable=True, confidence=0.8),
+    proto("ATM Signaling", "q2931", min_hdr=9, variable=True, confidence=0.8),
+    proto("ILMI", "ilmi", min_hdr=1, variable=True, confidence=0.8),
+    proto("LANE", "lane", min_hdr=2, variable=True, confidence=0.8),
+    proto("Frame Relay LMI", "fr_lmi", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("FR SVC", "fr_svc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SMDS", "smds", min_hdr=1, variable=True, confidence=0.85),
+]
+
+# ── ISDN / PSTN ──
+PROTOCOLS += [
+    proto("Q.921", "q921", min_hdr=3, variable=True, confidence=0.85),
+    proto("Q.931", "q931", min_hdr=3, variable=True, confidence=0.85),
+    proto("Q.933", "q933", min_hdr=1, variable=True, confidence=0.8),
+    proto("QSIG", "qsig", min_hdr=1, variable=True, confidence=0.8),
+    proto("DPNSS", "dpnss", min_hdr=1, variable=True, confidence=0.8),
+    proto("DSS1", "dss1", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("V5.2", "v52", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GR-303", "gr303", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("PRI", "isdn_pri", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BRI", "isdn_bri", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Power / Smart Grid ──
+PROTOCOLS += [
+    proto("IEC 60870-5-101", "iec101", min_hdr=1, variable=True, confidence=0.8),
+    proto("IEC 60870-5-103", "iec103", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEC 62351", "iec62351", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("C12.18", "c1218", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("C12.22", "c1222", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DLMS/COSEM", "dlms", min_hdr=1, variable=True, confidence=0.85),
+    proto("SEP 2.0", "sep2", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OpenADR", "openadr", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CIM", "cim", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEEE C37.118", "c37118", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("DNP3 Application", "dnp3_app", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("DNP3 Transport", "dnp3_transport", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Building Automation extended ──
+PROTOCOLS += [
+    proto("BACnet/IP", "bacnet_ip", min_hdr=4, variable=True, confidence=0.8),
+    proto("BACnet MSTP", "bacnet_mstp", min_hdr=8, variable=True, confidence=0.8),
+    proto("BACnet APDU", "bacnet_apdu", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BACnet NPDU", "bacnet_npdu", min_hdr=2, variable=True, confidence=0.7, method="long_name"),
+    proto("DALI", "dali", min_hdr=2, confidence=0.7, method="long_name"),
+    proto("EnOcean ESP3", "enocean_esp3", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("LON", "lon", min_hdr=1, variable=True, confidence=0.85),
+    proto("M-Bus", "mbus", min_hdr=4, variable=True, confidence=0.85),
+    proto("wM-Bus", "wmbus", min_hdr=1, variable=True, confidence=0.85),
+]
+
+# ── Medical / Healthcare ──
+PROTOCOLS += [
+    proto("DICOM", "dicom", min_hdr=1, variable=True, confidence=0.85),
+    proto("HL7 v2", "hl7", min_hdr=1, variable=True, confidence=0.85),
+    proto("HL7 FHIR", "hl7_fhir", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IHE PIX", "ihe_pix", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IHE PDQ", "ihe_pdq", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("POCT1-A", "poct1a", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ISO/IEEE 11073", "ieee11073", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Aviation / Aerospace ──
+PROTOCOLS += [
+    proto("ARINC 429", "arinc429", min_hdr=4, confidence=0.85),
+    proto("ARINC 664 (AFDX)", "afdx", min_hdr=1, variable=True, confidence=0.85),
+    proto("MIL-STD-1553", "milstd1553", min_hdr=1, variable=True, confidence=0.8),
+    proto("STANAG 4586", "stanag4586", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ADS-B", "adsb", min_hdr=14, variable=True, confidence=0.85),
+    proto("Mode S", "mode_s", min_hdr=7, variable=True, confidence=0.85),
+    proto("UAT", "uat978", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ACARS", "acars", min_hdr=1, variable=True, confidence=0.85),
+    proto("VDL Mode 2", "vdl2", min_hdr=1, variable=True, confidence=0.8),
+    proto("ASTERIX", "asterix", min_hdr=3, variable=True, confidence=0.85),
+]
+
+# ── SCADA / PLC extended ──
+PROTOCOLS += [
+    proto("Modbus RTU", "modbus_rtu", min_hdr=4, variable=True, confidence=0.8),
+    proto("Modbus ASCII", "modbus_ascii", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("FINS UDP", "omron_fins_udp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("FINS TCP", "omron_fins_tcp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Mitsubishi MELSEC", "melsec", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Allen-Bradley PCCC", "pccc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GE SRTP", "ge_srtp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Emerson ROC", "roc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Schneider UMAS", "umas", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IEC 61131-3", "iec61131", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Financial / Trading ──
+PROTOCOLS += [
+    proto("FIX 4.4", "fix44", min_hdr=1, variable=True, confidence=0.8),
+    proto("FIX 5.0", "fix50", min_hdr=1, variable=True, confidence=0.8),
+    proto("FAST", "fast", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ITCH 5.0", "itch50", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("OUCH", "ouch", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("BATS PITCH", "bats_pitch", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("ARCA XDP", "arca_xdp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("SBE", "sbe", min_hdr=8, variable=True, confidence=0.7, method="long_name"),
+    proto("MMTP", "mmtp", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MoldUDP64", "moldudp64", min_hdr=20, variable=True, confidence=0.8),
+]
+
+# ── Satellite / Space extended ──
+PROTOCOLS += [
+    proto("CCSDS Space Packet", "ccsds", min_hdr=6, variable=True, confidence=0.85),
+    proto("CCSDS TM", "ccsds_tm", min_hdr=6, variable=True, confidence=0.8),
+    proto("CCSDS TC", "ccsds_tc", min_hdr=5, variable=True, confidence=0.8),
+    proto("CCSDS AOS", "ccsds_aos", min_hdr=6, variable=True, confidence=0.7, method="long_name"),
+    proto("DVB-S2", "dvbs2", min_hdr=1, variable=True, confidence=0.8),
+    proto("DVB-T2", "dvbt2", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MPEG2-TS Teletext", "teletext", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("IRIG 106", "irig106", min_hdr=24, variable=True, confidence=0.8),
+    proto("SpaceWire", "spacewire", min_hdr=1, variable=True, confidence=0.85),
+    proto("SpaceFibre", "spacefibre", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+]
+
+# ── Multimedia / Codecs ──
+PROTOCOLS += [
+    proto("H.264 NAL", "h264", min_hdr=1, variable=True, confidence=0.85),
+    proto("H.265 NAL", "h265", min_hdr=2, variable=True, confidence=0.85),
+    proto("VP8", "vp8", min_hdr=3, variable=True, confidence=0.85),
+    proto("VP9", "vp9", min_hdr=1, variable=True, confidence=0.85),
+    proto("AV1", "av1", min_hdr=1, variable=True, confidence=0.85),
+    proto("Opus", "opus", min_hdr=1, variable=True, confidence=0.85),
+    proto("AAC", "aac", min_hdr=7, variable=True, confidence=0.85),
+    proto("FLAC", "flac", min_hdr=4, variable=True, confidence=0.85),
+    proto("Ogg", "ogg", min_hdr=27, variable=True, confidence=0.85),
+    proto("WebM", "webm", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MIDI", "midi", min_hdr=1, variable=True, confidence=0.85),
+]
+
+# ── Additional well-known application protocols ──
+PROTOCOLS += [
+    proto("WebSocket", "websocket", min_hdr=2, variable=True, confidence=0.85),
+    proto("SSE", "sse", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("GraphQL", "graphql", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Thrift", "thrift", min_hdr=1, variable=True, confidence=0.85),
+    proto("Avro", "avro", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Protocol Buffers", "protobuf", min_hdr=1, variable=True, confidence=0.85),
+    proto("FlatBuffers", "flatbuffers", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("MessagePack", "msgpack", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("CBOR", "cbor", min_hdr=1, variable=True, confidence=0.85),
+    proto("BSON", "bson", min_hdr=4, variable=True, confidence=0.85),
+    proto("Arrow IPC", "arrow_ipc", min_hdr=1, variable=True, confidence=0.7, method="long_name"),
+    proto("Parquet", "parquet", min_hdr=4, variable=True, confidence=0.7, method="long_name"),
+]
+
 
 def main():
     # Deduplicate and remove curated
