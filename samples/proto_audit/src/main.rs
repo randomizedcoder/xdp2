@@ -356,6 +356,17 @@ enum Commands {
         paths: SourcePaths,
     },
 
+    /// Show protocol quality breakdown (confidence, source coverage, categories)
+    Quality {
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "all")]
+        tier: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Search protocols by keyword (name, tshark filter, description)
     Search {
         /// Search query (case-insensitive substring match)
@@ -479,6 +490,7 @@ fn main() -> Result<()> {
             json,
             paths,
         } => cmd_prioritize(top, &tier, json, &paths),
+        Commands::Quality { tier, json } => cmd_quality(&tier, json),
         Commands::Search {
             query,
             tier,

@@ -1323,6 +1323,146 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn cmd_quality(tier: &str, json_output: bool) -> Result<()> {
+    let tier_filter = TierFilter::from_str(tier);
+    let discovery_state = DiscoveryState::load_from_env();
+    let all_protos = discovery::all_protocols(&discovery_state);
+    let vcache = load_validation_cache();
+
+    let filtered: Vec<_> = all_protos
+        .iter()
+        .filter(|(_, dp)| tier_filter.matches(dp.tier))
+        .collect();
+
+    // Confidence distribution
+    let mut conf_buckets: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for (_, dp) in &filtered {
+        let bucket = match dp.match_confidence {
+            Some(c) if c >= 0.9 => "0.9-1.0 (high)",
+            Some(c) if c >= 0.8 => "0.8-0.9 (good)",
+            Some(c) if c >= 0.7 => "0.7-0.8 (moderate)",
+            Some(c) if c >= 0.5 => "0.5-0.7 (low)",
+            Some(_) => "< 0.5 (very low)",
+            None => "1.0 (curated)",
+        };
+        *conf_buckets.entry(bucket.to_string()).or_default() += 1;
+    }
+
+    // Source coverage breakdown
+    let mut source_counts = [0usize; 7]; // 0-source through 6-source
+    for (_, dp) in &filtered {
+        let mut n = 0u32;
+        if dp.tshark_filter.is_some() { n += 1; }
+        if dp.scapy_class.is_some() { n += 1; }
+        if dp.kernel_struct.is_some() { n += 1; }
+        // Curated protocols also have xdp2, etherparse, libpcap in name_mapping
+        if dp.tier == Tier::Curated {
+            if let Some(names) = name_mapping::find_by_canonical(&dp.canonical) {
+                if names.xdp2.is_some() { n += 1; }
+                if names.etherparse_struct.is_some() { n += 1; }
+                if names.libpcap_name.is_some() { n += 1; }
+            }
+        }
+        let idx = std::cmp::min(n as usize, 6);
+        source_counts[idx] += 1;
+    }
+
+    // Match method distribution
+    let mut method_counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for (_, dp) in &filtered {
+        let method = dp.match_method.as_deref().unwrap_or("curated");
+        *method_counts.entry(method.to_string()).or_default() += 1;
+    }
+
+    // Validation tier distribution
+    let mut vtier_counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for (_, dp) in &filtered {
+        let vtier = dp.validation_tier.as_ref()
+            .or_else(|| vcache.get(&dp.canonical))
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "Unvalidated".to_string());
+        *vtier_counts.entry(vtier).or_default() += 1;
+    }
+
+    // Code generation readiness
+    let with_min_hdr = filtered.iter().filter(|(_, dp)| dp.min_header_bytes > 0).count();
+    let fixed_length = filtered.iter().filter(|(_, dp)| {
+        dp.min_header_bytes > 0 && !name_mapping::find_by_canonical(&dp.canonical)
+            .map(|n| n.variable_length)
+            .unwrap_or(true) // default to variable for discovered
+    }).count();
+
+    if json_output {
+        let output = serde_json::json!({
+            "total": filtered.len(),
+            "confidence_distribution": conf_buckets,
+            "source_coverage": {
+                "0_sources": source_counts[0],
+                "1_source": source_counts[1],
+                "2_sources": source_counts[2],
+                "3_sources": source_counts[3],
+                "4_sources": source_counts[4],
+                "5_sources": source_counts[5],
+                "6_sources": source_counts[6],
+            },
+            "match_method": method_counts,
+            "validation_tier": vtier_counts,
+            "code_gen_readiness": {
+                "with_min_header": with_min_hdr,
+                "fixed_length": fixed_length,
+            },
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("Protocol Quality Report ({} protocols, tier={})\n", filtered.len(), tier);
+
+        println!("  Confidence Distribution:");
+        for (bucket, count) in &conf_buckets {
+            let pct = *count as f64 / filtered.len() as f64 * 100.0;
+            println!("    {:<25} {:>6}  ({:.1}%)", bucket, count, pct);
+        }
+
+        println!("\n  Source Coverage:");
+        for i in 0..=6 {
+            if source_counts[i] > 0 {
+                let label = match i {
+                    0 => "0 sources (no data)   ",
+                    1 => "1 source              ",
+                    2 => "2 sources (Silver-able)",
+                    3 => "3 sources             ",
+                    4 => "4 sources             ",
+                    5 => "5 sources             ",
+                    6 => "6 sources (full)      ",
+                    _ => unreachable!(),
+                };
+                let pct = source_counts[i] as f64 / filtered.len() as f64 * 100.0;
+                println!("    {} {:>6}  ({:.1}%)", label, source_counts[i], pct);
+            }
+        }
+
+        println!("\n  Match Method:");
+        let mut methods: Vec<_> = method_counts.iter().collect();
+        methods.sort_by(|a, b| b.1.cmp(a.1));
+        for (method, count) in methods {
+            let pct = *count as f64 / filtered.len() as f64 * 100.0;
+            println!("    {:<25} {:>6}  ({:.1}%)", method, count, pct);
+        }
+
+        println!("\n  Validation Tier:");
+        for tier_name in &["Gold", "Silver", "Bronze", "Unvalidated"] {
+            let count = vtier_counts.get(*tier_name).unwrap_or(&0);
+            let pct = *count as f64 / filtered.len() as f64 * 100.0;
+            println!("    {:<25} {:>6}  ({:.1}%)", tier_name, count, pct);
+        }
+
+        println!("\n  Code Generation Readiness:");
+        println!("    With min_header > 0:  {:>6}", with_min_hdr);
+        println!("    Fixed-length (BPF):   {:>6}", fixed_length);
+    }
+
+    Ok(())
+}
+
 pub(crate) fn cmd_search(
     query: &str,
     tier: &str,
