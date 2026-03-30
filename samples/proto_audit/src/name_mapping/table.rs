@@ -503,29 +503,34 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("IB_MAD", 24).scapy("IB_MAD").tshark("infiniband.mad").variable(),
         // ── Multicast ──
         PN::new("IGMPv3_Query", 12)
+            .xdp2("xdp2_parse_igmpv3_query")
             .kernel("igmpv3_query", "linux/igmp.h")
             .scapy("IGMPv3")
             .tshark("igmp")
             .variable()
             .rfcs(&[3376]),
         PN::new("IGMPv3_Report", 8)
+            .xdp2("xdp2_parse_igmpv3_report")
             .kernel("igmpv3_report", "linux/igmp.h")
             .scapy("IGMPv3mr")
             .tshark("igmp")
             .variable()
             .rfcs(&[3376]),
         PN::new("MLD", 24)
+            .xdp2("xdp2_parse_mld")
             .kernel("mld_msg", "net/mld.h")
             .scapy("ICMPv6MLQuery")
             .tshark("icmpv6")
             .rfcs(&[2710]),
         PN::new("MLDv2_Query", 28)
+            .xdp2("xdp2_parse_mldv2_query")
             .kernel("mld2_query", "net/mld.h")
             .scapy("ICMPv6MLQuery2")
             .tshark("icmpv6")
             .variable()
             .rfcs(&[3810]),
         PN::new("MLDv2_Report", 8)
+            .xdp2("xdp2_parse_mldv2_report")
             .kernel("mld2_report", "net/mld.h")
             .scapy("ICMPv6MLReport2")
             .tshark("icmpv6")
@@ -556,25 +561,30 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[9000, 9001, 9002]),
         // ── Storage Protocols ──
         PN::new("iSCSI", 48)
+            .xdp2("xdp2_parse_iscsi")
             .kernel("iscsi_hdr", "scsi/iscsi_proto.h")
             .scapy("iSCSI_BHS")
             .tshark("iscsi")
             .variable()
             .rfcs(&[7143, 3720]),
         PN::new("NVMe", 64)
+            .xdp2("xdp2_parse_nvme")
             .kernel("nvme_common_command", "linux/nvme.h")
             .scapy("NVMe_Command")
             .tshark("nvme"),
         PN::new("FC", 24)
+            .xdp2("xdp2_parse_fc")
             .kernel("fc_frame_header", "uapi/scsi/fc/fc_fs.h")
             .scapy("FCFrame")
             .tshark("fc"),
         PN::new("SCSI", 8)
+            .xdp2("xdp2_parse_scsi")
             .kernel("scsi_lun", "scsi/scsi_proto.h")
             .scapy("SCSI_LUN")
             .tshark("scsi")
             .variable(),
         PN::new("iSER", 28)
+            .xdp2("xdp2_parse_iser")
             .kernel("iser_ctrl", "scsi/iser.h")
             .scapy("iSER_Ctrl")
             .tshark("iser")
@@ -598,6 +608,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("ERF", 18).scapy("ERF").tshark("erf").variable(),
         // ── Layer 2 Additions ──
         PN::new("LLC", 3)
+            .xdp2("xdp2_parse_llc")
             .kernel("llc_snap_hdr", "linux/llc.h")
             .scapy("LLC")
             .tshark("llc")
@@ -621,6 +632,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("HomePlug_AV", 4).scapy("HomePlugAV").tshark("homeplug-av").variable(),
         // ── Layer 3 Additions ──
         PN::new("SCTP", 12)
+            .xdp2("xdp2_parse_sctp")
             .kernel("sctphdr", "linux/sctp.h")
             .scapy("SCTP")
             .tshark("sctp")
@@ -629,6 +641,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .variable()
             .rfcs(&[9260, 4960]),
         PN::new("DCCP", 12)
+            .xdp2("xdp2_parse_dccp")
             .kernel("dccp_hdr", "linux/dccp.h")
             .scapy("DCCP")
             .tshark("dccp")
@@ -661,6 +674,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("UDPLite", 8).tshark("udplite")
             .rfcs(&[3828]),
         PN::new("SCTP_Chunk", 4)
+            .xdp2("xdp2_parse_sctp_chunk")
             .kernel("sctp_chunkhdr", "linux/sctp.h")
             .scapy("SCTPChunkData")
             .tshark("sctp.chunk")

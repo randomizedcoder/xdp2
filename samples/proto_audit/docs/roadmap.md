@@ -21,7 +21,7 @@ with XDP2 as the primary beneficiary.
 | Cross-checkable (2+ sources) | 38 |
 | Round-trip validated (Gold) | 205 |
 | Overlay patches | 49 (31 etherparse, 18 libpcap) |
-| XDP2 proto_defs | ~69 |
+| XDP2 proto_defs | 87 (84 mapped in name table) |
 | Unit tests | 376 |
 | Decode table entries | 228 |
 | RFC references (curated) | 207 protocols annotated |
