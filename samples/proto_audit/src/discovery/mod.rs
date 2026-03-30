@@ -203,6 +203,31 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
         result.insert(p.canonical.to_string(), dp);
     }
 
+    // Step 1.5: Load auto-matched protocols (promoted from discovered to curated-like)
+    let auto_mappings = name_mapping::auto_table::load_auto_mappings();
+    for am in &auto_mappings.protocols {
+        if result.contains_key(&am.canonical) {
+            continue; // Curated entries take priority
+        }
+        if let Some(ref filter) = am.tshark {
+            curated_tshark_filters.insert(filter.to_lowercase());
+        }
+        let dp = DiscoveredProtocol {
+            canonical: am.canonical.clone(),
+            tshark_filter: am.tshark.clone(),
+            scapy_class: am.scapy.clone(),
+            kernel_struct: am.kernel_struct.clone(),
+            kernel_header: am.kernel_header.clone(),
+            tier: Tier::Discovered,
+            estimated_field_count: 0,
+            min_header_bytes: am.min_header_bytes,
+            match_confidence: Some(am.confidence),
+            match_method: am.match_method.clone(),
+            validation_tier: None,
+        };
+        result.insert(am.canonical.clone(), dp);
+    }
+
     // Step 2: Add discovered protocols from tshark registry (Tier 2)
     if let Some(ref tshark_reg) = state.tshark {
         for (filter_name, proto) in &tshark_reg.protocols {
