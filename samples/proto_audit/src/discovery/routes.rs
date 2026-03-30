@@ -178,7 +178,6 @@ const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
     ("pn_mrp.type",         "PROFINET MRP",   "type"),
     ("ecat_mailbox.type",   "EtherCAT Mailbox", "type"),
     ("canopen.function",    "CANopen",        "function_code"),
-    ("cip.service",         "CIP",            "service"),
     // ── Security extended ──
     ("x509af.type",         "X.509 Certificate", "type"),
     ("spnego.negResult",    "SPNEGO",         "neg_result"),
@@ -228,10 +227,6 @@ const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
     ("fcels.opcode",        "FC ELS",         "opcode"),
     ("fcct.revision",       "FC CT",          "revision"),
     // ── Windows / DCERPC ──
-    ("nbss.type",           "NBSS",           "type"),
-    ("smb.cmd",             "SMB",            "command"),
-    ("smb2.cmd",            "SMB2",           "command"),
-    ("dcerpc.opnum",        "DCE/RPC",        "opnum"),
     ("browser.command",     "BROWSER",        "command"),
     // ── ASN.1 / OSI ──
     ("acse.oid",            "ACSE",           "oid"),
@@ -250,7 +245,6 @@ const DECODE_TABLE_MAP: &[(&str, &str, &str)] = &[
     ("someip.messageid",    "SOME/IP",        "message_id"),
     ("doip.type",           "DoIP",           "type"),
     ("uds.service",         "UDS",            "service_id"),
-    ("can.id",              "CAN",            "id"),
     ("j1939.pgn",           "SAE J1939",      "pgn"),
     // ── IEC / Power ──
     ("goose.appid",         "IEC 61850 GOOSE", "appid"),
@@ -351,5 +345,43 @@ mod tests {
         assert!(tables.contains(&"ip.proto"));
         assert!(tables.contains(&"udp.port"));
         assert!(tables.contains(&"tcp.port"));
+    }
+
+    #[test]
+    fn test_decode_table_map_no_duplicates() {
+        let mut seen = std::collections::HashSet::new();
+        for (table, parent, field) in DECODE_TABLE_MAP {
+            let key = format!("{}:{}:{}", table, parent, field);
+            assert!(
+                seen.insert(key.clone()),
+                "Duplicate decode table entry: {}",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn test_decode_table_map_new_categories() {
+        let tables: Vec<&str> = DECODE_TABLE_MAP.iter().map(|(t, _, _)| *t).collect();
+        // Automotive
+        assert!(tables.contains(&"someip.messageid"));
+        assert!(tables.contains(&"doip.type"));
+        // Fibre Channel
+        assert!(tables.contains(&"fcoe.ver"));
+        // IEC/Power
+        assert!(tables.contains(&"goose.appid"));
+        // Application
+        assert!(tables.contains(&"websocket.opcode"));
+        // Multimedia
+        assert!(tables.contains(&"h264.nal_unit_type"));
+    }
+
+    #[test]
+    fn test_decode_table_count() {
+        assert!(
+            decode_table_count() >= 210,
+            "Expected 210+ decode table entries, got {}",
+            decode_table_count()
+        );
     }
 }

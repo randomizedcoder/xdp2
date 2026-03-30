@@ -64,10 +64,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_auto_mappings_empty() {
+    fn test_load_auto_mappings_count() {
         let mappings = load_auto_mappings();
-        // Initially empty, should parse without error
-        assert!(mappings.protocols.is_empty() || !mappings.protocols.is_empty());
+        assert!(
+            mappings.protocols.len() >= 900,
+            "Expected 900+ auto-mapped protocols, got {}",
+            mappings.protocols.len()
+        );
+    }
+
+    #[test]
+    fn test_auto_mappings_all_have_tshark() {
+        let mappings = load_auto_mappings();
+        for p in &mappings.protocols {
+            assert!(
+                p.tshark.is_some(),
+                "Protocol '{}' missing tshark filter",
+                p.canonical
+            );
+        }
+    }
+
+    #[test]
+    fn test_auto_mappings_no_empty_canonicals() {
+        let mappings = load_auto_mappings();
+        for p in &mappings.protocols {
+            assert!(!p.canonical.is_empty(), "Found empty canonical name");
+        }
+    }
+
+    #[test]
+    fn test_auto_mappings_no_duplicates() {
+        let mappings = load_auto_mappings();
+        let mut seen = std::collections::HashSet::new();
+        for p in &mappings.protocols {
+            assert!(
+                seen.insert(&p.canonical),
+                "Duplicate canonical name: {}",
+                p.canonical
+            );
+        }
+    }
+
+    #[test]
+    fn test_auto_mappings_confidence_range() {
+        let mappings = load_auto_mappings();
+        for p in &mappings.protocols {
+            assert!(
+                (0.0..=1.0).contains(&p.confidence),
+                "Protocol '{}' has out-of-range confidence: {}",
+                p.canonical,
+                p.confidence
+            );
+        }
     }
 
     #[test]

@@ -22,7 +22,7 @@ with XDP2 as the primary beneficiary.
 | Round-trip validated (Gold) | 205 |
 | Overlay patches | 49 (31 etherparse, 18 libpcap) |
 | XDP2 proto_defs | ~69 |
-| Unit tests | 369 |
+| Unit tests | 376 |
 | Decode table entries | 228 |
 | RFC references (curated) | 207 protocols annotated |
 | CLI commands | 16 (audit, compare, corpus, coverage, extract, generate, generate-all, list, matrix, findings, search, validate, auto-match, prioritize, standards, stats) |
