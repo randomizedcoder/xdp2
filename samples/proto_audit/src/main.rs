@@ -356,6 +356,25 @@ enum Commands {
         paths: SourcePaths,
     },
 
+    /// Search protocols by keyword (name, tshark filter, description)
+    Search {
+        /// Search query (case-insensitive substring match)
+        #[arg(long)]
+        query: String,
+
+        /// Protocol tier: curated, discovered, or all
+        #[arg(long, default_value = "all")]
+        tier: String,
+
+        /// Limit output to first N results
+        #[arg(long)]
+        limit: Option<usize>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Generate PCAP, feed to tshark, compare IR vs tshark round-trip
     Validate {
         /// Protocol name (canonical: IPv4, TCP, etc.)
@@ -460,6 +479,12 @@ fn main() -> Result<()> {
             json,
             paths,
         } => cmd_prioritize(top, &tier, json, &paths),
+        Commands::Search {
+            query,
+            tier,
+            limit,
+            json,
+        } => cmd_search(&query, &tier, limit, json),
         Commands::Validate {
             proto,
             tier,

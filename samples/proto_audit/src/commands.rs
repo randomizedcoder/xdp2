@@ -1310,6 +1310,128 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn cmd_search(
+    query: &str,
+    tier: &str,
+    limit: Option<usize>,
+    json_output: bool,
+) -> Result<()> {
+    let tier_filter = TierFilter::from_str(tier);
+    let discovery_state = DiscoveryState::load_from_env();
+    let all_protos = discovery::all_protocols(&discovery_state);
+    let query_lower = query.to_lowercase();
+
+    let mut matches: Vec<_> = all_protos
+        .iter()
+        .filter(|(_, dp)| tier_filter.matches(dp.tier))
+        .filter(|(name, dp)| {
+            let name_lower = name.to_lowercase();
+            if name_lower.contains(&query_lower) {
+                return true;
+            }
+            if let Some(ref tf) = dp.tshark_filter {
+                if tf.to_lowercase().contains(&query_lower) {
+                    return true;
+                }
+            }
+            if let Some(ref sc) = dp.scapy_class {
+                if sc.to_lowercase().contains(&query_lower) {
+                    return true;
+                }
+            }
+            if let Some(ref ks) = dp.kernel_struct {
+                if ks.to_lowercase().contains(&query_lower) {
+                    return true;
+                }
+            }
+            false
+        })
+        .collect();
+
+    // Sort: exact canonical name matches first, then alphabetical
+    matches.sort_by(|(a_name, _), (b_name, _)| {
+        let a_exact = a_name.to_lowercase() == query_lower;
+        let b_exact = b_name.to_lowercase() == query_lower;
+        match (a_exact, b_exact) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a_name.cmp(b_name),
+        }
+    });
+
+    let total = matches.len();
+    if let Some(lim) = limit {
+        matches.truncate(lim);
+    }
+
+    if json_output {
+        let results: Vec<serde_json::Value> = matches
+            .iter()
+            .map(|(name, dp)| {
+                serde_json::json!({
+                    "canonical": name,
+                    "tier": dp.tier.to_string(),
+                    "tshark_filter": dp.tshark_filter,
+                    "scapy_class": dp.scapy_class,
+                    "kernel_struct": dp.kernel_struct,
+                    "min_header_bytes": dp.min_header_bytes,
+                })
+            })
+            .collect();
+        let output = serde_json::json!({
+            "query": query,
+            "total_matches": total,
+            "results": results,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!(
+            "Search: \"{}\" — {} match{}\n",
+            query,
+            total,
+            if total == 1 { "" } else { "es" }
+        );
+
+        if matches.is_empty() {
+            println!("  No protocols found matching '{}'.", query);
+        } else {
+            println!(
+                "  {:<35} {:<12} {:<20} {:<15} {:>6}",
+                "Protocol", "Tier", "tshark", "Scapy", "MinHdr"
+            );
+            println!("  {}", "─".repeat(90));
+
+            for (name, dp) in &matches {
+                let tshark = dp
+                    .tshark_filter
+                    .as_deref()
+                    .unwrap_or("—");
+                let scapy = dp
+                    .scapy_class
+                    .as_deref()
+                    .unwrap_or("—");
+                println!(
+                    "  {:<35} {:<12} {:<20} {:<15} {:>4} B",
+                    name,
+                    dp.tier.to_string(),
+                    tshark,
+                    scapy,
+                    dp.min_header_bytes,
+                );
+            }
+
+            if total > matches.len() {
+                println!(
+                    "\n  ... and {} more (use --limit to see more)",
+                    total - matches.len()
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub(crate) fn cmd_generate_all(
     target: &str,
     tier: &str,
