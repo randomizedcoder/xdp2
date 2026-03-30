@@ -405,8 +405,8 @@ mod tests {
         assert!(protos.contains_key("IPv4"));
         assert!(protos.contains_key("TCP"));
         assert!(protos.contains_key("Ethernet"));
-        for dp in protos.values() {
-            assert_eq!(dp.tier, Tier::Curated);
-        }
+        // Curated protocols must be present; auto_mappings may add Discovered tier
+        let curated_count = protos.values().filter(|dp| dp.tier == Tier::Curated).count();
+        assert!(curated_count >= 200, "Expected 200+ curated, got {}", curated_count);
     }
 }
