@@ -642,13 +642,25 @@ pub(crate) fn cmd_validate(
         ("ir", &protocol_def),
         ("tshark-roundtrip", &tshark_def),
     ];
-    let result = comparator::audit_protocol(&effective_proto, &refs);
+    let mut result = comparator::audit_protocol(&effective_proto, &refs);
     eprintln!("  [5/5] Comparison complete");
+
+    // Override validation tier: Gold if round-trip passes with fields
+    let is_roundtrip_pass = result.fields_mismatch == 0 && result.total_fields > 0;
+    if is_roundtrip_pass {
+        result.validation_tier = Some(discovery::ValidationTier::Gold);
+    }
+
+    // Persist validation result to cache file
+    if let Err(e) = save_validation_result(&effective_proto, &result) {
+        eprintln!("  warning: failed to save validation cache: {}", e);
+    }
 
     if json_output {
         let output = serde_json::json!({
             "protocol": effective_proto,
             "status": if result.fields_mismatch == 0 { "pass" } else { "fail" },
+            "validation_tier": result.validation_tier.as_ref().map(|t| t.to_string()),
             "stack": pcap_output.stack,
             "pcap_bytes": pcap_output.pcap_bytes.len(),
             "ir_fields": protocol_def.fields.len(),
@@ -1213,6 +1225,7 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
         // Merged list with discovery
         let discovery_state = DiscoveryState::load_from_env();
         let all_protos = discovery::all_protocols(&discovery_state);
+        let vcache = load_validation_cache();
 
         let filtered: Vec<_> = all_protos
             .values()
@@ -1223,6 +1236,9 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
             let json_list: Vec<_> = filtered
                 .iter()
                 .map(|dp| {
+                    let vtier = dp.validation_tier.as_ref()
+                        .or_else(|| vcache.get(&dp.canonical))
+                        .map(|t| t.to_string());
                     serde_json::json!({
                         "canonical": dp.canonical,
                         "tier": dp.tier.to_string(),
@@ -1232,43 +1248,56 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
                         "kernel_header": dp.kernel_header,
                         "estimated_field_count": dp.estimated_field_count,
                         "min_header_bytes": dp.min_header_bytes,
+                        "validation_tier": vtier,
                     })
                 })
                 .collect();
             println!("{}", serde_json::to_string_pretty(&json_list)?);
         } else {
             println!(
-                "  {:<4}  {:<40}  {:<16}  {:<16}  {:<16}  {:>6}",
-                "Tier", "Protocol", "tshark", "Scapy", "Kernel", "Fields"
+                "  {:<4}  {:<40}  {:<16}  {:<16}  {:<16}  {:>6}  {:<11}",
+                "Tier", "Protocol", "tshark", "Scapy", "Kernel", "Fields", "Validation"
             );
             println!(
-                "  {}  {}  {}  {}  {}  {}",
+                "  {}  {}  {}  {}  {}  {}  {}",
                 "-".repeat(4),
                 "-".repeat(40),
                 "-".repeat(16),
                 "-".repeat(16),
                 "-".repeat(16),
-                "-".repeat(6)
+                "-".repeat(6),
+                "-".repeat(11)
             );
             for dp in &filtered {
+                let vtier = dp.validation_tier.as_ref()
+                    .or_else(|| vcache.get(&dp.canonical))
+                    .map(|t| t.to_string())
+                    .unwrap_or_else(|| "-".to_string());
                 println!(
-                    "  [{}]  {:<40}  {:<16}  {:<16}  {:<16}  {:>6}",
+                    "  [{}]  {:<40}  {:<16}  {:<16}  {:<16}  {:>6}  {:<11}",
                     dp.tier,
                     truncate(&dp.canonical, 40),
                     dp.tshark_filter.as_deref().unwrap_or("-"),
                     dp.scapy_class.as_deref().unwrap_or("-"),
                     dp.kernel_struct.as_deref().unwrap_or("-"),
                     dp.estimated_field_count,
+                    vtier,
                 );
             }
+            let gold_count = filtered.iter().filter(|dp| {
+                dp.validation_tier.as_ref()
+                    .or_else(|| vcache.get(&dp.canonical))
+                    == Some(&discovery::ValidationTier::Gold)
+            }).count();
             println!(
-                "\n  Total: {} protocols ({} curated, {} discovered)",
+                "\n  Total: {} protocols ({} curated, {} discovered, {} Gold-validated)",
                 filtered.len(),
                 filtered.iter().filter(|dp| dp.tier == Tier::Curated).count(),
                 filtered
                     .iter()
                     .filter(|dp| dp.tier == Tier::Discovered)
                     .count(),
+                gold_count,
             );
         }
     }
@@ -2208,4 +2237,100 @@ fn score_protocol(
         is_fixed_length: is_fixed,
         tier: dp.tier.to_string(),
     }
+}
+
+// ── Validation Cache ──
+
+/// Cache file for validation results.
+/// Stored as a JSON map from protocol name → validation entry.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ValidationCacheEntry {
+    validation_tier: String,
+    fields_agree: u32,
+    total_fields: u32,
+    fields_mismatch: u32,
+    timestamp: String,
+}
+
+/// Default path for the validation cache file.
+fn validation_cache_path() -> PathBuf {
+    std::env::var("PROTO_AUDIT_VALIDATION_CACHE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let mut p = std::env::current_dir().unwrap_or_default();
+            p.push("validation_cache.json");
+            p
+        })
+}
+
+/// Save a validation result to the cache file.
+fn save_validation_result(protocol: &str, result: &ir::AuditResult) -> Result<()> {
+    let path = validation_cache_path();
+    let mut cache: std::collections::BTreeMap<String, ValidationCacheEntry> =
+        if path.exists() {
+            let data = std::fs::read_to_string(&path)?;
+            serde_json::from_str(&data).unwrap_or_default()
+        } else {
+            std::collections::BTreeMap::new()
+        };
+
+    let tier_str = result
+        .validation_tier
+        .as_ref()
+        .map(|t| t.to_string())
+        .unwrap_or_else(|| "Unvalidated".to_string());
+
+    cache.insert(
+        protocol.to_string(),
+        ValidationCacheEntry {
+            validation_tier: tier_str,
+            fields_agree: result.fields_agree,
+            total_fields: result.total_fields,
+            fields_mismatch: result.fields_mismatch,
+            timestamp: chrono_timestamp(),
+        },
+    );
+
+    std::fs::write(&path, serde_json::to_string_pretty(&cache)?)?;
+    Ok(())
+}
+
+/// Load the validation cache, returning a map of protocol → ValidationTier.
+fn load_validation_cache() -> std::collections::BTreeMap<String, discovery::ValidationTier> {
+    let path = validation_cache_path();
+    if !path.exists() {
+        return std::collections::BTreeMap::new();
+    }
+    let data = match std::fs::read_to_string(&path) {
+        Ok(d) => d,
+        Err(_) => return std::collections::BTreeMap::new(),
+    };
+    let cache: std::collections::BTreeMap<String, ValidationCacheEntry> =
+        match serde_json::from_str(&data) {
+            Ok(c) => c,
+            Err(_) => return std::collections::BTreeMap::new(),
+        };
+    cache
+        .into_iter()
+        .filter_map(|(name, entry)| {
+            let tier = match entry.validation_tier.as_str() {
+                "Gold" => discovery::ValidationTier::Gold,
+                "Silver" => discovery::ValidationTier::Silver,
+                "Bronze" => discovery::ValidationTier::Bronze,
+                _ => discovery::ValidationTier::Unvalidated,
+            };
+            Some((name, tier))
+        })
+        .collect()
+}
+
+/// Simple ISO-8601 timestamp without pulling in chrono crate.
+fn chrono_timestamp() -> String {
+    use std::time::SystemTime;
+    let dur = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = dur.as_secs();
+    // Simple epoch-seconds timestamp (precise enough for cache tracking)
+    format!("{}", secs)
 }

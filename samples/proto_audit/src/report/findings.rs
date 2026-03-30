@@ -89,9 +89,13 @@ pub fn format_findings(results: &[AuditResult]) -> String {
 
         if !disagreements.is_empty() {
             found_any = true;
+            let vtier = r.validation_tier.as_ref()
+                .map(|t| format!(" [{}]", t))
+                .unwrap_or_default();
             out.push_str(&format!(
-                "  {} (sources: {})\n",
+                "  {}{} (sources: {})\n",
                 r.protocol,
+                vtier,
                 ext_present.join(", ")
             ));
 
@@ -275,6 +279,29 @@ pub fn format_findings(results: &[AuditResult]) -> String {
         out.push_str("\n  No field boundary disagreements found.\n");
     }
 
+    // Section 6: Validation tier summary
+    out.push_str("\n\n6. VALIDATION TIER SUMMARY\n");
+    out.push_str(&"-".repeat(80));
+    out.push('\n');
+
+    let mut gold = 0u32;
+    let mut silver = 0u32;
+    let mut bronze = 0u32;
+    let mut unvalidated = 0u32;
+    for r in results {
+        match r.validation_tier {
+            Some(crate::discovery::ValidationTier::Gold) => gold += 1,
+            Some(crate::discovery::ValidationTier::Silver) => silver += 1,
+            Some(crate::discovery::ValidationTier::Bronze) => bronze += 1,
+            Some(crate::discovery::ValidationTier::Unvalidated) | None => unvalidated += 1,
+        }
+    }
+    out.push_str(&format!("\n  Gold (round-trip validated):     {:>4}\n", gold));
+    out.push_str(&format!("  Silver (2+ sources agree):      {:>4}\n", silver));
+    out.push_str(&format!("  Bronze (single source):         {:>4}\n", bronze));
+    out.push_str(&format!("  Unvalidated:                    {:>4}\n", unvalidated));
+    out.push_str(&format!("  Total:                          {:>4}\n", results.len()));
+
     out
 }
 
@@ -347,6 +374,7 @@ pub fn format_findings_json(results: &[AuditResult]) -> serde_json::Value {
                 disagreements.push(serde_json::json!({
                     "protocol": r.protocol,
                     "offset_bits": offset,
+                    "validation_tier": r.validation_tier.as_ref().map(|t| t.to_string()),
                     "fields": fields,
                 }));
             }
@@ -380,6 +408,30 @@ pub fn format_findings_json(results: &[AuditResult]) -> serde_json::Value {
         serde_json::json!({
             "single_external_source": single_source,
             "xdp2_only": xdp2_only,
+        }),
+    );
+
+    // Validation tier summary
+    let mut gold = 0u32;
+    let mut silver = 0u32;
+    let mut bronze = 0u32;
+    let mut unvalidated = 0u32;
+    for r in results {
+        match r.validation_tier {
+            Some(crate::discovery::ValidationTier::Gold) => gold += 1,
+            Some(crate::discovery::ValidationTier::Silver) => silver += 1,
+            Some(crate::discovery::ValidationTier::Bronze) => bronze += 1,
+            Some(crate::discovery::ValidationTier::Unvalidated) | None => unvalidated += 1,
+        }
+    }
+    out.insert(
+        "validation_summary".into(),
+        serde_json::json!({
+            "gold": gold,
+            "silver": silver,
+            "bronze": bronze,
+            "unvalidated": unvalidated,
+            "total": results.len(),
         }),
     );
 
