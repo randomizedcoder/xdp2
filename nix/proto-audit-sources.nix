@@ -23,6 +23,7 @@ let
   etherparseRev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";  # etherparse git rev
   libpcapRev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";  # libpcap git rev
   packetlifeRev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";  # packetlife-backup git rev
+  wiresharkSamplesRev = "4131f845f5b2d319a2cb2014fe2738889adcd889";  # briliant-ben/SampleCaptures git rev
 
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
@@ -43,11 +44,31 @@ let
     hash = "sha256-9ruDO6fB/Smtx5tsHXCHF/EUPI7/Y0naxgrrJH1PFI8=";
   };
 
+  # Wireshark sample captures: community-curated collection from the Wireshark wiki
+  # Covers ~200+ protocols including DHCP, DNS, RTP, SIP, MQTT, Modbus, etc.
+  wiresharkSamples = pkgs.fetchFromGitHub {
+    owner = "briliant-ben";
+    repo = "SampleCaptures";
+    rev = wiresharkSamplesRev;
+    hash = "sha256-ROsdhlOMS8+zEeP1yO1ZxHxUvtUzvcHRCL6QUEO7g1k=";
+  };
+
   # Helper: collect all .patch files from a directory.
   patchesIn = dir:
     map (f: dir + "/${f}")
       (builtins.filter (f: pkgs.lib.hasSuffix ".patch" f)
         (builtins.attrNames (builtins.readDir dir)));
+
+  # IANA registry CSVs (fetched at eval time, used by ianaRegistries derivation)
+  ianaProtocolNumbers = pkgs.fetchurl {
+    url = "https://www.iana.org/assignments/protocol-numbers/protocol-numbers-1.csv";
+    hash = "sha256-5wTuFOaTR2gbOmJxrwIZWpdBI2B0/DEUSeuwMhAb3yw=";
+  };
+
+  ianaEthertypes = pkgs.fetchurl {
+    url = "https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers-1.csv";
+    hash = "sha256-O0yeuvYiUB+LjvDsDSLBQziyDPatkTF/AJN3ceiCz0w=";
+  };
 in
 {
   # Linux kernel source (include/ tree only)
@@ -122,18 +143,7 @@ in
 
   # ── IANA registries for dispatch table validation ──
 
-  ianaProtocolNumbers = pkgs.fetchurl {
-    url = "https://www.iana.org/assignments/protocol-numbers/protocol-numbers-1.csv";
-    hash = "sha256-5wTuFOaTR2gbOmJxrwIZWpdBI2B0/DEUSeuwMhAb3yw=";
-  };
-
-  ianaEthertypes = pkgs.fetchurl {
-    url = "https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers-1.csv";
-    hash = "sha256-O0yeuvYiUB+LjvDsDSLBQziyDPatkTF/AJN3ceiCz0w=";
-  };
-
-  # Note: service-name-port-numbers CSV is ~7MB and URL may change.
-  # Pass --service-names only when available.
+  inherit ianaProtocolNumbers ianaEthertypes;
 
   # Parse IANA CSVs into unified JSON at build time
   ianaRegistries = pkgs.runCommand "iana-registries" {
@@ -163,31 +173,44 @@ in
   # producing a pre-extracted JSON cache of protocol fields for cross-source audit.
   pcapCorpus = pkgs.runCommand "pcap-corpus" {
     nativeBuildInputs = [ tshark pkgs.python314 ];
-    inherit packetlifePcaps;
+    inherit packetlifePcaps wiresharkSamples;
   } ''
     mkdir -p $out/pdml
 
-    echo "Extracting PDML from PacketLife PCAPs..."
-    found=0
-    extracted=0
-    for f in $packetlifePcaps/captures/*.cap \
-             $packetlifePcaps/captures/*.pcap \
-             $packetlifePcaps/captures/*.pcapng; do
-      [ -f "$f" ] || continue
-      found=$((found + 1))
-      base=$(basename "$f" | sed 's/\.[^.]*$//')
-      # Extract up to 5 packets per file, ignore errors (some files may be malformed)
-      if ${tshark}/bin/tshark -r "$f" -T pdml -c 5 > "$out/pdml/$base.xml" 2>/dev/null; then
-        if [ -s "$out/pdml/$base.xml" ]; then
-          extracted=$((extracted + 1))
+    # Helper: extract PDML from a set of PCAP files
+    extract_pdml() {
+      local label="$1"; shift
+      local found=0 extracted=0
+      for f in "$@"; do
+        [ -f "$f" ] || continue
+        found=$((found + 1))
+        base=$(basename "$f" | sed 's/\.[^.]*$//')
+        # Prefix with source to avoid collisions between corpora
+        local outname="''${label}_''${base}"
+        # Extract up to 5 packets per file, ignore errors (some files may be malformed)
+        if ${tshark}/bin/tshark -r "$f" -T pdml -c 5 > "$out/pdml/$outname.xml" 2>/dev/null; then
+          if [ -s "$out/pdml/$outname.xml" ]; then
+            extracted=$((extracted + 1))
+          else
+            rm -f "$out/pdml/$outname.xml"
+          fi
         else
-          rm -f "$out/pdml/$base.xml"
+          rm -f "$out/pdml/$outname.xml"
         fi
-      else
-        rm -f "$out/pdml/$base.xml"
-      fi
-    done
-    echo "PacketLife: found $found files, extracted $extracted PDML files"
+      done
+      echo "$label: found $found files, extracted $extracted PDML files"
+    }
+
+    echo "Extracting PDML from PacketLife PCAPs..."
+    extract_pdml "packetlife" $packetlifePcaps/pcaps/*.cap \
+                              $packetlifePcaps/pcaps/*.pcap \
+                              $packetlifePcaps/pcaps/*.pcapng
+
+    echo "Extracting PDML from Wireshark sample captures..."
+    # Wireshark samples are organized in subdirectories
+    find $wiresharkSamples -type f \( -name '*.pcap' -o -name '*.pcapng' -o -name '*.cap' \) > /tmp/ws_files.txt
+    echo "  Found $(wc -l < /tmp/ws_files.txt) files in Wireshark samples"
+    extract_pdml "wireshark" $(cat /tmp/ws_files.txt)
 
     # Build summary: list all unique dissector names found across all PDML files
     echo "Building protocol summary..."
@@ -202,6 +225,7 @@ in
     etherparse = etherparseRev;
     libpcap = libpcapRev;
     packetlife = packetlifeRev;
+    wiresharkSamples = wiresharkSamplesRev;
     tshark = tshark.version or "unknown";
     scapy = scapyPython.version or "unknown";
   };
