@@ -49,7 +49,7 @@ CURATED = {
 
 def proto(canonical, tshark=None, scapy=None, kernel_struct=None,
           kernel_header=None, min_hdr=0, variable=False, confidence=0.9,
-          method="exact_normalized"):
+          method="exact_normalized", libpcap_name=None, libpcap_file=None):
     """Build a protocol entry dict."""
     entry = {"canonical": canonical}
     if tshark:
@@ -65,6 +65,10 @@ def proto(canonical, tshark=None, scapy=None, kernel_struct=None,
         entry["variable"] = True
     entry["confidence"] = confidence
     entry["match_method"] = method
+    if libpcap_name:
+        entry["libpcap_name"] = libpcap_name
+    if libpcap_file:
+        entry["libpcap_file"] = libpcap_file
     return entry
 
 

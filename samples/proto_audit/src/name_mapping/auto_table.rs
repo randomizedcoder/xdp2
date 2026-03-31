@@ -35,6 +35,12 @@ pub struct AutoMapping {
     /// How the match was made (e.g., "exact_normalized", "decode_table")
     #[serde(default)]
     pub match_method: Option<String>,
+    /// libpcap struct/gencode name (for cross-source verification)
+    #[serde(default)]
+    pub libpcap_name: Option<String>,
+    /// libpcap source file (e.g., "gencode.c", "pcap/proto_audit/gre.h")
+    #[serde(default)]
+    pub libpcap_file: Option<String>,
 }
 
 fn default_confidence() -> f32 {

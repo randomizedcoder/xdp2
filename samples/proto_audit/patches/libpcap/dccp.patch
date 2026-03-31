@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/dccp.h
+@@ -0,0 +1,20 @@
++/*
++ * dccp.h — dccp_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_DCCP_H
++#define PROTO_AUDIT_DCCP_H
++
++#include <stdint.h>
++
++/* DCCP generic header (RFC 4340) — 12 bytes minimum */
++struct dccp_header {
++    uint16_t dccp_src_port;
++    uint16_t dccp_dst_port;
++    uint8_t  dccp_data_offset;
++    uint8_t  dccp_ccval_cscov;     /* CCVal(4) + CsCov(4) */
++    uint16_t dccp_checksum;
++    uint8_t  dccp_type_x_reserved; /* type(4) + X(1) + reserved(3) */
++    uint8_t  dccp_seq_hi;
++    uint16_t dccp_seq_lo;
++};
++
++#endif /* PROTO_AUDIT_DCCP_H */

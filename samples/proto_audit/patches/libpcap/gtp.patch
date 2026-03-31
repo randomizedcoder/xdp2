@@ -1,0 +1,29 @@
+--- /dev/null
++++ b/pcap/proto_audit/gtp.h
+@@ -0,0 +1,30 @@
++/*
++ * gtp.h — GTP-U and GTP-C header definitions for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_GTP_H
++#define PROTO_AUDIT_GTP_H
++
++#include <stdint.h>
++
++/* GTPv1-U header (RFC 2152 / 3GPP TS 29.060) — 8 bytes minimum */
++struct gtp_u_header {
++    uint8_t  gtp_flags;         /* version(3) + PT(1) + reserved(1) + E/S/PN(3) */
++    uint8_t  gtp_message_type;
++    uint16_t gtp_length;
++    uint32_t gtp_teid;          /* Tunnel Endpoint Identifier */
++};
++
++/* GTPv2-C header (3GPP TS 29.274) — 8 bytes minimum */
++struct gtp_c_header {
++    uint8_t  gtp_flags;         /* version(3) + P(1) + T(1) + spare(3) */
++    uint8_t  gtp_message_type;
++    uint16_t gtp_length;
++    uint32_t gtp_teid;          /* present if T=1 */
++};
++
++#endif /* PROTO_AUDIT_GTP_H */

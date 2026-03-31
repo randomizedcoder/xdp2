@@ -310,6 +310,8 @@ pub fn candidates_to_auto_mappings(candidates: &[MatchCandidate]) -> Vec<AutoMap
             variable: c.variable,
             confidence: c.confidence,
             match_method: Some(c.match_method.clone()),
+            libpcap_name: None,
+            libpcap_file: None,
         })
         .collect()
 }

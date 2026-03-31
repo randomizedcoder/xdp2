@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/radius.h
+@@ -0,0 +1,18 @@
++/*
++ * radius.h — radius_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RADIUS_H
++#define PROTO_AUDIT_RADIUS_H
++
++#include <stdint.h>
++
++/* RADIUS header (RFC 2865) — 20 bytes */
++struct radius_header {
++    uint8_t  radius_code;
++    uint8_t  radius_id;
++    uint16_t radius_length;
++    uint8_t  radius_authenticator[16];
++};
++
++#endif /* PROTO_AUDIT_RADIUS_H */

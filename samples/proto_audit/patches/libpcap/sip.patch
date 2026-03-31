@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/pcap/proto_audit/sip.h
+@@ -0,0 +1,17 @@
++/*
++ * sip.h — Minimal SIP fixed fields for proto-audit comparison.
++ * SIP is text-based, but the transport layer (UDP/TCP) framing
++ * can be verified. This defines the Content-Length preamble
++ * used by SIP-over-TCP framing.
++ */
++
++/* SIP is text-based — no fixed binary header struct.
++ * Cross-verification for SIP uses tshark PDML only.
++ * This file exists as a placeholder for completeness.
++ */

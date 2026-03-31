@@ -170,3 +170,55 @@ struct_name = "dns_header"
 [struct_protocols.ntp_header]
 source_file = "pcap/proto_audit/ntp.h"
 struct_name = "ntp_header"
+
+[struct_protocols.dccp_header]
+source_file = "pcap/proto_audit/dccp.h"
+struct_name = "dccp_header"
+
+[struct_protocols.radius_header]
+source_file = "pcap/proto_audit/radius.h"
+struct_name = "radius_header"
+
+[struct_protocols.gtp_u_header]
+source_file = "pcap/proto_audit/gtp.h"
+struct_name = "gtp_u_header"
+
+[struct_protocols.gtp_c_header]
+source_file = "pcap/proto_audit/gtp.h"
+struct_name = "gtp_c_header"
+
+[struct_protocols.vrrp_header]
+source_file = "pcap/proto_audit/vrrp.h"
+struct_name = "vrrp_header"
+
+[struct_protocols.bfd_header]
+source_file = "pcap/proto_audit/bfd.h"
+struct_name = "bfd_header"
+
+[struct_protocols.ospf_header]
+source_file = "pcap/proto_audit/ospf.h"
+struct_name = "ospf_header"
+
+[struct_protocols.rip_header]
+source_file = "pcap/proto_audit/rip.h"
+struct_name = "rip_header"
+
+[struct_protocols.stun_header]
+source_file = "pcap/proto_audit/stun.h"
+struct_name = "stun_header"
+
+[struct_protocols.dhcp_header]
+source_file = "pcap/proto_audit/dhcp.h"
+struct_name = "dhcp_header"
+
+[struct_protocols.rtp_header]
+source_file = "pcap/proto_audit/rtp.h"
+struct_name = "rtp_header"
+
+[struct_protocols.mqtt_header]
+source_file = "pcap/proto_audit/mqtt.h"
+struct_name = "mqtt_header"
+
+[struct_protocols.modbus_tcp_header]
+source_file = "pcap/proto_audit/modbus.h"
+struct_name = "modbus_tcp_header"

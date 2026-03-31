@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/modbus.h
+@@ -0,0 +1,19 @@
++/*
++ * modbus.h — modbus_tcp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MODBUS_H
++#define PROTO_AUDIT_MODBUS_H
++
++#include <stdint.h>
++
++/* Modbus/TCP MBAP header (Modbus Application Protocol) — 7 bytes */
++struct modbus_tcp_header {
++    uint16_t modbus_transaction_id;
++    uint16_t modbus_protocol_id;    /* always 0x0000 for Modbus */
++    uint16_t modbus_length;
++    uint8_t  modbus_unit_id;
++};
++
++#endif /* PROTO_AUDIT_MODBUS_H */

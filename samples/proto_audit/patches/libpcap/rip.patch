@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/rip.h
+@@ -0,0 +1,17 @@
++/*
++ * rip.h — rip_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RIP_H
++#define PROTO_AUDIT_RIP_H
++
++#include <stdint.h>
++
++/* RIPv2 header (RFC 2453) — 4 bytes */
++struct rip_header {
++    uint8_t  rip_command;
++    uint8_t  rip_version;
++    uint16_t rip_zero;      /* must be zero */
++};
++
++#endif /* PROTO_AUDIT_RIP_H */

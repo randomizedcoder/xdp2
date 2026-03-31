@@ -470,16 +470,21 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("ATM")
             .tshark("atm"),
         // ── Redundancy ──
-        PN::new("VRRP", 8).scapy("VRRPv3").tshark("vrrp").variable()
+        PN::new("VRRP", 8).scapy("VRRPv3").tshark("vrrp")
+            .libpcap("vrrp_header", "pcap/proto_audit/vrrp.h")
+            .variable()
             .rfcs(&[5798, 9568]),
         PN::new("HSRP", 20).scapy("HSRP").tshark("hsrp")
             .rfcs(&[2281]),
         // ── Discovery ──
         PN::new("CDP", 4).scapy("CDPv2_HDR").tshark("cdp").variable(),
         // ── Routing ──
-        PN::new("RIP", 4).scapy("RIP").tshark("rip").variable()
+        PN::new("RIP", 4).scapy("RIP").tshark("rip")
+            .libpcap("rip_header", "pcap/proto_audit/rip.h")
+            .variable()
             .rfcs(&[2453, 1058]),
         PN::new("OSPF", 24).scapy("OSPF_Hdr").tshark("ospf")
+            .libpcap("ospf_header", "pcap/proto_audit/ospf.h")
             .rfcs(&[2328, 5340]),
         PN::new("ISIS", 8).scapy("ISIS_CommonHdr").tshark("isis").variable()
             .rfcs(&[1195]),
@@ -539,7 +544,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── Media/Streaming ──
         PN::new("MPEG_TS", 188).scapy("MPEG_TS").tshark("mp2t"),
         PN::new("RTP", 12).scapy("RTP").tshark("rtp")
-            .etherparse("RtpHeader", "src/proto_audit/rtp.rs").variable()
+            .etherparse("RtpHeader", "src/proto_audit/rtp.rs")
+            .libpcap("rtp_header", "pcap/proto_audit/rtp.h")
+            .variable()
             .rfcs(&[3550, 3551]),
         PN::new("SRT", 16).scapy("SRT").tshark("srt").variable(),
         // ── UDP Application Protocols ──
@@ -553,7 +560,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[5905]),
         PN::new("SNMP", 10).scapy("SNMP").tshark("snmp").variable()
             .rfcs(&[3411, 3412, 3414, 3416]),
-        PN::new("DHCP", 236).scapy("BOOTP").tshark("dhcp").variable()
+        PN::new("DHCP", 236).scapy("BOOTP").tshark("dhcp")
+            .libpcap("dhcp_header", "pcap/proto_audit/dhcp.h")
+            .variable()
             .rfcs(&[2131, 2132]),
         PN::new("DHCPv6", 4).scapy("DHCP6").tshark("dhcpv6").variable()
             .rfcs(&[8415]),
@@ -646,11 +655,16 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("DCCP")
             .tshark("dccp")
             .etherparse("DccpHeader", "src/proto_audit/dccp.rs")
+            .libpcap("dccp_header", "pcap/proto_audit/dccp.h")
             .variable()
             .rfcs(&[4340, 5595]),
-        PN::new("GTP_U", 8).scapy("GTP_U_Header").tshark("gtp").variable()
+        PN::new("GTP_U", 8).scapy("GTP_U_Header").tshark("gtp")
+            .libpcap("gtp_u_header", "pcap/proto_audit/gtp.h")
+            .variable()
             .rfcs(&[2152]),
-        PN::new("GTP_C", 8).scapy("GTPHeader").tshark("gtpv2").variable(),
+        PN::new("GTP_C", 8).scapy("GTPHeader").tshark("gtpv2")
+            .libpcap("gtp_c_header", "pcap/proto_audit/gtp.h")
+            .variable(),
         PN::new("PIM", 4).scapy("PIM").tshark("pim").variable()
             .rfcs(&[7761, 4601]),
         PN::new("IPv6_Fragment", 8)
@@ -724,15 +738,20 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("RTSP", 12).tshark("rtsp").variable()
             .rfcs(&[7826, 2326]),
         PN::new("STUN", 20).scapy("STUN").tshark("stun")
+            .libpcap("stun_header", "pcap/proto_audit/stun.h")
             .rfcs(&[8489, 5389]),
         PN::new("Skinny", 12).scapy("Skinny").tshark("skinny").variable(),
         PN::new("MGCP", 4).tshark("mgcp").variable()
             .rfcs(&[3435]),
         // ── IoT / Industrial ──
-        PN::new("MQTT", 2).scapy("MQTT").tshark("mqtt").variable(),
+        PN::new("MQTT", 2).scapy("MQTT").tshark("mqtt")
+            .libpcap("mqtt_header", "pcap/proto_audit/mqtt.h")
+            .variable(),
         PN::new("CoAP", 4).scapy("CoAP").tshark("coap").variable()
             .rfcs(&[7252, 7641, 8323]),
-        PN::new("MODBUS_TCP", 7).scapy("ModbusADU").tshark("modbus").variable(),
+        PN::new("MODBUS_TCP", 7).scapy("ModbusADU").tshark("modbus")
+            .libpcap("modbus_tcp_header", "pcap/proto_audit/modbus.h")
+            .variable(),
         PN::new("BACnet", 4).scapy("BVLC").tshark("bacnet").variable(),
         PN::new("DNP3", 10).scapy("DNP3").tshark("dnp3").variable()
             .ieee(&["1815-2012"]),
@@ -747,7 +766,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("Zigbee_APS", 2).scapy("ZigbeeAppDataPayload").tshark("zbee_aps").variable(),
         // ── Network Management ──
         PN::new("RADIUS", 20).scapy("Radius").tshark("radius")
-            .etherparse("RadiusHeader", "src/proto_audit/radius.rs").variable()
+            .etherparse("RadiusHeader", "src/proto_audit/radius.rs")
+            .libpcap("radius_header", "pcap/proto_audit/radius.h")
+            .variable()
             .rfcs(&[2865, 2866]),
         PN::new("Diameter", 20).scapy("DiamG").tshark("diameter").variable()
             .rfcs(&[6733]),
@@ -794,6 +815,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── Routing & Misc ──
         PN::new("BFD", 24).scapy("BFD").tshark("bfd")
             .etherparse("BfdHeader", "src/proto_audit/bfd.rs")
+            .libpcap("bfd_header", "pcap/proto_audit/bfd.h")
             .rfcs(&[5880, 5881]),
         PN::new("LDP", 10).scapy("LDP").tshark("ldp").variable()
             .rfcs(&[5036, 3036]),

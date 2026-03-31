@@ -1,0 +1,31 @@
+--- /dev/null
++++ b/pcap/proto_audit/dhcp.h
+@@ -0,0 +1,28 @@
++/*
++ * dhcp.h — dhcp_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_DHCP_H
++#define PROTO_AUDIT_DHCP_H
++
++#include <stdint.h>
++
++/* DHCP / BOOTP header (RFC 2131) — 236 bytes minimum */
++struct dhcp_header {
++    uint8_t  dhcp_op;          /* message type: 1=request, 2=reply */
++    uint8_t  dhcp_htype;       /* hardware type (1=Ethernet) */
++    uint8_t  dhcp_hlen;        /* hardware address length */
++    uint8_t  dhcp_hops;
++    uint32_t dhcp_xid;         /* transaction ID */
++    uint16_t dhcp_secs;
++    uint16_t dhcp_flags;
++    uint32_t dhcp_ciaddr;      /* client IP */
++    uint32_t dhcp_yiaddr;      /* your IP */
++    uint32_t dhcp_siaddr;      /* server IP */
++    uint32_t dhcp_giaddr;      /* gateway IP */
++    uint8_t  dhcp_chaddr[16];  /* client hardware address */
++    uint8_t  dhcp_sname[64];   /* server host name */
++    uint8_t  dhcp_file[128];   /* boot file name */
++};
++
++#endif /* PROTO_AUDIT_DHCP_H */

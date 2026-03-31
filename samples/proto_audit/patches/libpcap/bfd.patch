@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/bfd.h
+@@ -0,0 +1,21 @@
++/*
++ * bfd.h — bfd_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_BFD_H
++#define PROTO_AUDIT_BFD_H
++
++#include <stdint.h>
++
++/* BFD Control header (RFC 5880) — 24 bytes */
++struct bfd_header {
++    uint8_t  bfd_ver_diag;          /* version(3) + diag(5) */
++    uint8_t  bfd_sta_flags;         /* state(2) + flags(6) */
++    uint8_t  bfd_detect_mult;
++    uint8_t  bfd_length;
++    uint32_t bfd_my_discriminator;
++    uint32_t bfd_your_discriminator;
++    uint32_t bfd_desired_min_tx;
++    uint32_t bfd_required_min_rx;
++    uint32_t bfd_required_min_echo_rx;
++};
++
++#endif /* PROTO_AUDIT_BFD_H */

@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/mqtt.h
+@@ -0,0 +1,16 @@
++/*
++ * mqtt.h — mqtt_header definition for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MQTT_H
++#define PROTO_AUDIT_MQTT_H
++
++#include <stdint.h>
++
++/* MQTT fixed header (MQTT 3.1.1 / 5.0) — 2 bytes minimum */
++struct mqtt_header {
++    uint8_t  mqtt_type_flags;    /* type(4) + DUP(1) + QoS(2) + RETAIN(1) */
++    uint8_t  mqtt_remaining_len; /* remaining length (variable encoding, 1-4 bytes) */
++};
++
++#endif /* PROTO_AUDIT_MQTT_H */

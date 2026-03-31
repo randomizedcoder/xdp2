@@ -155,7 +155,23 @@ fn try_extract_discovered(
             def.name = dp.canonical.clone();
             Some(def)
         }
-        // xdp2, etherparse, libpcap not available for discovered protocols
+        "libpcap" => {
+            let libpcap_name = dp.libpcap_name.as_deref()?;
+            let libpcap_file = dp.libpcap_file.as_deref()?;
+            let mappings = type_mapping::load_libpcap_mappings(None).ok()?;
+            let mut def = extractors::libpcap::extract_protocol(
+                paths.libpcap_src.as_deref(),
+                &dp.canonical,
+                libpcap_name,
+                libpcap_file,
+                &mappings,
+            )
+            .ok()
+            .flatten()?;
+            def.name = dp.canonical.clone();
+            Some(def)
+        }
+        // xdp2, etherparse not available for discovered protocols
         _ => None,
     }
 }
@@ -1251,6 +1267,8 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
                         "scapy_class": dp.scapy_class,
                         "kernel_struct": dp.kernel_struct,
                         "kernel_header": dp.kernel_header,
+                        "libpcap_name": dp.libpcap_name,
+                        "libpcap_file": dp.libpcap_file,
                         "estimated_field_count": dp.estimated_field_count,
                         "min_header_bytes": dp.min_header_bytes,
                         "validation_tier": vtier,
@@ -1297,10 +1315,12 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
             let with_tshark = filtered.iter().filter(|dp| dp.tshark_filter.is_some()).count();
             let with_scapy = filtered.iter().filter(|dp| dp.scapy_class.is_some()).count();
             let with_kernel = filtered.iter().filter(|dp| dp.kernel_struct.is_some()).count();
+            let with_libpcap = filtered.iter().filter(|dp| dp.libpcap_name.is_some()).count();
             let multi_source = filtered.iter().filter(|dp| {
                 let n = dp.tshark_filter.is_some() as u32
                     + dp.scapy_class.is_some() as u32
-                    + dp.kernel_struct.is_some() as u32;
+                    + dp.kernel_struct.is_some() as u32
+                    + dp.libpcap_name.is_some() as u32;
                 n >= 2
             }).count();
             println!(
@@ -1314,8 +1334,8 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
                 gold_count,
             );
             println!(
-                "  Sources: {} tshark, {} Scapy, {} kernel, {} multi-source (2+)",
-                with_tshark, with_scapy, with_kernel, multi_source,
+                "  Sources: {} tshark, {} Scapy, {} kernel, {} libpcap, {} multi-source (2+)",
+                with_tshark, with_scapy, with_kernel, with_libpcap, multi_source,
             );
         }
     }
