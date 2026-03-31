@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/eigrp.h
+@@ -0,0 +1,22 @@
++/*
++ * eigrp.h — eigrp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EIGRP_H
++#define PROTO_AUDIT_EIGRP_H
++
++#include <stdint.h>
++
++/* EIGRP header — 40 bytes minimum */
++struct eigrp_header {
++    uint8_t  eigrp_version;
++    uint8_t  eigrp_opcode;
++    uint16_t eigrp_checksum;
++    uint32_t eigrp_flags;
++    uint32_t eigrp_seq;
++    uint32_t eigrp_ack;
++    uint16_t eigrp_vrid;
++    uint16_t eigrp_as;
++};
++
++#endif /* PROTO_AUDIT_EIGRP_H */

@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/ospf.h
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,22 @@
 +/*
 + * ospf.h — ospf_header definition for proto-audit comparison.
 + */

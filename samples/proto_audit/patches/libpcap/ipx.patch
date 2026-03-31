@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/ipx.h
+@@ -0,0 +1,24 @@
++/*
++ * ipx.h — ipx_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IPX_H
++#define PROTO_AUDIT_IPX_H
++
++#include <stdint.h>
++
++/* IPX header — 30 bytes minimum */
++struct ipx_header {
++    uint16_t ipx_checksum;
++    uint16_t ipx_len;
++    uint8_t  ipx_hops;
++    uint8_t  ipx_packet_type;
++    uint32_t ipx_net;
++    uint8_t  ipx_node;
++    uint16_t ipx_socket;
++    uint32_t ipx_net;
++    uint8_t  ipx_node;
++    uint16_t ipx_socket;
++};
++
++#endif /* PROTO_AUDIT_IPX_H */

@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/sip.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,11 @@
 +/*
 + * sip.h — Minimal SIP fixed fields for proto-audit comparison.
 + * SIP is text-based, but the transport layer (UDP/TCP) framing

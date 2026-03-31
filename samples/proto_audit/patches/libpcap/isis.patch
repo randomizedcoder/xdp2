@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/isis.h
+@@ -0,0 +1,22 @@
++/*
++ * isis.h — isis_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ISIS_H
++#define PROTO_AUDIT_ISIS_H
++
++#include <stdint.h>
++
++/* ISIS header — 1499 bytes minimum */
++struct isis_header {
++    uint8_t  isis_irpd;
++    uint8_t  isis_len;
++    uint8_t  isis_version;
++    uint8_t  isis_sysid_len;
++    uint8_t  isis_reserved;
++    uint8_t  isis_version2;
++    uint8_t  isis_reserved;
++    uint8_t  isis_max_area_adr;
++};
++
++#endif /* PROTO_AUDIT_ISIS_H */

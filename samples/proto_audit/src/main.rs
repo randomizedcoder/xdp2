@@ -176,6 +176,29 @@ enum Commands {
         paths: SourcePaths,
     },
 
+    /// Generate libpcap overlay patches from corpus PDML data
+    #[command(name = "generate-libpcap-patches")]
+    GenerateLibpcapPatches {
+        /// Output directory for patch files (default: patches/libpcap)
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
+
+        /// Only generate for these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Minimum number of fields to include a protocol
+        #[arg(long, default_value = "2")]
+        min_fields: usize,
+
+        /// Print to stdout without writing files
+        #[arg(long)]
+        dry_run: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Generate code from IR (C header, etherparse Rust struct, or Scapy class)
     Generate {
         /// Protocol name or path to IR JSON
@@ -444,6 +467,13 @@ fn main() -> Result<()> {
             json,
             paths,
         } => cmd_generate_all(&target, &tier, output_dir, count_only, min_fields, json, &paths),
+        Commands::GenerateLibpcapPatches {
+            output_dir,
+            protos,
+            min_fields,
+            dry_run,
+            paths,
+        } => cmd_generate_libpcap_patches(output_dir, protos.as_deref(), min_fields, dry_run, &paths),
         Commands::Generate {
             proto,
             from_json,

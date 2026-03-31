@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/pcap/proto_audit/stp.h
+@@ -0,0 +1,27 @@
++/*
++ * stp.h — stp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_STP_H
++#define PROTO_AUDIT_STP_H
++
++#include <stdint.h>
++
++/* STP header — 36 bytes minimum */
++struct stp_header {
++    uint16_t stp_protocol;
++    uint8_t  stp_version;
++    uint8_t  stp_type;
++    uint8_t  stp_flags;
++    uint8_t  _pad5[8];
++    uint32_t stp_cost;
++    uint8_t  _pad17[8];
++    uint16_t stp_port;
++    uint16_t stp_msg_age;
++    uint16_t stp_max_age;
++    uint16_t stp_hello;
++    uint16_t stp_forward;
++    uint8_t  stp_version_1_length;
++};
++
++#endif /* PROTO_AUDIT_STP_H */

@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/icmpv4.h
+@@ -0,0 +1,18 @@
++/*
++ * icmpv4.h — icmpv4_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ICMPV4_H
++#define PROTO_AUDIT_ICMPV4_H
++
++#include <stdint.h>
++
++/* ICMPv4 header — 36 bytes minimum */
++struct icmpv4_header {
++    uint8_t  icmpv4_type;
++    uint8_t  icmpv4_code;
++    uint16_t icmpv4_checksum;
++    uint32_t icmpv4_unused;
++};
++
++#endif /* PROTO_AUDIT_ICMPV4_H */

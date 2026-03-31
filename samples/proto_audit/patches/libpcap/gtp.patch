@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/gtp.h
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,26 @@
 +/*
 + * gtp.h — GTP-U and GTP-C header definitions for proto-audit comparison.
 + */

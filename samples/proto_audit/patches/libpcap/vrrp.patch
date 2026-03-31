@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/vrrp.h
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,20 @@
 +/*
 + * vrrp.h — vrrp_header definition for proto-audit comparison.
 + */

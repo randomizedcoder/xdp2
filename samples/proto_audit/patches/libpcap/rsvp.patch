@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/rsvp.h
+@@ -0,0 +1,24 @@
++/*
++ * rsvp.h — rsvp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RSVP_H
++#define PROTO_AUDIT_RSVP_H
++
++#include <stdint.h>
++
++/* RSVP header — 264 bytes minimum */
++struct rsvp_header {
++    uint8_t  _pad0[8];
++    uint8_t  rsvp_session[16];
++    uint8_t  rsvp_hop[12];
++    uint64_t rsvp_time;
++    uint8_t  rsvp_explicit_route[60];
++    uint64_t rsvp_label_request;
++    uint8_t  rsvp_session_attribute[20];
++    uint8_t  rsvp_sender[12];
++    uint8_t  rsvp_tspec[36];
++    uint8_t  rsvp_adspec[84];
++};
++
++#endif /* PROTO_AUDIT_RSVP_H */

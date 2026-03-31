@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/pcap/proto_audit/tipc.h
+@@ -0,0 +1,27 @@
++/*
++ * tipc.h — tipc_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_TIPC_H
++#define PROTO_AUDIT_TIPC_H
++
++#include <stdint.h>
++
++/* TIPC header — 56 bytes minimum */
++struct tipc_header {
++    uint32_t tipc_ver;
++    uint32_t tipc_link_msg_type;
++    uint32_t tipc_link_level_ack_no;
++    uint32_t tipc_prev_node;
++    uint32_t tipc_next_sent_broadcast;
++    uint32_t tipc_session_no;
++    uint32_t tipc_orig_node;
++    uint32_t tipc_dest_node;
++    uint32_t tipc_timestamp;
++    uint32_t tipc_max_packet;
++    uint8_t  tipc_bearer_instance;
++    uint8_t  _pad45[3];
++    uint64_t tipc_filler_mtu_discovery;
++};
++
++#endif /* PROTO_AUDIT_TIPC_H */

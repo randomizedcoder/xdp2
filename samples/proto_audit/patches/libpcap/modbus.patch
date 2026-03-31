@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/modbus.h
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,18 @@
 +/*
 + * modbus.h — modbus_tcp_header for proto-audit comparison.
 + */

@@ -222,3 +222,65 @@ struct_name = "mqtt_header"
 [struct_protocols.modbus_tcp_header]
 source_file = "pcap/proto_audit/modbus.h"
 struct_name = "modbus_tcp_header"
+
+# Auto-generated from corpus PDML
+
+[struct_protocols.lacp_header]
+source_file = "pcap/proto_audit/lacp.h"
+struct_name = "lacp_header"
+
+[struct_protocols.ptp_header]
+source_file = "pcap/proto_audit/ptp.h"
+struct_name = "ptp_header"
+
+[struct_protocols.fc_header]
+source_file = "pcap/proto_audit/fc.h"
+struct_name = "fc_header"
+
+[struct_protocols.iscsi_header]
+source_file = "pcap/proto_audit/iscsi.h"
+struct_name = "iscsi_header"
+
+[struct_protocols.tipc_header]
+source_file = "pcap/proto_audit/tipc.h"
+struct_name = "tipc_header"
+
+[struct_protocols.stp_header]
+source_file = "pcap/proto_audit/stp.h"
+struct_name = "stp_header"
+
+[struct_protocols.ipx_header]
+source_file = "pcap/proto_audit/ipx.h"
+struct_name = "ipx_header"
+
+[struct_protocols.hsrp_header]
+source_file = "pcap/proto_audit/hsrp.h"
+struct_name = "hsrp_header"
+
+[struct_protocols.rsvp_header]
+source_file = "pcap/proto_audit/rsvp.h"
+struct_name = "rsvp_header"
+
+[struct_protocols.eigrp_header]
+source_file = "pcap/proto_audit/eigrp.h"
+struct_name = "eigrp_header"
+
+[struct_protocols.isis_header]
+source_file = "pcap/proto_audit/isis.h"
+struct_name = "isis_header"
+
+[struct_protocols.ieee802154_header]
+source_file = "pcap/proto_audit/ieee802154.h"
+struct_name = "ieee802154_header"
+
+[struct_protocols.icmpv4_header]
+source_file = "pcap/proto_audit/icmpv4.h"
+struct_name = "icmpv4_header"
+
+[struct_protocols.fcoe_header]
+source_file = "pcap/proto_audit/fcoe.h"
+struct_name = "fcoe_header"
+
+[struct_protocols.pim_header]
+source_file = "pcap/proto_audit/pim.h"
+struct_name = "pim_header"

@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/pim.h
+@@ -0,0 +1,18 @@
++/*
++ * pim.h — pim_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PIM_H
++#define PROTO_AUDIT_PIM_H
++
++#include <stdint.h>
++
++/* PIM header — 10 bytes minimum */
++struct pim_header {
++    uint8_t  pim_version;
++    uint8_t  pim_res_bytes;
++    uint16_t pim_cksum;
++    uint8_t  pim_option;
++};
++
++#endif /* PROTO_AUDIT_PIM_H */

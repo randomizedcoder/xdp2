@@ -1,0 +1,33 @@
+--- /dev/null
++++ b/pcap/proto_audit/ptp.h
+@@ -0,0 +1,30 @@
++/*
++ * ptp.h — ptp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PTP_H
++#define PROTO_AUDIT_PTP_H
++
++#include <stdint.h>
++
++/* PTP header — 54 bytes minimum */
++struct ptp_header {
++    uint8_t  ptp_majorsdoid;
++    uint8_t  ptp_minorversionptp;
++    uint16_t ptp_messagelength;
++    uint8_t  ptp_domainnumber;
++    uint8_t  ptp_minorsdoid;
++    uint16_t ptp_flags;
++    uint8_t  _pad8[8];
++    uint32_t ptp_messagetypespecific;
++    uint64_t ptp_clockidentity;
++    uint16_t ptp_sourceportid;
++    uint16_t ptp_sequenceid;
++    uint8_t  ptp_controlfield;
++    uint8_t  ptp_logmessageinterval;
++    uint8_t  ptp_seconds;
++    uint32_t ptp_nanoseconds;
++    uint8_t  ptp_reserved[10];
++};
++
++#endif /* PROTO_AUDIT_PTP_H */

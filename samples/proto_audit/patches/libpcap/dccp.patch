@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/dccp.h
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,22 @@
 +/*
 + * dccp.h — dccp_header definition for proto-audit comparison.
 + */

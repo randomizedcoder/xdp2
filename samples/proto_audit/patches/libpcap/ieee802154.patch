@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/ieee802154.h
+@@ -0,0 +1,21 @@
++/*
++ * ieee802154.h — ieee802154_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IEEE802154_H
++#define PROTO_AUDIT_IEEE802154_H
++
++#include <stdint.h>
++
++/* IEEE802154 header — 296 bytes minimum */
++struct ieee802154_header {
++    uint16_t ieee802154_fcf;
++    uint8_t  ieee802154_seq_no;
++    uint16_t ieee802154_dst_pan;
++    uint16_t ieee802154_dst16;
++    uint16_t ieee802154_src16;
++    uint8_t  _pad9[287];
++    uint16_t ieee802154_fcs;
++};
++
++#endif /* PROTO_AUDIT_IEEE802154_H */

@@ -279,6 +279,156 @@ pub fn generate_proto_def_synthetic(proto: &ProtocolDef) -> String {
     out
 }
 
+/// Generate a libpcap overlay patch from an IR definition.
+///
+/// Produces a unified diff that creates `pcap/proto_audit/<name>.h` with a
+/// packed C struct suitable for cross-source comparison. Fields use stdint
+/// types (uint8_t, uint16_t, etc.) rather than kernel __beNN types.
+pub fn generate_libpcap_patch(proto: &ProtocolDef) -> Option<String> {
+    let fields = &proto.fields;
+    if fields.is_empty() {
+        return None;
+    }
+
+    let snake = canonical_to_snake(&proto.name);
+    let upper = canonical_to_upper(&proto.name);
+    let guard = format!("PROTO_AUDIT_{}_H", upper);
+    let struct_name = format!("{}_header", snake);
+    let file_path = format!("pcap/proto_audit/{}.h", snake);
+    let min_bytes = proto.min_header_bits / 8;
+
+    // Build struct body — only byte-aligned fields, skip sub-byte bitfields
+    let mut body_lines: Vec<String> = Vec::new();
+    let mut current_bit = 0u32;
+
+    for field in fields {
+        // Skip fields that aren't at expected offset (sub-fields, options)
+        if field.offset_bits < current_bit {
+            continue;
+        }
+
+        // Skip non-byte-aligned fields
+        if field.offset_bits % 8 != 0 || field.size_bits % 8 != 0 {
+            // Pack sub-byte fields into a combined uint8_t if they fill a byte
+            if field.offset_bits == current_bit && field.size_bits < 8 {
+                // Accumulate sub-byte fields into one byte
+                let byte_start = current_bit;
+                let mut sub_fields: Vec<&crate::ir::FieldDef> = vec![field];
+                let mut bits_acc = field.size_bits;
+                // Look ahead for more sub-fields in the same byte
+                for next in fields.iter() {
+                    if next.offset_bits == byte_start + bits_acc && bits_acc + next.size_bits <= 8 {
+                        sub_fields.push(next);
+                        bits_acc += next.size_bits;
+                    }
+                }
+                if bits_acc == 8 {
+                    let comment = sub_fields.iter()
+                        .map(|f| format!("{}({})", f.name.split('.').last().unwrap_or(&f.name), f.size_bits))
+                        .collect::<Vec<_>>()
+                        .join("+");
+                    let combined_name = format!("{}_{}", snake,
+                        sub_fields.first().map(|f| {
+                            let n = canonical_to_snake(&f.name);
+                            n.split('.').last().unwrap_or(&n).to_string()
+                        }).unwrap_or_else(|| format!("byte_{}", byte_start / 8)));
+                    body_lines.push(format!("    uint8_t  {:<20} /* {} */", format!("{};", combined_name), comment));
+                    current_bit = byte_start + 8;
+                    continue;
+                }
+            }
+            continue;
+        }
+
+        // Insert padding for gaps
+        if field.offset_bits > current_bit {
+            let gap = field.offset_bits - current_bit;
+            if gap % 8 == 0 {
+                let gap_bytes = gap / 8;
+                body_lines.push(format!("    uint8_t  _pad{}[{}];", current_bit / 8, gap_bytes));
+            }
+        }
+
+        let c_type = ir_field_to_stdint(field);
+        let field_name = format!("{}_{}", snake, field.name.split('.').last().unwrap_or(&field.name));
+        let field_name = canonical_to_snake(&field_name);
+
+        if field.size_bits > 64 {
+            // Large fields become byte arrays
+            let n_bytes = field.size_bits / 8;
+            body_lines.push(format!("    uint8_t  {}[{}];", field_name, n_bytes));
+        } else {
+            body_lines.push(format!("    {:<8} {};", c_type, field_name));
+        }
+
+        current_bit = field.offset_bits + field.size_bits;
+    }
+
+    if body_lines.is_empty() {
+        return None;
+    }
+
+    // Build the header file content
+    let mut header = String::new();
+    header.push_str(&format!("/*\n * {}.h — {} for proto-audit comparison.\n */\n\n", snake, struct_name));
+    header.push_str(&format!("#ifndef {}\n#define {}\n\n", guard, guard));
+    header.push_str("#include <stdint.h>\n\n");
+    header.push_str(&format!("/* {} header — {} bytes minimum */\n", proto.name, min_bytes));
+    header.push_str(&format!("struct {} {{\n", struct_name));
+    for line in &body_lines {
+        header.push_str(line);
+        header.push('\n');
+    }
+    header.push_str("};\n\n");
+    header.push_str(&format!("#endif /* {} */\n", guard));
+
+    // Count lines in the header
+    let line_count = header.lines().count();
+
+    // Build the patch
+    let mut patch = String::new();
+    patch.push_str("--- /dev/null\n");
+    patch.push_str(&format!("+++ b/{}\n", file_path));
+    patch.push_str(&format!("@@ -0,0 +1,{} @@\n", line_count));
+    for line in header.lines() {
+        patch.push('+');
+        patch.push_str(line);
+        patch.push('\n');
+    }
+
+    Some(patch)
+}
+
+/// Generate a libpcap.toml struct_protocols entry for a protocol.
+pub fn generate_libpcap_toml_entry(proto: &ProtocolDef) -> Option<String> {
+    let snake = canonical_to_snake(&proto.name);
+    let struct_name = format!("{}_header", snake);
+    let file_path = format!("pcap/proto_audit/{}.h", snake);
+
+    if proto.fields.is_empty() {
+        return None;
+    }
+
+    let mut entry = String::new();
+    entry.push_str(&format!("[struct_protocols.{}]\n", struct_name));
+    entry.push_str(&format!("file = \"{}\"\n", file_path));
+    entry.push_str(&format!("struct_name = \"{}\"\n", struct_name));
+    entry.push_str(&format!("prefix = \"{}_\"\n", snake));
+
+    Some(entry)
+}
+
+/// Map an IR field to a stdint type (for libpcap patches).
+fn ir_field_to_stdint(field: &crate::ir::FieldDef) -> &'static str {
+    match field.size_bits {
+        8 => "uint8_t",
+        16 => "uint16_t",
+        32 => "uint32_t",
+        64 => "uint64_t",
+        _ => "uint8_t",
+    }
+}
+
 /// Map an IR field to a C type string.
 fn ir_field_to_c_type(field: &crate::ir::FieldDef) -> &'static str {
     use crate::ir::Endian;

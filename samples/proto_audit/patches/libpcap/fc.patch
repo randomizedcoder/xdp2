@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/pcap/proto_audit/fc.h
+@@ -0,0 +1,27 @@
++/*
++ * fc.h — fc_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_FC_H
++#define PROTO_AUDIT_FC_H
++
++#include <stdint.h>
++
++/* FC header — 24 bytes minimum */
++struct fc_header {
++    uint8_t  fc_r_ctl;
++    uint8_t  fc_d_id;
++    uint8_t  fc_cs_ctl;
++    uint8_t  fc_s_id;
++    uint8_t  fc_type;
++    uint8_t  fc_reassembled;
++    uint8_t  _pad10[2];
++    uint8_t  fc_seq_id;
++    uint8_t  fc_df_ctl;
++    uint16_t fc_seq_cnt;
++    uint16_t fc_ox_id;
++    uint16_t fc_rx_id;
++    uint32_t fc_parameter;
++};
++
++#endif /* PROTO_AUDIT_FC_H */

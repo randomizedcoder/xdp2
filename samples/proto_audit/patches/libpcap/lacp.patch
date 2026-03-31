@@ -1,0 +1,43 @@
+--- /dev/null
++++ b/pcap/proto_audit/lacp.h
+@@ -0,0 +1,40 @@
++/*
++ * lacp.h — lacp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LACP_H
++#define PROTO_AUDIT_LACP_H
++
++#include <stdint.h>
++
++/* LACP header — 109 bytes minimum */
++struct lacp_header {
++    uint8_t  lacp_version;
++    uint8_t  lacp_tlv_type;
++    uint8_t  lacp_tlv_length;
++    uint16_t lacp_sys_priority;
++    uint8_t  lacp_sysid;
++    uint16_t lacp_key;
++    uint16_t lacp_port_priority;
++    uint16_t lacp_port;
++    uint8_t  lacp_state;
++    uint8_t  lacp_reserved;
++    uint8_t  lacp_tlv_type;
++    uint8_t  lacp_tlv_length;
++    uint16_t lacp_sys_priority;
++    uint8_t  lacp_sysid;
++    uint16_t lacp_key;
++    uint16_t lacp_port_priority;
++    uint16_t lacp_port;
++    uint8_t  lacp_state;
++    uint8_t  lacp_reserved;
++    uint8_t  lacp_tlv_type;
++    uint8_t  lacp_tlv_length;
++    uint16_t lacp_max_delay;
++    uint8_t  lacp_coll_reserved[12];
++    uint8_t  lacp_tlv_type;
++    uint8_t  lacp_tlv_length;
++    uint8_t  lacp_pad[50];
++};
++
++#endif /* PROTO_AUDIT_LACP_H */

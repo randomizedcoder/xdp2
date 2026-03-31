@@ -70,6 +70,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("ICMP")
             .tshark("icmp")
             .etherparse("Icmpv4Header", "etherparse/src/transport/icmpv4_header.rs")
+            .libpcap("icmpv4_header", "pcap/proto_audit/icmpv4.h")
             .rfcs(&[792, 1122, 4884]),
         PN::new("ICMPv6", 8)
             .xdp2("xdp2_parse_icmpv6")
@@ -228,6 +229,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("PTP")
             .tshark("ptp")
             .etherparse("PtpHeader", "src/proto_audit/ptp.rs")
+            .libpcap("ptp_header", "pcap/proto_audit/ptp.h")
             .ieee(&["1588-2019"]),
         // ── SRv6 ──
         PN::new("SRv6", 8)
@@ -248,7 +250,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_fcoe")
             .kernel("fcoe_hdr", "linux/fcoe.h")
             .scapy("FCoE")
-            .tshark("fcoe"),
+            .tshark("fcoe")
+            .libpcap("fcoe_header", "pcap/proto_audit/fcoe.h"),
         PN::new("EtherCAT", 2)
             .xdp2("xdp2_parse_ethercat")
             .scapy("EtherCat")
@@ -314,7 +317,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_ipx")
             .kernel("ipxhdr", "linux/ipx.h")
             .scapy("IPX")
-            .tshark("ipx"),
+            .tshark("ipx")
+            .libpcap("ipx_header", "pcap/proto_audit/ipx.h"),
         PN::new("AppleTalk", 5)
             .xdp2("xdp2_parse_atalk")
             .kernel("atalk_addr", "linux/atalk.h")
@@ -341,6 +345,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("ieee802154_hdr_fc", "linux/ieee802154.h")
             .scapy("Dot15d4")
             .tshark("wpan")
+            .libpcap("ieee802154_header", "pcap/proto_audit/ieee802154.h")
             .variable()
             .ieee(&["802.15.4-2020"]),
         // ── MCTP ──
@@ -370,7 +375,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_tipc")
             .kernel("tipc_basic_hdr", "linux/tipc.h")
             .scapy("TIPC")
-            .tshark("tipc"),
+            .tshark("tipc")
+            .libpcap("tipc_header", "pcap/proto_audit/tipc.h"),
         // ── Bluetooth Variants ──
         PN::new("HCI_CMD", 3)
             .xdp2("xdp2_parse_hci_cmd")
@@ -475,6 +481,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .variable()
             .rfcs(&[5798, 9568]),
         PN::new("HSRP", 20).scapy("HSRP").tshark("hsrp")
+            .libpcap("hsrp_header", "pcap/proto_audit/hsrp.h")
             .rfcs(&[2281]),
         // ── Discovery ──
         PN::new("CDP", 4).scapy("CDPv2_HDR").tshark("cdp").variable(),
@@ -487,10 +494,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("ospf_header", "pcap/proto_audit/ospf.h")
             .rfcs(&[2328, 5340]),
         PN::new("ISIS", 8).scapy("ISIS_CommonHdr").tshark("isis").variable()
+            .libpcap("isis_header", "pcap/proto_audit/isis.h")
             .rfcs(&[1195]),
         PN::new("BGP", 19).scapy("BGPHeader").tshark("bgp").variable()
             .rfcs(&[4271, 7606, 8654, 9072]),
-        PN::new("EIGRP", 20).scapy("EIGRP").tshark("eigrp").variable(),
+        PN::new("EIGRP", 20).scapy("EIGRP").tshark("eigrp")
+            .libpcap("eigrp_header", "pcap/proto_audit/eigrp.h")
+            .variable(),
         // ── Bluetooth (upper layers) ──
         PN::new("BT_ATT", 1).scapy("ATT_Hdr").tshark("btatt").variable(),
         PN::new("BT_SMP", 1).scapy("SM_Hdr").tshark("btsmp").variable(),
@@ -574,6 +584,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("iscsi_hdr", "scsi/iscsi_proto.h")
             .scapy("iSCSI_BHS")
             .tshark("iscsi")
+            .libpcap("iscsi_header", "pcap/proto_audit/iscsi.h")
             .variable()
             .rfcs(&[7143, 3720]),
         PN::new("NVMe", 64)
@@ -585,7 +596,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_fc")
             .kernel("fc_frame_header", "uapi/scsi/fc/fc_fs.h")
             .scapy("FCFrame")
-            .tshark("fc"),
+            .tshark("fc")
+            .libpcap("fc_header", "pcap/proto_audit/fc.h"),
         PN::new("SCSI", 8)
             .xdp2("xdp2_parse_scsi")
             .kernel("scsi_lun", "scsi/scsi_proto.h")
@@ -629,8 +641,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .ieee(&["802.2-1998"]),
         PN::new("STP", 35).scapy("STP").tshark("stp")
             .etherparse("StpHeader", "src/proto_audit/stp.rs")
+            .libpcap("stp_header", "pcap/proto_audit/stp.h")
             .ieee(&["802.1D-2004"]),
         PN::new("LACP", 110).scapy("SlowProtocol").tshark("lacp")
+            .libpcap("lacp_header", "pcap/proto_audit/lacp.h")
             .ieee(&["802.1AX-2020"]),
         PN::new("QinQ", 8)
             .kernel("vlan_hdr", "linux/if_vlan.h")
@@ -665,7 +679,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("GTP_C", 8).scapy("GTPHeader").tshark("gtpv2")
             .libpcap("gtp_c_header", "pcap/proto_audit/gtp.h")
             .variable(),
-        PN::new("PIM", 4).scapy("PIM").tshark("pim").variable()
+        PN::new("PIM", 4).scapy("PIM").tshark("pim")
+            .libpcap("pim_header", "pcap/proto_audit/pim.h")
+            .variable()
             .rfcs(&[7761, 4601]),
         PN::new("IPv6_Fragment", 8)
             .kernel("frag_hdr", "linux/ipv6.h")
@@ -819,7 +835,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[5880, 5881]),
         PN::new("LDP", 10).scapy("LDP").tshark("ldp").variable()
             .rfcs(&[5036, 3036]),
-        PN::new("RSVP", 8).scapy("RSVP").tshark("rsvp").variable()
+        PN::new("RSVP", 8).scapy("RSVP").tshark("rsvp")
+            .libpcap("rsvp_header", "pcap/proto_audit/rsvp.h")
+            .variable()
             .rfcs(&[2205, 3209]),
         PN::new("MPLS_OAM", 4).tshark("mpls-echo").variable()
             .rfcs(&[8029, 4379]),

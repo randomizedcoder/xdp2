@@ -1857,6 +1857,167 @@ pub(crate) fn cmd_generate_all(
     Ok(())
 }
 
+/// Generate libpcap overlay patches from corpus PDML data.
+///
+/// For each protocol that has tshark PDML data in the corpus but no existing
+/// libpcap patch, generates a C struct patch file and prints the corresponding
+/// libpcap.toml and table.rs entries.
+pub(crate) fn cmd_generate_libpcap_patches(
+    output_dir: Option<PathBuf>,
+    protos: Option<&str>,
+    min_fields: usize,
+    dry_run: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    // Load corpus PDML cache
+    let corpus_dir = std::env::var("PROTO_AUDIT_PCAP_CORPUS")
+        .context("PROTO_AUDIT_PCAP_CORPUS not set — run via `nix run .#proto-audit`")?;
+    let corpus_path = std::path::Path::new(&corpus_dir);
+    let mut corpus_cache: std::collections::HashMap<String, ir::ProtocolDef> = std::collections::HashMap::new();
+
+    eprintln!("Loading corpus PDML...");
+    if let Ok(entries) = std::fs::read_dir(corpus_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("xml") {
+                continue;
+            }
+            if let Ok(xml) = std::fs::read_to_string(&path) {
+                if let Ok(packets) = extractors::tshark::parse_pdml(&xml) {
+                    let file_protos = extractors::tshark::extract_all_protocols_from_pdml(&packets);
+                    for (name, def) in file_protos {
+                        corpus_cache.entry(name).or_insert(def);
+                    }
+                }
+            }
+        }
+    }
+    eprintln!("Corpus: {} protocols with PDML data", corpus_cache.len());
+
+    // Determine which protocols already have libpcap patches
+    let existing_patches: std::collections::HashSet<String> = name_mapping::protocol_table()
+        .iter()
+        .filter_map(|p| p.libpcap_name.map(|_| p.canonical.to_string()))
+        .collect();
+
+    // Build candidate list
+    let filter_protos: Option<std::collections::HashSet<String>> = protos.map(|p| {
+        p.split(',').map(|s| s.trim().to_string()).collect()
+    });
+
+    // Map tshark filter names to canonical names
+    let tshark_to_canonical: std::collections::HashMap<String, String> = name_mapping::protocol_table()
+        .iter()
+        .filter_map(|p| {
+            p.tshark.map(|t| (t.to_string(), p.canonical.to_string()))
+        })
+        .collect();
+
+    let default_dir = PathBuf::from("samples/proto_audit/patches/libpcap");
+    let out_dir = output_dir.as_ref().unwrap_or(&default_dir);
+
+    let mut generated = 0u32;
+    let mut toml_entries = Vec::new();
+    let mut table_entries = Vec::new();
+
+    // Sort by field count descending for priority
+    let mut candidates: Vec<(String, ir::ProtocolDef)> = corpus_cache
+        .into_iter()
+        .filter(|(filter, def)| {
+            // Has enough fields
+            if def.fields.len() < min_fields {
+                return false;
+            }
+            // Has byte-aligned fields (can generate a C struct)
+            let byte_aligned = def.fields.iter().filter(|f| {
+                f.offset_bits % 8 == 0 && f.size_bits % 8 == 0 && f.size_bits > 0
+            }).count();
+            if byte_aligned < min_fields {
+                return false;
+            }
+            // Map to canonical name and check if already has a patch
+            if let Some(canonical) = tshark_to_canonical.get(filter) {
+                if existing_patches.contains(canonical) {
+                    return false;
+                }
+                if let Some(ref fp) = filter_protos {
+                    return fp.contains(canonical);
+                }
+            } else if let Some(ref fp) = filter_protos {
+                return fp.contains(filter);
+            }
+            true
+        })
+        .collect();
+
+    candidates.sort_by(|a, b| b.1.fields.len().cmp(&a.1.fields.len()));
+
+    for (filter, mut def) in candidates {
+        // Use canonical name if available
+        let canonical = tshark_to_canonical.get(&filter).cloned().unwrap_or_else(|| {
+            // Capitalize filter name as canonical
+            let mut c = filter.chars();
+            match c.next() {
+                None => filter.clone(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        });
+        def.name = canonical.clone();
+
+        let patch = match generator::generate_libpcap_patch(&def) {
+            Some(p) => p,
+            None => continue,
+        };
+
+        let snake = generator::canonical_to_snake(&canonical);
+
+        if dry_run {
+            println!("=== {} ({} fields from tshark '{}') ===", canonical, def.fields.len(), filter);
+            println!("{}", patch);
+            if let Some(toml) = generator::generate_libpcap_toml_entry(&def) {
+                println!("{}", toml);
+            }
+            println!();
+        } else {
+            let patch_path = out_dir.join(format!("{}.patch", snake));
+            std::fs::write(&patch_path, &patch)
+                .with_context(|| format!("writing {}", patch_path.display()))?;
+            eprintln!("  Wrote {}", patch_path.display());
+        }
+
+        if let Some(toml) = generator::generate_libpcap_toml_entry(&def) {
+            toml_entries.push(toml);
+        }
+
+        let struct_name = format!("{}_header", snake);
+        let file_path = format!("pcap/proto_audit/{}.h", snake);
+        table_entries.push(format!(
+            "        .libpcap(\"{}\", \"{}\")",
+            struct_name, file_path
+        ));
+
+        generated += 1;
+    }
+
+    eprintln!("\nGenerated {} libpcap patches", generated);
+
+    if !toml_entries.is_empty() {
+        eprintln!("\n--- Add to mappings/libpcap.toml ---");
+        for entry in &toml_entries {
+            eprintln!("{}", entry);
+        }
+    }
+
+    if !table_entries.is_empty() {
+        eprintln!("\n--- Add to table.rs (.libpcap() calls) ---");
+        for entry in &table_entries {
+            eprintln!("{}", entry);
+        }
+    }
+
+    Ok(())
+}
+
 /// Run auto-matching engine across registries.
 pub fn cmd_auto_match(
     min_confidence: f32,

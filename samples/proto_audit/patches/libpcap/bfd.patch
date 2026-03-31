@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pcap/proto_audit/bfd.h
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,23 @@
 +/*
 + * bfd.h — bfd_header definition for proto-audit comparison.
 + */
