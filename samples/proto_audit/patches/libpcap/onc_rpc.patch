@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/onc_rpc.h
+@@ -0,0 +1,21 @@
++/*
++ * onc_rpc.h — onc_rpc_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ONC_RPC_H
++#define PROTO_AUDIT_ONC_RPC_H
++
++#include <stdint.h>
++
++/* ONC_RPC header — 30 bytes minimum */
++struct onc_rpc_header {
++    uint8_t  _pad0[4];
++    uint32_t onc_rpc_xid;
++    uint32_t onc_rpc_msgtyp;
++    uint32_t onc_rpc_version;
++    uint32_t onc_rpc_program;
++    uint32_t onc_rpc_programversion;
++    uint32_t onc_rpc_procedure;
++};
++
++#endif /* PROTO_AUDIT_ONC_RPC_H */

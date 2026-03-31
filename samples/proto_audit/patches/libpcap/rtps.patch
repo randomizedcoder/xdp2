@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/rtps.h
+@@ -0,0 +1,19 @@
++/*
++ * rtps.h — rtps_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RTPS_H
++#define PROTO_AUDIT_RTPS_H
++
++#include <stdint.h>
++
++/* Rtps header — 36 bytes minimum */
++struct rtps_header {
++    uint32_t rtps_magic;
++    uint16_t rtps_version;
++    uint16_t rtps_vendorid;
++    uint64_t rtps_guidprefix_v1;
++    uint8_t  rtps_id[20];
++};
++
++#endif /* PROTO_AUDIT_RTPS_H */

@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/bt_dht.h
+@@ -0,0 +1,21 @@
++/*
++ * bt_dht.h — bt_dht_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_BT_DHT_H
++#define PROTO_AUDIT_BT_DHT_H
++
++#include <stdint.h>
++
++/* Bt-dht header — 67 bytes minimum */
++struct bt_dht_header {
++    uint8_t  _pad0[1];
++    uint8_t  bt_dht_dict_entry[32];
++    uint8_t  bt_dht_dict_entry[9];
++    uint8_t  bt_dht_dict_entry[9];
++    uint8_t  bt_dht_dict_entry[9];
++    uint8_t  bt_dht_dict_entry;
++    uint8_t  bt_dht_terminator;
++};
++
++#endif /* PROTO_AUDIT_BT_DHT_H */

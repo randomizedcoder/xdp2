@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/llrp.h
+@@ -0,0 +1,19 @@
++/*
++ * llrp.h — llrp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LLRP_H
++#define PROTO_AUDIT_LLRP_H
++
++#include <stdint.h>
++
++/* Llrp header — 32 bytes minimum */
++struct llrp_header {
++    uint8_t  llrp_version;
++    uint8_t  _pad1[1];
++    uint32_t llrp_length;
++    uint32_t llrp_id;
++    uint8_t  llrp_param[22];
++};
++
++#endif /* PROTO_AUDIT_LLRP_H */

@@ -1,0 +1,23 @@
+--- /dev/null
++++ b/pcap/proto_audit/dvmrp.h
+@@ -0,0 +1,20 @@
++/*
++ * dvmrp.h — dvmrp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_DVMRP_H
++#define PROTO_AUDIT_DVMRP_H
++
++#include <stdint.h>
++
++/* Dvmrp header — 8 bytes minimum */
++struct dvmrp_header {
++    uint8_t  dvmrp_type;
++    uint8_t  dvmrp_code;
++    uint16_t dvmrp_checksum;
++    uint16_t dvmrp_reserved;
++    uint8_t  dvmrp_min_ver;
++    uint8_t  dvmrp_maj_ver;
++};
++
++#endif /* PROTO_AUDIT_DVMRP_H */

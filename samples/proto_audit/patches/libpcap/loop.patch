@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/loop.h
+@@ -0,0 +1,19 @@
++/*
++ * loop.h — loop_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LOOP_H
++#define PROTO_AUDIT_LOOP_H
++
++#include <stdint.h>
++
++/* Loop header — 54 bytes minimum */
++struct loop_header {
++    uint16_t loop_skipcount;
++    uint16_t loop_relevant_function;
++    uint8_t  loop_forwarding_address;
++    uint16_t loop_function;
++    uint16_t loop_receipt_number;
++};
++
++#endif /* PROTO_AUDIT_LOOP_H */

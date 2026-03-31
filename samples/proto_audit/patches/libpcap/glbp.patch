@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/glbp.h
+@@ -0,0 +1,19 @@
++/*
++ * glbp.h — glbp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_GLBP_H
++#define PROTO_AUDIT_GLBP_H
++
++#include <stdint.h>
++
++/* GLBP header — 40 bytes minimum */
++struct glbp_header {
++    uint8_t  glbp_version;
++    uint8_t  glbp_unknown1;
++    uint16_t glbp_group;
++    uint16_t glbp_unknown2;
++    uint8_t  glbp_ownerid;
++};
++
++#endif /* PROTO_AUDIT_GLBP_H */

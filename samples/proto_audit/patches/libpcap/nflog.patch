@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/nflog.h
+@@ -0,0 +1,24 @@
++/*
++ * nflog.h — nflog_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NFLOG_H
++#define PROTO_AUDIT_NFLOG_H
++
++#include <stdint.h>
++
++/* Nflog header — 112 bytes minimum */
++struct nflog_header {
++    uint8_t  nflog_family;
++    uint8_t  nflog_version;
++    uint16_t nflog_res_id;
++    uint64_t nflog_tlv;
++    uint8_t  nflog_tlv;
++    uint8_t  _pad17[3];
++    uint64_t nflog_tlv;
++    uint64_t nflog_tlv;
++    uint64_t nflog_tlv;
++    uint8_t  nflog_tlv[65];
++};
++
++#endif /* PROTO_AUDIT_NFLOG_H */

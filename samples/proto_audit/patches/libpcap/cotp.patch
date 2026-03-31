@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/pcap/proto_audit/cotp.h
+@@ -0,0 +1,25 @@
++/*
++ * cotp.h — cotp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_COTP_H
++#define PROTO_AUDIT_COTP_H
++
++#include <stdint.h>
++
++/* Cotp header — 25 bytes minimum */
++struct cotp_header {
++    uint8_t  cotp_li;
++    uint8_t  cotp_type;
++    uint16_t cotp_destref;
++    uint16_t cotp_srcref;
++    uint8_t  cotp_class;
++    uint8_t  cotp_parameter_code;
++    uint8_t  cotp_parameter_length;
++    uint8_t  cotp_src_tsap;
++    uint8_t  cotp_parameter_code;
++    uint8_t  cotp_parameter_length;
++    uint8_t  cotp_dst_tsap;
++};
++
++#endif /* PROTO_AUDIT_COTP_H */

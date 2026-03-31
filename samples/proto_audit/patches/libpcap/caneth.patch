@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/caneth.h
+@@ -0,0 +1,19 @@
++/*
++ * caneth.h — caneth_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_CANETH_H
++#define PROTO_AUDIT_CANETH_H
++
++#include <stdint.h>
++
++/* Caneth header — 43 bytes minimum */
++struct caneth_header {
++    uint64_t caneth_magic;
++    uint8_t  caneth_version;
++    uint8_t  caneth_frames;
++    uint8_t  _pad10[30];
++    uint8_t  caneth_options;
++};
++
++#endif /* PROTO_AUDIT_CANETH_H */

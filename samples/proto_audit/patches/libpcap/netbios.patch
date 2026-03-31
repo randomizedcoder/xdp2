@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/netbios.h
+@@ -0,0 +1,19 @@
++/*
++ * netbios.h — netbios_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NETBIOS_H
++#define PROTO_AUDIT_NETBIOS_H
++
++#include <stdint.h>
++
++/* Netbios header — 44 bytes minimum */
++struct netbios_header {
++    uint16_t netbios_hdr_len;
++    uint16_t netbios_delimiter;
++    uint8_t  netbios_command;
++    uint8_t  _pad5[5];
++    uint16_t netbios_resp_corrl;
++};
++
++#endif /* PROTO_AUDIT_NETBIOS_H */

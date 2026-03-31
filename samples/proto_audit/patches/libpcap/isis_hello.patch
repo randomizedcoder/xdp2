@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/isis_hello.h
+@@ -0,0 +1,19 @@
++/*
++ * isis_hello.h — isis_hello_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ISIS_HELLO_H
++#define PROTO_AUDIT_ISIS_HELLO_H
++
++#include <stdint.h>
++
++/* Isis.hello header — 1491 bytes minimum */
++struct isis_hello_header {
++    uint8_t  isis_hello_circuit_type;
++    uint8_t  isis_hello_source_id;
++    uint16_t isis_hello_holding_timer;
++    uint16_t isis_hello_pdu_length;
++    uint8_t  isis_hello_local_circuit_id;
++};
++
++#endif /* PROTO_AUDIT_ISIS_HELLO_H */

@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/lls.h
+@@ -0,0 +1,23 @@
++/*
++ * lls.h — lls_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LLS_H
++#define PROTO_AUDIT_LLS_H
++
++#include <stdint.h>
++
++/* Lls header — 1353 bytes minimum */
++struct lls_header {
++    uint8_t  lls_id;
++    uint8_t  lls_id;
++    uint8_t  lls_count;
++    uint8_t  lls_version;
++    uint8_t  lls_payload_count;
++    uint8_t  lls_entry[501];
++    uint8_t  lls_entry[181];
++    uint16_t lls_signature_length;
++    uint8_t  lls_signature[664];
++};
++
++#endif /* PROTO_AUDIT_LLS_H */

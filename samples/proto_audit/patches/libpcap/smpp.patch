@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/pcap/proto_audit/smpp.h
+@@ -0,0 +1,25 @@
++/*
++ * smpp.h — smpp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SMPP_H
++#define PROTO_AUDIT_SMPP_H
++
++#include <stdint.h>
++
++/* Smpp header — 40 bytes minimum */
++struct smpp_header {
++    uint32_t smpp_command_length;
++    uint32_t smpp_request;
++    uint8_t  _pad8[4];
++    uint32_t smpp_sequence_number;
++    uint8_t  smpp_system_id;
++    uint8_t  smpp_password[9];
++    uint8_t  smpp_system_type;
++    uint8_t  smpp_interface_version;
++    uint8_t  smpp_addr_ton;
++    uint8_t  smpp_addr_npi;
++    uint8_t  smpp_address_range;
++};
++
++#endif /* PROTO_AUDIT_SMPP_H */

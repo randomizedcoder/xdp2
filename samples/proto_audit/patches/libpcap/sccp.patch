@@ -1,0 +1,29 @@
+--- /dev/null
++++ b/pcap/proto_audit/sccp.h
+@@ -0,0 +1,26 @@
++/*
++ * sccp.h — sccp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SCCP_H
++#define PROTO_AUDIT_SCCP_H
++
++#include <stdint.h>
++
++/* Sccp header — 92 bytes minimum */
++struct sccp_header {
++    uint8_t  sccp_message_type;
++    uint8_t  sccp_slr;
++    uint8_t  sccp_class;
++    uint8_t  sccp_variable_pointer1;
++    uint8_t  sccp_optional_pointer;
++    uint8_t  sccp_parameter_length;
++    uint8_t  _pad8[5];
++    uint8_t  sccp_parameter_length;
++    uint8_t  _pad14[72];
++    uint8_t  sccp_parameter_length;
++    uint8_t  _pad87[4];
++    uint8_t  sccp_end_optional_param;
++};
++
++#endif /* PROTO_AUDIT_SCCP_H */

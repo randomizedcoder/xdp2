@@ -1,0 +1,23 @@
+--- /dev/null
++++ b/pcap/proto_audit/infiniband.h
+@@ -0,0 +1,20 @@
++/*
++ * infiniband.h — infiniband_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_INFINIBAND_H
++#define PROTO_AUDIT_INFINIBAND_H
++
++#include <stdint.h>
++
++/* Infiniband header — 290 bytes minimum */
++struct infiniband_header {
++    uint64_t infiniband_lrh;
++    uint8_t  infiniband_bth[12];
++    uint64_t infiniband_deth;
++    uint8_t  infiniband_mad[256];
++    uint32_t infiniband_crc;
++    uint16_t infiniband_crc;
++};
++
++#endif /* PROTO_AUDIT_INFINIBAND_H */

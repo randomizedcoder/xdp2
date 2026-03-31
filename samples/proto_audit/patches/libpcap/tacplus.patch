@@ -1,0 +1,23 @@
+--- /dev/null
++++ b/pcap/proto_audit/tacplus.h
+@@ -0,0 +1,20 @@
++/*
++ * tacplus.h — tacplus_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_TACPLUS_H
++#define PROTO_AUDIT_TACPLUS_H
++
++#include <stdint.h>
++
++/* Tacplus header — 35 bytes minimum */
++struct tacplus_header {
++    uint8_t  tacplus_majvers;
++    uint8_t  tacplus_type;
++    uint8_t  tacplus_seqno;
++    uint8_t  tacplus_flags;
++    uint32_t tacplus_session_id;
++    uint32_t tacplus_packet_len;
++};
++
++#endif /* PROTO_AUDIT_TACPLUS_H */

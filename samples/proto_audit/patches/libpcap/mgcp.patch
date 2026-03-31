@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/mgcp.h
+@@ -0,0 +1,23 @@
++/*
++ * mgcp.h — mgcp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MGCP_H
++#define PROTO_AUDIT_MGCP_H
++
++#include <stdint.h>
++
++/* MGCP header — 61 bytes minimum */
++struct mgcp_header {
++    uint32_t mgcp_verb;
++    uint8_t  _pad4[1];
++    uint8_t  mgcp_transid;
++    uint8_t  _pad6[1];
++    uint8_t  mgcp_endpoint[23];
++    uint8_t  _pad30[1];
++    uint64_t mgcp_version;
++    uint8_t  _pad39[2];
++    uint8_t  mgcp_params[20];
++};
++
++#endif /* PROTO_AUDIT_MGCP_H */

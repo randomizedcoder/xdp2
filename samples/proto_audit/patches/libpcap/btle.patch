@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/btle.h
+@@ -0,0 +1,19 @@
++/*
++ * btle.h — btle_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_BTLE_H
++#define PROTO_AUDIT_BTLE_H
++
++#include <stdint.h>
++
++/* Btle header — 44 bytes minimum */
++struct btle_header {
++    uint32_t btle_access_address;
++    uint16_t btle_advertising_header;
++    uint8_t  btle_advertising_address;
++    uint8_t  btle_advertising_data[29];
++    uint8_t  btle_crc;
++};
++
++#endif /* PROTO_AUDIT_BTLE_H */

@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/pppoed.h
+@@ -0,0 +1,19 @@
++/*
++ * pppoed.h — pppoed_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PPPOED_H
++#define PROTO_AUDIT_PPPOED_H
++
++#include <stdint.h>
++
++/* PPPoED header — 10 bytes minimum */
++struct pppoed_header {
++    uint8_t  pppoed_version;
++    uint8_t  pppoed_code;
++    uint16_t pppoed_session_id;
++    uint16_t pppoed_payload_length;
++    uint32_t pppoed_tags;
++};
++
++#endif /* PROTO_AUDIT_PPPOED_H */

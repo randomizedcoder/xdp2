@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/chap.h
+@@ -0,0 +1,18 @@
++/*
++ * chap.h — chap_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_CHAP_H
++#define PROTO_AUDIT_CHAP_H
++
++#include <stdint.h>
++
++/* Chap header — 52 bytes minimum */
++struct chap_header {
++    uint8_t  chap_code;
++    uint8_t  chap_identifier;
++    uint16_t chap_length;
++    uint8_t  chap_message[48];
++};
++
++#endif /* PROTO_AUDIT_CHAP_H */

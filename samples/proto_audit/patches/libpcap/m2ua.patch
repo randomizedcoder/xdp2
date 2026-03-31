@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/m2ua.h
+@@ -0,0 +1,19 @@
++/*
++ * m2ua.h — m2ua_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_M2UA_H
++#define PROTO_AUDIT_M2UA_H
++
++#include <stdint.h>
++
++/* M2ua header — 136 bytes minimum */
++struct m2ua_header {
++    uint8_t  m2ua_version;
++    uint8_t  m2ua_reserved;
++    uint8_t  m2ua_message_class;
++    uint8_t  m2ua_message_type;
++    uint32_t m2ua_message_length;
++};
++
++#endif /* PROTO_AUDIT_M2UA_H */

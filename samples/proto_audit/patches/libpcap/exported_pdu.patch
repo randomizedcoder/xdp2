@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/exported_pdu.h
+@@ -0,0 +1,19 @@
++/*
++ * exported_pdu.h — exported_pdu_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EXPORTED_PDU_H
++#define PROTO_AUDIT_EXPORTED_PDU_H
++
++#include <stdint.h>
++
++/* Exported_pdu header — 52 bytes minimum */
++struct exported_pdu_header {
++    uint8_t  exported_pdu_tag[12];
++    uint8_t  exported_pdu_tag[12];
++    uint8_t  exported_pdu_tag[24];
++    uint32_t exported_pdu_tag;
++    uint32_t exported_pdu_exported_pdu;
++};
++
++#endif /* PROTO_AUDIT_EXPORTED_PDU_H */

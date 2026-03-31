@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/mtp2.h
+@@ -0,0 +1,17 @@
++/*
++ * mtp2.h — mtp2_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MTP2_H
++#define PROTO_AUDIT_MTP2_H
++
++#include <stdint.h>
++
++/* Mtp2 header — 3 bytes minimum */
++struct mtp2_header {
++    uint8_t  mtp2_bsn;
++    uint8_t  mtp2_fsn;
++    uint8_t  mtp2_li;
++};
++
++#endif /* PROTO_AUDIT_MTP2_H */

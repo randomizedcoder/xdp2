@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/zabbix.h
+@@ -0,0 +1,18 @@
++/*
++ * zabbix.h — zabbix_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ZABBIX_H
++#define PROTO_AUDIT_ZABBIX_H
++
++#include <stdint.h>
++
++/* Zabbix header — 66 bytes minimum */
++struct zabbix_header {
++    uint32_t zabbix_header;
++    uint8_t  zabbix_flags;
++    uint32_t zabbix_len;
++    uint32_t zabbix_reserved;
++};
++
++#endif /* PROTO_AUDIT_ZABBIX_H */

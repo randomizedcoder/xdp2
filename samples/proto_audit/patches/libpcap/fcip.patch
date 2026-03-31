@@ -1,0 +1,40 @@
+--- /dev/null
++++ b/pcap/proto_audit/fcip.h
+@@ -0,0 +1,37 @@
++/*
++ * fcip.h — fcip_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_FCIP_H
++#define PROTO_AUDIT_FCIP_H
++
++#include <stdint.h>
++
++/* Fcip header — 28 bytes minimum */
++struct fcip_header {
++    uint8_t  fcip_proto;
++    uint8_t  fcip_version;
++    uint8_t  fcip_protoc;
++    uint8_t  fcip_versionc;
++    uint32_t fcip_encap_word1;
++    uint8_t  fcip_ch;
++    uint8_t  _pad9[1];
++    uint8_t  fcip_pflagsc;
++    uint8_t  _pad11[1];
++    uint8_t  fcip_flags;
++    uint8_t  _pad13[1];
++    uint8_t  fcip_flagsc;
++    uint8_t  _pad15[1];
++    uint32_t fcip_tsec;
++    uint32_t fcip_tusec;
++    uint32_t fcip_encap_crc;
++    uint8_t  fcip_sof;
++    uint8_t  _pad29[1];
++    uint8_t  fcip_sofc;
++    uint8_t  _pad31[69];
++    uint8_t  fcip_eof;
++    uint8_t  _pad101[1];
++    uint8_t  fcip_eofc;
++};
++
++#endif /* PROTO_AUDIT_FCIP_H */

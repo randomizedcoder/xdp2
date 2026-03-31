@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/epmd.h
+@@ -0,0 +1,24 @@
++/*
++ * epmd.h — epmd_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EPMD_H
++#define PROTO_AUDIT_EPMD_H
++
++#include <stdint.h>
++
++/* Epmd header — 20 bytes minimum */
++struct epmd_header {
++    uint16_t epmd_len;
++    uint8_t  epmd_type;
++    uint16_t epmd_port_no;
++    uint8_t  epmd_node_type;
++    uint8_t  epmd_protocol;
++    uint16_t epmd_dist_high;
++    uint16_t epmd_dist_low;
++    uint16_t epmd_name_len;
++    uint8_t  epmd_name;
++    uint16_t epmd_elen;
++};
++
++#endif /* PROTO_AUDIT_EPMD_H */

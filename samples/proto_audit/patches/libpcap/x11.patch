@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/x11.h
+@@ -0,0 +1,21 @@
++/*
++ * x11.h — x11_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_X11_H
++#define PROTO_AUDIT_X11_H
++
++#include <stdint.h>
++
++/* X11 header — 12 bytes minimum */
++struct x11_header {
++    uint8_t  x11_byte_order;
++    uint8_t  x11_unused;
++    uint16_t x11_protocol_major_version;
++    uint16_t x11_protocol_minor_version;
++    uint16_t x11_authorization_protocol_name_length;
++    uint16_t x11_authorization_protocol_data_length;
++    uint16_t x11_unused;
++};
++
++#endif /* PROTO_AUDIT_X11_H */

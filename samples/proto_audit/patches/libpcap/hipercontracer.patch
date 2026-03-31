@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/hipercontracer.h
+@@ -0,0 +1,19 @@
++/*
++ * hipercontracer.h — hipercontracer_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_HIPERCONTRACER_H
++#define PROTO_AUDIT_HIPERCONTRACER_H
++
++#include <stdint.h>
++
++/* Hipercontracer header — 40 bytes minimum */
++struct hipercontracer_header {
++    uint32_t hipercontracer_magic_number;
++    uint8_t  hipercontracer_send_ttl;
++    uint8_t  hipercontracer_round;
++    uint16_t hipercontracer_checksum_tweak;
++    uint64_t hipercontracer_send_timestamp;
++};
++
++#endif /* PROTO_AUDIT_HIPERCONTRACER_H */

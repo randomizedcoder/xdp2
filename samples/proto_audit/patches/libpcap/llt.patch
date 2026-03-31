@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/llt.h
+@@ -0,0 +1,23 @@
++/*
++ * llt.h — llt_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LLT_H
++#define PROTO_AUDIT_LLT_H
++
++#include <stdint.h>
++
++/* Llt header — 60 bytes minimum */
++struct llt_header {
++    uint8_t  _pad0[2];
++    uint8_t  llt_cluster_num;
++    uint8_t  llt_message_type;
++    uint8_t  _pad4[3];
++    uint8_t  llt_node_id;
++    uint8_t  _pad8[16];
++    uint32_t llt_sequence_num;
++    uint8_t  _pad28[12];
++    uint32_t llt_message_time;
++};
++
++#endif /* PROTO_AUDIT_LLT_H */

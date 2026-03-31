@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/tns.h
+@@ -0,0 +1,19 @@
++/*
++ * tns.h — tns_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_TNS_H
++#define PROTO_AUDIT_TNS_H
++
++#include <stdint.h>
++
++/* Tns header — 220 bytes minimum */
++struct tns_header {
++    uint16_t tns_length;
++    uint16_t tns_packet_checksum;
++    uint8_t  tns_type;
++    uint8_t  tns_reserved_byte;
++    uint16_t tns_header_checksum;
++};
++
++#endif /* PROTO_AUDIT_TNS_H */

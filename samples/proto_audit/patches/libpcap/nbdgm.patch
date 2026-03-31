@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/nbdgm.h
+@@ -0,0 +1,23 @@
++/*
++ * nbdgm.h — nbdgm_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NBDGM_H
++#define PROTO_AUDIT_NBDGM_H
++
++#include <stdint.h>
++
++/* Nbdgm header — 82 bytes minimum */
++struct nbdgm_header {
++    uint8_t  nbdgm_type;
++    uint8_t  nbdgm_flags;
++    uint16_t nbdgm_dgram_id;
++    uint32_t nbdgm_ip;
++    uint16_t nbdgm_port;
++    uint16_t nbdgm_dgram_len;
++    uint16_t nbdgm_pkt_offset;
++    uint8_t  nbdgm_source_name[34];
++    uint8_t  nbdgm_destination_name[34];
++};
++
++#endif /* PROTO_AUDIT_NBDGM_H */

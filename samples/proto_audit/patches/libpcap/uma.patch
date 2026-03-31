@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/uma.h
+@@ -0,0 +1,17 @@
++/*
++ * uma.h — uma_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_UMA_H
++#define PROTO_AUDIT_UMA_H
++
++#include <stdint.h>
++
++/* Uma header — 49 bytes minimum */
++struct uma_header {
++    uint16_t uma_li;
++    uint8_t  uma_ind;
++    uint8_t  uma_type;
++};
++
++#endif /* PROTO_AUDIT_UMA_H */

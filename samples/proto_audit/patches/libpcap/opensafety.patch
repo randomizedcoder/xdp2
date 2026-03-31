@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/opensafety.h
+@@ -0,0 +1,19 @@
++/*
++ * opensafety.h — opensafety_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_OPENSAFETY_H
++#define PROTO_AUDIT_OPENSAFETY_H
++
++#include <stdint.h>
++
++/* Opensafety header — 23 bytes minimum */
++struct opensafety_header {
++    uint8_t  opensafety_byte_offset;
++    uint8_t  opensafety_type;
++    uint8_t  opensafety_length;
++    uint8_t  _pad3[11];
++    uint16_t opensafety_sender;
++};
++
++#endif /* PROTO_AUDIT_OPENSAFETY_H */

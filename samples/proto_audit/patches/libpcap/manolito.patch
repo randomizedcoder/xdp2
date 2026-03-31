@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/manolito.h
+@@ -0,0 +1,19 @@
++/*
++ * manolito.h — manolito_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MANOLITO_H
++#define PROTO_AUDIT_MANOLITO_H
++
++#include <stdint.h>
++
++/* Manolito header — 20 bytes minimum */
++struct manolito_header {
++    uint32_t manolito_checksum;
++    uint32_t manolito_seqno;
++    uint32_t manolito_src;
++    uint32_t manolito_dest;
++    uint32_t manolito_options;
++};
++
++#endif /* PROTO_AUDIT_MANOLITO_H */

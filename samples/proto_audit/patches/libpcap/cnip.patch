@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/cnip.h
+@@ -0,0 +1,23 @@
++/*
++ * cnip.h — cnip_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_CNIP_H
++#define PROTO_AUDIT_CNIP_H
++
++#include <stdint.h>
++
++/* Cnip header — 20 bytes minimum */
++struct cnip_header {
++    uint16_t cnip_len;
++    uint8_t  cnip_ver;
++    uint8_t  cnip_type;
++    uint8_t  cnip_exth;
++    uint8_t  cnip_pf;
++    uint16_t cnip_vendorcode;
++    uint32_t cnip_sessid;
++    uint32_t cnip_seqno;
++    uint32_t cnip_tstamp;
++};
++
++#endif /* PROTO_AUDIT_CNIP_H */

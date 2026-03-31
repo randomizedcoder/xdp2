@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/http.h
+@@ -0,0 +1,24 @@
++/*
++ * http.h — http_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_HTTP_H
++#define PROTO_AUDIT_HTTP_H
++
++#include <stdint.h>
++
++/* HTTP header — 460 bytes minimum */
++struct http_header {
++    uint8_t  _pad0[129];
++    uint8_t  http_host[17];
++    uint8_t  http_user_agent[117];
++    uint8_t  http_accept[13];
++    uint8_t  http_accept_language[33];
++    uint8_t  http_accept_encoding[31];
++    uint8_t  http_line[48];
++    uint8_t  http_line[17];
++    uint8_t  http_connection[24];
++    uint8_t  http_referer[29];
++};
++
++#endif /* PROTO_AUDIT_HTTP_H */

@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/q933.h
+@@ -0,0 +1,18 @@
++/*
++ * q933.h — q933_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_Q933_H
++#define PROTO_AUDIT_Q933_H
++
++#include <stdint.h>
++
++/* Q933 header — 11 bytes minimum */
++struct q933_header {
++    uint8_t  q933_disc;
++    uint8_t  q933_call_ref_len;
++    uint8_t  q933_message_type;
++    uint8_t  q933_locking_shift_to_codeset;
++};
++
++#endif /* PROTO_AUDIT_Q933_H */

@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/udld.h
+@@ -0,0 +1,17 @@
++/*
++ * udld.h — udld_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_UDLD_H
++#define PROTO_AUDIT_UDLD_H
++
++#include <stdint.h>
++
++/* Udld header — 60 bytes minimum */
++struct udld_header {
++    uint8_t  udld_version;
++    uint8_t  udld_flags;
++    uint16_t udld_checksum;
++};
++
++#endif /* PROTO_AUDIT_UDLD_H */

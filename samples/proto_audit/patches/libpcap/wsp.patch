@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/wsp.h
+@@ -0,0 +1,19 @@
++/*
++ * wsp.h — wsp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_WSP_H
++#define PROTO_AUDIT_WSP_H
++
++#include <stdint.h>
++
++/* Wsp header — 150 bytes minimum */
++struct wsp_header {
++    uint8_t  wsp_tid;
++    uint8_t  wsp_pdu_type;
++    uint8_t  wsp_uri_length;
++    uint8_t  wsp_uri[22];
++    uint8_t  wsp_headers[125];
++};
++
++#endif /* PROTO_AUDIT_WSP_H */

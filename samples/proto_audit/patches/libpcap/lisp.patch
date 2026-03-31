@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/lisp.h
+@@ -0,0 +1,21 @@
++/*
++ * lisp.h — lisp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LISP_H
++#define PROTO_AUDIT_LISP_H
++
++#include <stdint.h>
++
++/* LISP header — 76 bytes minimum */
++struct lisp_header {
++    uint8_t  lisp_type;
++    uint8_t  lisp_records;
++    uint64_t lisp_nonce;
++    uint16_t lisp_keyid;
++    uint16_t lisp_authlen;
++    uint8_t  lisp_auth[20];
++    uint8_t  lisp_mapping[16];
++};
++
++#endif /* PROTO_AUDIT_LISP_H */

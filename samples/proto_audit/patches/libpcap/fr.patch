@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/fr.h
+@@ -0,0 +1,21 @@
++/*
++ * fr.h — fr_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_FR_H
++#define PROTO_AUDIT_FR_H
++
++#include <stdint.h>
++
++/* Fr header — 10 bytes minimum */
++struct fr_header {
++    uint8_t  fr_first_addr_octet;
++    uint8_t  fr_second_addr_octet;
++    uint8_t  fr_control;
++    uint8_t  fr_nlpid;
++    uint8_t  fr_nlpid;
++    uint8_t  fr_oui;
++    uint16_t fr_snaptype;
++};
++
++#endif /* PROTO_AUDIT_FR_H */

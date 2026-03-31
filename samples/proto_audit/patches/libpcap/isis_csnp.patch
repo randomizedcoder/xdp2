@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/isis_csnp.h
+@@ -0,0 +1,19 @@
++/*
++ * isis_csnp.h — isis_csnp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ISIS_CSNP_H
++#define PROTO_AUDIT_ISIS_CSNP_H
++
++#include <stdint.h>
++
++/* Isis.csnp header — 75 bytes minimum */
++struct isis_csnp_header {
++    uint16_t isis_csnp_pdu_length;
++    uint8_t  isis_csnp_source_id;
++    uint8_t  isis_csnp_source_circuit;
++    uint64_t isis_csnp_start_lsp_id;
++    uint64_t isis_csnp_end_lsp_id;
++};
++
++#endif /* PROTO_AUDIT_ISIS_CSNP_H */

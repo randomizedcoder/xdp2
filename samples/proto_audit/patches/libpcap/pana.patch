@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/pana.h
+@@ -0,0 +1,21 @@
++/*
++ * pana.h — pana_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PANA_H
++#define PROTO_AUDIT_PANA_H
++
++#include <stdint.h>
++
++/* Pana header — 16 bytes minimum */
++struct pana_header {
++    uint16_t pana_reserved;
++    uint16_t pana_length;
++    uint8_t  pana_flags;
++    uint8_t  _pad5[1];
++    uint16_t pana_type;
++    uint32_t pana_sid;
++    uint32_t pana_seq;
++};
++
++#endif /* PROTO_AUDIT_PANA_H */

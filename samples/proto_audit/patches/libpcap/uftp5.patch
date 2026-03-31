@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/uftp5.h
+@@ -0,0 +1,24 @@
++/*
++ * uftp5.h — uftp5_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_UFTP5_H
++#define PROTO_AUDIT_UFTP5_H
++
++#include <stdint.h>
++
++/* Uftp5 header — 40 bytes minimum */
++struct uftp5_header {
++    uint8_t  uftp5_version;
++    uint8_t  uftp5_func;
++    uint16_t uftp5_seq;
++    uint32_t uftp5_src_id;
++    uint32_t uftp5_group_id;
++    uint8_t  uftp5_group_inst;
++    uint8_t  uftp5_grtt;
++    uint8_t  uftp5_gsize;
++    uint8_t  uftp5_reserved;
++    uint8_t  uftp5_announce[24];
++};
++
++#endif /* PROTO_AUDIT_UFTP5_H */

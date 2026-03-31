@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/hci_event.h
+@@ -0,0 +1,19 @@
++/*
++ * hci_event.h — hci_event_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_HCI_EVENT_H
++#define PROTO_AUDIT_HCI_EVENT_H
++
++#include <stdint.h>
++
++/* HCI_Event header — 6 bytes minimum */
++struct hci_event_header {
++    uint8_t  hci_event_code;
++    uint8_t  hci_event_param_length;
++    uint8_t  hci_event_status;
++    uint8_t  hci_event_num_command_packets;
++    uint16_t hci_event_opcode;
++};
++
++#endif /* PROTO_AUDIT_HCI_EVENT_H */

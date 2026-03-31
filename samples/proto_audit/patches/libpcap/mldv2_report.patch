@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/mldv2_report.h
+@@ -0,0 +1,19 @@
++/*
++ * mldv2_report.h — mldv2_report_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MLDV2_REPORT_H
++#define PROTO_AUDIT_MLDV2_REPORT_H
++
++#include <stdint.h>
++
++/* MLDv2_Report header — 16 bytes minimum */
++struct mldv2_report_header {
++    uint8_t  mldv2_report_type;
++    uint8_t  mldv2_report_code;
++    uint16_t mldv2_report_checksum;
++    uint32_t mldv2_report_reserved;
++    uint64_t mldv2_report_opt;
++};
++
++#endif /* PROTO_AUDIT_MLDV2_REPORT_H */

@@ -1,0 +1,23 @@
+--- /dev/null
++++ b/pcap/proto_audit/lon.h
+@@ -0,0 +1,20 @@
++/*
++ * lon.h — lon_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LON_H
++#define PROTO_AUDIT_LON_H
++
++#include <stdint.h>
++
++/* Lon header — 12 bytes minimum */
++struct lon_header {
++    uint8_t  lon_ppdu;
++    uint8_t  lon_npdu;
++    uint8_t  _pad2[4];
++    uint8_t  lon_domain;
++    uint8_t  lon_tpdu;
++    uint16_t lon_nv;
++};
++
++#endif /* PROTO_AUDIT_LON_H */

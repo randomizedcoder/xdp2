@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/s5066sis.h
+@@ -0,0 +1,18 @@
++/*
++ * s5066sis.h — s5066sis_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_S5066SIS_H
++#define PROTO_AUDIT_S5066SIS_H
++
++#include <stdint.h>
++
++/* S5066sis header — 9 bytes minimum */
++struct s5066sis_header {
++    uint16_t s5066sis_sync;
++    uint8_t  s5066sis_version;
++    uint16_t s5066sis_size;
++    uint8_t  s5066sis_type;
++};
++
++#endif /* PROTO_AUDIT_S5066SIS_H */

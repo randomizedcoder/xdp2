@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/arcnet.h
+@@ -0,0 +1,18 @@
++/*
++ * arcnet.h — arcnet_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ARCNET_H
++#define PROTO_AUDIT_ARCNET_H
++
++#include <stdint.h>
++
++/* Arcnet header — 5 bytes minimum */
++struct arcnet_header {
++    uint8_t  arcnet_src;
++    uint8_t  arcnet_dst;
++    uint16_t arcnet_offset;
++    uint8_t  arcnet_protid;
++};
++
++#endif /* PROTO_AUDIT_ARCNET_H */

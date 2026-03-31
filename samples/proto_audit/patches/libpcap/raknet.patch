@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/raknet.h
+@@ -0,0 +1,18 @@
++/*
++ * raknet.h — raknet_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RAKNET_H
++#define PROTO_AUDIT_RAKNET_H
++
++#include <stdint.h>
++
++/* Raknet header — 1464 bytes minimum */
++struct raknet_header {
++    uint8_t  raknet_id;
++    uint8_t  raknet_data_id[16];
++    uint8_t  raknet_proto_ver;
++    uint8_t  raknet_null_padding[1446];
++};
++
++#endif /* PROTO_AUDIT_RAKNET_H */

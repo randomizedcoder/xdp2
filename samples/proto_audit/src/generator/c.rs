@@ -411,9 +411,8 @@ pub fn generate_libpcap_toml_entry(proto: &ProtocolDef) -> Option<String> {
 
     let mut entry = String::new();
     entry.push_str(&format!("[struct_protocols.{}]\n", struct_name));
-    entry.push_str(&format!("file = \"{}\"\n", file_path));
+    entry.push_str(&format!("source_file = \"{}\"\n", file_path));
     entry.push_str(&format!("struct_name = \"{}\"\n", struct_name));
-    entry.push_str(&format!("prefix = \"{}_\"\n", snake));
 
     Some(entry)
 }

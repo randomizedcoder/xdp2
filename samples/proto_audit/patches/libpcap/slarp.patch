@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/slarp.h
+@@ -0,0 +1,18 @@
++/*
++ * slarp.h — slarp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SLARP_H
++#define PROTO_AUDIT_SLARP_H
++
++#include <stdint.h>
++
++/* Slarp header — 14 bytes minimum */
++struct slarp_header {
++    uint32_t slarp_ptype;
++    uint32_t slarp_mysequence;
++    uint32_t slarp_yoursequence;
++    uint16_t slarp_reliability;
++};
++
++#endif /* PROTO_AUDIT_SLARP_H */

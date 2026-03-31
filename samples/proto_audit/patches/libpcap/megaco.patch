@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/megaco.h
+@@ -0,0 +1,22 @@
++/*
++ * megaco.h — megaco_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MEGACO_H
++#define PROTO_AUDIT_MEGACO_H
++
++#include <stdint.h>
++
++/* Megaco header — 75 bytes minimum */
++struct megaco_header {
++    uint8_t  megaco_start_token;
++    uint8_t  megaco_version;
++    uint8_t  _pad8[1];
++    uint8_t  megaco_mid[13];
++    uint8_t  _pad22[1];
++    uint8_t  megaco_transaction[14];
++    uint8_t  _pad37[2];
++    uint8_t  megaco_context[14];
++};
++
++#endif /* PROTO_AUDIT_MEGACO_H */

@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/pcap/proto_audit/s101.h
+@@ -0,0 +1,27 @@
++/*
++ * s101.h — s101_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_S101_H
++#define PROTO_AUDIT_S101_H
++
++#include <stdint.h>
++
++/* S101 header — 22 bytes minimum */
++struct s101_header {
++    uint8_t  s101_format;
++    uint8_t  s101_slot;
++    uint8_t  s101_msgtype;
++    uint8_t  s101_cmdtype;
++    uint8_t  s101_version;
++    uint8_t  s101_flags;
++    uint8_t  s101_dtdtype;
++    uint8_t  s101_applen;
++    uint8_t  s101_appminver;
++    uint8_t  s101_appmajver;
++    uint8_t  _pad10[19];
++    uint16_t s101_crc;
++    uint8_t  s101_eof;
++};
++
++#endif /* PROTO_AUDIT_S101_H */

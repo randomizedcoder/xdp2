@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/pcap/proto_audit/fix.h
+@@ -0,0 +1,25 @@
++/*
++ * fix.h — fix_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_FIX_H
++#define PROTO_AUDIT_FIX_H
++
++#include <stdint.h>
++
++/* Fix header — 100 bytes minimum */
++struct fix_header {
++    uint8_t  fix_beginstring[11];
++    uint8_t  fix_bodylength;
++    uint8_t  fix_msgtype;
++    uint8_t  fix_sendercompid[11];
++    uint8_t  fix_targetcompid[12];
++    uint8_t  fix_msgseqnum;
++    uint8_t  fix_sendingtime[25];
++    uint8_t  fix_encryptmethod;
++    uint8_t  fix_heartbtint;
++    uint8_t  fix_defaultapplverid;
++    uint8_t  fix_checksum;
++};
++
++#endif /* PROTO_AUDIT_FIX_H */

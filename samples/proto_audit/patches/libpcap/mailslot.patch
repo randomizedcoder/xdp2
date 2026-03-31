@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/mailslot.h
+@@ -0,0 +1,19 @@
++/*
++ * mailslot.h — mailslot_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MAILSLOT_H
++#define PROTO_AUDIT_MAILSLOT_H
++
++#include <stdint.h>
++
++/* Mailslot header — 25 bytes minimum */
++struct mailslot_header {
++    uint16_t mailslot_opcode;
++    uint16_t mailslot_priority;
++    uint16_t mailslot_class;
++    uint16_t mailslot_size;
++    uint8_t  mailslot_name[17];
++};
++
++#endif /* PROTO_AUDIT_MAILSLOT_H */

@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/can_xl.h
+@@ -0,0 +1,19 @@
++/*
++ * can_xl.h — can_xl_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_CAN_XL_H
++#define PROTO_AUDIT_CAN_XL_H
++
++#include <stdint.h>
++
++/* CAN_XL header — 15 bytes minimum */
++struct can_xl_header {
++    uint32_t can_xl_id;
++    uint8_t  can_xl_len;
++    uint8_t  _pad5[8];
++    uint8_t  can_xl_xtd;
++    uint8_t  can_xl_rtr;
++};
++
++#endif /* PROTO_AUDIT_CAN_XL_H */

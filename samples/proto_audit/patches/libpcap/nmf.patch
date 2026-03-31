@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/nmf.h
+@@ -0,0 +1,19 @@
++/*
++ * nmf.h — nmf_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NMF_H
++#define PROTO_AUDIT_NMF_H
++
++#include <stdint.h>
++
++/* Nmf header — 90 bytes minimum */
++struct nmf_header {
++    uint8_t  nmf_record;
++    uint16_t nmf_record;
++    uint8_t  nmf_record[82];
++    uint8_t  _pad87[1];
++    uint16_t nmf_record;
++};
++
++#endif /* PROTO_AUDIT_NMF_H */

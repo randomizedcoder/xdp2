@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/m2pa.h
+@@ -0,0 +1,23 @@
++/*
++ * m2pa.h — m2pa_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_M2PA_H
++#define PROTO_AUDIT_M2PA_H
++
++#include <stdint.h>
++
++/* M2pa header — 17 bytes minimum */
++struct m2pa_header {
++    uint8_t  m2pa_version;
++    uint8_t  m2pa_spare;
++    uint8_t  m2pa_class;
++    uint8_t  m2pa_type;
++    uint32_t m2pa_length;
++    uint8_t  m2pa_unused;
++    uint8_t  m2pa_bsn;
++    uint8_t  m2pa_unused;
++    uint8_t  m2pa_fsn;
++};
++
++#endif /* PROTO_AUDIT_M2PA_H */

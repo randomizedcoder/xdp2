@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/bittorrent.h
+@@ -0,0 +1,19 @@
++/*
++ * bittorrent.h — bittorrent_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_BITTORRENT_H
++#define PROTO_AUDIT_BITTORRENT_H
++
++#include <stdint.h>
++
++/* Bittorrent header — 68 bytes minimum */
++struct bittorrent_header {
++    uint8_t  bittorrent_length;
++    uint8_t  bittorrent_name[19];
++    uint64_t bittorrent_reserved;
++    uint8_t  bittorrent_info_hash[20];
++    uint8_t  bittorrent_peer_id[20];
++};
++
++#endif /* PROTO_AUDIT_BITTORRENT_H */

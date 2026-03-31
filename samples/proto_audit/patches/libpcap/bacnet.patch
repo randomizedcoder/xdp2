@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/bacnet.h
+@@ -0,0 +1,19 @@
++/*
++ * bacnet.h — bacnet_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_BACNET_H
++#define PROTO_AUDIT_BACNET_H
++
++#include <stdint.h>
++
++/* BACnet header — 6 bytes minimum */
++struct bacnet_header {
++    uint8_t  bacnet_version;
++    uint8_t  bacnet_control;
++    uint16_t bacnet_dnet;
++    uint8_t  bacnet_dlen;
++    uint8_t  bacnet_hopc;
++};
++
++#endif /* PROTO_AUDIT_BACNET_H */

@@ -284,3 +284,579 @@ struct_name = "fcoe_header"
 [struct_protocols.pim_header]
 source_file = "pcap/proto_audit/pim.h"
 struct_name = "pim_header"
+
+[struct_protocols.6lowpan_header]
+source_file = "pcap/proto_audit/6lowpan.h"
+struct_name = "6lowpan_header"
+
+[struct_protocols.9p_header]
+source_file = "pcap/proto_audit/9p.h"
+struct_name = "9p_header"
+
+[struct_protocols.ap1394_header]
+source_file = "pcap/proto_audit/ap1394.h"
+struct_name = "ap1394_header"
+
+[struct_protocols.arcnet_header]
+source_file = "pcap/proto_audit/arcnet.h"
+struct_name = "arcnet_header"
+
+[struct_protocols.asap_header]
+source_file = "pcap/proto_audit/asap.h"
+struct_name = "asap_header"
+
+[struct_protocols.auto_rp_header]
+source_file = "pcap/proto_audit/auto_rp.h"
+struct_name = "auto_rp_header"
+
+[struct_protocols.bacnet_header]
+source_file = "pcap/proto_audit/bacnet.h"
+struct_name = "bacnet_header"
+
+[struct_protocols.bgp_header]
+source_file = "pcap/proto_audit/bgp.h"
+struct_name = "bgp_header"
+
+[struct_protocols.bicc_header]
+source_file = "pcap/proto_audit/bicc.h"
+struct_name = "bicc_header"
+
+[struct_protocols.bittorrent_header]
+source_file = "pcap/proto_audit/bittorrent.h"
+struct_name = "bittorrent_header"
+
+[struct_protocols.browser_header]
+source_file = "pcap/proto_audit/browser.h"
+struct_name = "browser_header"
+
+[struct_protocols.bt_dht_header]
+source_file = "pcap/proto_audit/bt_dht.h"
+struct_name = "bt_dht_header"
+
+[struct_protocols.btle_header]
+source_file = "pcap/proto_audit/btle.h"
+struct_name = "btle_header"
+
+[struct_protocols.can_xl_header]
+source_file = "pcap/proto_audit/can_xl.h"
+struct_name = "can_xl_header"
+
+[struct_protocols.caneth_header]
+source_file = "pcap/proto_audit/caneth.h"
+struct_name = "caneth_header"
+
+[struct_protocols.cdp_header]
+source_file = "pcap/proto_audit/cdp.h"
+struct_name = "cdp_header"
+
+[struct_protocols.chap_header]
+source_file = "pcap/proto_audit/chap.h"
+struct_name = "chap_header"
+
+[struct_protocols.chdlc_header]
+source_file = "pcap/proto_audit/chdlc.h"
+struct_name = "chdlc_header"
+
+[struct_protocols.cnip_header]
+source_file = "pcap/proto_audit/cnip.h"
+struct_name = "cnip_header"
+
+[struct_protocols.coap_header]
+source_file = "pcap/proto_audit/coap.h"
+struct_name = "coap_header"
+
+[struct_protocols.cotp_header]
+source_file = "pcap/proto_audit/cotp.h"
+struct_name = "cotp_header"
+
+[struct_protocols.dcerpc_header]
+source_file = "pcap/proto_audit/dcerpc.h"
+struct_name = "dcerpc_header"
+
+[struct_protocols.dect_mitel_rfp_header]
+source_file = "pcap/proto_audit/dect_mitel_rfp.h"
+struct_name = "dect_mitel_rfp_header"
+
+[struct_protocols.dhcpv6_header]
+source_file = "pcap/proto_audit/dhcpv6.h"
+struct_name = "dhcpv6_header"
+
+[struct_protocols.dlep_header]
+source_file = "pcap/proto_audit/dlep.h"
+struct_name = "dlep_header"
+
+[struct_protocols.dvmrp_header]
+source_file = "pcap/proto_audit/dvmrp.h"
+struct_name = "dvmrp_header"
+
+[struct_protocols.eap_header]
+source_file = "pcap/proto_audit/eap.h"
+struct_name = "eap_header"
+
+[struct_protocols.epl_header]
+source_file = "pcap/proto_audit/epl.h"
+struct_name = "epl_header"
+
+[struct_protocols.epmd_header]
+source_file = "pcap/proto_audit/epmd.h"
+struct_name = "epmd_header"
+
+[struct_protocols.ethernet_header]
+source_file = "pcap/proto_audit/ethernet.h"
+struct_name = "ethernet_header"
+
+[struct_protocols.exported_pdu_header]
+source_file = "pcap/proto_audit/exported_pdu.h"
+struct_name = "exported_pdu_header"
+
+[struct_protocols.fcip_header]
+source_file = "pcap/proto_audit/fcip.h"
+struct_name = "fcip_header"
+
+[struct_protocols.fcp_header]
+source_file = "pcap/proto_audit/fcp.h"
+struct_name = "fcp_header"
+
+[struct_protocols.fip_header]
+source_file = "pcap/proto_audit/fip.h"
+struct_name = "fip_header"
+
+[struct_protocols.fix_header]
+source_file = "pcap/proto_audit/fix.h"
+struct_name = "fix_header"
+
+[struct_protocols.fr_header]
+source_file = "pcap/proto_audit/fr.h"
+struct_name = "fr_header"
+
+[struct_protocols.glbp_header]
+source_file = "pcap/proto_audit/glbp.h"
+struct_name = "glbp_header"
+
+[struct_protocols.gnw_header]
+source_file = "pcap/proto_audit/gnw.h"
+struct_name = "gnw_header"
+
+[struct_protocols.grebonding_header]
+source_file = "pcap/proto_audit/grebonding.h"
+struct_name = "grebonding_header"
+
+[struct_protocols.gtp_header]
+source_file = "pcap/proto_audit/gtp.h"
+struct_name = "gtp_header"
+
+[struct_protocols.h263_header]
+source_file = "pcap/proto_audit/h263.h"
+struct_name = "h263_header"
+
+[struct_protocols.hci_cmd_header]
+source_file = "pcap/proto_audit/hci_cmd.h"
+struct_name = "hci_cmd_header"
+
+[struct_protocols.hci_event_header]
+source_file = "pcap/proto_audit/hci_event.h"
+struct_name = "hci_event_header"
+
+[struct_protocols.hipercontracer_header]
+source_file = "pcap/proto_audit/hipercontracer.h"
+struct_name = "hipercontracer_header"
+
+[struct_protocols.homeplug_header]
+source_file = "pcap/proto_audit/homeplug.h"
+struct_name = "homeplug_header"
+
+[struct_protocols.http_header]
+source_file = "pcap/proto_audit/http.h"
+struct_name = "http_header"
+
+[struct_protocols.iec60870_104_header]
+source_file = "pcap/proto_audit/iec60870_104.h"
+struct_name = "iec60870_104_header"
+
+[struct_protocols.iec60870_asdu_header]
+source_file = "pcap/proto_audit/iec60870_asdu.h"
+struct_name = "iec60870_asdu_header"
+
+[struct_protocols.ieee8021ad_header]
+source_file = "pcap/proto_audit/ieee8021ad.h"
+struct_name = "ieee8021ad_header"
+
+[struct_protocols.ieee802_11_header]
+source_file = "pcap/proto_audit/ieee802_11.h"
+struct_name = "ieee802_11_header"
+
+[struct_protocols.igmpv3_report_header]
+source_file = "pcap/proto_audit/igmpv3_report.h"
+struct_name = "igmpv3_report_header"
+
+[struct_protocols.ikev2_header]
+source_file = "pcap/proto_audit/ikev2.h"
+struct_name = "ikev2_header"
+
+[struct_protocols.infiniband_header]
+source_file = "pcap/proto_audit/infiniband.h"
+struct_name = "infiniband_header"
+
+[struct_protocols.ipmi_session_header]
+source_file = "pcap/proto_audit/ipmi_session.h"
+struct_name = "ipmi_session_header"
+
+[struct_protocols.isis_csnp_header]
+source_file = "pcap/proto_audit/isis_csnp.h"
+struct_name = "isis_csnp_header"
+
+[struct_protocols.isis_hello_header]
+source_file = "pcap/proto_audit/isis_hello.h"
+struct_name = "isis_hello_header"
+
+[struct_protocols.isl_header]
+source_file = "pcap/proto_audit/isl.h"
+struct_name = "isl_header"
+
+[struct_protocols.isup_header]
+source_file = "pcap/proto_audit/isup.h"
+struct_name = "isup_header"
+
+[struct_protocols.jxta_message_header]
+source_file = "pcap/proto_audit/jxta_message.h"
+struct_name = "jxta_message_header"
+
+[struct_protocols.lcp_header]
+source_file = "pcap/proto_audit/lcp.h"
+struct_name = "lcp_header"
+
+[struct_protocols.ldp_header]
+source_file = "pcap/proto_audit/ldp.h"
+struct_name = "ldp_header"
+
+[struct_protocols.lisp_header]
+source_file = "pcap/proto_audit/lisp.h"
+struct_name = "lisp_header"
+
+[struct_protocols.llap_header]
+source_file = "pcap/proto_audit/llap.h"
+struct_name = "llap_header"
+
+[struct_protocols.llmnr_header]
+source_file = "pcap/proto_audit/llmnr.h"
+struct_name = "llmnr_header"
+
+[struct_protocols.llrp_header]
+source_file = "pcap/proto_audit/llrp.h"
+struct_name = "llrp_header"
+
+[struct_protocols.lls_header]
+source_file = "pcap/proto_audit/lls.h"
+struct_name = "lls_header"
+
+[struct_protocols.llt_header]
+source_file = "pcap/proto_audit/llt.h"
+struct_name = "llt_header"
+
+[struct_protocols.lon_header]
+source_file = "pcap/proto_audit/lon.h"
+struct_name = "lon_header"
+
+[struct_protocols.loop_header]
+source_file = "pcap/proto_audit/loop.h"
+struct_name = "loop_header"
+
+[struct_protocols.m2pa_header]
+source_file = "pcap/proto_audit/m2pa.h"
+struct_name = "m2pa_header"
+
+[struct_protocols.m2ua_header]
+source_file = "pcap/proto_audit/m2ua.h"
+struct_name = "m2ua_header"
+
+[struct_protocols.m3ua_header]
+source_file = "pcap/proto_audit/m3ua.h"
+struct_name = "m3ua_header"
+
+[struct_protocols.macsec_header]
+source_file = "pcap/proto_audit/macsec.h"
+struct_name = "macsec_header"
+
+[struct_protocols.mailslot_header]
+source_file = "pcap/proto_audit/mailslot.h"
+struct_name = "mailslot_header"
+
+[struct_protocols.manolito_header]
+source_file = "pcap/proto_audit/manolito.h"
+struct_name = "manolito_header"
+
+[struct_protocols.mdns_header]
+source_file = "pcap/proto_audit/mdns.h"
+struct_name = "mdns_header"
+
+[struct_protocols.megaco_header]
+source_file = "pcap/proto_audit/megaco.h"
+struct_name = "megaco_header"
+
+[struct_protocols.mgcp_header]
+source_file = "pcap/proto_audit/mgcp.h"
+struct_name = "mgcp_header"
+
+[struct_protocols.mka_header]
+source_file = "pcap/proto_audit/mka.h"
+struct_name = "mka_header"
+
+[struct_protocols.mldv2_report_header]
+source_file = "pcap/proto_audit/mldv2_report.h"
+struct_name = "mldv2_report_header"
+
+[struct_protocols.modbus_header]
+source_file = "pcap/proto_audit/modbus.h"
+struct_name = "modbus_header"
+
+[struct_protocols.mpeg_pat_header]
+source_file = "pcap/proto_audit/mpeg_pat.h"
+struct_name = "mpeg_pat_header"
+
+[struct_protocols.mpeg_pmt_header]
+source_file = "pcap/proto_audit/mpeg_pmt.h"
+struct_name = "mpeg_pmt_header"
+
+[struct_protocols.mtp2_header]
+source_file = "pcap/proto_audit/mtp2.h"
+struct_name = "mtp2_header"
+
+[struct_protocols.mysql_header]
+source_file = "pcap/proto_audit/mysql.h"
+struct_name = "mysql_header"
+
+[struct_protocols.nbdgm_header]
+source_file = "pcap/proto_audit/nbdgm.h"
+struct_name = "nbdgm_header"
+
+[struct_protocols.nbipx_header]
+source_file = "pcap/proto_audit/nbipx.h"
+struct_name = "nbipx_header"
+
+[struct_protocols.nbns_header]
+source_file = "pcap/proto_audit/nbns.h"
+struct_name = "nbns_header"
+
+[struct_protocols.netbios_header]
+source_file = "pcap/proto_audit/netbios.h"
+struct_name = "netbios_header"
+
+[struct_protocols.netlink_netfilter_header]
+source_file = "pcap/proto_audit/netlink_netfilter.h"
+struct_name = "netlink_netfilter_header"
+
+[struct_protocols.netmon_filter_header]
+source_file = "pcap/proto_audit/netmon_filter.h"
+struct_name = "netmon_filter_header"
+
+[struct_protocols.netmon_network_info_header]
+source_file = "pcap/proto_audit/netmon_network_info.h"
+struct_name = "netmon_network_info_header"
+
+[struct_protocols.nflog_header]
+source_file = "pcap/proto_audit/nflog.h"
+struct_name = "nflog_header"
+
+[struct_protocols.nmf_header]
+source_file = "pcap/proto_audit/nmf.h"
+struct_name = "nmf_header"
+
+[struct_protocols.nordic_ble_header]
+source_file = "pcap/proto_audit/nordic_ble.h"
+struct_name = "nordic_ble_header"
+
+[struct_protocols.onc_rpc_header]
+source_file = "pcap/proto_audit/onc_rpc.h"
+struct_name = "onc_rpc_header"
+
+[struct_protocols.opensafety_header]
+source_file = "pcap/proto_audit/opensafety.h"
+struct_name = "opensafety_header"
+
+[struct_protocols.opensafety_udp_header]
+source_file = "pcap/proto_audit/opensafety_udp.h"
+struct_name = "opensafety_udp_header"
+
+[struct_protocols.oran_fh_cus_header]
+source_file = "pcap/proto_audit/oran_fh_cus.h"
+struct_name = "oran_fh_cus_header"
+
+[struct_protocols.pagp_header]
+source_file = "pcap/proto_audit/pagp.h"
+struct_name = "pagp_header"
+
+[struct_protocols.pana_header]
+source_file = "pcap/proto_audit/pana.h"
+struct_name = "pana_header"
+
+[struct_protocols.ppi_header]
+source_file = "pcap/proto_audit/ppi.h"
+struct_name = "ppi_header"
+
+[struct_protocols.pppoed_header]
+source_file = "pcap/proto_audit/pppoed.h"
+struct_name = "pppoed_header"
+
+[struct_protocols.q931_header]
+source_file = "pcap/proto_audit/q931.h"
+struct_name = "q931_header"
+
+[struct_protocols.q933_header]
+source_file = "pcap/proto_audit/q933.h"
+struct_name = "q933_header"
+
+[struct_protocols.radiotap_header]
+source_file = "pcap/proto_audit/radiotap.h"
+struct_name = "radiotap_header"
+
+[struct_protocols.raknet_header]
+source_file = "pcap/proto_audit/raknet.h"
+struct_name = "raknet_header"
+
+[struct_protocols.rfc2190_header]
+source_file = "pcap/proto_audit/rfc2190.h"
+struct_name = "rfc2190_header"
+
+[struct_protocols.rmcp_header]
+source_file = "pcap/proto_audit/rmcp.h"
+struct_name = "rmcp_header"
+
+[struct_protocols.rtps_header]
+source_file = "pcap/proto_audit/rtps.h"
+struct_name = "rtps_header"
+
+[struct_protocols.s101_header]
+source_file = "pcap/proto_audit/s101.h"
+struct_name = "s101_header"
+
+[struct_protocols.s5066dts_header]
+source_file = "pcap/proto_audit/s5066dts.h"
+struct_name = "s5066dts_header"
+
+[struct_protocols.s5066sis_header]
+source_file = "pcap/proto_audit/s5066sis.h"
+struct_name = "s5066sis_header"
+
+[struct_protocols.sbus_header]
+source_file = "pcap/proto_audit/sbus.h"
+struct_name = "sbus_header"
+
+[struct_protocols.sccp_header]
+source_file = "pcap/proto_audit/sccp.h"
+struct_name = "sccp_header"
+
+[struct_protocols.sflow_header]
+source_file = "pcap/proto_audit/sflow.h"
+struct_name = "sflow_header"
+
+[struct_protocols.sip_header]
+source_file = "pcap/proto_audit/sip.h"
+struct_name = "sip_header"
+
+[struct_protocols.slarp_header]
+source_file = "pcap/proto_audit/slarp.h"
+struct_name = "slarp_header"
+
+[struct_protocols.smpp_header]
+source_file = "pcap/proto_audit/smpp.h"
+struct_name = "smpp_header"
+
+[struct_protocols.snap_header]
+source_file = "pcap/proto_audit/snap.h"
+struct_name = "snap_header"
+
+[struct_protocols.snmp_header]
+source_file = "pcap/proto_audit/snmp.h"
+struct_name = "snmp_header"
+
+[struct_protocols.steam_ihs_discovery_header]
+source_file = "pcap/proto_audit/steam_ihs_discovery.h"
+struct_name = "steam_ihs_discovery_header"
+
+[struct_protocols.swils_header]
+source_file = "pcap/proto_audit/swils.h"
+struct_name = "swils_header"
+
+[struct_protocols.syslog_header]
+source_file = "pcap/proto_audit/syslog.h"
+struct_name = "syslog_header"
+
+[struct_protocols.tacplus_header]
+source_file = "pcap/proto_audit/tacplus.h"
+struct_name = "tacplus_header"
+
+[struct_protocols.tds_header]
+source_file = "pcap/proto_audit/tds.h"
+struct_name = "tds_header"
+
+[struct_protocols.tftp_header]
+source_file = "pcap/proto_audit/tftp.h"
+struct_name = "tftp_header"
+
+[struct_protocols.tns_header]
+source_file = "pcap/proto_audit/tns.h"
+struct_name = "tns_header"
+
+[struct_protocols.tpkt_header]
+source_file = "pcap/proto_audit/tpkt.h"
+struct_name = "tpkt_header"
+
+[struct_protocols.ts2_header]
+source_file = "pcap/proto_audit/ts2.h"
+struct_name = "ts2_header"
+
+[struct_protocols.udld_header]
+source_file = "pcap/proto_audit/udld.h"
+struct_name = "udld_header"
+
+[struct_protocols.udplite_header]
+source_file = "pcap/proto_audit/udplite.h"
+struct_name = "udplite_header"
+
+[struct_protocols.uftp_header]
+source_file = "pcap/proto_audit/uftp.h"
+struct_name = "uftp_header"
+
+[struct_protocols.uftp4_header]
+source_file = "pcap/proto_audit/uftp4.h"
+struct_name = "uftp4_header"
+
+[struct_protocols.uftp5_header]
+source_file = "pcap/proto_audit/uftp5.h"
+struct_name = "uftp5_header"
+
+[struct_protocols.uma_header]
+source_file = "pcap/proto_audit/uma.h"
+struct_name = "uma_header"
+
+[struct_protocols.usb_header]
+source_file = "pcap/proto_audit/usb.h"
+struct_name = "usb_header"
+
+[struct_protocols.usbms_header]
+source_file = "pcap/proto_audit/usbms.h"
+struct_name = "usbms_header"
+
+[struct_protocols.wbxml_header]
+source_file = "pcap/proto_audit/wbxml.h"
+struct_name = "wbxml_header"
+
+[struct_protocols.wccp_header]
+source_file = "pcap/proto_audit/wccp.h"
+struct_name = "wccp_header"
+
+[struct_protocols.wsp_header]
+source_file = "pcap/proto_audit/wsp.h"
+struct_name = "wsp_header"
+
+[struct_protocols.x11_header]
+source_file = "pcap/proto_audit/x11.h"
+struct_name = "x11_header"
+
+[struct_protocols.zabbix_header]
+source_file = "pcap/proto_audit/zabbix.h"
+struct_name = "zabbix_header"
+
+[struct_protocols.zigbee_nwk_header]
+source_file = "pcap/proto_audit/zigbee_nwk.h"
+struct_name = "zigbee_nwk_header"

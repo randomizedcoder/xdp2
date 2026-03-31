@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/rfc2190.h
+@@ -0,0 +1,18 @@
++/*
++ * rfc2190.h — rfc2190_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RFC2190_H
++#define PROTO_AUDIT_RFC2190_H
++
++#include <stdint.h>
++
++/* Rfc2190 header — 4 bytes minimum */
++struct rfc2190_header {
++    uint8_t  rfc2190_ftype;
++    uint8_t  rfc2190_srcformat;
++    uint8_t  rfc2190_dbq;
++    uint8_t  rfc2190_tr;
++};
++
++#endif /* PROTO_AUDIT_RFC2190_H */

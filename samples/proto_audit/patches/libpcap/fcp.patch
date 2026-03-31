@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/fcp.h
+@@ -0,0 +1,23 @@
++/*
++ * fcp.h — fcp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_FCP_H
++#define PROTO_AUDIT_FCP_H
++
++#include <stdint.h>
++
++/* Fcp header — 32 bytes minimum */
++struct fcp_header {
++    uint8_t  _pad0[1];
++    uint8_t  fcp_lun;
++    uint8_t  _pad2[6];
++    uint8_t  fcp_crn;
++    uint8_t  fcp_taskattr;
++    uint8_t  fcp_taskmgmt;
++    uint8_t  fcp_addlcdblen;
++    uint8_t  _pad12[16];
++    uint32_t fcp_dl;
++};
++
++#endif /* PROTO_AUDIT_FCP_H */

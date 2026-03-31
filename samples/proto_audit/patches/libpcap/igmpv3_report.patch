@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/igmpv3_report.h
+@@ -0,0 +1,23 @@
++/*
++ * igmpv3_report.h — igmpv3_report_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IGMPV3_REPORT_H
++#define PROTO_AUDIT_IGMPV3_REPORT_H
++
++#include <stdint.h>
++
++/* IGMPv3_Report header — 24 bytes minimum */
++struct igmpv3_report_header {
++    uint8_t  igmpv3_report_type;
++    uint8_t  igmpv3_report_max_hops;
++    uint16_t igmpv3_report_checksum;
++    uint32_t igmpv3_report_maddr;
++    uint32_t igmpv3_report_saddr;
++    uint32_t igmpv3_report_raddr;
++    uint32_t igmpv3_report_rspaddr;
++    uint8_t  igmpv3_report_resp_ttl;
++    uint8_t  igmpv3_report_q_id;
++};
++
++#endif /* PROTO_AUDIT_IGMPV3_REPORT_H */

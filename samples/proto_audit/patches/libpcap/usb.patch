@@ -1,0 +1,35 @@
+--- /dev/null
++++ b/pcap/proto_audit/usb.h
+@@ -0,0 +1,32 @@
++/*
++ * usb.h — usb_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_USB_H
++#define PROTO_AUDIT_USB_H
++
++#include <stdint.h>
++
++/* Usb header — 64 bytes minimum */
++struct usb_header {
++    uint64_t usb_urb_id;
++    uint8_t  usb_urb_type;
++    uint8_t  usb_transfer_type;
++    uint8_t  usb_endpoint_address;
++    uint8_t  usb_device_address;
++    uint16_t usb_bus_id;
++    uint8_t  usb_setup_flag;
++    uint8_t  usb_data_flag;
++    uint64_t usb_urb_ts_sec;
++    uint32_t usb_urb_ts_usec;
++    uint32_t usb_urb_status;
++    uint32_t usb_urb_len;
++    uint32_t usb_data_len;
++    uint8_t  _pad40[8];
++    uint32_t usb_interval;
++    uint32_t usb_start_frame;
++    uint32_t usb_copy_of_transfer_flags;
++    uint32_t usb_numdesc;
++};
++
++#endif /* PROTO_AUDIT_USB_H */

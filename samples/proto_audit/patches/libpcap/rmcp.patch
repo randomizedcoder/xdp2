@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/rmcp.h
+@@ -0,0 +1,17 @@
++/*
++ * rmcp.h — rmcp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RMCP_H
++#define PROTO_AUDIT_RMCP_H
++
++#include <stdint.h>
++
++/* Rmcp header — 4 bytes minimum */
++struct rmcp_header {
++    uint8_t  rmcp_version;
++    uint8_t  rmcp_reserved;
++    uint8_t  rmcp_sequence;
++};
++
++#endif /* PROTO_AUDIT_RMCP_H */

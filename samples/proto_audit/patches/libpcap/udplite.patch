@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/udplite.h
+@@ -0,0 +1,18 @@
++/*
++ * udplite.h — udplite_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_UDPLITE_H
++#define PROTO_AUDIT_UDPLITE_H
++
++#include <stdint.h>
++
++/* UDPLite header — 8 bytes minimum */
++struct udplite_header {
++    uint16_t udplite_srcport;
++    uint16_t udplite_dstport;
++    uint16_t udplite_checksum_coverage;
++    uint16_t udplite_checksum;
++};
++
++#endif /* PROTO_AUDIT_UDPLITE_H */

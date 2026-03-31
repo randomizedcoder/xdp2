@@ -1,0 +1,29 @@
+--- /dev/null
++++ b/pcap/proto_audit/radiotap.h
+@@ -0,0 +1,26 @@
++/*
++ * radiotap.h — radiotap_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RADIOTAP_H
++#define PROTO_AUDIT_RADIOTAP_H
++
++#include <stdint.h>
++
++/* Radiotap header — 24 bytes minimum */
++struct radiotap_header {
++    uint8_t  radiotap_version;
++    uint8_t  radiotap_pad;
++    uint16_t radiotap_length;
++    uint32_t radiotap_present;
++    uint8_t  radiotap_flags;
++    uint8_t  radiotap_datarate;
++    uint16_t radiotap_freq;
++    uint16_t radiotap_flags;
++    uint16_t radiotap_quality;
++    uint8_t  radiotap_antenna;
++    uint8_t  radiotap_db_antsignal;
++    uint16_t radiotap_rxflags;
++};
++
++#endif /* PROTO_AUDIT_RADIOTAP_H */

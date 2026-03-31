@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/pcap/proto_audit/ieee802_11.h
+@@ -0,0 +1,25 @@
++/*
++ * ieee802_11.h — ieee802_11_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IEEE802_11_H
++#define PROTO_AUDIT_IEEE802_11_H
++
++#include <stdint.h>
++
++/* IEEE802.11 header — 24 bytes minimum */
++struct ieee802_11_header {
++    uint8_t  ieee802_11_type_subtype;
++    uint8_t  _pad1[1];
++    uint16_t ieee802_11_duration;
++    uint8_t  ieee802_11_ra;
++    uint8_t  ieee802_11_oui;
++    uint8_t  _pad13[3];
++    uint8_t  ieee802_11_oui;
++    uint8_t  _pad19[3];
++    uint16_t ieee802_11_frag;
++    uint8_t  _pad24[116];
++    uint32_t ieee802_11_fcs;
++};
++
++#endif /* PROTO_AUDIT_IEEE802_11_H */

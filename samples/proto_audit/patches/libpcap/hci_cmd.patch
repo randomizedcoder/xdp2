@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/hci_cmd.h
+@@ -0,0 +1,19 @@
++/*
++ * hci_cmd.h — hci_cmd_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_HCI_CMD_H
++#define PROTO_AUDIT_HCI_CMD_H
++
++#include <stdint.h>
++
++/* HCI_CMD header — 8 bytes minimum */
++struct hci_cmd_header {
++    uint16_t hci_cmd_opcode;
++    uint8_t  hci_cmd_param_length;
++    uint8_t  hci_cmd_lap;
++    uint8_t  hci_cmd_inq_length;
++    uint8_t  hci_cmd_num_responses;
++};
++
++#endif /* PROTO_AUDIT_HCI_CMD_H */

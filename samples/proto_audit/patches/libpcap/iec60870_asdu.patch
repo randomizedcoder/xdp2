@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/iec60870_asdu.h
+@@ -0,0 +1,19 @@
++/*
++ * iec60870_asdu.h — iec60870_asdu_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IEC60870_ASDU_H
++#define PROTO_AUDIT_IEC60870_ASDU_H
++
++#include <stdint.h>
++
++/* Iec60870_asdu header — 25 bytes minimum */
++struct iec60870_asdu_header {
++    uint8_t  iec60870_asdu_typeid;
++    uint8_t  iec60870_asdu_sq;
++    uint8_t  iec60870_asdu_causetx;
++    uint8_t  iec60870_asdu_oa;
++    uint16_t iec60870_asdu_addr;
++};
++
++#endif /* PROTO_AUDIT_IEC60870_ASDU_H */

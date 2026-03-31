@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/syslog.h
+@@ -0,0 +1,22 @@
++/*
++ * syslog.h — syslog_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SYSLOG_H
++#define PROTO_AUDIT_SYSLOG_H
++
++#include <stdint.h>
++
++/* Syslog header — 76 bytes minimum */
++struct syslog_header {
++    uint8_t  syslog_facility;
++    uint8_t  syslog_timestamp_rfc3164[15];
++    uint8_t  _pad20[1];
++    uint8_t  syslog_hostname;
++    uint8_t  _pad24[1];
++    uint8_t  syslog_procid[10];
++    uint8_t  _pad35[1];
++    uint8_t  syslog_msg[40];
++};
++
++#endif /* PROTO_AUDIT_SYSLOG_H */

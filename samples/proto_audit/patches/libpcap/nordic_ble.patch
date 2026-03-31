@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/nordic_ble.h
+@@ -0,0 +1,22 @@
++/*
++ * nordic_ble.h — nordic_ble_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NORDIC_BLE_H
++#define PROTO_AUDIT_NORDIC_BLE_H
++
++#include <stdint.h>
++
++/* Nordic_ble header — 17 bytes minimum */
++struct nordic_ble_header {
++    uint8_t  nordic_ble_board_id;
++    uint8_t  nordic_ble_header;
++    uint8_t  nordic_ble_len;
++    uint8_t  nordic_ble_flags;
++    uint8_t  nordic_ble_channel;
++    uint8_t  nordic_ble_rssi;
++    uint16_t nordic_ble_event_counter;
++    uint32_t nordic_ble_delta_time;
++};
++
++#endif /* PROTO_AUDIT_NORDIC_BLE_H */

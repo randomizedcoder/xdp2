@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/epl.h
+@@ -0,0 +1,21 @@
++/*
++ * epl.h — epl_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EPL_H
++#define PROTO_AUDIT_EPL_H
++
++#include <stdint.h>
++
++/* Epl header — 118 bytes minimum */
++struct epl_header {
++    uint8_t  epl_asnd;
++    uint8_t  epl_node;
++    uint8_t  epl_node;
++    uint8_t  epl_svid;
++    uint8_t  epl_en;
++    uint8_t  epl_fls;
++    uint8_t  epl_stat;
++};
++
++#endif /* PROTO_AUDIT_EPL_H */

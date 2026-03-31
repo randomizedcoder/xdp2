@@ -1,0 +1,33 @@
+--- /dev/null
++++ b/pcap/proto_audit/ts2.h
+@@ -0,0 +1,30 @@
++/*
++ * ts2.h — ts2_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_TS2_H
++#define PROTO_AUDIT_TS2_H
++
++#include <stdint.h>
++
++/* Ts2 header — 180 bytes minimum */
++struct ts2_header {
++    uint16_t ts2_class;
++    uint16_t ts2_type;
++    uint32_t ts2_sessionkey;
++    uint32_t ts2_clientid;
++    uint32_t ts2_sequencenum;
++    uint32_t ts2_crc32;
++    uint8_t  ts2_protocolstring[10];
++    uint8_t  _pad30[20];
++    uint8_t  ts2_platformstring[30];
++    uint8_t  ts2_unknown[9];
++    uint8_t  _pad89[1];
++    uint8_t  ts2_registeredlogin;
++    uint8_t  _pad91[29];
++    uint8_t  ts2_password;
++    uint8_t  _pad121[29];
++    uint8_t  ts2_nick;
++};
++
++#endif /* PROTO_AUDIT_TS2_H */

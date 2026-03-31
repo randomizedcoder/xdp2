@@ -1,0 +1,33 @@
+--- /dev/null
++++ b/pcap/proto_audit/pagp.h
+@@ -0,0 +1,30 @@
++/*
++ * pagp.h — pagp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PAGP_H
++#define PROTO_AUDIT_PAGP_H
++
++#include <stdint.h>
++
++/* Pagp header — 62 bytes minimum */
++struct pagp_header {
++    uint8_t  pagp_version;
++    uint8_t  pagp_flags;
++    uint8_t  pagp_localdevid;
++    uint8_t  pagp_localearncap;
++    uint8_t  pagp_localportpri;
++    uint32_t pagp_localsentportifindex;
++    uint32_t pagp_localgroupcap;
++    uint32_t pagp_localgroupifindex;
++    uint8_t  pagp_partnerdevid;
++    uint8_t  pagp_partnerlearncap;
++    uint8_t  pagp_partnerportpri;
++    uint32_t pagp_partnersentportifindex;
++    uint32_t pagp_partnergroupcap;
++    uint32_t pagp_partnergroupifindex;
++    uint16_t pagp_partnercount;
++    uint16_t pagp_numtlvs;
++};
++
++#endif /* PROTO_AUDIT_PAGP_H */

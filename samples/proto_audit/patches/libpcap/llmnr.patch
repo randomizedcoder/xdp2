@@ -1,0 +1,23 @@
+--- /dev/null
++++ b/pcap/proto_audit/llmnr.h
+@@ -0,0 +1,20 @@
++/*
++ * llmnr.h — llmnr_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_LLMNR_H
++#define PROTO_AUDIT_LLMNR_H
++
++#include <stdint.h>
++
++/* LLMNR header — 23 bytes minimum */
++struct llmnr_header {
++    uint16_t llmnr_id;
++    uint16_t llmnr_flags;
++    uint16_t llmnr_queries;
++    uint16_t llmnr_answers;
++    uint16_t llmnr_auth_rr;
++    uint16_t llmnr_add_rr;
++};
++
++#endif /* PROTO_AUDIT_LLMNR_H */

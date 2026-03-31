@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/mpeg_pmt.h
+@@ -0,0 +1,24 @@
++/*
++ * mpeg_pmt.h — mpeg_pmt_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MPEG_PMT_H
++#define PROTO_AUDIT_MPEG_PMT_H
++
++#include <stdint.h>
++
++/* Mpeg_pmt header — 54 bytes minimum */
++struct mpeg_pmt_header {
++    uint8_t  mpeg_pmt_tid;
++    uint16_t mpeg_pmt_syntax_indicator;
++    uint16_t mpeg_pmt_pg_num;
++    uint8_t  mpeg_pmt_reserved1;
++    uint8_t  mpeg_pmt_sect_num;
++    uint8_t  mpeg_pmt_last_sect_num;
++    uint16_t mpeg_pmt_reserved2;
++    uint16_t mpeg_pmt_reserved3;
++    uint8_t  _pad12[38];
++    uint32_t mpeg_pmt_crc;
++};
++
++#endif /* PROTO_AUDIT_MPEG_PMT_H */

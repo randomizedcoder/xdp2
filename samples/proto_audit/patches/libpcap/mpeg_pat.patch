@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/mpeg_pat.h
+@@ -0,0 +1,22 @@
++/*
++ * mpeg_pat.h — mpeg_pat_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MPEG_PAT_H
++#define PROTO_AUDIT_MPEG_PAT_H
++
++#include <stdint.h>
++
++/* Mpeg_pat header — 16 bytes minimum */
++struct mpeg_pat_header {
++    uint8_t  mpeg_pat_tid;
++    uint16_t mpeg_pat_syntax_indicator;
++    uint16_t mpeg_pat_tsid;
++    uint8_t  mpeg_pat_reserved;
++    uint8_t  mpeg_pat_sect_num;
++    uint8_t  mpeg_pat_last_sect_num;
++    uint8_t  _pad8[4];
++    uint32_t mpeg_pat_crc;
++};
++
++#endif /* PROTO_AUDIT_MPEG_PAT_H */

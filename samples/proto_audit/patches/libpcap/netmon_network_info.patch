@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/netmon_network_info.h
+@@ -0,0 +1,17 @@
++/*
++ * netmon_network_info.h — netmon_network_info_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NETMON_NETWORK_INFO_H
++#define PROTO_AUDIT_NETMON_NETWORK_INFO_H
++
++#include <stdint.h>
++
++/* Netmon_network_info header — 320 bytes minimum */
++struct netmon_network_info_header {
++    uint16_t netmon_network_info_version;
++    uint16_t netmon_network_info_adapter_count;
++    uint16_t netmon_network_info_computer_name;
++};
++
++#endif /* PROTO_AUDIT_NETMON_NETWORK_INFO_H */

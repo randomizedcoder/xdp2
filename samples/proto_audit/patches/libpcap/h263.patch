@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/h263.h
+@@ -0,0 +1,19 @@
++/*
++ * h263.h — h263_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_H263_H
++#define PROTO_AUDIT_H263_H
++
++#include <stdint.h>
++
++/* H263 header — 576 bytes minimum */
++struct h263_header {
++    uint8_t  h263_psc;
++    uint8_t  _pad3[1];
++    uint8_t  h263_split_screen_indicator;
++    uint8_t  h263_syntax_based_arithmetic_coding_mode;
++    uint8_t  h263_cpm;
++};
++
++#endif /* PROTO_AUDIT_H263_H */

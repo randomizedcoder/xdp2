@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/macsec.h
+@@ -0,0 +1,21 @@
++/*
++ * macsec.h — macsec_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MACSEC_H
++#define PROTO_AUDIT_MACSEC_H
++
++#include <stdint.h>
++
++/* MACsec header — 14 bytes minimum */
++struct macsec_header {
++    uint8_t  macsec_tci;
++    uint8_t  macsec_sl;
++    uint32_t macsec_pn;
++    uint8_t  macsec_system_identifier;
++    uint16_t macsec_port_identifier;
++    uint8_t  _pad14[48];
++    uint8_t  macsec_icv[16];
++};
++
++#endif /* PROTO_AUDIT_MACSEC_H */

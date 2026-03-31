@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/sflow.h
+@@ -0,0 +1,21 @@
++/*
++ * sflow.h — sflow_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SFLOW_H
++#define PROTO_AUDIT_SFLOW_H
++
++#include <stdint.h>
++
++/* Sflow header — 144 bytes minimum */
++struct sflow_header {
++    uint32_t sflow_version;
++    uint32_t sflow_agenttype;
++    uint32_t sflow_agent;
++    uint32_t sflow_sub_agent_id;
++    uint32_t sflow_sequence_number;
++    uint32_t sflow_sysuptime;
++    uint32_t sflow_numsamples;
++};
++
++#endif /* PROTO_AUDIT_SFLOW_H */

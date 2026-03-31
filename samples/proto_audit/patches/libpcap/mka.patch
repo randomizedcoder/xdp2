@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/mka.h
+@@ -0,0 +1,17 @@
++/*
++ * mka.h — mka_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MKA_H
++#define PROTO_AUDIT_MKA_H
++
++#include <stdint.h>
++
++/* Mka header — 84 bytes minimum */
++struct mka_header {
++    uint8_t  mka_basic_param_set[64];
++    uint32_t mka_icv_indicator;
++    uint8_t  mka_icv[16];
++};
++
++#endif /* PROTO_AUDIT_MKA_H */

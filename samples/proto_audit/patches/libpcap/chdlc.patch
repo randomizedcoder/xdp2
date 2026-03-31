@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/chdlc.h
+@@ -0,0 +1,18 @@
++/*
++ * chdlc.h — chdlc_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_CHDLC_H
++#define PROTO_AUDIT_CHDLC_H
++
++#include <stdint.h>
++
++/* Chdlc header — 4 bytes minimum */
++struct chdlc_header {
++    uint8_t  chdlc_address;
++    uint8_t  chdlc_control;
++    uint16_t chdlc_protocol;
++    uint8_t  chdlc_clns_padding;
++};
++
++#endif /* PROTO_AUDIT_CHDLC_H */

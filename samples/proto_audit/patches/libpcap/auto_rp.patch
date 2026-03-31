@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/auto_rp.h
+@@ -0,0 +1,18 @@
++/*
++ * auto_rp.h — auto_rp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_AUTO_RP_H
++#define PROTO_AUDIT_AUTO_RP_H
++
++#include <stdint.h>
++
++/* Auto_rp header — 20 bytes minimum */
++struct auto_rp_header {
++    uint8_t  _pad0[1];
++    uint8_t  auto_rp_rp_count;
++    uint16_t auto_rp_holdtime;
++    uint32_t auto_rp_reserved;
++};
++
++#endif /* PROTO_AUDIT_AUTO_RP_H */

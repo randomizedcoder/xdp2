@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/pcap/proto_audit/browser.h
+@@ -0,0 +1,25 @@
++/*
++ * browser.h — browser_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_BROWSER_H
++#define PROTO_AUDIT_BROWSER_H
++
++#include <stdint.h>
++
++/* Browser header — 43 bytes minimum */
++struct browser_header {
++    uint8_t  browser_command;
++    uint8_t  browser_update_count;
++    uint32_t browser_period;
++    uint8_t  browser_server[16];
++    uint8_t  browser_os_major;
++    uint8_t  browser_os_minor;
++    uint32_t browser_server_type;
++    uint8_t  browser_proto_major;
++    uint8_t  browser_proto_minor;
++    uint16_t browser_sig;
++    uint8_t  browser_comment[11];
++};
++
++#endif /* PROTO_AUDIT_BROWSER_H */

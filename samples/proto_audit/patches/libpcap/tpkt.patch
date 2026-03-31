@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/tpkt.h
+@@ -0,0 +1,17 @@
++/*
++ * tpkt.h — tpkt_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_TPKT_H
++#define PROTO_AUDIT_TPKT_H
++
++#include <stdint.h>
++
++/* Tpkt header — 4 bytes minimum */
++struct tpkt_header {
++    uint8_t  tpkt_version;
++    uint8_t  tpkt_reserved;
++    uint16_t tpkt_length;
++};
++
++#endif /* PROTO_AUDIT_TPKT_H */

@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/ieee8021ad.h
+@@ -0,0 +1,17 @@
++/*
++ * ieee8021ad.h — ieee8021ad_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IEEE8021AD_H
++#define PROTO_AUDIT_IEEE8021AD_H
++
++#include <stdint.h>
++
++/* Ieee8021ad header — 4 bytes minimum */
++struct ieee8021ad_header {
++    uint8_t  ieee8021ad_priority;
++    uint8_t  _pad1[1];
++    uint16_t ieee8021ad_etype;
++};
++
++#endif /* PROTO_AUDIT_IEEE8021AD_H */

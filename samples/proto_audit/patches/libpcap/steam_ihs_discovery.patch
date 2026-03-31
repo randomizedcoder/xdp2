@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/steam_ihs_discovery.h
+@@ -0,0 +1,23 @@
++/*
++ * steam_ihs_discovery.h — steam_ihs_discovery_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_STEAM_IHS_DISCOVERY_H
++#define PROTO_AUDIT_STEAM_IHS_DISCOVERY_H
++
++#include <stdint.h>
++
++/* Steam_ihs_discovery header — 30 bytes minimum */
++struct steam_ihs_discovery_header {
++    uint64_t steam_ihs_discovery_signature;
++    uint32_t steam_ihs_discovery_header_length;
++    uint8_t  _pad12[1];
++    uint8_t  steam_ihs_discovery_header_client_id[9];
++    uint8_t  _pad22[1];
++    uint8_t  steam_ihs_discovery_header_msg_type;
++    uint32_t steam_ihs_discovery_body_length;
++    uint8_t  _pad28[1];
++    uint8_t  steam_ihs_discovery_body_discovery_seqnum;
++};
++
++#endif /* PROTO_AUDIT_STEAM_IHS_DISCOVERY_H */

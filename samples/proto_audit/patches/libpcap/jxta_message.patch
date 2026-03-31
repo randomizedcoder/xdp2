@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/jxta_message.h
+@@ -0,0 +1,23 @@
++/*
++ * jxta_message.h — jxta_message_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_JXTA_MESSAGE_H
++#define PROTO_AUDIT_JXTA_MESSAGE_H
++
++#include <stdint.h>
++
++/* Jxta.message header — 1737 bytes minimum */
++struct jxta_message_header {
++    uint32_t jxta_message_signature;
++    uint8_t  jxta_message_version;
++    uint16_t jxta_message_names;
++    uint16_t jxta_message_elements;
++    uint8_t  jxta_message_element[819];
++    uint8_t  jxta_message_element[546];
++    uint8_t  jxta_message_element[139];
++    uint8_t  jxta_message_element[81];
++    uint8_t  jxta_message_element[143];
++};
++
++#endif /* PROTO_AUDIT_JXTA_MESSAGE_H */

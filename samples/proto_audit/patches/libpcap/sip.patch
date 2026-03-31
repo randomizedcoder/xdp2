@@ -1,14 +1,21 @@
 --- /dev/null
 +++ b/pcap/proto_audit/sip.h
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,18 @@
 +/*
-+ * sip.h — Minimal SIP fixed fields for proto-audit comparison.
-+ * SIP is text-based, but the transport layer (UDP/TCP) framing
-+ * can be verified. This defines the Content-Length preamble
-+ * used by SIP-over-TCP framing.
++ * sip.h — sip_header for proto-audit comparison.
 + */
 +
-+/* SIP is text-based — no fixed binary header struct.
-+ * Cross-verification for SIP uses tshark PDML only.
-+ * This file exists as a placeholder for completeness.
-+ */
++#ifndef PROTO_AUDIT_SIP_H
++#define PROTO_AUDIT_SIP_H
++
++#include <stdint.h>
++
++/* SIP header — 458 bytes minimum */
++struct sip_header {
++    uint8_t  sip_request_line[38];
++    uint8_t  _pad38[2];
++    uint8_t  sip_msg_hdr[295];
++    uint8_t  sip_msg_body[123];
++};
++
++#endif /* PROTO_AUDIT_SIP_H */

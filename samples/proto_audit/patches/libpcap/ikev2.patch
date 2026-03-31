@@ -1,0 +1,29 @@
+--- /dev/null
++++ b/pcap/proto_audit/ikev2.h
+@@ -0,0 +1,26 @@
++/*
++ * ikev2.h — ikev2_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_IKEV2_H
++#define PROTO_AUDIT_IKEV2_H
++
++#include <stdint.h>
++
++/* IKEv2 header — 148 bytes minimum */
++struct ikev2_header {
++    uint64_t ikev2_ispi;
++    uint64_t ikev2_rspi;
++    uint8_t  ikev2_nextpayload;
++    uint8_t  ikev2_version;
++    uint8_t  ikev2_exchangetype;
++    uint8_t  ikev2_flags;
++    uint32_t ikev2_messageid;
++    uint32_t ikev2_length;
++    uint8_t  ikev2_typepayload[60];
++    uint8_t  ikev2_typepayload[20];
++    uint8_t  ikev2_typepayload[20];
++    uint8_t  ikev2_typepayload[20];
++};
++
++#endif /* PROTO_AUDIT_IKEV2_H */

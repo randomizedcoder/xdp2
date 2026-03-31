@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/gnw.h
+@@ -0,0 +1,18 @@
++/*
++ * gnw.h — gnw_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_GNW_H
++#define PROTO_AUDIT_GNW_H
++
++#include <stdint.h>
++
++/* Gnw header — 48 bytes minimum */
++struct gnw_header {
++    uint32_t gnw_bh;
++    uint8_t  _pad4[8];
++    uint64_t gnw_ch;
++    uint8_t  gnw_tsb[28];
++};
++
++#endif /* PROTO_AUDIT_GNW_H */

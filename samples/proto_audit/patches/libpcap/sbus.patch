@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/sbus.h
+@@ -0,0 +1,19 @@
++/*
++ * sbus.h — sbus_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SBUS_H
++#define PROTO_AUDIT_SBUS_H
++
++#include <stdint.h>
++
++/* Sbus header — 13 bytes minimum */
++struct sbus_header {
++    uint8_t  _pad0[8];
++    uint8_t  sbus_att;
++    uint8_t  sbus_destination;
++    uint8_t  sbus_cmd;
++    uint16_t sbus_crc;
++};
++
++#endif /* PROTO_AUDIT_SBUS_H */

@@ -1,0 +1,27 @@
+--- /dev/null
++++ b/pcap/proto_audit/isl.h
+@@ -0,0 +1,24 @@
++/*
++ * isl.h — isl_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ISL_H
++#define PROTO_AUDIT_ISL_H
++
++#include <stdint.h>
++
++/* Isl header — 26 bytes minimum */
++struct isl_header {
++    uint8_t  isl_dst;
++    uint8_t  isl_src;
++    uint16_t isl_len;
++    uint8_t  isl_dsap;
++    uint8_t  isl_ssap;
++    uint8_t  isl_control;
++    uint8_t  isl_hsa;
++    uint16_t isl_vlan_id;
++    uint16_t isl_index;
++    uint16_t isl_reserved;
++};
++
++#endif /* PROTO_AUDIT_ISL_H */
