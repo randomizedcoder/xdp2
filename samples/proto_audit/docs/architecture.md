@@ -77,9 +77,9 @@ both directions, per-source fidelity tables, and a worked IPv4 example.
 | **XDP2** | C headers (`xdp2_proto_def` structs) | Local repo parse | ~70 (metadata only, no fields) |
 | **Linux kernel** | C structs (UAPI headers) | Nix-pinned source tree | ~48 with field definitions |
 | **Scapy** | Python classes (`fields_desc`) | Runtime introspection via JSON | 109 protocols |
-| **tshark** | PDML XML (`<proto>`/`<field>`) | `tshark -T pdml` subprocess | ~80 with PCAP packets |
+| **tshark** | PDML XML (`<proto>`/`<field>`) | `tshark -T pdml` subprocess + corpus + registry | 255 from corpus, 1872 from registry |
 | **etherparse** | Rust structs (`pub struct`) | Nix-pinned + 31 overlay patches | 9 core + 31 overlay |
-| **libpcap** | C structs + BPF gencode offsets | Nix-pinned + 18 overlay patches | ~6 native + 18 overlay |
+| **libpcap** | C structs + BPF gencode offsets | Nix-pinned + overlay patches | ~6 native + overlays |
 
 ## Intermediate Representation
 
