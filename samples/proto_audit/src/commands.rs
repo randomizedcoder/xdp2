@@ -1026,14 +1026,56 @@ fn run_audit(
         }
     };
 
-    // For discovered-tier protocols, pre-load batch caches to avoid
-    // N subprocess calls. Only load if we have discovered protocols.
+    // Pre-load batch caches: always build tshark registry for fallback,
+    // and full batch caches if we have discovered protocols.
     let has_discovered = proto_list
         .iter()
         .any(|(_, dp)| dp.as_ref().map(|d| d.tier == Tier::Discovered).unwrap_or(false));
 
     let batch = if has_discovered {
         Some(BatchCache::load(paths, discovery_state))
+    } else if source_list.contains(&"tshark".to_string()) {
+        // Build tshark caches for curated-only audits:
+        // 1. Corpus PDML cache (real packet data from expanded PCAP corpus)
+        // 2. Registry cache (approximate, from `tshark -G fields`)
+        let tshark_cache = {
+            let mut cache = std::collections::HashMap::new();
+            // Load corpus PDML (same logic as BatchCache::load)
+            if let Ok(corpus_dir) = std::env::var("PROTO_AUDIT_PCAP_CORPUS") {
+                let corpus_path = std::path::Path::new(&corpus_dir);
+                if corpus_path.is_dir() {
+                    if let Ok(entries) = std::fs::read_dir(corpus_path) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.extension().and_then(|e| e.to_str()) != Some("xml") {
+                                continue;
+                            }
+                            if let Ok(xml) = std::fs::read_to_string(&path) {
+                                if let Ok(packets) = extractors::tshark::parse_pdml(&xml) {
+                                    let file_protos =
+                                        extractors::tshark::extract_all_protocols_from_pdml(&packets);
+                                    for (name, def) in file_protos {
+                                        cache.entry(name).or_insert(def);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    eprintln!("  [corpus] Cached {} tshark PDML protocols from corpus", cache.len());
+                }
+            }
+            if cache.is_empty() { None } else { Some(cache) }
+        };
+        let tshark_registry_cache = discovery_state.tshark.as_ref().map(|reg| {
+            let cache = extractors::tshark_registry::registry_to_ir_map(reg);
+            eprintln!("  [registry] Cached {} tshark registry protocols", cache.len());
+            cache
+        });
+        Some(BatchCache {
+            tshark_cache,
+            scapy_cache: None,
+            tshark_registry_cache,
+        })
     } else {
         None
     };
@@ -1060,8 +1102,37 @@ fn run_audit(
                         .and_then(|dp| try_extract_discovered(source, dp, paths))
                 })
             } else {
-                // For Tier 1, use curated extraction path
-                try_extract(source, proto, paths)
+                // For Tier 1, use curated extraction path.
+                // For tshark, fall back to registry when PDML has no data.
+                let mut def = try_extract(source, proto, paths);
+                if def.is_none() && source == "tshark" {
+                    if let Some(names) = name_mapping::find_by_canonical(proto) {
+                        if let Some(filter) = names.tshark {
+                            let dp_stub = DiscoveredProtocol {
+                                canonical: proto.to_string(),
+                                tshark_filter: Some(filter.to_string()),
+                                scapy_class: None,
+                                kernel_struct: None,
+                                kernel_header: None,
+                                tier: Tier::Curated,
+                                estimated_field_count: 0,
+                                min_header_bytes: 0,
+                                match_confidence: None,
+                                match_method: None,
+                                validation_tier: None,
+                                libpcap_name: None,
+                                libpcap_file: None,
+                            };
+                            // Try corpus PDML cache first (real packet data),
+                            // then fall back to tshark registry (approximate)
+                            def = batch.as_ref().and_then(|b| b.get("tshark", &dp_stub));
+                            if def.is_none() {
+                                def = batch.as_ref().and_then(|b| b.get_from_registry(&dp_stub));
+                            }
+                        }
+                    }
+                }
+                def
             };
 
             if let Some(d) = def {
