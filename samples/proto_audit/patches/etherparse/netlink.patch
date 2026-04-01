@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/netlink.rs
+@@ -0,0 +1,9 @@
++//! Netlink header — 16 bytes.
++
++/// Netlink header — 16 bytes.
++pub struct NetlinkHeader {
++    /// Link-layer address type: Netlink (824).
++    pub netlink_hatype: u16,
++    /// Family: Route (0x0000).
++    pub netlink_family: u16,
++}

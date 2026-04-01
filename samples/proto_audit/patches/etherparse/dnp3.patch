@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/dnp3.rs
+@@ -0,0 +1,9 @@
++//! DNP3 header — 35 bytes.
++
++/// DNP3 header — 35 bytes.
++pub struct DNP3Header {
++    /// 1 DNP 3.0 AL Fragment (20 bytes): #4(20).
++    pub dnp3_al_fragments: u128,
++    /// Transport Control: 0xc1, Final, First(FIR, FIN, Sequence 1).
++    pub dnp3_tr_ctl: u8,
++}

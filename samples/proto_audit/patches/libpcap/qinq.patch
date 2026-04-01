@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/qinq.h
+@@ -0,0 +1,16 @@
++/*
++ * qinq.h — qinq_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_QINQ_H
++#define PROTO_AUDIT_QINQ_H
++
++#include <stdint.h>
++
++/* QinQ header — 4 bytes minimum */
++struct qinq_header {
++    uint16_t qinq_priority;
++    uint16_t qinq_etype;
++};
++
++#endif /* PROTO_AUDIT_QINQ_H */

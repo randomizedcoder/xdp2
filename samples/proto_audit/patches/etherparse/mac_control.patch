@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/mac_control.rs
+@@ -0,0 +1,9 @@
++//! MAC_Control header — 46 bytes.
++
++/// MAC_Control header — 46 bytes.
++pub struct MAC_ControlHeader {
++    /// Opcode: Pause (0x0001).
++    pub macc_opcode: u16,
++    /// pause_time: 0.
++    pub macc_pause_time: u16,
++}

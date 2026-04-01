@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/qinq.rs
+@@ -0,0 +1,9 @@
++//! QinQ header — 4 bytes.
++
++/// QinQ header — 4 bytes.
++pub struct QinQHeader {
++    /// 000. .... .... .... = Priority: Best Effort (default) (0).
++    pub vlan_priority: u16,
++    /// Type: IPv4 (0x0800).
++    pub vlan_etype: u16,
++}

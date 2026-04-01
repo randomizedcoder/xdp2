@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/netlink.h
+@@ -0,0 +1,18 @@
++/*
++ * netlink.h — netlink_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_NETLINK_H
++#define PROTO_AUDIT_NETLINK_H
++
++#include <stdint.h>
++
++/* Netlink header — 16 bytes minimum */
++struct netlink_header {
++    uint8_t  _pad0[2];
++    uint16_t netlink_hatype;
++    uint8_t  _pad4[10];
++    uint16_t netlink_family;
++};
++
++#endif /* PROTO_AUDIT_NETLINK_H */

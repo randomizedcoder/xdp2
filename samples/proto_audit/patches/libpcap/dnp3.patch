@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/pcap/proto_audit/dnp3.h
+@@ -0,0 +1,15 @@
++/*
++ * dnp3.h — dnp3_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_DNP3_H
++#define PROTO_AUDIT_DNP3_H
++
++#include <stdint.h>
++
++/* DNP3 header — 35 bytes minimum */
++struct dnp3_header {
++    uint8_t  dnp3_fragments[20];
++};
++
++#endif /* PROTO_AUDIT_DNP3_H */

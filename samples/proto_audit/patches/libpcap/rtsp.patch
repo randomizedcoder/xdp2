@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/rtsp.h
+@@ -0,0 +1,17 @@
++/*
++ * rtsp.h — rtsp_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_RTSP_H
++#define PROTO_AUDIT_RTSP_H
++
++#include <stdint.h>
++
++/* RTSP header — 438 bytes minimum */
++struct rtsp_header {
++    uint8_t  rtsp_request[56];
++    uint8_t  _pad56[222];
++    uint8_t  rtsp_cseq;
++};
++
++#endif /* PROTO_AUDIT_RTSP_H */

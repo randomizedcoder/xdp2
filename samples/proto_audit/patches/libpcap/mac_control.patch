@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/mac_control.h
+@@ -0,0 +1,16 @@
++/*
++ * mac_control.h — mac_control_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_MAC_CONTROL_H
++#define PROTO_AUDIT_MAC_CONTROL_H
++
++#include <stdint.h>
++
++/* MAC_Control header — 46 bytes minimum */
++struct mac_control_header {
++    uint16_t mac_control_opcode;
++    uint16_t mac_control_pause_time;
++};
++
++#endif /* PROTO_AUDIT_MAC_CONTROL_H */

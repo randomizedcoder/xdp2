@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/pcap/proto_audit/scsi.h
+@@ -0,0 +1,17 @@
++/*
++ * scsi.h — scsi_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SCSI_H
++#define PROTO_AUDIT_SCSI_H
++
++#include <stdint.h>
++
++/* SCSI header — 6 bytes minimum */
++struct scsi_header {
++    uint8_t  scsi_opcode;
++    uint8_t  _pad1[4];
++    uint8_t  scsi_control;
++};
++
++#endif /* PROTO_AUDIT_SCSI_H */

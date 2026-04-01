@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/rtsp.rs
+@@ -0,0 +1,9 @@
++//! RTSP header — 438 bytes.
++
++/// RTSP header — 438 bytes.
++pub struct RTSPHeader {
++    /// Request: DESCRIBE rtsp://EMAP1.planetwideradio.com/tfm RTSP/1.0\r\n.
++    pub rtsp_request: u128,
++    /// CSeq: 1.
++    pub rtsp_cseq: u64,
++}

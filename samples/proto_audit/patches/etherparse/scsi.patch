@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/scsi.rs
+@@ -0,0 +1,9 @@
++//! SCSI header — 6 bytes.
++
++/// SCSI header — 6 bytes.
++pub struct SCSIHeader {
++    /// Opcode: Test Unit Ready (0x00).
++    pub scsi_sbc_opcode: u8,
++    /// Control: 0x00.
++    pub scsi_cdb_control: u8,
++}
