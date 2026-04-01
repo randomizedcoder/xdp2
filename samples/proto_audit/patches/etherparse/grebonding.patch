@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/grebonding.rs
+@@ -0,0 +1,11 @@
++//! Grebonding header — 7 bytes.
++
++/// Grebonding header — 7 bytes.
++pub struct GrebondingHeader {
++    /// 0110 .... = Message type: Notify (6).
++    pub grebonding_type: u8,
++    /// Attribute - DSL fail.
++    pub grebonding_attr: u32,
++    /// Attribute - FIN.
++    pub grebonding_attr: u32,
++}

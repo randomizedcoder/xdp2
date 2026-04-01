@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/jxta_message.rs
+@@ -0,0 +1,23 @@
++//! Jxta.message header — 1737 bytes.
++
++/// Jxta.message header — 1737 bytes.
++pub struct JxtamessageHeader {
++    /// Signature: jxmg.
++    pub jxta_message_signature: u32,
++    /// Version: 0.
++    pub jxta_message_version: u8,
++    /// Names Count: 0.
++    pub jxta_message_names: u16,
++    /// Element Count: 5.
++    pub jxta_message_elements: u16,
++    /// JXTA Message Element "jxta-NetGroupORes".
++    pub jxta_message_element: u128,
++    /// JXTA Message Element "RendezVousPropagatejxta-NetGroup".
++    pub jxta_message_element: u128,
++    /// JXTA Message Element "EndpointHeaderSrcPeer".
++    pub jxta_message_element: u128,
++    /// JXTA Message Element "EndpointSourceAddress".
++    pub jxta_message_element: u128,
++    /// JXTA Message Element "EndpointDestinationAddress".
++    pub jxta_message_element: u128,
++}

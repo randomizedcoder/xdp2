@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/lcp.rs
+@@ -0,0 +1,11 @@
++//! Lcp header — 10 bytes.
++
++/// Lcp header — 10 bytes.
++pub struct LcpHeader {
++    /// Code: Configuration Request (1).
++    pub ppp_code: u8,
++    /// Identifier: 1 (0x01).
++    pub ppp_identifier: u8,
++    /// Length: 10.
++    pub ppp_length: u16,
++}

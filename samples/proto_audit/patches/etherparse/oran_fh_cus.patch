@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/oran_fh_cus.rs
+@@ -0,0 +1,11 @@
++//! Oran_fh_cus header — 20 bytes.
++
++/// Oran_fh_cus header — 20 bytes.
++pub struct Oran_fh_cusHeader {
++    /// ecpriPcid (DU_Port_ID: 1, BandSector_ID: 2, CC_ID: 3, RU_Port_ID: 4).
++    pub oran_fh_cus_ecpripcid: u16,
++    /// ecpriSeqid (SeqId: 135, E: 0, SubSeqId: 101).
++    pub oran_fh_cus_ecpriseqid: u16,
++    /// Timing Header (Uplink, Frame: 14, Subframe: 0, Slot: 52, Symbol: 12).
++    pub oran_fh_cus_timingheader: u32,
++}

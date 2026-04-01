@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/nbdgm.rs
+@@ -0,0 +1,23 @@
++//! Nbdgm header — 82 bytes.
++
++/// Nbdgm header — 82 bytes.
++pub struct NbdgmHeader {
++    /// Message Type: Direct_group datagram (17).
++    pub nbdgm_type: u8,
++    /// Flags: 0x0e, This is first fragment, Node Type: NBDD.
++    pub nbdgm_flags: u8,
++    /// Datagram ID: 0xec7b.
++    pub nbdgm_dgram_id: u16,
++    /// Source IP: 192.168.199.1.
++    pub nbdgm_src_ip: u32,
++    /// Source Port: 138.
++    pub nbdgm_src_port: u16,
++    /// Datagram length: 171 bytes.
++    pub nbdgm_dgram_len: u16,
++    /// Packet offset: 0 bytes.
++    pub nbdgm_pkt_offset: u16,
++    /// Source name: SCV<00> (Workstation/Redirector).
++    pub nbdgm_source_name: u128,
++    /// Destination name: WORKGROUP<1e> (Browser Election Service).
++    pub nbdgm_destination_name: u128,
++}

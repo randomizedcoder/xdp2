@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/nbipx.rs
+@@ -0,0 +1,11 @@
++//! Nbipx header — 50 bytes.
++
++/// Nbipx header — 50 bytes.
++pub struct NbipxHeader {
++    /// IPX Network: 00 (0x00030000).
++    pub nmpi_ipx_network: u32,
++    /// Name type flag: 0x40.
++    pub nmpi_name_flags: u8,
++    /// Packet Type: Check name (0x03).
++    pub nmpi_packettype: u8,
++}

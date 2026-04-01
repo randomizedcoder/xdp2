@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/cdp.rs
+@@ -0,0 +1,11 @@
++//! CDP header — 378 bytes.
++
++/// CDP header — 378 bytes.
++pub struct CDPHeader {
++    /// Version: 2.
++    pub cdp_version: u8,
++    /// TTL: 180 seconds.
++    pub cdp_ttl: u8,
++    /// Checksum: 0xb0bd [correct].
++    pub cdp_checksum: u16,
++}

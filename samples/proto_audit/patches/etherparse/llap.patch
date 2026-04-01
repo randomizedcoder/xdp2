@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/llap.rs
+@@ -0,0 +1,11 @@
++//! Llap header — 3 bytes.
++
++/// Llap header — 3 bytes.
++pub struct LlapHeader {
++    /// Destination Node: 170.
++    pub llap_dst: u8,
++    /// Source Node: 170.
++    pub llap_src: u8,
++    /// Type: Unknown (0x03).
++    pub llap_type: u8,
++}

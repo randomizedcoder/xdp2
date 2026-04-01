@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/smpp.rs
+@@ -0,0 +1,25 @@
++//! Smpp header — 40 bytes.
++
++/// Smpp header — 40 bytes.
++pub struct SmppHeader {
++    /// Length: 40.
++    pub smpp_command_length: u32,
++    /// Request: True.
++    pub smpp_request: u32,
++    /// Sequence #: 1.
++    pub smpp_sequence_number: u32,
++    /// System ID: abhik.
++    pub smpp_system_id: u64,
++    /// Password: password.
++    pub smpp_password: u128,
++    /// System type: SMPP.
++    pub smpp_system_type: u64,
++    /// Version (if): 0.1.
++    pub smpp_interface_version: u8,
++    /// Type of number: Unknown (0x00).
++    pub smpp_addr_ton: u8,
++    /// Numbering plan indicator: Unknown (0x00).
++    pub smpp_addr_npi: u8,
++    /// Address: NULL.
++    pub smpp_address_range: u8,
++}

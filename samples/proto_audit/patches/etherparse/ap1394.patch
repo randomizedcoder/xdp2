@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/ap1394.rs
+@@ -0,0 +1,11 @@
++//! Ap1394 header — 18 bytes.
++
++/// Ap1394 header — 18 bytes.
++pub struct Ap1394Header {
++    /// Destination: 43de09a300093ee2.
++    pub ap1394_dst: u64,
++    /// Source: 08090a0b0c0d0e0f.
++    pub ap1394_src: u64,
++    /// Type: Unknown (0x1011).
++    pub ap1394_type: u16,
++}

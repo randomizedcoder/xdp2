@@ -1,0 +1,60 @@
+--- /dev/null
++++ b/src/proto_audit/lacp.rs
+@@ -0,0 +1,57 @@
++//! LACP header — 109 bytes.
++
++/// LACP header — 109 bytes.
++pub struct LACPHeader {
++    /// LACP Version: 0x01.
++    pub lacp_version: u8,
++    /// TLV Type: Actor Information (0x01).
++    pub lacp_tlv_type: u8,
++    /// TLV Length: 0x14.
++    pub lacp_tlv_length: u8,
++    /// Actor System Priority: 32768.
++    pub lacp_actor_sys_priority: u16,
++    /// Actor System ID: Cisco_12:0f:00 (00:13:c4:12:0f:00).
++    pub lacp_actor_sysid: u64,
++    /// Actor Key: 13.
++    pub lacp_actor_key: u16,
++    /// Actor Port Priority: 32768.
++    pub lacp_actor_port_priority: u16,
++    /// Actor Port: 22.
++    pub lacp_actor_port: u16,
++    /// Actor State: 0x85, LACP Activity, Aggregation, Expired.
++    pub lacp_actor_state: u8,
++    /// Reserved: 000000.
++    pub lacp_actor_reserved: u32,
++    /// TLV Type: Partner Information (0x02).
++    pub lacp_tlv_type: u8,
++    /// TLV Length: 0x14.
++    pub lacp_tlv_length: u8,
++    /// Partner System Priority: 32768.
++    pub lacp_partner_sys_priority: u16,
++    /// Partner System: Cisco_16:f5:00 (00:0e:83:16:f5:00).
++    pub lacp_partner_sysid: u64,
++    /// Partner Key: 13.
++    pub lacp_partner_key: u16,
++    /// Partner Port Priority: 32768.
++    pub lacp_partner_port_priority: u16,
++    /// Partner Port: 25.
++    pub lacp_partner_port: u16,
++    /// Partner State: 0x36, LACP Timeout, Aggregation, Collecting, Distributing.
++    pub lacp_partner_state: u8,
++    /// Reserved: 000000.
++    pub lacp_partner_reserved: u32,
++    /// TLV Type: Collector Information (0x03).
++    pub lacp_tlv_type: u8,
++    /// TLV Length: 0x10.
++    pub lacp_tlv_length: u8,
++    /// Collector Max Delay: 32768.
++    pub lacp_collector_max_delay: u16,
++    /// Reserved: 000000000000000000000000.
++    pub lacp_coll_reserved: u128,
++    /// TLV Type: Terminator (0x00).
++    pub lacp_tlv_type: u8,
++    /// TLV Length: 0x00.
++    pub lacp_tlv_length: u8,
++    /// Pad: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.
++    pub lacp_pad: u128,
++}

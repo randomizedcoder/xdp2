@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/tacplus.rs
+@@ -0,0 +1,17 @@
++//! Tacplus header — 35 bytes.
++
++/// Tacplus header — 35 bytes.
++pub struct TacplusHeader {
++    /// Major version: TACACS+.
++    pub tacplus_majvers: u8,
++    /// Type: Authentication (1).
++    pub tacplus_type: u8,
++    /// Sequence number: 1.
++    pub tacplus_seqno: u8,
++    /// Flags: 0x00 (Encrypted payload, Multiple Connections).
++    pub tacplus_flags: u8,
++    /// Session ID: 2415744425.
++    pub tacplus_session_id: u32,
++    /// Packet length: 23.
++    pub tacplus_packet_len: u32,
++}

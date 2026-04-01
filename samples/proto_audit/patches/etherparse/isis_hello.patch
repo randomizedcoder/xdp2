@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/isis_hello.rs
+@@ -0,0 +1,15 @@
++//! Isis.hello header — 1491 bytes.
++
++/// Isis.hello header — 1491 bytes.
++pub struct IsishelloHeader {
++    /// .... ..11 = Circuit type: Level 1 and 2 (0x3).
++    pub isis_hello_circuit_type: u8,
++    /// SystemID {Sender of PDU}: 1111.1111.1111.
++    pub isis_hello_source_id: u64,
++    /// Holding timer: 30.
++    pub isis_hello_holding_timer: u16,
++    /// PDU length: 1499.
++    pub isis_hello_pdu_length: u16,
++    /// Local circuit ID: 0.
++    pub isis_hello_local_circuit_id: u8,
++}

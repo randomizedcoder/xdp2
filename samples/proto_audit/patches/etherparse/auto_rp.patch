@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/auto_rp.rs
+@@ -0,0 +1,11 @@
++//! Auto_rp header — 20 bytes.
++
++/// Auto_rp header — 20 bytes.
++pub struct Auto_rpHeader {
++    /// RP count: 1.
++    pub auto_rp_rp_count: u8,
++    /// Holdtime: 181 seconds.
++    pub auto_rp_holdtime: u16,
++    /// Reserved: 0x00000000.
++    pub auto_rp_reserved: u32,
++}

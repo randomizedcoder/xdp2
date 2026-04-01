@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/netmon_filter.rs
+@@ -0,0 +1,17 @@
++//! Netmon_filter header — 136 bytes.
++
++/// Netmon_filter header — 136 bytes.
++pub struct Netmon_filterHeader {
++    /// Version: 1.
++    pub netmon_filter_version: u16,
++    /// Filter type: Capture Filter (1).
++    pub netmon_filter_type: u32,
++    /// App Major Version: 196612.
++    pub netmon_filter_app_major_version: u32,
++    /// App Minor Version: 129236993.
++    pub netmon_filter_app_minor_version: u32,
++    /// Application Name: C:\Program Files\Microsoft Network Monitor 3\netmon.exe.
++    pub netmon_filter_app_name: u128,
++    /// Filter: None.
++    pub netmon_filter_filter: u128,
++}

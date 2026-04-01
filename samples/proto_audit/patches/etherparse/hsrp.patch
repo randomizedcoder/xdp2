@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/hsrp.rs
+@@ -0,0 +1,25 @@
++//! HSRP header — 20 bytes.
++
++/// HSRP header — 20 bytes.
++pub struct HSRPHeader {
++    /// Version: 0.
++    pub hsrp_version: u8,
++    /// Op Code: Hello (0).
++    pub hsrp_opcode: u8,
++    /// State: Active (16).
++    pub hsrp_state: u8,
++    /// Hellotime: Default (3).
++    pub hsrp_hellotime: u8,
++    /// Holdtime: Default (10).
++    pub hsrp_holdtime: u8,
++    /// Priority: 90.
++    pub hsrp_priority: u8,
++    /// Group: 10.
++    pub hsrp_group: u8,
++    /// Reserved: 0.
++    pub hsrp_reserved: u8,
++    /// Authentication Data: Default (cisco).
++    pub hsrp_auth_data: u64,
++    /// Virtual IP Address: 10.28.168.254.
++    pub hsrp_virt_ip: u32,
++}

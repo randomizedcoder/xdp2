@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/usbms.rs
+@@ -0,0 +1,17 @@
++//! Usbms header — 31 bytes.
++
++/// Usbms header — 31 bytes.
++pub struct UsbmsHeader {
++    /// Signature: 0x43425355.
++    pub usbms_dcbwsignature: u32,
++    /// Tag: 0x0000013f.
++    pub usbms_dcbwtag: u32,
++    /// DataTransferLength: 0.
++    pub usbms_dcbwdatatransferlength: u32,
++    /// Flags: 0x00.
++    pub usbms_dcbwflags: u8,
++    /// .000 .... = Target: 0x0 (0).
++    pub usbms_dcbwtarget: u8,
++    /// ...0 0110 = CDB Length: 0x06.
++    pub usbms_dcbwcblength: u8,
++}

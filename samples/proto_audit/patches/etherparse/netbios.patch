@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/netbios.rs
+@@ -0,0 +1,13 @@
++//! Netbios header — 44 bytes.
++
++/// Netbios header — 44 bytes.
++pub struct NetbiosHeader {
++    /// Length: 44 bytes.
++    pub netbios_hdr_len: u16,
++    /// Delimiter: EFFF (NetBIOS).
++    pub netbios_delimiter: u16,
++    /// Command: Add Name Query (0x01).
++    pub netbios_command: u8,
++    /// Response Correlator: 0x0001.
++    pub netbios_resp_corrl: u16,
++}

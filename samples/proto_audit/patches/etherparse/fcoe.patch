@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/fcoe.rs
+@@ -0,0 +1,13 @@
++//! FCoE header — 14 bytes.
++
++/// FCoE header — 14 bytes.
++pub struct FCoEHeader {
++    /// Version: 0.
++    pub fcoe_ver: u8,
++    /// SOF: SOFi3 (0x2e).
++    pub fcoe_sof: u8,
++    /// CRC: 0x73faeddf [correct].
++    pub fcoe_crc: u32,
++    /// EOF: EOFt (0x42).
++    pub fcoe_eof: u8,
++}

@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/dect_mitel_rfp.rs
+@@ -0,0 +1,13 @@
++//! Dect_mitel_rfp header — 36 bytes.
++
++/// Dect_mitel_rfp header — 36 bytes.
++pub struct Dect_mitel_rfpHeader {
++    /// Message Type: SYS-AUTHENTICATE (0x012d).
++    pub dect_mitel_rfp_message_type: u16,
++    /// Length: 32.
++    pub dect_mitel_rfp_message_length: u16,
++    /// RFP IV: 0x314244a7667e86f0.
++    pub dect_mitel_rfp_sys_authenticate_rfp_iv: u64,
++    /// OMM IV: 0x139dcc5df19f93cc.
++    pub dect_mitel_rfp_sys_authenticate_omm_iv: u64,
++}

@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/wccp.rs
+@@ -0,0 +1,11 @@
++//! Wccp header — 108 bytes.
++
++/// Wccp header — 108 bytes.
++pub struct WccpHeader {
++    /// WCCP Message Type: 2.0 Here I am (10).
++    pub wccp_message: u32,
++    /// WCCP Version (>=2): 0x0200.
++    pub wccp_message_header_version: u16,
++    /// Length: 100.
++    pub wccp_message_header_length: u16,
++}

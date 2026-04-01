@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/iec60870_asdu.rs
+@@ -0,0 +1,15 @@
++//! Iec60870_asdu header — 25 bytes.
++
++/// Iec60870_asdu header — 25 bytes.
++pub struct Iec60870_asduHeader {
++    /// TypeId: M_SP_NA_1 (1).
++    pub iec60870_asdu_typeid: u8,
++    /// 1... .... = SQ: True.
++    pub iec60870_asdu_sq: u8,
++    /// ..01 0100 = CauseTx: Inrogen (20).
++    pub iec60870_asdu_causetx: u8,
++    /// OA: 0.
++    pub iec60870_asdu_oa: u8,
++    /// Addr: 1054.
++    pub iec60870_asdu_addr: u16,
++}

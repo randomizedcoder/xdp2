@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/9p.rs
+@@ -0,0 +1,15 @@
++//! 9p header — 19 bytes.
++
++/// 9p header — 19 bytes.
++pub struct 9pHeader {
++    /// Msg length: 19.
++    pub 9p_msglen: u32,
++    /// Msg Type: Tversion (100).
++    pub 9p_msgtype: u8,
++    /// Tag: 65535.
++    pub 9p_tag: u16,
++    /// Max msg size: 8216.
++    pub 9p_maxsize: u32,
++    /// Version: 9P2000.
++    pub 9p_version: u64,
++}

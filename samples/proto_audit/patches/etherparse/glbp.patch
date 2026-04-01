@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/glbp.rs
+@@ -0,0 +1,15 @@
++//! GLBP header — 40 bytes.
++
++/// GLBP header — 40 bytes.
++pub struct GLBPHeader {
++    /// Version?: 1.
++    pub glbp_version: u8,
++    /// Unknown1: 0.
++    pub glbp_unknown1: u8,
++    /// Group: 1.
++    pub glbp_group: u16,
++    /// Unknown2: 0000.
++    pub glbp_unknown2: u16,
++    /// Owner ID: c2:00:7c:b8:00:00 (c2:00:7c:b8:00:00).
++    pub glbp_ownerid: u64,
++}

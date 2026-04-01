@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/sll2.rs
+@@ -0,0 +1,17 @@
++//! SLL2 header — 16 bytes.
++
++/// SLL2 header — 16 bytes.
++pub struct SLL2Header {
++    /// Packet type: Sent by us (4).
++    pub sll_pkttype: u16,
++    /// Link-layer address type: Ethernet (1).
++    pub sll_hatype: u16,
++    /// Link-layer address length: 6.
++    pub sll_halen: u16,
++    /// Source: ASUSTekCOMPU_58:b9:75 (00:11:d8:58:b9:75).
++    pub sll_src_eth: u64,
++    /// Unused: 0000.
++    pub sll_unused: u16,
++    /// Protocol: IPv4 (0x0800).
++    pub sll_etype: u16,
++}

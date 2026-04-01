@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/fip.rs
+@@ -0,0 +1,21 @@
++//! FIP header — 58 bytes.
++
++/// FIP header — 58 bytes.
++pub struct FIPHeader {
++    /// 0001 .... = Version: 1.
++    pub fip_ver: u8,
++    /// .... 0000 0000 0000 = Reserved: 0x000.
++    pub fip_reserved: u16,
++    /// Opcode: Discovery (0x0001).
++    pub fip_opcode: u16,
++    /// Reserved: 0x00.
++    pub fip_reserved: u8,
++    /// Discovery Subcode: Advertisement (0x02).
++    pub fip_disc_subcode: u8,
++    /// Length of Descriptors (words): 12.
++    pub fip_dl_len: u16,
++    /// Flags: 0x8005, Fabric Provided MAC addr, Available, F_Port.
++    pub fip_flags: u16,
++    /// Descriptors.
++    pub fip_descriptors: u128,
++}

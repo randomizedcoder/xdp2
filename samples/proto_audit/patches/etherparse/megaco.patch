@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/megaco.rs
+@@ -0,0 +1,15 @@
++//! Megaco header — 75 bytes.
++
++/// Megaco header — 75 bytes.
++pub struct MegacoHeader {
++    /// Start token: MEGACO.
++    pub megaco_start_token: u64,
++    /// Version: 2.
++    pub megaco_version: u8,
++    /// MediagatewayID: <mg-tr>:16384.
++    pub megaco_mid: u128,
++    /// Transaction: Reply.
++    pub megaco_transaction: u128,
++    /// Context: 255.
++    pub megaco_context: u128,
++}

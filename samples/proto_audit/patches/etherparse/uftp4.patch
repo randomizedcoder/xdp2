@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/uftp4.rs
+@@ -0,0 +1,25 @@
++//! Uftp4 header — 40 bytes.
++
++/// Uftp4 header — 40 bytes.
++pub struct Uftp4Header {
++    /// Protocol Version: 0x40.
++    pub uftp4_version: u8,
++    /// Type: ANNOUNCE (1).
++    pub uftp4_func: u8,
++    /// Sequence Number: 0.
++    pub uftp4_seq: u16,
++    /// Source ID: 0x0a000001.
++    pub uftp4_src_id: u32,
++    /// Group ID: 0x96f4c304.
++    pub uftp4_group_id: u32,
++    /// Group Instance ID: 0.
++    pub uftp4_group_inst: u8,
++    /// Group Round Trip Time: 0.5322157857965678.
++    pub uftp4_grtt: u8,
++    /// Group Size: 0.
++    pub uftp4_gsize: u8,
++    /// Reserved: 0x00.
++    pub uftp4_reserved: u8,
++    /// ANNOUNCE.
++    pub uftp4_announce: u128,
++}

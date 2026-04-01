@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/llt.rs
+@@ -0,0 +1,15 @@
++//! Llt header — 60 bytes.
++
++/// Llt header — 60 bytes.
++pub struct LltHeader {
++    /// Cluster number: 193.
++    pub llt_cluster_num: u8,
++    /// Message type: heartbeat (0x0a).
++    pub llt_message_type: u8,
++    /// Node ID: 1.
++    pub llt_node_id: u8,
++    /// Sequence number: 2859720.
++    pub llt_sequence_num: u32,
++    /// Message time: 285982870.
++    pub llt_message_time: u32,
++}

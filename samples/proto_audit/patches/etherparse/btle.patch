@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/btle.rs
+@@ -0,0 +1,17 @@
++//! Btle header — 44 bytes.
++
++/// Btle header — 44 bytes.
++pub struct BtleHeader {
++    /// Access Address: 0x8e89bed6.
++    pub btle_access_address: u32,
++    /// Packet Header: 0x2340 (PDU Type: ADV_IND, ChSel: #1, TxAdd: Random).
++    pub btle_advertising_header: u16,
++    /// Length: 35.
++    pub btle_length: u8,
++    /// Advertising Address: c9:b3:05:0b:2b:55 (c9:b3:05:0b:2b:55).
++    pub btle_advertising_address: u64,
++    /// Advertising Data.
++    pub btcommon_eir_ad_advertising_data: u128,
++    /// CRC: 0xa0605b.
++    pub btle_crc: u32,
++}

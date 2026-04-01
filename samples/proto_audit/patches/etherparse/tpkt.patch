@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/tpkt.rs
+@@ -0,0 +1,11 @@
++//! Tpkt header — 4 bytes.
++
++/// Tpkt header — 4 bytes.
++pub struct TpktHeader {
++    /// Version: 3.
++    pub tpkt_version: u8,
++    /// Reserved: 0.
++    pub tpkt_reserved: u8,
++    /// Length: 29.
++    pub tpkt_length: u16,
++}

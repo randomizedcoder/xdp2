@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/chap.rs
+@@ -0,0 +1,13 @@
++//! Chap header — 52 bytes.
++
++/// Chap header — 52 bytes.
++pub struct ChapHeader {
++    /// Code: Failure (4).
++    pub chap_code: u8,
++    /// Identifier: 0.
++    pub chap_identifier: u8,
++    /// Length: 52.
++    pub chap_length: u16,
++    /// Message: E=691 R=1 C=64FB09A09F80035E4CA6FF6DA2846A01 V=3.
++    pub chap_message: u128,
++}

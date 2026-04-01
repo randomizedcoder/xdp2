@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/h263.rs
+@@ -0,0 +1,15 @@
++//! H263 header — 576 bytes.
++
++/// H263 header — 576 bytes.
++pub struct H263Header {
++    /// 0000 0000  0000 0000  1000 00.. = H.263 Picture start Code: 0x00000020.
++    pub h263_psc: u32,
++    /// .... ..00  0000 00.. = H.263 Temporal Reference: 0.
++    pub h263_tr2: u16,
++    /// 0... .... = H.263 Split screen indicator: Off.
++    pub h263_split_screen_indicator: u8,
++    /// 0... .... = H.263 Optional Syntax-based Arithmetic Coding mode: Off.
++    pub h263_syntax_based_arithmetic_coding_mode: u8,
++    /// 0... .... = H.263 Continuous Presence Multipoint and Video Multiplex (CPM): Off.
++    pub h263_cpm: u8,
++}

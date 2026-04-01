@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/eap.rs
+@@ -0,0 +1,13 @@
++//! EAP header — 5 bytes.
++
++/// EAP header — 5 bytes.
++pub struct EAPHeader {
++    /// Code: Request (1).
++    pub eap_code: u8,
++    /// Id: 1.
++    pub eap_id: u8,
++    /// Length: 5.
++    pub eap_len: u16,
++    /// Type: Identity (1).
++    pub eap_type: u8,
++}

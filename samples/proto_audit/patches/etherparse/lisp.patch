@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/lisp.rs
+@@ -0,0 +1,19 @@
++//! LISP header — 76 bytes.
++
++/// LISP header — 76 bytes.
++pub struct LISPHeader {
++    /// 0011 .... .... .... .... .... = Type: Map-Register (3).
++    pub lisp_type: u32,
++    /// Record Count: 1.
++    pub lisp_records: u8,
++    /// Nonce: 0x0000000000000000.
++    pub lisp_nonce: u64,
++    /// Key ID: 0x0001.
++    pub lisp_keyid: u16,
++    /// Authentication Data Length: 20.
++    pub lisp_authlen: u16,
++    /// Authentication Data: c43f24c6e706f9a5bcd09287f416b53e430d58b3.
++    pub lisp_auth: u128,
++    /// Mapping Record 1, EID Prefix: 153.16.31.80/28, TTL: 5, Action: No-Action, Authoritative.
++    pub lisp_mapping: u128,
++}

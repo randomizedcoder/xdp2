@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/arcnet.rs
+@@ -0,0 +1,13 @@
++//! Arcnet header — 5 bytes.
++
++/// Arcnet header — 5 bytes.
++pub struct ArcnetHeader {
++    /// Source: 0xc0.
++    pub arcnet_src: u8,
++    /// Dest: 0x00.
++    pub arcnet_dst: u8,
++    /// Offset: e800.
++    pub arcnet_offset: u16,
++    /// Protocol ID: BACnet (0xcd).
++    pub arcnet_protid: u8,
++}

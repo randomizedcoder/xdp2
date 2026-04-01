@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/syslog.rs
+@@ -0,0 +1,15 @@
++//! Syslog header — 76 bytes.
++
++/// Syslog header — 76 bytes.
++pub struct SyslogHeader {
++    /// .... ..00 1001 0... = Facility: LOCAL2 - reserved for local use (18).
++    pub syslog_facility: u64,
++    /// Timestamp (RFC3164): Jan  2 10:09:52.
++    pub syslog_timestamp_rfc3164: u128,
++    /// Hostname: nb6.
++    pub syslog_hostname: u32,
++    /// Process ID: chillispot.
++    pub syslog_procid: u128,
++    /// Message: 4222]: C:192.168.2.83/00:19:7D:3B:6F:D4\n.
++    pub syslog_msg: u128,
++}

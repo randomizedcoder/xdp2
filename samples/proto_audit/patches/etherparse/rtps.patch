@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/rtps.rs
+@@ -0,0 +1,15 @@
++//! Rtps header — 36 bytes.
++
++/// Rtps header — 36 bytes.
++pub struct RtpsHeader {
++    /// Magic: RTPS.
++    pub rtps_magic: u32,
++    /// Protocol version: 1.3.
++    pub rtps_version: u16,
++    /// vendorId: 00.00 (VENDOR_ID_UNKNOWN (0x0000)).
++    pub rtps_vendorid: u16,
++    /// guidPrefix=00000000 00010901 { hostId=00000000, appId=00010901 (ManagedApplication: 000109) }.
++    pub rtps_guidprefix_v1: u64,
++    /// submessageId: INFO_SRC (0x0c).
++    pub rtps_sm_id: u128,
++}

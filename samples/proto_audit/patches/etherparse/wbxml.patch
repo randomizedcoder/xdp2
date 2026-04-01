@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/wbxml.rs
+@@ -0,0 +1,11 @@
++//! Wbxml header — 138 bytes.
++
++/// Wbxml header — 138 bytes.
++pub struct WbxmlHeader {
++    /// Version: 1.1 (0x01).
++    pub wbxml_version: u8,
++    /// Public Identifier (known): -//WAPFORUM//DTD WML 1.1//EN (WML 1.1) (0x00000004).
++    pub wbxml_public_id_known: u8,
++    /// Character Set: UTF-8 (106).
++    pub wbxml_charset: u8,
++}

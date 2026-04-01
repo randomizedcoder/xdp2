@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/bacnet.rs
+@@ -0,0 +1,15 @@
++//! BACnet header — 6 bytes.
++
++/// BACnet header — 6 bytes.
++pub struct BACnetHeader {
++    /// Version: 0x01 (ASHRAE 135-1995).
++    pub bacnet_version: u8,
++    /// Control: 0x20, Destination Specifier.
++    pub bacnet_control: u8,
++    /// Destination Network Address: 65535.
++    pub bacnet_dnet: u16,
++    /// Destination MAC Layer Address Length: 0 indicates Broadcast on Destination Network.
++    pub bacnet_dlen: u8,
++    /// Hop Count: 255.
++    pub bacnet_hopc: u8,
++}

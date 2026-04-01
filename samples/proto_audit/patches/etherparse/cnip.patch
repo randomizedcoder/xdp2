@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/cnip.rs
+@@ -0,0 +1,23 @@
++//! Cnip header — 20 bytes.
++
++/// Cnip header — 20 bytes.
++pub struct CnipHeader {
++    /// Packet length: 32.
++    pub cnip_len: u16,
++    /// Version: 1.
++    pub cnip_ver: u8,
++    /// Packet type: Data Packet (0x01).
++    pub cnip_type: u8,
++    /// Ext. Header Size: 0.
++    pub cnip_exth: u8,
++    /// Protocol Flags: 0.
++    pub cnip_pf: u8,
++    /// Vendor Code: 0.
++    pub cnip_vendorcode: u16,
++    /// Session ID: 1804289383.
++    pub cnip_sessid: u32,
++    /// Sequence Number: 0.
++    pub cnip_seqno: u32,
++    /// Time Stamp: 0.
++    pub cnip_tstamp: u32,
++}

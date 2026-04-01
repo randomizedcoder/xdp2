@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/homeplug.rs
+@@ -0,0 +1,11 @@
++//! Homeplug header — 3 bytes.
++
++/// Homeplug header — 3 bytes.
++pub struct HomeplugHeader {
++    /// MAC Control Field.
++    pub homeplug_mctrl: u8,
++    /// MAC Management Entry Header.
++    pub homeplug_mehdr: u8,
++    /// MAC Management Entry Length: 0.
++    pub homeplug_melen: u8,
++}

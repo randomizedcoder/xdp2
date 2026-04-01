@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/manolito.rs
+@@ -0,0 +1,15 @@
++//! Manolito header — 20 bytes.
++
++/// Manolito header — 20 bytes.
++pub struct ManolitoHeader {
++    /// Checksum: 0x79fe0000.
++    pub manolito_checksum: u32,
++    /// Sequence Number: 0x02e6f29a.
++    pub manolito_seqno: u32,
++    /// Forwarded IP Address: 72.35.224.220.
++    pub manolito_src: u32,
++    /// Destination IP Address: 213.122.214.127.
++    pub manolito_dest: u32,
++    /// Options: 0x09000000.
++    pub manolito_options: u32,
++}

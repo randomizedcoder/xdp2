@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/sip.rs
+@@ -0,0 +1,11 @@
++//! SIP header — 458 bytes.
++
++/// SIP header — 458 bytes.
++pub struct SIPHeader {
++    /// Request-Line: INVITE sip:test@10.0.2.15:5060 SIP/2.0.
++    pub sip_request_line: u128,
++    /// Message Header.
++    pub sip_msg_hdr: u128,
++    /// Message Body.
++    pub sip_msg_body: u128,
++}

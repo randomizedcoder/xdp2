@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/s5066dts.rs
+@@ -0,0 +1,19 @@
++//! S5066dts header — 29 bytes.
++
++/// S5066dts header — 29 bytes.
++pub struct S5066dtsHeader {
++    /// Sync preamble: 0x90eb.
++    pub s5066dts_sync: u16,
++    /// 1000 .... = D_PDU type: EXP_NON_ARQ_DATA (8).
++    pub s5066dts_type: u8,
++    /// EOT: 0.
++    pub s5066dts_eot: u8,
++    /// 111. .... = Address size (1/2 bytes): 7.
++    pub s5066dts_address_size: u8,
++    /// CRC on header: 0xdd84 (Correct).
++    pub s5066dts_header_crc: u16,
++    /// C_PDU Segment: 11.
++    pub s5066dts_segmented_cpdu: u8,
++    /// CRC on C_PDU segment: 0x6409ded0 (Correct).
++    pub s5066dts_cpdu_crc: u32,
++}

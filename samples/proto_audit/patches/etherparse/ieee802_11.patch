@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/ieee802_11.rs
+@@ -0,0 +1,25 @@
++//! IEEE802.11 header — 24 bytes.
++
++/// IEEE802.11 header — 24 bytes.
++pub struct IEEE80211Header {
++    /// Type/Subtype: Beacon frame (0x0008).
++    pub wlan_fc_type_subtype: u8,
++    /// Frame Control Field: 0x8000.
++    pub wlan_fc: u16,
++    /// .000 0000 0000 0000 = Duration: 0 microseconds.
++    pub wlan_duration: u16,
++    /// Receiver address: Broadcast (ff:ff:ff:ff:ff:ff).
++    pub wlan_ra: u64,
++    /// Hardware OUI: 00:0c:41 (Cisco-Linksys, LLC).
++    pub wlan_oui: u32,
++    /// Transmitter address: CiscoLinksys_82:b2:55 (00:0c:41:82:b2:55).
++    pub wlan_ta: u64,
++    /// Hardware OUI: 00:0c:41 (Cisco-Linksys, LLC).
++    pub wlan_oui: u32,
++    /// BSS Id: CiscoLinksys_82:b2:55 (00:0c:41:82:b2:55).
++    pub wlan_bssid: u64,
++    /// .... .... .... 0000 = Fragment number: 0.
++    pub wlan_frag: u16,
++    /// Frame check sequence: 0x5cc9619f [unverified].
++    pub wlan_fcs: u32,
++}

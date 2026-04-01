@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/nmf.rs
+@@ -0,0 +1,13 @@
++//! Nmf header — 90 bytes.
++
++/// Nmf header — 90 bytes.
++pub struct NmfHeader {
++    /// Record, start_offset=0x0, Version Record, end_offset=0x3.
++    pub nmf_record: u32,
++    /// Record, start_offset=0x0, Mode Record, end_offset=0x2.
++    pub nmf_record: u16,
++    /// Record, start_offset=0x0, Via Record: Qnet.tcp://dc-2012.cnn-lab.lan:9389/ActiveDirectoryWebServices/Windows/Enumeratio, end_offset=0x52.
++    pub nmf_record: u128,
++    /// Record, start_offset=0x0, Known Encoding Record, end_offset=0x2.
++    pub nmf_record: u16,
++}

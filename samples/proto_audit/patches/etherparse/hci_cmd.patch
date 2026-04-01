@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/hci_cmd.rs
+@@ -0,0 +1,15 @@
++//! HCI_CMD header — 8 bytes.
++
++/// HCI_CMD header — 8 bytes.
++pub struct HCI_CMDHeader {
++    /// Command Opcode: Inquiry (0x0401).
++    pub bthci_cmd_opcode: u16,
++    /// Parameter Total Length: 5.
++    pub bthci_cmd_param_length: u8,
++    /// LAP: 0x9e8b33.
++    pub bthci_cmd_lap: u32,
++    /// Inquiry Length: 16 (20.48 sec).
++    pub bthci_cmd_inq_length: u8,
++    /// Num Responses: 0.
++    pub bthci_cmd_num_responses: u8,
++}

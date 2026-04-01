@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/sccp.rs
+@@ -0,0 +1,23 @@
++//! Sccp header — 92 bytes.
++
++/// Sccp header — 92 bytes.
++pub struct SccpHeader {
++    /// Message Type: Connection Request (0x01).
++    pub sccp_message_type: u8,
++    /// Source Local Reference: 0xda6101.
++    pub sccp_slr: u32,
++    /// .... 0010 = Class: 0x2.
++    pub sccp_class: u8,
++    /// Pointer to first Mandatory Variable parameter: 2.
++    pub sccp_variable_pointer1: u8,
++    /// Pointer to Optional parameter: 6.
++    pub sccp_optional_pointer: u8,
++    /// Called Party Address length: 4.
++    pub sccp_parameter_length: u8,
++    /// Data length: 71.
++    pub sccp_parameter_length: u8,
++    /// Calling Party Address length: 4.
++    pub sccp_parameter_length: u8,
++    /// End of Optional.
++    pub sccp_end_optional_param: u8,
++}

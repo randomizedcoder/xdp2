@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/tns.rs
+@@ -0,0 +1,15 @@
++//! Tns header — 220 bytes.
++
++/// Tns header — 220 bytes.
++pub struct TnsHeader {
++    /// Packet Length: 220.
++    pub tns_length: u16,
++    /// Packet Checksum: 0x0000.
++    pub tns_packet_checksum: u16,
++    /// Packet Type: Connect (1).
++    pub tns_type: u8,
++    /// Reserved Byte: 00.
++    pub tns_reserved_byte: u8,
++    /// Header Checksum: 0x0000.
++    pub tns_header_checksum: u16,
++}

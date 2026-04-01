@@ -1,0 +1,34 @@
+--- /dev/null
++++ b/src/proto_audit/fc.rs
+@@ -0,0 +1,31 @@
++//! FC header — 24 bytes.
++
++/// FC header — 24 bytes.
++pub struct FCHeader {
++    /// R_CTL: 0x6(Device_Data/Unsolicited Command).
++    pub fc_r_ctl: u8,
++    /// Dest Addr: 6a.06.00.
++    pub fc_d_id: u32,
++    /// CS_CTL: 0x00.
++    pub fc_cs_ctl: u8,
++    /// Src Addr: 6a.03.00.
++    pub fc_s_id: u32,
++    /// Type: FCP (0x08).
++    pub fc_type: u8,
++    /// Reassembled Frame: False.
++    pub fc_reassembled: u8,
++    /// F_CTL […]: 0x290000, ExgRpd: Exchange Originator, SeqRec: Seq Initiator, ExgFst: Exchg First, ExgLst: NOT exchg last, SeqLst: Seq Last, Pri: CS_CTL, TSI: Transfer Seq Initiative, LDF: Last Data Frame - No Info, A01: no ack required, RetS.
++    pub fc_f_ctl: u32,
++    /// SEQ_ID: 0x00.
++    pub fc_seq_id: u8,
++    /// DF_CTL: 0x00.
++    pub fc_df_ctl: u8,
++    /// SEQ_CNT: 0.
++    pub fc_seq_cnt: u16,
++    /// OX_ID: 0x03ea.
++    pub fc_ox_id: u16,
++    /// RX_ID: 0xffff.
++    pub fc_rx_id: u16,
++    /// Parameter: 0x00000000.
++    pub fc_parameter: u32,
++}

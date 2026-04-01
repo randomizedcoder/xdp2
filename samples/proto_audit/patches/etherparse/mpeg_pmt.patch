@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/mpeg_pmt.rs
+@@ -0,0 +1,23 @@
++//! Mpeg_pmt header — 54 bytes.
++
++/// Mpeg_pmt header — 54 bytes.
++pub struct Mpeg_pmtHeader {
++    /// Table ID: Program Map Table (PMT) (0x02).
++    pub mpeg_sect_tid: u8,
++    /// 1... .... .... .... = Syntax indicator: 1.
++    pub mpeg_sect_syntax_indicator: u16,
++    /// Program Number: 0x00ce.
++    pub mpeg_pmt_pg_num: u16,
++    /// 11.. .... = Reserved: 0x3.
++    pub mpeg_pmt_reserved1: u8,
++    /// Section Number: 0.
++    pub mpeg_pmt_sect_num: u8,
++    /// Last Section Number: 0.
++    pub mpeg_pmt_last_sect_num: u8,
++    /// 111. .... .... .... = Reserved: 0x7.
++    pub mpeg_pmt_reserved2: u16,
++    /// 1111 .... .... .... = Reserved: 0xf.
++    pub mpeg_pmt_reserved3: u16,
++    /// CRC 32: 0x0c50489c [unverified].
++    pub mpeg_sect_crc: u32,
++}

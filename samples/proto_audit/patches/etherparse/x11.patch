@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/x11.rs
+@@ -0,0 +1,19 @@
++//! X11 header — 12 bytes.
++
++/// X11 header — 12 bytes.
++pub struct X11Header {
++    /// byte-order: 0x6c (Little-endian).
++    pub x11_byte_order: u8,
++    /// unused.
++    pub x11_unused: u8,
++    /// protocol-major-version: 11.
++    pub x11_protocol_major_version: u16,
++    /// protocol-minor-version: 0.
++    pub x11_protocol_minor_version: u16,
++    /// authorization-protocol-name-length: 0.
++    pub x11_authorization_protocol_name_length: u16,
++    /// authorization-protocol-data-length: 0.
++    pub x11_authorization_protocol_data_length: u16,
++    /// unused.
++    pub x11_unused: u16,
++}

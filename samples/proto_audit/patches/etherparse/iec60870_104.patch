@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/iec60870_104.rs
+@@ -0,0 +1,11 @@
++//! Iec60870_104 header — 6 bytes.
++
++/// Iec60870_104 header — 6 bytes.
++pub struct Iec60870_104Header {
++    /// START.
++    pub iec60870_asdu_start: u8,
++    /// ApduLen: 29.
++    pub iec60870_104_apdulen: u8,
++    /// .... .... .... .... .... .... .... ...0 = Type: I (0x0).
++    pub iec60870_104_type: u32,
++}

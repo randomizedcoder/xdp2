@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/fr.rs
+@@ -0,0 +1,21 @@
++//! Fr header — 10 bytes.
++
++/// Fr header — 10 bytes.
++pub struct FrHeader {
++    /// First address octet: 0x18.
++    pub fr_first_addr_octet: u8,
++    /// DLCI: 102.
++    pub fr_dlci: u16,
++    /// Second address octet: 0x61, EA.
++    pub fr_second_addr_octet: u8,
++    /// Control field: U, func=UI (0x03).
++    pub fr_control: u8,
++    /// Padding.
++    pub fr_nlpid: u8,
++    /// NLPID: SNAP (0x80).
++    pub fr_nlpid: u8,
++    /// Organization Code: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common).
++    pub fr_snap_oui: u32,
++    /// Type: ARP (0x0806).
++    pub fr_snaptype: u16,
++}

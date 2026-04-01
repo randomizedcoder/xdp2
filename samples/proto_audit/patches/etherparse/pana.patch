@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/pana.rs
+@@ -0,0 +1,17 @@
++//! Pana header — 16 bytes.
++
++/// Pana header — 16 bytes.
++pub struct PanaHeader {
++    /// PANA Reserved: 0000.
++    pub pana_reserved: u16,
++    /// PANA Message Length: 16.
++    pub pana_length: u16,
++    /// Flags: 0x00.
++    pub pana_flags: u8,
++    /// PANA Message Type: PANA-Client-Initiation-Answer (1).
++    pub pana_type: u16,
++    /// PANA Session ID: 0x00000000.
++    pub pana_sid: u32,
++    /// PANA Sequence Number: 0x00000000.
++    pub pana_seq: u32,
++}

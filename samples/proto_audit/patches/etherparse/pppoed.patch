@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/pppoed.rs
+@@ -0,0 +1,15 @@
++//! PPPoED header — 10 bytes.
++
++/// PPPoED header — 10 bytes.
++pub struct PPPoEDHeader {
++    /// 0001 .... = Version: 1.
++    pub pppoe_version: u8,
++    /// Code: Active Discovery Initiation (PADI) (0x09).
++    pub pppoe_code: u8,
++    /// Session ID: 0x0000.
++    pub pppoe_session_id: u16,
++    /// Payload Length: 4.
++    pub pppoe_payload_length: u16,
++    /// PPPoE Tags.
++    pub pppoed_tags: u32,
++}

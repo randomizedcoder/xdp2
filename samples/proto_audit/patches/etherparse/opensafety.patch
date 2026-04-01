@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/opensafety.rs
+@@ -0,0 +1,15 @@
++//! Opensafety header — 23 bytes.
++
++/// Opensafety header — 23 bytes.
++pub struct OpensafetyHeader {
++    /// Byte Offset: 0x0042.
++    pub opensafety_msg_byte_offset: u8,
++    /// SN send to: 0x0002.
++    pub opensafety_msg_receiver: u16,
++    /// 101. .... = Type: openSAFETY SNMT (0x5).
++    pub opensafety_msg_type: u8,
++    /// Length: 6.
++    pub opensafety_length: u8,
++    /// SN send from: 0x0001.
++    pub opensafety_msg_sender: u16,
++}

@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/rsvp.rs
+@@ -0,0 +1,23 @@
++//! RSVP header — 264 bytes.
++
++/// RSVP header — 264 bytes.
++pub struct RSVPHeader {
++    /// SESSION: IPv4-LSP, Destination 16.2.2.2, Short Call ID 0, Tunnel ID 1, Ext ID 11030303. .
++    pub rsvp_session: u128,
++    /// HOP: IPv4, 210.0.0.1.
++    pub rsvp_hop: u128,
++    /// TIME VALUES: 30000 ms.
++    pub rsvp_time: u64,
++    /// EXPLICIT ROUTE: IPv4 210.0.0.2, IPv4 204.0.0.1, IPv4 207.0.0.1, ....
++    pub rsvp_explicit_route: u128,
++    /// LABEL REQUEST: Basic: L3PID: IPv4 (0x0800).
++    pub rsvp_label_request: u64,
++    /// SESSION ATTRIBUTE: SetupPrio 0, HoldPrio 0, SE Style,  [sys17-3_t1].
++    pub rsvp_session_attribute: u128,
++    /// SENDER TEMPLATE: IPv4-LSP, Tunnel Source: 17.3.3.3, Short Call ID: 0, LSP ID: 1. .
++    pub rsvp_sender: u128,
++    /// SENDER TSPEC: IntServ, Token Bucket, 625000 bytes/sec. .
++    pub rsvp_tspec: u128,
++    /// ADSPEC.
++    pub rsvp_adspec: u128,
++}

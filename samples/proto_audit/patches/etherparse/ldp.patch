@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/ldp.rs
+@@ -0,0 +1,13 @@
++//! LDP header — 446 bytes.
++
++/// LDP header — 446 bytes.
++pub struct LDPHeader {
++    /// Version: 1.
++    pub ldp_hdr_version: u16,
++    /// PDU Length: 442.
++    pub ldp_hdr_pdu_len: u16,
++    /// LSR ID: 33.3.3.3.
++    pub ldp_hdr_ldpid_lsr: u32,
++    /// Label Space ID: 0.
++    pub ldp_hdr_ldpid_lsid: u16,
++}

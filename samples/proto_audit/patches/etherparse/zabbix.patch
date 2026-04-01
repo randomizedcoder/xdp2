@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/zabbix.rs
+@@ -0,0 +1,13 @@
++//! Zabbix header — 66 bytes.
++
++/// Zabbix header — 66 bytes.
++pub struct ZabbixHeader {
++    /// Header: ZBXD.
++    pub zabbix_header: u32,
++    /// Flags: 0x01, Zabbix communications protocol.
++    pub zabbix_flags: u8,
++    /// Length: 53.
++    pub zabbix_len: u32,
++    /// Reserved: 0.
++    pub zabbix_reserved: u32,
++}

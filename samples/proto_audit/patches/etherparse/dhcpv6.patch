@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/dhcpv6.rs
+@@ -0,0 +1,17 @@
++//! DHCPv6 header — 52 bytes.
++
++/// DHCPv6 header — 52 bytes.
++pub struct DHCPv6Header {
++    /// Message type: Solicit (1).
++    pub dhcpv6_msgtype: u8,
++    /// Transaction ID: 0x100874.
++    pub dhcpv6_xid: u32,
++    /// Client Identifier.
++    pub dhcpv6_option_type_str: u128,
++    /// Option Request.
++    pub dhcpv6_option_type_str: u64,
++    /// Elapsed time.
++    pub dhcpv6_option_type_str: u64,
++    /// Identity Association for Prefix Delegation.
++    pub dhcpv6_option_type_str: u128,
++}

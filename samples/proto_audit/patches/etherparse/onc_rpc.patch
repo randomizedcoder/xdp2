@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/onc_rpc.rs
+@@ -0,0 +1,17 @@
++//! ONC_RPC header — 30 bytes.
++
++/// ONC_RPC header — 30 bytes.
++pub struct ONC_RPCHeader {
++    /// XID: 0x5c19b731 (1545189169).
++    pub rpc_xid: u32,
++    /// Message Type: Call (0).
++    pub rpc_msgtyp: u32,
++    /// RPC Version: 2.
++    pub rpc_version: u32,
++    /// Program: Portmap (100000).
++    pub rpc_program: u32,
++    /// Program Version: 2.
++    pub rpc_programversion: u32,
++    /// Procedure: DUMP (4).
++    pub rpc_procedure: u32,
++}

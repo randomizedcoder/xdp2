@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/mgcp.rs
+@@ -0,0 +1,15 @@
++//! MGCP header — 61 bytes.
++
++/// MGCP header — 61 bytes.
++pub struct MGCPHeader {
++    /// RQNT (NotificationRequest).
++    pub mgcp_req_verb: u32,
++    /// Transaction ID: 1.
++    pub mgcp_transid: u8,
++    /// Endpoint: *@gateway44.myplace.com.
++    pub mgcp_req_endpoint: u128,
++    /// Version: MGCP 0.1.
++    pub mgcp_version: u64,
++    /// Parameters.
++    pub mgcp_params: u128,
++}

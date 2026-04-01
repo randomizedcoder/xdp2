@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/pim.rs
+@@ -0,0 +1,13 @@
++//! PIM header — 10 bytes.
++
++/// PIM header — 10 bytes.
++pub struct PIMHeader {
++    /// 0010 .... = Version: 2.
++    pub pim_version: u8,
++    /// Reserved byte(s): 00.
++    pub pim_res_bytes: u8,
++    /// Checksum: 0x9ff4 [correct].
++    pub pim_cksum: u16,
++    /// PIM Options: 1.
++    pub pim_option: u64,
++}

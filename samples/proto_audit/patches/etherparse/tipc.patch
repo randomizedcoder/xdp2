@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/tipc.rs
+@@ -0,0 +1,29 @@
++//! TIPC header — 56 bytes.
++
++/// TIPC header — 56 bytes.
++pub struct TIPCHeader {
++    /// 010. .... .... .... .... .... .... .... = Version: 2.
++    pub tipc_ver: u32,
++    /// 000. .... .... .... .... .... .... .... = Message type: State (0).
++    pub tipcv2_link_msg_type: u32,
++    /// 1001 1001 0110 0100 .... .... .... .... = Link Level Acknowledge Number: 39268.
++    pub tipcv2_link_level_ack_no: u32,
++    /// Previous Node: 1.1.2.
++    pub tipcv2_prev_node: u32,
++    /// 0000 0000 0000 0000 .... .... .... .... = Next Sent Broadcast: 0.
++    pub tipcv2_next_sent_broadcast: u32,
++    /// 1100 1010 0111 0111 .... .... .... .... = Session Number: 51831.
++    pub tipcv2_session_no: u32,
++    /// Originating Node: 1.1.2.
++    pub tipcv2_orig_node: u32,
++    /// Destination Node: 1.1.1.
++    pub tipcv2_dest_node: u32,
++    /// Timestamp: 177710268.
++    pub tipcv2_timestamp: u32,
++    /// 0000 0000 0000 0000 .... .... .... .... = Max Packet: 0.
++    pub tipcv2_max_packet: u32,
++    /// Bearer Instance: eth1.
++    pub tipcv2_bearer_instance: u64,
++    /// Filler for MTU discovery: 8 bytes.
++    pub tipcv2_filler_mtu_discovery: u64,
++}

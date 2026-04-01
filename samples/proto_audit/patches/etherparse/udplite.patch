@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/udplite.rs
+@@ -0,0 +1,13 @@
++//! UDPLite header — 8 bytes.
++
++/// UDPLite header — 8 bytes.
++pub struct UDPLiteHeader {
++    /// Source Port: 32768.
++    pub udp_srcport: u16,
++    /// Destination Port: 1234.
++    pub udp_dstport: u16,
++    /// Checksum coverage: 21 (bogus, must be >= 8 and <= 20).
++    pub udp_checksum_coverage: u16,
++    /// Checksum: 0x3830 [unverified].
++    pub udp_checksum: u16,
++}

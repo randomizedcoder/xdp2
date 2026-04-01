@@ -1,0 +1,44 @@
+--- /dev/null
++++ b/src/proto_audit/fcip.rs
+@@ -0,0 +1,41 @@
++//! Fcip header — 28 bytes.
++
++/// Fcip header — 28 bytes.
++pub struct FcipHeader {
++    /// Protocol: FCIP (1).
++    pub fcip_proto: u8,
++    /// Version: 1.
++    pub fcip_version: u8,
++    /// Protocol (1's Complement): 254.
++    pub fcip_protoc: u8,
++    /// Version (1's Complement): 254.
++    pub fcip_versionc: u8,
++    /// FCIP Encapsulation Word1: 0x0101fefe.
++    pub fcip_encap_word1: u32,
++    /// 0... .... = Changed Flag: False.
++    pub fcip_pflags_ch: u8,
++    /// Pflags (1's Complement): 0xff.
++    pub fcip_pflagsc: u8,
++    /// 0000 00.. = Flags: 0x00.
++    pub fcip_flags: u8,
++    /// .... ..00 0001 1010 = Frame Length (in Words): 26.
++    pub fcip_framelen: u16,
++    /// 1111 11.. = Flags (1's Complement): 0x3f.
++    pub fcip_flagsc: u8,
++    /// .... ..11 1110 0101 = Frame Length (1's Complement): 997.
++    pub fcip_framelenc: u16,
++    /// Time (secs): 0.
++    pub fcip_tsec: u32,
++    /// Time (fraction): 0.
++    pub fcip_tusec: u32,
++    /// CRC: 0x00000000.
++    pub fcip_encap_crc: u32,
++    /// SOF: SOFf (0x28).
++    pub fcip_sof: u8,
++    /// SOF (1's Complement): 0xd7.
++    pub fcip_sofc: u8,
++    /// EOF: EOFn (0x41).
++    pub fcip_eof: u8,
++    /// EOF (1's Complement): 0xbe.
++    pub fcip_eofc: u8,
++}

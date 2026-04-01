@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/udld.rs
+@@ -0,0 +1,11 @@
++//! Udld header — 60 bytes.
++
++/// Udld header — 60 bytes.
++pub struct UdldHeader {
++    /// 001. .... = Version: 1.
++    pub udld_version: u8,
++    /// Flags: 3.
++    pub udld_flags: u8,
++    /// Checksum: 0x6d85.
++    pub udld_checksum: u16,
++}

@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/netmon_network_info.rs
+@@ -0,0 +1,11 @@
++//! Netmon_network_info header — 320 bytes.
++
++/// Netmon_network_info header — 320 bytes.
++pub struct Netmon_network_infoHeader {
++    /// Version: 1.
++    pub netmon_network_info_version: u16,
++    /// Adapter count: 1.
++    pub netmon_network_info_adapter_count: u16,
++    /// Computer name: .
++    pub netmon_network_info_computer_name: u16,
++}

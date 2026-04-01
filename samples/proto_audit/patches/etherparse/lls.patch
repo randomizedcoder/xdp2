@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/lls.rs
+@@ -0,0 +1,23 @@
++//! Lls header — 1353 bytes.
++
++/// Lls header — 1353 bytes.
++pub struct LlsHeader {
++    /// Table ID: Signed Multi Table (254).
++    pub lls_table_id: u8,
++    /// Group ID: 0.
++    pub lls_group_id: u8,
++    /// Group Count: 1.
++    pub lls_group_count: u8,
++    /// Table Version: 0.
++    pub lls_table_version: u8,
++    /// Signed Multi Table Payload Count: 2.
++    pub lls_smt_payload_count: u8,
++    /// Signed Multi Table Entry (0) Table ID=1 (SLT).
++    pub lls_smt_entry: u128,
++    /// Signed Multi Table Entry (1) Table ID=3 (ST).
++    pub lls_smt_entry: u128,
++    /// Signed Multi Table Signature Length: 664.
++    pub lls_smt_signature_length: u16,
++    /// Signed Multi Table Signature.
++    pub lls_smt_signature: u128,
++}

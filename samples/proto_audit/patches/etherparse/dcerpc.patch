@@ -1,0 +1,46 @@
+--- /dev/null
++++ b/src/proto_audit/dcerpc.rs
+@@ -0,0 +1,43 @@
++//! Dcerpc header — 376 bytes.
++
++/// Dcerpc header — 376 bytes.
++pub struct DcerpcHeader {
++    /// Version: 4.
++    pub dcerpc_ver: u8,
++    /// Packet type: Ping (1).
++    pub dcerpc_pkt_type: u8,
++    /// Flags1: 0x01, Reserved for implementation.
++    pub dcerpc_dg_flags1: u8,
++    /// Flags2: 0x01, Reserved for implementation.
++    pub dcerpc_dg_flags2: u8,
++    /// Data Representation: 010101 (Order: Big-endian, Char: EBCDIC, Float: VAX).
++    pub dcerpc_drep: u32,
++    /// Serial High: 0x01.
++    pub dcerpc_dg_serial_hi: u8,
++    /// Object UUID: 01010101-0101-0101-0101-010101010101.
++    pub dcerpc_obj_id: u128,
++    /// Interface UUID: 01010101-0101-0101-0101-010101010101.
++    pub dcerpc_dg_if_id: u128,
++    /// Activity: 01010101-0101-0101-0101-010101010101.
++    pub dcerpc_dg_act_id: u128,
++    /// Server boot time: Jul 14, 1970 22:36:49.000000000 UTC.
++    pub dcerpc_dg_server_boot: u32,
++    /// Interface Ver: 16843009.
++    pub dcerpc_dg_if_ver: u32,
++    /// Sequence num: 16843009.
++    pub dcerpc_dg_seqnum: u32,
++    /// Opnum: 257.
++    pub dcerpc_opnum: u16,
++    /// Interface Hint: 0x0101.
++    pub dcerpc_dg_ihint: u16,
++    /// Activity Hint: 0x0101.
++    pub dcerpc_dg_ahint: u16,
++    /// Fragment len: 257.
++    pub dcerpc_dg_frag_len: u16,
++    /// Fragment num: 257.
++    pub dcerpc_dg_frag_num: u16,
++    /// Auth proto: Kerberos 5 (1).
++    pub dcerpc_dg_auth_proto: u8,
++    /// Serial Low: 0x01.
++    pub dcerpc_dg_serial_lo: u8,
++}

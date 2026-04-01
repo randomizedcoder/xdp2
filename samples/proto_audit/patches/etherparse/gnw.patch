@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/gnw.rs
+@@ -0,0 +1,11 @@
++//! Gnw header — 48 bytes.
++
++/// Gnw header — 48 bytes.
++pub struct GnwHeader {
++    /// Basic Header.
++    pub geonw_bh: u32,
++    /// Common Header.
++    pub geonw_ch: u64,
++    /// Topologically-Scoped Broadcast Packet.
++    pub geonw_tsb: u128,
++}

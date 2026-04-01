@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/nordic_ble.rs
+@@ -0,0 +1,21 @@
++//! Nordic_ble header — 17 bytes.
++
++/// Nordic_ble header — 17 bytes.
++pub struct Nordic_bleHeader {
++    /// Board: 7.
++    pub nordic_ble_board_id: u8,
++    /// Header Version: 2, Packet counter: 19682.
++    pub nordic_ble_header: u64,
++    /// Length of packet: 10.
++    pub nordic_ble_len: u8,
++    /// Flags: 0x01.
++    pub nordic_ble_flags: u8,
++    /// Channel Index: 37.
++    pub nordic_ble_channel: u8,
++    /// RSSI: -42 dBm.
++    pub nordic_ble_rssi: u8,
++    /// Event counter: 0.
++    pub nordic_ble_event_counter: u16,
++    /// Delta time (end to start): 58811µs.
++    pub nordic_ble_delta_time: u32,
++}

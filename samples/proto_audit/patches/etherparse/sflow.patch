@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/sflow.rs
+@@ -0,0 +1,19 @@
++//! Sflow header — 144 bytes.
++
++/// Sflow header — 144 bytes.
++pub struct SflowHeader {
++    /// Datagram version: 5.
++    pub sflow_245_version: u32,
++    /// Agent address type: IPv4 (1).
++    pub sflow_245_agenttype: u32,
++    /// Agent address: 172.21.35.17.
++    pub sflow_245_agent: u32,
++    /// Sub-agent ID: 1.
++    pub sflow_245_sub_agent_id: u32,
++    /// Sequence number: 415.
++    pub sflow_245_sequence_number: u32,
++    /// SysUptime: 20 days, 1 hour, 8 minutes, 26 seconds (1732106000ms).
++    pub sflow_245_sysuptime: u32,
++    /// NumSamples: 1.
++    pub sflow_245_numsamples: u32,
++}

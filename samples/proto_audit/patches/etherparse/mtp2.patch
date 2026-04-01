@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/mtp2.rs
+@@ -0,0 +1,11 @@
++//! Mtp2 header — 3 bytes.
++
++/// Mtp2 header — 3 bytes.
++pub struct Mtp2Header {
++    /// .100 0010 = Backward sequence number: 66.
++    pub mtp2_bsn: u8,
++    /// .110 1110 = Forward sequence number: 110.
++    pub mtp2_fsn: u8,
++    /// ..11 1111 = Length Indicator: 63.
++    pub mtp2_li: u8,
++}

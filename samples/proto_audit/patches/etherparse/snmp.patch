@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/snmp.rs
+@@ -0,0 +1,17 @@
++//! SNMP header — 66 bytes.
++
++/// SNMP header — 66 bytes.
++pub struct SNMPHeader {
++    /// msgVersion: snmpv3 (3).
++    pub snmp_msgversion: u8,
++    /// msgGlobalData.
++    pub snmp_msgglobaldata_element: u128,
++    /// msgAuthoritativeEngineBoots: 0.
++    pub snmp_msgauthoritativeengineboots: u8,
++    /// msgAuthoritativeEngineTime: 0.
++    pub snmp_msgauthoritativeenginetime: u8,
++    /// msgUserName: admin.
++    pub snmp_msgusername: u64,
++    /// msgData: plaintext (0).
++    pub snmp_msgdata: u128,
++}

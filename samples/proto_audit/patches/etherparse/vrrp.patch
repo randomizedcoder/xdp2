@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/vrrp.rs
+@@ -0,0 +1,21 @@
++//! VRRP header — 20 bytes.
++
++/// VRRP header — 20 bytes.
++pub struct VRRPHeader {
++    /// Version 2, Packet type 1 (Advertisement).
++    pub vrrp_typever: u8,
++    /// Virtual Rtr ID: 1.
++    pub vrrp_virt_rtr_id: u8,
++    /// Priority: 100 (Default priority for a backup VRRP router).
++    pub vrrp_prio: u8,
++    /// Addr Count: 1.
++    pub vrrp_addr_count: u8,
++    /// Auth Type: No Authentication (0).
++    pub vrrp_auth_type: u8,
++    /// Adver Int: 1.
++    pub vrrp_adver_int: u8,
++    /// Checksum: 0xba52 [correct].
++    pub vrrp_checksum: u16,
++    /// IP Address: 192.168.0.1.
++    pub vrrp_ip_addr: u32,
++}

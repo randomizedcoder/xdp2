@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/browser.rs
+@@ -0,0 +1,29 @@
++//! Browser header — 43 bytes.
++
++/// Browser header — 43 bytes.
++pub struct BrowserHeader {
++    /// Command: Local Master Announcement (0x0f).
++    pub browser_command: u8,
++    /// Update Count: 5.
++    pub browser_update_count: u8,
++    /// Update Periodicity: 2 minutes.
++    pub browser_period: u32,
++    /// Host Name: WFW_HOST_1.
++    pub browser_server: u128,
++    /// OS Major Version: 1.
++    pub browser_os_major: u8,
++    /// Windows version: .
++    pub browser_windows_version: u16,
++    /// OS Minor Version: 51.
++    pub browser_os_minor: u8,
++    /// Server Type: 0x00052003, Workstation, Server, WfW, Potential Browser, Master Browser.
++    pub browser_server_type: u32,
++    /// Browser Protocol Major Version: 11.
++    pub browser_proto_major: u8,
++    /// Browser Protocol Minor Version: 3.
++    pub browser_proto_minor: u8,
++    /// Signature: 0xaa55.
++    pub browser_sig: u16,
++    /// Host Comment: Bit Digger.
++    pub browser_comment: u128,
++}

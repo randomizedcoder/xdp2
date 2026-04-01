@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/raknet.rs
+@@ -0,0 +1,13 @@
++//! Raknet header — 1464 bytes.
++
++/// Raknet header — 1464 bytes.
++pub struct RaknetHeader {
++    /// RakNet Offline Message ID: Open Connection Request 1 (0x05).
++    pub raknet_offline_message_id: u8,
++    /// RakNet Offline message data ID: 00ffff00fefefefefdfdfdfd12345678.
++    pub raknet_offline_message_data_id: u128,
++    /// RakNet RakNet protocol version: 8.
++    pub raknet_proto_ver: u8,
++    /// RakNet Null padding.
++    pub raknet_null_padding: u128,
++}

@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/llrp.rs
+@@ -0,0 +1,15 @@
++//! Llrp header — 32 bytes.
++
++/// Llrp header — 32 bytes.
++pub struct LlrpHeader {
++    /// ...0 01.. = Version: 1.0.1 (1).
++    pub llrp_version: u8,
++    /// .... ..00 0011 1111 = Type: Reader Event Notification (63).
++    pub llrp_type: u16,
++    /// Length: 32.
++    pub llrp_length: u32,
++    /// ID: 0.
++    pub llrp_id: u32,
++    /// TLV Parameter: Reader Event Notification Data.
++    pub llrp_param: u128,
++}

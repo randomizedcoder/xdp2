@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/mka.rs
+@@ -0,0 +1,11 @@
++//! Mka header — 84 bytes.
++
++/// Mka header — 84 bytes.
++pub struct MkaHeader {
++    /// Basic Parameter set.
++    pub mka_basic_param_set: u128,
++    /// Integrity Check Value Indicator.
++    pub mka_icv_indicator: u32,
++    /// Integrity Check Value: 8b1f3c430f24e096e93efdffca50bd53.
++    pub mka_icv: u128,
++}

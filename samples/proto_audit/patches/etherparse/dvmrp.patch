@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/dvmrp.rs
+@@ -0,0 +1,17 @@
++//! Dvmrp header — 8 bytes.
++
++/// Dvmrp header — 8 bytes.
++pub struct DvmrpHeader {
++    /// Type: DVMRP (0x13).
++    pub dvmrp_type: u8,
++    /// Code: Ask Neighbors 2 (0x05).
++    pub dvmrp_v3_code: u8,
++    /// Checksum: 0xe8e4 [correct].
++    pub dvmrp_checksum: u16,
++    /// Reserved: 0x000a.
++    pub dvmrp_reserved: u16,
++    /// Minor Version: 0x04.
++    pub dvmrp_min_ver: u8,
++    /// Major Version: 0x0c.
++    pub dvmrp_maj_ver: u8,
++}

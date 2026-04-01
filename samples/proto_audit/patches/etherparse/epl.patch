@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/epl.rs
+@@ -0,0 +1,19 @@
++//! Epl header — 118 bytes.
++
++/// Epl header — 118 bytes.
++pub struct EplHeader {
++    /// ASnd: True.
++    pub epl_asnd: u8,
++    /// Node: 255 (0xff).
++    pub epl_node: u8,
++    /// Node: 1 (0x01).
++    pub epl_node: u8,
++    /// Requested Service ID: StatusResponse (0x02).
++    pub epl_asnd_svid: u8,
++    /// ...0 .... = EN (Exception New): False.
++    pub epl_asnd_sres_en: u8,
++    /// 0... .... = FLS (First Link Status): False.
++    pub epl_asnd_sres_fls: u8,
++    /// NMTStatus: NMT_CS_PRE_OPERATIONAL_1 (0x1d).
++    pub epl_asnd_sres_stat: u8,
++}

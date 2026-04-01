@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/nflog.rs
+@@ -0,0 +1,23 @@
++//! Nflog header — 112 bytes.
++
++/// Nflog header — 112 bytes.
++pub struct NflogHeader {
++    /// Family: IPv4 (2).
++    pub nflog_family: u8,
++    /// Version: 0.
++    pub nflog_version: u8,
++    /// Resource id: 42.
++    pub nflog_res_id: u16,
++    /// TLV Type: NFULA_PACKET_HDR (1), Length: 8.
++    pub nflog_tlv: u64,
++    /// TLV Type: NFULA_PREFIX (10), Length: 5.
++    pub nflog_tlv: u64,
++    /// TLV Type: NFULA_IFINDEX_OUTDEV (5), Length: 8.
++    pub nflog_tlv: u64,
++    /// TLV Type: NFULA_UID (11), Length: 8.
++    pub nflog_tlv: u64,
++    /// TLV Type: NFULA_GID (14), Length: 8.
++    pub nflog_tlv: u64,
++    /// TLV Type: NFULA_PAYLOAD (9), Length: 65.
++    pub nflog_tlv: u128,
++}

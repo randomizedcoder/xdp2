@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/q933.rs
+@@ -0,0 +1,13 @@
++//! Q933 header — 11 bytes.
++
++/// Q933 header — 11 bytes.
++pub struct Q933Header {
++    /// Protocol discriminator: Q.933.
++    pub q933_disc: u8,
++    /// Call reference value length: 0.
++    pub q933_call_ref_len: u8,
++    /// Message type: STATUS ENQUIRY (0x75).
++    pub q933_message_type: u8,
++    /// .... .101 = Locking shift to codeset: Information elements for national use (5).
++    pub q933_locking_shift_to_codeset: u8,
++}

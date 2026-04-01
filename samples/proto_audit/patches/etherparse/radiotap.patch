@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/radiotap.rs
+@@ -0,0 +1,29 @@
++//! Radiotap header — 24 bytes.
++
++/// Radiotap header — 24 bytes.
++pub struct RadiotapHeader {
++    /// Header revision: 0.
++    pub radiotap_version: u8,
++    /// Header pad: 0.
++    pub radiotap_pad: u8,
++    /// Header length: 24.
++    pub radiotap_length: u16,
++    /// Present flags.
++    pub radiotap_present: u32,
++    /// Flags: 0x10.
++    pub radiotap_flags: u8,
++    /// Data Rate: 1.0 Mb/s.
++    pub radiotap_datarate: u8,
++    /// Channel frequency: 2412 [2.4 GHz 1].
++    pub radiotap_channel_freq: u16,
++    /// Channel flags: 0x00a0, Complementary Code Keying (CCK), 2 GHz spectrum.
++    pub radiotap_channel_flags: u16,
++    /// Signal Quality: 84.
++    pub radiotap_quality: u16,
++    /// Antenna: 0.
++    pub radiotap_antenna: u8,
++    /// dB antenna signal: 43 dB.
++    pub radiotap_db_antsignal: u8,
++    /// RX flags: 0x0000.
++    pub radiotap_rxflags: u16,
++}

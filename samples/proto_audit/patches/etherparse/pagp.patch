@@ -1,0 +1,40 @@
+--- /dev/null
++++ b/src/proto_audit/pagp.rs
+@@ -0,0 +1,37 @@
++//! Pagp header — 62 bytes.
++
++/// Pagp header — 62 bytes.
++pub struct PagpHeader {
++    /// Version: Info PDU (0x01).
++    pub pagp_version: u8,
++    /// Flags: 0x00.
++    pub pagp_flags: u8,
++    /// Local Device ID: Cisco_12:0f:00 (00:13:c4:12:0f:00).
++    pub pagp_localdevid: u64,
++    /// Local Learn Capability: Arbitrary Distribution (0x02).
++    pub pagp_localearncap: u8,
++    /// Local Port Hot Standby Priority: 128.
++    pub pagp_localportpri: u8,
++    /// Local Sent Port ifindex: 21.
++    pub pagp_localsentportifindex: u32,
++    /// Local Group Capability: 0x000d0001.
++    pub pagp_localgroupcap: u32,
++    /// Local Group ifindex: 0.
++    pub pagp_localgroupifindex: u32,
++    /// Partner Device ID: 00:00:00_00:00:00 (00:00:00:00:00:00).
++    pub pagp_partnerdevid: u64,
++    /// Partner Learn Capability: Unknown (0x00).
++    pub pagp_partnerlearncap: u8,
++    /// Partner Port Hot Standby Priority: 0.
++    pub pagp_partnerportpri: u8,
++    /// Partner Sent Port ifindex: 0.
++    pub pagp_partnersentportifindex: u32,
++    /// Partner Group Capability: 0x00000000.
++    pub pagp_partnergroupcap: u32,
++    /// Partner Group ifindex: 0.
++    pub pagp_partnergroupifindex: u32,
++    /// Partner Count: 0.
++    pub pagp_partnercount: u16,
++    /// Number of TLVs: 2.
++    pub pagp_numtlvs: u16,
++}

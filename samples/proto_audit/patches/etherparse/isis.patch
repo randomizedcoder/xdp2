@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/isis.rs
+@@ -0,0 +1,21 @@
++//! ISIS header — 1499 bytes.
++
++/// ISIS header — 1499 bytes.
++pub struct ISISHeader {
++    /// Intradomain Routing Protocol Discriminator: ISIS (0x83).
++    pub isis_irpd: u8,
++    /// Length Indicator: 20.
++    pub isis_len: u8,
++    /// Version/Protocol ID Extension: 1.
++    pub isis_version: u8,
++    /// ID Length: 0.
++    pub isis_sysid_len: u8,
++    /// 000. .... = Reserved: 0x0.
++    pub isis_type_reserved: u8,
++    /// Version: 1.
++    pub isis_version2: u8,
++    /// Reserved: 0.
++    pub isis_reserved: u8,
++    /// Maximum Area Addresses: 0.
++    pub isis_max_area_adr: u8,
++}

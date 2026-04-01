@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/mpeg_pat.rs
+@@ -0,0 +1,19 @@
++//! Mpeg_pat header — 16 bytes.
++
++/// Mpeg_pat header — 16 bytes.
++pub struct Mpeg_patHeader {
++    /// Table ID: Program Association Table (PAT) (0x00).
++    pub mpeg_sect_tid: u8,
++    /// 1... .... .... .... = Syntax indicator: 1.
++    pub mpeg_sect_syntax_indicator: u16,
++    /// Transport Stream ID: 0x0002.
++    pub mpeg_pat_tsid: u16,
++    /// 11.. .... = Reserved: 0x3.
++    pub mpeg_pat_reserved: u8,
++    /// Section Number: 0.
++    pub mpeg_pat_sect_num: u8,
++    /// Last Section Number: 0.
++    pub mpeg_pat_last_sect_num: u8,
++    /// CRC 32: 0x0b06aaec [unverified].
++    pub mpeg_sect_crc: u32,
++}

@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/chdlc.rs
+@@ -0,0 +1,13 @@
++//! Chdlc header — 4 bytes.
++
++/// Chdlc header — 4 bytes.
++pub struct ChdlcHeader {
++    /// Address: Multicast (0x8f).
++    pub chdlc_address: u8,
++    /// Control: 0x00.
++    pub chdlc_control: u8,
++    /// Protocol: OSI (0xfefe).
++    pub chdlc_protocol: u16,
++    /// CLNS Padding: 0x74.
++    pub chdlc_clns_padding: u8,
++}

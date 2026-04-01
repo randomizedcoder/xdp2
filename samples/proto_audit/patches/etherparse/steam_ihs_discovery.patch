@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/steam_ihs_discovery.rs
+@@ -0,0 +1,17 @@
++//! Steam_ihs_discovery header — 30 bytes.
++
++/// Steam_ihs_discovery header — 30 bytes.
++pub struct Steam_ihs_discoveryHeader {
++    /// Signature: 0xa05f4c21ffffffff.
++    pub steam_ihs_discovery_signature: u64,
++    /// Header Length: 12.
++    pub steam_ihs_discovery_header_length: u32,
++    /// Client ID: 723401728380766730 (0x0a0a0a0a0a0a0a0a).
++    pub steam_ihs_discovery_header_client_id: u128,
++    /// Message Type: Client Discovery (0).
++    pub steam_ihs_discovery_header_msg_type: u8,
++    /// Body Length: 2.
++    pub steam_ihs_discovery_body_length: u32,
++    /// Sequence Number: 1.
++    pub steam_ihs_discovery_body_discovery_seqnum: u8,
++}

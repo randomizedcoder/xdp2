@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/src/proto_audit/cotp.rs
+@@ -0,0 +1,27 @@
++//! Cotp header — 25 bytes.
++
++/// Cotp header — 25 bytes.
++pub struct CotpHeader {
++    /// Length: 24.
++    pub cotp_li: u8,
++    /// PDU Type: CR Connect Request (0x0e).
++    pub cotp_type: u8,
++    /// Destination reference: 0x0000.
++    pub cotp_destref: u16,
++    /// Source reference: 0x1730.
++    pub cotp_srcref: u16,
++    /// 0000 .... = Class: 0.
++    pub cotp_class: u8,
++    /// Parameter code: src-tsap (0xc1).
++    pub cotp_parameter_code: u8,
++    /// Parameter length: 7.
++    pub cotp_parameter_length: u8,
++    /// Source TSAP: X400-88.
++    pub cotp_src_tsap: u64,
++    /// Parameter code: dst-tsap (0xc2).
++    pub cotp_parameter_code: u8,
++    /// Parameter length: 7.
++    pub cotp_parameter_length: u8,
++    /// Destination TSAP: X400-88.
++    pub cotp_dst_tsap: u64,
++}

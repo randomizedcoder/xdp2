@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/isup.rs
+@@ -0,0 +1,13 @@
++//! Isup header — 29 bytes.
++
++/// Isup header — 29 bytes.
++pub struct IsupHeader {
++    /// CIC: 14.
++    pub isup_cic: u16,
++    /// Message Type: Initial address (1).
++    pub isup_message_type: u8,
++    /// Pointer to start of optional part: 9.
++    pub isup_optional_parameter_part_pointer: u8,
++    /// End of optional parameters (0).
++    pub isup_parameter_type: u8,
++}

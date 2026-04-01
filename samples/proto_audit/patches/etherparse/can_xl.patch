@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/can_xl.rs
+@@ -0,0 +1,13 @@
++//! CAN_XL header — 15 bytes.
++
++/// CAN_XL header — 15 bytes.
++pub struct CAN_XLHeader {
++    /// ...0 1001 1111 0001 0001 0010 0110 1010 = Identifier: 0x09f1126a.
++    pub can_id: u32,
++    /// Frame-Length: 8.
++    pub can_len: u8,
++    /// Extended Flag: True.
++    pub can_flags_xtd: u8,
++    /// Remote Transmission Request Flag: False.
++    pub can_flags_rtr: u8,
++}

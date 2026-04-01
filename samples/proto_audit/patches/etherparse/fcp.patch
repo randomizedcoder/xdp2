@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/fcp.rs
+@@ -0,0 +1,17 @@
++//! Fcp header — 32 bytes.
++
++/// Fcp header — 32 bytes.
++pub struct FcpHeader {
++    /// LUN: 0x00.
++    pub fcp_lun: u8,
++    /// Command Ref Num: 0.
++    pub fcp_crn: u8,
++    /// .... .000 = Task Attribute: Simple (0x0).
++    pub fcp_taskattr: u8,
++    /// Task Management Flags: 0x00 (No values set).
++    pub fcp_taskmgmt: u8,
++    /// 0000 00.. = Additional CDB Length: 0.
++    pub fcp_addlcdblen: u8,
++    /// FCP_DL: 65536.
++    pub fcp_dl: u32,
++}

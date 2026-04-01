@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/bt_dht.rs
+@@ -0,0 +1,17 @@
++//! Bt-dht header — 67 bytes.
++
++/// Bt-dht header — 67 bytes.
++pub struct BtdhtHeader {
++    /// Request arguments: Dictionary....
++    pub bt_dht_bencoded_dict_entry: u128,
++    /// Request type: ping.
++    pub bt_dht_bencoded_dict_entry: u128,
++    /// Transaction ID: 85720000.
++    pub bt_dht_bencoded_dict_entry: u128,
++    /// Version: 55547e62.
++    pub bt_dht_bencoded_dict_entry: u128,
++    /// Message type: Request.
++    pub bt_dht_bencoded_dict_entry: u64,
++    /// Terminator: e.
++    pub bt_dht_bencoded_list_terminator: u8,
++}

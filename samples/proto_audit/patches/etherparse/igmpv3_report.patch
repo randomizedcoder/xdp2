@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/igmpv3_report.rs
+@@ -0,0 +1,23 @@
++//! IGMPv3_Report header — 24 bytes.
++
++/// IGMPv3_Report header — 24 bytes.
++pub struct IGMPv3_ReportHeader {
++    /// Type: Traceroute Query (0x1f).
++    pub igmp_type: u8,
++    /// # hops: 32.
++    pub igmp_mtrace_max_hops: u8,
++    /// Checksum: 0x38a3 [correct].
++    pub igmp_checksum: u16,
++    /// Multicast Address: 0.0.0.0.
++    pub igmp_maddr: u32,
++    /// Source Address: 172.16.40.1.
++    pub igmp_mtrace_saddr: u32,
++    /// Receiver Address: 172.16.20.1.
++    pub igmp_mtrace_raddr: u32,
++    /// Response Address: 172.16.40.1.
++    pub igmp_mtrace_rspaddr: u32,
++    /// Response TTL: 64.
++    pub igmp_mtrace_resp_ttl: u8,
++    /// Query ID: 7.
++    pub igmp_mtrace_q_id: u32,
++}

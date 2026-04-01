@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/iscsi.rs
+@@ -0,0 +1,29 @@
++//! iSCSI header — 200 bytes.
++
++/// iSCSI header — 200 bytes.
++pub struct iSCSIHeader {
++    /// ..00 0011 = Opcode: Login Command (0x03).
++    pub iscsi_opcode: u8,
++    /// 1... .... = T: Transit to next login stage.
++    pub iscsi_login_t: u8,
++    /// VersionMax: 0x00.
++    pub iscsi_versionmax: u8,
++    /// VersionMin: 0x00.
++    pub iscsi_versionmin: u8,
++    /// TotalAHSLength: 0 (0x00).
++    pub iscsi_totalahslength: u8,
++    /// DataSegmentLength: 152 (0x00000098).
++    pub iscsi_datasegmentlength: u32,
++    /// ISID: 00023d000001.
++    pub iscsi_isid: u64,
++    /// TSIH: 0x0000.
++    pub iscsi_tsih: u16,
++    /// InitiatorTaskTag: 0x00000000.
++    pub iscsi_initiatortasktag: u32,
++    /// CID: 0x0000.
++    pub iscsi_cid: u16,
++    /// CmdSN: 1 (0x00000001).
++    pub iscsi_cmdsn: u32,
++    /// ExpStatSN: 0 (0x00000000).
++    pub iscsi_expstatsn: u32,
++}

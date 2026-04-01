@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/mldv2_report.rs
+@@ -0,0 +1,15 @@
++//! MLDv2_Report header — 16 bytes.
++
++/// MLDv2_Report header — 16 bytes.
++pub struct MLDv2_ReportHeader {
++    /// Type: Router Solicitation (133).
++    pub icmpv6_type: u8,
++    /// Code: 0.
++    pub icmpv6_code: u8,
++    /// Checksum: 0xccfd [correct].
++    pub icmpv6_checksum: u16,
++    /// Reserved: 00000000.
++    pub icmpv6_reserved: u32,
++    /// ICMPv6 Option (Source link-layer address : 00:50:56:c0:00:08).
++    pub icmpv6_opt: u64,
++}

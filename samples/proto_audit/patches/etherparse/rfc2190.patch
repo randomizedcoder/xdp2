@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/rfc2190.rs
+@@ -0,0 +1,15 @@
++//! Rfc2190 header — 4 bytes.
++
++/// Rfc2190 header — 4 bytes.
++pub struct Rfc2190Header {
++    /// 0... .... = F: False.
++    pub rfc2190_ftype: u8,
++    /// 010. .... = SRC format: QCIF 176x144 (2).
++    pub rfc2190_srcformat: u8,
++    /// .... ...0 000. .... = Reserved field: 0.
++    pub rfc2190_r: u16,
++    /// ...0 0... = Differential quantization parameter: 0.
++    pub rfc2190_dbq: u8,
++    /// Temporal Reference for P frames: 0.
++    pub rfc2190_tr: u8,
++}

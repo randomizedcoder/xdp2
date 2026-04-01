@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/sbus.rs
+@@ -0,0 +1,13 @@
++//! Sbus header — 13 bytes.
++
++/// Sbus header — 13 bytes.
++pub struct SbusHeader {
++    /// Telegram attribute: Request (0x00).
++    pub sbus_att: u8,
++    /// Destination: 10.
++    pub sbus_destination: u8,
++    /// Command: Read firmware version (0x20).
++    pub sbus_cmd: u8,
++    /// Checksum: 0x5318 [correct].
++    pub sbus_crc: u16,
++}

@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/uftp5.rs
+@@ -0,0 +1,25 @@
++//! Uftp5 header — 40 bytes.
++
++/// Uftp5 header — 40 bytes.
++pub struct Uftp5Header {
++    /// Protocol Version: 0x50.
++    pub uftp5_version: u8,
++    /// Type: ANNOUNCE (1).
++    pub uftp5_func: u8,
++    /// Sequence Number: 0.
++    pub uftp5_seq: u16,
++    /// Source ID: 0xc0a801ba.
++    pub uftp5_src_id: u32,
++    /// Group ID: 0xe8d610cb.
++    pub uftp5_group_id: u32,
++    /// Group Instance ID: 0.
++    pub uftp5_group_inst: u8,
++    /// Group Round Trip Time: 0.5322157857965678.
++    pub uftp5_grtt: u8,
++    /// Group Size: 0.
++    pub uftp5_gsize: u8,
++    /// Reserved: 0x00.
++    pub uftp5_reserved: u8,
++    /// ANNOUNCE.
++    pub uftp5_announce: u128,
++}

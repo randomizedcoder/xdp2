@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/slarp.rs
+@@ -0,0 +1,13 @@
++//! Slarp header — 14 bytes.
++
++/// Slarp header — 14 bytes.
++pub struct SlarpHeader {
++    /// Packet type: Line keepalive (2).
++    pub slarp_ptype: u32,
++    /// Outgoing sequence number: 1.
++    pub slarp_mysequence: u32,
++    /// Returned sequence number: 0.
++    pub slarp_yoursequence: u32,
++    /// Reliability: 0xffff.
++    pub slarp_reliability: u16,
++}

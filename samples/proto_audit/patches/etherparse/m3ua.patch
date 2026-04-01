@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/m3ua.rs
+@@ -0,0 +1,15 @@
++//! M3ua header — 132 bytes.
++
++/// M3ua header — 132 bytes.
++pub struct M3uaHeader {
++    /// Version: Release 1 (1).
++    pub m3ua_version: u8,
++    /// Reserved: 0x00.
++    pub m3ua_reserved: u8,
++    /// Message class: Transfer messages (1).
++    pub m3ua_message_class: u8,
++    /// Message Type: Payload data (DATA) (1).
++    pub m3ua_message_type: u8,
++    /// Message length: 132.
++    pub m3ua_message_length: u32,
++}

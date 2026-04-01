@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/epmd.rs
+@@ -0,0 +1,25 @@
++//! Epmd header — 20 bytes.
++
++/// Epmd header — 20 bytes.
++pub struct EpmdHeader {
++    /// Length: 18.
++    pub epmd_len: u16,
++    /// Type: EPMD_ALIVE2_REQ (120).
++    pub epmd_type: u8,
++    /// Port No: 43046.
++    pub epmd_port_no: u16,
++    /// Node Type: R3 erlang node (77).
++    pub epmd_node_type: u8,
++    /// Protocol: tcp/ip-v4 (0).
++    pub epmd_protocol: u8,
++    /// Highest Version: R6 (5).
++    pub epmd_dist_high: u16,
++    /// Lowest Version: R6 (5).
++    pub epmd_dist_low: u16,
++    /// Name Length: 5.
++    pub epmd_name_len: u16,
++    /// Node Name: node2.
++    pub epmd_name: u64,
++    /// Elen: 0.
++    pub epmd_elen: u16,
++}

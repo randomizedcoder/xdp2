@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/bgp.rs
+@@ -0,0 +1,11 @@
++//! BGP header — 19 bytes.
++
++/// BGP header — 19 bytes.
++pub struct BGPHeader {
++    /// Marker: ffffffffffffffffffffffffffffffff.
++    pub bgp_marker: u128,
++    /// Length: 19.
++    pub bgp_length: u16,
++    /// Type: KEEPALIVE Message (4).
++    pub bgp_type: u8,
++}

@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/hipercontracer.rs
+@@ -0,0 +1,15 @@
++//! Hipercontracer header — 40 bytes.
++
++/// Hipercontracer header — 40 bytes.
++pub struct HipercontracerHeader {
++    /// Magic Number: 0x10111213.
++    pub hipercontracer_magic_number: u32,
++    /// Send TTL: 20.
++    pub hipercontracer_send_ttl: u8,
++    /// Round: 21.
++    pub hipercontracer_round: u8,
++    /// Checksum Tweak: 0x1617.
++    pub hipercontracer_checksum_tweak: u16,
++    /// Send Time Stamp: Oct  8, 2031 18:37:15.066146335 UTC.
++    pub hipercontracer_send_timestamp: u64,
++}

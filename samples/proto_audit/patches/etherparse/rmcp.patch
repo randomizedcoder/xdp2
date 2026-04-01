@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/rmcp.rs
+@@ -0,0 +1,11 @@
++//! Rmcp header — 4 bytes.
++
++/// Rmcp header — 4 bytes.
++pub struct RmcpHeader {
++    /// Version: 0x06.
++    pub rmcp_version: u8,
++    /// Reserved: 0x00.
++    pub rmcp_reserved: u8,
++    /// Sequence: 0xff.
++    pub rmcp_sequence: u8,
++}

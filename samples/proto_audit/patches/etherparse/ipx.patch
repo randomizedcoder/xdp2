@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/ipx.rs
+@@ -0,0 +1,25 @@
++//! IPX header — 30 bytes.
++
++/// IPX header — 30 bytes.
++pub struct IPXHeader {
++    /// Checksum: 0xffff.
++    pub ipx_checksum: u16,
++    /// Length: 80 bytes.
++    pub ipx_len: u16,
++    /// Transport Control: 0 hops.
++    pub ipx_hops: u8,
++    /// Packet Type: NetBIOS Broadcast (0x14).
++    pub ipx_packet_type: u8,
++    /// Destination Network: 00 (0x00000000).
++    pub ipx_dst_net: u32,
++    /// Destination Node: Broadcast (ff:ff:ff:ff:ff:ff).
++    pub ipx_dst_node: u64,
++    /// Destination Socket: NetBIOS (0x0455).
++    pub ipx_dst_socket: u16,
++    /// Source Network: 00 (0x00000000).
++    pub ipx_src_net: u32,
++    /// Source Node: VMware_d4:79:b2 (00:0c:29:d4:79:b2).
++    pub ipx_src_node: u64,
++    /// Source Socket: NetBIOS (0x0455).
++    pub ipx_src_socket: u16,
++}

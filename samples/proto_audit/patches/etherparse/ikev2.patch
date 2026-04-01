@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/ikev2.rs
+@@ -0,0 +1,29 @@
++//! IKEv2 header — 148 bytes.
++
++/// IKEv2 header — 148 bytes.
++pub struct IKEv2Header {
++    /// Initiator SPI: cf02326f14a95b93.
++    pub isakmp_ispi: u64,
++    /// Responder SPI: 0000000000000000.
++    pub isakmp_rspi: u64,
++    /// Next payload: Security Association (1).
++    pub isakmp_nextpayload: u8,
++    /// Version: 1.0.
++    pub isakmp_version: u8,
++    /// Exchange type: Identity Protection (Main Mode) (2).
++    pub isakmp_exchangetype: u8,
++    /// Flags: 0x00.
++    pub isakmp_flags: u8,
++    /// Message ID: 0x00000000.
++    pub isakmp_messageid: u32,
++    /// Length: 148.
++    pub isakmp_length: u32,
++    /// Payload: Security Association (1).
++    pub isakmp_typepayload: u128,
++    /// Payload: Vendor ID (13) : draft-ietf-ipsec-nat-t-ike-07.
++    pub isakmp_typepayload: u128,
++    /// Payload: Vendor ID (13) : draft-ietf-ipsec-nat-t-ike-03.
++    pub isakmp_typepayload: u128,
++    /// Payload: Vendor ID (13) : draft-ietf-ipsec-nat-t-ike-02\n.
++    pub isakmp_typepayload: u128,
++}

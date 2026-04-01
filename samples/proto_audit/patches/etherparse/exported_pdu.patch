@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/exported_pdu.rs
+@@ -0,0 +1,15 @@
++//! Exported_pdu header — 52 bytes.
++
++/// Exported_pdu header — 52 bytes.
++pub struct Exported_pduHeader {
++    /// Tag: PDU content dissector name (12).
++    pub exported_pdu_tag: u128,
++    /// Tag: Column Protocol String (33).
++    pub exported_pdu_tag: u128,
++    /// Tag: Column Information String (36).
++    pub exported_pdu_tag: u128,
++    /// Tag: End-of-options (0).
++    pub exported_pdu_tag: u32,
++    /// Exported PDU data.
++    pub exported_pdu_exported_pdu: u32,
++}

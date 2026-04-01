@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/mysql.rs
+@@ -0,0 +1,11 @@
++//! Mysql header — 103 bytes.
++
++/// Mysql header — 103 bytes.
++pub struct MysqlHeader {
++    /// Packet Length: 99.
++    pub mysql_packet_length: u32,
++    /// Packet Number: 0.
++    pub mysql_packet_number: u8,
++    /// Server Greeting.
++    pub mysql_server_greeting: u128,
++}

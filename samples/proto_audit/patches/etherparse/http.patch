@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/http.rs
+@@ -0,0 +1,23 @@
++//! HTTP header — 460 bytes.
++
++/// HTTP header — 460 bytes.
++pub struct HTTPHeader {
++    /// Host: a.abc.com\r\n.
++    pub http_host: u128,
++    /// User-Agent: Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.3) Gecko/20100423 Ubuntu/10.04 (lucid) Firefox/3.6.3\r\n.
++    pub http_user_agent: u128,
++    /// Accept: */*\r\n.
++    pub http_accept: u128,
++    /// Accept-Language: en-us,en;q=0.5\r\n.
++    pub http_accept_language: u128,
++    /// Accept-Encoding: gzip,deflate\r\n.
++    pub http_accept_encoding: u128,
++    /// Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n.
++    pub http_request_line: u128,
++    /// Keep-Alive: 115\r\n.
++    pub http_request_line: u128,
++    /// Connection: keep-alive\r\n.
++    pub http_connection: u128,
++    /// Referer: http://abc.go.com/\r\n.
++    pub http_referer: u128,
++}

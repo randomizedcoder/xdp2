@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/isis_csnp.rs
+@@ -0,0 +1,15 @@
++//! Isis.csnp header — 75 bytes.
++
++/// Isis.csnp header — 75 bytes.
++pub struct IsiscsnpHeader {
++    /// PDU length: 83.
++    pub isis_csnp_pdu_length: u16,
++    /// Source-ID: 3333.3333.3333.
++    pub isis_csnp_source_id: u64,
++    /// Source-ID-Circuit: 00.
++    pub isis_csnp_source_circuit: u8,
++    /// Start LSP-ID: 0000.0000.0000.00-00.
++    pub isis_csnp_start_lsp_id: u64,
++    /// End LSP-ID: ffff.ffff.ffff.ff-ff.
++    pub isis_csnp_end_lsp_id: u64,
++}

@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/wsp.rs
+@@ -0,0 +1,15 @@
++//! Wsp header — 150 bytes.
++
++/// Wsp header — 150 bytes.
++pub struct WspHeader {
++    /// Transaction ID: 0x01.
++    pub wsp_tid: u8,
++    /// PDU Type: Get (0x40).
++    pub wsp_pdu_type: u8,
++    /// URI Length: 22.
++    pub wsp_uri_length: u8,
++    /// URI: http://wap.google.com/.
++    pub wsp_uri: u128,
++    /// Headers.
++    pub wsp_headers: u128,
++}

@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/tftp.rs
+@@ -0,0 +1,11 @@
++//! TFTP header — 20 bytes.
++
++/// TFTP header — 20 bytes.
++pub struct TFTPHeader {
++    /// Opcode: Read Request (1).
++    pub tftp_opcode: u16,
++    /// Source File: rfc1350.txt.
++    pub tftp_source_file: u128,
++    /// Type: octet.
++    pub tftp_type: u64,
++}

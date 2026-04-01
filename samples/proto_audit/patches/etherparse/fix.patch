@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/src/proto_audit/fix.rs
+@@ -0,0 +1,27 @@
++//! Fix header — 100 bytes.
++
++/// Fix header — 100 bytes.
++pub struct FixHeader {
++    /// BeginString (8): FIXT.1.1.
++    pub fix_beginstring: u128,
++    /// BodyLength (9): 77.
++    pub fix_bodylength: u64,
++    /// MsgType (35): A (LOGON).
++    pub fix_msgtype: u64,
++    /// SenderCompID (49): DLD_TEX.
++    pub fix_sendercompid: u128,
++    /// TargetCompID (56): TEX1_DLD.
++    pub fix_targetcompid: u128,
++    /// MsgSeqNum (34): 1.
++    pub fix_msgseqnum: u64,
++    /// SendingTime (52): 20151128-17:59:35.877.
++    pub fix_sendingtime: u128,
++    /// EncryptMethod (98): 0 (NONE).
++    pub fix_encryptmethod: u64,
++    /// HeartBtInt (108): 10.
++    pub fix_heartbtint: u64,
++    /// DefaultApplVerID (1137): 8.
++    pub fix_defaultapplverid: u64,
++    /// CheckSum (10): 035 [correct].
++    pub fix_checksum: u64,
++}

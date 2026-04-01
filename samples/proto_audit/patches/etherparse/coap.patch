@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/coap.rs
+@@ -0,0 +1,17 @@
++//! CoAP header — 12 bytes.
++
++/// CoAP header — 12 bytes.
++pub struct CoAPHeader {
++    /// 01.. .... = Version: 1.
++    pub coap_version: u8,
++    /// Code: POST (2).
++    pub coap_code: u8,
++    /// Message ID: 3132.
++    pub coap_mid: u16,
++    /// Token: d19796c1.
++    pub coap_token: u32,
++    /// Opt Name: #1: Content-Format: application/cbor.
++    pub coap_opt_name: u16,
++    /// End of options marker: 255.
++    pub coap_opt_end_marker: u8,
++}

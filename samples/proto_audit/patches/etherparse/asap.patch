@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/asap.rs
+@@ -0,0 +1,11 @@
++//! Asap header — 68 bytes.
++
++/// Asap header — 68 bytes.
++pub struct AsapHeader {
++    /// Type: Unknown (19).
++    pub asap_message_type: u8,
++    /// Flags: 0x42.
++    pub asap_message_flags: u8,
++    /// Length: 26996.
++    pub asap_message_length: u16,
++}

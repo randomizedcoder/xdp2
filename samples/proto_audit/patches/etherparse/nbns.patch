@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/nbns.rs
+@@ -0,0 +1,17 @@
++//! NBNS header — 50 bytes.
++
++/// NBNS header — 50 bytes.
++pub struct NBNSHeader {
++    /// Transaction ID: 0x45db.
++    pub nbns_id: u16,
++    /// Flags: 0x0110, Opcode: Name query, Recursion desired, Broadcast.
++    pub nbns_flags: u16,
++    /// Questions: 1.
++    pub nbns_count_queries: u16,
++    /// Answer RRs: 0.
++    pub nbns_count_answers: u16,
++    /// Authority RRs: 0.
++    pub nbns_count_auth_rr: u16,
++    /// Additional RRs: 0.
++    pub nbns_count_add_rr: u16,
++}

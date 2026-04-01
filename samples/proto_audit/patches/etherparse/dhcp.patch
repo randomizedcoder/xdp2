@@ -1,0 +1,54 @@
+--- /dev/null
++++ b/src/proto_audit/dhcp.rs
+@@ -0,0 +1,51 @@
++//! DHCP header — 282 bytes.
++
++/// DHCP header — 282 bytes.
++pub struct DHCPHeader {
++    /// Message type: Boot Request (1).
++    pub dhcp_type: u8,
++    /// Hardware type: Ethernet (0x01).
++    pub dhcp_hw_type: u8,
++    /// Hardware address length: 6.
++    pub dhcp_hw_len: u8,
++    /// Hops: 0.
++    pub dhcp_hops: u8,
++    /// Transaction ID: 0xac2effff.
++    pub dhcp_id: u32,
++    /// Seconds elapsed: 0.
++    pub dhcp_secs: u16,
++    /// Bootp flags: 0x0000 (Unicast).
++    pub dhcp_flags: u16,
++    /// Client IP address: 0.0.0.0.
++    pub dhcp_ip_client: u32,
++    /// Your (client) IP address: 0.0.0.0.
++    pub dhcp_ip_your: u32,
++    /// Next server IP address: 0.0.0.0.
++    pub dhcp_ip_server: u32,
++    /// Relay agent IP address: 0.0.0.0.
++    pub dhcp_ip_relay: u32,
++    /// Client MAC address: SchneiderEle_82:dc:4e (00:00:6c:82:dc:4e).
++    pub dhcp_hw_mac_addr: u64,
++    /// Client hardware address padding: 00000000000000000000.
++    pub dhcp_hw_addr_padding: u128,
++    /// Magic cookie: DHCP.
++    pub dhcp_cookie: u32,
++    /// Option: (53) DHCP Message Type (Discover).
++    pub dhcp_option_type: u32,
++    /// Option: (57) Maximum DHCP Message Size.
++    pub dhcp_option_type: u32,
++    /// Option: (55) Parameter Request List.
++    pub dhcp_option_type: u64,
++    /// Option: (51) IP Address Lease Time.
++    pub dhcp_option_type: u64,
++    /// Option: (52) Option Overload.
++    pub dhcp_option_type: u32,
++    /// Option: (56) Message.
++    pub dhcp_option_type: u128,
++    /// Option: (0) Padding.
++    pub dhcp_option_type: u8,
++    /// Option: (61) Client identifier.
++    pub dhcp_option_type: u128,
++    /// Option: (255) End.
++    pub dhcp_option_type: u8,
++}

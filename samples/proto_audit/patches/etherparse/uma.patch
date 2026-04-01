@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/uma.rs
+@@ -0,0 +1,11 @@
++//! Uma header — 49 bytes.
++
++/// Uma header — 49 bytes.
++pub struct UmaHeader {
++    /// Length Indicator: 47.
++    pub uma_li: u16,
++    /// 0000 .... = Skip Indicator: 0.
++    pub uma_skip_ind: u8,
++    /// URR Message Type: GA-CSR HANDOVER INFORMATION (83).
++    pub uma_urr_msg_type: u8,
++}

@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/stun.rs
+@@ -0,0 +1,13 @@
++//! STUN header — 20 bytes.
++
++/// STUN header — 20 bytes.
++pub struct STUNHeader {
++    /// Message Type: 0x0001 (Binding Request).
++    pub stun_type: u16,
++    /// Message Length: 0.
++    pub stun_length: u16,
++    /// Message Cookie: 2112a442.
++    pub stun_cookie: u32,
++    /// Message Transaction ID: fd95e8838a0528456a8ef1e2.
++    pub stun_id: u128,
++}

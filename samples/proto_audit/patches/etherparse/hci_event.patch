@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/hci_event.rs
+@@ -0,0 +1,15 @@
++//! HCI_Event header — 6 bytes.
++
++/// HCI_Event header — 6 bytes.
++pub struct HCI_EventHeader {
++    /// Event Code: Command Status (0x0f).
++    pub bthci_evt_code: u8,
++    /// Parameter Total Length: 4.
++    pub bthci_evt_param_length: u8,
++    /// Status: Pending (0x00).
++    pub bthci_evt_status: u8,
++    /// Number of Allowed Command Packets: 1.
++    pub bthci_evt_num_command_packets: u8,
++    /// Command Opcode: Inquiry (0x0401).
++    pub bthci_evt_opcode: u16,
++}

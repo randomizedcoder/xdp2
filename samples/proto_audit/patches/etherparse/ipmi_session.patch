@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/ipmi_session.rs
+@@ -0,0 +1,13 @@
++//! Ipmi_session header — 19 bytes.
++
++/// Ipmi_session header — 19 bytes.
++pub struct Ipmi_sessionHeader {
++    /// Authentication Type: NONE (0x00).
++    pub ipmi_session_authtype: u8,
++    /// Session Sequence Number: 0x00000000.
++    pub ipmi_session_sequence: u32,
++    /// Session ID: 0x00000000.
++    pub ipmi_session_id: u32,
++    /// Message Length: 9.
++    pub ipmi_session_msg_len: u8,
++}

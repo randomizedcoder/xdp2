@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/s101.rs
+@@ -0,0 +1,29 @@
++//! S101 header — 22 bytes.
++
++/// S101 header — 22 bytes.
++pub struct S101Header {
++    /// Frame Format: Escaped Frame (0xfe).
++    pub s101_format: u8,
++    /// Slot: 0x00.
++    pub s101_slot: u8,
++    /// Message Type: Ember (0x0e).
++    pub s101_msgtype: u8,
++    /// Command Type: Ember Command (0x00).
++    pub s101_cmdtype: u8,
++    /// Version: 1.
++    pub s101_version: u8,
++    /// Flags: Single Packet (0xc0).
++    pub s101_flags: u8,
++    /// DTD Type: DTD Glow (1).
++    pub s101_dtdtype: u8,
++    /// App Bytes Length: 2.
++    pub s101_applen: u8,
++    /// App Minor Version: 31.
++    pub s101_appminver: u8,
++    /// App Major Version: 2.
++    pub s101_appmajver: u8,
++    /// CRC: 0x948f [correct].
++    pub s101_crc: u16,
++    /// End of Frame: 0xff.
++    pub s101_eof: u8,
++}

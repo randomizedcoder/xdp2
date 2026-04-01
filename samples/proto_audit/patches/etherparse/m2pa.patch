@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/src/proto_audit/m2pa.rs
+@@ -0,0 +1,23 @@
++//! M2pa header — 17 bytes.
++
++/// M2pa header — 17 bytes.
++pub struct M2paHeader {
++    /// Version: Release 1 (1).
++    pub m2pa_version: u8,
++    /// Spare: 0x00.
++    pub m2pa_spare: u8,
++    /// Message Class: M2PA (11).
++    pub m2pa_class: u8,
++    /// Message Type: User Data (1).
++    pub m2pa_type: u8,
++    /// Message length: 42.
++    pub m2pa_length: u32,
++    /// Unused: 0.
++    pub m2pa_unused: u8,
++    /// BSN: 7.
++    pub m2pa_bsn: u32,
++    /// Unused: 0.
++    pub m2pa_unused: u8,
++    /// FSN: 8.
++    pub m2pa_fsn: u32,
++}

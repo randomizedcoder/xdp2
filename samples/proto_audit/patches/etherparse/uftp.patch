@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/src/proto_audit/uftp.rs
+@@ -0,0 +1,19 @@
++//! Uftp header — 80 bytes.
++
++/// Uftp header — 80 bytes.
++pub struct UftpHeader {
++    /// Protocol Version: 0x31.
++    pub uftp_version: u8,
++    /// Type: ANNOUNCE (1).
++    pub uftp_func: u8,
++    /// Block Size: 64.
++    pub uftp_blsize: u16,
++    /// Group ID: 0x8987cb7e.
++    pub uftp_group_id: u32,
++    /// Source Address: 10.0.0.1.
++    pub uftp_srcaddr: u32,
++    /// Destination Address: 230.4.4.1.
++    pub uftp_destaddr: u32,
++    /// ANNOUNCE.
++    pub uftp_announce: u128,
++}

@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/bittorrent.rs
+@@ -0,0 +1,15 @@
++//! Bittorrent header — 68 bytes.
++
++/// Bittorrent header — 68 bytes.
++pub struct BittorrentHeader {
++    /// Protocol Name Length: 19.
++    pub bittorrent_protocol_name_length: u8,
++    /// Protocol Name: BitTorrent protocol.
++    pub bittorrent_protocol_name: u128,
++    /// Reserved Extension Bytes: 0000000000000000.
++    pub bittorrent_reserved: u64,
++    /// SHA1 Hash of info dictionary: 0164fe7ef1105c57764170edf603c439d64214f1.
++    pub bittorrent_info_hash: u128,
++    /// Peer ID: b86a737fe80caf680259963724652756ee4d165b.
++    pub bittorrent_peer_id: u128,
++}

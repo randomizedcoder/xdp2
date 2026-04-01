@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/ieee8021ad.rs
+@@ -0,0 +1,11 @@
++//! Ieee8021ad header — 4 bytes.
++
++/// Ieee8021ad header — 4 bytes.
++pub struct Ieee8021adHeader {
++    /// 000. .... .... .... = Priority: 0.
++    pub ieee8021ad_priority: u8,
++    /// .... 0000 0001 1110 = ID: 30.
++    pub ieee8021ad_id: u16,
++    /// Type: 802.1Q Virtual LAN (0x8100).
++    pub ieee8021ah_etype: u16,
++}

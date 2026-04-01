@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/src/proto_audit/eigrp.rs
+@@ -0,0 +1,21 @@
++//! EIGRP header — 40 bytes.
++
++/// EIGRP header — 40 bytes.
++pub struct EIGRPHeader {
++    /// Version: 2.
++    pub eigrp_version: u8,
++    /// Opcode: Hello (5).
++    pub eigrp_opcode: u8,
++    /// Checksum: 0xee68 [correct].
++    pub eigrp_checksum: u16,
++    /// Flags: 0x00000000.
++    pub eigrp_flags: u32,
++    /// Sequence: 0.
++    pub eigrp_seq: u32,
++    /// Acknowledge: 0.
++    pub eigrp_ack: u32,
++    /// Virtual Router ID: 0 (Address-Family).
++    pub eigrp_vrid: u16,
++    /// Autonomous System: 100.
++    pub eigrp_as: u16,
++}

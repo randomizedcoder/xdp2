@@ -1,0 +1,42 @@
+--- /dev/null
++++ b/src/proto_audit/usb.rs
+@@ -0,0 +1,39 @@
++//! Usb header — 64 bytes.
++
++/// Usb header — 64 bytes.
++pub struct UsbHeader {
++    /// URB id: 0x00000000f5e2ecc0.
++    pub usb_urb_id: u64,
++    /// URB type: URB_SUBMIT ('S').
++    pub usb_urb_type: u8,
++    /// URB transfer type: URB_CONTROL (0x02).
++    pub usb_transfer_type: u8,
++    /// Endpoint: 0x80, Direction: IN.
++    pub usb_endpoint_address: u8,
++    /// Device: 1.
++    pub usb_device_address: u8,
++    /// URB bus id: 3.
++    pub usb_bus_id: u16,
++    /// Device setup request: relevant ('\0').
++    pub usb_setup_flag: u8,
++    /// Data: not present ('<').
++    pub usb_data_flag: u8,
++    /// URB sec: 1382622063.
++    pub usb_urb_ts_sec: u64,
++    /// URB usec: 291200.
++    pub usb_urb_ts_usec: u32,
++    /// URB status: Operation now in progress (-EINPROGRESS) (-115).
++    pub usb_urb_status: u32,
++    /// URB length [bytes]: 4.
++    pub usb_urb_len: u32,
++    /// Data length [bytes]: 0.
++    pub usb_data_len: u32,
++    /// Interval: 0.
++    pub usb_interval: u32,
++    /// Start frame: 0.
++    pub usb_start_frame: u32,
++    /// Copy of Transfer Flags: 0x00000200, Dir IN.
++    pub usb_copy_of_transfer_flags: u32,
++    /// Number of ISO descriptors: 0.
++    pub usb_iso_numdesc: u32,
++}

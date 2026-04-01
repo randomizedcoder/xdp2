@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/src/proto_audit/zigbee_nwk.rs
+@@ -0,0 +1,17 @@
++//! Zigbee_NWK header — 36 bytes.
++
++/// Zigbee_NWK header — 36 bytes.
++pub struct Zigbee_NWKHeader {
++    /// Frame Control Field: 0x1209, Frame Type: Command, Discover Route: Suppress, Security, Extended Source Command.
++    pub zbee_nwk_fcf: u16,
++    /// Destination: 0xfffc.
++    pub zbee_nwk_dst: u16,
++    /// Source: 0x0000.
++    pub zbee_nwk_src: u16,
++    /// Radius: 1.
++    pub zbee_nwk_radius: u8,
++    /// Sequence Number: 195.
++    pub zbee_nwk_seqno: u8,
++    /// Extended Source: Control4_00:00:1b:1b:df (00:0f:ff:00:00:1b:1b:df).
++    pub zbee_nwk_src64: u64,
++}

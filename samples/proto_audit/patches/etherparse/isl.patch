@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/src/proto_audit/isl.rs
+@@ -0,0 +1,25 @@
++//! Isl header — 26 bytes.
++
++/// Isl header — 26 bytes.
++pub struct IslHeader {
++    /// Destination: ISL-Frame_00 (01:00:0c:00:00:00).
++    pub isl_dst: u64,
++    /// Source: Cisco_ea:b8:85 (00:19:06:ea:b8:85).
++    pub isl_src: u64,
++    /// Length: 76.
++    pub isl_len: u16,
++    /// DSAP: 0xaa.
++    pub isl_dsap: u8,
++    /// SSAP: 0xaa.
++    pub isl_ssap: u8,
++    /// Control: 0x03.
++    pub isl_control: u8,
++    /// HSA: 0x00000c.
++    pub isl_hsa: u32,
++    /// 0000 0000 0000 001. = VLAN ID: 1.
++    pub isl_vlan_id: u16,
++    /// Index: 0.
++    pub isl_index: u16,
++    /// Reserved: 0x0000.
++    pub isl_reserved: u16,
++}

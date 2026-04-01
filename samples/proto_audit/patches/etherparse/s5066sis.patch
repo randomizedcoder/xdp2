@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/s5066sis.rs
+@@ -0,0 +1,13 @@
++//! S5066sis header — 9 bytes.
++
++/// S5066sis header — 9 bytes.
++pub struct S5066sisHeader {
++    /// Sync preamble: 0x90eb.
++    pub s5066sis_sync: u16,
++    /// S5066 version: 0x00.
++    pub s5066sis_version: u8,
++    /// S_Primitive size: 4.
++    pub s5066sis_size: u16,
++    /// PDU Type: S_BIND_REQUEST (1).
++    pub s5066sis_type: u8,
++}

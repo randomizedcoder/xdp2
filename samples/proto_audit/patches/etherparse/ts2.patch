@@ -1,0 +1,32 @@
+--- /dev/null
++++ b/src/proto_audit/ts2.rs
+@@ -0,0 +1,29 @@
++//! Ts2 header — 180 bytes.
++
++/// Ts2 header — 180 bytes.
++pub struct Ts2Header {
++    /// Class: Connection (0xbef4).
++    pub ts2_class: u16,
++    /// Type: Login Request (0x0003).
++    pub ts2_type: u16,
++    /// Session Key: 0x00000000.
++    pub ts2_sessionkey: u32,
++    /// Client id: 0.
++    pub ts2_clientid: u32,
++    /// Sequence Number: 1.
++    pub ts2_sequencenum: u32,
++    /// CRC32 Checksum: 0xfd834521 [correct].
++    pub ts2_crc32: u32,
++    /// Protocol String: TeamSpeak.
++    pub ts2_protocolstring: u128,
++    /// Platform String: Linux 2.6.22-14-generic #1 SM.
++    pub ts2_platformstring: u128,
++    /// Unknown: 0200000020003c0000.
++    pub ts2_unknown: u128,
++    /// Registered Login: False.
++    pub ts2_registeredlogin: u8,
++    /// Password: .
++    pub ts2_password: u8,
++    /// Nick: brooss.
++    pub ts2_nick: u64,
++}

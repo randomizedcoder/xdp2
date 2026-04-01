@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/dlep.rs
+@@ -0,0 +1,13 @@
++//! Dlep header — 28 bytes.
++
++/// Dlep header — 28 bytes.
++pub struct DlepHeader {
++    /// Signature: DLEP.
++    pub dlep_signal_signature: u32,
++    /// Signal Type: Peer Discovery (1).
++    pub dlep_signal_type: u16,
++    /// Signal Length (bytes): 20.
++    pub dlep_signal_length: u16,
++    /// Peer Type Data Item, Description: emulated-router.
++    pub dlep_dataitem: u128,
++}

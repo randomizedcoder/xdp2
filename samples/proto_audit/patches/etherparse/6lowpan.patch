@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/proto_audit/6lowpan.rs
+@@ -0,0 +1,15 @@
++//! 6lowpan header — 287 bytes.
++
++/// 6lowpan header — 287 bytes.
++pub struct 6lowpanHeader {
++    /// 00.. .... = ECN: 0.
++    pub 6lowpan_ecn: u8,
++    /// .... 1110  1110 0011  1111 1111 = Flow label: 0x0ee3ff.
++    pub 6lowpan_flow: u32,
++    /// 00.. .... = ECN: 0.
++    pub 6lowpan_ecn: u8,
++    /// .... 1110  1110 0011  1111 1111 = Flow label: 0x0ee3ff.
++    pub 6lowpan_flow: u32,
++    /// Next header: ICMPv6 (0x3a).
++    pub 6lowpan_next: u8,
++}
