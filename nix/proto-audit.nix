@@ -20,7 +20,7 @@ pkgs.rustPlatform.buildRustPackage {
 
   src = ../samples/proto_audit;
 
-  cargoHash = "sha256-mqDBPVik4ivFRSS/RzZMQ58nr2ORj5KCxZ0Tq+cYBqQ=";
+  cargoHash = "sha256-twQAUSdqZs+NGsYvRN54r1y5cQMZRHwsMxGK57thBmY=";
 
   nativeBuildInputs = [ pkgs.pkg-config ];
 

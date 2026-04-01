@@ -65,6 +65,10 @@ pub(crate) struct SourcePaths {
     /// Path to libpcap source tree
     #[arg(long, env = "PROTO_AUDIT_LIBPCAP_SRC")]
     pub(crate) libpcap_src: Option<PathBuf>,
+
+    /// Path to Kaitai Struct formats directory
+    #[arg(long, env = "PROTO_AUDIT_KAITAI_DIR")]
+    pub(crate) kaitai_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]

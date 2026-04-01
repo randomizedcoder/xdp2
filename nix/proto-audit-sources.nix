@@ -24,6 +24,7 @@ let
   libpcapRev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";  # libpcap git rev
   packetlifeRev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";  # packetlife-backup git rev
   wiresharkSamplesRev = "4131f845f5b2d319a2cb2014fe2738889adcd889";  # briliant-ben/SampleCaptures git rev
+  kaitaiFormatsRev = "07429db0a5c73dbedf207c8ea8d6a7ad82cb53be";  # kaitai-io/kaitai_struct_formats git rev
 
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
@@ -51,6 +52,16 @@ let
     repo = "SampleCaptures";
     rev = wiresharkSamplesRev;
     hash = "sha256-ROsdhlOMS8+zEeP1yO1ZxHxUvtUzvcHRCL6QUEO7g1k=";
+  };
+
+  # Kaitai Struct format specifications: independent protocol definitions in YAML
+  # Covers ~25 network protocols (Ethernet, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS, RTP, etc.)
+  # Licensed CC0-1.0, truly independent source for cross-verification
+  kaitaiFormats = pkgs.fetchFromGitHub {
+    owner = "kaitai-io";
+    repo = "kaitai_struct_formats";
+    rev = kaitaiFormatsRev;
+    hash = "sha256-CP75xJjU/uD+f6/htodGtiywqcac2bbkUKpeHPvagcU=";
   };
 
   # Helper: collect all .patch files from a directory.
@@ -105,6 +116,9 @@ in
     };
     patches = patchesIn ../samples/proto_audit/patches/libpcap;
   };
+
+  # Kaitai Struct format specs (network/ directory has protocol definitions)
+  inherit kaitaiFormats;
 
   # ── Auto-discovery registries (Phase 1-4) ──
 

@@ -102,6 +102,20 @@ fn try_extract(
             def.is_variable_length = names.variable_length;
             Some(def)
         }
+        "kaitai" => {
+            let kaitai_dir = paths.kaitai_dir.as_ref()?;
+            let ksy_files = extractors::kaitai::scan_kaitai_dir(kaitai_dir).ok()?;
+            // Find a matching .ksy file by canonical name (case-insensitive)
+            let proto_lower = proto.to_lowercase();
+            let matched = ksy_files.iter().find(|(name, _): &&(String, _)| {
+                name.to_lowercase() == proto_lower
+            });
+            let (_, ksy_path) = matched?;
+            let result = extractors::kaitai::extract_from_ksy(ksy_path);
+            let mut def = result.ok().flatten()?;
+            def.name = proto.to_string();
+            Some(def)
+        }
         _ => None,
     }
 }
@@ -194,7 +208,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {
@@ -1281,9 +1295,9 @@ pub(crate) fn cmd_list(tier: &str, json_output: bool) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&json_list)?);
         } else {
             println!(
-                "  {:<4}  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:<12}  {:>4}",
+                "  {:<4}  {:<16}  {:<30}  {:<14}  {:<8}  {:<8}  {:<20}  {:<12}  {:<8}  {:>4}",
                 "Tier", "Protocol", "XDP2", "Kernel", "Scapy", "tshark", "etherparse", "libpcap",
-                "Bytes"
+                "kaitai", "Bytes"
             );
             println!(
                 "  {}  {}  {}  {}  {}  {}  {}  {}  {}",
