@@ -120,6 +120,116 @@ pub fn generate_etherparse(proto: &ProtocolDef) -> String {
     out
 }
 
+/// Generate a unified diff patch that creates `src/proto_audit/<name>.rs`
+/// with an etherparse-style Rust struct. Matches format of existing patches
+/// in `patches/etherparse/` (e.g., bfd.patch).
+pub fn generate_etherparse_patch(proto: &ProtocolDef) -> Option<String> {
+    if proto.fields.is_empty() {
+        return None;
+    }
+
+    let snake = canonical_to_snake(&proto.name);
+    let struct_name = canonical_to_pascal(&proto.name);
+    let min_bytes = proto.min_header_bits / 8;
+
+    // Build the Rust struct content (simplified, matching existing patch style)
+    let mut body = String::new();
+    body.push_str(&format!("//! {} header — {} bytes.\n\n", proto.name, min_bytes));
+    body.push_str(&format!("/// {} header — {} bytes.\n", proto.name, min_bytes));
+    body.push_str(&format!("pub struct {}Header {{\n", struct_name));
+
+    let mut bitfield_group: Vec<(&str, u32)> = Vec::new();
+
+    for field in &proto.fields {
+        // Handle single-bit flags as bool fields
+        if field.field_type == FieldType::Flags && field.size_bits == 1 {
+            flush_bitfield_group(&mut body, &mut bitfield_group);
+            if !field.description.is_empty() {
+                body.push_str(&format!("    /// {}.\n", field.description));
+            }
+            body.push_str(&format!("    pub {}: bool,\n", field_name_rust(&field.name)));
+            continue;
+        }
+
+        // Handle multi-bit sub-byte fields: group contiguous bitfields
+        if field.size_bits < 8 && !is_byte_aligned(field.offset_bits, field.size_bits) {
+            bitfield_group.push((&field.name, field.size_bits));
+            continue;
+        }
+
+        // Flush any pending bitfield group
+        flush_bitfield_group(&mut body, &mut bitfield_group);
+
+        // Skip non-byte-aligned fields that weren't handled above
+        if field.offset_bits % 8 != 0 || field.size_bits % 8 != 0 || field.size_bits == 0 {
+            continue;
+        }
+
+        let rust_type = rust_type_for_bits(field.size_bits);
+
+        if !field.description.is_empty() {
+            body.push_str(&format!("    /// {}.\n", field.description));
+        }
+        body.push_str(&format!("    pub {}: {},\n", field_name_rust(&field.name), rust_type));
+    }
+
+    flush_bitfield_group(&mut body, &mut bitfield_group);
+    body.push_str("}\n");
+
+    // Count lines for the diff header
+    let lines: Vec<&str> = body.lines().collect();
+    let line_count = lines.len();
+
+    // Build unified diff
+    let mut patch = String::new();
+    patch.push_str("--- /dev/null\n");
+    patch.push_str(&format!("+++ b/src/proto_audit/{}.rs\n", snake));
+    patch.push_str(&format!("@@ -0,0 +1,{} @@\n", line_count));
+    for line in &lines {
+        patch.push('+');
+        patch.push_str(line);
+        patch.push('\n');
+    }
+
+    Some(patch)
+}
+
+/// Generate etherparse.toml mapping entry for a protocol.
+pub fn generate_etherparse_toml_entry(proto: &ProtocolDef) -> Option<String> {
+    if proto.fields.is_empty() {
+        return None;
+    }
+
+    let snake = canonical_to_snake(&proto.name);
+    let struct_name = format!("{}Header", canonical_to_pascal(&proto.name));
+
+    let mut out = String::new();
+    out.push_str(&format!("[overrides.\"{}\"]\n", struct_name));
+
+    // Add field type overrides for common patterns
+    for field in &proto.fields {
+        match field.field_type {
+            FieldType::Ipv4Addr if field.size_bits == 32 => {
+                out.push_str(&format!("{} = {{ rust_type = \"[u8; 4]\" }}\n",
+                    field_name_rust(&field.name)));
+            }
+            FieldType::MacAddr if field.size_bits == 48 => {
+                out.push_str(&format!("{} = {{ rust_type = \"[u8; 6]\" }}\n",
+                    field_name_rust(&field.name)));
+            }
+            _ => {}
+        }
+    }
+
+    // Only return if we have actual overrides beyond the section header
+    if out.lines().count() <= 1 {
+        return None;
+    }
+
+    let _ = snake; // used for context, not needed in toml entry
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

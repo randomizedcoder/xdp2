@@ -203,6 +203,29 @@ enum Commands {
         paths: SourcePaths,
     },
 
+    /// Generate etherparse Rust struct patches from corpus PDML data
+    #[command(name = "generate-etherparse-patches")]
+    GenerateEtherparsePatches {
+        /// Output directory for patch files (default: patches/etherparse)
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
+
+        /// Only generate for these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Minimum number of fields to include a protocol
+        #[arg(long, default_value = "2")]
+        min_fields: usize,
+
+        /// Print to stdout without writing files
+        #[arg(long)]
+        dry_run: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Generate code from IR (C header, etherparse Rust struct, or Scapy class)
     Generate {
         /// Protocol name or path to IR JSON
@@ -478,6 +501,13 @@ fn main() -> Result<()> {
             dry_run,
             paths,
         } => cmd_generate_libpcap_patches(output_dir, protos.as_deref(), min_fields, dry_run, &paths),
+        Commands::GenerateEtherparsePatches {
+            output_dir,
+            protos,
+            min_fields,
+            dry_run,
+            paths,
+        } => cmd_generate_etherparse_patches(output_dir, protos.as_deref(), min_fields, dry_run, &paths),
         Commands::Generate {
             proto,
             from_json,

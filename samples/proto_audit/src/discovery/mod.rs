@@ -91,6 +91,9 @@ pub struct DiscoveredProtocol {
     /// libpcap source file (e.g., "gencode.c", "pcap/proto_audit/gre.h")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub libpcap_file: Option<String>,
+    /// Kaitai Struct format ID (e.g., "dns_packet", "tcp_segment")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kaitai_id: Option<String>,
 }
 
 /// The tier filter from CLI --tier flag.
@@ -207,6 +210,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
             validation_tier: None,
             libpcap_name: p.libpcap_name.map(|s| s.to_string()),
             libpcap_file: p.libpcap_file.map(|s| s.to_string()),
+            kaitai_id: None,
         };
         result.insert(p.canonical.to_string(), dp);
     }
@@ -234,6 +238,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
             validation_tier: None,
             libpcap_name: am.libpcap_name.clone(),
             libpcap_file: am.libpcap_file.clone(),
+            kaitai_id: None,
         };
         result.insert(am.canonical.clone(), dp);
     }
@@ -282,6 +287,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
                 validation_tier: None,
                 libpcap_name: None,
                 libpcap_file: None,
+                kaitai_id: None,
             };
             result.insert(canonical, dp);
         }
@@ -320,6 +326,7 @@ pub fn all_protocols(state: &DiscoveryState) -> BTreeMap<String, DiscoveredProto
                 validation_tier: None,
                 libpcap_name: None,
                 libpcap_file: None,
+                kaitai_id: None,
             };
             result.insert(canonical, dp);
         }
