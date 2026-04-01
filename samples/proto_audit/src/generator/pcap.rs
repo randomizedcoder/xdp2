@@ -1067,9 +1067,26 @@ pub fn pack_field(buf: &mut [u8], field: &FieldDef, value: u64) {
     if offset % 8 == 0 && size % 8 == 0 {
         let start_byte = offset / 8;
         let num_bytes = size / 8;
-        let be_bytes = value.to_be_bytes();
-        let src_start = 8 - num_bytes;
-        buf[start_byte..start_byte + num_bytes].copy_from_slice(&be_bytes[src_start..]);
+        if num_bytes <= 8 {
+            let be_bytes = value.to_be_bytes();
+            let src_start = 8 - num_bytes;
+            buf[start_byte..start_byte + num_bytes].copy_from_slice(&be_bytes[src_start..]);
+        } else {
+            // Large field (>64 bits): zero-fill, write low 8 bytes at the end
+            let end = start_byte + num_bytes;
+            let buf_len = buf.len();
+            let clamped_end = end.min(buf_len);
+            for i in start_byte..clamped_end {
+                buf[i] = 0;
+            }
+            let be_bytes = value.to_be_bytes();
+            let write_start = end.saturating_sub(8);
+            if write_start < clamped_end {
+                let copy_len = clamped_end - write_start;
+                let src_start = 8 - copy_len;
+                buf[write_start..clamped_end].copy_from_slice(&be_bytes[src_start..src_start + copy_len]);
+            }
+        }
         return;
     }
 
