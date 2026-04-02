@@ -2685,8 +2685,9 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
     // Curated source coverage (etherparse, libpcap)
     let with_etherparse = curated_table.iter().filter(|p| p.etherparse_struct.is_some()).count();
     let with_libpcap = curated_table.iter().filter(|p| p.libpcap_name.is_some()).count();
+    let with_xdp2_curated = curated_table.iter().filter(|p| p.xdp2.is_some()).count();
 
-    // XDP2 proto_defs
+    // XDP2 proto_defs (from filesystem scan)
     let xdp2_count = paths
         .proto_defs_dir
         .as_ref()
@@ -2727,6 +2728,7 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
                 "kernel_struct": with_kernel,
                 "multi_source_2plus": multi_source,
                 "xdp2_proto_defs": xdp2_count,
+                "xdp2_curated": with_xdp2_curated,
                 "etherparse_struct": with_etherparse,
                 "libpcap_name": with_libpcap,
             },
@@ -2764,7 +2766,7 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
         println!("    With Scapy class:     {:>6}", with_scapy);
         println!("    With kernel struct:   {:>6}", with_kernel);
         println!("    Multi-source (2+):    {:>6}", multi_source);
-        println!("    XDP2 proto_defs:      {:>6}", xdp2_count);
+        println!("    XDP2 proto_defs:      {:>6} ({} curated)", xdp2_count, with_xdp2_curated);
         println!("    Etherparse structs:   {:>6}/{}", with_etherparse, curated_count);
         println!("    Libpcap overlays:     {:>6}/{}", with_libpcap, curated_count);
         println!();
