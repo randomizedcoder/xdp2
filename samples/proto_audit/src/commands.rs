@@ -304,6 +304,25 @@ pub(crate) fn cmd_audit(
 
     let results = run_audit(protos, sources, tier, &discovery_state, paths);
 
+    // Persist Silver/Bronze results to the validation cache.
+    // Never downgrade an existing Gold (round-trip) to Silver/Bronze.
+    {
+        let existing_cache = load_validation_cache();
+        for r in &results {
+            // Strip " [D]" tag from discovered protocols for cache key
+            let cache_key = r.protocol.trim_end_matches(" [D]").to_string();
+            let existing_tier = existing_cache.get(&cache_key);
+            let is_gold = existing_tier == Some(&discovery::ValidationTier::Gold);
+            if !is_gold {
+                if let Some(ref vtier) = r.validation_tier {
+                    if *vtier != discovery::ValidationTier::Unvalidated {
+                        let _ = save_validation_result(&cache_key, r);
+                    }
+                }
+            }
+        }
+    }
+
     let results = apply_filters(results, compact, limit);
 
     if json_output {

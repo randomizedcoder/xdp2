@@ -152,7 +152,10 @@ fn compare_slot(
 }
 
 /// Compute aggregate statistics from a list of field comparisons.
-fn compute_statistics(comparisons: &[FieldComparison]) -> (u32, u32, u32, u32, u32) {
+/// Returns (total, agree, type_differ, mismatch, missing, structural_agree).
+/// `structural_agree` counts fields where 2+ sources agree on offset+size,
+/// even if presence or type mismatches exist from other sources.
+fn compute_statistics(comparisons: &[FieldComparison]) -> (u32, u32, u32, u32, u32, u32) {
     let total = comparisons.len() as u32;
 
     let agree = comparisons
@@ -184,7 +187,13 @@ fn compute_statistics(comparisons: &[FieldComparison]) -> (u32, u32, u32, u32, u
         })
         .count() as u32;
 
-    (total, agree, type_differ, mismatch, missing)
+    // Fields where 2+ sources structurally agree on offset+size
+    let structural_agree = comparisons
+        .iter()
+        .filter(|c| c.sources_structural.len() >= 2)
+        .count() as u32;
+
+    (total, agree, type_differ, mismatch, missing, structural_agree)
 }
 
 /// Match fields across two protocol definitions by offset+size.
@@ -381,16 +390,18 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
 
     all_comparisons.sort_by_key(|c| (c.offset_bits, c.size_bits));
 
-    let (total, agree, type_differ, mismatch, field_missing) =
+    let (total, agree, type_differ, mismatch, field_missing, structural_agree) =
         compute_statistics(&all_comparisons);
 
-    // Compute validation tier from audit statistics
+    // Compute validation tier from audit statistics.
+    // Use structural_agree (2+ sources at same offset+size) for Silver,
+    // which is more lenient than strict agree (no mismatches at all).
     let validation_tier = {
         let sources_with_fields = field_sources.len();
         let is_roundtrip = false; // Set by cmd_validate, not here
         Some(crate::discovery::compute_validation_tier(
             sources_with_fields,
-            agree,
+            structural_agree,
             total,
             is_roundtrip,
         ))
