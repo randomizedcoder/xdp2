@@ -2663,6 +2663,10 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
     let with_iana = curated_table.iter().filter(|p| p.iana_registry.is_some()).count();
     let total_rfcs: usize = curated_table.iter().map(|p| p.rfc_numbers.len()).sum();
 
+    // Curated source coverage (etherparse, libpcap)
+    let with_etherparse = curated_table.iter().filter(|p| p.etherparse_struct.is_some()).count();
+    let with_libpcap = curated_table.iter().filter(|p| p.libpcap_name.is_some()).count();
+
     // XDP2 proto_defs
     let xdp2_count = paths
         .proto_defs_dir
@@ -2704,6 +2708,8 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
                 "kernel_struct": with_kernel,
                 "multi_source_2plus": multi_source,
                 "xdp2_proto_defs": xdp2_count,
+                "etherparse_struct": with_etherparse,
+                "libpcap_name": with_libpcap,
             },
             "validation": {
                 "gold": gold_count,
@@ -2740,6 +2746,8 @@ pub fn cmd_stats(json_output: bool, paths: &SourcePaths) -> Result<()> {
         println!("    With kernel struct:   {:>6}", with_kernel);
         println!("    Multi-source (2+):    {:>6}", multi_source);
         println!("    XDP2 proto_defs:      {:>6}", xdp2_count);
+        println!("    Etherparse structs:   {:>6}/{}", with_etherparse, curated_count);
+        println!("    Libpcap overlays:     {:>6}/{}", with_libpcap, curated_count);
         println!();
         println!("  Validation (cached):");
         println!("    Gold (round-trip):    {:>6}", gold_count);

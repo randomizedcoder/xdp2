@@ -66,7 +66,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("rarp")
             .libpcap("RARP", "gencode.c")
             .variable()
-            .rfcs(&[903]),
+            .rfcs(&[903])
+            .etherparse("ARPHeader", "src/proto_audit/rarp.rs"),
         PN::new("ICMPv4", 8)
             .xdp2("xdp2_parse_icmpv4")
             .kernel("icmphdr", "linux/icmp.h")
@@ -81,7 +82,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("ICMPv6Unknown")
             .tshark("icmpv6")
             .etherparse("Icmpv6Header", "etherparse/src/transport/icmpv6_header.rs")
-            .rfcs(&[4443, 4861, 4862]),
+            .rfcs(&[4443, 4861, 4862])
+            .libpcap("icmpv6_header", "pcap/proto_audit/icmpv6.h"),
         PN::new("IGMP", 8)
             .xdp2("xdp2_parse_igmp")
             .kernel("igmphdr", "linux/igmp.h")
@@ -286,13 +288,15 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("can_frame", "linux/can.h")
             .scapy("CAN")
             .tshark("can")
-            .etherparse("CanHeader", "src/proto_audit/can.rs"),
+            .etherparse("CanHeader", "src/proto_audit/can.rs")
+            .libpcap("can_header", "pcap/proto_audit/can.h"),
         PN::new("CAN_FD", 72)
             .xdp2("xdp2_parse_canfd")
             .kernel("canfd_frame", "linux/can.h")
             .scapy("CANFD")
             .tshark("can")
-            .etherparse("CanFdHeader", "src/proto_audit/can_fd.rs"),
+            .etherparse("CanFdHeader", "src/proto_audit/can_fd.rs")
+            .libpcap("can_fd_header", "pcap/proto_audit/can_fd.h"),
         // ── Bluetooth ──
         PN::new("HCI", 1)
             .xdp2("xdp2_parse_hci")
@@ -575,10 +579,12 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("RIP", 4).scapy("RIP").tshark("rip")
             .libpcap("rip_header", "pcap/proto_audit/rip.h")
             .variable()
-            .rfcs(&[2453, 1058]),
+            .rfcs(&[2453, 1058])
+            .etherparse("RIPHeader", "src/proto_audit/rip.rs"),
         PN::new("OSPF", 24).scapy("OSPF_Hdr").tshark("ospf")
             .libpcap("ospf_header", "pcap/proto_audit/ospf.h")
-            .rfcs(&[2328, 5340]),
+            .rfcs(&[2328, 5340])
+            .etherparse("OSPF_HdrHeader", "src/proto_audit/ospf.rs"),
         PN::new("ISIS", 8).scapy("ISIS_CommonHdr").tshark("isis").variable()
             .libpcap("isis_header", "pcap/proto_audit/isis.h")
             .rfcs(&[1195])
@@ -774,7 +780,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("SLL", 16)
             .scapy("CookedLinux")
             .tshark("sll")
-            .libpcap("sll_header", "pcap/sll.h"),
+            .libpcap("sll_header", "pcap/sll.h")
+            .etherparse("CookedLinuxHeader", "src/proto_audit/sll.rs"),
         PN::new("SLL2", 20)
             .scapy("CookedLinuxV2")
             .tshark("sll")
@@ -839,10 +846,12 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("GTP_U", 8).scapy("GTP_U_Header").tshark("gtp")
             .libpcap("gtp_u_header", "pcap/proto_audit/gtp.h")
             .variable()
-            .rfcs(&[2152]),
+            .rfcs(&[2152])
+            .etherparse("GTP_UHeader", "src/proto_audit/gtp_u.rs"),
         PN::new("GTP_C", 8).scapy("GTPHeader").tshark("gtpv2")
             .libpcap("gtp_c_header", "pcap/proto_audit/gtp.h")
-            .variable(),
+            .variable()
+            .etherparse("GTP_CHeader", "src/proto_audit/gtp_c.rs"),
         PN::new("PIM", 4).scapy("PIM").tshark("pim")
             .libpcap("pim_header", "pcap/proto_audit/pim.h")
             .variable()
@@ -888,14 +897,16 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── Tunneling Additions ──
         PN::new("WireGuard", 4).scapy("WireGuard").tshark("wireguard")
             .etherparse("WireGuardHeader", "src/proto_audit/wire_guard.rs").variable()
-            .rfcs(&[7301]),
+            .rfcs(&[7301])
+            .libpcap("wireguard_header", "pcap/proto_audit/wireguard.h"),
         PN::new("IP_in_IP", 20).scapy("IP").tshark("ipip").variable()
             .rfcs(&[2003, 1853])
             .etherparse("IPHeader", "src/proto_audit/ip_in_ip.rs")
             .libpcap("ip_in_ip_header", "pcap/proto_audit/ip_in_ip.h"),
         PN::new("NVGRE", 8).scapy("NVGRE").tshark("nvgre")
             .etherparse("NvgreHeader", "src/proto_audit/nvgre.rs")
-            .rfcs(&[7637]),
+            .rfcs(&[7637])
+            .libpcap("nvgre_header", "pcap/proto_audit/nvgre.h"),
         PN::new("LISP", 8).scapy("LISP").tshark("lisp").variable()
             .rfcs(&[9300, 9301, 6830])
             .etherparse("LISPHeader", "src/proto_audit/lisp.rs")
@@ -911,7 +922,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("GUEHeader", "src/proto_audit/gue.rs")
             .libpcap("gue_header", "pcap/proto_audit/gue.h"),
         PN::new("VXLAN_GPE", 8).scapy("VXLAN_GPE").tshark("vxlan")
-            .etherparse("VxlanGpeHeader", "src/proto_audit/vxlan_gpe.rs"),
+            .etherparse("VxlanGpeHeader", "src/proto_audit/vxlan_gpe.rs")
+            .libpcap("vxlan_gpe_header", "pcap/proto_audit/vxlan_gpe.h"),
         // ── Security Additions ──
         PN::new("TLS", 5).scapy("TLS").tshark("tls").variable()
             .rfcs(&[8446, 5246, 8447])
@@ -976,14 +988,16 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── IoT / Industrial ──
         PN::new("MQTT", 2).scapy("MQTT").tshark("mqtt")
             .libpcap("mqtt_header", "pcap/proto_audit/mqtt.h")
-            .variable(),
+            .variable()
+            .etherparse("MQTTHeader", "src/proto_audit/mqtt.rs"),
         PN::new("CoAP", 4).scapy("CoAP").tshark("coap").variable()
             .rfcs(&[7252, 7641, 8323])
             .etherparse("CoAPHeader", "src/proto_audit/coap.rs")
             .libpcap("coap_header", "pcap/proto_audit/coap.h"),
         PN::new("MODBUS_TCP", 7).scapy("ModbusADU").tshark("modbus")
             .libpcap("modbus_tcp_header", "pcap/proto_audit/modbus.h")
-            .variable(),
+            .variable()
+            .etherparse("MODBUS_TCPHeader", "src/proto_audit/modbus_tcp.rs"),
         PN::new("BACnet", 4).scapy("BVLC").tshark("bacnet").variable()
             .etherparse("BACnetHeader", "src/proto_audit/bacnet.rs")
             .libpcap("bacnet_header", "pcap/proto_audit/bacnet.h"),
@@ -1028,7 +1042,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("diameter_header", "pcap/proto_audit/diameter.h"),
         PN::new("TACACS", 12).scapy("TACACS").tshark("tacacs").variable()
             .rfcs(&[8907])
-            .etherparse("TacplusHeader", "src/proto_audit/tacplus.rs"),
+            .etherparse("TacplusHeader", "src/proto_audit/tacplus.rs")
+            .libpcap("tacacs_header", "pcap/proto_audit/tacacs.h"),
         PN::new("Syslog", 1).scapy("Syslog").tshark("syslog").variable()
             .rfcs(&[5424, 3164])
             .etherparse("SyslogHeader", "src/proto_audit/syslog.rs")
