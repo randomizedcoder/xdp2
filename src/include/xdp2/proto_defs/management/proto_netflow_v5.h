@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
+ * Copyright (c) 2025 Tom Herbert
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+#ifndef __XDP2_PROTO_NETFLOW_V5_H__
+#define __XDP2_PROTO_NETFLOW_V5_H__
+
+#include "xdp2/parser.h"
+
+/* NetFlow v5 header.
+ * 24 bytes. Cisco flow export format.
+ * Leaf protocol — no further dispatch.
+ */
+
+struct netflow_v5_hdr {
+	__be16 version;
+	__be16 count;		/* number of flow records */
+	__be32 sysuptime;	/* milliseconds since boot */
+	__be32 unix_secs;
+	__be32 unix_nsecs;
+	__be32 flow_seq;	/* sequence counter */
+	__u8 engine_type;
+	__u8 engine_id;
+	__be16 sampling;	/* sampling mode + interval */
+};
+
+#endif /* __XDP2_PROTO_NETFLOW_V5_H__ */
+
+#ifdef XDP2_DEFINE_PARSE_NODE
+
+/* xdp2_parse_netflow_v5 protocol definition
+ *
+ * Parse NetFlow v5 header (leaf — flow export)
+ */
+static const struct xdp2_proto_def xdp2_parse_netflow_v5 __unused() = {
+	.name = "NetFlow v5",
+	.min_len = sizeof(struct netflow_v5_hdr),
+};
+
+#endif /* XDP2_DEFINE_PARSE_NODE */

@@ -574,11 +574,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[2281])
             .etherparse("HSRPHeader", "src/proto_audit/hsrp.rs"),
         // ── Discovery ──
-        PN::new("CDP", 4).scapy("CDPv2_HDR").tshark("cdp").variable()
+        PN::new("CDP", 4)
+            .xdp2("xdp2_parse_cdp").scapy("CDPv2_HDR").tshark("cdp").variable()
             .etherparse("CDPHeader", "src/proto_audit/cdp.rs")
             .libpcap("cdp_header", "pcap/proto_audit/cdp.h"),
         // ── Routing ──
-        PN::new("RIP", 4).scapy("RIP").tshark("rip")
+        PN::new("RIP", 4)
+            .xdp2("xdp2_parse_rip").scapy("RIP").tshark("rip")
             .libpcap("rip_header", "pcap/proto_audit/rip.h")
             .variable()
             .rfcs(&[2453, 1058])
@@ -588,7 +590,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("ospf_header", "pcap/proto_audit/ospf.h")
             .rfcs(&[2328, 5340])
             .etherparse("OSPF_HdrHeader", "src/proto_audit/ospf.rs"),
-        PN::new("ISIS", 8).scapy("ISIS_CommonHdr").tshark("isis").variable()
+        PN::new("ISIS", 8)
+            .xdp2("xdp2_parse_isis").scapy("ISIS_CommonHdr").tshark("isis").variable()
             .libpcap("isis_header", "pcap/proto_audit/isis.h")
             .rfcs(&[1195])
             .etherparse("ISISHeader", "src/proto_audit/isis.rs"),
@@ -597,49 +600,63 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[4271, 7606, 8654, 9072])
             .etherparse("BGPHeader", "src/proto_audit/bgp.rs")
             .libpcap("bgp_header", "pcap/proto_audit/bgp.h"),
-        PN::new("EIGRP", 20).scapy("EIGRP").tshark("eigrp")
+        PN::new("EIGRP", 20)
+            .xdp2("xdp2_parse_eigrp").scapy("EIGRP").tshark("eigrp")
             .libpcap("eigrp_header", "pcap/proto_audit/eigrp.h")
             .variable()
             .etherparse("EIGRPHeader", "src/proto_audit/eigrp.rs"),
         // ── Bluetooth (upper layers) ──
-        PN::new("BT_ATT", 1).scapy("ATT_Hdr").tshark("btatt").variable()
+        PN::new("BT_ATT", 1)
+            .xdp2("xdp2_parse_bt_att").scapy("ATT_Hdr").tshark("btatt").variable()
             .etherparse("ATT_HdrHeader", "src/proto_audit/bt_att.rs")
             .libpcap("bt_att_header", "pcap/proto_audit/bt_att.h"),
-        PN::new("BT_SMP", 1).scapy("SM_Hdr").tshark("btsmp").variable()
+        PN::new("BT_SMP", 1)
+            .xdp2("xdp2_parse_bt_smp").scapy("SM_Hdr").tshark("btsmp").variable()
             .etherparse("SM_HdrHeader", "src/proto_audit/bt_smp.rs")
             .libpcap("bt_smp_header", "pcap/proto_audit/bt_smp.h"),
-        PN::new("BT_RFCOMM", 4).scapy("RFCOMM_Hdr").tshark("btrfcomm").variable()
+        PN::new("BT_RFCOMM", 4)
+            .xdp2("xdp2_parse_bt_rfcomm").scapy("RFCOMM_Hdr").tshark("btrfcomm").variable()
             .etherparse("BT_RFCOMMHeader", "src/proto_audit/bt_rfcomm.rs")
             .libpcap("bt_rfcomm_header", "pcap/proto_audit/bt_rfcomm.h"),
-        PN::new("BT_BNEP", 3).scapy("BNEP").tshark("btbnep").variable()
+        PN::new("BT_BNEP", 3)
+            .xdp2("xdp2_parse_bt_bnep").scapy("BNEP").tshark("btbnep").variable()
             .etherparse("BT_BNEPHeader", "src/proto_audit/bt_bnep.rs")
             .libpcap("bt_bnep_header", "pcap/proto_audit/bt_bnep.h"),
-        PN::new("BT_SDP", 3).scapy("SDP_Hdr").tshark("btsdp").variable()
+        PN::new("BT_SDP", 3)
+            .xdp2("xdp2_parse_bt_sdp").scapy("SDP_Hdr").tshark("btsdp").variable()
             .etherparse("BT_SDPHeader", "src/proto_audit/bt_sdp.rs")
             .libpcap("bt_sdp_header", "pcap/proto_audit/bt_sdp.h"),
-        PN::new("BT_AVDTP", 2).scapy("AVDTP_Hdr").tshark("btavdtp").variable()
+        PN::new("BT_AVDTP", 2)
+            .xdp2("xdp2_parse_bt_avdtp").scapy("AVDTP_Hdr").tshark("btavdtp").variable()
             .etherparse("BT_AVDTPHeader", "src/proto_audit/bt_avdtp.rs")
             .libpcap("bt_avdtp_header", "pcap/proto_audit/bt_avdtp.h"),
         // ── InfiniBand (extended transport headers) ──
-        PN::new("IB_DETH", 8).scapy("IB_DETH").tshark("infiniband.deth")
+        PN::new("IB_DETH", 8)
+            .xdp2("xdp2_parse_ib_deth").scapy("IB_DETH").tshark("infiniband.deth")
             .etherparse("IB_DETHHeader", "src/proto_audit/ib_deth.rs")
             .libpcap("ib_deth_header", "pcap/proto_audit/ib_deth.h"),
-        PN::new("IB_RETH", 16).scapy("IB_RETH").tshark("infiniband.reth")
+        PN::new("IB_RETH", 16)
+            .xdp2("xdp2_parse_ib_reth").scapy("IB_RETH").tshark("infiniband.reth")
             .etherparse("IB_RETHHeader", "src/proto_audit/ib_reth.rs")
             .libpcap("ib_reth_header", "pcap/proto_audit/ib_reth.h"),
-        PN::new("IB_AETH", 4).scapy("IB_AETH").tshark("infiniband.aeth")
+        PN::new("IB_AETH", 4)
+            .xdp2("xdp2_parse_ib_aeth").scapy("IB_AETH").tshark("infiniband.aeth")
             .etherparse("IB_AETHHeader", "src/proto_audit/ib_aeth.rs")
             .libpcap("ib_aeth_header", "pcap/proto_audit/ib_aeth.h"),
-        PN::new("IB_RDETH", 4).scapy("IB_RDETH").tshark("infiniband.rdeth")
+        PN::new("IB_RDETH", 4)
+            .xdp2("xdp2_parse_ib_rdeth").scapy("IB_RDETH").tshark("infiniband.rdeth")
             .etherparse("IB_RDETHHeader", "src/proto_audit/ib_rdeth.rs")
             .libpcap("ib_rdeth_header", "pcap/proto_audit/ib_rdeth.h"),
-        PN::new("IB_AtomicETH", 28).scapy("IB_AtomicETH").tshark("infiniband.atomiceth")
+        PN::new("IB_AtomicETH", 28)
+            .xdp2("xdp2_parse_ib_atomiceth").scapy("IB_AtomicETH").tshark("infiniband.atomiceth")
             .etherparse("IB_AtomicETHHeader", "src/proto_audit/ib_atomiceth.rs")
             .libpcap("ib_atomiceth_header", "pcap/proto_audit/ib_atomiceth.h"),
-        PN::new("IB_ImmDt", 4).scapy("IB_ImmDt").tshark("infiniband.immdt")
+        PN::new("IB_ImmDt", 4)
+            .xdp2("xdp2_parse_ib_immdt").scapy("IB_ImmDt").tshark("infiniband.immdt")
             .etherparse("IB_ImmDtHeader", "src/proto_audit/ib_immdt.rs")
             .libpcap("ib_immdt_header", "pcap/proto_audit/ib_immdt.h"),
-        PN::new("IB_MAD", 24).scapy("IB_MAD").tshark("infiniband.mad").variable()
+        PN::new("IB_MAD", 24)
+            .xdp2("xdp2_parse_ib_mad").scapy("IB_MAD").tshark("infiniband.mad").variable()
             .etherparse("IB_MADHeader", "src/proto_audit/ib_mad.rs")
             .libpcap("ib_mad_header", "pcap/proto_audit/ib_mad.h"),
         // ── Multicast ──
@@ -688,7 +705,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("MLDv2_ReportHeader", "src/proto_audit/mldv2_report.rs")
             .libpcap("mldv2_report_header", "pcap/proto_audit/mldv2_report.h"),
         // ── Media/Streaming ──
-        PN::new("MPEG_TS", 188).scapy("MPEG_TS").tshark("mp2t")
+        PN::new("MPEG_TS", 188)
+            .xdp2("xdp2_parse_mpeg_ts").scapy("MPEG_TS").tshark("mp2t")
             .etherparse("MPEG_TSHeader", "src/proto_audit/mpeg_ts.rs")
             .libpcap("mpeg_ts_header", "pcap/proto_audit/mpeg_ts.h"),
         PN::new("RTP", 12)
@@ -697,7 +715,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("rtp_header", "pcap/proto_audit/rtp.h")
             .variable()
             .rfcs(&[3550, 3551]),
-        PN::new("SRT", 16).scapy("SRT").tshark("srt").variable()
+        PN::new("SRT", 16)
+            .xdp2("xdp2_parse_srt").scapy("SRT").tshark("srt").variable()
             .etherparse("SRTHeader", "src/proto_audit/srt.rs")
             .libpcap("srt_header", "pcap/proto_audit/srt.h"),
         // ── UDP Application Protocols ──
@@ -722,11 +741,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .variable()
             .rfcs(&[2131, 2132])
             .etherparse("DHCPHeader", "src/proto_audit/dhcp.rs"),
-        PN::new("DHCPv6", 4).scapy("DHCP6").tshark("dhcpv6").variable()
+        PN::new("DHCPv6", 4)
+            .xdp2("xdp2_parse_dhcpv6").scapy("DHCP6").tshark("dhcpv6").variable()
             .rfcs(&[8415])
             .etherparse("DHCPv6Header", "src/proto_audit/dhcpv6.rs")
             .libpcap("dhcpv6_header", "pcap/proto_audit/dhcpv6.h"),
-        PN::new("QUIC", 20).scapy("QUIC_Initial").tshark("quic").variable()
+        PN::new("QUIC", 20)
+            .xdp2("xdp2_parse_quic").scapy("QUIC_Initial").tshark("quic").variable()
             .rfcs(&[9000, 9001, 9002])
             .etherparse("QUIC_InitialHeader", "src/proto_audit/quic.rs")
             .libpcap("quic_header", "pcap/proto_audit/quic.h"),
@@ -771,32 +792,39 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("iSERHeader", "src/proto_audit/iser.rs")
             .libpcap("iser_header", "pcap/proto_audit/iser.h"),
         // ── Network Storage Protocols ──
-        PN::new("NFS", 4).scapy("NFS_Call").tshark("nfs").variable()
+        PN::new("NFS", 4)
+            .xdp2("xdp2_parse_nfs").scapy("NFS_Call").tshark("nfs").variable()
             .rfcs(&[7530, 8881])
             .etherparse("NFSHeader", "src/proto_audit/nfs.rs")
             .libpcap("nfs_header", "pcap/proto_audit/nfs.h"),
-        PN::new("SMB", 32).scapy("SMB_Header").tshark("smb").variable()
+        PN::new("SMB", 32)
+            .xdp2("xdp2_parse_smb").scapy("SMB_Header").tshark("smb").variable()
             .etherparse("SMB_HeaderHeader", "src/proto_audit/smb.rs")
             .libpcap("smb_header", "pcap/proto_audit/smb.h"),
-        PN::new("SMB2", 64).scapy("SMB2_Header").tshark("smb2").variable()
+        PN::new("SMB2", 64)
+            .xdp2("xdp2_parse_smb2").scapy("SMB2_Header").tshark("smb2").variable()
             .etherparse("SMB2_HeaderHeader", "src/proto_audit/smb2.rs")
             .libpcap("smb2_header", "pcap/proto_audit/smb2.h"),
-        PN::new("ONC_RPC", 4).scapy("RPC").tshark("rpc").variable()
+        PN::new("ONC_RPC", 4)
+            .xdp2("xdp2_parse_onc_rpc").scapy("RPC").tshark("rpc").variable()
             .rfcs(&[5531, 1831])
             .etherparse("ONC_RPCHeader", "src/proto_audit/onc_rpc.rs")
             .libpcap("onc_rpc_header", "pcap/proto_audit/onc_rpc.h"),
         // ── Capture Layer / L1 Encapsulations ──
         PN::new("SLL", 16)
+            .xdp2("xdp2_parse_sll")
             .scapy("CookedLinux")
             .tshark("sll")
             .libpcap("sll_header", "pcap/sll.h")
             .etherparse("CookedLinuxHeader", "src/proto_audit/sll.rs"),
         PN::new("SLL2", 20)
+            .xdp2("xdp2_parse_sll2")
             .scapy("CookedLinuxV2")
             .tshark("sll")
             .libpcap("sll2_header", "pcap/sll.h")
             .etherparse("SLL2Header", "src/proto_audit/sll2.rs"),
-        PN::new("ERF", 18).scapy("ERF").tshark("erf").variable()
+        PN::new("ERF", 18)
+            .xdp2("xdp2_parse_erf").scapy("ERF").tshark("erf").variable()
             .etherparse("ERFHeader", "src/proto_audit/erf.rs")
             .libpcap("erf_header", "pcap/proto_audit/erf.h"),
         // ── Layer 2 Additions ──
@@ -830,10 +858,12 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .ieee(&["802.1ad-2005", "802.1Q-2022"])
             .etherparse("QinQHeader", "src/proto_audit/qinq.rs")
             .libpcap("qinq_header", "pcap/proto_audit/qinq.h"),
-        PN::new("WOL", 102).tshark("wol")
+        PN::new("WOL", 102)
+            .xdp2("xdp2_parse_wol").tshark("wol")
             .etherparse("WOLHeader", "src/proto_audit/wol.rs")
             .libpcap("wol_header", "pcap/proto_audit/wol.h"),
-        PN::new("HomePlug_AV", 4).scapy("HomePlugAV").tshark("homeplug-av").variable()
+        PN::new("HomePlug_AV", 4)
+            .xdp2("xdp2_parse_homeplug_av").scapy("HomePlugAV").tshark("homeplug-av").variable()
             .etherparse("HomePlug_AVHeader", "src/proto_audit/homeplug_av.rs")
             .libpcap("homeplug_av_header", "pcap/proto_audit/homeplug_av.h"),
         // ── Layer 3 Additions ──
@@ -861,7 +891,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .variable()
             .rfcs(&[2152])
             .etherparse("GTP_UHeader", "src/proto_audit/gtp_u.rs"),
-        PN::new("GTP_C", 8).scapy("GTPHeader").tshark("gtpv2")
+        PN::new("GTP_C", 8)
+            .xdp2("xdp2_parse_gtp_c").scapy("GTPHeader").tshark("gtpv2")
             .libpcap("gtp_c_header", "pcap/proto_audit/gtp.h")
             .variable()
             .etherparse("GTP_CHeader", "src/proto_audit/gtp_c.rs"),
@@ -913,7 +944,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("SCTPChunkDataHeader", "src/proto_audit/sctp_chunk.rs")
             .libpcap("sctp_chunk_header", "pcap/proto_audit/sctp_chunk.h"),
         // ── Tunneling Additions ──
-        PN::new("WireGuard", 4).scapy("WireGuard").tshark("wireguard")
+        PN::new("WireGuard", 4)
+            .xdp2("xdp2_parse_wireguard").scapy("WireGuard").tshark("wireguard")
             .etherparse("WireGuardHeader", "src/proto_audit/wire_guard.rs").variable()
             .rfcs(&[7301])
             .libpcap("wireguard_header", "pcap/proto_audit/wireguard.h"),
@@ -926,7 +958,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("NvgreHeader", "src/proto_audit/nvgre.rs")
             .rfcs(&[7637])
             .libpcap("nvgre_header", "pcap/proto_audit/nvgre.h"),
-        PN::new("LISP", 8).scapy("LISP").tshark("lisp").variable()
+        PN::new("LISP", 8)
+            .xdp2("xdp2_parse_lisp").scapy("LISP").tshark("lisp").variable()
             .rfcs(&[9300, 9301, 6830])
             .etherparse("LISPHeader", "src/proto_audit/lisp.rs")
             .libpcap("lisp_header", "pcap/proto_audit/lisp.h"),
@@ -934,7 +967,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_stt").tshark("stt").variable()
             .etherparse("STTHeader", "src/proto_audit/stt.rs")
             .libpcap("stt_header", "pcap/proto_audit/stt.h"),
-        PN::new("Teredo", 2).tshark("teredo").variable()
+        PN::new("Teredo", 2)
+            .xdp2("xdp2_parse_teredo").tshark("teredo").variable()
             .rfcs(&[4380])
             .etherparse("TeredoHeader", "src/proto_audit/teredo.rs")
             .libpcap("teredo_header", "pcap/proto_audit/teredo.h"),
@@ -947,11 +981,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("VxlanGpeHeader", "src/proto_audit/vxlan_gpe.rs")
             .libpcap("vxlan_gpe_header", "pcap/proto_audit/vxlan_gpe.h"),
         // ── Security Additions ──
-        PN::new("TLS", 5).scapy("TLS").tshark("tls").variable()
+        PN::new("TLS", 5)
+            .xdp2("xdp2_parse_tls").scapy("TLS").tshark("tls").variable()
             .rfcs(&[8446, 5246, 8447])
             .etherparse("TLSHeader", "src/proto_audit/tls.rs")
             .libpcap("tls_header", "pcap/proto_audit/tls.h"),
-        PN::new("DTLS", 13).scapy("DTLS").tshark("dtls").variable()
+        PN::new("DTLS", 13)
+            .xdp2("xdp2_parse_dtls").scapy("DTLS").tshark("dtls").variable()
             .rfcs(&[9147, 6347])
             .etherparse("DTLSHeader", "src/proto_audit/dtls.rs")
             .libpcap("dtls_header", "pcap/proto_audit/dtls.h"),
@@ -960,40 +996,49 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[7296, 4306])
             .etherparse("IKEv2Header", "src/proto_audit/ikev2.rs")
             .libpcap("ikev2_header", "pcap/proto_audit/ikev2.h"),
-        PN::new("EAP", 4).scapy("EAP").tshark("eap").variable()
+        PN::new("EAP", 4)
+            .xdp2("xdp2_parse_eap").scapy("EAP").tshark("eap").variable()
             .rfcs(&[3748, 5247])
             .etherparse("EAPHeader", "src/proto_audit/eap.rs")
             .libpcap("eap_header", "pcap/proto_audit/eap.h"),
         // ── DNS Family & Discovery ──
-        PN::new("mDNS", 12).scapy("DNS").tshark("mdns").variable()
+        PN::new("mDNS", 12)
+            .xdp2("xdp2_parse_mdns").scapy("DNS").tshark("mdns").variable()
             .rfcs(&[6762])
             .etherparse("mDNSHeader", "src/proto_audit/mdns.rs")
             .libpcap("mdns_header", "pcap/proto_audit/mdns.h"),
-        PN::new("LLMNR", 12).scapy("DNS").tshark("llmnr").variable()
+        PN::new("LLMNR", 12)
+            .xdp2("xdp2_parse_llmnr").scapy("DNS").tshark("llmnr").variable()
             .rfcs(&[4795])
             .etherparse("LLMNRHeader", "src/proto_audit/llmnr.rs")
             .libpcap("llmnr_header", "pcap/proto_audit/llmnr.h"),
-        PN::new("NBNS", 12).scapy("NBNSQueryRequest").tshark("nbns").variable()
+        PN::new("NBNS", 12)
+            .xdp2("xdp2_parse_nbns").scapy("NBNSQueryRequest").tshark("nbns").variable()
             .rfcs(&[1002])
             .etherparse("NBNSHeader", "src/proto_audit/nbns.rs")
             .libpcap("nbns_header", "pcap/proto_audit/nbns.h"),
-        PN::new("PPPoED", 6).scapy("PPPoED").tshark("pppoed").variable()
+        PN::new("PPPoED", 6)
+            .xdp2("xdp2_parse_ppoed").scapy("PPPoED").tshark("pppoed").variable()
             .rfcs(&[2516])
             .etherparse("PPPoEDHeader", "src/proto_audit/pppoed.rs")
             .libpcap("pppoed_header", "pcap/proto_audit/pppoed.h"),
-        PN::new("LLTD", 14).tshark("lltd").variable()
+        PN::new("LLTD", 14)
+            .xdp2("xdp2_parse_lltd").tshark("lltd").variable()
             .etherparse("LLTDHeader", "src/proto_audit/lltd.rs")
             .libpcap("lltd_header", "pcap/proto_audit/lltd.h"),
         // ── VoIP / Telephony ──
-        PN::new("SIP", 20).scapy("SIP").tshark("sip").variable()
+        PN::new("SIP", 20)
+            .xdp2("xdp2_parse_sip").scapy("SIP").tshark("sip").variable()
             .rfcs(&[3261, 6026])
             .etherparse("SIPHeader", "src/proto_audit/sip.rs")
             .libpcap("sip_header", "pcap/proto_audit/sip.h"),
-        PN::new("RTCP", 8).scapy("RTCP").tshark("rtcp").variable()
+        PN::new("RTCP", 8)
+            .xdp2("xdp2_parse_rtcp").scapy("RTCP").tshark("rtcp").variable()
             .rfcs(&[3550])
             .etherparse("RTCPHeader", "src/proto_audit/rtcp.rs")
             .libpcap("rtcp_header", "pcap/proto_audit/rtcp.h"),
-        PN::new("RTSP", 12).tshark("rtsp").variable()
+        PN::new("RTSP", 12)
+            .xdp2("xdp2_parse_rtsp").tshark("rtsp").variable()
             .rfcs(&[7826, 2326])
             .etherparse("RTSPHeader", "src/proto_audit/rtsp.rs")
             .libpcap("rtsp_header", "pcap/proto_audit/rtsp.h"),
@@ -1002,56 +1047,71 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("stun_header", "pcap/proto_audit/stun.h")
             .rfcs(&[8489, 5389])
             .etherparse("STUNHeader", "src/proto_audit/stun.rs"),
-        PN::new("Skinny", 12).scapy("Skinny").tshark("skinny").variable()
+        PN::new("Skinny", 12)
+            .xdp2("xdp2_parse_skinny").scapy("Skinny").tshark("skinny").variable()
             .etherparse("SkinnyHeader", "src/proto_audit/skinny.rs")
             .libpcap("skinny_header", "pcap/proto_audit/skinny.h"),
-        PN::new("MGCP", 4).tshark("mgcp").variable()
+        PN::new("MGCP", 4)
+            .xdp2("xdp2_parse_mgcp").tshark("mgcp").variable()
             .rfcs(&[3435])
             .etherparse("MGCPHeader", "src/proto_audit/mgcp.rs")
             .libpcap("mgcp_header", "pcap/proto_audit/mgcp.h"),
         // ── IoT / Industrial ──
-        PN::new("MQTT", 2).scapy("MQTT").tshark("mqtt")
+        PN::new("MQTT", 2)
+            .xdp2("xdp2_parse_mqtt").scapy("MQTT").tshark("mqtt")
             .libpcap("mqtt_header", "pcap/proto_audit/mqtt.h")
             .variable()
             .etherparse("MQTTHeader", "src/proto_audit/mqtt.rs"),
-        PN::new("CoAP", 4).scapy("CoAP").tshark("coap").variable()
+        PN::new("CoAP", 4)
+            .xdp2("xdp2_parse_coap").scapy("CoAP").tshark("coap").variable()
             .rfcs(&[7252, 7641, 8323])
             .etherparse("CoAPHeader", "src/proto_audit/coap.rs")
             .libpcap("coap_header", "pcap/proto_audit/coap.h"),
-        PN::new("MODBUS_TCP", 7).scapy("ModbusADU").tshark("modbus")
+        PN::new("MODBUS_TCP", 7)
+            .xdp2("xdp2_parse_modbus_tcp").scapy("ModbusADU").tshark("modbus")
             .libpcap("modbus_tcp_header", "pcap/proto_audit/modbus.h")
             .variable()
             .etherparse("MODBUS_TCPHeader", "src/proto_audit/modbus_tcp.rs"),
-        PN::new("BACnet", 4).scapy("BVLC").tshark("bacnet").variable()
+        PN::new("BACnet", 4)
+            .xdp2("xdp2_parse_bacnet").scapy("BVLC").tshark("bacnet").variable()
             .etherparse("BACnetHeader", "src/proto_audit/bacnet.rs")
             .libpcap("bacnet_header", "pcap/proto_audit/bacnet.h"),
-        PN::new("DNP3", 10).scapy("DNP3").tshark("dnp3").variable()
+        PN::new("DNP3", 10)
+            .xdp2("xdp2_parse_dnp3").scapy("DNP3").tshark("dnp3").variable()
             .ieee(&["1815-2012"])
             .etherparse("DNP3Header", "src/proto_audit/dnp3.rs")
             .libpcap("dnp3_header", "pcap/proto_audit/dnp3.h"),
-        PN::new("ENIP", 24).scapy("ENIP_TCP").tshark("enip").variable()
+        PN::new("ENIP", 24)
+            .xdp2("xdp2_parse_enip").scapy("ENIP_TCP").tshark("enip").variable()
             .etherparse("ENIPHeader", "src/proto_audit/enip.rs")
             .libpcap("enip_header", "pcap/proto_audit/enip.h"),
-        PN::new("CIP", 2).scapy("CIP").tshark("cip").variable()
+        PN::new("CIP", 2)
+            .xdp2("xdp2_parse_cip").scapy("CIP").tshark("cip").variable()
             .etherparse("CIPHeader", "src/proto_audit/cip.rs")
             .libpcap("cip_header", "pcap/proto_audit/cip.h"),
-        PN::new("OPC_UA", 8).tshark("opcua").variable()
+        PN::new("OPC_UA", 8)
+            .xdp2("xdp2_parse_opc_ua").tshark("opcua").variable()
             .etherparse("OPC_UAHeader", "src/proto_audit/opc_ua.rs")
             .libpcap("opc_ua_header", "pcap/proto_audit/opc_ua.h"),
-        PN::new("IEC_GOOSE", 8).scapy("GOOSE").tshark("goose").variable()
+        PN::new("IEC_GOOSE", 8)
+            .xdp2("xdp2_parse_iec_goose").scapy("GOOSE").tshark("goose").variable()
             .etherparse("IEC_GOOSEHeader", "src/proto_audit/iec_goose.rs")
             .libpcap("iec_goose_header", "pcap/proto_audit/iec_goose.h"),
         // ── ICS / Power & Zigbee ──
-        PN::new("IEC_SV", 8).tshark("sv").variable()
+        PN::new("IEC_SV", 8)
+            .xdp2("xdp2_parse_iec_sv").tshark("sv").variable()
             .etherparse("IEC_SVHeader", "src/proto_audit/iec_sv.rs")
             .libpcap("iec_sv_header", "pcap/proto_audit/iec_sv.h"),
-        PN::new("IEC_MMS", 4).tshark("mms").variable()
+        PN::new("IEC_MMS", 4)
+            .xdp2("xdp2_parse_iec_mms").tshark("mms").variable()
             .etherparse("IEC_MMSHeader", "src/proto_audit/iec_mms.rs")
             .libpcap("iec_mms_header", "pcap/proto_audit/iec_mms.h"),
-        PN::new("Zigbee_NWK", 2).scapy("ZigbeeNWK").tshark("zbee_nwk").variable()
+        PN::new("Zigbee_NWK", 2)
+            .xdp2("xdp2_parse_zigbee_nwk").scapy("ZigbeeNWK").tshark("zbee_nwk").variable()
             .etherparse("Zigbee_NWKHeader", "src/proto_audit/zigbee_nwk.rs")
             .libpcap("zigbee_nwk_header", "pcap/proto_audit/zigbee_nwk.h"),
-        PN::new("Zigbee_APS", 2).scapy("ZigbeeAppDataPayload").tshark("zbee_aps").variable()
+        PN::new("Zigbee_APS", 2)
+            .xdp2("xdp2_parse_zigbee_aps").scapy("ZigbeeAppDataPayload").tshark("zbee_aps").variable()
             .etherparse("ZigbeeAppDataPayloadHeader", "src/proto_audit/zigbee_aps.rs")
             .libpcap("zigbee_aps_header", "pcap/proto_audit/zigbee_aps.h"),
         // ── Network Management ──
@@ -1061,11 +1121,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("radius_header", "pcap/proto_audit/radius.h")
             .variable()
             .rfcs(&[2865, 2866]),
-        PN::new("Diameter", 20).scapy("DiamG").tshark("diameter").variable()
+        PN::new("Diameter", 20)
+            .xdp2("xdp2_parse_diameter").scapy("DiamG").tshark("diameter").variable()
             .rfcs(&[6733])
             .etherparse("DiamGHeader", "src/proto_audit/diameter.rs")
             .libpcap("diameter_header", "pcap/proto_audit/diameter.h"),
-        PN::new("TACACS", 12).scapy("TACACS").tshark("tacacs").variable()
+        PN::new("TACACS", 12)
+            .xdp2("xdp2_parse_tacacs").scapy("TACACS").tshark("tacacs").variable()
             .rfcs(&[8907])
             .etherparse("TacplusHeader", "src/proto_audit/tacplus.rs")
             .libpcap("tacacs_header", "pcap/proto_audit/tacacs.h"),
@@ -1074,80 +1136,100 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[5424, 3164])
             .etherparse("SyslogHeader", "src/proto_audit/syslog.rs")
             .libpcap("syslog_header", "pcap/proto_audit/syslog.h"),
-        PN::new("TFTP", 4).scapy("TFTP").tshark("tftp").variable()
+        PN::new("TFTP", 4)
+            .xdp2("xdp2_parse_tftp").scapy("TFTP").tshark("tftp").variable()
             .rfcs(&[1350])
             .etherparse("TFTPHeader", "src/proto_audit/tftp.rs")
             .libpcap("tftp_header", "pcap/proto_audit/tftp.h"),
-        PN::new("NetFlow_v5", 24).scapy("NetflowHeaderV5").tshark("cflow").variable()
+        PN::new("NetFlow_v5", 24)
+            .xdp2("xdp2_parse_netflow_v5").scapy("NetflowHeaderV5").tshark("cflow").variable()
             .etherparse("NetflowHeaderV5Header", "src/proto_audit/netflow_v5.rs")
             .libpcap("netflow_v5_header", "pcap/proto_audit/netflow_v5.h"),
-        PN::new("NetFlow_v9", 20).scapy("NetflowHeaderV9").tshark("cflow").variable()
+        PN::new("NetFlow_v9", 20)
+            .xdp2("xdp2_parse_netflow_v9").scapy("NetflowHeaderV9").tshark("cflow").variable()
             .rfcs(&[3954])
             .etherparse("NetflowHeaderV9Header", "src/proto_audit/netflow_v9.rs")
             .libpcap("netflow_v9_header", "pcap/proto_audit/netflow_v9.h"),
-        PN::new("IPFIX", 16).scapy("IPFIXHeader").tshark("cflow").variable()
+        PN::new("IPFIX", 16)
+            .xdp2("xdp2_parse_ipfix").scapy("IPFIXHeader").tshark("cflow").variable()
             .rfcs(&[7011, 5101])
             .etherparse("IPFIXHeader", "src/proto_audit/ipfix.rs")
             .libpcap("ipfix_header", "pcap/proto_audit/ipfix.h"),
         // ── Auth & Directory ──
-        PN::new("LDAP", 1).tshark("ldap").variable()
+        PN::new("LDAP", 1)
+            .xdp2("xdp2_parse_ldap").tshark("ldap").variable()
             .rfcs(&[4511, 4510])
             .etherparse("LDAPHeader", "src/proto_audit/ldap.rs")
             .libpcap("ldap_header", "pcap/proto_audit/ldap.h"),
-        PN::new("Kerberos", 4).scapy("Kerberos").tshark("kerberos").variable()
+        PN::new("Kerberos", 4)
+            .xdp2("xdp2_parse_kerberos").scapy("Kerberos").tshark("kerberos").variable()
             .rfcs(&[4120, 4121])
             .etherparse("KerberosHeader", "src/proto_audit/kerberos.rs")
             .libpcap("kerberos_header", "pcap/proto_audit/kerberos.h"),
-        PN::new("NTLMSSP", 12).tshark("ntlmssp").variable()
+        PN::new("NTLMSSP", 12)
+            .xdp2("xdp2_parse_ntlmssp").tshark("ntlmssp").variable()
             .etherparse("NTLMSSPHeader", "src/proto_audit/ntlmssp.rs")
             .libpcap("ntlmssp_header", "pcap/proto_audit/ntlmssp.h"),
-        PN::new("OCSP", 1).tshark("ocsp").variable()
+        PN::new("OCSP", 1)
+            .xdp2("xdp2_parse_ocsp").tshark("ocsp").variable()
             .rfcs(&[6960, 2560])
             .etherparse("OCSPHeader", "src/proto_audit/ocsp.rs")
             .libpcap("ocsp_header", "pcap/proto_audit/ocsp.h"),
         // ── File Transfer & Web ──
-        PN::new("HTTP", 16).scapy("HTTP").tshark("http").variable()
+        PN::new("HTTP", 16)
+            .xdp2("xdp2_parse_http").scapy("HTTP").tshark("http").variable()
             .rfcs(&[9110, 9112])
             .etherparse("HTTPHeader", "src/proto_audit/http.rs")
             .libpcap("http_header", "pcap/proto_audit/http.h"),
-        PN::new("HTTP2", 9).scapy("HTTP2").tshark("http2").variable()
+        PN::new("HTTP2", 9)
+            .xdp2("xdp2_parse_http2").scapy("HTTP2").tshark("http2").variable()
             .rfcs(&[9113, 7540])
             .etherparse("HTTP2Header", "src/proto_audit/http2.rs")
             .libpcap("http2_header", "pcap/proto_audit/http2.h"),
-        PN::new("FTP", 4).tshark("ftp").variable()
+        PN::new("FTP", 4)
+            .xdp2("xdp2_parse_ftp").tshark("ftp").variable()
             .rfcs(&[959])
             .etherparse("FTPHeader", "src/proto_audit/ftp.rs")
             .libpcap("ftp_header", "pcap/proto_audit/ftp.h"),
-        PN::new("SSH", 5).tshark("ssh").variable()
+        PN::new("SSH", 5)
+            .xdp2("xdp2_parse_ssh").tshark("ssh").variable()
             .rfcs(&[4253, 4251, 4252])
             .etherparse("SSHHeader", "src/proto_audit/ssh.rs")
             .libpcap("ssh_header", "pcap/proto_audit/ssh.h"),
-        PN::new("Telnet", 1).tshark("telnet").variable()
+        PN::new("Telnet", 1)
+            .xdp2("xdp2_parse_telnet").tshark("telnet").variable()
             .rfcs(&[854, 855])
             .etherparse("TelnetHeader", "src/proto_audit/telnet.rs")
             .libpcap("telnet_header", "pcap/proto_audit/telnet.h"),
-        PN::new("SMTP", 4).tshark("smtp").variable()
+        PN::new("SMTP", 4)
+            .xdp2("xdp2_parse_smtp").tshark("smtp").variable()
             .rfcs(&[5321])
             .etherparse("SMTPHeader", "src/proto_audit/smtp.rs")
             .libpcap("smtp_header", "pcap/proto_audit/smtp.h"),
-        PN::new("IMAP", 1).tshark("imap").variable()
+        PN::new("IMAP", 1)
+            .xdp2("xdp2_parse_imap").tshark("imap").variable()
             .rfcs(&[9051, 3501])
             .etherparse("IMAPHeader", "src/proto_audit/imap.rs")
             .libpcap("imap_header", "pcap/proto_audit/imap.h"),
         // ── Message Queuing ──
-        PN::new("AMQP", 7).tshark("amqp").variable()
+        PN::new("AMQP", 7)
+            .xdp2("xdp2_parse_amqp").tshark("amqp").variable()
             .etherparse("AMQPHeader", "src/proto_audit/amqp.rs")
             .libpcap("amqp_header", "pcap/proto_audit/amqp.h"),
-        PN::new("Kafka", 12).tshark("kafka").variable()
+        PN::new("Kafka", 12)
+            .xdp2("xdp2_parse_kafka").tshark("kafka").variable()
             .etherparse("KafkaHeader", "src/proto_audit/kafka.rs")
             .libpcap("kafka_header", "pcap/proto_audit/kafka.h"),
-        PN::new("ZeroMQ", 2).tshark("zmtp").variable()
+        PN::new("ZeroMQ", 2)
+            .xdp2("xdp2_parse_zeromq").tshark("zmtp").variable()
             .etherparse("ZeroMQHeader", "src/proto_audit/zeromq.rs")
             .libpcap("zeromq_header", "pcap/proto_audit/zeromq.h"),
-        PN::new("Memcache", 24).tshark("memcache").variable()
+        PN::new("Memcache", 24)
+            .xdp2("xdp2_parse_memcache").tshark("memcache").variable()
             .etherparse("MemcacheHeader", "src/proto_audit/memcache.rs")
             .libpcap("memcache_header", "pcap/proto_audit/memcache.h"),
-        PN::new("Redis", 1).tshark("resp").variable()
+        PN::new("Redis", 1)
+            .xdp2("xdp2_parse_redis").tshark("resp").variable()
             .etherparse("RedisHeader", "src/proto_audit/redis.rs")
             .libpcap("redis_header", "pcap/proto_audit/redis.h"),
         // ── Routing & Misc ──
@@ -1156,7 +1238,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("BfdHeader", "src/proto_audit/bfd.rs")
             .libpcap("bfd_header", "pcap/proto_audit/bfd.h")
             .rfcs(&[5880, 5881]),
-        PN::new("LDP", 10).scapy("LDP").tshark("ldp").variable()
+        PN::new("LDP", 10)
+            .xdp2("xdp2_parse_ldp").scapy("LDP").tshark("ldp").variable()
             .rfcs(&[5036, 3036])
             .etherparse("LDPHeader", "src/proto_audit/ldp.rs")
             .libpcap("ldp_header", "pcap/proto_audit/ldp.h"),
@@ -1166,34 +1249,43 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .variable()
             .rfcs(&[2205, 3209])
             .etherparse("RSVPHeader", "src/proto_audit/rsvp.rs"),
-        PN::new("MPLS_OAM", 4).tshark("mpls-echo").variable()
+        PN::new("MPLS_OAM", 4)
+            .xdp2("xdp2_parse_mpls_oam").tshark("mpls-echo").variable()
             .rfcs(&[8029, 4379])
             .etherparse("MPLS_OAMHeader", "src/proto_audit/mpls_oam.rs")
             .libpcap("mpls_oam_header", "pcap/proto_audit/mpls_oam.h"),
-        PN::new("CARP", 8).scapy("VRRPv3").tshark("carp").variable()
+        PN::new("CARP", 8)
+            .xdp2("xdp2_parse_carp").scapy("VRRPv3").tshark("carp").variable()
             .etherparse("VRRPv3Header", "src/proto_audit/carp.rs")
             .libpcap("carp_header", "pcap/proto_audit/carp.h"),
-        PN::new("GLBP", 2).tshark("glbp").variable()
+        PN::new("GLBP", 2)
+            .xdp2("xdp2_parse_glbp").tshark("glbp").variable()
             .etherparse("GLBPHeader", "src/proto_audit/glbp.rs")
             .libpcap("glbp_header", "pcap/proto_audit/glbp.h"),
-        PN::new("OpenFlow", 8).scapy("OFPTHello").tshark("openflow_v4").variable()
+        PN::new("OpenFlow", 8)
+            .xdp2("xdp2_parse_openflow").scapy("OFPTHello").tshark("openflow_v4").variable()
             .etherparse("OFPTHelloHeader", "src/proto_audit/openflow.rs")
             .libpcap("openflow_header", "pcap/proto_audit/openflow.h"),
-        PN::new("TZSP", 4).tshark("tzsp").variable()
+        PN::new("TZSP", 4)
+            .xdp2("xdp2_parse_tzsp").tshark("tzsp").variable()
             .etherparse("TZSPHeader", "src/proto_audit/tzsp.rs")
             .libpcap("tzsp_header", "pcap/proto_audit/tzsp.h"),
-        PN::new("GRE_PPTP", 8).scapy("GRE_PPTP").tshark("pptp").variable()
+        PN::new("GRE_PPTP", 8)
+            .xdp2("xdp2_parse_gre_pptp").scapy("GRE_PPTP").tshark("pptp").variable()
             .rfcs(&[2637])
             .etherparse("GRE_PPTPHeader", "src/proto_audit/gre_pptp.rs")
             .libpcap("gre_pptp_header", "pcap/proto_audit/gre_pptp.h"),
-        PN::new("CAPWAP", 8).scapy("CAPWAP_CTRL").tshark("capwap").variable()
+        PN::new("CAPWAP", 8)
+            .xdp2("xdp2_parse_capwap").scapy("CAPWAP_CTRL").tshark("capwap").variable()
             .rfcs(&[5415, 5416])
             .etherparse("CAPWAPHeader", "src/proto_audit/capwap.rs")
             .libpcap("capwap_header", "pcap/proto_audit/capwap.h"),
-        PN::new("LWAPP", 6).scapy("LWAPP").tshark("lwapp").variable()
+        PN::new("LWAPP", 6)
+            .xdp2("xdp2_parse_lwapp").scapy("LWAPP").tshark("lwapp").variable()
             .etherparse("LWAPPHeader", "src/proto_audit/lwapp.rs")
             .libpcap("lwapp_header", "pcap/proto_audit/lwapp.h"),
-        PN::new("TPLINK_SMARTHOME", 4).tshark("tplink_smarthome").variable()
+        PN::new("TPLINK_SMARTHOME", 4)
+            .xdp2("xdp2_parse_tplink_smarthome").tshark("tplink_smarthome").variable()
             .etherparse("TPLINK_SMARTHOMEHeader", "src/proto_audit/tplink_smarthome.rs")
             .libpcap("tplink_smarthome_header", "pcap/proto_audit/tplink_smarthome.h"),
     ]
