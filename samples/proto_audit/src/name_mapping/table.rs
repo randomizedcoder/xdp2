@@ -945,7 +945,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("sctp_chunk_header", "pcap/proto_audit/sctp_chunk.h"),
         // ── Tunneling Additions ──
         PN::new("WireGuard", 4)
-            .xdp2("xdp2_parse_wireguard").scapy("WireGuard").tshark("wireguard")
+            .xdp2("xdp2_parse_wireguard").scapy("Wireguard").tshark("wireguard")
             .etherparse("WireGuardHeader", "src/proto_audit/wire_guard.rs").variable()
             .rfcs(&[7301])
             .libpcap("wireguard_header", "pcap/proto_audit/wireguard.h"),
@@ -1182,7 +1182,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("HTTPHeader", "src/proto_audit/http.rs")
             .libpcap("http_header", "pcap/proto_audit/http.h"),
         PN::new("HTTP2", 9)
-            .xdp2("xdp2_parse_http2").scapy("HTTP2").tshark("http2").variable()
+            .xdp2("xdp2_parse_http2").scapy("H2Frame").tshark("http2").variable()
             .rfcs(&[9113, 7540])
             .etherparse("HTTP2Header", "src/proto_audit/http2.rs")
             .libpcap("http2_header", "pcap/proto_audit/http2.h"),
