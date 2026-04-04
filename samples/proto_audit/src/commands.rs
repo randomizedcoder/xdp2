@@ -716,10 +716,18 @@ pub(crate) fn cmd_validate(
         ("tshark-roundtrip", &tshark_def),
     ];
     let mut result = comparator::audit_protocol(&effective_proto, &refs);
-    eprintln!("  [5/5] Comparison complete");
+
+    // Count split mismatches that are covered (sub-fields tile exactly).
+    // tshark PDML is byte-aligned, merging sub-byte fields like IPv4's
+    // version(4b)+IHL(4b) into a single 8-bit field. These are not real
+    // layout disagreements — the wire bytes round-tripped correctly.
+    let covered_splits = comparator::count_covered_splits(&result, &protocol_def, &tshark_def);
+    let uncovered_mismatches = result.fields_mismatch.saturating_sub(covered_splits);
+    eprintln!("  [5/5] Comparison complete (splits: {} total, {} covered)", result.fields_mismatch, covered_splits);
 
     // Override validation tier: Gold if round-trip passes with fields
-    let is_roundtrip_pass = result.fields_mismatch == 0 && result.total_fields > 0;
+    // Allow covered splits (sub-byte merges) — they are not real layout errors
+    let is_roundtrip_pass = uncovered_mismatches == 0 && result.total_fields > 0;
     if is_roundtrip_pass {
         result.validation_tier = Some(discovery::ValidationTier::Gold);
     }
@@ -732,12 +740,14 @@ pub(crate) fn cmd_validate(
     if json_output {
         let output = serde_json::json!({
             "protocol": effective_proto,
-            "status": if result.fields_mismatch == 0 { "pass" } else { "fail" },
+            "status": if uncovered_mismatches == 0 { "pass" } else { "fail" },
             "validation_tier": result.validation_tier.as_ref().map(|t| t.to_string()),
             "stack": pcap_output.stack,
             "pcap_bytes": pcap_output.pcap_bytes.len(),
             "ir_fields": protocol_def.fields.len(),
             "tshark_fields": tshark_def.fields.len(),
+            "covered_splits": covered_splits,
+            "uncovered_mismatches": uncovered_mismatches,
             "audit": result,
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
@@ -755,14 +765,14 @@ pub(crate) fn cmd_validate(
             println!("  Type differ:   {} fields", result.fields_type_differ);
         }
         if result.fields_mismatch > 0 {
-            println!("  Mismatch:      {} fields", result.fields_mismatch);
+            println!("  Mismatch:      {} fields ({} covered splits)", result.fields_mismatch, covered_splits);
         }
         if result.fields_missing > 0 {
             println!("  Missing:       {} fields", result.fields_missing);
         }
         println!(
             "  Status:        {}",
-            if result.fields_mismatch == 0 {
+            if uncovered_mismatches == 0 {
                 "PASS"
             } else {
                 "FAIL"

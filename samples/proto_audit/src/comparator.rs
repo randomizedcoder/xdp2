@@ -421,6 +421,97 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
     }
 }
 
+/// Count split mismatches that are "covered" — where one source's sub-fields
+/// exactly tile the other source's merged field.
+///
+/// This is critical for round-trip validation: tshark PDML is byte-aligned and
+/// merges sub-byte fields (e.g., IPv4 version(4b)+IHL(4b) → single 8-bit field).
+/// When the sub-fields tile exactly, the wire bytes are correct and the split
+/// should not block Gold promotion.
+///
+/// A covered split group accounts for ALL related mismatches: both the merged
+/// field and its constituent sub-fields.
+///
+/// Returns the number of split mismatches that are covered.
+pub fn count_covered_splits(
+    result: &AuditResult,
+    source_a: &ProtocolDef,
+    source_b: &ProtocolDef,
+) -> u32 {
+    // Find all "merged" fields that are exactly tiled by sub-fields from
+    // the other source. A merged field has a split mismatch AND the other
+    // source's sub-fields tile its range.
+    let mut covered_ranges: Vec<(u32, u32)> = Vec::new();
+
+    for fc in &result.field_comparisons {
+        let has_split = fc.mismatches.iter().any(|m| m.field == "split");
+        if !has_split {
+            continue;
+        }
+
+        let start = fc.offset_bits;
+        let end = start + fc.size_bits;
+
+        // Check if the OTHER source has sub-fields that tile this field's range
+        if is_exact_tile(start, end, &source_a.fields)
+            || is_exact_tile(start, end, &source_b.fields)
+        {
+            covered_ranges.push((start, end));
+        }
+    }
+
+    // Now count how many split-mismatch fields fall within a covered range
+    let mut covered = 0u32;
+    for fc in &result.field_comparisons {
+        let has_split = fc.mismatches.iter().any(|m| m.field == "split");
+        if !has_split {
+            continue;
+        }
+        let f_start = fc.offset_bits;
+        let f_end = f_start + fc.size_bits;
+
+        // This field is covered if it falls entirely within any covered range
+        if covered_ranges.iter().any(|&(rs, re)| f_start >= rs && f_end <= re) {
+            covered += 1;
+        }
+    }
+
+    covered
+}
+
+/// Check whether `fields` contains sub-fields that exactly tile [start, end)
+/// with no gaps and no overlaps, and the sub-fields are strictly smaller than
+/// the range (i.e., it's actually a split, not the same field).
+fn is_exact_tile(start: u32, end: u32, fields: &[FieldDef]) -> bool {
+    // Collect all sub-fields that fall within [start, end)
+    let mut subs: Vec<(u32, u32)> = fields
+        .iter()
+        .filter(|f| {
+            let f_start = f.offset_bits;
+            let f_end = f_start + f.size_bits;
+            f_start >= start && f_end <= end && f.size_bits < (end - start)
+        })
+        .map(|f| (f.offset_bits, f.offset_bits + f.size_bits))
+        .collect();
+
+    if subs.is_empty() {
+        return false;
+    }
+
+    // Sort by start offset
+    subs.sort();
+
+    // Check that sub-fields tile [start, end) with no gaps
+    let mut cursor = start;
+    for (s, e) in &subs {
+        if *s != cursor {
+            return false; // gap
+        }
+        cursor = *e;
+    }
+    cursor == end
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1291,5 +1382,77 @@ struct ieee802154_hdr_fc {
         let a = make_proto("test", vec![]);
         let result = audit_protocol("test", &[("kernel", &a)]);
         assert_eq!(result.validation_tier, Some(ValidationTier::Unvalidated));
+    }
+
+    #[test]
+    fn test_is_exact_tile_basic() {
+        // version(4b) + ihl(4b) exactly tile [0, 8)
+        let fields = vec![
+            make_field("version", 0, 4, FieldType::Uint),
+            make_field("ihl", 4, 4, FieldType::Uint),
+        ];
+        assert!(is_exact_tile(0, 8, &fields));
+    }
+
+    #[test]
+    fn test_is_exact_tile_gap() {
+        // version(4b) at offset 0 does NOT tile [0, 8) — gap at [4, 8)
+        let fields = vec![make_field("version", 0, 4, FieldType::Uint)];
+        assert!(!is_exact_tile(0, 8, &fields));
+    }
+
+    #[test]
+    fn test_is_exact_tile_no_subfields() {
+        // No sub-fields in range
+        let fields = vec![make_field("other", 16, 8, FieldType::Uint)];
+        assert!(!is_exact_tile(0, 8, &fields));
+    }
+
+    #[test]
+    fn test_is_exact_tile_three_subfields() {
+        // flags(3b) + frag(13b) do NOT tile [48, 64) exactly because
+        // they ARE exactly the range — but let's test 3+5+8=16
+        let fields = vec![
+            make_field("a", 0, 3, FieldType::Flags),
+            make_field("b", 3, 5, FieldType::Uint),
+            make_field("c", 8, 8, FieldType::Uint),
+        ];
+        assert!(is_exact_tile(0, 16, &fields));
+    }
+
+    #[test]
+    fn test_covered_splits_ipv4_like() {
+        // Simulate IPv4 round-trip: IR has version(4b)+ihl(4b),
+        // tshark merges into ver_ihl(8b)
+        let ir = make_proto(
+            "IPv4",
+            vec![
+                make_field("version", 0, 4, FieldType::Uint),
+                make_field("ihl", 4, 4, FieldType::Uint),
+                make_field("tos", 8, 8, FieldType::Uint),
+            ],
+        );
+        let tshark = make_proto(
+            "IPv4",
+            vec![
+                make_field("ver_ihl", 0, 8, FieldType::Uint),
+                make_field("tos", 8, 8, FieldType::Uint),
+            ],
+        );
+
+        let refs: Vec<(&str, &ProtocolDef)> = vec![("ir", &ir), ("tshark", &tshark)];
+        let result = audit_protocol("IPv4", &refs);
+
+        // Should have split mismatches for the sub-byte fields
+        assert!(result.fields_mismatch > 0);
+
+        // But covered splits should account for all of them
+        let covered = count_covered_splits(&result, &ir, &tshark);
+        assert!(covered > 0);
+        assert_eq!(
+            result.fields_mismatch - covered,
+            0,
+            "all split mismatches should be covered"
+        );
     }
 }
