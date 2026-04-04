@@ -2,8 +2,8 @@
 
 ## Validation Approaches
 
-Proto-audit has access to protocol definitions from 6 independent sources and
-a PCAP corpus of 600+ real-world packet captures. This creates a matrix of
+Proto-audit has access to protocol definitions from 7 independent sources and
+a PCAP corpus of 624 real-world packet captures. This creates a matrix of
 validation approaches, from lightweight cross-source checks to full round-trip
 wire-level verification. The table below enumerates all approaches, which are
 implemented, and what each proves.
@@ -62,7 +62,9 @@ encoding we produce is parsed identically by an independent implementation.
 
 **Validation tier:** Gold (round-trip validated).
 
-**Coverage:** 205 of 206 curated protocols across 18 link types (DLTs).
+**Coverage:** 205 of 206 curated protocols are routable (have PCAP generation
+paths). 36 currently pass Gold validation. The remaining fail due to tshark
+dissection issues (NO_DISSECT) or field comparison tolerance (FAIL).
 
 See sections below for protocol stack construction, field defaults, and
 limitations.
@@ -90,96 +92,9 @@ covering 305 unique dissectors. Pre-extracted to PDML XML at Nix build time.
 2. Corpus PDML (real traffic — broad coverage)
 3. tshark registry (field metadata from `tshark -G fields` — approximate offsets)
 
-#### 4. Corpus Cross-Source Parse (Partial)
+#### 4–8. Not Yet Implemented
 
-Parse the same corpus PCAP with multiple tools and compare their output.
-
-```
-                 ┌──→  tshark   ──→  IR_tshark   ──┐
-corpus PCAP  ────┼──→  scapy    ──→  IR_scapy    ──┼──→  comparator
-                 └──→  libpcap  ──→  IR_libpcap  ──┘
-```
-
-**What it proves:** Multiple independent parsers agree on the same real
-traffic — the strongest possible cross-verification signal.
-
-**Status:** Partially implemented. tshark corpus extraction works. Scapy
-and libpcap corpus parsing not yet wired (they extract from source code,
-not from PCAPs). Scapy could parse PCAPs via `rdpcap()`, libpcap could
-parse via its BPF filter engine.
-
-#### 5. Generated vs Corpus PCAP Comparison (Not Implemented)
-
-Compare our IR-generated PCAPs against real-world corpus PCAPs at the
-wire level.
-
-```
-IR  ──→  PCAP_generated
-                          ──→  structural comparison (framing, encapsulation)
-corpus  ──→  PCAP_real
-```
-
-**What it proves:** Our generated packets have valid framing — same
-link-layer encapsulation, correct checksums, proper length fields.
-
-**Implementation sketch:** For each protocol found in both generated and
-corpus PCAPs, compare: link type, encapsulation stack, header byte offsets,
-field value ranges. Not a byte-for-byte match (field values differ), but
-a structural equivalence check.
-
-#### 6. Corpus Round-Trip (Not Implemented)
-
-Take a real-world PCAP, parse it to IR, re-generate a PCAP from that IR,
-and compare the two PCAPs.
-
-```
-corpus PCAP  ──→  parse to IR  ──→  IR  ──→  serialize to PCAP  ──→  PCAP'
-     │                                                                  │
-     └──────────────────→  byte-level comparison  ←─────────────────────┘
-```
-
-**What it proves:** The IR is a lossless representation — real traffic
-survives a full round-trip through our intermediate format. This is the
-ultimate fidelity test.
-
-**Implementation challenges:**
-- Variable-length fields (TCP options, DHCP options) are not yet generated
-- Checksums and lengths would need recomputation
-- Only fixed-header bytes should be compared (payload may differ)
-- Need to align on which header bytes to compare (ignore padding/options)
-
-#### 7. Per-Source PCAP Parse (Not Implemented)
-
-Feed corpus PCAPs to each source's parser and verify it produces the
-expected IR fields.
-
-```
-corpus PCAP  ──→  source extractor  ──→  IR  ──→  validate against expected
-```
-
-**What it proves:** Each extractor correctly handles real traffic, not just
-source code definitions. Catches bugs where source code defines a field but
-the parser mishandles it in practice.
-
-**Implementation sketch:** For each source that can parse PCAPs (tshark,
-scapy), run extraction on corpus PCAPs and verify output matches the IR
-derived from structural analysis.
-
-#### 8. Generated PCAP Multi-Parse (Not Implemented)
-
-Generate a PCAP from IR, then parse it with multiple tools (not just tshark).
-
-```
-IR  ──→  PCAP  ──→  tshark  ──→  IR_tshark
-                ──→  scapy   ──→  IR_scapy     ──→  all must agree
-                ──→  tcpdump ──→  IR_tcpdump
-```
-
-**What it proves:** Our generated packets are valid across multiple
-independent dissectors — not just tshark-compatible but universally parseable.
-
-**Implementation sketch:** Extend `validate` to optionally also run
-`scapy.rdpcap()` on the generated PCAP and compare the resulting IR.
+See sections below for implementation sketches.
 
 ---
 
@@ -187,9 +102,9 @@ independent dissectors — not just tshark-compatible but universally parseable.
 
 | Approach | Protocols | Tier | Quality |
 |----------|-----------|------|---------|
-| Cross-source agreement | 24 Silver-tier (tshark+libpcap) | Silver | High confidence on agreed fields |
-| Synthetic round-trip | 205 protocols | Gold | Bit-level correct |
-| Corpus PDML (tshark) | 255 from corpus (305 dissectors) | Silver | Real traffic, single parser |
+| Cross-source agreement | 132 Silver-tier | Silver | High confidence on agreed fields |
+| Synthetic round-trip | 36 Gold-validated (205 routable) | Gold | Bit-level correct |
+| Corpus PDML (tshark) | 305 dissectors from 624 PCAPs | Silver | Real traffic, single parser |
 | Corpus cross-source | — | — | Not yet implemented |
 | Generated vs corpus | — | — | Not yet implemented |
 | Corpus round-trip | — | — | Not yet implemented |
@@ -203,13 +118,17 @@ validation it has passed:
 
 | Tier | Criteria | Count | Meaning |
 |------|----------|-------|---------|
-| **Gold** | Synthetic round-trip passes | 205 | Wire-level bit-correct |
-| **Silver** | 2+ sources agree on fields | 24 | Independent structural agreement |
-| **Bronze** | Single source, self-consistent | ~150 | Offsets monotonic, no gaps |
-| **Unvalidated** | No extractable fields yet | ~8,000 | Discovered but not verified |
+| **Gold** | Synthetic round-trip passes (fields_mismatch == 0 && total_fields > 0) | 36 | Wire-level bit-correct |
+| **Silver** | 2+ independent sources agree on field layout | 132 | Independent structural agreement |
+| **Bronze** | Single source, self-consistent (offsets monotonic, no gaps) | 48 | Extractable but unverified |
+| **Unvalidated** | No extractable fields yet | ~8,100 | Discovered but not verified |
 
 A protocol can hold multiple tiers simultaneously (e.g., Gold from round-trip
 AND Silver from cross-source). The displayed tier is the highest achieved.
+
+**Important distinction:** "Routable" (205 protocols have PCAP generation paths)
+is not the same as "Gold-validated" (36 protocols pass round-trip comparison).
+The gap is due to tshark dissection failures and field comparison tolerance issues.
 
 ---
 
@@ -236,46 +155,20 @@ protocols** across multiple link types and dispatch layers.
 | PPP / ATM / FC / ERF / MPEG_TS | 9/11/224/197/243 | Standalone leaf roots |
 | UpperPDU | 252 | BT_RFCOMM, BT_BNEP, BT_SDP, BT_AVDTP, SCSI, iSER, NTLMSSP, OCSP, Phonet, MCTP, X25, DSA |
 
-#### Ethernet-Rooted Routes
+#### Gold-Validated Protocols (36)
 
-**L2 — Ethernet-direct** (38 protocols via `ether_type`):
-IPv4, IPv6, ARP, VLAN, RARP, MPLS, PPPoE, PPPoED, LLDP, PTP, EAPOL, MACsec,
-QinQ, PBB, TRILL, EtherCAT, PROFINET, FCoE, FIP, Slow_Protocols, LACP,
-MAC_Control, CFM, HSR, BATMAN, NSH, HomePlug_AV, AoE, MVRP, NC_SI,
-IEC_GOOSE, IEC_SV, IPX, AppleTalk, TIPC, WOL, LLTD, EDSA
+These protocols have been round-trip validated (IR → PCAP → tshark → IR, zero field mismatches):
 
-**L3 — IPv4** (19 protocols via `protocol`):
-TCP, UDP, ICMPv4, ICMP, GRE, SCTP, IGMP, OSPF, VRRP, PIM, L2TP, ESP, AH,
-IP_in_IP, DCCP, UDPLite, EIGRP, CARP, RSVP
+Ethernet, STP, ARP, UDP, SCTP, ICMPv4, IGMP, ESP, AH, EAPOL, LLC, SNAP,
+Slow_Protocols, MAC_Control, IEC_GOOSE, IEC_SV, NBNS, TFTP, ICMPv6, UDPLite,
+MLD, IPv6_ND, HCI_CMD, HCI_Event, HCI_SCO, HCI_ISO, CAN_FD, IEEE802154,
+SLL, SLL2, ERSPAN, ERF
 
-**L3 — IPv6** (6 protocols via `next_header`):
-ICMPv6, IPv6_EH, IPv6_DestOpts, IPv6_Routing, IPv6_Fragment, SRv6
+#### Why Some Routable Protocols Aren't Gold
 
-**L4 — UDP port dispatch** (44 protocols):
-DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, NTP, SNMP, TFTP, SIP, RADIUS,
-GTP_U, GTP_C, VXLAN, Geneve, WireGuard, BFD, RTP, RTCP, STUN, QUIC, RIP,
-VXLAN_GPE, LISP, CAPWAP, LWAPP, Syslog, NetFlow_v5, IPFIX, MQTT, CoAP,
-DTLS, IKEv2, TZSP, OpenFlow, SRT, BACnet, GLBP, GUE, HSRP, MGCP,
-MPLS_OAM, Teredo, NetFlow_v9, ONC_RPC
-
-**L4 — TCP port dispatch** (32 protocols):
-HTTP, TLS, BGP, SSH, Telnet, FTP, SMTP, IMAP, SMB, LDAP, Diameter, AMQP,
-Kafka, Redis, Memcache, Kerberos, MODBUS_TCP, DNP3, ENIP, OPC_UA, RTSP,
-Skinny, TACACS, HTTP2, IEC_MMS, SMB2, STT, ZeroMQ, LDP, iSCSI, NFS, NVMe
-
-**Tunnels over GRE** (3 protocols):
-NVGRE, ERSPAN, GRE_PPTP
-
-**Sub-protocol dispatch** (9 protocols):
-IGMPv3_Query, IGMPv3_Report (via IGMP type); IPv6_ND, MLD, MLDv2_Query,
-MLDv2_Report (via ICMPv6 type); SCTP_Chunk (via SCTP); EAP (via EAPOL);
-CIP (via ENIP)
-
-### Unsupported Protocols
-
-Only **1 protocol** cannot be PCAP-generated:
-
-- **TPLINK_SMARTHOME**: no tshark dissector
+- **NO_DISSECT**: tshark can parse the packet but doesn't dissect the target layer (e.g., needs prior negotiation, specific PCAP templates, or context from earlier packets)
+- **FAIL**: tshark dissects the packet but field comparison fails due to split tolerance (e.g., tshark reports `flags_version` as one field vs IR's separate `flags` + `version`)
+- **IPv4/TCP/VLAN**: Common protocols that fail due to tshark's byte-aligned PDML combining sub-byte fields
 
 ### Field Value Defaults
 
@@ -289,6 +182,13 @@ When serializing, fields are assigned values in priority order:
 | 4 | Type-based default | `MacAddr` src → `02:00:00:00:00:01`, dst → `02:00:00:00:00:02` |
 | 5 | Type-based default | `Ipv6Addr` src → `fd00::1`, dst → `fd00::2` |
 | 6 | Zero | All other fields |
+
+### Embedded Protocol Definitions
+
+The PCAP generator uses embedded `ProtocolDef` structs for encapsulation
+protocols (Ethernet, IPv4, IPv6, UDP, TCP, GRE, etc.). These have field names
+matching `STACK_ROUTES` dispatch field names (e.g., `ether_type` not `h_proto`).
+Embedded protos take priority over extracted IR to ensure stack construction works.
 
 ### Limitations
 
@@ -319,20 +219,6 @@ Nix pinning ensures reproducibility: each source is fetched via
 `fetchFromGitHub` with a commit hash and NAR hash. The corpus derivation
 (`pcap-corpus`) runs `tshark -T pdml -c 5` on each file and stores the
 XML output, plus a `corpus_summary.json` index.
-
-### Adding More PCAP Sources
-
-To add a new corpus source:
-
-1. Add a `fetchFromGitHub` or `fetchurl` in `nix/proto-audit-sources.nix`
-   with a pinned rev and hash
-2. Add the source to the `pcapCorpus` derivation's `extract_pdml` calls
-3. Rebuild: `nix build .#proto-audit`
-
-Candidate sources for future expansion:
-- Netresec public datasets (5-10 GB, industrial/ICS protocols)
-- Wireshark test captures (from the official repo)
-- Self-generated PCAPs from the `validate` command
 
 ---
 

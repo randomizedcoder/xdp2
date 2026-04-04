@@ -1,150 +1,134 @@
-# Proto-Audit: Scaling to 1,000+ Protocols with Maximum Fidelity
+# Proto-Audit Roadmap
 
 ## Context
 
 The proto-audit tool (`samples/proto_audit/`) compares protocol header definitions
-across 6 independent sources (XDP2, Linux kernel, Scapy, tshark, etherparse,
-libpcap), normalizes them into a common IR, and generates code for all targets.
+across 7 independent sources (XDP2, Linux kernel, Scapy, tshark, etherparse,
+libpcap, Kaitai Struct), normalizes them into a common IR, and generates code
+for all targets.
 
 The goal is to scale beyond **1,000 protocols** with extreme correctness, making
-proto-audit the best and largest single source of packet parsing definitions --
+proto-audit the best and largest single source of packet parsing definitions —
 with XDP2 as the primary beneficiary.
 
 ---
 
-## Current State
+## Current State (2026-04-03)
 
 | Metric | Count |
 |--------|-------|
-| Total protocols tracked | 1,508 (207 curated + 1,301 auto-mapped) + discovered (tshark ~3,000) |
-| Protocols with extractable fields | 127 |
-| Cross-checkable (2+ sources) | 38 |
-| Round-trip validated (Gold) | 205 |
-| Overlay patches | 49 (31 etherparse, 18 libpcap) |
-| XDP2 proto_defs | 87 (84 mapped in name table) |
-| Unit tests | 376 |
-| Decode table entries | 228 |
-| RFC references (curated) | 207 protocols annotated |
-| CLI commands | 17 (audit, compare, corpus, coverage, extract, generate, generate-all, list, matrix, findings, quality, search, validate, auto-match, prioritize, standards, stats) |
+| Total protocols tracked | 8,358 (206 curated + 8,152 discovered) |
+| Curated protocols | 206 |
+| Gold (round-trip validated) | 36 |
+| Silver (2+ sources agree) | 132 |
+| Bronze (single source) | 48 |
+| XDP2 proto_defs | 222 (206 curated) |
+| Etherparse structs | 206/206 curated |
+| Libpcap overlays | 206/206 curated |
+| Overlay patches | 206 etherparse + 206 libpcap (batch-generated from PDML corpus) |
+| Unit tests | 378 |
+| PCAP corpus | 624 files covering 305 dissectors |
+| Decode table entries | 217 |
+| RFC references (curated) | 97 protocols, 181 total RFCs |
+| CLI commands | 17 |
 
-## Architecture Bottlenecks
+## Completed Phases
 
-1. **Name mapping table** (`src/name_mapping/table.rs`): 206 hand-curated entries.
-   Cannot scale to 1,000+ by hand.
-2. **PCAP corpus**: tshark PDML extraction requires PCAPs. Only PacketLife.net
-   corpus currently fetched.
-3. **C target blocked**: `cmd_generate_all` rejects `target == "c"`, so XDP2
-   proto_defs can't be batch-generated.
-4. **No kernel structs for most protocols**: Only ~48 have UAPI structs. The rest
-   need synthetic struct definitions for XDP2 code generation.
-5. **No authoritative standard references**: When sources disagree, there's no
-   ground-truth arbiter.
-6. **12 decode tables mapped**: `DECODE_TABLE_MAP` covers only 12 of tshark's 100+
-   decode table types.
+### Phase 0: Foundation Hardening (DONE)
 
----
+- `data/auto_mappings.json` + `auto_table.rs` for data-driven name mapping
+- IR extensions: `StandardRef`, `StandardBody`, `ProtocolLayer`
+- ProtocolNames builder: `.rfcs()`, `.ieee()`, `.iana_registry()`
+- RFC/IEEE/IANA metadata on all 206 curated protocols
 
-## Phase Overview
+### Phase 1: Automated Cross-Source Matching (DONE)
 
-| Phase | Focus | Target Count | Timeline |
-|-------|-------|-------------|----------|
-| 0 | Foundation & IR extensions | 207 (infrastructure) | Week 1 |
-| 1 | Automated cross-source matching | ~400 | Weeks 2-3 |
-| 2 | PCAP corpus & tshark extraction scaling | ~500 | Weeks 3-5 |
-| 3 | Quality assurance framework | ~500 validated | Weeks 5-7 |
-| 4 | RFC/IANA standards integration | ~600 | Weeks 7-9 |
-| 5 | Scale to 1,000+ & XDP2 code gen | 1,000+ | Weeks 9-12 |
-| 6 | Continuous maintenance | Ongoing | Ongoing |
+- `auto_matcher.rs` with tiered matching (exact, decode_table, long_name, abbreviation, containment)
+- `scapy_dump.py --discover-all-rich` for fields_desc, bind_layers, docstrings
+- `auto-match` CLI command
+- `gen_auto_mappings.py` bulk generator (939 entries)
+- 52 auto-mapped protocols have Scapy class mappings
 
----
+### Phase 2: PCAP Corpus & tshark Extraction Scaling (DONE)
 
-## Phase 0: Foundation Hardening (DONE)
+- PacketLife.net + Wireshark SampleCaptures PCAP corpus (624 files, 305 dissectors)
+- PDML extraction pipeline in Nix (pre-extracted at build time)
+- `corpus` command for coverage inspection
+- Batch-generated 206 libpcap overlay patches from corpus PDML
+- `generate-libpcap-patches` command for automated patch generation
 
-Infrastructure changes that enable scaling without changing protocol counts.
+### Phase 3: Quality Assurance Framework (DONE)
 
-### 0.1 Data-Driven Name Mapping
+- Gold/Silver/Bronze/Unvalidated validation tiers
+- Validation cache persistence
+- `validate --proto all` for batch round-trip testing
+- Regression testing Nix derivation (`proto-audit-validate-all`)
+- Protocol prioritization engine (`prioritize`)
+- 6-source coverage matrix with gap analysis (`coverage`)
 
-- `data/auto_mappings.json` -- supplementary protocol mappings (initially empty)
-- `src/name_mapping/auto_table.rs` -- JSON loader via `include_str!()`
-- Loaded alongside the hand-curated `table.rs`
+### Phase 4: RFC/IANA Standards Integration (DONE)
 
-### 0.2 IR Extensions for Standards & Confidence
+- IANA registry fetching in Nix
+- `parse_iana.py` + `extractors/iana.rs` for dispatch table validation
+- `standards` command with per-protocol and summary views
 
-Added to `ir.rs`:
-- `StandardRef` struct with `id`, `body`, `section`, `url`, `relationship`
-- `StandardBody` enum: `Rfc`, `Ieee`, `Iana`, `Other`
-- `StandardRelationship` enum: `Defines`, `Updates`, `Obsoletes`, `Registry`
-- `ProtocolLayer` enum: `L2`, `L3`, `L4`, `L7`, `Tunnel`, `Security`, etc.
+### Phase 5: Scale to 1,000+ & XDP2 Code Generation (DONE)
 
-Added to `ProtocolDef`:
-- `standards: Vec<StandardRef>`
-- `iana_registries: BTreeMap<String, String>`
-- `layer: Option<ProtocolLayer>`
+- Batch C code generation (`generate-all --target c`)
+- Synthetic struct generation for protocols without kernel structs
+- 217 decode table entries (up from 12)
+- 8,358 protocols tracked
+- `search` command across all protocols
 
-Added to `DiscoveredProtocol`:
-- `match_confidence: Option<f32>`
-- `match_method: Option<String>`
+### Phase 6: 7th Source — Kaitai Struct (DONE)
 
-### 0.3 ProtocolNames Builder Extensions
-
-Added to `ProtocolNames`:
-- `.rfcs(&[791, 2474, 3168, 6864])` -- list of RFCs (first = defines, rest = updates)
-- `.ieee(&["802.1Q-2022"])` -- list of IEEE standards
-- `.iana_registry("protocol-numbers")` -- IANA registry name
-
-Populated RFC/IEEE/IANA metadata for all 207 curated protocols.
+- Added Kaitai Struct as independent protocol source
+- `kaitai_id` field on `DiscoveredProtocol`
+- ~20 protocols gain truly independent 7th source
 
 ---
 
-## Phase 1: Automated Cross-Source Matching (DONE)
+## Next Steps
 
-Scaled from 207 to 1,146 protocols via automated name resolution + batch generation.
+### Near-Term: Increase Gold Count (36 → 100+)
 
-- [x] New module `src/name_mapping/auto_matcher.rs` with tiered matching (exact, decode_table, long_name, abbreviation, containment)
-- [x] Extended `helpers/scapy_dump.py` with `--discover-all-rich` for fields_desc, bind_layers, docstrings
-- [x] New CLI: `proto-audit auto-match --min-confidence 0.8`
-- [x] Created `helpers/gen_auto_mappings.py` — bulk protocol generator (939 entries across 40+ categories)
-- [x] 52 auto-mapped protocols have Scapy class mappings
+The PCAP round-trip infrastructure is proven for 36 protocols. The main blockers for the remaining ~170 routable protocols:
 
-## Phase 2: PCAP Corpus & tshark Extraction Scaling (PARTIAL)
+1. **Fix NO_DISSECT protocols** (~40): tshark can't dissect the generated PCAP because it needs proper encapsulation context (e.g., PCAP templates, pre-negotiation state). Solutions:
+   - Generate PCAP templates with protocol-specific link types
+   - Use corpus PCAPs as templates where available
+   - Add protocol-specific fixups for complex encapsulations
 
-- [x] PacketLife.net PCAP corpus in Nix (single-protocol PCAPs)
-- [x] PDML extraction pipeline (`tshark -T pdml` in Nix derivation)
-- [x] `proto-audit corpus` command for PCAP coverage inspection
-- [ ] Multi-source PCAP corpus (Wireshark samples, self-generated)
-- [ ] PDML cache derivation for batch extraction
-- [ ] Batch tshark extraction from cache
+2. **Fix FAIL protocols** (~30): Round-trip comparison fails due to field split tolerance issues. Solutions:
+   - Add split-aware comparison mode (e.g., tshark reports combined `flags_version` vs IR's separate `flags` + `version`)
+   - Handle tshark's byte-aligned PDML rounding
 
-## Phase 3: Quality Assurance Framework (DONE)
+3. **Fix embedded proto definitions** (~20): Some embedded protocol definitions have field names that don't match tshark's PDML field names. Solutions:
+   - Add field name aliases to embedded protos
+   - Auto-derive embedded protos from tshark PDML
 
-- [x] Gold/Silver/Bronze/Unvalidated validation tiers in `DiscoveredProtocol`
-- [x] Validation cache persistence (`PROTO_AUDIT_VALIDATION_CACHE`)
-- [x] `proto-audit validate --proto all` for batch round-trip testing
-- [x] Regression testing Nix derivation (`proto-audit-validate-all`)
-- [x] Protocol prioritization engine (`proto-audit prioritize`)
-- [x] `proto-audit coverage` — 6-source coverage matrix with gap analysis
-- [x] Validation tier display in `list`, `stats`, `findings` output
+### Near-Term: Bronze → Silver Promotion
 
-## Phase 4: RFC/IANA Standards Integration (DONE)
+48 Bronze protocols have only single-source extraction. Paths to Silver:
 
-- [x] IANA registry fetching in Nix (protocol-numbers, ethertypes)
-- [x] `helpers/parse_iana.py` — IANA CSV parser
-- [x] `src/extractors/iana.rs` — dispatch table validation
-- [x] RFC/IEEE/IANA metadata on all 207 curated protocols
-- [x] `proto-audit standards` — per-protocol and summary views
-- [x] `proto-audit standards --validate` — IANA dispatch validation
+1. **Kaitai as field source**: Wire up Kaitai Struct field extraction to produce ProtocolDefs. ~20 protocols gain a 2nd independent source.
 
-## Phase 5: Scale to 1,000+ & XDP2 Code Generation (DONE)
+2. **Scapy version gaps**: ~22 curated protocols have Scapy class names in table.rs that don't exist in the current Scapy version. Track Scapy releases and update.
 
-- [x] Enable batch C code generation (`generate-all --target c`)
-- [x] Synthetic struct generation (`generate_proto_def_synthetic`)
-- [x] Expanded DECODE_TABLE_MAP from 12 to 217 entries
-- [x] 1,146 protocols tracked (207 curated + 939 auto-mapped)
-- [x] `proto-audit search` — keyword search across 1,146 protocols
-- [ ] Replace patches with code generation (Phase 5.4)
-- [ ] XDP2 proto_def compile-test Nix derivation
+3. **Etherparse batch patches**: Add `generate-etherparse-patches` command (modeled on `generate-libpcap-patches`) to batch-generate Rust struct patches from PDML corpus, promoting Bronze protocols that have corpus coverage.
 
-## Phase 6: Continuous Maintenance (PARTIAL)
+### Medium-Term: Coverage Expansion
 
-- [x] Source version tracking in `nix/proto-audit-sources.nix`
-- [ ] CI pipeline (Nix-based: rebuild registries, regression, report)
+1. **Curated protocol expansion**: Add 50-100 more curated protocols from the discovered tier (8,152 discovered protocols, many with tshark + Scapy coverage).
+
+2. **Corpus expansion**: Add more PCAP sources (Netresec, Wireshark test captures, self-generated) to increase tshark extraction coverage.
+
+3. **Corpus cross-source parse**: Parse the same corpus PCAPs with Scapy (`rdpcap()`) in addition to tshark for the strongest cross-verification signal.
+
+### Long-Term: CI & Maintenance
+
+1. **CI pipeline**: Nix-based CI that rebuilds registries, runs regression tests, generates coverage reports on every commit.
+
+2. **Source version tracking**: Automated updates when upstream sources (kernel, Scapy, tshark, etherparse) release new versions.
+
+3. **Replace patches with code generation**: Generate overlay patches from IR rather than maintaining them by hand (Phase 5.4 from original roadmap).
