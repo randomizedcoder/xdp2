@@ -4,21 +4,21 @@ Extracts protocol header definitions from seven independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**206 curated protocols** across every network layer, **8,358 total tracked**, code generation in 3 languages + PCAP wire output, 206 per-protocol overlay patches each for etherparse and libpcap, 378 unit tests.
+**206 curated protocols** across every network layer, **8,358 total tracked**, code generation in 3 languages + PCAP wire output, 206 per-protocol overlay patches each for etherparse and libpcap, 383 unit tests.
 
 ## Highlights
 
 - **7 independent sources** (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct)
 - **206 curated protocols** with hand-verified cross-source mappings
 - **8,358 total protocols tracked** (curated + auto-discovered from tshark/Scapy registries)
-- **36 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR)
-- **132 Silver-tier** protocols (2+ independent sources agree on field layout)
+- **81 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
+- **87 Silver-tier** protocols (2+ independent sources agree on field layout)
 - Field-level comparison by wire bit offset — not name — catches real layout disagreements
 - Code generation from IR to C headers, Rust structs, Scapy packet classes, and PCAP packets
 - 624-file PCAP corpus covering 305 unique dissectors
 - Extensible TOML-based type mappings — no Rust code changes needed
 - Nix-reproducible builds with pinned external sources and cached report derivation
-- 378 unit tests, JSON output on every command
+- 383 unit tests, JSON output on every command
 
 ## Vision
 
