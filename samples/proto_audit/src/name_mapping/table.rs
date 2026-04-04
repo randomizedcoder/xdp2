@@ -63,7 +63,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_rarp")
             .kernel("arphdr", "linux/if_arp.h")
             .scapy("ARP")
-            .tshark("rarp")
+            .tshark("arp")
             .libpcap("RARP", "gencode.c")
             .variable()
             .rfcs(&[903])
@@ -851,10 +851,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .ieee(&["802.1AX-2020"])
             .etherparse("LACPHeader", "src/proto_audit/lacp.rs"),
         PN::new("QinQ", 8)
-            .xdp2("xdp2_parse_vlan")
+            .xdp2("xdp2_parse_qinq")
             .kernel("vlan_hdr", "linux/if_vlan.h")
             .scapy("Dot1AD")
-            .tshark("vlan")
+            .tshark("ieee8021ad")
             .ieee(&["802.1ad-2005", "802.1Q-2022"])
             .etherparse("QinQHeader", "src/proto_audit/qinq.rs")
             .libpcap("qinq_header", "pcap/proto_audit/qinq.h"),
@@ -949,7 +949,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("WireGuardHeader", "src/proto_audit/wire_guard.rs").variable()
             .rfcs(&[7301])
             .libpcap("wireguard_header", "pcap/proto_audit/wireguard.h"),
-        PN::new("IP_in_IP", 20).xdp2("xdp2_parse_ipv4ip").scapy("IP").tshark("ipip").variable()
+        PN::new("IP_in_IP", 20).xdp2("xdp2_parse_ip_in_ip").scapy("IP").tshark("ip").variable()
             .rfcs(&[2003, 1853])
             .etherparse("IPHeader", "src/proto_audit/ip_in_ip.rs")
             .libpcap("ip_in_ip_header", "pcap/proto_audit/ip_in_ip.h"),

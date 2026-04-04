@@ -77,6 +77,76 @@ pub fn run_tshark(
     String::from_utf8(output.stdout).context("tshark output is not valid UTF-8")
 }
 
+/// Extract proto elements from a node, recursively finding nested protos
+/// (e.g., IPv6 extension headers nested inside `<proto name="ipv6">`).
+fn extract_protos_recursive(parent: &roxmltree::Node, protos: &mut Vec<PdmlProtocol>) {
+    for proto_node in parent.children().filter(|n| n.has_tag_name("proto")) {
+        let name = proto_node
+            .attribute("name")
+            .unwrap_or("")
+            .to_string();
+        let show_name = proto_node
+            .attribute("showname")
+            .unwrap_or("")
+            .to_string();
+        let pos: u32 = proto_node
+            .attribute("pos")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        let size: u32 = proto_node
+            .attribute("size")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+
+        let mut fields = Vec::new();
+        for field_node in proto_node.children().filter(|n| n.has_tag_name("field")) {
+            let field_name = field_node
+                .attribute("name")
+                .unwrap_or("")
+                .to_string();
+            // Skip unnamed fields and tree-structure fields
+            if field_name.is_empty() || field_name == "_ws.expert" {
+                continue;
+            }
+
+            fields.push(PdmlField {
+                name: field_name,
+                show_name: field_node
+                    .attribute("showname")
+                    .unwrap_or("")
+                    .to_string(),
+                pos: field_node
+                    .attribute("pos")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0),
+                size: field_node
+                    .attribute("size")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0),
+                value: field_node
+                    .attribute("value")
+                    .unwrap_or("")
+                    .to_string(),
+                show: field_node
+                    .attribute("show")
+                    .unwrap_or("")
+                    .to_string(),
+            });
+        }
+
+        protos.push(PdmlProtocol {
+            name,
+            show_name,
+            fields,
+            pos,
+            size,
+        });
+
+        // Recurse into nested protos (e.g., IPv6 extension headers)
+        extract_protos_recursive(&proto_node, protos);
+    }
+}
+
 /// Parse PDML XML and extract all protocol layers.
 pub fn parse_pdml(xml: &str) -> Result<Vec<Vec<PdmlProtocol>>> {
     let doc = Document::parse(xml).context("parsing PDML XML")?;
@@ -91,74 +161,7 @@ pub fn parse_pdml(xml: &str) -> Result<Vec<Vec<PdmlProtocol>>> {
     {
         let mut protos = Vec::new();
 
-        for proto_node in packet_node
-            .children()
-            .filter(|n| n.has_tag_name("proto"))
-        {
-            let name = proto_node
-                .attribute("name")
-                .unwrap_or("")
-                .to_string();
-            let show_name = proto_node
-                .attribute("showname")
-                .unwrap_or("")
-                .to_string();
-            let pos: u32 = proto_node
-                .attribute("pos")
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0);
-            let size: u32 = proto_node
-                .attribute("size")
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0);
-
-            let mut fields = Vec::new();
-            for field_node in proto_node
-                .children()
-                .filter(|n| n.has_tag_name("field"))
-            {
-                let field_name = field_node
-                    .attribute("name")
-                    .unwrap_or("")
-                    .to_string();
-                // Skip unnamed fields and tree-structure fields
-                if field_name.is_empty() || field_name == "_ws.expert" {
-                    continue;
-                }
-
-                fields.push(PdmlField {
-                    name: field_name,
-                    show_name: field_node
-                        .attribute("showname")
-                        .unwrap_or("")
-                        .to_string(),
-                    pos: field_node
-                        .attribute("pos")
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0),
-                    size: field_node
-                        .attribute("size")
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0),
-                    value: field_node
-                        .attribute("value")
-                        .unwrap_or("")
-                        .to_string(),
-                    show: field_node
-                        .attribute("show")
-                        .unwrap_or("")
-                        .to_string(),
-                });
-            }
-
-            protos.push(PdmlProtocol {
-                name,
-                show_name,
-                fields,
-                pos,
-                size,
-            });
-        }
+        extract_protos_recursive(&packet_node, &mut protos);
 
         packets.push(protos);
     }
