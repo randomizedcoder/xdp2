@@ -56,7 +56,10 @@ fn try_extract(
             let scapy_name = names.as_ref().and_then(|n| n.scapy)?;
             let sp =
                 extractors::scapy::run_scapy_helper(&helper, scapy_name, &paths.python).ok()?;
-            Some(extractors::scapy::to_protocol_def(&sp))
+            let mut def = extractors::scapy::to_protocol_def(&sp);
+            // Use canonical name, not Scapy class name (e.g., "IPv4" not "IP")
+            def.name = proto.to_string();
+            Some(def)
         }
         "tshark" => {
             let pcap_path = paths.pcap.as_ref()?;
@@ -66,7 +69,10 @@ fn try_extract(
             let packets = extractors::tshark::parse_pdml(&xml).ok()?;
             let pdml =
                 extractors::tshark::extract_protocol_from_pdml(&packets, dissector)?;
-            Some(extractors::tshark::to_protocol_def(&pdml))
+            let mut def = extractors::tshark::to_protocol_def(&pdml);
+            // Use canonical name, not tshark dissector name
+            def.name = proto.to_string();
+            Some(def)
         }
         "etherparse" => {
             let src = paths.etherparse_src.as_ref()?;

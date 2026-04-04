@@ -504,14 +504,20 @@ fn build_protocol_stack(
     Ok(StackResult { layers, link_type })
 }
 
-/// Resolve a protocol definition: prefer extracted IR, fall back to embedded.
+/// Resolve a protocol definition: prefer embedded (PCAP-correct field names),
+/// fall back to extracted IR. Embedded protos use dispatch field names that
+/// match STACK_ROUTES (e.g., "ether_type", "protocol"), while extracted protos
+/// use source-specific names (e.g., kernel's "h_proto", "ip_proto").
 fn resolve_proto(name: &str, all_protos: &BTreeMap<String, ProtocolDef>) -> ProtocolDef {
+    if let Some(def) = embedded_proto(name) {
+        return def;
+    }
     if let Some(def) = all_protos.get(name) {
         if !def.fields.is_empty() {
             return def.clone();
         }
     }
-    embedded_proto(name).unwrap_or_else(|| ProtocolDef::new(name, 0))
+    ProtocolDef::new(name, 0)
 }
 
 /// Embedded minimal protocol definitions for stack construction.
