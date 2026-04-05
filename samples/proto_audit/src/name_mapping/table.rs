@@ -525,7 +525,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("MVRP", 1)
             .xdp2("xdp2_parse_mvrp")
             .scapy("MVRP")
-            .tshark("mvrp")
+            .tshark("mrp-mvrp")
             .ieee(&["802.1Q-2022"])
             .etherparse("MVRPHeader", "src/proto_audit/mvrp.rs")
             .libpcap("mvrp_header", "pcap/proto_audit/mvrp.h"),
