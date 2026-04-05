@@ -11,8 +11,8 @@ compares to find layout disagreements, coverage gaps, and type differences.
 - **7 independent sources** (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct)
 - **206 curated protocols** with hand-verified cross-source mappings
 - **8,358 total protocols tracked** (curated + auto-discovered from tshark/Scapy registries)
-- **81 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
-- **87 Silver-tier** protocols (2+ independent sources agree on field layout)
+- **85 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
+- **83 Silver-tier** protocols (2+ independent sources agree on field layout)
 - Field-level comparison by wire bit offset — not name — catches real layout disagreements
 - Code generation from IR to C headers, Rust structs, Scapy packet classes, and PCAP packets
 - 624-file PCAP corpus covering 305 unique dissectors

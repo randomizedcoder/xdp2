@@ -28,8 +28,8 @@ The proto-audit tool cross-references protocol header definitions across seven i
 | Total protocols tracked | 8,358 |
 | Curated (Tier 1) | 206 |
 | Discovered (Tier 2) | 8,152 |
-| Gold (round-trip validated) | 81 |
-| Silver (2+ sources agree) | 87 |
+| Gold (round-trip validated) | 85 |
+| Silver (2+ sources agree) | 83 |
 | Bronze (single source) | 48 |
 | PCAP-routable | 205/206 |
 | Multi-source (2+) | 1,198 |
@@ -129,9 +129,9 @@ These are the most-covered protocols, typically present in 4-7 sources.
 
 ### Protocols by Validation Tier
 
-**Gold (81):** AH, AoE, ARP, BFD, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DNS, EAPOL, EIGRP, ENIP, ERF, ERSPAN, ESP, Ethernet, Geneve, GRE, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO, HCI_SCO, HomePlug_AV, HSR, ICMPv4, ICMPv6, IEC_GOOSE, IEC_SV, IEEE802154, IGMP, IGMPv3_Query, IGMPv3_Report, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS, L2TP, LDP, LLC, LLDP, LLMNR, LLTD, MAC_Control, mDNS, MLD, MLDv2_Query, MPLS, NBNS, ONC_RPC, OSPF, PIM, PPP, PPPoE, PPPoED, QinQ, QUIC, RARP, RIP, RSVP, RTSP, SCTP, SLL, SLL2, Slow_Protocols, SNAP, STP, Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP, VXLAN_GPE
+**Gold (85):** AH, AoE, ARP, BFD, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DNS, EAPOL, EIGRP, ENIP, ERF, ERSPAN, ESP, Ethernet, Geneve, GRE, GRE_PPTP, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO, HCI_SCO, HomePlug_AV, HSR, ICMPv4, ICMPv6, IEC_GOOSE, IEC_SV, IEEE802154, IGMP, IGMPv3_Query, IGMPv3_Report, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_EH, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS, L2TP, LACP, LDP, LLC, LLDP, LLMNR, LLTD, MAC_Control, mDNS, MLD, MLDv2_Query, MPLS, MVRP, NBNS, ONC_RPC, OSPF, PIM, PPP, PPPoE, PPPoED, QinQ, QUIC, RARP, RIP, RSVP, RTSP, SCTP, SLL, SLL2, Slow_Protocols, SNAP, STP, Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP, VXLAN_GPE
 
-**Silver (87):** DHCP, NTP, SNMP, BGP, and 83 more with 2+ independent sources agreeing on field layout but not yet round-trip validated.
+**Silver (83):** DHCP, NTP, SNMP, BGP, and 79 more with 2+ independent sources agreeing on field layout but not yet round-trip validated.
 
 **Bronze (48):** Protocols with single-source extraction only. Many are tshark-only or Scapy-only without cross-source verification.
 

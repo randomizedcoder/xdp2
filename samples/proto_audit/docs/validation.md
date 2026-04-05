@@ -63,7 +63,7 @@ encoding we produce is parsed identically by an independent implementation.
 **Validation tier:** Gold (round-trip validated).
 
 **Coverage:** 205 of 206 curated protocols are routable (have PCAP generation
-paths). 81 currently pass Gold validation. Split-aware comparison tolerates
+paths). 85 currently pass Gold validation. Split-aware comparison tolerates
 tshark's byte-aligned PDML merging sub-byte fields. The remaining fail due to
 tshark dissection issues (NO_DISSECT) or field comparison tolerance (FAIL).
 
@@ -104,7 +104,7 @@ See sections below for implementation sketches.
 | Approach | Protocols | Tier | Quality |
 |----------|-----------|------|---------|
 | Cross-source agreement | 132 Silver-tier | Silver | High confidence on agreed fields |
-| Synthetic round-trip | 81 Gold-validated (205 routable) | Gold | Bit-level correct |
+| Synthetic round-trip | 85 Gold-validated (205 routable) | Gold | Bit-level correct |
 | Corpus PDML (tshark) | 305 dissectors from 624 PCAPs | Silver | Real traffic, single parser |
 | Corpus cross-source | — | — | Not yet implemented |
 | Generated vs corpus | — | — | Not yet implemented |
@@ -119,7 +119,7 @@ validation it has passed:
 
 | Tier | Criteria | Count | Meaning |
 |------|----------|-------|---------|
-| **Gold** | Synthetic round-trip passes (uncovered_mismatches == 0 && total_fields > 0) | 81 | Wire-level bit-correct |
+| **Gold** | Synthetic round-trip passes (uncovered_mismatches == 0 && total_fields > 0) | 85 | Wire-level bit-correct |
 | **Silver** | 2+ independent sources agree on field layout | 132 | Independent structural agreement |
 | **Bronze** | Single source, self-consistent (offsets monotonic, no gaps) | 48 | Extractable but unverified |
 | **Unvalidated** | No extractable fields yet | ~8,100 | Discovered but not verified |
@@ -128,7 +128,7 @@ A protocol can hold multiple tiers simultaneously (e.g., Gold from round-trip
 AND Silver from cross-source). The displayed tier is the highest achieved.
 
 **Important distinction:** "Routable" (205 protocols have PCAP generation paths)
-is not the same as "Gold-validated" (81 protocols pass round-trip comparison).
+is not the same as "Gold-validated" (85 protocols pass round-trip comparison).
 The gap is due to tshark dissection failures (116 ERROR) and field comparison
 tolerance issues (9 FAIL). Split-aware comparison allows Gold when tshark
 merges sub-byte fields but the wire bytes round-trip correctly.
@@ -158,19 +158,20 @@ protocols** across multiple link types and dispatch layers.
 | PPP / ATM / FC / ERF / MPEG_TS | 9/11/224/197/243 | Standalone leaf roots |
 | UpperPDU | 252 | BT_RFCOMM, BT_BNEP, BT_SDP, BT_AVDTP, SCSI, iSER, NTLMSSP, OCSP, Phonet, MCTP, X25, DSA |
 
-#### Gold-Validated Protocols (81)
+#### Gold-Validated Protocols (85)
 
 These protocols have been round-trip validated (IR → PCAP → tshark → IR). Split-aware
 comparison tolerates tshark merging sub-byte fields into byte-aligned PDML fields:
 
 AH, AoE, ARP, BFD, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DNS, EAPOL, EIGRP, ENIP,
-ERF, ERSPAN, ESP, Ethernet, Geneve, GRE, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO,
-HCI_SCO, HomePlug_AV, HSR, ICMPv4, ICMPv6, IEC_GOOSE, IEC_SV, IEEE802154, IGMP,
-IGMPv3_Query, IGMPv3_Report, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_Fragment,
-IPv6_ND, IPv6_Routing, ISIS, L2TP, LDP, LLC, LLDP, LLMNR, LLTD, MAC_Control,
-mDNS, MLD, MLDv2_Query, MPLS, NBNS, ONC_RPC, OSPF, PIM, PPP, PPPoE, PPPoED,
-QinQ, QUIC, RARP, RIP, RSVP, RTSP, SCTP, SLL, SLL2, Slow_Protocols, SNAP, STP,
-Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP, VXLAN_GPE
+ERF, ERSPAN, ESP, Ethernet, Geneve, GRE, GRE_PPTP, HCI_ACL, HCI_CMD, HCI_Event,
+HCI_ISO, HCI_SCO, HomePlug_AV, HSR, ICMPv4, ICMPv6, IEC_GOOSE, IEC_SV, IEEE802154,
+IGMP, IGMPv3_Query, IGMPv3_Report, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_EH,
+IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS, L2TP, LACP, LDP, LLC, LLDP, LLMNR,
+LLTD, MAC_Control, mDNS, MLD, MLDv2_Query, MPLS, MVRP, NBNS, ONC_RPC, OSPF, PIM,
+PPP, PPPoE, PPPoED, QinQ, QUIC, RARP, RIP, RSVP, RTSP, SCTP, SLL, SLL2,
+Slow_Protocols, SNAP, STP, Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP,
+VXLAN_GPE
 
 #### Why Some Routable Protocols Aren't Gold
 
