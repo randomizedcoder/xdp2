@@ -187,12 +187,12 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("Syslog", "UDP", "dst_port", 514),
     ("NetFlow_v5", "UDP", "dst_port", 2055),
     ("IPFIX", "UDP", "dst_port", 4739),
-    ("MQTT", "UDP", "dst_port", 1883),
+    ("MQTT", "TCP", "dst_port", 1883),
     ("CoAP", "UDP", "dst_port", 5683),
     ("DTLS", "UDP", "dst_port", 4433),
     ("IKEv2", "UDP", "dst_port", 500),
     ("TZSP", "UDP", "dst_port", 37008),
-    ("OpenFlow", "UDP", "dst_port", 6653),
+    ("OpenFlow", "TCP", "dst_port", 6653),
     ("SRT", "UDP", "dst_port", 1935),
     // ── L4: TCP port dispatch (stack: Eth → IPv4 → TCP → target) ──
     ("HTTP", "TCP", "dst_port", 80),
@@ -2199,12 +2199,12 @@ mod tests {
 
     #[test]
     fn test_build_stack_mqtt() {
-        assert_stack("MQTT", &["Ethernet", "IPv4", "UDP", "MQTT"], 2, "dst_port", 1883);
+        assert_stack("MQTT", &["Ethernet", "IPv4", "TCP", "MQTT"], 2, "dst_port", 1883);
     }
 
     #[test]
     fn test_build_stack_openflow() {
-        assert_stack("OpenFlow", &["Ethernet", "IPv4", "UDP", "OpenFlow"], 2, "dst_port", 6653);
+        assert_stack("OpenFlow", &["Ethernet", "IPv4", "TCP", "OpenFlow"], 2, "dst_port", 6653);
     }
 
     #[test]

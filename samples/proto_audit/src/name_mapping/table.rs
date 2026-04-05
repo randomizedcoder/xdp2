@@ -302,7 +302,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_hci")
             .kernel("hci_command_hdr", "net/bluetooth/hci.h")
             .scapy("HCI_Hdr")
-            .tshark("bthci_cmd")
+            .tshark("hci_h4")
             .variable()
             .etherparse("HCIHeader", "src/proto_audit/hci.rs")
             .libpcap("hci_header", "pcap/proto_audit/hci.h"),
@@ -363,7 +363,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_ipv6_eh")
             .kernel("ipv6_opt_hdr", "linux/ipv6.h")
             .scapy("IPv6ExtHdrHopByHop")
-            .tshark("ipv6.hop")
+            .tshark("ipv6.hopopts")
             .variable()
             .rfcs(&[8200])
             .etherparse("IPv6ExtHdrHopByHopHeader", "src/proto_audit/ipv6_eh.rs")
@@ -846,7 +846,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("stp_header", "pcap/proto_audit/stp.h")
             .ieee(&["802.1D-2004"]),
         PN::new("LACP", 110)
-            .xdp2("xdp2_parse_lacp").scapy("SlowProtocol").tshark("lacp")
+            .xdp2("xdp2_parse_lacp").scapy("SlowProtocol").tshark("slow")
             .libpcap("lacp_header", "pcap/proto_audit/lacp.h")
             .ieee(&["802.1AX-2020"])
             .etherparse("LACPHeader", "src/proto_audit/lacp.rs"),
@@ -1271,7 +1271,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("TZSPHeader", "src/proto_audit/tzsp.rs")
             .libpcap("tzsp_header", "pcap/proto_audit/tzsp.h"),
         PN::new("GRE_PPTP", 8)
-            .xdp2("xdp2_parse_gre_pptp").scapy("GRE_PPTP").tshark("pptp").variable()
+            .xdp2("xdp2_parse_gre_pptp").scapy("GRE_PPTP").tshark("gre").variable()
             .rfcs(&[2637])
             .etherparse("GRE_PPTPHeader", "src/proto_audit/gre_pptp.rs")
             .libpcap("gre_pptp_header", "pcap/proto_audit/gre_pptp.h"),
