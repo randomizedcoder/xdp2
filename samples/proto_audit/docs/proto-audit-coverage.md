@@ -1,13 +1,13 @@
 # Proto-Audit Protocol Coverage Report
 
-> Updated 2026-04-04 | 206 curated protocols | 7 sources | 8,358 total tracked
+> Updated 2026-04-06 | 206 curated protocols | 8 sources | 8,358 total tracked
 >
 > Note: Parts of this document are generated from proto-audit report output.
 > Reproduce with `nix run .#proto-audit -- matrix` and `nix run .#proto-audit -- stats`.
 
 ## Overview
 
-The proto-audit tool cross-references protocol header definitions across seven independent sources to find discrepancies in field layout, byte ordering, type classification, and header size. This document captures the current coverage state: which protocols are tracked, which sources know about each one, and where the sources disagree.
+The proto-audit tool cross-references protocol header definitions across eight independent sources to find discrepancies in field layout, byte ordering, type classification, and header size. This document captures the current coverage state: which protocols are tracked, which sources know about each one, and where the sources disagree.
 
 ### Sources
 
@@ -19,7 +19,8 @@ The proto-audit tool cross-references protocol header definitions across seven i
 | **tshark** | Wireshark dissector PDML field output | 3,155 protocols (305 from corpus) |
 | **etherparse** | Rust crate structs + overlay patches | 206/206 curated |
 | **libpcap** | BPF gencode + C struct overlay patches | 206/206 curated |
-| **Kaitai Struct** | Format specification files (.ksy) | ~20 protocols |
+| **Kaitai Struct** | Format specification files (.ksy) | ~20 protocols (12 curated) |
+| **Suricata** | Rust app-layer parser structs | ~15 protocols (20 curated) |
 
 ### Audit Summary
 
@@ -28,9 +29,9 @@ The proto-audit tool cross-references protocol header definitions across seven i
 | Total protocols tracked | 8,358 |
 | Curated (Tier 1) | 206 |
 | Discovered (Tier 2) | 8,152 |
-| Gold (round-trip validated) | 85 |
-| Silver (2+ sources agree) | 83 |
-| Bronze (single source) | 48 |
+| Gold (round-trip validated) | 112 |
+| Silver (2+ sources agree) | 36 |
+| Bronze (single source) | 27 |
 | PCAP-routable | 205/206 |
 | Multi-source (2+) | 1,198 |
 
@@ -129,11 +130,11 @@ These are the most-covered protocols, typically present in 4-7 sources.
 
 ### Protocols by Validation Tier
 
-**Gold (85):** AH, AoE, ARP, BFD, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DNS, EAPOL, EIGRP, ENIP, ERF, ERSPAN, ESP, Ethernet, Geneve, GRE, GRE_PPTP, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO, HCI_SCO, HomePlug_AV, HSR, ICMPv4, ICMPv6, IEC_GOOSE, IEC_SV, IEEE802154, IGMP, IGMPv3_Query, IGMPv3_Report, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_EH, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS, L2TP, LACP, LDP, LLC, LLDP, LLMNR, LLTD, MAC_Control, mDNS, MLD, MLDv2_Query, MPLS, MVRP, NBNS, ONC_RPC, OSPF, PIM, PPP, PPPoE, PPPoED, QinQ, QUIC, RARP, RIP, RSVP, RTSP, SCTP, SLL, SLL2, Slow_Protocols, SNAP, STP, Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP, VXLAN_GPE
+**Gold (112):** AH, ARP, AoE, BACnet, BFD, BGP, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DHCP, DHCPv6, DNS, DTLS, Diameter, EAPOL, EIGRP, ERSPAN, ESP, Ethernet, GRE, GRE_PPTP, GTP_C, GTP_U, Geneve, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO, HCI_SCO, HSR, HTTP, HomePlug_AV, ICMPv4, ICMPv6, IEC_MMS, IEEE802154, IGMP, IGMPv3_Query, IGMPv3_Report, IKEv2, IMAP, IPFIX, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_EH, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS, Kafka, Kerberos, L2TP, LACP, LDAP, LDP, LLC, LLMNR, MAC_Control, MLD, MLDv2_Query, MODBUS_TCP, MPLS, MQTT, Memcache, NBNS, NTP, NetFlow_v5, NetFlow_v9, ONC_RPC, OPC_UA, OSPF, PIM, PPP, PPPoE, PPPoED, QUIC, QinQ, RADIUS, RARP, RIP, RSVP, RTCP, RTSP, Redis, SCTP, SIP, SLL, SLL2, SNAP, SNMP, SSH, STP, STUN, Skinny, Slow_Protocols, Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP, VXLAN, VXLAN_GPE, WireGuard, iSCSI, mDNS
 
-**Silver (83):** DHCP, NTP, SNMP, BGP, and 79 more with 2+ independent sources agreeing on field layout but not yet round-trip validated.
+**Silver (36):** Protocols with 2+ independent sources agreeing on field layout but not yet round-trip validated.
 
-**Bronze (48):** Protocols with single-source extraction only. Many are tshark-only or Scapy-only without cross-source verification.
+**Bronze (27):** Protocols with single-source extraction only.
 
 ## Source Gap Analysis
 
@@ -148,9 +149,10 @@ These are the most-covered protocols, typically present in 4-7 sources.
 
 ### Next coverage targets
 
-1. **Kaitai field extraction**: Wire up Kaitai Struct field definitions as a 7th field-level source for ~20 protocols
-2. **Scapy version updates**: ~22 curated protocols have Scapy class names that don't exist in the current version
-3. **Corpus expansion**: Add more PCAP sources to increase tshark extraction coverage beyond 305 dissectors
+1. **Kaitai field extraction**: Wire up Kaitai Struct field-level definitions (12 curated, ~20 total) to produce richer ProtocolDefs
+2. **Suricata field depth**: Enhance Suricata extractor to extract more field-level detail from the 20 curated app-layer parsers
+3. **Scapy version updates**: ~22 curated protocols have Scapy class names that don't exist in the current version
+4. **Corpus expansion**: Add more PCAP sources to increase tshark extraction coverage beyond 305 dissectors
 
 ## Field Split Details
 
@@ -196,8 +198,9 @@ nix run .#proto-audit -- coverage --tier curated
 
 | Date | Protocols | Change |
 |------|-----------|--------|
-| 2026-04-04 | 206 | Gold 36→81 (split-aware comparison, recursive PDML parsing, tshark name fixes) |
-| 2026-04-03 | 206 | Gold 2→36 (round-trip validation fixes), 7 sources, 8,358 total tracked |
+| 2026-04-06 | 206 | Gold 85→112, 8 sources, crossgen + corpus-parse commands, 62 PCAP templates, 400 tests |
+| 2026-04-04 | 206 | Gold 36→85 (split-aware comparison, recursive PDML parsing, tshark name fixes) |
+| 2026-04-03 | 206 | Gold 2→36 (round-trip validation fixes), 8,358 total tracked |
 | 2026-03-29 | 206 | Kaitai Struct as 7th source, batch-generated libpcap patches (206) |
 | 2026-03-28 | 206 | PCAP corpus (624 files, 305 dissectors), auto-match, tshark registry |
 | 2026-03-27 | 206 | Added 92 protocols (phases 1-15: L1 capture through routing/misc) |

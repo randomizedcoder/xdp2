@@ -4,26 +4,28 @@ Extracts protocol header definitions from eight independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**206 curated protocols** across every network layer, **8,358 total tracked**, code generation in 3 languages + PCAP wire output, 206 per-protocol overlay patches each for etherparse and libpcap, 48 PCAP templates for round-trip validation, 390 unit tests.
+**206 curated protocols** across every network layer, **8,358 total tracked**, code generation in 3 languages + PCAP wire output, 206 per-protocol overlay patches each for etherparse and libpcap, 62 PCAP templates for round-trip validation, 400 unit tests.
 
 ## Highlights
 
 - **8 independent sources** (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata)
 - **206 curated protocols** with hand-verified cross-source mappings
 - **8,358 total protocols tracked** (curated + auto-discovered from tshark/Scapy registries)
-- **85+ Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
-- **48 PCAP templates** with valid protocol content for round-trip validation
+- **112 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
+- **62 PCAP templates** with valid protocol content for round-trip validation
 - Field-level comparison by wire bit offset — not name — catches real layout disagreements
 - Code generation from IR to C headers, Rust structs, Scapy packet classes, and PCAP packets
 - 624-file PCAP corpus covering 305 unique dissectors
 - Extensible TOML-based type mappings — no Rust code changes needed
 - Nix-reproducible builds with pinned external sources and cached report derivation
-- 390 unit tests, JSON output on every command
+- Cross-generator round-trip verification (generate code → re-extract → compare to IR)
+- Corpus cross-source parsing (same PCAP through tshark + Scapy, value-level comparison)
+- 400 unit tests, JSON output on every command
 
 ## Vision
 
 The IETF has never specified a machine-readable format for protocol header
-definitions. proto-audit demonstrates that 7 independent implementations of
+definitions. proto-audit demonstrates that 8 independent implementations of
 the same RFCs diverge measurably — and that a common IR can reconcile them.
 See [IR as Standard](docs/ir-as-standard.md).
 
@@ -37,6 +39,7 @@ nix run .#proto-audit -- compare --proto IPv4                # cross-source comp
 nix run .#proto-audit -- generate --proto IPv4 --target c    # code generation
 nix run .#proto-audit -- generate --proto TCP --target pcap  # PCAP wire output
 nix run .#proto-audit -- validate --proto IPv4               # round-trip validation
+nix run .#proto-audit -- crossgen --proto IPv4 --target all  # cross-generator round-trip
 nix run .#proto-audit -- stats                               # system-wide statistics
 nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 ```
@@ -51,8 +54,8 @@ nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 | `tshark` | Wireshark protocol dissection fields | `tshark -T pdml` subprocess (XML) | 3,155 protocols (3,753 with filters) |
 | `etherparse` | Rust packet parsing crate structs | Nix-pinned + 206 overlay patches | 206/206 curated |
 | `libpcap` | BPF gencode + C struct definitions | Nix-pinned + 206 overlay patches | 206/206 curated |
-| `kaitai` | Kaitai Struct format specifications | Nix-pinned .ksy files | ~20 protocols |
-| `suricata` | Rust app-layer parser struct definitions | Nix-pinned source, regex Rust parse | ~15 protocols |
+| `kaitai` | Kaitai Struct format specifications | Nix-pinned .ksy files | ~20 protocols (12 curated) |
+| `suricata` | Rust app-layer parser struct definitions | Nix-pinned source, regex Rust parse | ~15 protocols (20 curated) |
 
 All external sources are Nix-pinned for reproducibility. etherparse and libpcap
 are extended with per-protocol overlay patches for cross-source comparison.
@@ -68,7 +71,12 @@ not by name, catching real layout disagreements.
 packet classes, and PCAP packets from the canonical IR.
 **Validation.** The `validate` command generates a PCAP from the IR, feeds it
 to tshark, extracts the result back to IR, and compares — a true round-trip
-through wire bytes. 36 protocols achieve Gold (zero field mismatches).
+through wire bytes. 112 protocols achieve Gold (zero field mismatches).
+**Cross-Generator Verification.** The `crossgen` command generates code from IR
+(C, Rust, Scapy), re-extracts from the generated code through the corresponding
+extractor, and compares to the original IR — closing the generate→extract loop.
+**Corpus Cross-Parsing.** The `corpus-parse` command feeds the same PCAP through
+both tshark and Scapy, comparing parsed field values at the value level.
 
 ## Commands
 
@@ -89,6 +97,8 @@ through wire bytes. 36 protocols achieve Gold (zero field mismatches).
 | `standards` | RFC/IEEE/IANA standards references per protocol |
 | `auto-match` | Automated cross-source name matching |
 | `prioritize` | Protocol prioritization for coverage expansion |
+| `crossgen --proto P [--target T]` | Cross-generator round-trip: generate → re-extract → compare (targets: `etherparse`, `c`, `scapy`, `pcap`, `all`) |
+| `corpus-parse --pcap F` | Parse PCAP through tshark + Scapy, compare field values across parsers |
 | `corpus` | PCAP corpus coverage inspection |
 | `quality` | Validation quality analysis |
 
@@ -100,7 +110,7 @@ Filtering: `--protos P1,P2` and `--sources S1,S2` narrow scope on audit/matrix/f
 Type inference is driven by TOML mapping files in `mappings/`, embedded in the
 binary via `include_str!()`. Each file maps between source-native types and the
 canonical IR. To add a new C type or correct a field classification, edit the
-appropriate TOML — no Rust code changes needed. 7 mapping files cover all 7
+appropriate TOML — no Rust code changes needed. 7 mapping files cover all 8
 sources plus 2 generation targets.
 
 Override the embedded mappings at runtime with `PROTO_AUDIT_MAPPINGS_DIR`.
@@ -148,7 +158,7 @@ documents these granularity differences as findings rather than patching them.
 ```bash
 nix build .#proto-audit          # wrapped with all source paths
 nix build .#proto-audit-bin      # raw binary (no env var defaults)
-nix develop --command cargo test  # 378 unit tests
+nix develop --command cargo test  # 400 unit tests
 ```
 
 The Nix wrapper sets all `PROTO_AUDIT_*` variables automatically.
@@ -181,13 +191,16 @@ samples/proto_audit/
   src/
     main.rs, commands.rs   CLI entry point + subcommands
     ir.rs, comparator.rs   IR types + cross-source field matching
-    name_mapping/          206-protocol canonical name table (7 sources)
+    name_mapping/          206-protocol canonical name table (8 sources)
     type_mapping/          TOML loading + per-source type inference (7 modules)
     report/                Text/JSON output (matrix, findings)
     generator/             IR → C / Rust / Scapy / PCAP code generation
     extractors/            8 source-specific parsers (kernel, scapy, tshark, etherparse, libpcap, xdp2, kaitai, suricata)
     discovery/             Two-tier protocol discovery (curated + auto-discovered)
-  helpers/scapy_dump.py    Python helper for Scapy introspection
+    crossgen_tests.rs      Cross-generator round-trip tests (9 tests)
+  helpers/
+    scapy_dump.py          Python helper for Scapy introspection + PCAP dissection
+    gen_pcap_templates.py  Generate 62 PCAP templates with valid protocol content
   mappings/                7 TOML files (5 extraction + 2 generation)
   patches/
     gen_fine_grained.py    Generator script for overlay struct patches

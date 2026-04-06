@@ -1,7 +1,7 @@
 # Mapping Pipeline
 
 proto-audit operates as a bidirectional mapping pipeline: extraction ("mapping
-in") normalizes six heterogeneous source formats into a common IR, while
+in") normalizes eight heterogeneous source formats into a common IR, while
 generation ("mapping out") converts the IR back into compilable source code.
 
 ## Pipeline Diagram
@@ -22,8 +22,11 @@ generation ("mapping out") converts the IR back into compilable source code.
    ├──────────┤  │  libpcap.toml     │          │      ├───▶│ Scapy    │
    │  libpcap │──┤                    └────┬────┘      │    │ scapy_gen│
    ├──────────┤  │  (no TOML)              │           │    │ .toml    │
-   │  xdp2    │──┘                         │           │    ├──────────┤
-   └──────────┘                            │           └───▶│ PCAP     │
+   │  xdp2    │──┤                         │           │    ├──────────┤
+   ├──────────┤  │  (no TOML)              │           └───▶│ PCAP     │
+   │  kaitai  │──┤                         │                │ (no TOML)│
+   ├──────────┤  │  (no TOML)              │                └──────────┘
+   │ suricata │──┘                         │
                                            ▼                │ (no TOML)│
                                      ┌───────────┐         └──────────┘
     5 extraction TOMLs               │Comparator │     ┌──────────┐
@@ -32,9 +35,12 @@ generation ("mapping out") converts the IR back into compilable source code.
                                                      2 generation TOMLs
 ```
 
-Left: six sources feed through five TOML-driven extractors into the IR.
+Left: eight sources feed through TOML-driven extractors into the IR (Kaitai and
+Suricata extractors use direct type mapping without TOML).
 Right: four generators read the IR and produce compilable output or wire bytes.
 Center: the comparator branches off the IR for cross-source analysis.
+The `crossgen` command closes the loop: generators feed back through extractors
+to verify round-trip fidelity.
 
 ## Per-Source Extraction Fidelity
 
@@ -49,6 +55,8 @@ More entries means richer type inference without Rust code changes.
 | libpcap | 4 type_bits, 7 gencode protocols, 21 struct defs | 12 | 6 + 18 overlay | Medium |
 | tshark | 0 type_bits (pure heuristics: suffixes, patterns) | 0 | ~80 | Lowest |
 | xdp2 | No TOML (metadata-only extraction) | N/A | ~70 | Metadata only |
+| kaitai | No TOML (direct .ksy type mapping) | N/A | ~20 (12 curated) | Medium |
+| suricata | No TOML (direct Rust type mapping) | N/A | ~15 (20 curated) | Medium |
 
 **Richness** reflects how precisely the TOML maps source types to IR types.
 Kernel is highest because it maps 23 C types with endian prefixes and 14

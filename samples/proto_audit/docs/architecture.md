@@ -2,7 +2,7 @@
 
 ## Overview
 
-proto-audit extracts protocol definitions from six independent sources,
+proto-audit extracts protocol definitions from eight independent sources,
 normalizes them into a common IR, then compares, reports, and generates code.
 
 ```
@@ -11,22 +11,22 @@ normalizes them into a common IR, then compares, reports, and generates code.
                     │  (clap, serde, roxmltree)     │
                     └──────┬───────────────────────┘
                            │
-       ┌───────────┬───────┼───────┬───────────┬───────────┐
-       │           │       │       │           │           │
-┌──────▼──────┐ ┌──▼───────▼──┐ ┌──▼──────┐ ┌──▼──────────┐ ┌──────────┐
-│  XDP2       │ │  Kernel     │ │ Scapy   │ │ etherparse  │ │ libpcap  │
-│  Extractor  │ │  Extractor  │ │ Extract.│ │ Extractor   │ │ Extract. │
-│ (regex C)   │ │ (regex C)   │ │ (JSON)  │ │ (regex Rust)│ │ (C/TOML) │
-└─────────────┘ └─────────────┘ └────┬────┘ └─────────────┘ └──────────┘
-       │               │             │             │               │
-       │        ┌──────▼──────┐  ┌───▼────────┐   │               │
-       │        │  Type       │  │  tshark    │   │               │
-┌──────▼──────┐ │  Mappings   │  │  Extractor │   │               │
-│  Python     │ │  (TOML)     │  │ (PDML XML) │   │               │
-│  helper     │ └─────────────┘  └────────────┘   │               │
-└──────┬──────┘                                    │               │
-       │          ═══ MAPPING IN (Extraction) ═══  │               │
-       └───────────────────┬───────────────────────┘───────────────┘
+       ┌───────────┬───────┼───────┬───────────┬───────────┬────────────┬───────────┐
+       │           │       │       │           │           │            │           │
+┌──────▼──────┐ ┌──▼───────▼──┐ ┌──▼──────┐ ┌──▼──────────┐ ┌──────────┐ ┌─────────┐ ┌──────────┐
+│  XDP2       │ │  Kernel     │ │ Scapy   │ │ etherparse  │ │ libpcap  │ │ Kaitai  │ │ Suricata │
+│  Extractor  │ │  Extractor  │ │ Extract.│ │ Extractor   │ │ Extract. │ │ Extract.│ │ Extract. │
+│ (regex C)   │ │ (regex C)   │ │ (JSON)  │ │ (regex Rust)│ │ (C/TOML) │ │ (.ksy)  │ │(regex Rs)│
+└─────────────┘ └─────────────┘ └────┬────┘ └─────────────┘ └──────────┘ └─────────┘ └──────────┘
+       │               │             │             │               │          │           │
+       │        ┌──────▼──────┐  ┌───▼────────┐   │               │          │           │
+       │        │  Type       │  │  tshark    │   │               │          │           │
+┌──────▼──────┐ │  Mappings   │  │  Extractor │   │               │          │           │
+│  Python     │ │  (TOML)     │  │ (PDML XML) │   │               │          │           │
+│  helper     │ └─────────────┘  └────────────┘   │               │          │           │
+└──────┬──────┘                                    │               │          │           │
+       │          ═══ MAPPING IN (Extraction) ═══  │               │          │           │
+       └───────────────────┬───────────────────────┘───────────────┘──────────┘───────────┘
                            ▼
                   ┌─────────────────┐
                   │       IR        │
@@ -80,6 +80,8 @@ both directions, per-source fidelity tables, and a worked IPv4 example.
 | **tshark** | PDML XML (`<proto>`/`<field>`) | `tshark -T pdml` subprocess + corpus + registry | 255 from corpus, 1872 from registry |
 | **etherparse** | Rust structs (`pub struct`) | Nix-pinned + 31 overlay patches | 9 core + 31 overlay |
 | **libpcap** | C structs + BPF gencode offsets | Nix-pinned + overlay patches | ~6 native + overlays |
+| **Kaitai Struct** | Format specification files (.ksy) | Nix-pinned .ksy files | ~20 protocols (12 curated) |
+| **Suricata** | Rust app-layer parser structs | Nix-pinned source, regex Rust parse | ~15 protocols (20 curated) |
 
 ## Intermediate Representation
 
@@ -128,8 +130,9 @@ appropriate `mappings/*.toml` file.
 
 `src/name_mapping/` maintains a table of protocols with canonical names
 and per-source identifiers (e.g., IPv4 maps to kernel's `iphdr`, Scapy's
-`IP`, tshark's `ip`, etherparse's `Ipv4Header`, libpcap's `ipv4`). This
-enables cross-source correlation without relying on naming conventions.
+`IP`, tshark's `ip`, etherparse's `Ipv4Header`, libpcap's `ipv4`,
+Kaitai's `ipv4_packet`, Suricata's `DnsHeader`). This enables cross-source
+correlation without relying on naming conventions.
 
 ## Report Outputs
 

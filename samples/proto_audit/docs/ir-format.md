@@ -1,7 +1,7 @@
 # Intermediate Representation (IR) Format
 
-proto-audit normalizes protocol definitions from all six sources (XDP2,
-Linux kernel, Scapy, tshark, etherparse, libpcap) into a common IR defined
+proto-audit normalizes protocol definitions from all eight sources (XDP2,
+Linux kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata) into a common IR defined
 in `src/ir.rs`. This document is the authoritative reference for the IR
 schema.
 

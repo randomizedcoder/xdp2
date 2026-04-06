@@ -101,3 +101,29 @@ No TOML mapping file is needed — the generator works directly from IR
 
 See [Round-Trip Validation](validation.md) for how the PCAP output feeds
 back through tshark for IR verification.
+
+## Cross-Generator Round-Trip Verification
+
+The `crossgen` command verifies generator fidelity by closing the
+generate→extract loop for all targets:
+
+```bash
+nix run .#proto-audit -- crossgen --proto IPv4 --target all
+nix run .#proto-audit -- crossgen --proto all --target etherparse
+```
+
+For each target, the command:
+1. Builds a rich IR from available sources
+2. Generates code through the target generator
+3. Re-extracts from the generated code through the corresponding extractor
+4. Compares the re-extracted IR to the original
+
+| Target | Re-extraction Path | Runtime |
+|--------|-------------------|---------|
+| etherparse | `generate_etherparse()` → `parse_etherparse_struct()` | Pure Rust (no external tools) |
+| C | `generate_proto_def()` → `parse_kernel_struct()` | Pure Rust (no external tools) |
+| Scapy | `generate_scapy()` → `scapy_dump.py --extra` | Requires Python + Scapy |
+| PCAP | Delegates to `validate` command | Requires tshark |
+
+9 cross-generator unit tests in `src/crossgen_tests.rs` verify etherparse
+and C round-trips for core protocols (IPv4, UDP, Ethernet, TCP, ARP).

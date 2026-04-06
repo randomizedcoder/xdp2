@@ -3,8 +3,8 @@
 ## Context
 
 The proto-audit tool (`samples/proto_audit/`) compares protocol header definitions
-across 7 independent sources (XDP2, Linux kernel, Scapy, tshark, etherparse,
-libpcap, Kaitai Struct), normalizes them into a common IR, and generates code
+across 8 independent sources (XDP2, Linux kernel, Scapy, tshark, etherparse,
+libpcap, Kaitai Struct, Suricata), normalizes them into a common IR, and generates code
 for all targets.
 
 The goal is to scale beyond **1,000 protocols** with extreme correctness, making
@@ -13,24 +13,28 @@ with XDP2 as the primary beneficiary.
 
 ---
 
-## Current State (2026-04-03)
+## Current State (2026-04-06)
 
 | Metric | Count |
 |--------|-------|
 | Total protocols tracked | 8,358 (206 curated + 8,152 discovered) |
 | Curated protocols | 206 |
-| Gold (round-trip validated) | 36 |
-| Silver (2+ sources agree) | 132 |
-| Bronze (single source) | 48 |
+| Gold (round-trip validated) | 112 |
+| Silver (2+ sources agree) | 36 |
+| Bronze (single source) | 27 |
+| Independent sources | 8 (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai, Suricata) |
 | XDP2 proto_defs | 222 (206 curated) |
 | Etherparse structs | 206/206 curated |
 | Libpcap overlays | 206/206 curated |
+| Kaitai curated | 12 protocols |
+| Suricata curated | 20 protocols |
 | Overlay patches | 206 etherparse + 206 libpcap (batch-generated from PDML corpus) |
-| Unit tests | 378 |
+| Unit tests | 400 |
+| PCAP templates | 62 |
 | PCAP corpus | 624 files covering 305 dissectors |
 | Decode table entries | 217 |
 | RFC references (curated) | 97 protocols, 181 total RFCs |
-| CLI commands | 17 |
+| CLI commands | 19 |
 
 ## Completed Phases
 
@@ -86,36 +90,51 @@ with XDP2 as the primary beneficiary.
 - `kaitai_id` field on `DiscoveredProtocol`
 - ~20 protocols gain truly independent 7th source
 
+### Phase 7: 8th Source — Suricata (DONE)
+
+- Added Suricata as 8th independent source
+- Rust app-layer parser extraction via regex
+- ~15 protocols with struct-level field extraction
+- 48 PCAP templates for round-trip validation
+- 390 unit tests
+
+### Phase 8: Curated Integration & Verification Expansion (DONE)
+
+- **Kaitai & Suricata curated**: Added `kaitai_id`/`kaitai_file` and `suricata_module`/`suricata_struct` fields to `ProtocolNames`, populated 12 Kaitai + 20 Suricata curated mappings
+- **Cross-generator round-trip**: `crossgen` command generates code (C, Rust, Scapy) → re-extracts → compares to original IR. 9 cross-generator tests.
+- **Corpus cross-parsing**: `corpus-parse` command parses same PCAP through tshark + Scapy, compares field values with hex/int normalization
+- **PCAP template expansion**: 48 → 62 templates (added LLDP, CDP, STP, EAPOL, EAP, CoAP, HSRP, PTP, TFTP, Syslog, NBNS, MGCP, OpenFlow, BFD)
+- **Gold promotion**: 85 → 112 Gold protocols
+- **Value-level comparator**: `compare_field_values()` in comparator.rs
+- **scapy_dump.py extensions**: `--dissect-pcap` and `--extra` modes
+- 400 unit tests
+
 ---
 
 ## Next Steps
 
-### Near-Term: Increase Gold Count (36 → 100+)
+### Near-Term: Continue Gold Promotion (112 → 150+)
 
-The PCAP round-trip infrastructure is proven for 36 protocols. The main blockers for the remaining ~170 routable protocols:
+112 protocols are Gold-validated. The main blockers for the remaining ~90 routable protocols:
 
-1. **Fix NO_DISSECT protocols** (~40): tshark can't dissect the generated PCAP because it needs proper encapsulation context (e.g., PCAP templates, pre-negotiation state). Solutions:
-   - Generate PCAP templates with protocol-specific link types
+1. **Fix NO_DISSECT protocols**: tshark can't dissect the generated PCAP because it needs proper encapsulation context (e.g., PCAP templates, pre-negotiation state). Solutions:
+   - Generate more PCAP templates with protocol-specific link types
    - Use corpus PCAPs as templates where available
    - Add protocol-specific fixups for complex encapsulations
 
-2. **Fix FAIL protocols** (~30): Round-trip comparison fails due to field split tolerance issues. Solutions:
-   - Add split-aware comparison mode (e.g., tshark reports combined `flags_version` vs IR's separate `flags` + `version`)
+2. **Fix FAIL protocols**: Round-trip comparison fails due to field split tolerance issues. Solutions:
+   - Extend split-aware comparison for remaining edge cases
    - Handle tshark's byte-aligned PDML rounding
-
-3. **Fix embedded proto definitions** (~20): Some embedded protocol definitions have field names that don't match tshark's PDML field names. Solutions:
-   - Add field name aliases to embedded protos
-   - Auto-derive embedded protos from tshark PDML
 
 ### Near-Term: Bronze → Silver Promotion
 
-48 Bronze protocols have only single-source extraction. Paths to Silver:
+27 Bronze protocols have only single-source extraction. Paths to Silver:
 
-1. **Kaitai as field source**: Wire up Kaitai Struct field extraction to produce ProtocolDefs. ~20 protocols gain a 2nd independent source.
+1. **Kaitai field extraction**: Wire up Kaitai Struct field extraction to produce ProtocolDefs. ~20 protocols gain a 2nd independent source.
 
 2. **Scapy version gaps**: ~22 curated protocols have Scapy class names in table.rs that don't exist in the current Scapy version. Track Scapy releases and update.
 
-3. **Etherparse batch patches**: Add `generate-etherparse-patches` command (modeled on `generate-libpcap-patches`) to batch-generate Rust struct patches from PDML corpus, promoting Bronze protocols that have corpus coverage.
+3. **Suricata field extraction improvement**: Enhance Suricata parser to extract more field-level detail from app-layer parsers.
 
 ### Medium-Term: Coverage Expansion
 
@@ -123,7 +142,7 @@ The PCAP round-trip infrastructure is proven for 36 protocols. The main blockers
 
 2. **Corpus expansion**: Add more PCAP sources (Netresec, Wireshark test captures, self-generated) to increase tshark extraction coverage.
 
-3. **Corpus cross-source parse**: Parse the same corpus PCAPs with Scapy (`rdpcap()`) in addition to tshark for the strongest cross-verification signal.
+3. **Cross-generator coverage**: Expand `crossgen` to cover all 206 curated protocols across all generator targets.
 
 ### Long-Term: CI & Maintenance
 

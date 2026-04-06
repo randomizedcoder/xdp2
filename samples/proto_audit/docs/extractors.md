@@ -45,13 +45,27 @@ for TCP/UDP ports, which are an open namespace, not a closed enumeration.
 ### Scapy Helper (`helpers/scapy_dump.py`)
 
 ```bash
-python3 scapy_dump.py IP      # dump one protocol as JSON
-python3 scapy_dump.py --list  # list all available Packet classes
+python3 scapy_dump.py IP                           # dump one protocol as JSON
+python3 scapy_dump.py --list                       # list all available Packet classes
+python3 scapy_dump.py --discover-all               # discover all Packet subclasses
+python3 scapy_dump.py --discover-all-rich          # discover with enriched metadata
+python3 scapy_dump.py --dump-all                   # dump ALL protocols in one call
+python3 scapy_dump.py --dissect-pcap file.pcap     # dissect PCAP, output per-layer fields
+python3 scapy_dump.py --extra file.py ClassName    # load external module, dump named class
 ```
 
 The helper imports ~40 Scapy contrib/layers modules to ensure full coverage.
 19 of these are custom modules created for proto-audit (PBB, TRILL, MPEG-TS,
 etc.) living in the local Scapy tree at `~/Downloads/scapy/scapy/contrib/`.
+
+The `--dissect-pcap` mode reads a PCAP file with `rdpcap()`, dissects each
+packet layer by layer, and outputs per-layer field values as JSON. Used by
+the `corpus-parse` command for cross-source value comparison.
+
+The `--extra` mode loads an external Python file and dumps a named Scapy
+Packet class from it. Used by the `crossgen` command for Scapy round-trip
+verification — the generated Scapy class is written to a temp file, then
+re-extracted through this mode.
 
 ## tshark (`src/extractors/tshark.rs`)
 
@@ -140,3 +154,31 @@ Field-level comparison uses the kernel extractor instead.
 This is by design: XDP2's role is protocol graph traversal and eBPF program
 generation, not field-level reflection. The field definitions live in the
 kernel UAPI headers, which proto-audit extracts separately.
+
+## Kaitai Struct (`src/extractors/kaitai.rs`)
+
+Parses Kaitai Struct `.ksy` files (YAML format) to extract protocol field
+definitions. The extractor reads `seq:` entries from the format specification,
+mapping Kaitai types (`u1`, `u2be`, `u4be`, etc.) to IR field types and sizes.
+
+12 protocols have curated Kaitai mappings in the name table (`kaitai_id` +
+`kaitai_file`): Ethernet, VLAN, IPv4, IPv6, ARP, ICMPv4, TCP, UDP, DNS,
+RTP, RTCP. For non-curated protocols, the extractor falls back to dynamic
+matching using `ksy_id_to_display_name` heuristics.
+
+No TOML mapping file is needed — Kaitai's type system maps straightforwardly
+to the IR.
+
+## Suricata (`src/extractors/suricata.rs`)
+
+Parses Rust struct definitions from Suricata's app-layer parser source files.
+The extractor uses regex to find `pub struct` blocks in Suricata's
+`rust/src/` directory tree, extracting field names, types, and sizes.
+
+20 protocols have curated Suricata mappings in the name table
+(`suricata_module` + `suricata_struct`): DNS, NTP, SNMP, DHCP, QUIC, ENIP,
+FTP, HTTP2, IKEv2, Kerberos, LDAP, MODBUS_TCP, MQTT, SIP, SMB, SSH,
+Telnet, TFTP, mDNS, WebSocket. For non-curated protocols, the extractor
+uses a `PROTO_MAP` table for module→struct lookup.
+
+No TOML mapping file is needed — Rust types map directly to IR types.

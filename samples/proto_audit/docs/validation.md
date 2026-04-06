@@ -15,7 +15,7 @@ implemented, and what each proves.
 | 1 | Cross-source field agreement | — | Multiple independent implementations agree on field layout | **Implemented** |
 | 2 | Synthetic round-trip | IR → PCAP → tshark → IR | Generated wire bytes parse back to same IR (bit-level correctness) | **Implemented** |
 | 3 | Corpus PDML extraction | corpus PCAP → tshark → IR | tshark's dissection of real traffic produces fields matching our IR | **Implemented** |
-| 4 | Corpus cross-source parse | corpus PCAP → {tshark, scapy, libpcap, ...} → IR | Multiple parsers agree on real traffic (strongest agreement signal) | **Partial** |
+| 4 | Corpus cross-source parse | corpus PCAP → {tshark, scapy} → compare values | Multiple parsers agree on real traffic (strongest agreement signal) | **Implemented** |
 | 5 | Generated vs corpus PCAP | IR → PCAP vs corpus PCAP | Our generated packets are structurally valid (same framing as real traffic) | Not implemented |
 | 6 | Corpus round-trip | corpus PCAP → IR → PCAP → compare | Real traffic survives IR round-trip (lossless representation) | Not implemented |
 | 7 | Per-source PCAP parse | corpus PCAP → source parser → verify | Each extractor correctly parses real packets (extractor fidelity) | Not implemented |
@@ -93,7 +93,55 @@ covering 305 unique dissectors. Pre-extracted to PDML XML at Nix build time.
 2. Corpus PDML (real traffic — broad coverage)
 3. tshark registry (field metadata from `tshark -G fields` — approximate offsets)
 
-#### 4–8. Not Yet Implemented
+#### 4. Corpus Cross-Source Parse (Implemented)
+
+**Command:** `proto-audit corpus-parse --pcap <file.pcap>`
+
+Parses the same PCAP through both tshark (PDML XML) and Scapy (`rdpcap()`),
+then compares field values at the value level for each protocol layer.
+
+```
+corpus PCAP  ──→  tshark -T pdml  ──→  field values  ──┐
+                                                        ├── compare_field_values()
+corpus PCAP  ──→  scapy rdpcap   ──→  field values  ──┘
+```
+
+**What it proves:** Two independent dissectors agree on actual parsed values
+from real traffic — the strongest cross-verification signal.
+
+Value comparison uses normalization: hex values (0x prefix) are parsed to
+integers, case is ignored, and integer representations are unified before
+comparison. Reports per-layer agreement/disagreement.
+
+**Validation tier:** Strengthens Silver confidence (2+ sources agree on values,
+not just layout).
+
+#### 5. Cross-Generator Round-Trip (Implemented)
+
+**Command:** `proto-audit crossgen --proto TCP --target all`
+
+Generates code from IR through each code generator, re-extracts from the
+generated code through the corresponding extractor, and compares to the
+original IR.
+
+```
+IR  ──→  generate_etherparse()  ──→  Rust struct  ──→  parse_etherparse_struct()  ──→  IR'
+IR  ──→  generate_proto_def()   ──→  C header     ──→  parse_kernel_struct()      ──→  IR'
+IR  ──→  generate_scapy()      ──→  Python class  ──→  scapy_dump.py --extra     ──→  IR'
+                                                                                       │
+                                         comparator  ←─────────────────────────────────┘
+```
+
+**What it proves:** Code generators produce output that parses back to the
+same IR — verifying generator fidelity without external tools (for C and
+etherparse targets).
+
+Targets: `etherparse` (pure Rust, no runtime), `c` (pure text, no runtime),
+`scapy` (requires Python), `pcap` (delegates to `validate`), `all`.
+
+Batch mode: `crossgen --proto all` runs across all curated protocols.
+
+#### 6–8. Not Yet Implemented
 
 See sections below for implementation sketches.
 
@@ -103,10 +151,11 @@ See sections below for implementation sketches.
 
 | Approach | Protocols | Tier | Quality |
 |----------|-----------|------|---------|
-| Cross-source agreement | 132 Silver-tier | Silver | High confidence on agreed fields |
-| Synthetic round-trip | 85 Gold-validated (205 routable) | Gold | Bit-level correct |
+| Cross-source agreement | 36 Silver-tier | Silver | High confidence on agreed fields |
+| Synthetic round-trip | 112 Gold-validated (205 routable) | Gold | Bit-level correct |
 | Corpus PDML (tshark) | 305 dissectors from 624 PCAPs | Silver | Real traffic, single parser |
-| Corpus cross-source | — | — | Not yet implemented |
+| Corpus cross-source | tshark + Scapy value comparison | Silver+ | Real traffic, two parsers |
+| Cross-generator round-trip | C, etherparse, Scapy, PCAP | Gold | Generator fidelity verified |
 | Generated vs corpus | — | — | Not yet implemented |
 | Corpus round-trip | — | — | Not yet implemented |
 
@@ -119,19 +168,19 @@ validation it has passed:
 
 | Tier | Criteria | Count | Meaning |
 |------|----------|-------|---------|
-| **Gold** | Synthetic round-trip passes (uncovered_mismatches == 0 && total_fields > 0) | 85 | Wire-level bit-correct |
-| **Silver** | 2+ independent sources agree on field layout | 132 | Independent structural agreement |
-| **Bronze** | Single source, self-consistent (offsets monotonic, no gaps) | 48 | Extractable but unverified |
-| **Unvalidated** | No extractable fields yet | ~8,100 | Discovered but not verified |
+| **Gold** | Synthetic round-trip passes (uncovered_mismatches == 0 && total_fields > 0) | 112 | Wire-level bit-correct |
+| **Silver** | 2+ independent sources agree on field layout | 36 | Independent structural agreement |
+| **Bronze** | Single source, self-consistent (offsets monotonic, no gaps) | 27 | Extractable but unverified |
+| **Unvalidated** | No extractable fields yet | 13 + ~8,100 discovered | Discovered but not verified |
 
 A protocol can hold multiple tiers simultaneously (e.g., Gold from round-trip
 AND Silver from cross-source). The displayed tier is the highest achieved.
 
 **Important distinction:** "Routable" (205 protocols have PCAP generation paths)
-is not the same as "Gold-validated" (85 protocols pass round-trip comparison).
-The gap is due to tshark dissection failures (116 ERROR) and field comparison
-tolerance issues (9 FAIL). Split-aware comparison allows Gold when tshark
-merges sub-byte fields but the wire bytes round-trip correctly.
+is not the same as "Gold-validated" (112 protocols pass round-trip comparison).
+The gap is due to tshark dissection failures and field comparison tolerance
+issues. Split-aware comparison allows Gold when tshark merges sub-byte fields
+but the wire bytes round-trip correctly.
 
 ---
 
@@ -158,25 +207,28 @@ protocols** across multiple link types and dispatch layers.
 | PPP / ATM / FC / ERF / MPEG_TS | 9/11/224/197/243 | Standalone leaf roots |
 | UpperPDU | 252 | BT_RFCOMM, BT_BNEP, BT_SDP, BT_AVDTP, SCSI, iSER, NTLMSSP, OCSP, Phonet, MCTP, X25, DSA |
 
-#### Gold-Validated Protocols (85)
+#### Gold-Validated Protocols (112)
 
 These protocols have been round-trip validated (IR → PCAP → tshark → IR). Split-aware
 comparison tolerates tshark merging sub-byte fields into byte-aligned PDML fields:
 
-AH, AoE, ARP, BFD, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DNS, EAPOL, EIGRP, ENIP,
-ERF, ERSPAN, ESP, Ethernet, Geneve, GRE, GRE_PPTP, HCI_ACL, HCI_CMD, HCI_Event,
-HCI_ISO, HCI_SCO, HomePlug_AV, HSR, ICMPv4, ICMPv6, IEC_GOOSE, IEC_SV, IEEE802154,
-IGMP, IGMPv3_Query, IGMPv3_Report, IP_in_IP, IPv4, IPv6, IPv6_DestOpts, IPv6_EH,
-IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS, L2TP, LACP, LDP, LLC, LLDP, LLMNR,
-LLTD, MAC_Control, mDNS, MLD, MLDv2_Query, MPLS, MVRP, NBNS, ONC_RPC, OSPF, PIM,
-PPP, PPPoE, PPPoED, QinQ, QUIC, RARP, RIP, RSVP, RTSP, SCTP, SLL, SLL2,
-Slow_Protocols, SNAP, STP, Syslog, TCP, TFTP, TLS, UDP, UDPLite, VLAN, VRRP,
-VXLAN_GPE
+AH, ARP, AoE, BACnet, BFD, BGP, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DHCP,
+DHCPv6, DNS, DTLS, Diameter, EAPOL, EIGRP, ERSPAN, ESP, Ethernet, GRE,
+GRE_PPTP, GTP_C, GTP_U, Geneve, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO,
+HCI_SCO, HSR, HTTP, HomePlug_AV, ICMPv4, ICMPv6, IEC_MMS, IEEE802154,
+IGMP, IGMPv3_Query, IGMPv3_Report, IKEv2, IMAP, IPFIX, IP_in_IP, IPv4,
+IPv6, IPv6_DestOpts, IPv6_EH, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS,
+Kafka, Kerberos, L2TP, LACP, LDAP, LDP, LLC, LLMNR, MAC_Control, MLD,
+MLDv2_Query, MODBUS_TCP, MPLS, MQTT, Memcache, NBNS, NTP, NetFlow_v5,
+NetFlow_v9, ONC_RPC, OPC_UA, OSPF, PIM, PPP, PPPoE, PPPoED, QUIC, QinQ,
+RADIUS, RARP, RIP, RSVP, RTCP, RTSP, Redis, SCTP, SIP, SLL, SLL2, SNAP,
+SNMP, SSH, STP, STUN, Skinny, Slow_Protocols, Syslog, TCP, TFTP, TLS,
+UDP, UDPLite, VLAN, VRRP, VXLAN, VXLAN_GPE, WireGuard, iSCSI, mDNS
 
 #### Why Some Routable Protocols Aren't Gold
 
-- **NO_DISSECT (116)**: tshark can't dissect the target protocol layer — needs prior negotiation, specific ports, TCP handshake, or context from earlier packets
-- **FAIL (9)**: tshark dissects the packet but field comparison finds uncovered structural differences (e.g., DHCP/NTP timestamp boundaries, VXLAN flag layout)
+- **NO_DISSECT**: tshark can't dissect the target protocol layer — needs prior negotiation, specific ports, TCP handshake, or context from earlier packets
+- **FAIL**: tshark dissects the packet but field comparison finds uncovered structural differences
 
 ### Field Value Defaults
 
@@ -253,6 +305,13 @@ nix run .#proto-audit -- generate --proto TCP --target pcap --dry-run
 
 # Machine-readable JSON output
 nix run .#proto-audit -- validate --proto UDP --json
+
+# Cross-generator round-trip verification
+nix run .#proto-audit -- crossgen --proto IPv4 --target all
+nix run .#proto-audit -- crossgen --proto all --target etherparse
+
+# Corpus cross-source parsing (tshark vs Scapy)
+nix run .#proto-audit -- corpus-parse --pcap templates/dns.pcap
 ```
 
 ## Further Reading
