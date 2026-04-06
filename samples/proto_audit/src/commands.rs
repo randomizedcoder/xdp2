@@ -122,6 +122,21 @@ fn try_extract(
             def.name = proto.to_string();
             Some(def)
         }
+        "suricata" => {
+            let suricata_dir = paths.suricata_dir.as_ref()?;
+            let modules = extractors::suricata::scan_suricata_dir(suricata_dir).ok()?;
+            for (module_name, parser_path) in &modules {
+                if let Ok(protos) = extractors::suricata::extract_from_file(parser_path, module_name) {
+                    for (name, mut def) in protos {
+                        if name == proto {
+                            def.name = proto.to_string();
+                            return Some(def);
+                        }
+                    }
+                }
+            }
+            None
+        }
         _ => None,
     }
 }
@@ -227,7 +242,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {

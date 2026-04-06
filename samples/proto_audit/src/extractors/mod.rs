@@ -8,4 +8,5 @@ pub mod tshark;
 pub mod tshark_registry;
 pub mod iana;
 pub mod kaitai;
+pub mod suricata;
 pub mod xdp2;

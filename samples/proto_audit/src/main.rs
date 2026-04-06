@@ -69,6 +69,10 @@ pub(crate) struct SourcePaths {
     /// Path to Kaitai Struct formats directory
     #[arg(long, env = "PROTO_AUDIT_KAITAI_DIR")]
     pub(crate) kaitai_dir: Option<PathBuf>,
+
+    /// Path to Suricata Rust source directory
+    #[arg(long, env = "PROTO_AUDIT_SURICATA_DIR")]
+    pub(crate) suricata_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]

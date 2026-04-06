@@ -120,6 +120,17 @@ in
   # Kaitai Struct format specs (network/ directory has protocol definitions)
   inherit kaitaiFormats;
 
+  # Suricata Rust app-layer parsers: independent protocol definitions
+  # Covers ~40 protocols (DNS, HTTP, TLS, SSH, DHCP, NTP, MQTT, etc.)
+  # Extracted from Suricata's Rust source tree (rust/src/<proto>/)
+  suricataSrc = pkgs.runCommand "suricata-rust-src" {
+    src = pkgs.suricata.src;
+  } ''
+    tar xf $src --strip-components=1 suricata-*/rust/src
+    mkdir -p $out
+    cp -r rust/src/* $out/
+  '';
+
   # ── Auto-discovery registries (Phase 1-4) ──
 
   # tshark protocol registry: auto-discovered from tshark -G metadata

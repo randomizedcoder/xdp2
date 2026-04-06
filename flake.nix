@@ -129,6 +129,7 @@
             export PROTO_AUDIT_PCAP_CORPUS="''${PROTO_AUDIT_PCAP_CORPUS:-${protoAuditSources.pcapCorpus}/pdml}"
             export PROTO_AUDIT_IANA_DIR="''${PROTO_AUDIT_IANA_DIR:-${protoAuditSources.ianaRegistries}}"
             export PROTO_AUDIT_KAITAI_DIR="''${PROTO_AUDIT_KAITAI_DIR:-${protoAuditSources.kaitaiFormats}}"
+            export PROTO_AUDIT_SURICATA_DIR="''${PROTO_AUDIT_SURICATA_DIR:-${protoAuditSources.suricataSrc}}"
             exec proto-audit "$@"
           '';
         };
