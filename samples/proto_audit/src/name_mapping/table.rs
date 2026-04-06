@@ -945,7 +945,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("sctp_chunk_header", "pcap/proto_audit/sctp_chunk.h"),
         // ── Tunneling Additions ──
         PN::new("WireGuard", 4)
-            .xdp2("xdp2_parse_wireguard").scapy("Wireguard").tshark("wireguard")
+            .xdp2("xdp2_parse_wireguard").scapy("Wireguard").tshark("wg")
             .etherparse("WireGuardHeader", "src/proto_audit/wire_guard.rs").variable()
             .rfcs(&[7301])
             .libpcap("wireguard_header", "pcap/proto_audit/wireguard.h"),

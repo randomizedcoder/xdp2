@@ -328,19 +328,23 @@ pub fn generate_pcap_with_discovery(
     // Pre-build the protocol map once for discovery route lookups
     let discovered_protos = crate::discovery::all_protocols(discovery_state);
 
-    // Try normal stack construction; on failure, fall back to PCAP template
+    // Try PCAP template first — templates contain valid protocol content
+    // (e.g., real DHCP Discover, NTP query, BGP OPEN) that tshark can dissect,
+    // whereas synthetic generation produces zero-filled payloads that tshark
+    // often can't identify as the target protocol.
+    if let Some(tmpl) = load_pcap_template(&target_proto.name) {
+        return Ok(PcapOutput {
+            pcap_bytes: tmpl.pcap_bytes,
+            packet_bytes: tmpl.packet_bytes,
+            stack: vec![format!("template:{}", target_proto.name)],
+            link_type: tmpl.link_type,
+        });
+    }
+
+    // Fall back to synthetic stack construction
     let result = match build_protocol_stack(&target_proto.name, all_protos, discovery_state, &discovered_protos) {
         Ok(r) => r,
         Err(e) => {
-            // Last resort: try loading a pre-built PCAP template
-            if let Some(tmpl) = load_pcap_template(&target_proto.name) {
-                return Ok(PcapOutput {
-                    pcap_bytes: tmpl.pcap_bytes,
-                    packet_bytes: tmpl.packet_bytes,
-                    stack: vec![target_proto.name.clone()],
-                    link_type: tmpl.link_type,
-                });
-            }
             return Err(e);
         }
     };
