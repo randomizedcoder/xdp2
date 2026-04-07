@@ -2,14 +2,16 @@
 //!
 //! Parses Kaitai Struct format specification YAML files and converts them
 //! to the proto-audit IR. Kaitai Struct is an independent, community-maintained
-//! format description library (CC0-1.0 licensed) that provides a 7th
-//! independent source for cross-verification of protocol header definitions.
+//! format description library (CC0-1.0 licensed) that provides an independent
+//! source for cross-verification of protocol header definitions.
 //!
 //! Kaitai Struct types map to IR as follows:
 //! - `u1`/`s1` → 8 bits, `u2`/`s2` → 16 bits, `u4`/`s4` → 32 bits, `u8`/`s8` → 64 bits
 //! - `bN` → N bits (bit-level fields)
 //! - `size: N` → N*8 bits raw bytes
 //! - Endianness from `meta.endian` or per-field suffix (`u2be`, `u2le`)
+//!
+//! Nested types are flattened into individual sub-fields with proper offsets.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -17,7 +19,10 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
+use crate::ir::{
+    Endian, FieldDef, FieldType, ProtocolDef, SourceInfo, StandardBody, StandardRef,
+    StandardRelationship,
+};
 
 // ── .ksy YAML structures ──
 
@@ -100,90 +105,18 @@ pub fn extract_from_ksy(path: &Path) -> Result<Option<ProtocolDef>> {
 
     let mut fields = Vec::new();
     let mut offset_bits: u32 = 0;
+    let mut dispatch_field = None;
 
-    for field in &ksy.seq {
-        // Skip conditional fields — they're not always present in the header
-        if field.condition.is_some() {
-            continue;
-        }
-        // Skip repeated fields — variable length
-        if field.repeat.is_some() {
-            continue;
-        }
-        // Skip size-eos fields — consume rest of stream
-        if field.size_eos == Some(true) {
-            continue;
-        }
-
-        let field_type_str = field.field_type.as_ref().and_then(|v| match v {
-            serde_yaml::Value::String(s) => Some(s.as_str()),
-            _ => None, // switch-on/cases mapping — skip
-        });
-
-        let (size_bits, field_endian, ir_type, is_signed) = if let Some(ty) = field_type_str {
-            resolve_type(ty, &default_endian, &ksy.types)
-        } else if let Some(ref sz) = field.size {
-            // Fixed-size byte field
-            let bytes = yaml_to_u32(sz).unwrap_or(0);
-            if bytes == 0 {
-                continue; // expression-based size, skip
-            }
-            (bytes * 8, default_endian.clone(), FieldType::Bytes, false)
-        } else if field.contents.is_some() {
-            // Magic bytes — figure out size from contents
-            let size = contents_size(&field.contents);
-            if size == 0 { continue; }
-            (size * 8, Endian::Na, FieldType::Bytes, false)
-        } else {
-            continue; // no type info, skip
-        };
-
-        if size_bits == 0 {
-            continue;
-        }
-
-        // Determine semantic type
-        let semantic_type = if field.enum_ref.is_some() {
-            FieldType::Enum
-        } else {
-            match size_bits {
-                48 if field.id.contains("mac") || field.id.contains("addr") || field.id.contains("hw") => {
-                    FieldType::MacAddr
-                }
-                32 if field.id.contains("ip") && field.id.contains("addr") => FieldType::Ipv4Addr,
-                128 if field.id.contains("ip") && field.id.contains("addr") => FieldType::Ipv6Addr,
-                _ if is_signed => FieldType::Sint,
-                _ => ir_type,
-            }
-        };
-
-        // Endian for sub-byte or single-byte fields
-        let endian = if size_bits <= 8 {
-            Endian::Na
-        } else {
-            field_endian
-        };
-
-        let mut source_names = BTreeMap::new();
-        source_names.insert("kaitai".to_string(), field.id.clone());
-
-        fields.push(FieldDef {
-            name: field.id.clone(),
-            offset_bits,
-            size_bits,
-            field_type: semantic_type,
-            endian,
-            description: field.doc.clone().unwrap_or_default(),
-            is_dispatch: false,
-            is_length: field.id.contains("len") || field.id.contains("length"),
-            length_multiplier: None,
-            source_names,
-            default_value: None,
-            flag_names: None,
-        });
-
-        offset_bits += size_bits;
-    }
+    extract_fields_recursive(
+        &ksy.seq,
+        &ksy.types,
+        &ksy.enums,
+        &default_endian,
+        &mut fields,
+        &mut offset_bits,
+        &mut dispatch_field,
+        "", // no prefix for top-level fields
+    );
 
     if fields.is_empty() {
         return Ok(None);
@@ -195,9 +128,11 @@ pub fn extract_from_ksy(path: &Path) -> Result<Option<ProtocolDef>> {
     let mut sources = BTreeMap::new();
     sources.insert(
         "kaitai".to_string(),
-        SourceInfo::new(&ksy.meta.id)
-            .with_file(file_name.to_string()),
+        SourceInfo::new(&ksy.meta.id).with_file(file_name.to_string()),
     );
+
+    // Extract standards references from xref
+    let standards = extract_standards(&ksy.meta.xref);
 
     Ok(Some(ProtocolDef {
         name,
@@ -206,12 +141,12 @@ pub fn extract_from_ksy(path: &Path) -> Result<Option<ProtocolDef>> {
             f.condition.is_some() || f.repeat.is_some() || f.size_eos == Some(true)
         }),
         fields,
-        dispatch_field: None,
+        dispatch_field,
         dispatch_table: Vec::new(),
         identifiers: BTreeMap::new(),
         sources,
         generation_source: Some("kaitai".to_string()),
-        standards: Vec::new(),
+        standards,
         iana_registries: BTreeMap::new(),
         layer: None,
     }))
@@ -243,6 +178,294 @@ pub fn scan_kaitai_dir(dir: &Path) -> Result<Vec<(String, std::path::PathBuf)>> 
 }
 
 // ── Internal helpers ──
+
+/// Recursively extract fields from a sequence, flattening nested types.
+fn extract_fields_recursive(
+    seq: &[KsyField],
+    types: &BTreeMap<String, KsyType>,
+    enums: &BTreeMap<String, BTreeMap<String, serde_yaml::Value>>,
+    default_endian: &Endian,
+    fields: &mut Vec<FieldDef>,
+    offset_bits: &mut u32,
+    dispatch_field: &mut Option<String>,
+    prefix: &str,
+) {
+    for field in seq {
+        // Skip conditional fields — they're not always present in the header
+        if field.condition.is_some() {
+            continue;
+        }
+        // Skip repeated fields — variable length
+        if field.repeat.is_some() {
+            continue;
+        }
+        // Skip size-eos fields — consume rest of stream
+        if field.size_eos == Some(true) {
+            continue;
+        }
+
+        let field_type_str = field.field_type.as_ref().and_then(|v| match v {
+            serde_yaml::Value::String(s) => Some(s.as_str()),
+            _ => None, // switch-on/cases mapping — skip
+        });
+
+        // Check if this is a named type that can be flattened
+        if let Some(ty) = field_type_str {
+            if let Some(sub_type) = types.get(ty) {
+                // Flatten the nested type's fields with a prefix
+                let sub_prefix = if prefix.is_empty() {
+                    String::new()
+                } else {
+                    format!("{}.", prefix)
+                };
+                // Only flatten if the sub-type has fields we can extract
+                let start_offset = *offset_bits;
+                let start_count = fields.len();
+                extract_fields_recursive(
+                    &sub_type.seq,
+                    types,
+                    enums,
+                    default_endian,
+                    fields,
+                    offset_bits,
+                    dispatch_field,
+                    &sub_prefix,
+                );
+                // If we extracted sub-fields, continue to next field
+                if fields.len() > start_count {
+                    continue;
+                }
+                // Otherwise fall through to treat as opaque bytes
+                *offset_bits = start_offset;
+            }
+        }
+
+        let (size_bits, field_endian, ir_type, is_signed) = if let Some(ty) = field_type_str {
+            resolve_type(ty, default_endian, types)
+        } else if let Some(ref sz) = field.size {
+            // Fixed-size byte field
+            let bytes = yaml_to_u32(sz).unwrap_or(0);
+            if bytes == 0 {
+                continue; // expression-based size, skip
+            }
+            (bytes * 8, default_endian.clone(), FieldType::Bytes, false)
+        } else if field.contents.is_some() {
+            // Magic bytes — figure out size from contents
+            let size = contents_size(&field.contents);
+            if size == 0 {
+                continue;
+            }
+            (size * 8, Endian::Na, FieldType::Bytes, false)
+        } else {
+            continue; // no type info, skip
+        };
+
+        if size_bits == 0 {
+            continue;
+        }
+
+        // Determine semantic type
+        let semantic_type = if field.enum_ref.is_some() {
+            FieldType::Enum
+        } else {
+            let lower = field.id.to_lowercase();
+            match size_bits {
+                48 if lower.contains("mac")
+                    || (lower.contains("addr") && !lower.contains("ip"))
+                    || lower.contains("hw") =>
+                {
+                    FieldType::MacAddr
+                }
+                32 if lower.contains("ip") || (lower.contains("addr") && lower.contains("src"))
+                    || (lower.contains("addr") && lower.contains("dst")) =>
+                {
+                    FieldType::Ipv4Addr
+                }
+                128 if lower.contains("ip") || lower.contains("addr") => FieldType::Ipv6Addr,
+                _ if lower.contains("flag") => FieldType::Flags,
+                _ if is_signed => FieldType::Sint,
+                _ => ir_type,
+            }
+        };
+
+        // Endian for sub-byte or single-byte fields
+        let endian = if size_bits <= 8 {
+            Endian::Na
+        } else {
+            field_endian
+        };
+
+        // Extract default value from contents (magic bytes)
+        let default_value = extract_default_value(&field.contents);
+
+        // Detect dispatch field: has an enum ref with protocol-like entries
+        let is_dispatch = field.enum_ref.as_ref().map_or(false, |enum_name| {
+            let lower = field.id.to_lowercase();
+            lower.contains("type")
+                || lower.contains("proto")
+                || lower.contains("next")
+                || is_protocol_enum(enums, enum_name)
+        }) || {
+            let lower = field.id.to_lowercase();
+            lower.contains("ether_type") || lower.contains("protocol") || lower.contains("next_header")
+        };
+
+        if is_dispatch && dispatch_field.is_none() {
+            *dispatch_field = Some(field.id.clone());
+        }
+
+        let field_name = if prefix.is_empty() {
+            field.id.clone()
+        } else {
+            format!("{}{}", prefix, field.id)
+        };
+
+        let mut source_names = BTreeMap::new();
+        source_names.insert("kaitai".to_string(), field.id.clone());
+
+        fields.push(FieldDef {
+            name: field_name,
+            offset_bits: *offset_bits,
+            size_bits,
+            field_type: semantic_type,
+            endian,
+            description: field.doc.clone().unwrap_or_default(),
+            is_dispatch,
+            is_length: field.id.contains("len") || field.id.contains("length"),
+            length_multiplier: None,
+            source_names,
+            default_value,
+            flag_names: None,
+        });
+
+        *offset_bits += size_bits;
+    }
+}
+
+/// Check if an enum definition looks like a protocol dispatch enum.
+fn is_protocol_enum(
+    enums: &BTreeMap<String, BTreeMap<String, serde_yaml::Value>>,
+    enum_name: &str,
+) -> bool {
+    if let Some(entries) = enums.get(enum_name) {
+        // If entries contain protocol-like names (ipv4, tcp, udp, etc.)
+        for value in entries.values() {
+            if let Some(s) = value.as_str() {
+                let lower = s.to_lowercase();
+                if lower.contains("ipv4")
+                    || lower.contains("ipv6")
+                    || lower.contains("tcp")
+                    || lower.contains("udp")
+                    || lower.contains("arp")
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Extract a default value from the `contents` field (magic bytes).
+fn extract_default_value(contents: &Option<serde_yaml::Value>) -> Option<String> {
+    match contents {
+        Some(serde_yaml::Value::Sequence(seq)) => {
+            let hex: Vec<String> = seq
+                .iter()
+                .filter_map(|v| v.as_u64().map(|n| format!("{:02x}", n)))
+                .collect();
+            if hex.is_empty() {
+                None
+            } else {
+                Some(format!("0x{}", hex.join("")))
+            }
+        }
+        Some(serde_yaml::Value::String(s)) => {
+            let hex: String = s.bytes().map(|b| format!("{:02x}", b)).collect();
+            Some(format!("0x{}", hex))
+        }
+        _ => None,
+    }
+}
+
+/// Extract RFC/IEEE standards references from .ksy xref metadata.
+fn extract_standards(xref: &Option<KsyXref>) -> Vec<StandardRef> {
+    let mut standards = Vec::new();
+    if let Some(xref) = xref {
+        // Extract RFC references
+        if let Some(ref rfc_val) = xref.rfc {
+            match rfc_val {
+                serde_yaml::Value::Number(n) => {
+                    if let Some(num) = n.as_u64() {
+                        standards.push(StandardRef {
+                            id: format!("RFC {}", num),
+                            body: StandardBody::Rfc,
+                            section: None,
+                            url: Some(format!("https://www.rfc-editor.org/rfc/rfc{}", num)),
+                            relationship: StandardRelationship::Defines,
+                        });
+                    }
+                }
+                serde_yaml::Value::Sequence(seq) => {
+                    for item in seq {
+                        if let Some(num) = item.as_u64() {
+                            standards.push(StandardRef {
+                                id: format!("RFC {}", num),
+                                body: StandardBody::Rfc,
+                                section: None,
+                                url: Some(format!(
+                                    "https://www.rfc-editor.org/rfc/rfc{}",
+                                    num
+                                )),
+                                relationship: StandardRelationship::Defines,
+                            });
+                        }
+                    }
+                }
+                serde_yaml::Value::String(s) => {
+                    standards.push(StandardRef {
+                        id: format!("RFC {}", s),
+                        body: StandardBody::Rfc,
+                        section: None,
+                        url: Some(format!("https://www.rfc-editor.org/rfc/rfc{}", s)),
+                        relationship: StandardRelationship::Defines,
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        // Extract IEEE references
+        if let Some(ref ieee_val) = xref.ieee {
+            match ieee_val {
+                serde_yaml::Value::String(s) => {
+                    standards.push(StandardRef {
+                        id: format!("IEEE {}", s),
+                        body: StandardBody::Ieee,
+                        section: None,
+                        url: None,
+                        relationship: StandardRelationship::Defines,
+                    });
+                }
+                serde_yaml::Value::Sequence(seq) => {
+                    for item in seq {
+                        if let Some(s) = item.as_str() {
+                            standards.push(StandardRef {
+                                id: format!("IEEE {}", s),
+                                body: StandardBody::Ieee,
+                                section: None,
+                                url: None,
+                                relationship: StandardRelationship::Defines,
+                            });
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    standards
+}
 
 /// Resolve a Kaitai type string to (size_bits, endian, field_type, is_signed).
 fn resolve_type(
@@ -304,9 +527,13 @@ fn resolve_type(
     };
 
     let endian = explicit_endian.unwrap_or_else(|| default_endian.clone());
-    let ft = if base <= 8 { FieldType::Uint } else { FieldType::Uint };
     let signed = ty.starts_with('s');
-    (base, endian, if signed { FieldType::Sint } else { ft }, signed)
+    (
+        base,
+        endian,
+        if signed { FieldType::Sint } else { FieldType::Uint },
+        signed,
+    )
 }
 
 /// Try to extract a u32 from a YAML value (handles integer and string).
@@ -361,6 +588,7 @@ fn ksy_id_to_display_name(id: &str) -> String {
         "websocket" => "WebSocket".to_string(),
         "bitcoin" => "Bitcoin".to_string(),
         "vlan" | "ieee_802_1q" => "VLAN".to_string(),
+        "arp" => "ARP".to_string(),
         _ => {
             // Default: capitalize first letter of each word
             name.split('_')
@@ -404,5 +632,74 @@ mod tests {
         assert_eq!(resolve_type("b1", &be, &types).0, 1);
         assert_eq!(resolve_type("s2", &be, &types).3, true);
         assert_eq!(resolve_type("u2le", &be, &types).1, Endian::Little);
+    }
+
+    #[test]
+    fn test_extract_standards_rfc() {
+        let xref = Some(KsyXref {
+            rfc: Some(serde_yaml::Value::Number(serde_yaml::Number::from(791u64))),
+            ieee: None,
+            wikidata: None,
+        });
+        let standards = extract_standards(&xref);
+        assert_eq!(standards.len(), 1);
+        assert_eq!(standards[0].id, "RFC 791");
+        assert!(matches!(standards[0].body, StandardBody::Rfc));
+    }
+
+    #[test]
+    fn test_extract_standards_multiple_rfc() {
+        let seq = serde_yaml::Value::Sequence(vec![
+            serde_yaml::Value::Number(serde_yaml::Number::from(791u64)),
+            serde_yaml::Value::Number(serde_yaml::Number::from(2474u64)),
+        ]);
+        let xref = Some(KsyXref {
+            rfc: Some(seq),
+            ieee: None,
+            wikidata: None,
+        });
+        let standards = extract_standards(&xref);
+        assert_eq!(standards.len(), 2);
+        assert_eq!(standards[0].id, "RFC 791");
+        assert_eq!(standards[1].id, "RFC 2474");
+    }
+
+    #[test]
+    fn test_extract_default_value_bytes() {
+        let contents = Some(serde_yaml::Value::Sequence(vec![
+            serde_yaml::Value::Number(serde_yaml::Number::from(0x00u64)),
+            serde_yaml::Value::Number(serde_yaml::Number::from(0x26u64)),
+        ]));
+        assert_eq!(extract_default_value(&contents), Some("0x0026".to_string()));
+    }
+
+    #[test]
+    fn test_is_protocol_enum() {
+        let mut enums = BTreeMap::new();
+        let mut entries = BTreeMap::new();
+        entries.insert(
+            "0x0800".to_string(),
+            serde_yaml::Value::String("ipv4".to_string()),
+        );
+        entries.insert(
+            "0x86DD".to_string(),
+            serde_yaml::Value::String("ipv6".to_string()),
+        );
+        enums.insert("ether_type_enum".to_string(), entries);
+        assert!(is_protocol_enum(&enums, "ether_type_enum"));
+
+        let mut non_proto = BTreeMap::new();
+        non_proto.insert(
+            "0".to_string(),
+            serde_yaml::Value::String("request".to_string()),
+        );
+        enums.insert("opcode_enum".to_string(), non_proto);
+        assert!(!is_protocol_enum(&enums, "opcode_enum"));
+    }
+
+    #[test]
+    fn test_flag_detection() {
+        let lower = "flags".to_lowercase();
+        assert!(lower.contains("flag"));
     }
 }

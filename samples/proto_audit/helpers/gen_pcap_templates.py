@@ -819,6 +819,148 @@ def gen_iscsi_login():
 # Main: generate all templates
 # ═══════════════════════════════════════════════════════════════════════
 
+def gen_lldp():
+    """Minimal LLDP frame (Chassis ID + Port ID + TTL + End TLVs)."""
+    # Chassis ID TLV: type=1, len=7 (subtype=4=MAC, 6-byte MAC)
+    chassis_id = struct.pack('>H', (1 << 9) | 7) + b'\x04' + b'\x00\x01\x02\x03\x04\x05'
+    # Port ID TLV: type=2, len=7 (subtype=3=MAC, 6-byte MAC)
+    port_id = struct.pack('>H', (2 << 9) | 7) + b'\x03' + b'\x00\x01\x02\x03\x04\x05'
+    # TTL TLV: type=3, len=2
+    ttl = struct.pack('>H', (3 << 9) | 2) + struct.pack('>H', 120)
+    # End TLV: type=0, len=0
+    end = struct.pack('>H', 0)
+    return chassis_id + port_id + ttl + end
+
+
+def gen_cdp():
+    """Minimal CDP frame (requires LLC/SNAP encapsulation on Ethernet)."""
+    # LLC header: DSAP=0xAA, SSAP=0xAA, Control=0x03 (SNAP)
+    # SNAP: OUI=0x00000C (Cisco), PID=0x2000 (CDP)
+    llc_snap = b'\xAA\xAA\x03\x00\x00\x0C\x20\x00'
+    # CDP: version=2, TTL=180, checksum=0
+    cdp_hdr = struct.pack('>BBH', 2, 180, 0)
+    # Device ID TLV: type=1, len=12, "Router1"
+    device_id = struct.pack('>HH', 1, 11) + b'Router1'
+    return llc_snap + cdp_hdr + device_id
+
+
+def gen_stp():
+    """Minimal STP BPDU (Configuration BPDU)."""
+    # LLC header for STP: DSAP=0x42, SSAP=0x42, Control=0x03
+    llc = b'\x42\x42\x03'
+    # STP: proto_id=0, version=0, type=0 (config BPDU)
+    stp = struct.pack('>HBB', 0, 0, 0)
+    # Flags + Root priority/bridge/cost/port + message age/max age/hello/forward delay
+    stp += b'\x00'  # flags
+    stp += struct.pack('>H', 0x8000)  # root priority
+    stp += b'\x00\x01\x02\x03\x04\x05'  # root MAC
+    stp += struct.pack('>I', 0)  # root path cost
+    stp += struct.pack('>H', 0x8000)  # bridge priority
+    stp += b'\x00\x01\x02\x03\x04\x05'  # bridge MAC
+    stp += struct.pack('>H', 0x8001)  # port identifier
+    stp += struct.pack('>HHHH', 0, 20, 2, 15)  # message age, max age, hello, fwd delay
+    return llc + stp
+
+
+def gen_eapol():
+    """Minimal EAPOL Start frame."""
+    # EAPOL: version=2, type=1 (Start), length=0
+    return struct.pack('>BBH', 2, 1, 0)
+
+
+def gen_eap():
+    """Minimal EAP Request/Identity inside EAPOL."""
+    # EAP: code=1 (Request), id=1, length=5, type=1 (Identity)
+    eap = struct.pack('>BBHB', 1, 1, 5, 1)
+    # EAPOL: version=2, type=0 (EAP-Packet), length=len(eap)
+    eapol = struct.pack('>BBH', 2, 0, len(eap)) + eap
+    return eapol
+
+
+def gen_coap():
+    """Minimal CoAP GET request."""
+    # CoAP: ver=1, type=0 (CON), token_len=1, code=0.01 (GET)
+    hdr = struct.pack('>BBH', 0x41, 0x01, 0x1234)  # msg_id=0x1234
+    token = b'\xAB'
+    # Option: Uri-Path "test" (option delta=11, length=4)
+    option = struct.pack('>B', 0xB4) + b'test'
+    return hdr + token + option
+
+
+def gen_hsrp():
+    """Minimal HSRPv1 Hello message (UDP:1985)."""
+    # HSRPv1: version=0, opcode=0 (Hello), state=16 (Active), hellotime=3, holdtime=10
+    # priority=100, group=1, auth=cisco\0\0\0
+    hsrp = struct.pack('>BBBBBBB', 0, 0, 16, 3, 10, 100, 1)
+    hsrp += b'\x00'  # reserved
+    hsrp += b'cisco\x00\x00\x00'  # authentication (8 bytes)
+    hsrp += b'\xc0\xa8\x01\x01'  # virtual IP
+    return hsrp
+
+
+def gen_ptp():
+    """Minimal PTP Sync message (IEEE 1588)."""
+    # PTP: transport=0, messageType=0 (Sync), version=2
+    ptp = struct.pack('>BBHB', 0x00, 0x02, 44, 0)  # transportSpecific|messageType, versionPTP, messageLength, domainNumber
+    ptp += b'\x00'  # reserved
+    ptp += struct.pack('>H', 0x0200)  # flagField (two-step)
+    ptp += struct.pack('>Q', 0) + struct.pack('>H', 0)  # correctionField (10 bytes)
+    ptp += struct.pack('>I', 0)  # reserved
+    ptp += b'\x00\x01\x02\xff\xfe\x03\x04\x05'  # sourcePortIdentity (8 bytes)
+    ptp += struct.pack('>H', 1)  # sourcePortNumber (2 bytes)
+    ptp += struct.pack('>H', 0)  # sequenceId
+    ptp += struct.pack('>BB', 0, 0)  # controlField, logMessageInterval
+    ptp += struct.pack('>Q', 0) + struct.pack('>H', 0)  # originTimestamp (10 bytes)
+    return ptp
+
+
+def gen_tftp():
+    """Minimal TFTP Read Request."""
+    # OpCode=1 (RRQ), filename="test.txt", mode="octet"
+    return struct.pack('>H', 1) + b'test.txt\x00octet\x00'
+
+
+def gen_syslog():
+    """Minimal Syslog message (UDP:514)."""
+    return b'<134>1 2024-01-01T00:00:00Z host app - - - Test message'
+
+
+def gen_nbns():
+    """Minimal NBNS name query (UDP:137)."""
+    # Transaction ID, flags=0x0110 (standard query, recursion desired), questions=1
+    hdr = struct.pack('>HHHHHH', 0x1234, 0x0110, 1, 0, 0, 0)
+    # NBNS encoded name for "TEST" (32 bytes of encoded data + null + type + class)
+    name = b'\x20'  # name length=32
+    name += b'FEEFFCFGEFFCCACACACACACACACACACACA'[:32]  # encoded "TEST"
+    name += b'\x00'  # null terminator
+    name += struct.pack('>HH', 0x0020, 0x0001)  # type=NB, class=IN
+    return hdr + name
+
+
+def gen_mgcp():
+    """Minimal MGCP AuditEndpoint command (UDP:2727)."""
+    return b'AUEP 1234 aaln/1@gw1.example.com MGCP 1.0\r\n\r\n'
+
+
+def gen_openflow():
+    """Minimal OpenFlow 1.3 Hello message (TCP:6653)."""
+    # Type=0 (Hello), version=4 (OF 1.3), length=8, xid=1
+    return struct.pack('>BBHI', 4, 0, 8, 1)
+
+
+def gen_bfd():
+    """Minimal BFD Control packet (UDP:3784)."""
+    # Version=1, Diag=0, State=1 (Down), flags=0
+    # Detect Mult=3, Length=24
+    # My Discriminator, Your Discriminator
+    # Desired Min TX, Required Min RX, Required Min Echo RX
+    bfd = struct.pack('>BBB', 0x20, 0x40, 24)  # ver=1|diag=0, sta=1|flags, length
+    bfd += struct.pack('>B', 3)  # detect mult
+    bfd += struct.pack('>II', 1, 0)  # my/your discriminator
+    bfd += struct.pack('>III', 1000000, 1000000, 0)  # min TX, min RX, min echo
+    return bfd
+
+
 def main():
     parser = argparse.ArgumentParser(description='Generate PCAP templates')
     parser.add_argument('--output-dir', required=True, help='Output directory')
@@ -998,6 +1140,55 @@ def main():
     ike_body += struct.pack('>I', 28 + len(ike_sa_payload))  # length
     ike_body += ike_sa_payload
     emit('ikev2', 1, eth_ipv4_udp(500, ike_body))
+
+    # ── LLDP (EtherType 0x88CC) ──
+    emit('lldp', 1, ethernet(dst=b'\x01\x80\xC2\x00\x00\x0E', etype=0x88CC) + gen_lldp())
+
+    # ── CDP (LLC/SNAP on Ethernet, dst=01:00:0C:CC:CC:CC) ──
+    cdp_frame = ethernet(dst=b'\x01\x00\x0C\xCC\xCC\xCC', etype=0x0000)  # length field
+    # Replace etype with length for 802.3
+    cdp_data = gen_cdp()
+    cdp_len = len(cdp_data)
+    cdp_frame = ethernet(dst=b'\x01\x00\x0C\xCC\xCC\xCC')[:12] + struct.pack('>H', cdp_len) + cdp_data
+    emit('cdp', 1, cdp_frame)
+
+    # ── STP (BPDU, dst=01:80:C2:00:00:00) ──
+    stp_data = gen_stp()
+    stp_frame = ethernet(dst=b'\x01\x80\xC2\x00\x00\x00')[:12] + struct.pack('>H', len(stp_data)) + stp_data
+    emit('stp', 1, stp_frame)
+
+    # ── EAPOL (EtherType 0x888E) ──
+    emit('eapol', 1, ethernet(etype=0x888E) + gen_eapol())
+
+    # ── EAP (inside EAPOL, EtherType 0x888E) ──
+    emit('eap', 1, ethernet(etype=0x888E) + gen_eap())
+
+    # ── CoAP (UDP:5683) ──
+    emit('coap', 1, eth_ipv4_udp(5683, gen_coap()))
+
+    # ── HSRP (UDP:1985) ──
+    emit('hsrp', 1, eth_ipv4_udp(1985, gen_hsrp()))
+
+    # ── PTP (EtherType 0x88F7, multicast dst) ──
+    emit('ptp', 1, ethernet(dst=b'\x01\x1B\x19\x00\x00\x00', etype=0x88F7) + gen_ptp())
+
+    # ── TFTP (UDP:69) ──
+    emit('tftp', 1, eth_ipv4_udp(69, gen_tftp()))
+
+    # ── Syslog (UDP:514) ──
+    emit('syslog', 1, eth_ipv4_udp(514, gen_syslog()))
+
+    # ── NBNS (UDP:137) ──
+    emit('nbns', 1, eth_ipv4_udp(137, gen_nbns()))
+
+    # ── MGCP (UDP:2727) ──
+    emit('mgcp', 1, eth_ipv4_udp(2727, gen_mgcp()))
+
+    # ── OpenFlow (TCP:6653) ──
+    emit('openflow', 1, eth_ipv4_tcp(6653, gen_openflow()))
+
+    # ── BFD (UDP:3784) ──
+    emit('bfd', 1, eth_ipv4_udp(3784, gen_bfd()))
 
     print(f"\nGenerated {count} PCAP templates in {args.output_dir}", file=sys.stderr)
 

@@ -33,6 +33,14 @@ pub struct ProtocolNames {
     pub libpcap_name: Option<&'static str>,
     /// libpcap source file (e.g., "gencode.c", "pcap/vlan.h")
     pub libpcap_file: Option<&'static str>,
+    /// Kaitai Struct KSY id (e.g., "dns_packet")
+    pub kaitai_id: Option<&'static str>,
+    /// Kaitai Struct KSY filename (e.g., "dns_packet.ksy")
+    pub kaitai_file: Option<&'static str>,
+    /// Suricata parser module name (e.g., "dns")
+    pub suricata_module: Option<&'static str>,
+    /// Suricata struct name (e.g., "DnsHeader")
+    pub suricata_struct: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -60,6 +68,10 @@ impl ProtocolNames {
             etherparse_file: None,
             libpcap_name: None,
             libpcap_file: None,
+            kaitai_id: None,
+            kaitai_file: None,
+            suricata_module: None,
+            suricata_struct: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -107,6 +119,20 @@ impl ProtocolNames {
     pub const fn libpcap(mut self, name: &'static str, file: &'static str) -> Self {
         self.libpcap_name = Some(name);
         self.libpcap_file = Some(file);
+        self
+    }
+
+    /// Set both Kaitai Struct KSY id and filename.
+    pub const fn kaitai(mut self, id: &'static str, file: &'static str) -> Self {
+        self.kaitai_id = Some(id);
+        self.kaitai_file = Some(file);
+        self
+    }
+
+    /// Set both Suricata module name and struct name.
+    pub const fn suricata(mut self, module: &'static str, struct_name: &'static str) -> Self {
+        self.suricata_module = Some(module);
+        self.suricata_struct = Some(struct_name);
         self
     }
 
@@ -186,6 +212,20 @@ pub fn find_by_libpcap_name(name: &str) -> Option<ProtocolNames> {
         .find(|p| p.libpcap_name == Some(name))
 }
 
+/// Look up a protocol by its Kaitai Struct KSY id.
+pub fn find_by_kaitai_id(id: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.kaitai_id == Some(id))
+}
+
+/// Look up a protocol by its Suricata struct name.
+pub fn find_by_suricata_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.suricata_struct == Some(name))
+}
+
 /// Build a HashMap from source-specific name → canonical name.
 ///
 /// `source` must be one of: "xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"
@@ -200,6 +240,8 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             "tshark" => p.tshark.map(|s| s.to_string()),
             "etherparse" => p.etherparse_struct.map(|s| s.to_string()),
             "libpcap" => p.libpcap_name.map(|s| s.to_string()),
+            "kaitai" => p.kaitai_id.map(|s| s.to_string()),
+            "suricata" => p.suricata_struct.map(|s| s.to_string()),
             _ => None,
         };
         if let Some(n) = name {

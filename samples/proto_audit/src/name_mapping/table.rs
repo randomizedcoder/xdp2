@@ -12,6 +12,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("Ether")
             .tshark("eth")
             .etherparse("Ethernet2Header", "etherparse/src/link/ethernet2_header.rs")
+            .kaitai("ethernet_frame", "ethernet_frame.ksy")
             .ieee(&["802.3-2022"])
             .iana_registry("ieee-802-numbers")
             .libpcap("ethernet_header", "pcap/proto_audit/ethernet.h"),
@@ -22,6 +23,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("vlan")
             .etherparse("SingleVlanHeader", "etherparse/src/link/single_vlan_header.rs")
             .libpcap("vlan_tag", "pcap/vlan.h")
+            .kaitai("ieee_802_1q", "ieee_802_1q.ksy")
             .ieee(&["802.1Q-2022", "802.1Q-2014"]),
         PN::new("PBB", 18)
             .xdp2("xdp2_parse_pbb")
@@ -38,6 +40,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("ip")
             .etherparse("Ipv4Header", "etherparse/src/net/ipv4_header.rs")
             .libpcap("IPv4", "gencode.c")
+            .kaitai("ipv4_packet", "ipv4_packet.ksy")
             .variable()
             .rfcs(&[791, 2474, 3168, 6864])
             .iana_registry("protocol-numbers"),
@@ -48,6 +51,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("ipv6")
             .etherparse("Ipv6Header", "etherparse/src/net/ipv6_header.rs")
             .libpcap("IPv6", "gencode.c")
+            .kaitai("ipv6_packet", "ipv6_packet.ksy")
             .rfcs(&[8200, 4291, 4443, 6437, 8021])
             .iana_registry("protocol-numbers"),
         PN::new("ARP", 8)
@@ -57,6 +61,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("arp")
             .etherparse("ArpPacket", "etherparse/src/net/arp_packet.rs")
             .libpcap("ARP", "gencode.c")
+            .kaitai("arp", "arp.ksy")
             .variable()
             .rfcs(&[826, 5227]),
         PN::new("RARP", 8)
@@ -75,6 +80,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("icmp")
             .etherparse("Icmpv4Header", "etherparse/src/transport/icmpv4_header.rs")
             .libpcap("icmpv4_header", "pcap/proto_audit/icmpv4.h")
+            .kaitai("icmp_packet", "icmp_packet.ksy")
             .rfcs(&[792, 1122, 4884]),
         PN::new("ICMPv6", 8)
             .xdp2("xdp2_parse_icmpv6")
@@ -100,6 +106,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("tcp")
             .etherparse("TcpHeader", "etherparse/src/transport/tcp_header.rs")
             .libpcap("TCP", "gencode.c")
+            .kaitai("tcp_segment", "tcp_segment.ksy")
             .variable()
             .rfcs(&[9293, 793, 1122, 5681, 7323, 7414])
             .iana_registry("service-name-port-numbers"),
@@ -110,6 +117,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("udp")
             .etherparse("UdpHeader", "etherparse/src/transport/udp_header.rs")
             .libpcap("UDP", "gencode.c")
+            .kaitai("udp_datagram", "udp_datagram.ksy")
             .rfcs(&[768])
             .iana_registry("service-name-port-numbers"),
         // ── Tunneling ──
@@ -713,6 +721,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_rtp").scapy("RTP").tshark("rtp")
             .etherparse("RtpHeader", "src/proto_audit/rtp.rs")
             .libpcap("rtp_header", "pcap/proto_audit/rtp.h")
+            .kaitai("rtp_packet", "rtp_packet.ksy")
             .variable()
             .rfcs(&[3550, 3551]),
         PN::new("SRT", 16)
@@ -723,21 +732,28 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("DNS", 12)
             .xdp2("xdp2_parse_dns").scapy("DNS").tshark("dns")
             .etherparse("DnsHeader", "src/proto_audit/dns.rs")
-            .libpcap("dns_header", "pcap/proto_audit/dns.h").variable()
+            .libpcap("dns_header", "pcap/proto_audit/dns.h")
+            .kaitai("dns_packet", "dns_packet.ksy")
+            .suricata("dns", "DnsHeader")
+            .variable()
             .rfcs(&[1035, 2671, 6891, 8484]),
         PN::new("NTP", 48)
             .xdp2("xdp2_parse_ntp").scapy("NTPHeader").tshark("ntp")
             .etherparse("NtpHeader", "src/proto_audit/ntp.rs")
-            .libpcap("ntp_header", "pcap/proto_audit/ntp.h").variable()
+            .libpcap("ntp_header", "pcap/proto_audit/ntp.h")
+            .suricata("ntp", "NtpHeader")
+            .variable()
             .rfcs(&[5905]),
         PN::new("SNMP", 10)
             .xdp2("xdp2_parse_snmp").scapy("SNMP").tshark("snmp").variable()
+            .suricata("snmp", "SnmpHeader")
             .rfcs(&[3411, 3412, 3414, 3416])
             .etherparse("SNMPHeader", "src/proto_audit/snmp.rs")
             .libpcap("snmp_header", "pcap/proto_audit/snmp.h"),
         PN::new("DHCP", 236)
             .xdp2("xdp2_parse_dhcp").scapy("BOOTP").tshark("dhcp")
             .libpcap("dhcp_header", "pcap/proto_audit/dhcp.h")
+            .suricata("dhcp", "DHCPHeader")
             .variable()
             .rfcs(&[2131, 2132])
             .etherparse("DHCPHeader", "src/proto_audit/dhcp.rs"),
@@ -748,6 +764,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("dhcpv6_header", "pcap/proto_audit/dhcpv6.h"),
         PN::new("QUIC", 20)
             .xdp2("xdp2_parse_quic").scapy("QUIC_Initial").tshark("quic").variable()
+            .suricata("quic", "QuicHeader")
             .rfcs(&[9000, 9001, 9002])
             .etherparse("QUIC_InitialHeader", "src/proto_audit/quic.rs")
             .libpcap("quic_header", "pcap/proto_audit/quic.h"),
@@ -799,6 +816,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("nfs_header", "pcap/proto_audit/nfs.h"),
         PN::new("SMB", 32)
             .xdp2("xdp2_parse_smb").scapy("SMB_Header").tshark("smb").variable()
+            .suricata("smb", "SmbHeader")
             .etherparse("SMB_HeaderHeader", "src/proto_audit/smb.rs")
             .libpcap("smb_header", "pcap/proto_audit/smb.h"),
         PN::new("SMB2", 64)
@@ -993,6 +1011,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("dtls_header", "pcap/proto_audit/dtls.h"),
         PN::new("IKEv2", 28)
             .xdp2("xdp2_parse_ikev2").scapy("IKEv2").tshark("isakmp").variable()
+            .suricata("ike", "IsakmpHeader")
             .rfcs(&[7296, 4306])
             .etherparse("IKEv2Header", "src/proto_audit/ikev2.rs")
             .libpcap("ikev2_header", "pcap/proto_audit/ikev2.h"),
@@ -1004,6 +1023,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── DNS Family & Discovery ──
         PN::new("mDNS", 12)
             .xdp2("xdp2_parse_mdns").scapy("DNS").tshark("mdns").variable()
+            .suricata("mdns", "MdnsHeader")
             .rfcs(&[6762])
             .etherparse("mDNSHeader", "src/proto_audit/mdns.rs")
             .libpcap("mdns_header", "pcap/proto_audit/mdns.h"),
@@ -1029,11 +1049,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── VoIP / Telephony ──
         PN::new("SIP", 20)
             .xdp2("xdp2_parse_sip").scapy("SIP").tshark("sip").variable()
+            .suricata("sip", "SipHeader")
             .rfcs(&[3261, 6026])
             .etherparse("SIPHeader", "src/proto_audit/sip.rs")
             .libpcap("sip_header", "pcap/proto_audit/sip.h"),
         PN::new("RTCP", 8)
             .xdp2("xdp2_parse_rtcp").scapy("RTCP").tshark("rtcp").variable()
+            .kaitai("rtcp_packet", "rtcp_packet.ksy")
             .rfcs(&[3550])
             .etherparse("RTCPHeader", "src/proto_audit/rtcp.rs")
             .libpcap("rtcp_header", "pcap/proto_audit/rtcp.h"),
@@ -1060,6 +1082,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("MQTT", 2)
             .xdp2("xdp2_parse_mqtt").scapy("MQTT").tshark("mqtt")
             .libpcap("mqtt_header", "pcap/proto_audit/mqtt.h")
+            .suricata("mqtt", "FixedHeader")
             .variable()
             .etherparse("MQTTHeader", "src/proto_audit/mqtt.rs"),
         PN::new("CoAP", 4)
@@ -1070,6 +1093,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("MODBUS_TCP", 7)
             .xdp2("xdp2_parse_modbus_tcp").scapy("ModbusADU").tshark("modbus")
             .libpcap("modbus_tcp_header", "pcap/proto_audit/modbus.h")
+            .suricata("modbus", "ModbusHeader")
             .variable()
             .etherparse("MODBUS_TCPHeader", "src/proto_audit/modbus_tcp.rs"),
         PN::new("BACnet", 4)
@@ -1083,6 +1107,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("dnp3_header", "pcap/proto_audit/dnp3.h"),
         PN::new("ENIP", 24)
             .xdp2("xdp2_parse_enip").scapy("ENIP_TCP").tshark("enip").variable()
+            .suricata("enip", "EnipHeader")
             .etherparse("ENIPHeader", "src/proto_audit/enip.rs")
             .libpcap("enip_header", "pcap/proto_audit/enip.h"),
         PN::new("CIP", 2)
@@ -1138,6 +1163,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("syslog_header", "pcap/proto_audit/syslog.h"),
         PN::new("TFTP", 4)
             .xdp2("xdp2_parse_tftp").scapy("TFTP").tshark("tftp").variable()
+            .suricata("tftp", "TftpHeader")
             .rfcs(&[1350])
             .etherparse("TFTPHeader", "src/proto_audit/tftp.rs")
             .libpcap("tftp_header", "pcap/proto_audit/tftp.h"),
@@ -1158,11 +1184,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── Auth & Directory ──
         PN::new("LDAP", 1)
             .xdp2("xdp2_parse_ldap").tshark("ldap").variable()
+            .suricata("ldap", "LdapHeader")
             .rfcs(&[4511, 4510])
             .etherparse("LDAPHeader", "src/proto_audit/ldap.rs")
             .libpcap("ldap_header", "pcap/proto_audit/ldap.h"),
         PN::new("Kerberos", 4)
             .xdp2("xdp2_parse_kerberos").scapy("Kerberos").tshark("kerberos").variable()
+            .suricata("krb", "KerberosHeader")
             .rfcs(&[4120, 4121])
             .etherparse("KerberosHeader", "src/proto_audit/kerberos.rs")
             .libpcap("kerberos_header", "pcap/proto_audit/kerberos.h"),
@@ -1183,21 +1211,25 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("http_header", "pcap/proto_audit/http.h"),
         PN::new("HTTP2", 9)
             .xdp2("xdp2_parse_http2").scapy("H2Frame").tshark("http2").variable()
+            .suricata("http2", "HTTP2FrameHeader")
             .rfcs(&[9113, 7540])
             .etherparse("HTTP2Header", "src/proto_audit/http2.rs")
             .libpcap("http2_header", "pcap/proto_audit/http2.h"),
         PN::new("FTP", 4)
             .xdp2("xdp2_parse_ftp").tshark("ftp").variable()
+            .suricata("ftp", "FtpHeader")
             .rfcs(&[959])
             .etherparse("FTPHeader", "src/proto_audit/ftp.rs")
             .libpcap("ftp_header", "pcap/proto_audit/ftp.h"),
         PN::new("SSH", 5)
             .xdp2("xdp2_parse_ssh").tshark("ssh").variable()
+            .suricata("ssh", "SshRecordHeader")
             .rfcs(&[4253, 4251, 4252])
             .etherparse("SSHHeader", "src/proto_audit/ssh.rs")
             .libpcap("ssh_header", "pcap/proto_audit/ssh.h"),
         PN::new("Telnet", 1)
             .xdp2("xdp2_parse_telnet").tshark("telnet").variable()
+            .suricata("telnet", "TelnetHeader")
             .rfcs(&[854, 855])
             .etherparse("TelnetHeader", "src/proto_audit/telnet.rs")
             .libpcap("telnet_header", "pcap/proto_audit/telnet.h"),

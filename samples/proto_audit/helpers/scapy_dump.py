@@ -389,12 +389,59 @@ def dump_all():
     print(f"Dumped {len(results)} protocols", file=sys.stderr)
 
 
+def dissect_pcap(pcap_path):
+    """Read a PCAP file, dissect with Scapy, output per-layer field values as JSON."""
+    import scapy.all as sa  # noqa: F401
+    # Also import contrib modules
+    for contrib in [
+        'scapy.contrib.igmp', 'scapy.contrib.igmpv3', 'scapy.contrib.geneve',
+        'scapy.contrib.lldp', 'scapy.contrib.erspan', 'scapy.contrib.nsh',
+        'scapy.contrib.ospf', 'scapy.contrib.bgp', 'scapy.contrib.ethercat',
+    ]:
+        try:
+            __import__(contrib)
+        except Exception:
+            pass
+
+    packets = sa.rdpcap(pcap_path)
+    results = []
+    for i, pkt in enumerate(packets):
+        pkt_layers = []
+        layer = pkt
+        while layer:
+            layer_name = type(layer).__name__
+            fields = {}
+            for f in layer.fields_desc:
+                try:
+                    val = layer.getfieldval(f.name)
+                    if isinstance(val, bytes):
+                        fields[f.name] = val.hex()
+                    elif isinstance(val, (int, float, str, bool)):
+                        fields[f.name] = val
+                    else:
+                        fields[f.name] = str(val)
+                except Exception:
+                    pass
+            pkt_layers.append({
+                "layer": layer_name,
+                "fields": fields,
+            })
+            layer = layer.payload if layer.payload and not isinstance(layer.payload, sa.NoPayload) else None
+        results.append({
+            "packet": i,
+            "layers": pkt_layers,
+        })
+    print(json.dumps(results, indent=2))
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <ProtocolName>", file=sys.stderr)
         print(f"       {sys.argv[0]} --list", file=sys.stderr)
         print(f"       {sys.argv[0]} --discover-all", file=sys.stderr)
         print(f"       {sys.argv[0]} --dump-all", file=sys.stderr)
+        print(f"       {sys.argv[0]} --dissect-pcap <file.pcap>", file=sys.stderr)
+        print(f"       {sys.argv[0]} --extra <file.py> <ClassName>", file=sys.stderr)
         sys.exit(1)
 
     arg = sys.argv[1]
@@ -406,5 +453,21 @@ if __name__ == "__main__":
         discover_all_rich()
     elif arg == "--dump-all":
         dump_all()
+    elif arg == "--dissect-pcap" and len(sys.argv) >= 3:
+        dissect_pcap(sys.argv[2])
+    elif arg == "--extra" and len(sys.argv) >= 4:
+        # Load extra Python file, then dump the named class
+        import importlib.util
+        extra_path = sys.argv[2]
+        class_name = sys.argv[3]
+        spec = importlib.util.spec_from_file_location("extra_module", extra_path)
+        mod = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(mod)
+        except Exception as e:
+            print(f"Error loading {extra_path}: {e}", file=sys.stderr)
+            sys.exit(1)
+        # The class should now be registered in Scapy's class registry
+        dump_protocol(class_name)
     else:
         dump_protocol(arg)

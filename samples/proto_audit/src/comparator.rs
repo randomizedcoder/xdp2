@@ -1455,4 +1455,100 @@ struct ieee802154_hdr_fc {
             "all split mismatches should be covered"
         );
     }
+
+    #[test]
+    fn test_compare_field_values() {
+        let mut a = BTreeMap::new();
+        a.insert("version".to_string(), "4".to_string());
+        a.insert("ttl".to_string(), "64".to_string());
+        a.insert("protocol".to_string(), "0x06".to_string());
+        a.insert("src_only".to_string(), "x".to_string());
+
+        let mut b = BTreeMap::new();
+        b.insert("version".to_string(), "4".to_string());
+        b.insert("ttl".to_string(), "128".to_string());
+        b.insert("protocol".to_string(), "6".to_string()); // 0x06 == 6
+        b.insert("dst_only".to_string(), "y".to_string());
+
+        let results = compare_field_values(&a, &b);
+        assert_eq!(results.len(), 5); // version, ttl, protocol, src_only, dst_only
+
+        let version = results.iter().find(|r| r.field_name == "version").unwrap();
+        assert!(version.agree);
+
+        let ttl = results.iter().find(|r| r.field_name == "ttl").unwrap();
+        assert!(!ttl.agree);
+
+        // 0x06 and 6 should agree after normalization
+        let proto = results.iter().find(|r| r.field_name == "protocol").unwrap();
+        assert!(proto.agree);
+
+        // Fields present in only one source should not agree
+        let src_only = results.iter().find(|r| r.field_name == "src_only").unwrap();
+        assert!(!src_only.agree);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Value-level comparison (Phase 4: corpus cross-source parsing)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A parsed field value from a single source.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FieldValue {
+    pub name: String,
+    pub value: String,
+}
+
+/// Result of comparing field values from two sources on the same packet layer.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ValueComparison {
+    pub field_name: String,
+    pub source_a_value: Option<String>,
+    pub source_b_value: Option<String>,
+    pub agree: bool,
+}
+
+/// Compare field values from two sources for the same protocol layer.
+///
+/// `fields_a` and `fields_b` are field name → value maps from two different
+/// dissectors (e.g., tshark and Scapy) on the same packet.
+pub fn compare_field_values(
+    fields_a: &BTreeMap<String, String>,
+    fields_b: &BTreeMap<String, String>,
+) -> Vec<ValueComparison> {
+    let all_keys: HashSet<&String> = fields_a.keys().chain(fields_b.keys()).collect();
+    let mut results = Vec::new();
+    for key in all_keys {
+        let va = fields_a.get(key);
+        let vb = fields_b.get(key);
+        let agree = match (va, vb) {
+            (Some(a), Some(b)) => normalize_value(a) == normalize_value(b),
+            _ => false,
+        };
+        results.push(ValueComparison {
+            field_name: key.to_string(),
+            source_a_value: va.cloned(),
+            source_b_value: vb.cloned(),
+            agree,
+        });
+    }
+    results.sort_by(|a, b| a.field_name.cmp(&b.field_name));
+    results
+}
+
+/// Normalize a field value for comparison (strip whitespace, lowercase hex).
+fn normalize_value(v: &str) -> String {
+    let v = v.trim();
+    // Try to normalize hex representations (0x prefix, leading zeros)
+    if let Some(hex) = v.strip_prefix("0x").or_else(|| v.strip_prefix("0X")) {
+        if let Ok(n) = u64::from_str_radix(hex, 16) {
+            return format!("{}", n);
+        }
+    }
+    // Try to parse as integer for consistent representation
+    if let Ok(n) = v.parse::<u64>() {
+        return format!("{}", n);
+    }
+    v.to_lowercase()
 }

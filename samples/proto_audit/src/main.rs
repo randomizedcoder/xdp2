@@ -17,6 +17,8 @@ mod type_mapping;
 mod test_data;
 #[cfg(test)]
 mod roundtrip_tests;
+#[cfg(test)]
+mod crossgen_tests;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -440,6 +442,42 @@ enum Commands {
         json: bool,
     },
 
+    /// Parse PCAP through tshark and Scapy, compare field values across parsers
+    CorpusParse {
+        /// Path to PCAP file (or directory of PCAP files)
+        #[arg(long)]
+        pcap: PathBuf,
+
+        /// Protocol name to compare (optional, compares all layers if omitted)
+        #[arg(long)]
+        proto: Option<String>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Cross-generator round-trip: generate code → re-extract → compare to original IR
+    CrossGen {
+        /// Protocol name (canonical: IPv4, TCP, etc.) or "all"
+        #[arg(long)]
+        proto: String,
+
+        /// Target: etherparse, c, scapy, pcap, or all
+        #[arg(long, default_value = "all")]
+        target: String,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Generate PCAP, feed to tshark, compare IR vs tshark round-trip
     Validate {
         /// Protocol name (canonical: IPv4, TCP, etc.)
@@ -565,6 +603,18 @@ fn main() -> Result<()> {
             limit,
             json,
         } => cmd_search(&query, &tier, limit, json),
+        Commands::CorpusParse {
+            pcap,
+            proto,
+            paths,
+            json,
+        } => cmd_corpus_parse(&pcap, proto.as_deref(), json, &paths),
+        Commands::CrossGen {
+            proto,
+            target,
+            paths,
+            json,
+        } => cmd_crossgen(&proto, &target, json, &paths),
         Commands::Validate {
             proto,
             tier,
