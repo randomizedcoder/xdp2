@@ -110,20 +110,20 @@ fn try_extract(
         }
         "kaitai" => {
             let kaitai_dir = paths.kaitai_dir.as_ref()?;
-            let ksy_files = extractors::kaitai::scan_kaitai_dir(kaitai_dir).ok()?;
-            // Prefer curated kaitai_id from name mapping, fall back to canonical name match
+            // Prefer curated kaitai_file from name mapping for direct path lookup
             let names = name_mapping::find_by_canonical(proto);
-            let kaitai_id = names.as_ref().and_then(|n| n.kaitai_id);
-            let matched = if let Some(kid) = kaitai_id {
-                ksy_files.iter().find(|(name, _)| name == kid)
+            let ksy_path = if let Some(ksy_file) = names.as_ref().and_then(|n| n.kaitai_file) {
+                let path = kaitai_dir.join("network").join(ksy_file);
+                if path.exists() { Some(path) } else { None }
             } else {
+                // Fall back to scanning and display name match
+                let ksy_files = extractors::kaitai::scan_kaitai_dir(kaitai_dir).ok()?;
                 let proto_lower = proto.to_lowercase();
-                ksy_files.iter().find(|(name, _): &&(String, _)| {
+                ksy_files.into_iter().find(|(name, _)| {
                     name.to_lowercase() == proto_lower
-                })
-            };
-            let (_, ksy_path) = matched?;
-            let result = extractors::kaitai::extract_from_ksy(ksy_path);
+                }).map(|(_, p)| p)
+            }?;
+            let result = extractors::kaitai::extract_from_ksy(&ksy_path);
             let mut def = result.ok().flatten()?;
             def.name = proto.to_string();
             Some(def)
