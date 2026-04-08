@@ -57,15 +57,32 @@ pub fn run_tshark(
     tshark_bin: &str,
     count: u32,
 ) -> Result<String> {
-    let output = Command::new(tshark_bin)
-        .args([
-            "-r",
-            &pcap_path.to_string_lossy(),
-            "-T",
-            "pdml",
-            "-c",
-            &count.to_string(),
-        ])
+    run_tshark_with_hints(pcap_path, tshark_bin, count, &[])
+}
+
+/// Run tshark with optional decode-as hints.
+///
+/// `decode_as` entries are tshark `-d` arguments, e.g. `"udp.port==5004,rtp"`.
+/// Multiple hints are passed as separate `-d` flags.
+pub fn run_tshark_with_hints(
+    pcap_path: &Path,
+    tshark_bin: &str,
+    count: u32,
+    decode_as: &[&str],
+) -> Result<String> {
+    let mut cmd = Command::new(tshark_bin);
+    cmd.args([
+        "-r",
+        &pcap_path.to_string_lossy(),
+        "-T",
+        "pdml",
+        "-c",
+        &count.to_string(),
+    ]);
+    for hint in decode_as {
+        cmd.args(["-d", hint]);
+    }
+    let output = cmd
         .output()
         .with_context(|| format!("running tshark on {}", pcap_path.display()))?;
 
@@ -75,6 +92,32 @@ pub fn run_tshark(
     }
 
     String::from_utf8(output.stdout).context("tshark output is not valid UTF-8")
+}
+
+/// Look up tshark decode-as hints for a protocol.
+///
+/// Some protocols need explicit `-d` hints because tshark can't detect them
+/// heuristically from synthetic PCAP content (e.g., RTP on UDP/5004).
+pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
+    match proto {
+        // UDP-based protocols that need port-based decode-as
+        "RTP" => vec!["udp.port==5004,rtp"],
+        "RTCP" => vec!["udp.port==5005,rtcp"],
+        "LISP" => vec!["udp.port==4341,lisp"],
+        "MGCP" => vec!["udp.port==2427,mgcp"],
+        "SRT" => vec!["udp.port==1935,srt"],
+        "HSRP" => vec!["udp.port==1985,hsrp"],
+        "GLBP" => vec!["udp.port==3222,glbp"],
+        "CARP" | "VRRP" => vec!["ip.proto==112,vrrp"],
+        "Teredo" => vec!["udp.port==3544,teredo"],
+        "MPLS_OAM" => vec!["udp.port==3503,mpls-echo"],
+        // TCP-based protocols that need port-based decode-as
+        "TACACS" => vec!["tcp.port==49,tacplus"],
+        "ZeroMQ" => vec!["tcp.port==5555,zmtp"],
+        "NVMe" => vec!["tcp.port==4420,nvme-tcp"],
+        "DNP3" => vec!["tcp.port==20000,dnp3"],
+        _ => vec![],
+    }
 }
 
 /// Extract proto elements from a node, recursively finding nested protos
