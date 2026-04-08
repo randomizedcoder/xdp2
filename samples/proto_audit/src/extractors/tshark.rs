@@ -131,6 +131,50 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
     }
 }
 
+/// Recursively collect named `<field>` elements from a node tree.
+///
+/// Many protocols (LLDP, ENIP, etc.) wrap fields inside unnamed parent
+/// `<field>` elements (TLV containers). This function descends into those
+/// wrappers to collect all leaf fields with actual names.
+fn extract_fields_recursive(node: &roxmltree::Node, fields: &mut Vec<PdmlField>) {
+    for field_node in node.children().filter(|n| n.has_tag_name("field")) {
+        let field_name = field_node
+            .attribute("name")
+            .unwrap_or("")
+            .to_string();
+
+        if field_name.is_empty() || field_name == "_ws.expert" {
+            // Unnamed wrapper or expert info — recurse into children
+            extract_fields_recursive(&field_node, fields);
+            continue;
+        }
+
+        fields.push(PdmlField {
+            name: field_name,
+            show_name: field_node
+                .attribute("showname")
+                .unwrap_or("")
+                .to_string(),
+            pos: field_node
+                .attribute("pos")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            size: field_node
+                .attribute("size")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            value: field_node
+                .attribute("value")
+                .unwrap_or("")
+                .to_string(),
+            show: field_node
+                .attribute("show")
+                .unwrap_or("")
+                .to_string(),
+        });
+    }
+}
+
 /// Extract proto elements from a node, recursively finding nested protos
 /// (e.g., IPv6 extension headers nested inside `<proto name="ipv6">`).
 fn extract_protos_recursive(parent: &roxmltree::Node, protos: &mut Vec<PdmlProtocol>) {
@@ -153,40 +197,7 @@ fn extract_protos_recursive(parent: &roxmltree::Node, protos: &mut Vec<PdmlProto
             .unwrap_or(0);
 
         let mut fields = Vec::new();
-        for field_node in proto_node.children().filter(|n| n.has_tag_name("field")) {
-            let field_name = field_node
-                .attribute("name")
-                .unwrap_or("")
-                .to_string();
-            // Skip unnamed fields and tree-structure fields
-            if field_name.is_empty() || field_name == "_ws.expert" {
-                continue;
-            }
-
-            fields.push(PdmlField {
-                name: field_name,
-                show_name: field_node
-                    .attribute("showname")
-                    .unwrap_or("")
-                    .to_string(),
-                pos: field_node
-                    .attribute("pos")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0),
-                size: field_node
-                    .attribute("size")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0),
-                value: field_node
-                    .attribute("value")
-                    .unwrap_or("")
-                    .to_string(),
-                show: field_node
-                    .attribute("show")
-                    .unwrap_or("")
-                    .to_string(),
-            });
-        }
+        extract_fields_recursive(&proto_node, &mut fields);
 
         protos.push(PdmlProtocol {
             name,
