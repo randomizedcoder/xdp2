@@ -115,6 +115,7 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "LWAPP" => vec!["udp.port==12222,lwapp"],
         "TZSP" => vec!["udp.port==37008,tzsp"],
         "TPLINK_SMARTHOME" => vec!["udp.port==9999,tplink-smarthome"],
+        // WOL: tshark recognizes WOL via magic FF pattern, no decode-as needed
         // TCP-based protocols that need port-based decode-as
         "TACACS" => vec!["tcp.port==49,tacacs"],
         "ZeroMQ" => vec!["tcp.port==5555,zmtp"],

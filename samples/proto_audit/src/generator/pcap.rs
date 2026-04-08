@@ -223,7 +223,7 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("ERSPAN", "GRE", "protocol_type", 0x88BE),
     ("GRE_PPTP", "GRE", "protocol_type", 0x880B),
     // ── Additional Ethernet-direct routes ──
-    ("WOL", "Ethernet", "ether_type", 0x0842),
+    ("WOL", "UDP", "dst_port", 9),
     ("LLTD", "Ethernet", "ether_type", 0x88D9),
     ("EDSA", "Ethernet", "ether_type", 0xDADA),
     // ── Additional IPv4 routes ──
@@ -988,18 +988,22 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_default_value("70"), // standard CCM first TLV offset
                 ]),
         ),
-        // ── BATMAN (B.A.T.M.A.N. Advanced) ──
+        // ── BATMAN (B.A.T.M.A.N. Advanced OGM v2, 192 bits = 24 bytes) ──
         "BATMAN" => Some(
-            ProtocolDef::new("BATMAN", 48)
+            ProtocolDef::new("BATMAN", 192)
                 .with_fields(vec![
                     FieldDef::new("packet_type", 0, 8, FieldType::Uint)
-                        .with_default_value("1"), // BATADV_IV_OGM
+                        .with_default_value("1"), // BATADV_OGM2
                     FieldDef::new("version", 8, 8, FieldType::Uint)
-                        .with_default_value("15"), // B.A.T.M.A.N. IV
+                        .with_default_value("15"),
                     FieldDef::new("ttl", 16, 8, FieldType::Uint)
                         .with_default_value("50"),
                     FieldDef::new("flags", 24, 8, FieldType::Uint),
                     FieldDef::new("seqno", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("orig", 64, 48, FieldType::MacAddr).with_endian(Endian::Big),
+                    FieldDef::new("tvlv_len", 112, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("throughput", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("reserved", 160, 32, FieldType::Pad),
                 ]),
         ),
         // ── TRILL ──
@@ -2796,7 +2800,7 @@ mod tests {
 
     #[test]
     fn test_build_stack_wol() {
-        assert_stack("WOL", &["Ethernet", "WOL"], 0, "ether_type", 0x0842);
+        assert_stack("WOL", &["Ethernet", "IPv4", "UDP", "WOL"], 2, "dst_port", 9);
     }
 
     #[test]
