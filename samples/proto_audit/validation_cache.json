@@ -252,18 +252,18 @@
     "timestamp": "1775618311"
   },
   "ENIP": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
     "fields_mismatch": 0,
-    "timestamp": "1775666194"
+    "timestamp": "1775684567"
   },
   "ERF": {
     "validation_tier": "Unvalidated",
     "fields_agree": 0,
     "total_fields": 0,
     "fields_mismatch": 0,
-    "timestamp": "1775530317"
+    "timestamp": "1775683020"
   },
   "ERSPAN": {
     "validation_tier": "Gold",
@@ -315,11 +315,11 @@
     "timestamp": "1775618358"
   },
   "FTP": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
     "fields_mismatch": 0,
-    "timestamp": "1775666202"
+    "timestamp": "1775684615"
   },
   "GLBP": {
     "validation_tier": "Gold",
@@ -679,11 +679,11 @@
     "timestamp": "1775618822"
   },
   "LLDP": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Gold",
+    "fields_agree": 10,
+    "total_fields": 10,
     "fields_mismatch": 0,
-    "timestamp": "1775666175"
+    "timestamp": "1775684515"
   },
   "LLMNR": {
     "validation_tier": "Gold",
@@ -924,11 +924,11 @@
     "timestamp": "1775619070"
   },
   "PBB": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
     "fields_mismatch": 0,
-    "timestamp": "1775666185"
+    "timestamp": "1775684718"
   },
   "PIM": {
     "validation_tier": "Gold",
@@ -1110,7 +1110,7 @@
     "fields_agree": 0,
     "total_fields": 0,
     "fields_mismatch": 0,
-    "timestamp": "1775666209"
+    "timestamp": "1775682969"
   },
   "SNAP": {
     "validation_tier": "Gold",
@@ -1246,11 +1246,11 @@
     "timestamp": "1775666146"
   },
   "Telnet": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
     "fields_mismatch": 0,
-    "timestamp": "1775666217"
+    "timestamp": "1775684664"
   },
   "Teredo": {
     "validation_tier": "Unvalidated",
