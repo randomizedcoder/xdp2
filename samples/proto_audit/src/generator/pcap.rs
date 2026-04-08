@@ -956,6 +956,242 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                 ])
                 .with_dispatch_field("protocol_id"),
         ),
+        // ── LLDP (mandatory TLV: chassis ID type=1, length=7, subtype=4, 4-byte value) ──
+        "LLDP" => Some(
+            ProtocolDef::new("LLDP", 72)
+                .with_fields(vec![
+                    // TLV type=1 (Chassis ID), length=5
+                    FieldDef::new("tlv_type_len", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("514"), // (1 << 9) | 5 = 0x0205
+                    FieldDef::new("chassis_subtype", 16, 8, FieldType::Uint)
+                        .with_default_value("4"), // MAC address subtype
+                    FieldDef::new("chassis_id", 24, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("33554433"), // 02:00:00:01
+                    // End of LLDPDU TLV (type=0, length=0)
+                    FieldDef::new("end_tlv", 56, 16, FieldType::Uint),
+                ]),
+        ),
+        // ── CFM (Connectivity Fault Management, 802.1ag) ──
+        "CFM" => Some(
+            ProtocolDef::new("CFM", 32)
+                .with_fields(vec![
+                    // MD level (3 bits) + version (5 bits)
+                    FieldDef::new("md_level_version", 0, 8, FieldType::Uint)
+                        .with_default_value("0"), // MD level 0, version 0
+                    FieldDef::new("opcode", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // CCM
+                    FieldDef::new("flags", 16, 8, FieldType::Uint)
+                        .with_default_value("4"), // interval=4 (1s)
+                    FieldDef::new("first_tlv_offset", 24, 8, FieldType::Uint)
+                        .with_default_value("70"), // standard CCM first TLV offset
+                ]),
+        ),
+        // ── BATMAN (B.A.T.M.A.N. Advanced) ──
+        "BATMAN" => Some(
+            ProtocolDef::new("BATMAN", 48)
+                .with_fields(vec![
+                    FieldDef::new("packet_type", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // BATADV_IV_OGM
+                    FieldDef::new("version", 8, 8, FieldType::Uint)
+                        .with_default_value("15"), // B.A.T.M.A.N. IV
+                    FieldDef::new("ttl", 16, 8, FieldType::Uint)
+                        .with_default_value("50"),
+                    FieldDef::new("flags", 24, 8, FieldType::Uint),
+                    FieldDef::new("seqno", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── TRILL ──
+        "TRILL" => Some(
+            ProtocolDef::new("TRILL", 48)
+                .with_fields(vec![
+                    // V(2)=0, R(2)=0, M(1)=0, Op-Length(5)=0, Hop Count(6)
+                    FieldDef::new("flags_hopcount", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("63"), // hop count=63
+                    FieldDef::new("egress_nick", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("ingress_nick", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2"),
+                ]),
+        ),
+        // ── WOL (Wake-on-LAN: 6x FF sync + target MAC) ──
+        "WOL" => Some(
+            ProtocolDef::new("WOL", 96)
+                .with_fields(vec![
+                    FieldDef::new("sync", 0, 48, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("281474976710655"), // 0xFFFFFFFFFFFF
+                    FieldDef::new("target_mac", 48, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── PBB (Provider Backbone Bridging I-TAG, 32 bits) ──
+        "PBB" => Some(
+            ProtocolDef::new("PBB", 32)
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 8, FieldType::Uint),
+                    FieldDef::new("isid", 8, 24, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── MVRP (MRP-based VLAN Registration Protocol) ──
+        "MVRP" => Some(
+            ProtocolDef::new("MVRP", 16)
+                .with_fields(vec![
+                    FieldDef::new("protocol_version", 0, 8, FieldType::Uint),
+                    FieldDef::new("message_type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── NC-SI (Network Controller Sideband Interface) ──
+        "NC_SI" => Some(
+            ProtocolDef::new("NC_SI", 128)
+                .with_fields(vec![
+                    FieldDef::new("mc_id", 0, 8, FieldType::Uint),
+                    FieldDef::new("header_revision", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("reserved", 16, 8, FieldType::Pad),
+                    FieldDef::new("iid", 24, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("command", 32, 8, FieldType::Uint)
+                        .with_default_value("1"), // Clear Initial State
+                    FieldDef::new("channel_id", 40, 8, FieldType::Uint),
+                    FieldDef::new("payload_length", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("reserved2", 64, 32, FieldType::Pad),
+                    FieldDef::new("reserved3", 96, 32, FieldType::Pad),
+                ]),
+        ),
+        // ── LLTD (Link Layer Topology Discovery, 14 bytes min) ──
+        "LLTD" => Some(
+            ProtocolDef::new("LLTD", 112)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("type_of_service", 8, 8, FieldType::Uint),
+                    FieldDef::new("reserved", 16, 8, FieldType::Pad),
+                    FieldDef::new("function", 24, 8, FieldType::Uint),
+                    FieldDef::new("real_dst_mac", 32, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("real_src_mac", 80, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── EDSA (Marvell EtherType DSA tag) ──
+        "EDSA" => Some(
+            ProtocolDef::new("EDSA", 64)
+                .with_fields(vec![
+                    FieldDef::new("tag_hi", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("tag_lo", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("ether_type", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2048"), // 0x0800 = IPv4
+                ]),
+        ),
+        // ── IEC GOOSE (minimal valid BER-encoded GOOSE PDU) ──
+        "IEC_GOOSE" => Some(
+            ProtocolDef::new("IEC_GOOSE", 48)
+                .with_fields(vec![
+                    FieldDef::new("appid", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("8"),
+                    FieldDef::new("reserved1", 32, 8, FieldType::Pad),
+                    FieldDef::new("reserved2", 40, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── IEC SV (Sampled Values) ──
+        "IEC_SV" => Some(
+            ProtocolDef::new("IEC_SV", 48)
+                .with_fields(vec![
+                    FieldDef::new("appid", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("16384"), // 0x4000
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("8"),
+                    FieldDef::new("reserved1", 32, 8, FieldType::Pad),
+                    FieldDef::new("reserved2", 40, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── CAPWAP (Control And Provisioning of Wireless APs) ──
+        "CAPWAP" => Some(
+            ProtocolDef::new("CAPWAP", 32)
+                .with_fields(vec![
+                    // Preamble: version(4)=0, type(4)=0
+                    FieldDef::new("preamble", 0, 8, FieldType::Uint),
+                    // HLEN(5)=2, RID(5)=0, WBID(5)=1, T(1), F(1), L(1)
+                    FieldDef::new("header_flags", 8, 24, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("4194304"), // HLEN=2, WBID=1 -> 0x400000
+                ]),
+        ),
+        // ── TZSP (TaZmen Sniffer Protocol) ──
+        "TZSP" => Some(
+            ProtocolDef::new("TZSP", 32)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("type", 8, 8, FieldType::Uint),
+                    FieldDef::new("encap", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"), // Ethernet
+                ]),
+        ),
+        // ── SRT (Secure Reliable Transport) ──
+        "SRT" => Some(
+            ProtocolDef::new("SRT", 128)
+                .with_fields(vec![
+                    // UDT/SRT header: control bit + type + subtype
+                    FieldDef::new("header", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2147483648"), // 0x80000000 = control packet
+                    FieldDef::new("additional_info", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("timestamp", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("dst_socket_id", 96, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── GUE (Generic UDP Encapsulation) ──
+        "GUE" => Some(
+            ProtocolDef::new("GUE", 32)
+                .with_fields(vec![
+                    // Version(2)=0, C(1)=0, Hlen(5)=0, Proto/CT
+                    FieldDef::new("flags_proto", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("4"), // proto=IPv4 (4)
+                    FieldDef::new("flags2", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── STT (Stateless Transport Tunneling) ──
+        "STT" => Some(
+            ProtocolDef::new("STT", 144)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint),
+                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("l4_offset", 16, 8, FieldType::Uint)
+                        .with_default_value("14"),
+                    FieldDef::new("reserved", 24, 8, FieldType::Pad),
+                    FieldDef::new("max_seg_size", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("pcp_dei_vid", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("context_id", 64, 64, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("padding", 128, 16, FieldType::Pad),
+                ]),
+        ),
         // ── UpperPDU (virtual, 0 bits, root DLT=252) ──
         "UpperPDU" => Some(ProtocolDef::new("UpperPDU", 0)),
         _ => None,
