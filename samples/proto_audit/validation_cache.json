@@ -1,0 +1,1367 @@
+{
+  "AH": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 7,
+    "fields_mismatch": 0,
+    "timestamp": "1775618053"
+  },
+  "AMQP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618059"
+  },
+  "ARP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775618065"
+  },
+  "AoE": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 12,
+    "fields_mismatch": 3,
+    "timestamp": "1775618074"
+  },
+  "AppleTalk": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618080"
+  },
+  "BACnet": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618089"
+  },
+  "BATMAN": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618097"
+  },
+  "BFD": {
+    "validation_tier": "Gold",
+    "fields_agree": 7,
+    "total_fields": 18,
+    "fields_mismatch": 11,
+    "timestamp": "1775618105"
+  },
+  "BGP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 8,
+    "fields_mismatch": 0,
+    "timestamp": "1775618113"
+  },
+  "BT_ATT": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618121"
+  },
+  "BT_AVDTP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618129"
+  },
+  "BT_BNEP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618137"
+  },
+  "BT_RFCOMM": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618145"
+  },
+  "BT_SDP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618153"
+  },
+  "BT_SMP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618161"
+  },
+  "CAN": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 11,
+    "fields_mismatch": 8,
+    "timestamp": "1775339982"
+  },
+  "CAN_FD": {
+    "validation_tier": "Gold",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775339996"
+  },
+  "CAN_XL": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 6,
+    "fields_mismatch": 3,
+    "timestamp": "1775340352"
+  },
+  "CAPWAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775666166"
+  },
+  "CARP": {
+    "validation_tier": "Gold",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775618176"
+  },
+  "CDP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775618187"
+  },
+  "CFM": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775666084"
+  },
+  "CIP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618205"
+  },
+  "CoAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 11,
+    "fields_mismatch": 9,
+    "timestamp": "1775618213"
+  },
+  "DCCP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 13,
+    "fields_mismatch": 7,
+    "timestamp": "1775618220"
+  },
+  "DHCP": {
+    "validation_tier": "Gold",
+    "fields_agree": 9,
+    "total_fields": 27,
+    "fields_mismatch": 12,
+    "timestamp": "1775618228"
+  },
+  "DHCPv6": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 7,
+    "fields_mismatch": 5,
+    "timestamp": "1775618236"
+  },
+  "DNP3": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618244"
+  },
+  "DNS": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 21,
+    "fields_mismatch": 11,
+    "timestamp": "1775618252"
+  },
+  "DSA": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618261"
+  },
+  "DTLS": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618269"
+  },
+  "Diameter": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 16,
+    "fields_mismatch": 14,
+    "timestamp": "1775618277"
+  },
+  "EAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 7,
+    "fields_mismatch": 0,
+    "timestamp": "1775618287"
+  },
+  "EAPOL": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775618295"
+  },
+  "EDSA": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618303"
+  },
+  "EIGRP": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 10,
+    "fields_mismatch": 3,
+    "timestamp": "1775618311"
+  },
+  "ENIP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775666194"
+  },
+  "ERF": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775530317"
+  },
+  "ERSPAN": {
+    "validation_tier": "Gold",
+    "fields_agree": 8,
+    "total_fields": 8,
+    "fields_mismatch": 0,
+    "timestamp": "1775618328"
+  },
+  "ESP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775618334"
+  },
+  "EtherCAT": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775618343"
+  },
+  "Ethernet": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775436405"
+  },
+  "FC": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 24,
+    "fields_mismatch": 21,
+    "timestamp": "1775599511"
+  },
+  "FCoE": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775618351"
+  },
+  "FIP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 12,
+    "fields_mismatch": 10,
+    "timestamp": "1775618358"
+  },
+  "FTP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775666202"
+  },
+  "GLBP": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618369"
+  },
+  "GRE": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 14,
+    "fields_mismatch": 9,
+    "timestamp": "1775618377"
+  },
+  "GRE_PPTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 15,
+    "fields_mismatch": 10,
+    "timestamp": "1775618386"
+  },
+  "GTP_C": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 15,
+    "fields_mismatch": 10,
+    "timestamp": "1775618394"
+  },
+  "GTP_U": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 13,
+    "fields_mismatch": 7,
+    "timestamp": "1775618402"
+  },
+  "GUE": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618408"
+  },
+  "GenNetlink": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775618414"
+  },
+  "Geneve": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 13,
+    "fields_mismatch": 10,
+    "timestamp": "1775618422"
+  },
+  "HCI": {
+    "validation_tier": "Bronze",
+    "fields_agree": 0,
+    "total_fields": 3,
+    "fields_mismatch": 2,
+    "timestamp": "1775531081"
+  },
+  "HCI_ACL": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 5,
+    "fields_mismatch": 4,
+    "timestamp": "1775618429"
+  },
+  "HCI_CMD": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618436"
+  },
+  "HCI_Event": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618443"
+  },
+  "HCI_ISO": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618449"
+  },
+  "HCI_SCO": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618456"
+  },
+  "HSR": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 5,
+    "fields_mismatch": 3,
+    "timestamp": "1775618464"
+  },
+  "HSRP": {
+    "validation_tier": "Gold",
+    "fields_agree": 10,
+    "total_fields": 10,
+    "fields_mismatch": 0,
+    "timestamp": "1775618472"
+  },
+  "HTTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618480"
+  },
+  "HTTP2": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618488"
+  },
+  "HomePlug_AV": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 6,
+    "fields_mismatch": 6,
+    "timestamp": "1775618496"
+  },
+  "ICMPv4": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 16,
+    "fields_mismatch": 0,
+    "timestamp": "1775618609"
+  },
+  "ICMPv6": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775618616"
+  },
+  "IEC_GOOSE": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775666124"
+  },
+  "IEC_MMS": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618630"
+  },
+  "IEC_SV": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775666131"
+  },
+  "IEEE802.11": {
+    "validation_tier": "Bronze",
+    "fields_agree": 0,
+    "total_fields": 22,
+    "fields_mismatch": 21,
+    "timestamp": "1775531090"
+  },
+  "IEEE802154": {
+    "validation_tier": "Gold",
+    "fields_agree": 11,
+    "total_fields": 11,
+    "fields_mismatch": 0,
+    "timestamp": "1775340174"
+  },
+  "IGMP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775618642"
+  },
+  "IGMPv3_Query": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 10,
+    "fields_mismatch": 4,
+    "timestamp": "1775618649"
+  },
+  "IGMPv3_Report": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 11,
+    "fields_mismatch": 3,
+    "timestamp": "1775618657"
+  },
+  "IKEv2": {
+    "validation_tier": "Gold",
+    "fields_agree": 7,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775618665"
+  },
+  "IMAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618671"
+  },
+  "IPFIX": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618679"
+  },
+  "IPX": {
+    "validation_tier": "Gold",
+    "fields_agree": 10,
+    "total_fields": 10,
+    "fields_mismatch": 0,
+    "timestamp": "1775618687"
+  },
+  "IP_in_IP": {
+    "validation_tier": "Gold",
+    "fields_agree": 8,
+    "total_fields": 16,
+    "fields_mismatch": 7,
+    "timestamp": "1775618696"
+  },
+  "IPv4": {
+    "validation_tier": "Gold",
+    "fields_agree": 8,
+    "total_fields": 16,
+    "fields_mismatch": 7,
+    "timestamp": "1775618702"
+  },
+  "IPv6": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 10,
+    "fields_mismatch": 4,
+    "timestamp": "1775618709"
+  },
+  "IPv6_DestOpts": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775618716"
+  },
+  "IPv6_EH": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775618723"
+  },
+  "IPv6_Fragment": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 7,
+    "fields_mismatch": 4,
+    "timestamp": "1775618731"
+  },
+  "IPv6_ND": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618739"
+  },
+  "IPv6_Routing": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775618747"
+  },
+  "ISIS": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 8,
+    "fields_mismatch": 0,
+    "timestamp": "1775618756"
+  },
+  "Kafka": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618761"
+  },
+  "Kerberos": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618769"
+  },
+  "L2CAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618776"
+  },
+  "L2TP": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 12,
+    "fields_mismatch": 11,
+    "timestamp": "1775618784"
+  },
+  "LACP": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 24,
+    "fields_mismatch": 0,
+    "timestamp": "1775618792"
+  },
+  "LDAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775618798"
+  },
+  "LDP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775618806"
+  },
+  "LISP": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 6,
+    "fields_mismatch": 2,
+    "timestamp": "1775618814"
+  },
+  "LLC": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775618822"
+  },
+  "LLDP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775666175"
+  },
+  "LLMNR": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 21,
+    "fields_mismatch": 11,
+    "timestamp": "1775618839"
+  },
+  "LLTD": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775666139"
+  },
+  "LWAPP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618853"
+  },
+  "MAC_Control": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618861"
+  },
+  "MACsec": {
+    "validation_tier": "Gold",
+    "fields_agree": 10,
+    "total_fields": 10,
+    "fields_mismatch": 0,
+    "timestamp": "1775618869"
+  },
+  "MCTP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618877"
+  },
+  "MGCP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 7,
+    "fields_mismatch": 3,
+    "timestamp": "1775618883"
+  },
+  "MLD": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775618890"
+  },
+  "MLDv2_Query": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 13,
+    "fields_mismatch": 4,
+    "timestamp": "1775618897"
+  },
+  "MLDv2_Report": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 7,
+    "fields_mismatch": 2,
+    "timestamp": "1775618904"
+  },
+  "MODBUS_TCP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775618912"
+  },
+  "MPEG_TS": {
+    "validation_tier": "Bronze",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775184759"
+  },
+  "MPLS": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 5,
+    "fields_mismatch": 5,
+    "timestamp": "1775618919"
+  },
+  "MPLS_OAM": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618924"
+  },
+  "MQTT": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 14,
+    "fields_mismatch": 8,
+    "timestamp": "1775618933"
+  },
+  "MVRP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775666104"
+  },
+  "Memcache": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618947"
+  },
+  "NBNS": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775618956"
+  },
+  "NC_SI": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775666114"
+  },
+  "NFS": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618972"
+  },
+  "NLAttr": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775618979"
+  },
+  "NSH": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 20,
+    "fields_mismatch": 18,
+    "timestamp": "1775618987"
+  },
+  "NTLMSSP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775618993"
+  },
+  "NTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 19,
+    "fields_mismatch": 13,
+    "timestamp": "1775619001"
+  },
+  "NVGRE": {
+    "validation_tier": "Gold",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775619011"
+  },
+  "NVMe": {
+    "validation_tier": "Gold",
+    "fields_agree": 11,
+    "total_fields": 11,
+    "fields_mismatch": 0,
+    "timestamp": "1775619018"
+  },
+  "NetFlow_v5": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 15,
+    "fields_mismatch": 13,
+    "timestamp": "1775619026"
+  },
+  "NetFlow_v9": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 10,
+    "fields_mismatch": 9,
+    "timestamp": "1775619035"
+  },
+  "Netlink": {
+    "validation_tier": "Silver",
+    "fields_agree": 0,
+    "total_fields": 8,
+    "fields_mismatch": 5,
+    "timestamp": "1775184759"
+  },
+  "OCSP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775619040"
+  },
+  "ONC_RPC": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 7,
+    "fields_mismatch": 3,
+    "timestamp": "1775619049"
+  },
+  "OPC_UA": {
+    "validation_tier": "Gold",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775619054"
+  },
+  "OSPF": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 14,
+    "fields_mismatch": 14,
+    "timestamp": "1775619062"
+  },
+  "OpenFlow": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775619070"
+  },
+  "PBB": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775666185"
+  },
+  "PIM": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 5,
+    "fields_mismatch": 2,
+    "timestamp": "1775619087"
+  },
+  "PPP": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 4,
+    "fields_mismatch": 3,
+    "timestamp": "1775339733"
+  },
+  "PPPoE": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 6,
+    "fields_mismatch": 3,
+    "timestamp": "1775619096"
+  },
+  "PPPoED": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 6,
+    "fields_mismatch": 3,
+    "timestamp": "1775619104"
+  },
+  "PROFINET": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775619112"
+  },
+  "PTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 8,
+    "total_fields": 20,
+    "fields_mismatch": 9,
+    "timestamp": "1775619119"
+  },
+  "Phonet": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775619126"
+  },
+  "QUIC": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 15,
+    "fields_mismatch": 6,
+    "timestamp": "1775619134"
+  },
+  "QinQ": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 6,
+    "fields_mismatch": 5,
+    "timestamp": "1775619142"
+  },
+  "RADIUS": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775619151"
+  },
+  "RARP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1775619157"
+  },
+  "RIP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775619166"
+  },
+  "RSVP": {
+    "validation_tier": "Gold",
+    "fields_agree": 7,
+    "total_fields": 7,
+    "fields_mismatch": 0,
+    "timestamp": "1775619174"
+  },
+  "RTCP": {
+    "validation_tier": "Gold",
+    "fields_agree": 10,
+    "total_fields": 10,
+    "fields_mismatch": 0,
+    "timestamp": "1775619182"
+  },
+  "RTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 12,
+    "fields_mismatch": 8,
+    "timestamp": "1775619190"
+  },
+  "RTSP": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 3,
+    "fields_mismatch": 2,
+    "timestamp": "1775619195"
+  },
+  "Redis": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775619201"
+  },
+  "SCSI": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775619207"
+  },
+  "SCTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775619215"
+  },
+  "SCTP_Chunk": {
+    "validation_tier": "Gold",
+    "fields_agree": 12,
+    "total_fields": 12,
+    "fields_mismatch": 0,
+    "timestamp": "1775619225"
+  },
+  "SIP": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1775619233"
+  },
+  "SLL": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775341239"
+  },
+  "SLL2": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 7,
+    "fields_mismatch": 0,
+    "timestamp": "1775341250"
+  },
+  "SMB": {
+    "validation_tier": "Gold",
+    "fields_agree": 12,
+    "total_fields": 12,
+    "fields_mismatch": 0,
+    "timestamp": "1775619241"
+  },
+  "SMB2": {
+    "validation_tier": "Gold",
+    "fields_agree": 14,
+    "total_fields": 14,
+    "fields_mismatch": 0,
+    "timestamp": "1775619249"
+  },
+  "SMTP": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775666209"
+  },
+  "SNAP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775619263"
+  },
+  "SNMP": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 6,
+    "fields_mismatch": 3,
+    "timestamp": "1775619272"
+  },
+  "SRT": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775666156"
+  },
+  "SRv6": {
+    "validation_tier": "Gold",
+    "fields_agree": 14,
+    "total_fields": 14,
+    "fields_mismatch": 0,
+    "timestamp": "1775619286"
+  },
+  "SSH": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775619292"
+  },
+  "STP": {
+    "validation_tier": "Gold",
+    "fields_agree": 8,
+    "total_fields": 14,
+    "fields_mismatch": 0,
+    "timestamp": "1775619301"
+  },
+  "STT": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775619306"
+  },
+  "STUN": {
+    "validation_tier": "Gold",
+    "fields_agree": 2,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775619314"
+  },
+  "Skinny": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775619322"
+  },
+  "Slow_Protocols": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 1,
+    "fields_mismatch": 0,
+    "timestamp": "1775619330"
+  },
+  "Syslog": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 11,
+    "fields_mismatch": 5,
+    "timestamp": "1775619339"
+  },
+  "TACACS": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775619347"
+  },
+  "TCP": {
+    "validation_tier": "Gold",
+    "fields_agree": 7,
+    "total_fields": 19,
+    "fields_mismatch": 12,
+    "timestamp": "1775619354"
+  },
+  "TFTP": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 4,
+    "fields_mismatch": 2,
+    "timestamp": "1775619362"
+  },
+  "TIPC": {
+    "validation_tier": "Gold",
+    "fields_agree": 12,
+    "total_fields": 12,
+    "fields_mismatch": 0,
+    "timestamp": "1775619370"
+  },
+  "TLS": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 9,
+    "fields_mismatch": 9,
+    "timestamp": "1775619379"
+  },
+  "TPLINK_SMARTHOME": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775619384"
+  },
+  "TRILL": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775666094"
+  },
+  "TZSP": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1775666146"
+  },
+  "Telnet": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775666217"
+  },
+  "Teredo": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775619409"
+  },
+  "UDP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775619416"
+  },
+  "UDPLite": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1775619422"
+  },
+  "VLAN": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 5,
+    "fields_mismatch": 4,
+    "timestamp": "1775619430"
+  },
+  "VRRP": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 12,
+    "fields_mismatch": 7,
+    "timestamp": "1775619438"
+  },
+  "VXLAN": {
+    "validation_tier": "Gold",
+    "fields_agree": 0,
+    "total_fields": 12,
+    "fields_mismatch": 8,
+    "timestamp": "1775619446"
+  },
+  "VXLAN_GPE": {
+    "validation_tier": "Gold",
+    "fields_agree": 3,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1775619455"
+  },
+  "WOL": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775619460"
+  },
+  "WireGuard": {
+    "validation_tier": "Gold",
+    "fields_agree": 1,
+    "total_fields": 9,
+    "fields_mismatch": 3,
+    "timestamp": "1775619468"
+  },
+  "X25": {
+    "validation_tier": "Unvalidated",
+    "fields_agree": 0,
+    "total_fields": 0,
+    "fields_mismatch": 0,
+    "timestamp": "1775619477"
+  },
+  "ZeroMQ": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775619482"
+  },
+  "Zigbee_APS": {
+    "validation_tier": "Gold",
+    "fields_agree": 12,
+    "total_fields": 12,
+    "fields_mismatch": 0,
+    "timestamp": "1775619494"
+  },
+  "Zigbee_NWK": {
+    "validation_tier": "Gold",
+    "fields_agree": 13,
+    "total_fields": 13,
+    "fields_mismatch": 0,
+    "timestamp": "1775619505"
+  },
+  "iSCSI": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 19,
+    "fields_mismatch": 14,
+    "timestamp": "1775619511"
+  },
+  "iSER": {
+    "validation_tier": "Gold",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1775619518"
+  },
+  "mDNS": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 21,
+    "fields_mismatch": 11,
+    "timestamp": "1775619526"
+  }
+}
