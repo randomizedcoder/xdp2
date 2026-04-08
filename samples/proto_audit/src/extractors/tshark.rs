@@ -242,14 +242,20 @@ pub fn extract_protocol_from_pdml(
     packets: &[Vec<PdmlProtocol>],
     dissector_name: &str,
 ) -> Option<PdmlProtocol> {
+    // Some protocols appear multiple times in PDML (e.g., PBB has an outer
+    // wrapper proto and an inner proto with the actual fields). Return the
+    // instance with the most fields.
+    let mut best: Option<PdmlProtocol> = None;
     for packet in packets {
         for proto in packet {
             if proto.name == dissector_name {
-                return Some(proto.clone());
+                if best.as_ref().map_or(true, |b| proto.fields.len() > b.fields.len()) {
+                    best = Some(proto.clone());
+                }
             }
         }
     }
-    None
+    best
 }
 
 /// Infer field type from tshark field name patterns using loaded mappings.
