@@ -1192,6 +1192,100 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("padding", 128, 16, FieldType::Pad),
                 ]),
         ),
+        // ── BT_RFCOMM (RFCOMM frame: address + control + length) ──
+        "BT_RFCOMM" => Some(
+            ProtocolDef::new("BT_RFCOMM", 24)
+                .with_fields(vec![
+                    FieldDef::new("address", 0, 8, FieldType::Uint)
+                        .with_default_value("3"), // DLCI=0, EA=1, CR=1
+                    FieldDef::new("control", 8, 8, FieldType::Uint)
+                        .with_default_value("63"), // SABM (0x3F)
+                    FieldDef::new("length", 16, 8, FieldType::Uint)
+                        .with_default_value("1"), // length=0, EA=1
+                ]),
+        ),
+        // ── BT_BNEP (Bluetooth Network Encapsulation Protocol) ──
+        "BT_BNEP" => Some(
+            ProtocolDef::new("BT_BNEP", 16)
+                .with_fields(vec![
+                    // Type(7) + extension(1): type=0 (General Ethernet)
+                    FieldDef::new("type_ext", 0, 8, FieldType::Uint),
+                    FieldDef::new("reserved", 8, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── BT_SDP (Service Discovery Protocol) ──
+        "BT_SDP" => Some(
+            ProtocolDef::new("BT_SDP", 40)
+                .with_fields(vec![
+                    FieldDef::new("pdu_id", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // SDP_ErrorResponse
+                    FieldDef::new("transaction_id", 8, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("param_length", 24, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── BT_AVDTP (Audio/Video Distribution Transport Protocol) ──
+        "BT_AVDTP" => Some(
+            ProtocolDef::new("BT_AVDTP", 16)
+                .with_fields(vec![
+                    // Transaction label(4) + Packet type(2) + Message type(2)
+                    FieldDef::new("header", 0, 8, FieldType::Uint)
+                        .with_default_value("48"), // trans=0, single=3, command=0
+                    FieldDef::new("signal_id", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // AVDTP_DISCOVER
+                ]),
+        ),
+        // ── NTLMSSP (NT LAN Manager Security Support Provider) ──
+        "NTLMSSP" => Some(
+            ProtocolDef::new("NTLMSSP", 96)
+                .with_fields(vec![
+                    // Signature: "NTLMSSP\0" = 4E544C4D53535000
+                    FieldDef::new("signature_lo", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("1296847950"), // "NTLM" LE = 0x4D4C544E
+                    FieldDef::new("signature_hi", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("5264211"), // "SSP\0" LE = 0x00505353
+                    FieldDef::new("message_type", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("1"), // Negotiate
+                ]),
+        ),
+        // ── MCTP (Management Component Transport Protocol) ──
+        "MCTP" => Some(
+            ProtocolDef::new("MCTP", 32)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("reserved", 4, 4, FieldType::Pad),
+                    FieldDef::new("dest_eid", 8, 8, FieldType::Uint),
+                    FieldDef::new("src_eid", 16, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("flags_seq_tag", 24, 8, FieldType::Uint)
+                        .with_default_value("200"), // SOM=1, EOM=1, seq=0, TO=0, tag=8
+                ]),
+        ),
+        // ── X25 (X.25 Packet Layer Protocol) ──
+        "X25" => Some(
+            ProtocolDef::new("X25", 24)
+                .with_fields(vec![
+                    FieldDef::new("gfi_lcg", 0, 8, FieldType::Uint)
+                        .with_default_value("16"), // GFI=0001 (modulo 8), LCG=0
+                    FieldDef::new("lcn", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("type", 16, 8, FieldType::Uint)
+                        .with_default_value("11"), // Call Request (0x0B)
+                ]),
+        ),
+        // ── DSA (Distributed Switch Architecture tag) ──
+        "DSA" => Some(
+            ProtocolDef::new("DSA", 32)
+                .with_fields(vec![
+                    FieldDef::new("tag_hi", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("tag_lo", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
         // ── UpperPDU (virtual, 0 bits, root DLT=252) ──
         "UpperPDU" => Some(ProtocolDef::new("UpperPDU", 0)),
         _ => None,
