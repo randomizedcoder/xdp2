@@ -91,6 +91,14 @@ in
     pkgs.flawfinder       # C/C++ security scanner
     pkgs.clang-analyzer   # Clang static analyzer (scan-build)
 
+    # Rust development (for xdp2-rs)
+    pkgs.cargo
+    pkgs.rustc
+    pkgs.clippy
+    pkgs.rustfmt
+    pkgs.rust-analyzer
+    pkgs.cargo-audit
+
     # Utilities
     pkgs.jp2a          # ASCII art for logo
     pkgs.glibcLocales  # Locale support

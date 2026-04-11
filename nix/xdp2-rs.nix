@@ -22,7 +22,7 @@ let
   src = ../xdp2-rs;
 
   # Base hash — set to lib.fakeHash and build to get correct hash
-  cargoHash = "sha256-PLACEHOLDER";
+  cargoHash = "sha256-xhqc7DrgucPNyVY+T06Pr7wRhREfqCzDgU+NPu8oYHs=";
 
   commonArgs = {
     pname = "xdp2-rs";
