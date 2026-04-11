@@ -5,6 +5,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "xdp2-rs-compiler"
+path = "src/main.rs"
+
 [dependencies]
 xdp2-core = { path = "../xdp2-core" }
 petgraph = "0.6"

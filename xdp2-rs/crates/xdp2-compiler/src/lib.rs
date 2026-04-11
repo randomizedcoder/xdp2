@@ -31,3 +31,4 @@ pub mod ir;
 pub mod graph;
 pub mod dot;
 pub mod codegen;
+pub mod compat;

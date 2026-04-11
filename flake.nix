@@ -141,6 +141,13 @@
           xdp2 = xdp2-debug;
         };
 
+        # Compiler verification framework — compare C++ vs Rust xdp2-compiler
+        # See nix/compiler-verify.nix for all available targets
+        compilerVerify = import ./nix/compiler-verify.nix {
+          inherit pkgs xdp2Rs;
+          xdp2 = xdp2-debug;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -393,6 +400,20 @@
           xdp2-rs-fmt-check = xdp2Rs.fmt-check;
           xdp2-rs-doc = xdp2Rs.doc;
           xdp2-rs-golden = xdp2Rs.golden;
+
+          # ===================================================================
+          # Compiler Verification Framework (C++ vs Rust)
+          # Extract:   nix build .#compiler-ir-extract
+          # Rust gen:  nix build .#compiler-rust-generate
+          # JSON cmp:  nix build .#compiler-verify-json
+          # DOT cmp:   nix build .#compiler-verify-dot
+          # All:       nix build .#compiler-verify-all
+          # ===================================================================
+          compiler-ir-extract = compilerVerify.ir-extract;
+          compiler-rust-generate = compilerVerify.rust-generate;
+          compiler-verify-json = compilerVerify.verify-json;
+          compiler-verify-dot = compilerVerify.verify-dot;
+          compiler-verify-all = compilerVerify.verify-all;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap
