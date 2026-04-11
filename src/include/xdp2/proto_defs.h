@@ -46,6 +46,8 @@
 #include "xdp2/proto_defs/ip/proto_rtcp.h"
 #include "xdp2/proto_defs/ip/proto_rtp.h"
 #include "xdp2/proto_defs/ip/proto_srv6.h"
+#include "xdp2/proto_defs/ip/proto_ipcomp.h"
+#include "xdp2/proto_defs/ip/proto_pgm.h"
 
 /* Ethernet family */
 #include "xdp2/proto_defs/ethernet/proto_ether.h"
@@ -94,6 +96,10 @@
 #include "xdp2/proto_defs/tunnel/proto_stt.h"
 #include "xdp2/proto_defs/tunnel/proto_teredo.h"
 #include "xdp2/proto_defs/tunnel/proto_tzsp.h"
+#include "xdp2/proto_defs/tunnel/proto_gtpv2_c.h"
+#include "xdp2/proto_defs/tunnel/proto_gre6.h"
+#include "xdp2/proto_defs/tunnel/proto_l2tpv3.h"
+#include "xdp2/proto_defs/tunnel/proto_etherip.h"
 
 /* Security */
 #include "xdp2/proto_defs/security/proto_esp.h"
@@ -188,6 +194,18 @@
 #include "xdp2/proto_defs/management/proto_vrrp.h"
 #include "xdp2/proto_defs/management/proto_wol.h"
 #include "xdp2/proto_defs/management/proto_zeromq.h"
+#include "xdp2/proto_defs/management/proto_pptp.h"
+#include "xdp2/proto_defs/management/proto_ripng.h"
+#include "xdp2/proto_defs/management/proto_ospfv3.h"
+#include "xdp2/proto_defs/management/proto_twamp.h"
+#include "xdp2/proto_defs/management/proto_owamp.h"
+#include "xdp2/proto_defs/management/proto_cflow.h"
+#include "xdp2/proto_defs/management/proto_sflow.h"
+#include "xdp2/proto_defs/management/proto_diameter_s6a.h"
+#include "xdp2/proto_defs/management/proto_pfcp.h"
+#include "xdp2/proto_defs/management/proto_lldp_med.h"
+#include "xdp2/proto_defs/management/proto_vrrp3.h"
+#include "xdp2/proto_defs/management/proto_msdp.h"
 #include "xdp2/proto_defs/management/proto_zigbee_aps.h"
 #include "xdp2/proto_defs/management/proto_zigbee_nwk.h"
 
@@ -253,6 +271,7 @@
 #include "xdp2/proto_defs/legacy/proto_dsa.h"
 #include "xdp2/proto_defs/legacy/proto_ieee802154.h"
 #include "xdp2/proto_defs/legacy/proto_protobuf.h"
+#include "xdp2/proto_defs/legacy/proto_fddi.h"
 
 /* Other */
 #include "xdp2/proto_defs/other/proto_fcoe.h"

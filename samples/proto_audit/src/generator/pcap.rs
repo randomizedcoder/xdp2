@@ -75,6 +75,7 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("SMTP", "smtp"),
     ("IB_LRH", "infiniband"),
     ("ATM", "atm"),
+    ("FDDI", "fddi"),
 ];
 
 /// Output from PCAP generation.
@@ -314,6 +315,26 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("X25", "UpperPDU", "_always", 0),
     ("DSA", "UpperPDU", "_always", 0),
     ("ATM", "UpperPDU", "_always", 0),
+    // ── Phase 5: Additional protocols ──
+    ("IPComp", "IPv4", "protocol", 108),
+    ("PGM", "IPv4", "protocol", 113),
+    ("GRE6", "IPv6", "next_header", 47),
+    ("OSPFv3", "IPv6", "next_header", 89),
+    ("EtherIP", "IPv4", "protocol", 97),
+    ("RIPng", "UDP", "dst_port", 521),
+    ("TWAMP", "UDP", "dst_port", 862),
+    ("OWAMP", "UDP", "dst_port", 861),
+    ("CFLOW", "UDP", "dst_port", 2055),
+    ("sFlow", "UDP", "dst_port", 6343),
+    ("GTPv2_C", "UDP", "dst_port", 2123),
+    ("PFCP", "UDP", "dst_port", 8805),
+    ("PPTP", "TCP", "dst_port", 1723),
+    ("Diameter_S6a", "TCP", "dst_port", 3868),
+    ("L2TPv3", "IPv4", "protocol", 115),
+    ("LLDP_MED", "Ethernet", "ether_type", 0x88CC),
+    ("VRRP3", "IPv4", "protocol", 112),
+    ("MSDP", "TCP", "dst_port", 639),
+    ("FDDI", "UpperPDU", "_always", 0),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack

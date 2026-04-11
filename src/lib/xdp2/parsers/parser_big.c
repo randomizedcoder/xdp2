@@ -163,6 +163,12 @@ XDP2_MAKE_LEAF_PARSE_NODE(dhcp_node, xdp2_parse_dhcp, ());
 XDP2_MAKE_LEAF_PARSE_NODE(stp_node, xdp2_parse_stp, ());
 XDP2_MAKE_LEAF_PARSE_NODE(lacp_node, xdp2_parse_slow, ());
 XDP2_MAKE_LEAF_PARSE_NODE(wireguard_node, xdp2_parse_wireguard, ());
+XDP2_MAKE_LEAF_PARSE_NODE(ipcomp_node, xdp2_parse_ipcomp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(pgm_node, xdp2_parse_pgm, ());
+XDP2_MAKE_LEAF_PARSE_NODE(ripng_node, xdp2_parse_ripng, ());
+XDP2_MAKE_LEAF_PARSE_NODE(pfcp_node, xdp2_parse_pfcp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(sflow_node, xdp2_parse_sflow, ());
+XDP2_MAKE_LEAF_PARSE_NODE(etherip_node, xdp2_parse_etherip, ());
 
 XDP2_MAKE_LEAF_TLVS_PARSE_NODE(tcp_node, xdp2_parse_tcp_tlvs,
 			       tcp_tlv_table,
@@ -313,7 +319,10 @@ XDP2_MAKE_PROTO_TABLE(ipv4_table,
 	(IPPROTO_AH, ah_node),
 	(89, ospf_node),    /* IPPROTO_OSPF */
 	(112, vrrp_node),   /* IPPROTO_VRRP */
-	(88, eigrp_node)    /* IPPROTO_EIGRP */
+	(88, eigrp_node),   /* IPPROTO_EIGRP */
+	(108, ipcomp_node), /* IPPROTO_COMP */
+	(113, pgm_node),    /* IPPROTO_PGM */
+	(97, etherip_node)  /* IPPROTO_ETHERIP */
 );
 
 XDP2_MAKE_PROTO_TABLE(ipv6_table,
@@ -335,7 +344,10 @@ XDP2_MAKE_PROTO_TABLE(ipv6_table,
 	(IPPROTO_AH, ah_node),
 	(89, ospf_node),    /* IPPROTO_OSPF */
 	(112, vrrp_node),   /* IPPROTO_VRRP */
-	(88, eigrp_node)    /* IPPROTO_EIGRP */
+	(88, eigrp_node),   /* IPPROTO_EIGRP */
+	(108, ipcomp_node), /* IPPROTO_COMP */
+	(113, pgm_node),    /* IPPROTO_PGM */
+	(97, etherip_node)  /* IPPROTO_ETHERIP */
 );
 
 XDP2_MAKE_PROTO_TABLE(ip_table,
