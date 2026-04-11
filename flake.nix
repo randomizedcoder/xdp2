@@ -134,6 +134,13 @@
           '';
         };
 
+        # XDP2 Rust reimplementation — build, test, and analysis targets
+        # See nix/xdp2-rs.nix for all available targets
+        xdp2Rs = import ./nix/xdp2-rs.nix {
+          inherit pkgs;
+          xdp2 = xdp2-debug;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -370,6 +377,22 @@
           #        nix run .#proto-audit -- compare --proto IPv4
           #        nix build .#proto-audit-report
           inherit proto-audit proto-audit-bin proto-audit-report proto-audit-c-check proto-audit-validate-all;
+
+          # ===================================================================
+          # XDP2 Rust Reimplementation
+          # Build:    nix build .#xdp2-rs
+          # Test:     nix build .#xdp2-rs-test
+          # Lint:     nix build .#xdp2-rs-clippy
+          # Format:   nix build .#xdp2-rs-fmt-check
+          # Docs:     nix build .#xdp2-rs-doc
+          # Golden:   nix build .#xdp2-rs-golden
+          # ===================================================================
+          xdp2-rs = xdp2Rs.build;
+          xdp2-rs-test = xdp2Rs.test;
+          xdp2-rs-clippy = xdp2Rs.clippy;
+          xdp2-rs-fmt-check = xdp2Rs.fmt-check;
+          xdp2-rs-doc = xdp2Rs.doc;
+          xdp2-rs-golden = xdp2Rs.golden;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

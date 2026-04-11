@@ -1,0 +1,12 @@
+[workspace]
+members = ["crates/xdp2-core", "crates/xdp2-protocols", "crates/xdp2-compiler"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause-FreeBSD"
+
+[workspace.dependencies]
+zerocopy = { version = "0.8", features = ["derive"] }
+bitflags = "2"

@@ -1,0 +1,13 @@
+[package]
+name = "xdp2-core"
+description = "XDP2 parse graph engine — core types, traits, and runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zerocopy = { workspace = true }
+bitflags = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"

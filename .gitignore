@@ -75,3 +75,6 @@ dkms.conf
 # install directory when using nix
 install
 thirdparty/cppfront/cppfront-compiler
+
+# Rust build artifacts
+**/target/
