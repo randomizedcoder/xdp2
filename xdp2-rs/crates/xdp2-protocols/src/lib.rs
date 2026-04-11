@@ -17,7 +17,17 @@
 //! Phase 2 implements the core protocol path: Ethernet → IPv4 → TCP/UDP.
 //! Additional protocols (IPv6, GRE, VXLAN, etc.) will be added incrementally.
 
+pub mod bluetooth;
+pub mod can;
 pub mod ethernet;
+pub mod infiniband;
 pub mod ip;
+pub mod legacy;
+pub mod management;
+pub mod netlink;
+pub mod other;
+pub mod security;
+pub mod storage;
 pub mod transport;
 pub mod tunnel;
+pub mod wireless;
