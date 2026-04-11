@@ -1,34 +1,33 @@
-//! # xdp2-compiler — XDP2 Optimizing Compiler (Phase 4)
+//! # xdp2-compiler — XDP2 Optimizing Compiler
 //!
-//! This crate will reimplement the XDP2 optimizing compiler in Rust, replacing
-//! the C++ implementation in `src/tools/compiler/`.
-//!
-//! ## Planned Architecture
-//!
-//! ```text
-//! JSON IR (from C++ compiler)  ──→  Graph Construction (petgraph)
-//!                                         │
-//!                                    ┌────┴────┐
-//!                                    │         │
-//!                              C Backend    XDP Backend
-//!                            (Tera templates)
-//! ```
+//! Reimplements the C++ XDP2 compiler (`src/tools/compiler/`) in Rust.
+//! Reads Parser IR (JSON), builds a protocol parse graph, and generates
+//! optimized C or XDP/eBPF code.
 //!
 //! ## C/C++ Cross-Reference
 //!
-//! | Planned Module | C/C++ Source | Purpose |
-//! |---------------|-------------|---------|
-//! | `graph` | `src/tools/compiler/include/xdp2gen/graph.h` | Graph construction (Boost → petgraph) |
-//! | `ir` | `documentation/parser-ir.md` | JSON IR consumption |
-//! | `codegen::c_target` | `src/templates/xdp2/c_def.template.c` | Optimized C output |
-//! | `codegen::xdp_target` | `src/templates/xdp2/xdp_def.template.c` | XDP/eBPF output |
+//! | Rust Module | C/C++ Source | Purpose |
+//! |------------|-------------|---------|
+//! | `ir` | `documentation/parser-ir.md` | JSON IR types (serde) |
+//! | `graph` | `include/xdp2gen/graph.h` | Graph types + algorithms (petgraph) |
+//! | `codegen` | `src/templates/xdp2/` | Code generation (Tera templates) |
+//! | `dot` | `graph.h:dotify()` | Graphviz .dot output |
 //!
-//! ## Status
+//! ## Architecture
 //!
-//! This crate is a placeholder. Implementation will begin in Phase 4 after
-//! the core parser engine and protocol definitions are complete and verified.
-//!
-//! See `xdp2-rs/detailed-implementation-plan.md` §6 for the full plan.
+//! ```text
+//! JSON IR ──→ ir::ParserIr (serde)
+//!                  │
+//!                  ▼
+//!          graph::ParseGraph (petgraph)
+//!                  │
+//!            ┌─────┴─────┐
+//!            ▼           ▼
+//!     codegen::c    codegen::xdp
+//!     (Tera)        (Tera)
+//! ```
 
-// Phase 4 placeholder — no implementation yet.
-// Crate compiles cleanly so the workspace builds.
+pub mod ir;
+pub mod graph;
+pub mod dot;
+pub mod codegen;
