@@ -16,7 +16,7 @@
 
 use crate::proto_def::ProtocolOps;
 use crate::proto_table::ProtoTable;
-use crate::types::{CtrlData, ParseError};
+use crate::types::{CtrlData, NodeType, ParseError};
 
 /// Callback for extracting metadata from a protocol header.
 ///
@@ -104,6 +104,7 @@ pub struct ParseNode<M: 'static, P: ProtocolOps = DynProtocol> {
 pub trait ParseNodeDyn<M: 'static>: Send + Sync {
     fn min_len(&self) -> usize;
     fn name(&self) -> &'static str;
+    fn node_type(&self) -> NodeType;
     fn is_encap(&self) -> bool;
     fn is_overlay(&self) -> bool;
     fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError>;
@@ -123,6 +124,22 @@ pub trait ParseNodeDyn<M: 'static>: Send + Sync {
         metadata: &mut M,
         ctrl: &CtrlData,
     ) -> Result<(), ParseError>;
+    /// Dispatch sub-structure parsing (TLVs, flag-fields, arrays).
+    ///
+    /// Reimplements: `switch (parse_node->node_type)` in `parser.c:528-575`
+    ///
+    /// Plain nodes return Ok(()) immediately. Wrapper node types
+    /// (ParseTlvsNode, ParseFlagFieldsNode, ParseArrayNode) override this
+    /// to call their respective sub-parsing functions.
+    fn sub_parse(
+        &self,
+        _hdr: &[u8],
+        _hdr_len: usize,
+        _metadata: &mut M,
+        _ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
+        Ok(())
+    }
     fn proto_table(&self) -> Option<&'static ProtoTable<M>>;
     fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>>;
     fn unknown_ret(&self) -> ParseError;
@@ -135,6 +152,10 @@ impl<M: 'static, P: ProtocolOps> ParseNodeDyn<M> for ParseNode<M, P> {
 
     fn name(&self) -> &'static str {
         self.name
+    }
+
+    fn node_type(&self) -> NodeType {
+        P::NODE_TYPE
     }
 
     fn is_encap(&self) -> bool {

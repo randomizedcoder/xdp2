@@ -37,13 +37,20 @@ pub struct ParserConfig<M: 'static> {
 }
 
 impl<M: 'static> Default for ParserConfig<M> {
+    /// Default configuration matching C defaults from `parser.h:99-103`.
+    ///
+    /// - `max_nodes`: 255 (XDP2_PARSE_MAX_NODES, `parser.h:99`)
+    /// - `max_encaps`: 4 (XDP2_PARSE_MAX_ENCAPS, `parser.h:100`)
+    /// - `max_frames`: 4 (XDP2_PARSE_MAX_FRAMES, `parser.h:101`)
+    /// - `metameta_size`: 64 (XDP2_PARSE_METAMETA_SIZE, `parser.h:102`)
+    /// - `frame_size`: 256 (XDP2_PARSE_FRAME_SIZE, `parser.h:103`)
     fn default() -> Self {
         Self {
-            max_nodes: 32,
+            max_nodes: 255,
             max_encaps: 4,
-            max_frames: 8,
-            metameta_size: 0,
-            frame_size: 0,
+            max_frames: 4,
+            metameta_size: 64,
+            frame_size: 256,
             num_counters: 0,
             num_keys: 0,
             okay_node: None,

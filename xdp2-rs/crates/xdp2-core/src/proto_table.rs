@@ -86,23 +86,7 @@ macro_rules! proto_table {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse_node::{ParseNode, ParseNodeDyn};
-    use crate::proto_def::ProtocolOps;
-    use crate::types::ParseError;
 
-    struct TestProto;
-
-    impl ProtocolOps for TestProto {
-        const MIN_LEN: usize = 4;
-        const NAME: &'static str = "Test";
-
-        fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
-            Ok(0)
-        }
-    }
-
-    // We can't easily create static nodes in tests due to lifetime constraints,
-    // so we test the lookup logic directly.
     #[test]
     fn empty_table_returns_none() {
         let table = ProtoTable::<()> { entries: &[] };

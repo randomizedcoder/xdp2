@@ -12,10 +12,13 @@
 //! | `ParseArrayElNode` | `arrays.h:89-92` | `struct xdp2_parse_arrel_node` |
 //! | `ArrayTableEntry` | `arrays.h:98-101` | `struct xdp2_proto_array_table_entry` |
 //! | `ArrayTable` | `arrays.h:108-111` | `struct xdp2_proto_array_table` |
-//! | `ParseArrayNode` | `arrays.h:126+` | `struct xdp2_parse_array_node` |
+//! | `ParseArrayNode` | `arrays.h:126-132` | `struct xdp2_parse_array_node` |
+//! | `ProtoArrayDef` | `arrays.h:140-144` | `struct xdp2_proto_array_def` |
 //! | `parse_array()` | `parser.c:360-448` | `xdp2_parse_array()` |
 
-use crate::types::{CtrlData, ParseError};
+use crate::parse_node::ParseNodeDyn;
+use crate::proto_table::ProtoTable;
+use crate::types::{CtrlData, NodeType, ParseError};
 
 /// Operations for parsing array headers.
 ///
@@ -64,6 +67,8 @@ pub struct ArrayTable<M: 'static> {
 
 impl<M: 'static> ArrayTable<M> {
     /// Look up an array element parse node by type (linear scan).
+    ///
+    /// Reimplements: `lookup_array_node()` in `parser.c:64-74`
     pub fn lookup(&self, el_type: i32) -> Option<&'static ParseArrayElNode<M>> {
         for entry in self.entries {
             if entry.el_type == el_type {
@@ -73,6 +78,69 @@ impl<M: 'static> ArrayTable<M> {
         None
     }
 }
+
+/// Wrapper parse node for protocols with array sub-structures.
+///
+/// Reimplements: `struct xdp2_parse_array_node` in `arrays.h:126-132`
+///
+/// In C, this is a "super struct" containing an embedded `xdp2_parse_node`
+/// plus array-specific configuration. In Rust, it wraps a `dyn ParseNodeDyn`
+/// and overrides `sub_parse()` to dispatch to `parse_array()`.
+pub struct ParseArrayNode<M: 'static> {
+    /// The inner parse node (provides all standard ParseNodeDyn methods)
+    pub inner: &'static dyn ParseNodeDyn<M>,
+    /// Array element lookup table
+    pub array_proto_table: &'static ArrayTable<M>,
+    /// Array parsing operations
+    pub array_ops: &'static ArrayOps,
+    /// Length of each array element in bytes
+    pub el_length: usize,
+    /// Maximum number of elements to parse
+    pub max_els: usize,
+    /// Return code for unknown element types
+    pub unknown_array_type_ret: ParseError,
+    /// Wildcard element node used if type is not found in table
+    pub array_wildcard_node: Option<&'static ParseArrayElNode<M>>,
+}
+
+impl<M: 'static> ParseNodeDyn<M> for ParseArrayNode<M> {
+    fn min_len(&self) -> usize { self.inner.min_len() }
+    fn name(&self) -> &'static str { self.inner.name() }
+    fn node_type(&self) -> NodeType { NodeType::Array }
+    fn is_encap(&self) -> bool { self.inner.is_encap() }
+    fn is_overlay(&self) -> bool { self.inner.is_overlay() }
+
+    fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
+        self.inner.header_len(hdr, maxlen)
+    }
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        self.inner.next_proto(hdr)
+    }
+    fn extract_metadata(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) {
+        self.inner.extract_metadata(hdr, hdr_len, metadata, ctrl);
+    }
+    fn handler(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+        self.inner.handler(hdr, hdr_len, metadata, ctrl)
+    }
+    fn post_handler(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+        self.inner.post_handler(hdr, hdr_len, metadata, ctrl)
+    }
+
+    /// Dispatch array sub-parsing.
+    ///
+    /// Reimplements: `case XDP2_NODE_TYPE_ARRAY:` in `parser.c:561-574`
+    fn sub_parse(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+        parse_array(hdr, hdr_len, self.array_ops, self.array_proto_table, self.el_length, self.max_els, metadata, ctrl)
+    }
+
+    fn proto_table(&self) -> Option<&'static ProtoTable<M>> { self.inner.proto_table() }
+    fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>> { self.inner.wildcard_node() }
+    fn unknown_ret(&self) -> ParseError { self.inner.unknown_ret() }
+}
+
+// SAFETY: ParseArrayNode delegates all state to &'static references which are inherently Send+Sync
+unsafe impl<M: 'static> Send for ParseArrayNode<M> {}
+unsafe impl<M: 'static> Sync for ParseArrayNode<M> {}
 
 /// Parse an array of elements within a protocol header.
 ///

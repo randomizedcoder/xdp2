@@ -33,9 +33,12 @@ pub mod tlvs;
 pub mod types;
 
 // Re-export key types at crate root for convenience
+pub use arrays::{ParseArrayNode, parse_array};
 pub use engine::{parse, ParseOutput};
+pub use flag_fields::{ParseFlagFieldsNode, parse_flag_fields};
 pub use parse_node::{ParseNode, ParseNodeDyn, ParseNodeOps};
 pub use parser::{Parser, ParserConfig};
 pub use proto_def::ProtocolOps;
 pub use proto_table::ProtoTable;
+pub use tlvs::{ParseTlvsNode, parse_tlvs};
 pub use types::{CtrlData, NodeType, ParseError, ParseResult, ParserType};

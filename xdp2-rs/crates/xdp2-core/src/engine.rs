@@ -113,8 +113,14 @@ pub fn parse<M: Default>(
         // 3. Handler
         node.handler(hdr_bytes, hdr_len, &mut metadata, &ctrl)?;
 
-        // 4. TODO: TLV/flag-fields/array sub-parsing based on node_type
-        //    This will be implemented when tlvs.rs, flag_fields.rs, arrays.rs are complete.
+        // 4. Sub-structure parsing (TLVs, flag-fields, arrays)
+        //
+        // Reimplements: `switch (parse_node->node_type)` in `parser.c:528-575`
+        //
+        // Wrapper node types (ParseTlvsNode, ParseFlagFieldsNode, ParseArrayNode)
+        // override sub_parse() to dispatch to their respective parsing functions.
+        // Plain nodes return Ok(()) immediately.
+        node.sub_parse(hdr_bytes, hdr_len, &mut metadata, &ctrl)?;
 
         // 5. Post-handler
         node.post_handler(hdr_bytes, hdr_len, &mut metadata, &ctrl)?;
@@ -208,31 +214,6 @@ mod tests {
     use crate::parse_node::{ParseNode, ParseNodeOps};
     use crate::parser::{Parser, ParserConfig};
     use crate::proto_def::ProtocolOps;
-    use crate::proto_table::ProtoTable;
-
-    // --- Test protocol definitions ---
-
-    struct TestEtherOps;
-    impl ProtocolOps for TestEtherOps {
-        const MIN_LEN: usize = 14;
-        const NAME: &'static str = "TestEther";
-        fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
-            // EtherType at offset 12-13 (big-endian)
-            Ok(i32::from(u16::from_be_bytes([hdr[12], hdr[13]])))
-        }
-    }
-
-    struct TestIpv4Ops;
-    impl ProtocolOps for TestIpv4Ops {
-        const MIN_LEN: usize = 20;
-        const NAME: &'static str = "TestIPv4";
-        fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
-            Ok(((hdr[0] & 0x0F) as usize) * 4)
-        }
-        fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
-            Ok(hdr[9] as i32) // protocol field
-        }
-    }
 
     struct TestLeafOps;
     impl ProtocolOps for TestLeafOps {
