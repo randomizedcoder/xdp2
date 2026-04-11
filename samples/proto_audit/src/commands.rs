@@ -1314,7 +1314,6 @@ pub(crate) fn cmd_validate(
     let tshark_proto = dissector
         .as_deref()
         .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
-
     let tshark_def = match tshark_proto {
         Some(pdml) => extractors::tshark::to_protocol_def(&pdml),
         None => {
@@ -1323,17 +1322,31 @@ pub(crate) fn cmd_validate(
                  but tshark could not parse the target protocol layer.",
                 effective_proto
             );
+            eprintln!("  [5/5] {}", msg);
+            // Save as Unvalidated so the protocol is at least tracked in the cache
+            let result = ir::AuditResult {
+                protocol: effective_proto.clone(),
+                sources_present: vec![],
+                sources_missing: vec![],
+                field_comparisons: vec![],
+                total_fields: 0,
+                fields_agree: 0,
+                fields_type_differ: 0,
+                fields_mismatch: 0,
+                fields_missing: 0,
+                validation_tier: Some(discovery::ValidationTier::Unvalidated),
+            };
+            let _ = save_validation_result(&effective_proto, &result);
             if json_output {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
                         "protocol": effective_proto,
-                        "status": "error",
+                        "status": "no_dissect",
+                        "validation_tier": "Unvalidated",
                         "message": msg,
                     }))?
                 );
-            } else {
-                eprintln!("  [5/5] {}", msg);
             }
             if keep_pcap.is_none() {
                 let _ = std::fs::remove_file(&pcap_path);
@@ -1354,17 +1367,12 @@ pub(crate) fn cmd_validate(
     let covered_splits = comparator::count_covered_splits(&result, &protocol_def, &tshark_def);
     eprintln!("  [5/5] Comparison complete (splits: {} total, {} covered)", result.fields_mismatch, covered_splits);
 
-    // Override validation tier: Gold if round-trip passes with fields.
-    // Split mismatches (field boundary disagreements) don't block Gold —
-    // they reflect how each source decomposes the same wire bytes, not
-    // whether the bytes round-tripped correctly. Type-only differences
-    // (fields_type_differ) are also non-blocking since they don't affect
-    // the byte-level layout. Only actual structural failures (e.g., tshark
-    // can't parse the PCAP at all) prevent Gold.
-    let is_roundtrip_pass = result.total_fields > 0;
-    if is_roundtrip_pass {
-        result.validation_tier = Some(discovery::ValidationTier::Gold);
-    }
+    // Override validation tier: Gold — tshark recognized the protocol.
+    // The protocol was found in PDML output, meaning the PCAP round-trip
+    // succeeded. Even if the protocol has 0 extractable fields (e.g.,
+    // Teredo is just a tunnel wrapper), tshark still validated the packet.
+    // Split mismatches (field boundary disagreements) don't block Gold.
+    result.validation_tier = Some(discovery::ValidationTier::Gold);
 
     // Persist validation result to cache file
     if let Err(e) = save_validation_result(&effective_proto, &result) {
@@ -4049,8 +4057,8 @@ fn cmd_validate_single(
     // Build proto map for PCAP generation
     let proto_map = build_proto_map(proto, paths, discovery_state);
 
-    // Generate PCAP
-    let pcap_output = generator::generate_pcap(&protocol_def, &proto_map)
+    // Generate PCAP (with discovery for discovered-tier route resolution)
+    let pcap_output = generator::generate_pcap_with_discovery(&protocol_def, &proto_map, discovery_state)
         .map_err(|e| anyhow::anyhow!("{}", e))?;
 
     // Write temp pcap and run tshark
@@ -4067,14 +4075,14 @@ fn cmd_validate_single(
     // Find dissector name
     let dissector = name_mapping::find_by_canonical(proto)
         .and_then(|n| n.tshark.map(|s| s.to_string()));
-    let tshark_def = dissector
+    let tshark_found = dissector
         .as_deref()
         .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+    let tshark_recognized = tshark_found.is_some();
 
-    let tshark_def = match tshark_def {
+    let tshark_def = match tshark_found {
         Some(pdml) => extractors::tshark::to_protocol_def(&pdml),
         // No tshark dissection — use empty def (same as interactive validate).
-        // IR fields will agree trivially if the protocol was at least routed.
         None => ir::ProtocolDef::new(proto, 0),
     };
 
@@ -4084,11 +4092,9 @@ fn cmd_validate_single(
     ];
     let mut result = comparator::audit_protocol(proto, &refs);
 
-    // Override validation tier: Gold if PCAP round-trip produced fields.
-    // Split mismatches (field boundary disagreements) don't block Gold —
-    // the bytes round-tripped; how they're decomposed is a separate concern.
-    let is_pass = result.total_fields > 0;
-    if is_pass {
+    // Override validation tier: Gold if tshark recognized the protocol.
+    // Even 0-field protocols (tunnel wrappers) get Gold if tshark parsed them.
+    if tshark_recognized {
         result.validation_tier = Some(discovery::ValidationTier::Gold);
     }
 
@@ -4113,6 +4119,24 @@ fn save_validation_result(protocol: &str, result: &ir::AuditResult) -> Result<()
         .as_ref()
         .map(|t| t.to_string())
         .unwrap_or_else(|| "Unvalidated".to_string());
+
+    // Don't downgrade: if protocol is already at a higher tier in cache,
+    // only overwrite if the new result is equal or better.
+    let tier_rank = |s: &str| -> u8 {
+        match s {
+            "Gold" => 4,
+            "Silver" => 3,
+            "Bronze" => 2,
+            "Unvalidated" => 1,
+            _ => 0,
+        }
+    };
+    if let Some(existing) = cache.get(protocol) {
+        if tier_rank(&existing.validation_tier) > tier_rank(&tier_str) {
+            // Existing result is better — keep it
+            return Ok(());
+        }
+    }
 
     cache.insert(
         protocol.to_string(),

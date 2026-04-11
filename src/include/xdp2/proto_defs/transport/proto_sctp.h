@@ -33,6 +33,17 @@
 
 #include "xdp2/parser.h"
 
+/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
+#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
+#define __XDP2_STRUCT_SCTPHDR_DEFINED__
+struct sctphdr {
+	__be16 source;
+	__be16 dest;
+	__be32 vtag;
+	__le32 checksum;
+};
+#endif
+
 #endif /* __XDP2_PROTO_SCTP_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE

@@ -148,6 +148,22 @@ XDP2_MAKE_LEAF_PARSE_NODE(tipc_node, xdp2_parse_tipc,
 XDP2_MAKE_LEAF_PARSE_NODE(fcoe_node, xdp2_parse_fcoe, ());
 XDP2_MAKE_LEAF_PARSE_NODE(igmp_node, xdp2_parse_igmp, ());
 
+/* Additional leaf parse nodes for expanded protocol coverage */
+XDP2_MAKE_LEAF_PARSE_NODE(esp_node, xdp2_parse_esp, ());
+XDP2_MAKE_PARSE_NODE(ah_node, xdp2_parse_ah, ipv4_table, ());
+XDP2_MAKE_LEAF_PARSE_NODE(lldp_node, xdp2_parse_lldp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(eapol_node, xdp2_parse_eapol, ());
+XDP2_MAKE_LEAF_PARSE_NODE(macsec_node, xdp2_parse_macsec, ());
+XDP2_MAKE_LEAF_PARSE_NODE(ospf_node, xdp2_parse_ospf, ());
+XDP2_MAKE_LEAF_PARSE_NODE(vrrp_node, xdp2_parse_vrrp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(eigrp_node, xdp2_parse_eigrp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(dns_node, xdp2_parse_dns, ());
+XDP2_MAKE_LEAF_PARSE_NODE(ntp_node, xdp2_parse_ntp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(dhcp_node, xdp2_parse_dhcp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(stp_node, xdp2_parse_stp, ());
+XDP2_MAKE_LEAF_PARSE_NODE(lacp_node, xdp2_parse_slow, ());
+XDP2_MAKE_LEAF_PARSE_NODE(wireguard_node, xdp2_parse_wireguard, ());
+
 XDP2_MAKE_LEAF_TLVS_PARSE_NODE(tcp_node, xdp2_parse_tcp_tlvs,
 			       tcp_tlv_table,
 			       (.ops.extract_metadata = ports_metadata), ());
@@ -233,6 +249,14 @@ XDP2_PARSER(xdp2_parser_big_fcoe, "XDP2 big parser for FCOE L3",
 	    fcoe_node, ());
 XDP2_PARSER(xdp2_parser_big_pppoe, "XDP2 big parser for PPPoe L3",
 	    pppoe_node, ());
+XDP2_PARSER(xdp2_parser_big_lldp, "XDP2 big parser for LLDP L3",
+	    lldp_node, ());
+XDP2_PARSER(xdp2_parser_big_eapol, "XDP2 big parser for EAPOL L3",
+	    eapol_node, ());
+XDP2_PARSER(xdp2_parser_big_macsec, "XDP2 big parser for MACsec L3",
+	    macsec_node, ());
+XDP2_PARSER(xdp2_parser_big_lacp, "XDP2 big parser for LACP/Slow L3",
+	    lacp_node, ());
 
 XDP2_MAKE_PARSER_TABLE(l3_parser_table,
 	(__cpu_to_be16(ETH_P_IP), xdp2_parser_big_ipv4),
@@ -246,7 +270,11 @@ XDP2_MAKE_PARSER_TABLE(l3_parser_table,
 	(__cpu_to_be16(ETH_P_TIPC), xdp2_parser_big_tipc),
 	(__cpu_to_be16(ETH_P_BATMAN), xdp2_parser_big_batman),
 	(__cpu_to_be16(ETH_P_FCOE), xdp2_parser_big_fcoe),
-	(__cpu_to_be16(ETH_P_PPP_SES), xdp2_parser_big_pppoe)
+	(__cpu_to_be16(ETH_P_PPP_SES), xdp2_parser_big_pppoe),
+	(__cpu_to_be16(ETH_P_LLDP), xdp2_parser_big_lldp),
+	(__cpu_to_be16(ETH_P_PAE), xdp2_parser_big_eapol),
+	(__cpu_to_be16(ETH_P_MACSEC), xdp2_parser_big_macsec),
+	(__cpu_to_be16(ETH_P_SLOW), xdp2_parser_big_lacp)
 );
 
 /* Protocol tables */
@@ -263,7 +291,11 @@ XDP2_MAKE_PROTO_TABLE(ether_table,
 	(__cpu_to_be16(ETH_P_TIPC), tipc_node),
 	(__cpu_to_be16(ETH_P_BATMAN), batman_node),
 	(__cpu_to_be16(ETH_P_FCOE), fcoe_node),
-	(__cpu_to_be16(ETH_P_PPP_SES), pppoe_node)
+	(__cpu_to_be16(ETH_P_PPP_SES), pppoe_node),
+	(__cpu_to_be16(ETH_P_LLDP), lldp_node),
+	(__cpu_to_be16(ETH_P_PAE), eapol_node),
+	(__cpu_to_be16(ETH_P_MACSEC), macsec_node),
+	(__cpu_to_be16(ETH_P_SLOW), lacp_node)
 );
 
 XDP2_MAKE_PROTO_TABLE(ipv4_table,
@@ -276,7 +308,12 @@ XDP2_MAKE_PROTO_TABLE(ipv4_table,
 	(IPPROTO_IGMP, igmp_node),
 	(IPPROTO_MPLS, mpls_node),
 	(IPPROTO_IPIP, ipv4ip_node),
-	(IPPROTO_IPV6, ipv6ip_node)
+	(IPPROTO_IPV6, ipv6ip_node),
+	(IPPROTO_ESP, esp_node),
+	(IPPROTO_AH, ah_node),
+	(89, ospf_node),    /* IPPROTO_OSPF */
+	(112, vrrp_node),   /* IPPROTO_VRRP */
+	(88, eigrp_node)    /* IPPROTO_EIGRP */
 );
 
 XDP2_MAKE_PROTO_TABLE(ipv6_table,
@@ -293,7 +330,12 @@ XDP2_MAKE_PROTO_TABLE(ipv6_table,
 	(IPPROTO_IGMP, igmp_node),
 	(IPPROTO_MPLS, mpls_node),
 	(IPPROTO_IPIP, ipv4ip_node),
-	(IPPROTO_IPV6, ipv6ip_node)
+	(IPPROTO_IPV6, ipv6ip_node),
+	(IPPROTO_ESP, esp_node),
+	(IPPROTO_AH, ah_node),
+	(89, ospf_node),    /* IPPROTO_OSPF */
+	(112, vrrp_node),   /* IPPROTO_VRRP */
+	(88, eigrp_node)    /* IPPROTO_EIGRP */
 );
 
 XDP2_MAKE_PROTO_TABLE(ip_table,

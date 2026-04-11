@@ -47,7 +47,8 @@ static inline int vlan_proto(const void *vvlan)
 
 #endif /* __XDP2_PROTO_VLAN_H__ */
 
-#ifdef XDP2_DEFINE_PARSE_NODE
+#if defined(XDP2_DEFINE_PARSE_NODE) && !defined(__XDP2_PARSE_VLAN_DEFINED__)
+#define __XDP2_PARSE_VLAN_DEFINED__
 
 /* xdp2_parse_vlan protocol definition
  *
@@ -61,4 +62,4 @@ static const struct xdp2_proto_def xdp2_parse_vlan __unused() = {
 	.ops.next_proto = vlan_proto,
 };
 
-#endif /* XDP2_DEFINE_PARSE_NODE */
+#endif /* XDP2_DEFINE_PARSE_NODE && !__XDP2_PARSE_VLAN_DEFINED__ */
