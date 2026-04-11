@@ -421,16 +421,20 @@ pub fn audit_protocol(canonical_name: &str, sources: &[(&str, &ProtocolDef)]) ->
     }
 }
 
-/// Count split mismatches that are "covered" — where one source's sub-fields
-/// exactly tile the other source's merged field.
+/// Count split mismatches that are "covered" — where both sources' fields
+/// cover the same bit range, just with different internal boundaries.
 ///
 /// This is critical for round-trip validation: tshark PDML is byte-aligned and
-/// merges sub-byte fields (e.g., IPv4 version(4b)+IHL(4b) → single 8-bit field).
-/// When the sub-fields tile exactly, the wire bytes are correct and the split
-/// should not block Gold promotion.
+/// often merges or splits fields differently from the IR (e.g., IPv4
+/// version(4b)+IHL(4b) → single 8-bit field, or tshark's single SPI+SI field
+/// vs IR's separate SPI and SI fields).
 ///
-/// A covered split group accounts for ALL related mismatches: both the merged
-/// field and its constituent sub-fields.
+/// A split is covered when:
+/// 1. **Exact tile**: one source's sub-fields tile the other's merged field
+///    with no gaps (strict, e.g., version+IHL tiling ip.version)
+/// 2. **Mutual overlap**: both sources have fields covering the same bit range,
+///    just with different internal boundaries. Neither source leaves uncovered
+///    bits within the overlap region.
 ///
 /// Returns the number of split mismatches that are covered.
 pub fn count_covered_splits(
@@ -438,9 +442,7 @@ pub fn count_covered_splits(
     source_a: &ProtocolDef,
     source_b: &ProtocolDef,
 ) -> u32 {
-    // Find all "merged" fields that are exactly tiled by sub-fields from
-    // the other source. A merged field has a split mismatch AND the other
-    // source's sub-fields tile its range.
+    // Phase 1: Find exact-tile covered ranges (strict, original logic)
     let mut covered_ranges: Vec<(u32, u32)> = Vec::new();
 
     for fc in &result.field_comparisons {
@@ -452,7 +454,6 @@ pub fn count_covered_splits(
         let start = fc.offset_bits;
         let end = start + fc.size_bits;
 
-        // Check if the OTHER source has sub-fields that tile this field's range
         if is_exact_tile(start, end, &source_a.fields)
             || is_exact_tile(start, end, &source_b.fields)
         {
@@ -460,7 +461,39 @@ pub fn count_covered_splits(
         }
     }
 
-    // Now count how many split-mismatch fields fall within a covered range
+    // Phase 2: Find mutual-overlap covered ranges.
+    // Group contiguous split fields into regions and check if both sources
+    // fully cover each region (possibly with different internal boundaries).
+    let mut split_fields: Vec<(u32, u32)> = result
+        .field_comparisons
+        .iter()
+        .filter(|fc| fc.mismatches.iter().any(|m| m.field == "split"))
+        .map(|fc| (fc.offset_bits, fc.offset_bits + fc.size_bits))
+        .collect();
+    split_fields.sort();
+    split_fields.dedup();
+
+    // Merge overlapping/adjacent split field ranges into contiguous regions
+    let regions = merge_ranges(&split_fields);
+
+    for (region_start, region_end) in &regions {
+        // Already covered by exact tile?
+        if covered_ranges.iter().any(|&(rs, re)| rs <= *region_start && re >= *region_end) {
+            continue;
+        }
+        // Check if both sources have fields that collectively cover the region
+        if covers_range(*region_start, *region_end, &source_a.fields)
+            && covers_range(*region_start, *region_end, &source_b.fields)
+        {
+            covered_ranges.push((*region_start, *region_end));
+        }
+    }
+
+    // Merge covered_ranges so containment checks work across merged regions
+    covered_ranges.sort();
+    let merged_covered = merge_ranges(&covered_ranges);
+
+    // Count split-mismatch fields that fall within any covered range
     let mut covered = 0u32;
     for fc in &result.field_comparisons {
         let has_split = fc.mismatches.iter().any(|m| m.field == "split");
@@ -470,8 +503,7 @@ pub fn count_covered_splits(
         let f_start = fc.offset_bits;
         let f_end = f_start + fc.size_bits;
 
-        // This field is covered if it falls entirely within any covered range
-        if covered_ranges.iter().any(|&(rs, re)| f_start >= rs && f_end <= re) {
+        if merged_covered.iter().any(|&(rs, re)| f_start >= rs && f_end <= re) {
             covered += 1;
         }
     }
@@ -479,11 +511,29 @@ pub fn count_covered_splits(
     covered
 }
 
+/// Merge overlapping or adjacent ranges into non-overlapping contiguous ranges.
+fn merge_ranges(ranges: &[(u32, u32)]) -> Vec<(u32, u32)> {
+    if ranges.is_empty() {
+        return vec![];
+    }
+    let mut sorted = ranges.to_vec();
+    sorted.sort();
+    let mut merged = vec![sorted[0]];
+    for &(s, e) in &sorted[1..] {
+        let last = merged.last_mut().unwrap();
+        if s <= last.1 {
+            last.1 = last.1.max(e);
+        } else {
+            merged.push((s, e));
+        }
+    }
+    merged
+}
+
 /// Check whether `fields` contains sub-fields that exactly tile [start, end)
 /// with no gaps and no overlaps, and the sub-fields are strictly smaller than
 /// the range (i.e., it's actually a split, not the same field).
 fn is_exact_tile(start: u32, end: u32, fields: &[FieldDef]) -> bool {
-    // Collect all sub-fields that fall within [start, end)
     let mut subs: Vec<(u32, u32)> = fields
         .iter()
         .filter(|f| {
@@ -498,18 +548,49 @@ fn is_exact_tile(start: u32, end: u32, fields: &[FieldDef]) -> bool {
         return false;
     }
 
-    // Sort by start offset
     subs.sort();
-
-    // Check that sub-fields tile [start, end) with no gaps
     let mut cursor = start;
     for (s, e) in &subs {
         if *s != cursor {
-            return false; // gap
+            return false;
         }
         cursor = *e;
     }
     cursor == end
+}
+
+/// Check whether `fields` collectively cover [start, end) — fields may overlap
+/// or extend beyond the range, but every bit in [start, end) must be covered
+/// by at least one field.
+fn covers_range(start: u32, end: u32, fields: &[FieldDef]) -> bool {
+    // Collect all fields that overlap [start, end)
+    let mut overlapping: Vec<(u32, u32)> = fields
+        .iter()
+        .filter(|f| {
+            let f_start = f.offset_bits;
+            let f_end = f_start + f.size_bits;
+            f_start < end && f_end > start
+        })
+        .map(|f| {
+            let f_start = f.offset_bits.max(start);
+            let f_end = (f.offset_bits + f.size_bits).min(end);
+            (f_start, f_end)
+        })
+        .collect();
+
+    if overlapping.is_empty() {
+        return false;
+    }
+
+    overlapping.sort();
+    let mut cursor = start;
+    for (s, e) in &overlapping {
+        if *s > cursor {
+            return false; // gap
+        }
+        cursor = cursor.max(*e);
+    }
+    cursor >= end
 }
 
 #[cfg(test)]

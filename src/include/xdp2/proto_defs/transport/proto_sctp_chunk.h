@@ -33,6 +33,29 @@
 
 #include "xdp2/parser.h"
 
+/* struct sctphdr and struct sctp_chunkhdr are not in linux/sctp.h UAPI.
+ * Define them here if not already available (they live in kernel-internal
+ * headers or in lksctp-tools' netinet/sctp.h which may not be present).
+ */
+#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
+#define __XDP2_STRUCT_SCTPHDR_DEFINED__
+struct sctphdr {
+	__be16 source;
+	__be16 dest;
+	__be32 vtag;
+	__le32 checksum;
+};
+#endif
+
+#ifndef __XDP2_STRUCT_SCTP_CHUNKHDR_DEFINED__
+#define __XDP2_STRUCT_SCTP_CHUNKHDR_DEFINED__
+struct sctp_chunkhdr {
+	__u8 type;
+	__u8 flags;
+	__be16 length;
+};
+#endif
+
 /* SCTP chunk types */
 #define SCTP_CID_DATA			0
 #define SCTP_CID_INIT			1

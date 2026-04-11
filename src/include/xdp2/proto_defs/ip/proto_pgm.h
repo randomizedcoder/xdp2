@@ -24,38 +24,44 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_SCTP_H__
-#define __XDP2_PROTO_SCTP_H__
+#ifndef __XDP2_PROTO_PGM_H__
+#define __XDP2_PROTO_PGM_H__
 
-/* SCTP protocol definitions (RFC 9260) */
-
-#include <linux/sctp.h>
-
+#include <linux/types.h>
 #include "xdp2/parser.h"
 
-/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
-#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
-#define __XDP2_STRUCT_SCTPHDR_DEFINED__
-struct sctphdr {
-	__be16 source;
-	__be16 dest;
-	__be32 vtag;
-	__le32 checksum;
+/* PGM header (RFC 3208):
+ *   sport     (16 bits) — source port
+ *   dport     (16 bits) — destination port
+ *   type      (8 bits) — PGM type
+ *   options   (8 bits) — options
+ *   checksum  (16 bits) — header checksum
+ *   gsi       (48 bits) — global source identifier
+ *   tsdu_len  (16 bits) — TSDU length
+ * Total: 16 bytes minimum fixed header.
+ */
+struct pgm_header {
+	__be16 sport;
+	__be16 dport;
+	__u8 type;
+	__u8 options;
+	__be16 checksum;
+	__u8 gsi[6];
+	__be16 tsdu_len;
 };
-#endif
 
-#endif /* __XDP2_PROTO_SCTP_H__ */
+#endif /* __XDP2_PROTO_PGM_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_sctp protocol definition
+/* xdp2_parse_pgm protocol definition
  *
- * Parse SCTP common header (12 bytes fixed).
- * SCTP payload consists of chunks, each with its own type/length.
+ * Parse PGM (Pragmatic General Multicast) header.
+ * PGM is a reliable multicast protocol that runs directly over IP.
  */
-static const struct xdp2_proto_def xdp2_parse_sctp __unused() = {
-	.name = "SCTP",
-	.min_len = sizeof(struct sctphdr),
+static const struct xdp2_proto_def xdp2_parse_pgm __unused() = {
+	.name = "PGM",
+	.min_len = sizeof(struct pgm_header),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

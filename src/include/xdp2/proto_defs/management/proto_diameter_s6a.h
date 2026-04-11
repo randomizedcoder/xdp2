@@ -24,38 +24,35 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_SCTP_H__
-#define __XDP2_PROTO_SCTP_H__
+#ifndef __XDP2_PROTO_DIAMETER_S6A_H__
+#define __XDP2_PROTO_DIAMETER_S6A_H__
 
-/* SCTP protocol definitions (RFC 9260) */
-
-#include <linux/sctp.h>
-
+#include <linux/types.h>
 #include "xdp2/parser.h"
 
-/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
-#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
-#define __XDP2_STRUCT_SCTPHDR_DEFINED__
-struct sctphdr {
-	__be16 source;
-	__be16 dest;
-	__be32 vtag;
-	__le32 checksum;
-};
-#endif
+/* Diameter S6a header
+ * Diameter base protocol (RFC 6733) with S6a application.
+ * Carried over TCP/SCTP.
+ */
+struct diameter_s6a_header {
+	__u8	version;
+	__u8	len[3];
+	__u8	flags;
+	__u8	code[3];
+	__be32	app_id;
+} __attribute__((packed));
 
-#endif /* __XDP2_PROTO_SCTP_H__ */
+#endif /* __XDP2_PROTO_DIAMETER_S6A_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_sctp protocol definition
+/* xdp2_parse_diameter_s6a protocol definition
  *
- * Parse SCTP common header (12 bytes fixed).
- * SCTP payload consists of chunks, each with its own type/length.
+ * Parse Diameter S6a header (leaf)
  */
-static const struct xdp2_proto_def xdp2_parse_sctp __unused() = {
-	.name = "SCTP",
-	.min_len = sizeof(struct sctphdr),
+static const struct xdp2_proto_def xdp2_parse_diameter_s6a __unused() = {
+	.name = "Diameter-S6a",
+	.min_len = sizeof(struct diameter_s6a_header),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

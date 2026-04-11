@@ -24,38 +24,35 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_SCTP_H__
-#define __XDP2_PROTO_SCTP_H__
+#ifndef __XDP2_PROTO_FDDI_H__
+#define __XDP2_PROTO_FDDI_H__
 
-/* SCTP protocol definitions (RFC 9260) */
-
-#include <linux/sctp.h>
-
+#include <linux/types.h>
 #include "xdp2/parser.h"
 
-/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
-#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
-#define __XDP2_STRUCT_SCTPHDR_DEFINED__
-struct sctphdr {
-	__be16 source;
-	__be16 dest;
-	__be32 vtag;
-	__le32 checksum;
+/* FDDI header (RFC 1188):
+ *   fc    (8 bits) — frame control
+ *   daddr (48 bits) — destination MAC
+ *   saddr (48 bits) — source MAC
+ * Total: 13 bytes fixed header.
+ */
+struct fddihdr {
+	__u8 fc;
+	__u8 daddr[6];
+	__u8 saddr[6];
 };
-#endif
 
-#endif /* __XDP2_PROTO_SCTP_H__ */
+#endif /* __XDP2_PROTO_FDDI_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_sctp protocol definition
+/* xdp2_parse_fddi protocol definition
  *
- * Parse SCTP common header (12 bytes fixed).
- * SCTP payload consists of chunks, each with its own type/length.
+ * Parse FDDI header (13 bytes). Typically followed by LLC/SNAP.
  */
-static const struct xdp2_proto_def xdp2_parse_sctp __unused() = {
-	.name = "SCTP",
-	.min_len = sizeof(struct sctphdr),
+static const struct xdp2_proto_def xdp2_parse_fddi __unused() = {
+	.name = "FDDI",
+	.min_len = sizeof(struct fddihdr),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

@@ -57,15 +57,32 @@ pub fn run_tshark(
     tshark_bin: &str,
     count: u32,
 ) -> Result<String> {
-    let output = Command::new(tshark_bin)
-        .args([
-            "-r",
-            &pcap_path.to_string_lossy(),
-            "-T",
-            "pdml",
-            "-c",
-            &count.to_string(),
-        ])
+    run_tshark_with_hints(pcap_path, tshark_bin, count, &[])
+}
+
+/// Run tshark with optional decode-as hints.
+///
+/// `decode_as` entries are tshark `-d` arguments, e.g. `"udp.port==5004,rtp"`.
+/// Multiple hints are passed as separate `-d` flags.
+pub fn run_tshark_with_hints(
+    pcap_path: &Path,
+    tshark_bin: &str,
+    count: u32,
+    decode_as: &[&str],
+) -> Result<String> {
+    let mut cmd = Command::new(tshark_bin);
+    cmd.args([
+        "-r",
+        &pcap_path.to_string_lossy(),
+        "-T",
+        "pdml",
+        "-c",
+        &count.to_string(),
+    ]);
+    for hint in decode_as {
+        cmd.args(["-d", hint]);
+    }
+    let output = cmd
         .output()
         .with_context(|| format!("running tshark on {}", pcap_path.display()))?;
 
@@ -75,6 +92,88 @@ pub fn run_tshark(
     }
 
     String::from_utf8(output.stdout).context("tshark output is not valid UTF-8")
+}
+
+/// Look up tshark decode-as hints for a protocol.
+///
+/// Some protocols need explicit `-d` hints because tshark can't detect them
+/// heuristically from synthetic PCAP content (e.g., RTP on UDP/5004).
+pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
+    match proto {
+        // UDP-based protocols that need port-based decode-as
+        "RTP" => vec!["udp.port==5004,rtp"],
+        "RTCP" => vec!["udp.port==5005,rtcp"],
+        "LISP" => vec!["udp.port==4341,lisp"],
+        "MGCP" => vec!["udp.port==2427,mgcp"],
+        "SRT" => vec!["udp.port==1935,srt"],
+        "HSRP" => vec!["udp.port==1985,hsrp"],
+        "GLBP" => vec!["udp.port==3222,glbp"],
+        "CARP" | "VRRP" => vec!["ip.proto==112,vrrp"],
+        "Teredo" => vec!["udp.port==3544,teredo"],
+        "MPLS_OAM" => vec!["udp.port==3503,mpls-echo"],
+        "CAPWAP" => vec!["udp.port==5247,capwap"],
+        "LWAPP" => vec!["udp.port==12222,lwapp"],
+        "TZSP" => vec!["udp.port==37008,tzsp"],
+        "TPLINK_SMARTHOME" => vec!["udp.port==9999,tplink-smarthome"],
+        // WOL: tshark recognizes WOL via magic FF pattern, no decode-as needed
+        // TCP-based protocols that need port-based decode-as
+        "TACACS" => vec!["tcp.port==49,tacacs"],
+        "ZeroMQ" => vec!["tcp.port==5555,zmtp"],
+        "NVMe" => vec!["tcp.port==4420,nvme-tcp"],
+        "DNP3" => vec!["tcp.port==20000,dnp3"],
+        "AMQP" => vec!["tcp.port==5672,amqp"],
+        "ENIP" => vec!["tcp.port==44818,enip"],
+        "FTP" => vec!["tcp.port==21,ftp"],
+        "SMTP" => vec!["tcp.port==25,smtp"],
+        "Telnet" => vec!["tcp.port==23,telnet"],
+        "NFS" => vec!["tcp.port==2049,rpc"],
+        "CIP" => vec!["tcp.port==44818,enip"],
+        _ => vec![],
+    }
+}
+
+/// Recursively collect named `<field>` elements from a node tree.
+///
+/// Many protocols (LLDP, ENIP, etc.) wrap fields inside unnamed parent
+/// `<field>` elements (TLV containers). This function descends into those
+/// wrappers to collect all leaf fields with actual names.
+fn extract_fields_recursive(node: &roxmltree::Node, fields: &mut Vec<PdmlField>) {
+    for field_node in node.children().filter(|n| n.has_tag_name("field")) {
+        let field_name = field_node
+            .attribute("name")
+            .unwrap_or("")
+            .to_string();
+
+        if field_name.is_empty() || field_name == "_ws.expert" {
+            // Unnamed wrapper or expert info — recurse into children
+            extract_fields_recursive(&field_node, fields);
+            continue;
+        }
+
+        fields.push(PdmlField {
+            name: field_name,
+            show_name: field_node
+                .attribute("showname")
+                .unwrap_or("")
+                .to_string(),
+            pos: field_node
+                .attribute("pos")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            size: field_node
+                .attribute("size")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            value: field_node
+                .attribute("value")
+                .unwrap_or("")
+                .to_string(),
+            show: field_node
+                .attribute("show")
+                .unwrap_or("")
+                .to_string(),
+        });
+    }
 }
 
 /// Extract proto elements from a node, recursively finding nested protos
@@ -99,40 +198,7 @@ fn extract_protos_recursive(parent: &roxmltree::Node, protos: &mut Vec<PdmlProto
             .unwrap_or(0);
 
         let mut fields = Vec::new();
-        for field_node in proto_node.children().filter(|n| n.has_tag_name("field")) {
-            let field_name = field_node
-                .attribute("name")
-                .unwrap_or("")
-                .to_string();
-            // Skip unnamed fields and tree-structure fields
-            if field_name.is_empty() || field_name == "_ws.expert" {
-                continue;
-            }
-
-            fields.push(PdmlField {
-                name: field_name,
-                show_name: field_node
-                    .attribute("showname")
-                    .unwrap_or("")
-                    .to_string(),
-                pos: field_node
-                    .attribute("pos")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0),
-                size: field_node
-                    .attribute("size")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0),
-                value: field_node
-                    .attribute("value")
-                    .unwrap_or("")
-                    .to_string(),
-                show: field_node
-                    .attribute("show")
-                    .unwrap_or("")
-                    .to_string(),
-            });
-        }
+        extract_fields_recursive(&proto_node, &mut fields);
 
         protos.push(PdmlProtocol {
             name,
@@ -177,14 +243,20 @@ pub fn extract_protocol_from_pdml(
     packets: &[Vec<PdmlProtocol>],
     dissector_name: &str,
 ) -> Option<PdmlProtocol> {
+    // Some protocols appear multiple times in PDML (e.g., PBB has an outer
+    // wrapper proto and an inner proto with the actual fields). Return the
+    // instance with the most fields.
+    let mut best: Option<PdmlProtocol> = None;
     for packet in packets {
         for proto in packet {
             if proto.name == dissector_name {
-                return Some(proto.clone());
+                if best.as_ref().map_or(true, |b| proto.fields.len() > b.fields.len()) {
+                    best = Some(proto.clone());
+                }
             }
         }
     }
-    None
+    best
 }
 
 /// Infer field type from tshark field name patterns using loaded mappings.

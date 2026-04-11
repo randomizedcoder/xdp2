@@ -24,38 +24,31 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_SCTP_H__
-#define __XDP2_PROTO_SCTP_H__
+#ifndef __XDP2_PROTO_L2TPV3_H__
+#define __XDP2_PROTO_L2TPV3_H__
 
-/* SCTP protocol definitions (RFC 9260) */
-
-#include <linux/sctp.h>
-
+#include <linux/types.h>
 #include "xdp2/parser.h"
 
-/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
-#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
-#define __XDP2_STRUCT_SCTPHDR_DEFINED__
-struct sctphdr {
-	__be16 source;
-	__be16 dest;
-	__be32 vtag;
-	__le32 checksum;
-};
-#endif
+/* L2TPv3 header (RFC 3931)
+ * Can be carried over UDP or directly over IP (protocol 115).
+ */
+struct l2tpv3_header {
+	__be32	session_id;
+	__be64	cookie;
+} __attribute__((packed));
 
-#endif /* __XDP2_PROTO_SCTP_H__ */
+#endif /* __XDP2_PROTO_L2TPV3_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_sctp protocol definition
+/* xdp2_parse_l2tpv3 protocol definition
  *
- * Parse SCTP common header (12 bytes fixed).
- * SCTP payload consists of chunks, each with its own type/length.
+ * Parse L2TPv3 header (leaf)
  */
-static const struct xdp2_proto_def xdp2_parse_sctp __unused() = {
-	.name = "SCTP",
-	.min_len = sizeof(struct sctphdr),
+static const struct xdp2_proto_def xdp2_parse_l2tpv3 __unused() = {
+	.name = "L2TPv3",
+	.min_len = sizeof(struct l2tpv3_header),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

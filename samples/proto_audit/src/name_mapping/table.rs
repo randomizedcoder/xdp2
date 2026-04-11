@@ -1320,5 +1320,120 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_tplink_smarthome").tshark("tplink_smarthome").variable()
             .etherparse("TPLINK_SMARTHOMEHeader", "src/proto_audit/tplink_smarthome.rs")
             .libpcap("tplink_smarthome_header", "pcap/proto_audit/tplink_smarthome.h"),
+        // ── Phase 5: Additional curated protocols ──
+        PN::new("IPComp", 4)
+            .xdp2("xdp2_parse_ipcomp")
+            .kernel("ip_comp_hdr", "linux/types.h")
+            .scapy("IPComp").tshark("ipcomp").variable()
+            .rfcs(&[3173, 2393])
+            .etherparse("IPCompHeader", "src/proto_audit/ipcomp.rs")
+            .libpcap("ipcomp_header", "pcap/proto_audit/ipcomp.h"),
+        PN::new("FDDI", 13)
+            .xdp2("xdp2_parse_fddi")
+            .kernel("fddihdr", "linux/if_fddi.h")
+            .tshark("fddi")
+            .rfcs(&[1188])
+            .etherparse("FDDIHeader", "src/proto_audit/fddi.rs")
+            .libpcap("fddi_header", "pcap/proto_audit/fddi.h"),
+        PN::new("PGM", 16)
+            .xdp2("xdp2_parse_pgm")
+            .scapy("PGM").tshark("pgm").variable()
+            .rfcs(&[3208])
+            .etherparse("PGMHeader", "src/proto_audit/pgm.rs")
+            .libpcap("pgm_header", "pcap/proto_audit/pgm.h"),
+        PN::new("PPTP", 16)
+            .xdp2("xdp2_parse_pptp")
+            .scapy("PPTP").tshark("pptp").variable()
+            .rfcs(&[2637])
+            .etherparse("PPTPHeader", "src/proto_audit/pptp.rs")
+            .libpcap("pptp_header", "pcap/proto_audit/pptp.h"),
+        PN::new("RIPng", 4)
+            .xdp2("xdp2_parse_ripng")
+            .tshark("ripng").variable()
+            .rfcs(&[2080])
+            .etherparse("RIPngHeader", "src/proto_audit/ripng.rs")
+            .libpcap("ripng_header", "pcap/proto_audit/ripng.h"),
+        PN::new("OSPFv3", 16)
+            .xdp2("xdp2_parse_ospfv3")
+            .tshark("ospf").variable()
+            .rfcs(&[5340, 2740])
+            .etherparse("OSPFv3Header", "src/proto_audit/ospfv3.rs")
+            .libpcap("ospfv3_header", "pcap/proto_audit/ospfv3.h"),
+        PN::new("TWAMP", 14)
+            .xdp2("xdp2_parse_twamp")
+            .tshark("twamp").variable()
+            .rfcs(&[5357])
+            .etherparse("TWAMPHeader", "src/proto_audit/twamp.rs")
+            .libpcap("twamp_header", "pcap/proto_audit/twamp.h"),
+        PN::new("OWAMP", 14)
+            .xdp2("xdp2_parse_owamp")
+            .tshark("owamp").variable()
+            .rfcs(&[4656])
+            .etherparse("OWAMPHeader", "src/proto_audit/owamp.rs")
+            .libpcap("owamp_header", "pcap/proto_audit/owamp.h"),
+        PN::new("CFLOW", 2)
+            .xdp2("xdp2_parse_cflow")
+            .tshark("cflow").variable()
+            .etherparse("CFLOWHeader", "src/proto_audit/cflow.rs")
+            .libpcap("cflow_header", "pcap/proto_audit/cflow.h"),
+        PN::new("sFlow", 4)
+            .xdp2("xdp2_parse_sflow")
+            .tshark("sflow").variable()
+            .rfcs(&[3176])
+            .etherparse("sFlowHeader", "src/proto_audit/sflow.rs")
+            .libpcap("sflow_header", "pcap/proto_audit/sflow.h"),
+        PN::new("GTPv2_C", 8)
+            .xdp2("xdp2_parse_gtpv2_c")
+            .tshark("gtpv2").variable()
+            .rfcs(&[5765])
+            .etherparse("GTPv2CHeader", "src/proto_audit/gtpv2_c.rs")
+            .libpcap("gtpv2_c_header", "pcap/proto_audit/gtpv2_c.h"),
+        PN::new("Diameter_S6a", 20)
+            .xdp2("xdp2_parse_diameter_s6a")
+            .tshark("diameter").variable()
+            .rfcs(&[6733])
+            .etherparse("DiameterS6aHeader", "src/proto_audit/diameter_s6a.rs")
+            .libpcap("diameter_s6a_header", "pcap/proto_audit/diameter_s6a.h"),
+        PN::new("PFCP", 8)
+            .xdp2("xdp2_parse_pfcp")
+            .tshark("pfcp").variable()
+            .rfcs(&[8805])
+            .etherparse("PFCPHeader", "src/proto_audit/pfcp.rs")
+            .libpcap("pfcp_header", "pcap/proto_audit/pfcp.h"),
+        PN::new("GRE6", 4)
+            .xdp2("xdp2_parse_gre6")
+            .tshark("gre").variable()
+            .rfcs(&[2784, 2890])
+            .etherparse("GRE6Header", "src/proto_audit/gre6.rs")
+            .libpcap("gre6_header", "pcap/proto_audit/gre6.h"),
+        PN::new("L2TPv3", 12)
+            .xdp2("xdp2_parse_l2tpv3")
+            .tshark("l2tp").variable()
+            .rfcs(&[3931])
+            .etherparse("L2TPv3Header", "src/proto_audit/l2tpv3.rs")
+            .libpcap("l2tpv3_header", "pcap/proto_audit/l2tpv3.h"),
+        PN::new("EtherIP", 2)
+            .xdp2("xdp2_parse_etherip")
+            .tshark("etherip").variable()
+            .rfcs(&[3378])
+            .etherparse("EtherIPHeader", "src/proto_audit/etherip.rs")
+            .libpcap("etherip_header", "pcap/proto_audit/etherip.h"),
+        PN::new("LLDP_MED", 4)
+            .xdp2("xdp2_parse_lldp_med")
+            .tshark("lldp").variable()
+            .etherparse("LLDP_MEDHeader", "src/proto_audit/lldp_med.rs")
+            .libpcap("lldp_med_header", "pcap/proto_audit/lldp_med.h"),
+        PN::new("VRRP3", 8)
+            .xdp2("xdp2_parse_vrrp3")
+            .scapy("VRRPv3").tshark("vrrp").variable()
+            .rfcs(&[5798])
+            .etherparse("VRRPv3Header", "src/proto_audit/vrrp3.rs")
+            .libpcap("vrrp3_header", "pcap/proto_audit/vrrp3.h"),
+        PN::new("MSDP", 3)
+            .xdp2("xdp2_parse_msdp")
+            .tshark("msdp").variable()
+            .rfcs(&[3618])
+            .etherparse("MSDPHeader", "src/proto_audit/msdp.rs")
+            .libpcap("msdp_header", "pcap/proto_audit/msdp.h"),
     ]
 }

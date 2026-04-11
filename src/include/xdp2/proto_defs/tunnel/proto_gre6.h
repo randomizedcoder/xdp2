@@ -24,38 +24,31 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_SCTP_H__
-#define __XDP2_PROTO_SCTP_H__
+#ifndef __XDP2_PROTO_GRE6_H__
+#define __XDP2_PROTO_GRE6_H__
 
-/* SCTP protocol definitions (RFC 9260) */
-
-#include <linux/sctp.h>
-
+#include <linux/types.h>
 #include "xdp2/parser.h"
 
-/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
-#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
-#define __XDP2_STRUCT_SCTPHDR_DEFINED__
-struct sctphdr {
-	__be16 source;
-	__be16 dest;
-	__be32 vtag;
-	__le32 checksum;
-};
-#endif
+/* GRE over IPv6 header
+ * Same base format as GRE (RFC 2784), but encapsulated in IPv6.
+ */
+struct gre6_header {
+	__be16	flags;
+	__be16	protocol;
+} __attribute__((packed));
 
-#endif /* __XDP2_PROTO_SCTP_H__ */
+#endif /* __XDP2_PROTO_GRE6_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_sctp protocol definition
+/* xdp2_parse_gre6 protocol definition
  *
- * Parse SCTP common header (12 bytes fixed).
- * SCTP payload consists of chunks, each with its own type/length.
+ * Parse GRE over IPv6 header (leaf)
  */
-static const struct xdp2_proto_def xdp2_parse_sctp __unused() = {
-	.name = "SCTP",
-	.min_len = sizeof(struct sctphdr),
+static const struct xdp2_proto_def xdp2_parse_gre6 __unused() = {
+	.name = "GRE6",
+	.min_len = sizeof(struct gre6_header),
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

@@ -24,38 +24,37 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __XDP2_PROTO_SCTP_H__
-#define __XDP2_PROTO_SCTP_H__
+#ifndef __XDP2_PROTO_IPCOMP_H__
+#define __XDP2_PROTO_IPCOMP_H__
 
-/* SCTP protocol definitions (RFC 9260) */
-
-#include <linux/sctp.h>
-
+#include <linux/ip.h>
 #include "xdp2/parser.h"
 
-/* struct sctphdr is not in linux/sctp.h UAPI — define if not already available */
-#ifndef __XDP2_STRUCT_SCTPHDR_DEFINED__
-#define __XDP2_STRUCT_SCTPHDR_DEFINED__
-struct sctphdr {
-	__be16 source;
-	__be16 dest;
-	__be32 vtag;
-	__le32 checksum;
-};
-#endif
+/* IPComp header (RFC 3173) — struct ip_comp_hdr from <linux/ip.h>:
+ *   nexthdr (8 bits) — next header after decompression
+ *   flags   (8 bits) — reserved, must be zero
+ *   cpi     (16 bits) — Compression Parameter Index
+ * Payload is compressed; next_proto chains to the decompressed protocol.
+ */
 
-#endif /* __XDP2_PROTO_SCTP_H__ */
+static inline int ipcomp_next_proto(const void *hdr)
+{
+	return ((struct ip_comp_hdr *)hdr)->nexthdr;
+}
+
+#endif /* __XDP2_PROTO_IPCOMP_H__ */
 
 #ifdef XDP2_DEFINE_PARSE_NODE
 
-/* xdp2_parse_sctp protocol definition
+/* xdp2_parse_ipcomp protocol definition
  *
- * Parse SCTP common header (12 bytes fixed).
- * SCTP payload consists of chunks, each with its own type/length.
+ * Parse IPComp header — chains to decompressed protocol via nexthdr
+ * Leaf in practice since payload is compressed and cannot be parsed inline.
  */
-static const struct xdp2_proto_def xdp2_parse_sctp __unused() = {
-	.name = "SCTP",
-	.min_len = sizeof(struct sctphdr),
+static const struct xdp2_proto_def xdp2_parse_ipcomp __unused() = {
+	.name = "IPComp",
+	.min_len = sizeof(struct ip_comp_hdr),
+	.ops.next_proto = ipcomp_next_proto,
 };
 
 #endif /* XDP2_DEFINE_PARSE_NODE */

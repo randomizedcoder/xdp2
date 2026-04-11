@@ -13,7 +13,7 @@ const LINK_ROOTS: &[(&str, u32)] = &[
     ("Ethernet",       1),    // DLT_EN10MB
     ("Ethernet_802_3", 1),    // DLT_EN10MB (802.3 length framing)
     ("HCI",            187),  // DLT_BLUETOOTH_HCI_H4
-    ("IB_LRH",         247),  // DLT_INFINIBAND
+    // IB_LRH routed via UpperPDU (tshark doesn't support DLT_INFINIBAND=247)
     ("CAN",            227),  // DLT_CAN_SOCKETCAN
     ("CAN_FD",         227),  // DLT_CAN_SOCKETCAN
     ("CAN_XL",         227),  // DLT_CAN_SOCKETCAN
@@ -23,7 +23,7 @@ const LINK_ROOTS: &[(&str, u32)] = &[
     ("SLL",            113),  // DLT_LINUX_SLL
     ("SLL2",           276),  // DLT_LINUX_SLL2
     ("PPP",            9),    // DLT_PPP
-    ("ATM",            11),   // DLT_ATM_RFC1483
+    // ATM routed via UpperPDU (tshark doesn't support DLT_ATM_RFC1483=11 from PCAP)
     ("FC",             224),  // DLT_FC_2
     ("ERF",            197),  // DLT_ERF
     ("MPEG_TS",        243),  // DLT_MPEG_2_TS
@@ -61,11 +61,21 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("SCSI", "scsi"),
     ("iSER", "iser"),
     ("NTLMSSP", "ntlmssp"),
-    ("OCSP", "ocsp"),
+    ("OCSP", "ocsp_req"),
     ("Phonet", "phonet"),
     ("MCTP", "mctp"),
-    ("X25", "x25"),
-    ("DSA", "dsa"),
+    ("X25", "x.25"),
+    // DSA (Marvell DSA tag): no tshark dissector exists
+    ("AMQP", "amqp"),
+    ("NFS", "rpc"),
+    ("STT", "stt"),
+    ("CIP", "cip"),
+    ("TPLINK_SMARTHOME", "tplink-smarthome"),
+    ("WOL", "wol"),
+    ("SMTP", "smtp"),
+    ("IB_LRH", "infiniband"),
+    ("ATM", "atm"),
+    ("FDDI", "fddi"),
 ];
 
 /// Output from PCAP generation.
@@ -201,12 +211,12 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("SSH", "TCP", "dst_port", 22),
     ("Telnet", "TCP", "dst_port", 23),
     ("FTP", "TCP", "dst_port", 21),
-    ("SMTP", "TCP", "dst_port", 25),
+    ("SMTP", "UpperPDU", "_always", 0),
     ("IMAP", "TCP", "dst_port", 143),
     ("SMB", "TCP", "dst_port", 445),
     ("LDAP", "TCP", "dst_port", 389),
     ("Diameter", "TCP", "dst_port", 3868),
-    ("AMQP", "TCP", "dst_port", 5672),
+    ("AMQP", "UpperPDU", "_always", 0),
     ("Kafka", "TCP", "dst_port", 9092),
     ("Redis", "TCP", "dst_port", 6379),
     ("Memcache", "TCP", "dst_port", 11211),
@@ -223,7 +233,7 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("ERSPAN", "GRE", "protocol_type", 0x88BE),
     ("GRE_PPTP", "GRE", "protocol_type", 0x880B),
     // ── Additional Ethernet-direct routes ──
-    ("WOL", "Ethernet", "ether_type", 0x0842),
+    ("WOL", "UpperPDU", "_always", 0),
     ("LLTD", "Ethernet", "ether_type", 0x88D9),
     ("EDSA", "Ethernet", "ether_type", 0xDADA),
     // ── Additional IPv4 routes ──
@@ -238,17 +248,17 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("MPLS_OAM", "UDP", "dst_port", 3503),
     ("Teredo", "UDP", "dst_port", 3544),
     ("NetFlow_v9", "UDP", "dst_port", 2055),
-    ("TPLINK_SMARTHOME", "UDP", "dst_port", 9999),
+    ("TPLINK_SMARTHOME", "UpperPDU", "_always", 0),
     ("ONC_RPC", "UDP", "dst_port", 111),
     // ── Additional TCP routes ──
     ("HTTP2", "TCP", "dst_port", 443),
     ("IEC_MMS", "TCP", "dst_port", 102),
     ("SMB2", "TCP", "dst_port", 445),
-    ("STT", "TCP", "dst_port", 7471),
+    ("STT", "UpperPDU", "_always", 0),
     ("ZeroMQ", "TCP", "dst_port", 5555),
     ("LDP", "TCP", "dst_port", 646),
     ("iSCSI", "TCP", "dst_port", 3260),
-    ("NFS", "TCP", "dst_port", 2049),
+    ("NFS", "UpperPDU", "_always", 0),
     ("NVMe", "TCP", "dst_port", 4420),
     // ── Sub-protocol dispatch (IGMP, ICMPv6, etc.) ──
     ("IGMPv3_Query", "IGMP", "type", 0x11),
@@ -259,7 +269,7 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("MLDv2_Report", "ICMPv6", "type", 143),
     ("SCTP_Chunk", "SCTP", "_always", 0),
     ("EAP", "EAPOL", "_always", 0),
-    ("CIP", "ENIP", "_always", 0),
+    ("CIP", "UpperPDU", "_always", 0),
     // ── Bluetooth (DLT=187, root=HCI) ──
     ("HCI_CMD", "HCI", "type", 0x01),
     ("HCI_ACL", "HCI", "type", 0x02),
@@ -269,7 +279,8 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("L2CAP", "HCI_ACL", "_always", 0),
     ("BT_ATT", "L2CAP", "cid", 0x0004),
     ("BT_SMP", "L2CAP", "cid", 0x0006),
-    // ── InfiniBand (DLT=247, root=IB_LRH) ──
+    // ── InfiniBand (via UpperPDU, tshark doesn't support DLT_INFINIBAND) ──
+    ("IB_LRH", "UpperPDU", "_always", 0),
     ("IB_GRH", "IB_LRH", "lnh", 0x03),
     ("IB_BTH", "IB_LRH", "lnh", 0x02),
     ("IB_DETH", "IB_BTH", "opcode", 100),
@@ -303,6 +314,27 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("MCTP", "UpperPDU", "_always", 0),
     ("X25", "UpperPDU", "_always", 0),
     ("DSA", "UpperPDU", "_always", 0),
+    ("ATM", "UpperPDU", "_always", 0),
+    // ── Phase 5: Additional protocols ──
+    ("IPComp", "IPv4", "protocol", 108),
+    ("PGM", "IPv4", "protocol", 113),
+    ("GRE6", "IPv6", "next_header", 47),
+    ("OSPFv3", "IPv6", "next_header", 89),
+    ("EtherIP", "IPv4", "protocol", 97),
+    ("RIPng", "UDP", "dst_port", 521),
+    ("TWAMP", "UDP", "dst_port", 862),
+    ("OWAMP", "UDP", "dst_port", 861),
+    ("CFLOW", "UDP", "dst_port", 2055),
+    ("sFlow", "UDP", "dst_port", 6343),
+    ("GTPv2_C", "UDP", "dst_port", 2123),
+    ("PFCP", "UDP", "dst_port", 8805),
+    ("PPTP", "TCP", "dst_port", 1723),
+    ("Diameter_S6a", "TCP", "dst_port", 3868),
+    ("L2TPv3", "IPv4", "protocol", 115),
+    ("LLDP_MED", "Ethernet", "ether_type", 0x88CC),
+    ("VRRP3", "IPv4", "protocol", 112),
+    ("MSDP", "TCP", "dst_port", 639),
+    ("FDDI", "UpperPDU", "_always", 0),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack
@@ -332,13 +364,20 @@ pub fn generate_pcap_with_discovery(
     // (e.g., real DHCP Discover, NTP query, BGP OPEN) that tshark can dissect,
     // whereas synthetic generation produces zero-filled payloads that tshark
     // often can't identify as the target protocol.
-    if let Some(tmpl) = load_pcap_template(&target_proto.name) {
-        return Ok(PcapOutput {
-            pcap_bytes: tmpl.pcap_bytes,
-            packet_bytes: tmpl.packet_bytes,
-            stack: vec![format!("template:{}", target_proto.name)],
-            link_type: tmpl.link_type,
-        });
+    // Skip templates for UpperPDU-routed protocols: their templates use TCP/UDP
+    // encapsulation which tshark can't dissect without proper TCP state.
+    let is_upper_pdu_routed = UPPER_PDU_DISSECTORS
+        .iter()
+        .any(|(proto, _)| *proto == target_proto.name);
+    if !is_upper_pdu_routed {
+        if let Some(tmpl) = load_pcap_template(&target_proto.name) {
+            return Ok(PcapOutput {
+                pcap_bytes: tmpl.pcap_bytes,
+                packet_bytes: tmpl.packet_bytes,
+                stack: vec![format!("template:{}", target_proto.name)],
+                link_type: tmpl.link_type,
+            });
+        }
     }
 
     // Fall back to synthetic stack construction
@@ -396,10 +435,16 @@ pub fn generate_pcap_with_discovery(
 /// Build the Wireshark Upper PDU TLV preamble for a given dissector name.
 fn upper_pdu_preamble(dissector: &str) -> Vec<u8> {
     let mut buf = Vec::new();
-    // Tag 0x0001 = dissector name
-    buf.extend_from_slice(&0x0001u16.to_be_bytes());
-    buf.extend_from_slice(&(dissector.len() as u16).to_be_bytes());
+    // Tag 0x000C = EXP_PDU_TAG_DISSECTOR_NAME (triggers dissection)
+    buf.extend_from_slice(&0x000Cu16.to_be_bytes());
+    let name_len = dissector.len();
+    buf.extend_from_slice(&(name_len as u16).to_be_bytes());
     buf.extend_from_slice(dissector.as_bytes());
+    // Wireshark EXP_PDU TLV values must be padded to 4-byte boundary
+    let padded_len = (name_len + 3) & !3;
+    for _ in name_len..padded_len {
+        buf.push(0);
+    }
     // End marker
     buf.extend_from_slice(&[0, 0, 0, 0]);
     buf
@@ -827,16 +872,30 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("addr", 96, 64, FieldType::Bytes),
                 ]),
         ),
-        // ── Netlink (128 bits, root DLT=253) ──
+        // ── Netlink (160 bits = 20 bytes, root DLT=253) ──
+        // DLT_NETLINK requires a 4-byte pseudo-header: family(u16 LE) + pad(u16)
+        // followed by the 16-byte nlmsghdr.
+        // NOTE: pack_field always uses BE byte order, so LE values must be
+        // pre-swapped: nlmsg_len=16 LE → bytes 10 00 00 00 → BE 0x10000000.
         "Netlink" => Some(
-            ProtocolDef::new("Netlink", 128)
+            ProtocolDef::new("Netlink", 160)
                 .with_fields(vec![
-                    FieldDef::new("nlmsg_len", 0, 32, FieldType::Uint)
+                    // Pseudo-header: Netlink family (0 = NETLINK_ROUTE)
+                    FieldDef::new("nl_family", 0, 16, FieldType::Uint)
                         .with_endian(Endian::Little),
-                    FieldDef::new("type", 32, 16, FieldType::Uint).with_endian(Endian::Little),
-                    FieldDef::new("flags", 48, 16, FieldType::Uint).with_endian(Endian::Little),
-                    FieldDef::new("seq", 64, 32, FieldType::Uint).with_endian(Endian::Little),
-                    FieldDef::new("pid", 96, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("nl_pad", 16, 16, FieldType::Pad),
+                    // nlmsghdr starts at byte 4
+                    // nlmsg_len=16 in LE = 0x10000000 in BE
+                    FieldDef::new("nlmsg_len", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("268435456"),
+                    // type=3 (NLMSG_DONE) in LE = 0x0300 in BE
+                    FieldDef::new("type", 64, 16, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("768"), // 3 LE = 0x0300 BE
+                    FieldDef::new("flags", 80, 16, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("seq", 96, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("pid", 128, 32, FieldType::Uint).with_endian(Endian::Little),
                 ]),
         ),
         // ── GenNetlink (32 bits, child of Netlink) ──
@@ -903,13 +962,14 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("wlen", 112, 16, FieldType::Uint).with_endian(Endian::Big),
                 ]),
         ),
-        // ── MPEG-TS (32 bits, root DLT=243) ──
+        // ── MPEG-TS (1504 bits = 188 bytes, root DLT=243) ──
         "MPEG_TS" => Some(
-            ProtocolDef::new("MPEG_TS", 32)
+            ProtocolDef::new("MPEG_TS", 1504)
                 .with_fields(vec![
-                    FieldDef::new("sync", 0, 8, FieldType::Uint).with_default_value("71"),
+                    FieldDef::new("sync", 0, 8, FieldType::Uint).with_default_value("71"), // 0x47
                     FieldDef::new("pid_raw", 8, 16, FieldType::Uint).with_endian(Endian::Big),
-                    FieldDef::new("flags_cc", 24, 8, FieldType::Uint),
+                    FieldDef::new("flags_cc", 24, 8, FieldType::Uint)
+                        .with_default_value("16"), // no adaptation, payload only (0x10)
                 ]),
         ),
         // ── Zigbee NWK (64 bits, child of IEEE802154) ──
@@ -955,6 +1015,528 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_dispatch(),
                 ])
                 .with_dispatch_field("protocol_id"),
+        ),
+        // ── LLDP (mandatory TLV: chassis ID type=1, length=7, subtype=4, 4-byte value) ──
+        "LLDP" => Some(
+            ProtocolDef::new("LLDP", 72)
+                .with_fields(vec![
+                    // TLV type=1 (Chassis ID), length=5
+                    FieldDef::new("tlv_type_len", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("514"), // (1 << 9) | 5 = 0x0205
+                    FieldDef::new("chassis_subtype", 16, 8, FieldType::Uint)
+                        .with_default_value("4"), // MAC address subtype
+                    FieldDef::new("chassis_id", 24, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("33554433"), // 02:00:00:01
+                    // End of LLDPDU TLV (type=0, length=0)
+                    FieldDef::new("end_tlv", 56, 16, FieldType::Uint),
+                ]),
+        ),
+        // ── CFM (Connectivity Fault Management, 802.1ag) ──
+        "CFM" => Some(
+            ProtocolDef::new("CFM", 32)
+                .with_fields(vec![
+                    // MD level (3 bits) + version (5 bits)
+                    FieldDef::new("md_level_version", 0, 8, FieldType::Uint)
+                        .with_default_value("0"), // MD level 0, version 0
+                    FieldDef::new("opcode", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // CCM
+                    FieldDef::new("flags", 16, 8, FieldType::Uint)
+                        .with_default_value("4"), // interval=4 (1s)
+                    FieldDef::new("first_tlv_offset", 24, 8, FieldType::Uint)
+                        .with_default_value("70"), // standard CCM first TLV offset
+                ]),
+        ),
+        // ── BATMAN (B.A.T.M.A.N. Advanced OGM v2, 192 bits = 24 bytes) ──
+        "BATMAN" => Some(
+            ProtocolDef::new("BATMAN", 192)
+                .with_fields(vec![
+                    FieldDef::new("packet_type", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // BATADV_OGM2
+                    FieldDef::new("version", 8, 8, FieldType::Uint)
+                        .with_default_value("15"),
+                    FieldDef::new("ttl", 16, 8, FieldType::Uint)
+                        .with_default_value("50"),
+                    FieldDef::new("flags", 24, 8, FieldType::Uint),
+                    FieldDef::new("seqno", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("orig", 64, 48, FieldType::MacAddr).with_endian(Endian::Big),
+                    FieldDef::new("tvlv_len", 112, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("throughput", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("reserved", 160, 32, FieldType::Pad),
+                ]),
+        ),
+        // ── TRILL ──
+        "TRILL" => Some(
+            ProtocolDef::new("TRILL", 48)
+                .with_fields(vec![
+                    // V(2)=0, R(2)=0, M(1)=0, Op-Length(5)=0, Hop Count(6)
+                    FieldDef::new("flags_hopcount", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("63"), // hop count=63
+                    FieldDef::new("egress_nick", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("ingress_nick", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2"),
+                ]),
+        ),
+        // ── WOL (Wake-on-LAN: 6x FF sync + 16x target MAC = 102 bytes = 816 bits) ──
+        // tshark "wol" dissector needs: 6 bytes 0xFF + 16 copies of same MAC.
+        // With MAC=00:00:00:00:00:00, the 96 zero bytes satisfy the repeat check.
+        "WOL" => Some(
+            ProtocolDef::new("WOL", 816)
+                .with_fields(vec![
+                    FieldDef::new("sync", 0, 48, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("281474976710655"), // 0xFFFFFFFFFFFF
+                ]),
+        ),
+        // ── PBB (Provider Backbone Bridging I-TAG, 32 bits) ──
+        "PBB" => Some(
+            ProtocolDef::new("PBB", 32)
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 8, FieldType::Uint),
+                    FieldDef::new("isid", 8, 24, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── MVRP (MRP-based VLAN Registration Protocol) ──
+        "MVRP" => Some(
+            ProtocolDef::new("MVRP", 16)
+                .with_fields(vec![
+                    FieldDef::new("protocol_version", 0, 8, FieldType::Uint),
+                    FieldDef::new("message_type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── NC-SI (Network Controller Sideband Interface) ──
+        "NC_SI" => Some(
+            ProtocolDef::new("NC_SI", 128)
+                .with_fields(vec![
+                    FieldDef::new("mc_id", 0, 8, FieldType::Uint),
+                    FieldDef::new("header_revision", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("reserved", 16, 8, FieldType::Pad),
+                    FieldDef::new("iid", 24, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("command", 32, 8, FieldType::Uint)
+                        .with_default_value("1"), // Clear Initial State
+                    FieldDef::new("channel_id", 40, 8, FieldType::Uint),
+                    FieldDef::new("payload_length", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("reserved2", 64, 32, FieldType::Pad),
+                    FieldDef::new("reserved3", 96, 32, FieldType::Pad),
+                ]),
+        ),
+        // ── LLTD (Link Layer Topology Discovery, 14 bytes min) ──
+        "LLTD" => Some(
+            ProtocolDef::new("LLTD", 112)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("type_of_service", 8, 8, FieldType::Uint),
+                    FieldDef::new("reserved", 16, 8, FieldType::Pad),
+                    FieldDef::new("function", 24, 8, FieldType::Uint),
+                    FieldDef::new("real_dst_mac", 32, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("real_src_mac", 80, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── EDSA (Marvell EtherType DSA tag) ──
+        "EDSA" => Some(
+            ProtocolDef::new("EDSA", 64)
+                .with_fields(vec![
+                    FieldDef::new("tag_hi", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("tag_lo", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("ether_type", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2048"), // 0x0800 = IPv4
+                ]),
+        ),
+        // ── IEC GOOSE (minimal valid BER-encoded GOOSE PDU) ──
+        "IEC_GOOSE" => Some(
+            ProtocolDef::new("IEC_GOOSE", 48)
+                .with_fields(vec![
+                    FieldDef::new("appid", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("8"),
+                    FieldDef::new("reserved1", 32, 8, FieldType::Pad),
+                    FieldDef::new("reserved2", 40, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── IEC SV (Sampled Values) ──
+        "IEC_SV" => Some(
+            ProtocolDef::new("IEC_SV", 48)
+                .with_fields(vec![
+                    FieldDef::new("appid", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("16384"), // 0x4000
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("8"),
+                    FieldDef::new("reserved1", 32, 8, FieldType::Pad),
+                    FieldDef::new("reserved2", 40, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── CAPWAP (Control And Provisioning of Wireless APs) ──
+        "CAPWAP" => Some(
+            ProtocolDef::new("CAPWAP", 32)
+                .with_fields(vec![
+                    // Preamble: version(4)=0, type(4)=0
+                    FieldDef::new("preamble", 0, 8, FieldType::Uint),
+                    // HLEN(5)=2, RID(5)=0, WBID(5)=1, T(1), F(1), L(1)
+                    FieldDef::new("header_flags", 8, 24, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("4194304"), // HLEN=2, WBID=1 -> 0x400000
+                ]),
+        ),
+        // ── TZSP (TaZmen Sniffer Protocol) ──
+        "TZSP" => Some(
+            ProtocolDef::new("TZSP", 32)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("type", 8, 8, FieldType::Uint),
+                    FieldDef::new("encap", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"), // Ethernet
+                ]),
+        ),
+        // ── SRT (Secure Reliable Transport) ──
+        "SRT" => Some(
+            ProtocolDef::new("SRT", 128)
+                .with_fields(vec![
+                    // UDT/SRT header: control bit + type + subtype
+                    FieldDef::new("header", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2147483648"), // 0x80000000 = control packet
+                    FieldDef::new("additional_info", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("timestamp", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("dst_socket_id", 96, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── GUE (Generic UDP Encapsulation) ──
+        "GUE" => Some(
+            ProtocolDef::new("GUE", 32)
+                .with_fields(vec![
+                    // Version(2)=0, C(1)=0, Hlen(5)=0, Proto/CT
+                    FieldDef::new("flags_proto", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("4"), // proto=IPv4 (4)
+                    FieldDef::new("flags2", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── STT (Stateless Transport Tunneling) ──
+        "STT" => Some(
+            ProtocolDef::new("STT", 144)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint),
+                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("l4_offset", 16, 8, FieldType::Uint)
+                        .with_default_value("14"),
+                    FieldDef::new("reserved", 24, 8, FieldType::Pad),
+                    FieldDef::new("max_seg_size", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("pcp_dei_vid", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("context_id", 64, 64, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("padding", 128, 16, FieldType::Pad),
+                ]),
+        ),
+        // ── BT_RFCOMM (RFCOMM frame: address + control + length + FCS) ──
+        "BT_RFCOMM" => Some(
+            ProtocolDef::new("BT_RFCOMM", 32)
+                .with_fields(vec![
+                    FieldDef::new("address", 0, 8, FieldType::Uint)
+                        .with_default_value("3"), // DLCI=0, EA=1, CR=1
+                    FieldDef::new("control", 8, 8, FieldType::Uint)
+                        .with_default_value("63"), // SABM (0x3F)
+                    FieldDef::new("length", 16, 8, FieldType::Uint)
+                        .with_default_value("1"), // length=0, EA=1
+                    FieldDef::new("fcs", 24, 8, FieldType::Uint)
+                        .with_default_value("29"), // FCS for DLCI=0 SABM
+                ]),
+        ),
+        // ── BT_BNEP (Bluetooth Network Encapsulation Protocol) ──
+        "BT_BNEP" => Some(
+            ProtocolDef::new("BT_BNEP", 16)
+                .with_fields(vec![
+                    // Type(7) + extension(1): type=0 (General Ethernet)
+                    FieldDef::new("type_ext", 0, 8, FieldType::Uint),
+                    FieldDef::new("reserved", 8, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── BT_SDP (Service Discovery Protocol) ──
+        "BT_SDP" => Some(
+            ProtocolDef::new("BT_SDP", 40)
+                .with_fields(vec![
+                    FieldDef::new("pdu_id", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // SDP_ErrorResponse
+                    FieldDef::new("transaction_id", 8, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("param_length", 24, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── BT_AVDTP (Audio/Video Distribution Transport Protocol) ──
+        "BT_AVDTP" => Some(
+            ProtocolDef::new("BT_AVDTP", 16)
+                .with_fields(vec![
+                    // Transaction label(4) + Packet type(2) + Message type(2)
+                    FieldDef::new("header", 0, 8, FieldType::Uint)
+                        .with_default_value("48"), // trans=0, single=3, command=0
+                    FieldDef::new("signal_id", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // AVDTP_DISCOVER
+                ]),
+        ),
+        // ── NTLMSSP (NT LAN Manager Security Support Provider) ──
+        "NTLMSSP" => Some(
+            ProtocolDef::new("NTLMSSP", 96)
+                .with_fields(vec![
+                    // Signature: "NTLMSSP\0" = 4E544C4D53535000
+                    FieldDef::new("signature_lo", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("1296847950"), // "NTLM" LE = 0x4D4C544E
+                    FieldDef::new("signature_hi", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("5264211"), // "SSP\0" LE = 0x00505353
+                    FieldDef::new("message_type", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Little)
+                        .with_default_value("1"), // Negotiate
+                ]),
+        ),
+        // ── MCTP (Management Component Transport Protocol) ──
+        "MCTP" => Some(
+            ProtocolDef::new("MCTP", 32)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("reserved", 4, 4, FieldType::Pad),
+                    FieldDef::new("dest_eid", 8, 8, FieldType::Uint),
+                    FieldDef::new("src_eid", 16, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("flags_seq_tag", 24, 8, FieldType::Uint)
+                        .with_default_value("200"), // SOM=1, EOM=1, seq=0, TO=0, tag=8
+                ]),
+        ),
+        // ── X25 (X.25 Packet Layer Protocol) ──
+        "X25" => Some(
+            ProtocolDef::new("X25", 24)
+                .with_fields(vec![
+                    FieldDef::new("gfi_lcg", 0, 8, FieldType::Uint)
+                        .with_default_value("16"), // GFI=0001 (modulo 8), LCG=0
+                    FieldDef::new("lcn", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("type", 16, 8, FieldType::Uint)
+                        .with_default_value("11"), // Call Request (0x0B)
+                ]),
+        ),
+        // ── DSA (Distributed Switch Architecture tag) ──
+        "DSA" => Some(
+            ProtocolDef::new("DSA", 32)
+                .with_fields(vec![
+                    FieldDef::new("tag_hi", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("tag_lo", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── Teredo (IPv6 over UDP tunneling, RFC 4380) ──
+        // Minimum: an encapsulated IPv6 header (version=6 in first nibble)
+        "Teredo" => Some(
+            ProtocolDef::new("Teredo", 320) // 40-byte IPv6 header
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("6"), // IPv6
+                    FieldDef::new("traffic_class", 4, 8, FieldType::Uint),
+                    FieldDef::new("flow_label", 12, 20, FieldType::Uint),
+                    FieldDef::new("payload_length", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("next_header", 48, 8, FieldType::Uint)
+                        .with_default_value("59"), // No Next Header
+                    FieldDef::new("hop_limit", 56, 8, FieldType::Uint)
+                        .with_default_value("64"),
+                    // src: 2001:0000:... (Teredo prefix)
+                    FieldDef::new("src_addr_hi", 64, 64, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2306124484190404608"), // 0x20010000_00000000
+                    FieldDef::new("src_addr_lo", 128, 64, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("dst_addr_hi", 192, 64, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2306124484190404608"),
+                    FieldDef::new("dst_addr_lo", 256, 64, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── LWAPP (Lightweight Access Point Protocol) ──
+        "LWAPP" => Some(
+            ProtocolDef::new("LWAPP", 48) // 6-byte LWAPP header
+                .with_fields(vec![
+                    // Flags: version(2)=0, RID(3)=0, C(1)=1 (control), F(1)=0, L(1)=0
+                    FieldDef::new("flags", 0, 8, FieldType::Uint)
+                        .with_default_value("4"), // C bit = control message
+                    FieldDef::new("fragment_id", 8, 8, FieldType::Uint),
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("status", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── MPLS_OAM (MPLS Echo / LSP Ping, RFC 4379) ──
+        "MPLS_OAM" => Some(
+            ProtocolDef::new("MPLS_OAM", 256) // 32-byte minimum MPLS echo
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    // msg_type: 1=request, 2=reply
+                    FieldDef::new("msg_type", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"), // Echo Request
+                    FieldDef::new("reply_mode", 32, 8, FieldType::Uint)
+                        .with_default_value("2"), // Reply via IPv4
+                    FieldDef::new("return_code", 40, 8, FieldType::Uint),
+                    FieldDef::new("return_subcode", 48, 8, FieldType::Uint),
+                    FieldDef::new("sender_handle", 56, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("seq_number", 88, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    // Timestamps: sender (64 bits) + receiver (64 bits)
+                    FieldDef::new("ts_sent_sec", 120, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_sent_usec", 152, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_recv_sec", 184, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_recv_usec", 216, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── TPLINK_SMARTHOME (TP-Link Smart Home JSON) ──
+        // tshark expects a 4-byte length prefix then XOR-encrypted JSON
+        "TPLINK_SMARTHOME" => Some(
+            ProtocolDef::new("TPLINK_SMARTHOME", 64) // 4-byte len + 4 bytes data
+                .with_fields(vec![
+                    FieldDef::new("length", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("4"), // 4 bytes of encrypted data follow
+                    // XOR-encrypted JSON payload (first byte XOR'd with 0xAB)
+                    FieldDef::new("data", 32, 32, FieldType::Bytes),
+                ]),
+        ),
+        // ── NFS (via ONC-RPC header, RPC program=100003) ──
+        "NFS" => Some(
+            ProtocolDef::new("NFS", 320) // 40-byte RPC Call header
+                .with_fields(vec![
+                    FieldDef::new("xid", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("msg_type", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big), // 0=Call
+                    FieldDef::new("rpc_version", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2"),
+                    FieldDef::new("program", 96, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("100003"), // NFS
+                    FieldDef::new("program_version", 128, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("3"), // NFSv3
+                    FieldDef::new("procedure", 160, 32, FieldType::Uint)
+                        .with_endian(Endian::Big), // NULL procedure
+                    FieldDef::new("cred_flavor", 192, 32, FieldType::Uint)
+                        .with_endian(Endian::Big), // AUTH_NULL
+                    FieldDef::new("cred_length", 224, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("verf_flavor", 256, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("verf_length", 288, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── AMQP (Advanced Message Queuing Protocol) ──
+        // AMQP 0-9-1 protocol header: "AMQP" + 0x00 + major.minor.revision
+        "AMQP" => Some(
+            ProtocolDef::new("AMQP", 64)
+                .with_fields(vec![
+                    FieldDef::new("signature", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1095586645"), // "AMQP" = 0x414D5150
+                    FieldDef::new("proto_id", 32, 8, FieldType::Uint), // 0 for AMQP
+                    FieldDef::new("major", 40, 8, FieldType::Uint)
+                        .with_default_value("0"),
+                    FieldDef::new("minor", 48, 8, FieldType::Uint)
+                        .with_default_value("9"),
+                    FieldDef::new("revision", 56, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── SMTP: text protocol, needs banner line ──
+        // SMTP needs "220 " server greeting to trigger dissector
+        "SMTP" => Some(
+            ProtocolDef::new("SMTP", 96) // "220 srv\r\n" = 12 bytes (96 bits)
+                .with_fields(vec![
+                    // "220 " = 0x32323020
+                    FieldDef::new("greeting_code", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("842014752"), // "220 "
+                    // "srv\r" = 0x7372760D
+                    FieldDef::new("greeting_host", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1936941837"), // "srv\r"
+                    // "\nOK\n" or just pad
+                    FieldDef::new("greeting_end", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("178257930"), // "\nOK\n" = 0x0A4F4B0A
+                ]),
+        ),
+        // ── OCSP (Online Certificate Status Protocol) ──
+        // Minimal DER: SEQUENCE { SEQUENCE { SEQUENCE { ... } } }
+        // OCSPRequest ::= SEQUENCE { tbsRequest TBSRequest }
+        // TBSRequest ::= SEQUENCE { requestList SEQUENCE OF Request }
+        "OCSP" => Some(
+            ProtocolDef::new("OCSP", 80) // 10 bytes minimal DER
+                .with_fields(vec![
+                    // SEQUENCE tag + length (outer OCSPRequest)
+                    FieldDef::new("seq_tag", 0, 8, FieldType::Uint)
+                        .with_default_value("48"), // 0x30 = SEQUENCE
+                    FieldDef::new("seq_len", 8, 8, FieldType::Uint)
+                        .with_default_value("8"),
+                    // Inner SEQUENCE (TBSRequest)
+                    FieldDef::new("tbs_tag", 16, 8, FieldType::Uint)
+                        .with_default_value("48"), // 0x30
+                    FieldDef::new("tbs_len", 24, 8, FieldType::Uint)
+                        .with_default_value("6"),
+                    // requestList SEQUENCE OF
+                    FieldDef::new("reqlist_tag", 32, 8, FieldType::Uint)
+                        .with_default_value("48"), // 0x30
+                    FieldDef::new("reqlist_len", 40, 8, FieldType::Uint)
+                        .with_default_value("4"),
+                    // Single Request: SEQUENCE { reqCert CertID }
+                    FieldDef::new("req_tag", 48, 8, FieldType::Uint)
+                        .with_default_value("48"), // 0x30
+                    FieldDef::new("req_len", 56, 8, FieldType::Uint)
+                        .with_default_value("2"),
+                    // CertID: SEQUENCE {}
+                    FieldDef::new("certid_tag", 64, 8, FieldType::Uint)
+                        .with_default_value("48"), // 0x30
+                    FieldDef::new("certid_len", 72, 8, FieldType::Uint)
+                        .with_default_value("0"),
+                ]),
         ),
         // ── UpperPDU (virtual, 0 bits, root DLT=252) ──
         "UpperPDU" => Some(ProtocolDef::new("UpperPDU", 0)),
@@ -2260,7 +2842,7 @@ mod tests {
 
     #[test]
     fn test_build_stack_smtp() {
-        assert_stack("SMTP", &["Ethernet", "IPv4", "TCP", "SMTP"], 2, "dst_port", 25);
+        assert_stack("SMTP", &["UpperPDU", "SMTP"], 0, "_always", 0);
     }
 
     #[test]
@@ -2285,7 +2867,7 @@ mod tests {
 
     #[test]
     fn test_build_stack_amqp() {
-        assert_stack("AMQP", &["Ethernet", "IPv4", "TCP", "AMQP"], 2, "dst_port", 5672);
+        assert_stack("AMQP", &["UpperPDU", "AMQP"], 0, "_always", 0);
     }
 
     #[test]
@@ -2466,7 +3048,7 @@ mod tests {
 
     #[test]
     fn test_build_stack_wol() {
-        assert_stack("WOL", &["Ethernet", "WOL"], 0, "ether_type", 0x0842);
+        assert_stack("WOL", &["UpperPDU", "WOL"], 0, "_always", 0);
     }
 
     #[test]
@@ -2491,7 +3073,7 @@ mod tests {
 
     #[test]
     fn test_build_stack_nfs() {
-        assert_stack("NFS", &["Ethernet", "IPv4", "TCP", "NFS"], 2, "dst_port", 2049);
+        assert_stack("NFS", &["UpperPDU", "NFS"], 0, "_always", 0);
     }
 
     #[test]
@@ -2532,8 +3114,8 @@ mod tests {
     fn test_build_stack_cip() {
         assert_stack(
             "CIP",
-            &["Ethernet", "IPv4", "TCP", "ENIP", "CIP"],
-            3,
+            &["UpperPDU", "CIP"],
+            0,
             "_always",
             0,
         );
@@ -2577,10 +3159,11 @@ mod tests {
     fn test_build_stack_ib_deth() {
         let protos = BTreeMap::new();
         let result = build_stack_no_discovery("IB_DETH", &protos).unwrap();
-        assert_eq!(result.layers[0].proto_name, "IB_LRH");
-        assert_eq!(result.layers[1].proto_name, "IB_BTH");
-        assert_eq!(result.layers[2].proto_name, "IB_DETH");
-        assert_eq!(result.link_type, 247);
+        assert_eq!(result.layers[0].proto_name, "UpperPDU");
+        assert_eq!(result.layers[1].proto_name, "IB_LRH");
+        assert_eq!(result.layers[2].proto_name, "IB_BTH");
+        assert_eq!(result.layers[3].proto_name, "IB_DETH");
+        assert_eq!(result.link_type, 252);
     }
 
     // ── Phase 6 standalone root tests ──
@@ -2695,9 +3278,9 @@ mod tests {
         let output = generate_pcap(&target, &protos).unwrap();
         assert_eq!(output.stack, vec!["UpperPDU", "SCSI"]);
         assert_eq!(output.link_type, 252);
-        // Verify TLV preamble: tag=0x0001, len=4 ("scsi"), then 4 zero bytes
+        // Verify TLV preamble: tag=0x000C (EXP_PDU_TAG_DISSECTOR_NAME), len=4 ("scsi"), then 4 zero bytes
         assert_eq!(output.packet_bytes[0], 0x00);
-        assert_eq!(output.packet_bytes[1], 0x01);
+        assert_eq!(output.packet_bytes[1], 0x0C);
         assert_eq!(output.packet_bytes[2], 0x00);
         assert_eq!(output.packet_bytes[3], 0x04); // "scsi" = 4 bytes
         assert_eq!(&output.packet_bytes[4..8], b"scsi");
@@ -2720,19 +3303,36 @@ mod tests {
     #[test]
     fn test_upper_pdu_preamble_format() {
         let buf = upper_pdu_preamble("scsi");
-        // tag=0x0001, len=4, "scsi", end marker
-        assert_eq!(&buf[0..2], &[0x00, 0x01]);
+        // tag=0x000C (EXP_PDU_TAG_DISSECTOR_NAME), len=4, "scsi", end marker
+        assert_eq!(&buf[0..2], &[0x00, 0x0C]);
         assert_eq!(&buf[2..4], &[0x00, 0x04]);
         assert_eq!(&buf[4..8], b"scsi");
         assert_eq!(&buf[8..12], &[0, 0, 0, 0]);
         assert_eq!(buf.len(), 12);
+
+        // Test padding: "stt" (3 bytes) should be padded to 4
+        let buf2 = upper_pdu_preamble("stt");
+        assert_eq!(&buf2[0..2], &[0x00, 0x0C]);
+        assert_eq!(&buf2[2..4], &[0x00, 0x03]); // actual len=3
+        assert_eq!(&buf2[4..7], b"stt");
+        assert_eq!(buf2[7], 0); // padding byte
+        assert_eq!(&buf2[8..12], &[0, 0, 0, 0]); // end marker
+        assert_eq!(buf2.len(), 12);
+
+        // Test "btsdp" (5 bytes) → padded to 8
+        let buf3 = upper_pdu_preamble("btsdp");
+        assert_eq!(&buf3[2..4], &[0x00, 0x05]); // actual len=5
+        assert_eq!(&buf3[4..9], b"btsdp");
+        assert_eq!(&buf3[9..12], &[0, 0, 0]); // 3 padding bytes
+        assert_eq!(&buf3[12..16], &[0, 0, 0, 0]); // end marker
+        assert_eq!(buf3.len(), 16);
     }
 
     #[test]
     fn test_is_root() {
         assert!(is_root("Ethernet"));
         assert!(is_root("HCI"));
-        assert!(is_root("IB_LRH"));
+        assert!(!is_root("IB_LRH")); // now routed via UpperPDU
         assert!(is_root("UpperPDU"));
         assert!(is_root("CAN"));
         assert!(!is_root("IPv4"));
