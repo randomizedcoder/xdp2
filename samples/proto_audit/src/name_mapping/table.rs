@@ -1940,5 +1940,227 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_lldp_cdp").tshark("cdp").variable()
             .etherparse("LLDPCDPHeader", "src/proto_audit/lldp_cdp.rs")
             .libpcap("lldp_cdp_header", "pcap/proto_audit/lldp_cdp.h"),
+        // ── Batch 4: Toward 400 protocols ──
+        // ── QUIC / HTTP/3 ──
+        PN::new("QUIC_Initial", 1)
+            .xdp2("xdp2_parse_quic_initial").tshark("quic").variable()
+            .rfcs(&[9000]),
+        PN::new("QUIC_Retry", 1)
+            .xdp2("xdp2_parse_quic_retry").tshark("quic").variable()
+            .rfcs(&[9000]),
+        // ── More IPv6 ──
+        PN::new("IPv6_HopByHop", 2)
+            .xdp2("xdp2_parse_ipv6_hopbyhop").tshark("ipv6.hop_opt").variable()
+            .rfcs(&[8200]),
+        PN::new("IPv6_MobileIP", 6)
+            .xdp2("xdp2_parse_ipv6_mobileip").tshark("mip6").variable()
+            .rfcs(&[6275]),
+        PN::new("MLD_Report_v1", 20)
+            .xdp2("xdp2_parse_mld_report_v1").tshark("icmpv6").variable()
+            .rfcs(&[2710]),
+        // ── Additional SCTP ──
+        PN::new("SCTP_Data", 16)
+            .xdp2("xdp2_parse_sctp_data").tshark("sctp").variable()
+            .rfcs(&[9260]),
+        PN::new("SCTP_Sack", 16)
+            .xdp2("xdp2_parse_sctp_sack").tshark("sctp").variable()
+            .rfcs(&[9260]),
+        // ── GRE variants ──
+        PN::new("GRE_Cisco", 8)
+            .xdp2("xdp2_parse_gre_cisco").tshark("gre").variable(),
+        PN::new("GRE_WCCPv2", 8)
+            .xdp2("xdp2_parse_gre_wccpv2").tshark("wccp").variable()
+            .rfcs(&[7001]),
+        // ── MPLS variants ──
+        PN::new("MPLS_PW_ETH", 4)
+            .xdp2("xdp2_parse_mpls_pw_eth").tshark("pw_eth_cw").variable()
+            .rfcs(&[4448]),
+        // ── More tunnels ──
+        PN::new("GTP_U_V1", 8)
+            .xdp2("xdp2_parse_gtp_u_v1").tshark("gtp").variable()
+            .rfcs(&[2944]),
+        PN::new("L2TP_AVP", 6)
+            .xdp2("xdp2_parse_l2tp_avp").tshark("l2tp").variable()
+            .rfcs(&[2661]),
+        PN::new("GENEVE_OPT", 4)
+            .xdp2("xdp2_parse_geneve_opt").tshark("geneve").variable()
+            .rfcs(&[8926]),
+        // ── PPP variants ──
+        PN::new("PPP_LCP", 4)
+            .xdp2("xdp2_parse_ppp_lcp").tshark("lcp").variable()
+            .rfcs(&[1661]),
+        PN::new("PPP_IPCP", 4)
+            .xdp2("xdp2_parse_ppp_ipcp").tshark("ipcp").variable()
+            .rfcs(&[1332]),
+        PN::new("PPP_IPv6CP", 4)
+            .xdp2("xdp2_parse_ppp_ipv6cp").tshark("ipv6cp").variable()
+            .rfcs(&[5072]),
+        PN::new("PPP_CCP", 4)
+            .xdp2("xdp2_parse_ppp_ccp").tshark("ccp").variable()
+            .rfcs(&[1962]),
+        PN::new("PPP_CHAP", 4)
+            .xdp2("xdp2_parse_ppp_chap").tshark("chap").variable()
+            .rfcs(&[1994]),
+        PN::new("PPP_PAP", 4)
+            .xdp2("xdp2_parse_ppp_pap").tshark("pap").variable()
+            .rfcs(&[1334]),
+        // ── Multicast ──
+        PN::new("PIM_BSR", 8)
+            .xdp2("xdp2_parse_pim_bsr").tshark("pim").variable()
+            .rfcs(&[5059]),
+        PN::new("PIM_Assert", 12)
+            .xdp2("xdp2_parse_pim_assert").tshark("pim").variable()
+            .rfcs(&[7761]),
+        PN::new("MSDP_SA", 20)
+            .xdp2("xdp2_parse_msdp_sa").tshark("msdp").variable()
+            .rfcs(&[3618]),
+        // ── STP variants ──
+        PN::new("RSTP", 36)
+            .xdp2("xdp2_parse_rstp").tshark("rstp").variable()
+            .ieee(&["802.1D-2004"]),
+        PN::new("MSTP", 38)
+            .xdp2("xdp2_parse_mstp").tshark("mstp").variable()
+            .ieee(&["802.1Q-2022"]),
+        PN::new("PVST", 35)
+            .xdp2("xdp2_parse_pvst").tshark("stp").variable(),
+        // ── VPN / IPsec ──
+        PN::new("IKEv1", 28)
+            .xdp2("xdp2_parse_ikev1").tshark("isakmp").variable()
+            .rfcs(&[2409]),
+        PN::new("ESP_NULL", 8)
+            .xdp2("xdp2_parse_esp_null").tshark("esp").variable()
+            .rfcs(&[2410]),
+        // ── Link Aggregation ──
+        PN::new("MARKER", 50)
+            .xdp2("xdp2_parse_marker").tshark("slow").variable()
+            .ieee(&["802.3ad"]),
+        PN::new("OAM_LBM", 4)
+            .xdp2("xdp2_parse_oam_lbm").tshark("cfm").variable()
+            .ieee(&["802.1ag-2007"]),
+        PN::new("OAM_LTM", 4)
+            .xdp2("xdp2_parse_oam_ltm").tshark("cfm").variable()
+            .ieee(&["802.1ag-2007"]),
+        // ── Authentication ──
+        PN::new("EAP_TLS", 6)
+            .xdp2("xdp2_parse_eap_tls").tshark("eap").variable()
+            .rfcs(&[5216]),
+        PN::new("EAP_TTLS", 6)
+            .xdp2("xdp2_parse_eap_ttls").tshark("eap").variable()
+            .rfcs(&[5281]),
+        PN::new("EAP_PEAP", 6)
+            .xdp2("xdp2_parse_eap_peap").tshark("eap").variable(),
+        PN::new("EAP_SIM", 8)
+            .xdp2("xdp2_parse_eap_sim").tshark("eap-sim").variable()
+            .rfcs(&[4186]),
+        PN::new("EAP_AKA", 8)
+            .xdp2("xdp2_parse_eap_aka").tshark("eap-aka").variable()
+            .rfcs(&[4187]),
+        // ── NTP variants ──
+        PN::new("NTS", 4)
+            .xdp2("xdp2_parse_nts").tshark("ntp").variable()
+            .rfcs(&[8915]),
+        PN::new("PTP_V1", 40)
+            .xdp2("xdp2_parse_ptp_v1").tshark("ptp").variable()
+            .ieee(&["1588-2002"]),
+        // ── DHCP variants ──
+        PN::new("DHCP_Option", 2)
+            .xdp2("xdp2_parse_dhcp_option").tshark("dhcp").variable()
+            .rfcs(&[2132]),
+        PN::new("DHCPv6_Option", 4)
+            .xdp2("xdp2_parse_dhcpv6_option").tshark("dhcpv6").variable()
+            .rfcs(&[8415]),
+        // ── Additional applications ──
+        PN::new("SOCKS", 3)
+            .xdp2("xdp2_parse_socks").tshark("socks").variable()
+            .rfcs(&[1928]),
+        PN::new("WHOIS", 1)
+            .xdp2("xdp2_parse_whois").tshark("whois").variable()
+            .rfcs(&[3912]),
+        PN::new("FINGER", 1)
+            .xdp2("xdp2_parse_finger").tshark("finger").variable()
+            .rfcs(&[1288]),
+        PN::new("DAYTIME", 1)
+            .xdp2("xdp2_parse_daytime").tshark("daytime").variable()
+            .rfcs(&[867]),
+        PN::new("CHARGEN", 1)
+            .xdp2("xdp2_parse_chargen").tshark("chargen").variable()
+            .rfcs(&[864]),
+        PN::new("ECHO", 1)
+            .xdp2("xdp2_parse_echo_proto").tshark("echo").variable()
+            .rfcs(&[862]),
+        PN::new("DISCARD", 1)
+            .xdp2("xdp2_parse_discard").tshark("discard").variable()
+            .rfcs(&[863]),
+        PN::new("TIME", 4)
+            .xdp2("xdp2_parse_time_proto").tshark("time").variable()
+            .rfcs(&[868]),
+        PN::new("NETCONF", 1)
+            .xdp2("xdp2_parse_netconf").tshark("netconf").variable()
+            .rfcs(&[6241]),
+        PN::new("gNMI", 1)
+            .xdp2("xdp2_parse_gnmi").tshark("grpc").variable(),
+        PN::new("gNOI", 1)
+            .xdp2("xdp2_parse_gnoi").tshark("grpc").variable(),
+        // ── Streaming / Media ──
+        PN::new("RTP_MPEG", 4)
+            .xdp2("xdp2_parse_rtp_mpeg").tshark("mpeg-pes").variable()
+            .rfcs(&[2250]),
+        PN::new("RTP_H264", 1)
+            .xdp2("xdp2_parse_rtp_h264").tshark("h264").variable()
+            .rfcs(&[6184]),
+        PN::new("RTP_H265", 2)
+            .xdp2("xdp2_parse_rtp_h265").tshark("h265").variable()
+            .rfcs(&[7798]),
+        PN::new("RTP_OPUS", 1)
+            .xdp2("xdp2_parse_rtp_opus").tshark("opus").variable()
+            .rfcs(&[7587]),
+        PN::new("RTCP_SR", 24)
+            .xdp2("xdp2_parse_rtcp_sr").tshark("rtcp").variable()
+            .rfcs(&[3550]),
+        PN::new("RTCP_RR", 8)
+            .xdp2("xdp2_parse_rtcp_rr").tshark("rtcp").variable()
+            .rfcs(&[3550]),
+        // ── Network File Systems ──
+        PN::new("NFSv4", 12)
+            .xdp2("xdp2_parse_nfsv4").tshark("nfs").variable()
+            .rfcs(&[7530]),
+        PN::new("CIFS", 4)
+            .xdp2("xdp2_parse_cifs").tshark("smb").variable(),
+        // ── More RADIUS ──
+        PN::new("RADIUS_COA", 20)
+            .xdp2("xdp2_parse_radius_coa").tshark("radius").variable()
+            .rfcs(&[5176]),
+        // ── More management ──
+        PN::new("SNMPv3", 1)
+            .xdp2("xdp2_parse_snmpv3").tshark("snmp").variable()
+            .rfcs(&[3412]),
+        PN::new("SNMP_Trap", 1)
+            .xdp2("xdp2_parse_snmp_trap").tshark("snmp").variable()
+            .rfcs(&[3416]),
+        // ── VLAN / Bridging ──
+        PN::new("GVRP", 2)
+            .xdp2("xdp2_parse_gvrp").tshark("gvrp").variable()
+            .ieee(&["802.1Q-2022"]),
+        PN::new("MMRP", 2)
+            .xdp2("xdp2_parse_mmrp").tshark("mmrp").variable()
+            .ieee(&["802.1Q-2022"]),
+        // ── DCB / Data Center ──
+        PN::new("DCBX", 2)
+            .xdp2("xdp2_parse_dcbx").tshark("lldp").variable()
+            .ieee(&["802.1Qaz-2011"]),
+        PN::new("FCoE_Init", 36)
+            .xdp2("xdp2_parse_fcoe_init").tshark("fcoe").variable(),
+        // ── CAN variants ──
+        PN::new("CAN_J1939", 8)
+            .xdp2("xdp2_parse_can_j1939").tshark("j1939").variable(),
+        PN::new("CAN_OBD2", 8)
+            .xdp2("xdp2_parse_can_obd2").tshark("obd-ii").variable(),
+        // ── Misc well-known ──
+        PN::new("TZSP_V2", 4)
+            .xdp2("xdp2_parse_tzsp_v2").tshark("tzsp").variable(),
+        PN::new("ERSPAN_V3", 12)
+            .xdp2("xdp2_parse_erspan_v3").tshark("erspan").variable(),
+        PN::new("VXLAN_GBP", 8)
+            .xdp2("xdp2_parse_vxlan_gbp").tshark("vxlan").variable(),
     ]
 }
