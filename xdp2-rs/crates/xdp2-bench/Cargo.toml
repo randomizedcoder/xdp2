@@ -1,0 +1,15 @@
+[package]
+name = "xdp2-bench"
+description = "XDP2 parse engine benchmark — C vs Rust performance comparison"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "xdp2-bench"
+path = "src/main.rs"
+
+[dependencies]
+xdp2-core = { path = "../xdp2-core" }
+xdp2-protocols = { path = "../xdp2-protocols" }
+clap = { version = "4", features = ["derive"] }

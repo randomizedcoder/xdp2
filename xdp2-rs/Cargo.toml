@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/xdp2-core", "crates/xdp2-protocols", "crates/xdp2-compiler"]
+members = ["crates/xdp2-core", "crates/xdp2-protocols", "crates/xdp2-compiler", "crates/xdp2-bench"]
 resolver = "2"
 
 [workspace.package]

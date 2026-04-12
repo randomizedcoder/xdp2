@@ -148,6 +148,13 @@
           xdp2 = xdp2-debug;
         };
 
+        # Parser performance benchmark — C vs Rust parse engine comparison
+        # Usage: nix build .#parser-benchmark && ./result/bin/xdp2-parser-benchmark [iterations] [npkts]
+        parserBenchmark = import ./nix/parser-benchmark.nix {
+          inherit pkgs xdp2Rs;
+          xdp2 = xdp2-debug;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -414,6 +421,12 @@
           compiler-verify-json = compilerVerify.verify-json;
           compiler-verify-dot = compilerVerify.verify-dot;
           compiler-verify-all = compilerVerify.verify-all;
+
+          # ===================================================================
+          # Parser Performance Benchmark (C vs Rust)
+          # Usage: nix build .#parser-benchmark && ./result/bin/xdp2-parser-benchmark
+          # ===================================================================
+          parser-benchmark = parserBenchmark;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

@@ -51,12 +51,12 @@ static const struct xdp2_proto_def etype_dispatch_def __unused() = {
 
 /* Local proto_def: LLC (IEEE 802.2) — reads DSAP+SSAP+Control,
  * dispatches on DSAP byte. 3 bytes minimum for unnumbered frames.
+ *
+ * Note: struct llc_hdr is now provided by xdp2/proto_defs/ethernet/proto_llc.h
+ * (included via proto_defs.h → parser_metadata.h). The library version uses
+ * 'ctrl' for the control field; our local llc_proto() accesses 'dsap' which
+ * is the same in both definitions.
  */
-struct llc_hdr {
-	__u8 dsap;
-	__u8 ssap;
-	__u8 control;
-};
 
 static inline int llc_proto(const void *vhdr)
 {

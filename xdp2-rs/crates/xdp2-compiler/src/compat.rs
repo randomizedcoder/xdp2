@@ -67,17 +67,59 @@ fn normalize_value(root: &mut Value) {
     }
 
     // ── TLV nodes → TLV tables ────────────────────────────────────
+    let mut tlv_tables: Vec<Value> = Vec::new();
+
+    // Convert C++ "tlv-nodes" to Rust "tlv-tables"
     if let Some(tlv_nodes) = obj.remove("tlv-nodes") {
         if let Value::Array(nodes) = tlv_nodes {
-            let tables: Vec<Value> = nodes
-                .into_iter()
-                .map(|mut n| {
-                    normalize_tlv_node(&mut n);
-                    n
-                })
-                .collect();
-            obj.insert("tlv-tables".to_string(), Value::Array(tables));
+            for mut n in nodes {
+                normalize_tlv_node(&mut n);
+                tlv_tables.push(n);
+            }
         }
+    }
+
+    // Hoist synthetic TLV tables extracted from parse-node inline ents
+    if let Some(Value::Array(nodes)) = obj.get_mut("parse-nodes") {
+        for node in nodes.iter_mut() {
+            if let Some(o) = node.as_object_mut() {
+                if let Some(tlv_table) = o.remove("__tlv_inline_table") {
+                    tlv_tables.push(tlv_table);
+                }
+            }
+        }
+    }
+
+    if !tlv_tables.is_empty() {
+        // Normalize TLV table entries: rename "node" → "name"
+        for table in &mut tlv_tables {
+            if let Some(o) = table.as_object_mut() {
+                // Rename "ents" → "entries" and fix inner field names
+                if let Some(ents) = o.remove("ents") {
+                    if let Value::Array(entries) = ents {
+                        let cleaned: Vec<Value> = entries
+                            .into_iter()
+                            .map(|mut e| {
+                                if let Some(eo) = e.as_object_mut() {
+                                    if let Some(node_val) = eo.remove("node") {
+                                        if !eo.contains_key("name") {
+                                            eo.insert("name".to_string(), node_val);
+                                        }
+                                    }
+                                }
+                                e
+                            })
+                            .collect();
+                        o.insert("entries".to_string(), Value::Array(cleaned));
+                    }
+                }
+                // Ensure entries exists
+                if !o.contains_key("entries") {
+                    o.insert("entries".to_string(), Value::Array(Vec::new()));
+                }
+            }
+        }
+        obj.insert("tlv-tables".to_string(), Value::Array(tlv_tables));
     }
 }
 
@@ -125,16 +167,21 @@ fn normalize_parse_node(node: &mut Value) {
         obj.insert("table".to_string(), table_name);
     }
 
-    // ── tlvs-parse-node: rename "start-offset" → "tlv-start-offset" ──
-    if let Some(tlv) = obj.get_mut("tlvs-parse-node") {
+    // ── tlvs-parse-node: normalize fields ──
+    // Get node name upfront to avoid borrow conflicts.
+    let node_name = obj
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    // Extract inline ents to be hoisted to a top-level tlv-table later.
+    let tlv_inline_ents = if let Some(tlv) = obj.get_mut("tlvs-parse-node") {
         if let Some(o) = tlv.as_object_mut() {
-            // Rename start-offset
+            // Rename start-offset → tlv-start-offset
             if let Some(val) = o.remove("start-offset") {
-                // C++ emits start-offset as an integer; Rust expects tlv-start-offset
-                // as a TlvFieldDef. Wrap it if it's a plain integer.
                 let wrapped = match val {
                     Value::Number(_) => {
-                        // Convert integer to field def with just offset
                         serde_json::json!({
                             "field-off": val,
                             "field-len": 1
@@ -144,19 +191,37 @@ fn normalize_parse_node(node: &mut Value) {
                 };
                 o.insert("tlv-start-offset".to_string(), wrapped);
             }
-            // Strip default/wildcard (handled differently in Rust)
+            // Strip fields not in Rust TlvsParseNodeDef
             o.remove("default");
             o.remove("wildcard-node");
-            // Rename ents for inline TLV dispatch
-            rename_field_in(o, "ents", "table");
-            // Strip fields not in Rust TlvsParseNodeDef
             o.remove("max-padding-length");
             o.remove("max-consecutive-padding");
             o.remove("loop-count-exceeded-is-err");
             o.remove("disp-limit-exceeded");
             o.remove("max-non-padding");
             o.remove("padn");
+            // Extract inline ents — these become a synthetic TLV table.
+            let ents = o.remove("ents");
+            if ents.is_some() {
+                let table_name = format!("{}_tlv_table", node_name);
+                o.insert("table".to_string(), Value::String(table_name.clone()));
+                Some((table_name, ents.unwrap()))
+            } else {
+                None
+            }
+        } else {
+            None
         }
+    } else {
+        None
+    };
+    // Store extracted TLV ents for later hoisting by the caller.
+    // We stash them in a temporary field that normalize_value() will pick up.
+    if let Some((table_name, ents)) = tlv_inline_ents {
+        obj.insert(
+            "__tlv_inline_table".to_string(),
+            serde_json::json!({ "name": table_name, "ents": ents }),
+        );
     }
 
     // ── flag-fields-parse-node: normalize structure ───────────────
@@ -210,32 +275,13 @@ fn normalize_tlv_node(node: &mut Value) {
 
     // C++ tlv-nodes have "name" and optional "handler", "overlay-node", "metadata"
     // Rust TlvTableDef has "name" and "entries"
-    // The overlay-node.ents maps to entries
+    // The overlay-node.ents maps to ents (will be renamed to entries by caller)
     if let Some(overlay) = obj.remove("overlay-node") {
         if let Some(overlay_obj) = overlay.as_object() {
             if let Some(ents) = overlay_obj.get("ents") {
-                obj.insert("entries".to_string(), ents.clone());
+                obj.insert("ents".to_string(), ents.clone());
             }
         }
-    }
-
-    // Ensure entries exist and normalize field names
-    if let Some(Value::Array(entries)) = obj.get_mut("entries") {
-        for entry in entries.iter_mut() {
-            // C++ TLV ents have "node", Rust TlvTableEntry expects "name"
-            if let Some(o) = entry.as_object_mut() {
-                if let Some(node_val) = o.remove("node") {
-                    if !o.contains_key("name") {
-                        o.insert("name".to_string(), node_val);
-                    }
-                }
-            }
-        }
-    }
-
-    // If no entries from overlay-node, ensure empty entries array
-    if !obj.contains_key("entries") {
-        obj.insert("entries".to_string(), Value::Array(Vec::new()));
     }
 
     // Strip metadata (not in Rust TlvTableDef)
@@ -252,16 +298,6 @@ fn rename_field(value: &mut Value, old_name: &str, new_name: &str) {
     }
 }
 
-/// Rename a field within a mutable JSON object map.
-fn rename_field_in(
-    obj: &mut serde_json::Map<String, Value>,
-    old_name: &str,
-    new_name: &str,
-) {
-    if let Some(val) = obj.remove(old_name) {
-        obj.insert(new_name.to_string(), val);
-    }
-}
 
 #[cfg(test)]
 mod tests {

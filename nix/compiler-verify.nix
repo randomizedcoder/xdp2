@@ -103,15 +103,22 @@ in
       cp -r "$sampleDir"/* "$workdir/"
       cd "$workdir"
 
-      # Step 1: Compile parser.c to parser.o (needed by xdp2-compiler)
+      # Step 1: Compile parser.c to parser.o (to verify it compiles)
       if ! ${bpfClang}/bin/clang $CFLAGS -g -O2 -c -o parser.o parser.c 2>&1; then
         echo "  FAIL: parser.o compilation failed"
         failed=$((failed + 1))
         continue
       fi
 
-      # Step 2: Extract JSON IR
-      if $BINDIR/xdp2-compiler -I$INCDIR -i parser.c -o $out/cpp/$sample.json 2>&1; then
+      # Step 2: Generate LLVM IR (.ll) — required for JSON output
+      if ! ${bpfClang}/bin/clang $CFLAGS -S -emit-llvm -g -O2 -o parser.ll parser.c 2>&1; then
+        echo "  FAIL: parser.ll generation failed"
+        failed=$((failed + 1))
+        continue
+      fi
+
+      # Step 3: Extract JSON IR (requires --ll for struct constant extraction)
+      if $BINDIR/xdp2-compiler -I$INCDIR -i parser.c --ll parser.ll -o $out/cpp/$sample.json 2>&1; then
         echo "  OK: $sample.json"
       else
         echo "  FAIL: JSON extraction failed"
@@ -119,7 +126,7 @@ in
         continue
       fi
 
-      # Step 3: Extract DOT graph
+      # Step 4: Extract DOT graph
       if $BINDIR/xdp2-compiler -I$INCDIR -i parser.c -o $out/cpp/$sample.dot 2>&1; then
         echo "  OK: $sample.dot"
       else
