@@ -5,7 +5,7 @@
 //! packets for benchmark timing.
 
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::Path;
 
 /// PCAP global header magic number (native byte order).
@@ -65,6 +65,32 @@ pub fn load_pcap(path: &Path) -> Result<Vec<StoredPacket>, io::Error> {
     }
 
     Ok(packets)
+}
+
+/// Write packets to a PCAP file (Ethernet linktype).
+pub fn write_pcap(path: &Path, packets: &[StoredPacket]) -> Result<(), io::Error> {
+    let mut f = fs::File::create(path)?;
+
+    // Global header: magic, version 2.4, snaplen 65535, linktype 1 (Ethernet)
+    f.write_all(&PCAP_MAGIC.to_le_bytes())?;
+    f.write_all(&2u16.to_le_bytes())?; // version major
+    f.write_all(&4u16.to_le_bytes())?; // version minor
+    f.write_all(&0i32.to_le_bytes())?; // thiszone
+    f.write_all(&0u32.to_le_bytes())?; // sigfigs
+    f.write_all(&65535u32.to_le_bytes())?; // snaplen
+    f.write_all(&1u32.to_le_bytes())?; // linktype: LINKTYPE_ETHERNET
+
+    for (i, pkt) in packets.iter().enumerate() {
+        let caplen = pkt.data.len() as u32;
+        // Packet header: ts_sec, ts_usec, caplen, origlen
+        f.write_all(&(i as u32).to_le_bytes())?; // ts_sec (use index as fake timestamp)
+        f.write_all(&0u32.to_le_bytes())?; // ts_usec
+        f.write_all(&caplen.to_le_bytes())?;
+        f.write_all(&caplen.to_le_bytes())?;
+        f.write_all(&pkt.data)?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

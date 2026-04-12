@@ -1,14 +1,26 @@
 //! XDP2 Rust parse engine benchmark.
 //!
-//! Reads a PCAP file, loads all packets into memory, and times the Rust
-//! parse engine processing each packet through a protocol parse graph
-//! matching the C flow_dissector benchmark's coverage.
+//! Reads a PCAP file, filters to packets the Rust parse graph can handle,
+//! and times the parse engine. Optionally writes a filtered PCAP for use
+//! by the C benchmark so both parsers are measured on identical packets.
 //!
 //! ## Usage
 //!
 //! ```bash
+//! # Benchmark with auto-filtering (default)
 //! xdp2-bench --pcap test.pcap --iterations 100
+//!
+//! # Write filtered PCAP for C benchmark comparison
+//! xdp2-bench --pcap test.pcap --output-pcap filtered.pcap --iterations 100
 //! ```
+//!
+//! ## Filtering
+//!
+//! Before benchmarking, each packet is parsed once. Only packets that parse
+//! successfully (ParseResult::Okay) are included in the timed benchmark.
+//! This ensures a fair comparison with the C parser — both process only
+//! packets that the Rust graph supports. As more protocols are added to
+//! `graph.rs`, the filter automatically includes more packets.
 //!
 //! ## C/C++ Cross-Reference
 //!
@@ -17,10 +29,6 @@
 //! | `main()` | `benchmark.c:590-726` | Performance benchmark loop |
 //! | `graph::make_parser()` | `flow_dissector_parsers.h` | L2 parser definition |
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
-//!
-//! ## Output
-//!
-//! Reports ns/pkt and Mpps in same format as C benchmark for comparison.
 
 mod graph;
 mod pcap;
@@ -48,13 +56,17 @@ struct Cli {
     /// Number of warmup iterations (discarded).
     #[arg(short, long, default_value_t = 3)]
     warmup: u32,
+
+    /// Write filtered PCAP (only parseable packets) for C benchmark.
+    #[arg(long)]
+    output_pcap: Option<String>,
 }
 
 fn main() {
     let cli = Cli::parse();
 
     // Load packets
-    let packets = match pcap::load_pcap(std::path::Path::new(&cli.pcap)) {
+    let all_packets = match pcap::load_pcap(std::path::Path::new(&cli.pcap)) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("error: cannot load '{}': {}", cli.pcap, e);
@@ -62,17 +74,55 @@ fn main() {
         }
     };
 
-    let npkts = packets.len();
-    if npkts == 0 {
+    let total_loaded = all_packets.len();
+    if total_loaded == 0 {
         eprintln!("error: no packets in '{}'", cli.pcap);
         process::exit(1);
     }
 
-    eprintln!("Loaded {} packets from {}", npkts, cli.pcap);
+    eprintln!("Loaded {} packets from {}", total_loaded, cli.pcap);
 
     let parser = graph::make_parser();
 
-    // Warmup: run iterations to stabilize CPU caches
+    // ── Filter: keep only packets the Rust parser handles ──
+    //
+    // Run each packet through the parser once. Keep packets where
+    // parse returns Ok (any successful result). As protocols are added
+    // to graph.rs, more packets will pass this filter automatically.
+    let packets: Vec<&pcap::StoredPacket> = all_packets
+        .iter()
+        .filter(|pkt| graph::parse_packet(&parser, &pkt.data).is_ok())
+        .collect();
+
+    let npkts = packets.len();
+    eprintln!(
+        "Filtered: {}/{} packets parseable ({:.1}%)",
+        npkts,
+        total_loaded,
+        100.0 * npkts as f64 / total_loaded as f64
+    );
+
+    if npkts == 0 {
+        eprintln!("error: no packets passed the parse filter");
+        process::exit(1);
+    }
+
+    // ── Write filtered PCAP if requested ──
+    if let Some(ref path) = cli.output_pcap {
+        let filtered: Vec<pcap::StoredPacket> = packets
+            .iter()
+            .map(|pkt| pcap::StoredPacket {
+                data: pkt.data.clone(),
+            })
+            .collect();
+        if let Err(e) = pcap::write_pcap(std::path::Path::new(path), &filtered) {
+            eprintln!("error: cannot write '{}': {}", path, e);
+            process::exit(1);
+        }
+        eprintln!("Wrote filtered PCAP: {} ({} packets)", path, npkts);
+    }
+
+    // Warmup
     for _ in 0..cli.warmup {
         for pkt in &packets {
             let _ = graph::parse_packet(&parser, &pkt.data);
@@ -80,28 +130,15 @@ fn main() {
     }
 
     // ── Benchmark 1: Full parse (metadata re-initialized per packet) ──
-    //
-    // This matches the C "XDP2 parser (with memset)" measurement where
-    // metadata is zeroed for each packet.
     let t_start = Instant::now();
-    let mut ok_count: u64 = 0;
-    let mut err_count: u64 = 0;
     for _ in 0..cli.iterations {
         for pkt in &packets {
-            match graph::parse_packet(&parser, &pkt.data) {
-                Ok(_) => ok_count += 1,
-                Err(_) => err_count += 1,
-            }
+            let _ = graph::parse_packet(&parser, &pkt.data);
         }
     }
     let full_ns = t_start.elapsed().as_nanos() as u64;
 
-    // ── Benchmark 2: Parse-only (reuse metadata) ──
-    //
-    // This matches the C "XDP2 parse-only" measurement. In Rust, parse()
-    // always creates fresh metadata via Default::default(), so this is
-    // functionally identical to benchmark 1. We keep it for output format
-    // compatibility with the C benchmark.
+    // ── Benchmark 2: Parse-only ──
     let t_start = Instant::now();
     for _ in 0..cli.iterations {
         for pkt in &packets {
@@ -131,10 +168,4 @@ fn main() {
         print!(",  {} Mpps", 1000 / avg_parseonly);
     }
     println!();
-
-    println!();
-    println!("Parse results: {} ok, {} err ({:.1}% success)",
-        ok_count, err_count,
-        100.0 * ok_count as f64 / total_pkts as f64
-    );
 }

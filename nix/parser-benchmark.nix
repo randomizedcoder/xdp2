@@ -92,24 +92,24 @@ pkgs.writeShellApplication {
 
     echo "--- Phase 1: Generate test PCAP ($NPKTS packets) ---"
     python3 ${genTestPcap} -o test.pcap -n "$NPKTS" 2>&1
-    ACTUAL_PKTS=$(python3 -c "
-import struct, sys
-with open('test.pcap','rb') as f:
-    f.read(24)
-    n=0
-    while True:
-        h=f.read(16)
-        if len(h)<16: break
-        caplen=struct.unpack('<I',h[8:12])[0]
-        f.read(caplen)
-        n+=1
-    print(n)
-")
-    echo "Generated $ACTUAL_PKTS packets in test.pcap"
     echo ""
 
-    # ── Phase 2: Build C benchmark ──
-    echo "--- Phase 2: Build C flow_dissector benchmark ---"
+    # ── Phase 2: Filter PCAP to Rust-parseable packets ──
+    #
+    # xdp2-bench pre-filters: runs each packet through the Rust parser,
+    # keeps only successful parses, writes a filtered PCAP. This ensures
+    # both C and Rust benchmark on identical packets. As protocols are
+    # added to the Rust graph, more packets automatically pass the filter.
+    echo "--- Phase 2: Filter PCAP to Rust-parseable packets ---"
+    FILTER_OUTPUT=$(xdp2-bench --pcap test.pcap --output-pcap filtered.pcap --iterations 1 --warmup 0 2>&1 || true)
+    echo "$FILTER_OUTPUT"
+
+    FILTERED_PKTS=$(echo "$FILTER_OUTPUT" | grep -oP 'Filtered: \K\d+' || echo "0")
+    echo "Filtered PCAP: $FILTERED_PKTS packets"
+    echo ""
+
+    # ── Phase 3: Build C benchmark ──
+    echo "--- Phase 3: Build C flow_dissector benchmark ---"
 
     C_BUILD_OK=false
     C_NS="N/A"
@@ -135,10 +135,10 @@ with open('test.pcap','rb') as f:
     fi
     echo ""
 
-    # ── Phase 3: Run C benchmark (if built) ──
+    # ── Phase 4: Run C benchmark on FILTERED PCAP ──
     if [[ "$C_BUILD_OK" == "true" ]]; then
-      echo "--- Phase 3: C Performance ($ACTUAL_PKTS packets x $ITERATIONS iterations) ---"
-      C_OUTPUT=$(./benchmark -p -n "$ITERATIONS" test.pcap 2>&1 || true)
+      echo "--- Phase 4: C Performance ($FILTERED_PKTS filtered packets x $ITERATIONS iterations) ---"
+      C_OUTPUT=$(./benchmark -p -n "$ITERATIONS" filtered.pcap 2>&1 || true)
       echo "$C_OUTPUT"
       echo ""
 
@@ -146,13 +146,13 @@ with open('test.pcap','rb') as f:
       C_NS=$(echo "$C_OUTPUT" | grep -oP 'XDP2 parser:\s+\K\d+(?=\s+ns/pkt)' || echo "N/A")
       C_PARSEONLY_NS=$(echo "$C_OUTPUT" | grep -oP 'XDP2 parse-only:\s*\K\d+(?=\s+ns/pkt)' || echo "N/A")
     else
-      echo "--- Phase 3: Skipped (C benchmark not available) ---"
+      echo "--- Phase 4: Skipped (C benchmark not available) ---"
       echo ""
     fi
 
-    # ── Phase 4: Run Rust benchmark ──
-    echo "--- Phase 4: Rust Performance ($ACTUAL_PKTS packets x $ITERATIONS iterations) ---"
-    RUST_OUTPUT=$(xdp2-bench --pcap test.pcap --iterations "$ITERATIONS" --warmup 3 2>&1 || true)
+    # ── Phase 5: Run Rust benchmark on FILTERED PCAP ──
+    echo "--- Phase 5: Rust Performance ($FILTERED_PKTS filtered packets x $ITERATIONS iterations) ---"
+    RUST_OUTPUT=$(xdp2-bench --pcap filtered.pcap --iterations "$ITERATIONS" --warmup 3 2>&1 || true)
     echo "$RUST_OUTPUT"
     echo ""
 
@@ -160,9 +160,10 @@ with open('test.pcap','rb') as f:
     RUST_NS=$(echo "$RUST_OUTPUT" | grep -oP 'Rust parser:\s+\K\d+(?=\s+ns/pkt)' || echo "N/A")
     RUST_PARSEONLY_NS=$(echo "$RUST_OUTPUT" | grep -oP 'Rust parse-only:\s*\K\d+(?=\s+ns/pkt)' || echo "N/A")
 
-    # ── Phase 5: Comparison ──
+    # ── Phase 6: Comparison ──
     echo "============================================"
     echo "  Side-by-Side Comparison"
+    echo "  ($FILTERED_PKTS packets — Rust-parseable subset)"
     echo "============================================"
     echo ""
     printf "%-20s  %10s  %10s\n" "" "C (ns/pkt)" "Rust (ns/pkt)"
@@ -173,7 +174,6 @@ with open('test.pcap','rb') as f:
 
     # Compute ratio if both are numeric
     if [[ "$C_NS" =~ ^[0-9]+$ ]] && [[ "$RUST_NS" =~ ^[0-9]+$ ]] && [[ "$C_NS" -gt 0 ]]; then
-      # Use awk for floating-point division
       RATIO=$(awk "BEGIN {printf \"%.2f\", $RUST_NS / $C_NS}")
       echo "Rust/C ratio: ''${RATIO}x (1.0 = identical, <1.0 = Rust faster)"
     fi
