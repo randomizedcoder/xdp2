@@ -76,6 +76,29 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("IB_LRH", "infiniband"),
     ("ATM", "atm"),
     ("FDDI", "fddi"),
+    // Phase 5b
+    ("SCCP", "sccp"),
+    ("ISUP", "isup"),
+    ("TCAP", "tcap"),
+    ("BSSGP", "bssgp"),
+    ("NAS_EPS", "nas-eps"),
+    ("NAS_5GS", "nas-5gs"),
+    ("RANAP", "ranap"),
+    ("H225", "h225"),
+    ("H245", "h245"),
+    ("SDP", "sdp"),
+    ("WebSocket", "websocket"),
+    ("HTTP3", "http3"),
+    ("UDS", "uds"),
+    ("XCP", "xcp"),
+    ("LoRaWAN", "lorawan"),
+    ("Radiotap", "radiotap"),
+    ("PPI", "ppi"),
+    ("AIS", "ais"),
+    ("CAN_TP", "iso15765"),
+    ("ACME", "acme"),
+    ("EST", "est"),
+    ("RMON", "rmon"),
 ];
 
 /// Output from PCAP generation.
@@ -335,6 +358,86 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("VRRP3", "IPv4", "protocol", 112),
     ("MSDP", "TCP", "dst_port", 639),
     ("FDDI", "UpperPDU", "_always", 0),
+    // ── Phase 5b: Telecom / Signaling (SS7/SIGTRAN) ──
+    ("SCCP", "UpperPDU", "_always", 0),
+    ("M3UA", "SCTP", "dst_port", 2905),
+    ("M2PA", "SCTP", "dst_port", 3565),
+    ("SUA", "SCTP", "dst_port", 14001),
+    ("ISUP", "UpperPDU", "_always", 0),
+    ("TCAP", "UpperPDU", "_always", 0),
+    // ── Phase 5b: Mobile Core ──
+    ("GTP_Prime", "UDP", "dst_port", 3386),
+    ("BSSGP", "UpperPDU", "_always", 0),
+    ("NAS_EPS", "UpperPDU", "_always", 0),
+    ("NAS_5GS", "UpperPDU", "_always", 0),
+    ("S1AP", "SCTP", "dst_port", 36412),
+    ("NGAP", "SCTP", "dst_port", 38412),
+    ("RANAP", "UpperPDU", "_always", 0),
+    // ── Phase 5b: VoIP / Media ──
+    ("MEGACO", "UDP", "dst_port", 2944),
+    ("H323", "TCP", "dst_port", 1720),
+    ("H225", "UpperPDU", "_always", 0),
+    ("H245", "UpperPDU", "_always", 0),
+    ("T38", "UDP", "dst_port", 4000),
+    ("SDP", "UpperPDU", "_always", 0),
+    ("RTMP", "TCP", "dst_port", 1935),
+    // ── Phase 5b: Modern Web ──
+    ("gRPC", "TCP", "dst_port", 50051),
+    ("WebSocket", "UpperPDU", "_always", 0),
+    ("HTTP3", "UpperPDU", "_always", 0),
+    // ── Phase 5b: Automotive / Industrial ──
+    ("SOME_IP", "UDP", "dst_port", 30490),
+    ("DoIP", "TCP", "dst_port", 13400),
+    ("UDS", "UpperPDU", "_always", 0),
+    ("XCP", "UpperPDU", "_always", 0),
+    ("S7COMM", "TCP", "dst_port", 102),
+    ("IEC_104", "TCP", "dst_port", 2404),
+    ("PROFINET_DCP", "Ethernet", "ether_type", 0x8892),
+    // ── Phase 5b: Wireless / IoT ──
+    ("AVTP", "Ethernet", "ether_type", 0x22F0),
+    ("gPTP", "Ethernet", "ether_type", 0x88F7),
+    ("LoRaWAN", "UpperPDU", "_always", 0),
+    ("SixLoWPAN", "IEEE802154", "_always", 0),
+    ("Radiotap", "UpperPDU", "_always", 0),
+    ("PPI", "UpperPDU", "_always", 0),
+    // ── Phase 5b: Routing extensions ──
+    ("Babel", "UDP", "dst_port", 6696),
+    ("RPKI_RTR", "TCP", "dst_port", 323),
+    ("PCP", "UDP", "dst_port", 5351),
+    ("COPS", "TCP", "dst_port", 3288),
+    // ── Phase 5b: Database / Application ──
+    ("MySQL", "TCP", "dst_port", 3306),
+    ("PostgreSQL", "TCP", "dst_port", 5432),
+    ("MongoDB", "TCP", "dst_port", 27017),
+    ("Cassandra", "TCP", "dst_port", 9042),
+    ("Elasticsearch", "TCP", "dst_port", 9200),
+    ("NATS", "TCP", "dst_port", 4222),
+    // ── Phase 5b: Messaging / Chat ──
+    ("IRC", "TCP", "dst_port", 6667),
+    ("XMPP", "TCP", "dst_port", 5222),
+    ("POP3", "TCP", "dst_port", 110),
+    ("NNTP", "TCP", "dst_port", 119),
+    // ── Phase 5b: Monitoring / Telemetry ──
+    ("Collectd", "UDP", "dst_port", 25826),
+    ("RADIUS_ACCT", "UDP", "dst_port", 1813),
+    // ── Phase 5b: Maritime / Aviation ──
+    ("AIS", "UpperPDU", "_always", 0),
+    ("ASTERIX", "UDP", "dst_port", 8600),
+    // ── Phase 5b: TSN / Automotive Ethernet ──
+    ("MRP", "Ethernet", "ether_type", 0x88E3),
+    ("CAN_TP", "UpperPDU", "_always", 0),
+    // ── Phase 5b: Security / Auth ──
+    ("ACME", "UpperPDU", "_always", 0),
+    ("EST", "UpperPDU", "_always", 0),
+    ("CMP", "TCP", "dst_port", 829),
+    // ── Phase 5b: Management ──
+    ("LLDP_802_1AB", "Ethernet", "ether_type", 0x88CC),
+    ("RMON", "UpperPDU", "_always", 0),
+    // ── Phase 5b: Tunneling ──
+    ("AYIYA", "UDP", "dst_port", 5072),
+    ("SixToFour", "IPv4", "protocol", 41),
+    ("SixInFour", "IPv4", "protocol", 41),
+    ("AMT", "UDP", "dst_port", 2268),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack
