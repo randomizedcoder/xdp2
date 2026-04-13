@@ -79,6 +79,16 @@ pub(crate) struct SourcePaths {
     /// Path to OMI c-structs source tree
     #[arg(long, env = "PROTO_AUDIT_OMI_CSTRUCTS_DIR")]
     pub(crate) omi_cstructs_dir: Option<PathBuf>,
+
+    /// Path to OMI Wireshark Lua dissector tree (root of `wireshark-lua` repo).
+    /// When set alongside `omi_pcaps_dir`, enables tshark-based verification
+    /// of OMI trading protocols by loading the per-protocol Lua dissector.
+    #[arg(long, env = "PROTO_AUDIT_OMI_LUA_DIR")]
+    pub(crate) omi_lua_dir: Option<PathBuf>,
+
+    /// Path to OMI sample PCAPs tree (root of `omi-data-packets` repo).
+    #[arg(long, env = "PROTO_AUDIT_OMI_PCAPS_DIR")]
+    pub(crate) omi_pcaps_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]

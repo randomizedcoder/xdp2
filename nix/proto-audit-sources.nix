@@ -27,6 +27,7 @@ let
   kaitaiFormatsRev = "07429db0a5c73dbedf207c8ea8d6a7ad82cb53be";  # kaitai-io/kaitai_struct_formats git rev
   omiCStructsRev = "9d6db5270847c60cefefc2bd7e1238d828701545";  # Open-Markets-Initiative/c-structs git rev
   omiDataPacketsRev = "5e0dfb113c7c7160b685b6a6d52ce19917915c8f";  # Open-Markets-Initiative/omi-data-packets git rev
+  omiWiresharkLuaRev = "ab009faf449b245a4d140d1b0d09fe9cc38ba65c";  # Open-Markets-Initiative/wireshark-lua git rev
 
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
@@ -84,7 +85,17 @@ let
     owner = "Open-Markets-Initiative";
     repo = "omi-data-packets";
     rev = omiDataPacketsRev;
-    hash = "";  # fill in after first build from the error message
+    hash = "sha256-A793fPDAdKQObWFsST6vXClHk3Tsr5QH4nhRmBs3Oac=";
+  };
+
+  # Open Markets Initiative Wireshark Lua dissectors: 459 Lua dissector scripts
+  # that let tshark parse OMI trading protocols from real PCAPs. Required to
+  # produce meaningful PDML (without them, OMI payloads are opaque "data").
+  omiWiresharkLua = pkgs.fetchFromGitHub {
+    owner = "Open-Markets-Initiative";
+    repo = "wireshark-lua";
+    rev = omiWiresharkLuaRev;
+    hash = "sha256-ez8WqldfJKiqNAe9YKmxEQOQUNeZGFuyHZPDjst0yFs=";
   };
 
   # Helper: collect all .patch files from a directory.
@@ -148,6 +159,9 @@ in
 
   # Open Markets Initiative data packets (370 real PCAPs for trading protocols)
   inherit omiDataPackets;
+
+  # Open Markets Initiative Wireshark Lua dissectors (459 scripts)
+  inherit omiWiresharkLua;
 
   # Suricata Rust app-layer parsers: independent protocol definitions
   # Covers ~40 protocols (DNS, HTTP, TLS, SSH, DHCP, NTP, MQTT, etc.)

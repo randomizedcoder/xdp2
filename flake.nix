@@ -131,6 +131,8 @@
             export PROTO_AUDIT_KAITAI_DIR="''${PROTO_AUDIT_KAITAI_DIR:-${protoAuditSources.kaitaiFormats}}"
             export PROTO_AUDIT_SURICATA_DIR="''${PROTO_AUDIT_SURICATA_DIR:-${protoAuditSources.suricataSrc}}"
             export PROTO_AUDIT_OMI_CSTRUCTS_DIR="''${PROTO_AUDIT_OMI_CSTRUCTS_DIR:-${protoAuditSources.omiCStructs}}"
+            export PROTO_AUDIT_OMI_LUA_DIR="''${PROTO_AUDIT_OMI_LUA_DIR:-${protoAuditSources.omiWiresharkLua}}"
+            export PROTO_AUDIT_OMI_PCAPS_DIR="''${PROTO_AUDIT_OMI_PCAPS_DIR:-${protoAuditSources.omiDataPackets}}"
             exec proto-audit "$@"
           '';
         };
@@ -146,6 +148,8 @@
           "--etherparse-src ${protoAuditSources.etherparseSrc}"
           "--libpcap-src ${protoAuditSources.libpcapSrc}"
           "--omi-cstructs-dir ${protoAuditSources.omiCStructs}"
+          "--omi-lua-dir ${protoAuditSources.omiWiresharkLua}"
+          "--omi-pcaps-dir ${protoAuditSources.omiDataPackets}"
         ];
 
         # Full audit report (cached Nix derivation)

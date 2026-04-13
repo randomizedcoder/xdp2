@@ -62,8 +62,32 @@ fn try_extract(
             Some(def)
         }
         "tshark" => {
-            let pcap_path = paths.pcap.as_ref()?;
             let names = name_mapping::find_by_canonical(proto);
+            // OMI Lua path: when the protocol has an OMI Lua dissector + sample
+            // PCAP, load the Lua dissector at tshark startup so the trading
+            // payload is decoded instead of showing up as opaque `data`.
+            if let (Some(lua_rel), Some(pcap_rel), Some(lua_dir), Some(pcaps_dir)) = (
+                names.as_ref().and_then(|n| n.omi_lua),
+                names.as_ref().and_then(|n| n.omi_pcap),
+                paths.omi_lua_dir.as_ref(),
+                paths.omi_pcaps_dir.as_ref(),
+            ) {
+                let dissector = names.as_ref().and_then(|n| n.tshark)
+                    // fall back to first token of the Lua filename when not set
+                    .unwrap_or("data");
+                let lua_path = lua_dir.join(lua_rel);
+                let pcap_path = pcaps_dir.join(pcap_rel);
+                let xml = extractors::tshark::run_tshark_with_lua(
+                    &pcap_path, &paths.tshark_bin, 1, &lua_path,
+                ).ok()?;
+                let packets = extractors::tshark::parse_pdml(&xml).ok()?;
+                let pdml =
+                    extractors::tshark::extract_protocol_from_pdml(&packets, dissector)?;
+                let mut def = extractors::tshark::to_protocol_def(&pdml);
+                def.name = proto.to_string();
+                return Some(def);
+            }
+            let pcap_path = paths.pcap.as_ref()?;
             let dissector = names.as_ref().and_then(|n| n.tshark)?;
             let xml = extractors::tshark::run_tshark(pcap_path, &paths.tshark_bin, 10).ok()?;
             let packets = extractors::tshark::parse_pdml(&xml).ok()?;

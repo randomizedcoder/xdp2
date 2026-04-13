@@ -94,6 +94,40 @@ pub fn run_tshark_with_hints(
     String::from_utf8(output.stdout).context("tshark output is not valid UTF-8")
 }
 
+/// Run tshark with a Lua dissector preloaded via `-X lua_script:<path>`.
+///
+/// Used by the OMI tshark path, where stock Wireshark cannot decode trading
+/// protocol payloads (they appear as opaque `data`) until the matching
+/// `wireshark-lua` dissector is loaded at startup.
+pub fn run_tshark_with_lua(
+    pcap_path: &Path,
+    tshark_bin: &str,
+    count: u32,
+    lua_script: &Path,
+) -> Result<String> {
+    let mut cmd = Command::new(tshark_bin);
+    cmd.args([
+        "-X",
+        &format!("lua_script:{}", lua_script.display()),
+        "-r",
+        &pcap_path.to_string_lossy(),
+        "-T",
+        "pdml",
+        "-c",
+        &count.to_string(),
+    ]);
+    let output = cmd
+        .output()
+        .with_context(|| format!("running tshark on {}", pcap_path.display()))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("tshark failed: {}", stderr.trim());
+    }
+
+    String::from_utf8(output.stdout).context("tshark output is not valid UTF-8")
+}
+
 /// Look up tshark decode-as hints for a protocol.
 ///
 /// Some protocols need explicit `-d` hints because tshark can't detect them

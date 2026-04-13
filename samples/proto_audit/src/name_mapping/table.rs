@@ -2184,22 +2184,50 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi("SystemEventMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_StockDirectory", 26)
             .omi("StockDirectoryMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        // tshark dissector name for ITCH v5.0 OMI Lua (shared across all messages).
+        // Per-message sub-field extraction is a Phase 2b refinement; current
+        // extraction returns a superset of the packet including session/seq/header.
         PN::new("ITCH_v5_StockTradingAction", 19)
-            .omi("StockTradingActionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+            .omi("StockTradingActionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+            .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
+            .omi_tshark(
+                "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
+                "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/StockTradingActionMessage.pcap",
+            ),
         PN::new("ITCH_v5_AddOrder", 30)
-            .omi("AddOrderNoMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+            .omi("AddOrderNoMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+            .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
+            .omi_tshark(
+                "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
+                "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/AddOrderNoMpidAttributionMessage.pcap",
+            ),
         PN::new("ITCH_v5_AddOrderMPID", 34)
             .omi("AddOrderWithMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_OrderExecuted", 25)
-            .omi("OrderExecutedMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+            .omi("OrderExecutedMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+            .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
+            .omi_tshark(
+                "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
+                "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/OrderExecutedMessage.pcap",
+            ),
         PN::new("ITCH_v5_OrderExecutedWithPrice", 30)
             .omi("OrderExecutedWithPriceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_OrderCancel", 17)
             .omi("OrderCancelMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_OrderDelete", 13)
-            .omi("OrderDeleteMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+            .omi("OrderDeleteMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+            .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
+            .omi_tshark(
+                "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
+                "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/OrderDeleteMessage.pcap",
+            ),
         PN::new("ITCH_v5_OrderReplace", 29)
-            .omi("OrderReplaceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+            .omi("OrderReplaceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+            .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
+            .omi_tshark(
+                "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
+                "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/OrderReplaceMessage.pcap",
+            ),
         PN::new("ITCH_v5_NonCrossTrade", 38)
             .omi("NonCrossTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_CrossTrade", 39)
@@ -2207,13 +2235,19 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("ITCH_v5_BrokenTrade", 19)
             .omi("BrokenTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
 
-        // CBOE PITCH v2 (BZX Equities Depth-of-Book)
+        // CBOE PITCH v2 (BYX Equities Depth-of-Book — chosen because OMI ships
+        // Byx sample PCAPs; Bzx has identical wire layout but no PCAPs.)
         PN::new("PITCH_v2_AddOrderShort", 26)
-            .omi("AddOrderShortMessageT", "cboe/Cboe.Bzx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
+            .omi("AddOrderShortMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h")
+            .tshark("cboe.byx.equities.depthofbook.pitch.v2.41.29.lua")
+            .omi_tshark(
+                "Cboe/Cboe_Byx_Equities_DepthOfBook_Pitch_v2_41_29_Dissector.lua",
+                "Cboe/Byx.Equities.DepthOfBook.Pitch.v2.41/AddOrderShortMessage.pcap",
+            ),
         PN::new("PITCH_v2_AddOrderLong", 34)
-            .omi("AddOrderLongMessageT", "cboe/Cboe.Bzx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
+            .omi("AddOrderLongMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
         PN::new("PITCH_v2_OrderExecuted", 26)
-            .omi("OrderExecutedMessageT", "cboe/Cboe.Bzx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
+            .omi("OrderExecutedMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
 
         // CME Simple Binary Encoding (MDP 3.0) — little-endian
         PN::new("SBE_MDP3_MessageHeader", 8)

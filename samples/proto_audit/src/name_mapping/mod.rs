@@ -45,6 +45,11 @@ pub struct ProtocolNames {
     pub omi_struct: Option<&'static str>,
     /// OMI c-struct source file (e.g., "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
     pub omi_file: Option<&'static str>,
+    /// OMI Wireshark Lua dissector path (e.g., "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua")
+    pub omi_lua: Option<&'static str>,
+    /// OMI sample PCAP path (relative to omi-data-packets root, e.g.
+    /// "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/AddOrderNoMpidAttributionMessage.pcap")
+    pub omi_pcap: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -78,6 +83,8 @@ impl ProtocolNames {
             suricata_struct: None,
             omi_struct: None,
             omi_file: None,
+            omi_lua: None,
+            omi_pcap: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -146,6 +153,16 @@ impl ProtocolNames {
     pub const fn omi(mut self, struct_name: &'static str, file: &'static str) -> Self {
         self.omi_struct = Some(struct_name);
         self.omi_file = Some(file);
+        self
+    }
+
+    /// Set OMI Wireshark Lua dissector + sample PCAP paths. Both are relative
+    /// to the root of their respective OMI repositories (`wireshark-lua` and
+    /// `omi-data-packets`). Enables tshark-based cross-verification of the
+    /// same protocol already wired via `.omi(...)`.
+    pub const fn omi_tshark(mut self, lua: &'static str, pcap: &'static str) -> Self {
+        self.omi_lua = Some(lua);
+        self.omi_pcap = Some(pcap);
         self
     }
 
