@@ -36,6 +36,7 @@ mod graph_mono;
 mod pcap;
 mod perf;
 mod simd_batch;
+mod template;
 
 use std::fmt::Write as _;
 use std::process;
@@ -57,7 +58,9 @@ enum ParserMode {
     Compiled,
     /// AVX2 batch SIMD parser (8 packets at a time, Eth/IPv4 fast path).
     Simd,
-    /// Run graph + mono + mono-x4 + compiled + simd back-to-back.
+    /// Hardware-classified template extraction (fixed offsets, no branching).
+    Template,
+    /// Run graph + mono + mono-x4 + compiled + simd + template back-to-back.
     Both,
 }
 
@@ -237,6 +240,7 @@ fn main() {
     let run_monox4 = matches!(cli.mode, ParserMode::MonoX4 | ParserMode::Both);
     let run_compiled = matches!(cli.mode, ParserMode::Compiled | ParserMode::Both);
     let run_simd = matches!(cli.mode, ParserMode::Simd | ParserMode::Both);
+    let run_template = matches!(cli.mode, ParserMode::Template | ParserMode::Both);
 
     // Correctness & anti-DCE: count successful parses across one full sweep
     // and print the total. This prevents LLVM from eliding the parse body
@@ -254,6 +258,21 @@ fn main() {
         .iter()
         .filter(|pkt| graph_compiled::parse_packet(&pkt.data).is_ok())
         .count();
+    let template_ok = packets
+        .iter()
+        .filter(|pkt| {
+            template::select_template_id(&pkt.data)
+                .map(|id| template::extract_by_id(&pkt.data, id).is_ok())
+                .unwrap_or(false)
+        })
+        .count();
+
+    // Pre-select templates for all packets (simulates NIC queue assignment).
+    // Done once before timing so the benchmark measures extraction only.
+    let template_ids: Vec<Option<template::TemplateId>> = packets
+        .iter()
+        .map(|pkt| template::select_template_id(&pkt.data))
+        .collect();
 
     let mut results: Vec<BenchResult> = Vec::new();
 
@@ -314,6 +333,21 @@ fn main() {
             results.push(BenchResult::new("simd", ns, total_pkts, 1, snap));
         } else if run_simd {
             eprintln!("warning: AVX2 not available, skipping SIMD benchmark");
+        }
+
+        if run_template {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                let mut acc: u64 = 0;
+                for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
+                    if let Some(id) = tid {
+                        if let Ok(v) = template::extract_by_id(&pkt.data, *id) {
+                            acc = acc.wrapping_add(v);
+                        }
+                    }
+                }
+                std::hint::black_box(acc);
+            });
+            results.push(BenchResult::new("template", ns, total_pkts, 1, snap));
         }
     } else {
         if !cli.report {
@@ -377,6 +411,24 @@ fn main() {
             });
             results.push(BenchResult::new("simd-mt", ns, total_pkts, cli.threads, None));
         }
+
+        if run_template {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let slice = std::hint::black_box(slice);
+                let mut acc: u64 = 0;
+                for pkt in slice {
+                    // In MT mode, re-select per packet (cheap, and avoids
+                    // needing to split the template_ids vec in sync with packets).
+                    if let Some(id) = template::select_template_id(&pkt.data) {
+                        if let Ok(v) = template::extract_by_id(&pkt.data, id) {
+                            acc = acc.wrapping_add(v);
+                        }
+                    }
+                }
+                acc
+            });
+            results.push(BenchResult::new("template-mt", ns, total_pkts, cli.threads, None));
+        }
     }
 
     // Output results
@@ -389,6 +441,7 @@ fn main() {
             graph_ok,
             mono_ok,
             compiled_ok,
+            template_ok,
         );
     } else {
         for r in &results {
@@ -399,8 +452,8 @@ fn main() {
             }
         }
         println!(
-            "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}",
-            graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts
+            "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}, template ok={}/{}",
+            graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts, template_ok, npkts
         );
     }
 }
@@ -531,6 +584,7 @@ fn print_json_report(
     graph_ok: usize,
     mono_ok: usize,
     compiled_ok: usize,
+    template_ok: usize,
 ) {
     let mut json = String::with_capacity(2048);
     writeln!(json, "{{").unwrap();
@@ -540,7 +594,8 @@ fn print_json_report(
     writeln!(json, "  \"correctness\": {{").unwrap();
     writeln!(json, "    \"graph\": {graph_ok},").unwrap();
     writeln!(json, "    \"mono\": {mono_ok},").unwrap();
-    writeln!(json, "    \"compiled\": {compiled_ok}").unwrap();
+    writeln!(json, "    \"compiled\": {compiled_ok},").unwrap();
+    writeln!(json, "    \"template\": {template_ok}").unwrap();
     writeln!(json, "  }},").unwrap();
     writeln!(json, "  \"results\": [").unwrap();
     for (i, r) in results.iter().enumerate() {
