@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/soupbintcp_packetheader.h
+@@ -0,0 +1,16 @@
++/*
++ * soupbintcp_packetheader.h — soupbintcp_packetheader_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SOUPBINTCP_PACKETHEADER_H
++#define PROTO_AUDIT_SOUPBINTCP_PACKETHEADER_H
++
++#include <stdint.h>
++
++/* SoupBinTCP_PacketHeader header — 3 bytes minimum */
++struct soupbintcp_packetheader_header {
++    uint16_t soupbintcp_packetheader_packetlength;
++    uint8_t  soupbintcp_packetheader_packettype;
++};
++
++#endif /* PROTO_AUDIT_SOUPBINTCP_PACKETHEADER_H */

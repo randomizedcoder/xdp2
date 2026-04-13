@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/pcap/proto_audit/eobi_v3_snapshotorder.h
+@@ -0,0 +1,15 @@
++/*
++ * eobi_v3_snapshotorder.h — eobi_v3_snapshotorder_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EOBI_V3_SNAPSHOTORDER_H
++#define PROTO_AUDIT_EOBI_V3_SNAPSHOTORDER_H
++
++#include <stdint.h>
++
++/* EOBI_v3_SnapshotOrder header — 24 bytes minimum */
++struct eobi_v3_snapshotorder_header {
++    uint8_t  eobi_v3_snapshotorder_orderdetailscomp[24];
++};
++
++#endif /* PROTO_AUDIT_EOBI_V3_SNAPSHOTORDER_H */

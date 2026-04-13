@@ -492,6 +492,39 @@ enum Commands {
         json: bool,
     },
 
+    /// Generate upstream patches from in-tree IR (no corpus PDML required).
+    ///
+    /// Unlike `generate-libpcap-patches` / `generate-etherparse-patches`, which
+    /// rely on corpus PDML from tshark, this command extracts IR directly from
+    /// a structured source (currently `omi`) and pipes it through the
+    /// existing patch generators. Used to ship trading-protocol patches to
+    /// libpcap / etherparse upstreams without needing live packet captures.
+    #[command(name = "gen-patches")]
+    GenPatches {
+        /// Patch target: libpcap or etherparse
+        #[arg(long)]
+        target: String,
+
+        /// Source to extract IR from: omi (others may be added later)
+        #[arg(long, default_value = "omi")]
+        source: String,
+
+        /// Only generate for these protocols (comma-separated canonical names)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Output directory for patch files
+        #[arg(long)]
+        out: Option<PathBuf>,
+
+        /// Print to stdout without writing files
+        #[arg(long)]
+        dry_run: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Generate PCAP, feed to tshark, compare IR vs tshark round-trip
     Validate {
         /// Protocol name (canonical: IPv4, TCP, etc.)
@@ -629,6 +662,14 @@ fn main() -> Result<()> {
             paths,
             json,
         } => cmd_crossgen(&proto, &target, json, &paths),
+        Commands::GenPatches {
+            target,
+            source,
+            protos,
+            out,
+            dry_run,
+            paths,
+        } => cmd_gen_patches(&target, &source, protos.as_deref(), out, dry_run, &paths),
         Commands::Validate {
             proto,
             tier,

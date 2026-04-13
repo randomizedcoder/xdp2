@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/soupbintcp_loginrequest.h
+@@ -0,0 +1,18 @@
++/*
++ * soupbintcp_loginrequest.h — soupbintcp_loginrequest_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SOUPBINTCP_LOGINREQUEST_H
++#define PROTO_AUDIT_SOUPBINTCP_LOGINREQUEST_H
++
++#include <stdint.h>
++
++/* SoupBinTCP_LoginRequest header — 46 bytes minimum */
++struct soupbintcp_loginrequest_header {
++    uint8_t  soupbintcp_loginrequest_username;
++    uint8_t  soupbintcp_loginrequest_password[10];
++    uint8_t  soupbintcp_loginrequest_requestedsession[10];
++    uint8_t  soupbintcp_loginrequest_requestedsequencenumber[20];
++};
++
++#endif /* PROTO_AUDIT_SOUPBINTCP_LOGINREQUEST_H */

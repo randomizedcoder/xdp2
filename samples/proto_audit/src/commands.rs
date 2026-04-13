@@ -18,9 +18,18 @@ fn try_extract(
         "xdp2" => {
             let dir = paths.proto_defs_dir.as_ref()?;
             let all_defs = extractors::xdp2::scan_proto_defs_dir(dir).ok()?;
+            // Prefer exact var_name match from the name-mapping table when the
+            // protocol carries an `.xdp2(...)` slot — canonical names and
+            // display strings often diverge (e.g. "ITCH_v5_AddOrder" ↔
+            // "xdp2_parse_itch_v5_add_order"), so fuzzy substring matches miss.
+            let curated_var = name_mapping::find_by_canonical(proto)
+                .and_then(|n| n.xdp2);
             let matching = all_defs
                 .iter()
                 .find(|d| {
+                    if let Some(v) = curated_var {
+                        return d.var_name == v;
+                    }
                     d.display_name.to_lowercase() == proto.to_lowercase()
                         || d.var_name.to_lowercase().contains(&proto.to_lowercase())
                 })?;
@@ -2734,6 +2743,117 @@ pub(crate) fn cmd_generate_libpcap_patches(
         }
     }
 
+    Ok(())
+}
+
+/// Generate upstream patches directly from structured-source IR (no corpus).
+///
+/// Walks the name-mapping table, filters entries whose `<source>_struct` slot
+/// is populated, extracts each via the corresponding extractor, and pipes the
+/// resulting IR through `generate_libpcap_patch` / `generate_etherparse_patch`.
+/// Used to ship trading-protocol patches to upstreams without live PCAPs.
+pub(crate) fn cmd_gen_patches(
+    target: &str,
+    source: &str,
+    protos: Option<&str>,
+    out: Option<PathBuf>,
+    dry_run: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    if source != "omi" {
+        anyhow::bail!(
+            "gen-patches currently only supports --source omi (got '{}')",
+            source
+        );
+    }
+    let valid_targets = ["libpcap", "etherparse"];
+    if !valid_targets.contains(&target) {
+        anyhow::bail!(
+            "gen-patches --target must be one of: {} (got '{}')",
+            valid_targets.join(", "),
+            target
+        );
+    }
+
+    let filter: Option<std::collections::HashSet<String>> = protos
+        .map(|p| p.split(',').map(|s| s.trim().to_string()).collect());
+
+    let default_dir = match target {
+        "libpcap" => PathBuf::from("samples/proto_audit/patches/libpcap"),
+        "etherparse" => PathBuf::from("samples/proto_audit/patches/etherparse"),
+        _ => unreachable!(),
+    };
+    let out_dir = out.unwrap_or(default_dir);
+
+    let mappings = type_mapping::load_omi_mappings(None)
+        .context("loading OMI type mappings")?;
+
+    let mut generated: u32 = 0;
+    let mut skipped_no_fields: u32 = 0;
+    let mut skipped_no_patch: u32 = 0;
+
+    for p in name_mapping::protocol_table() {
+        let (omi_struct, omi_file) = match (p.omi_struct, p.omi_file) {
+            (Some(s), Some(f)) => (s, f),
+            _ => continue,
+        };
+        if let Some(ref f) = filter {
+            if !f.contains(p.canonical) {
+                continue;
+            }
+        }
+
+        let mut def = match extractors::omi::extract_protocol(
+            paths.omi_cstructs_dir.as_deref(),
+            p.canonical,
+            omi_struct,
+            omi_file,
+            &mappings,
+        ) {
+            Ok(Some(d)) => d,
+            Ok(None) => {
+                skipped_no_fields += 1;
+                continue;
+            }
+            Err(e) => {
+                eprintln!("  skip {}: {}", p.canonical, e);
+                continue;
+            }
+        };
+        def.name = p.canonical.to_string();
+        def.is_variable_length = p.variable_length;
+
+        let patch = match target {
+            "libpcap" => generator::generate_libpcap_patch(&def),
+            "etherparse" => generator::generate_etherparse_patch(&def),
+            _ => unreachable!(),
+        };
+        let Some(patch) = patch else {
+            skipped_no_patch += 1;
+            continue;
+        };
+
+        let snake = generator::canonical_to_snake(&def.name);
+        let patch_name = format!("trading_{}.patch", snake);
+
+        if dry_run {
+            println!("=== {} ({} fields) → {} ===", def.name, def.fields.len(), patch_name);
+            println!("{}", patch);
+        } else {
+            std::fs::create_dir_all(&out_dir)
+                .with_context(|| format!("creating {}", out_dir.display()))?;
+            let patch_path = out_dir.join(&patch_name);
+            std::fs::write(&patch_path, &patch)
+                .with_context(|| format!("writing {}", patch_path.display()))?;
+            eprintln!("  Wrote {}", patch_path.display());
+        }
+        generated += 1;
+    }
+
+    eprintln!(
+        "\nGenerated {} {} patches (skipped: {} no-fields, {} no-patch)",
+        generated, target, skipped_no_fields, skipped_no_patch
+    );
     Ok(())
 }
 

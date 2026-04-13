@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/pcap/proto_audit/soupbintcp_sequenceddata.h
+@@ -0,0 +1,15 @@
++/*
++ * soupbintcp_sequenceddata.h — soupbintcp_sequenceddata_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SOUPBINTCP_SEQUENCEDDATA_H
++#define PROTO_AUDIT_SOUPBINTCP_SEQUENCEDDATA_H
++
++#include <stdint.h>
++
++/* SoupBinTCP_SequencedData header — 1 bytes minimum */
++struct soupbintcp_sequenceddata_header {
++    uint8_t  soupbintcp_sequenceddata_sequencedmessagetype;
++};
++
++#endif /* PROTO_AUDIT_SOUPBINTCP_SEQUENCEDDATA_H */

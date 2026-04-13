@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/sbe_mdp3_messageheader.rs
+@@ -0,0 +1,9 @@
++//! SBE_MDP3_MessageHeader header — 8 bytes.
++
++/// SBE_MDP3_MessageHeader header — 8 bytes.
++pub struct SBE_MDP3_MessageHeaderHeader {
++    pub blocklength: u16,
++    pub templateid: u16,
++    pub schemaid: u16,
++    pub version: u16,
++}

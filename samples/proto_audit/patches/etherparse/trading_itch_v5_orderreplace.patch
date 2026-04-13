@@ -1,0 +1,15 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_orderreplace.rs
+@@ -0,0 +1,12 @@
++//! ITCH_v5_OrderReplace header — 29 bytes.
++
++/// ITCH_v5_OrderReplace header — 29 bytes.
++pub struct ITCH_v5_OrderReplaceHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub originalorderreferencenumber: u64,
++    pub neworderreferencenumber: u64,
++    pub shares: u32,
++    pub price: u32,
++}

@@ -1,0 +1,22 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_ordercancel.h
+@@ -0,0 +1,19 @@
++/*
++ * itch_v5_ordercancel.h — itch_v5_ordercancel_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_ORDERCANCEL_H
++#define PROTO_AUDIT_ITCH_V5_ORDERCANCEL_H
++
++#include <stdint.h>
++
++/* ITCH_v5_OrderCancel header — 17 bytes minimum */
++struct itch_v5_ordercancel_header {
++    uint16_t itch_v5_ordercancel_stocklocate;
++    uint16_t itch_v5_ordercancel_trackingnumber;
++    uint8_t  itch_v5_ordercancel_timestamp;
++    uint64_t itch_v5_ordercancel_orderreferencenumber;
++    uint32_t itch_v5_ordercancel_canceledshares;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_ORDERCANCEL_H */

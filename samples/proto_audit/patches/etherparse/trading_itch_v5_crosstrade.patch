@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_crosstrade.rs
+@@ -0,0 +1,13 @@
++//! ITCH_v5_CrossTrade header — 34 bytes.
++
++/// ITCH_v5_CrossTrade header — 34 bytes.
++pub struct ITCH_v5_CrossTradeHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub crossshares: u64,
++    pub stock: u64,
++    pub crossprice: u32,
++    pub matchnumber: u64,
++    pub crosstype: u8,
++}

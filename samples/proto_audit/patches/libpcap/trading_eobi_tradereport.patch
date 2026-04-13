@@ -1,0 +1,28 @@
+--- /dev/null
++++ b/pcap/proto_audit/eobi_tradereport.h
+@@ -0,0 +1,25 @@
++/*
++ * eobi_tradereport.h — eobi_tradereport_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EOBI_TRADEREPORT_H
++#define PROTO_AUDIT_EOBI_TRADEREPORT_H
++
++#include <stdint.h>
++
++/* EOBI_TradeReport header — 48 bytes minimum */
++struct eobi_tradereport_header {
++    uint64_t eobi_tradereport_securityid;
++    uint64_t eobi_tradereport_transacttime;
++    uint64_t eobi_tradereport_lastqty;
++    uint64_t eobi_tradereport_lastpx;
++    uint32_t eobi_tradereport_trdmatchid;
++    uint8_t  eobi_tradereport_matchtype;
++    uint8_t  eobi_tradereport_matchsubtype;
++    uint8_t  eobi_tradereport_algorithmictradeindicator;
++    uint8_t  eobi_tradereport_pad1;
++    uint16_t eobi_tradereport_tradecondition;
++    uint8_t  eobi_tradereport_pad6;
++};
++
++#endif /* PROTO_AUDIT_EOBI_TRADEREPORT_H */

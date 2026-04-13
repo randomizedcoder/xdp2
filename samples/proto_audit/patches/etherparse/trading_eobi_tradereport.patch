@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/src/proto_audit/eobi_tradereport.rs
+@@ -0,0 +1,16 @@
++//! EOBI_TradeReport header — 48 bytes.
++
++/// EOBI_TradeReport header — 48 bytes.
++pub struct EOBI_TradeReportHeader {
++    pub securityid: u64,
++    pub transacttime: u64,
++    pub lastqty: u64,
++    pub lastpx: u64,
++    pub trdmatchid: u32,
++    pub matchtype: u8,
++    pub matchsubtype: u8,
++    pub algorithmictradeindicator: u8,
++    pub pad1: u8,
++    pub tradecondition: u16,
++    pub pad6: u64,
++}

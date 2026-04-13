@@ -1,0 +1,34 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_stockdirectory.h
+@@ -0,0 +1,31 @@
++/*
++ * itch_v5_stockdirectory.h — itch_v5_stockdirectory_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_STOCKDIRECTORY_H
++#define PROTO_AUDIT_ITCH_V5_STOCKDIRECTORY_H
++
++#include <stdint.h>
++
++/* ITCH_v5_StockDirectory header — 33 bytes minimum */
++struct itch_v5_stockdirectory_header {
++    uint16_t itch_v5_stockdirectory_stocklocate;
++    uint16_t itch_v5_stockdirectory_trackingnumber;
++    uint8_t  itch_v5_stockdirectory_timestamp;
++    uint64_t itch_v5_stockdirectory_stock;
++    uint8_t  itch_v5_stockdirectory_marketcategory;
++    uint8_t  itch_v5_stockdirectory_financialstatusindicator;
++    uint32_t itch_v5_stockdirectory_roundlotsize;
++    uint8_t  itch_v5_stockdirectory_roundlotsonly;
++    uint8_t  itch_v5_stockdirectory_issueclassification;
++    uint16_t itch_v5_stockdirectory_issuesubtype;
++    uint8_t  itch_v5_stockdirectory_authenticity;
++    uint8_t  itch_v5_stockdirectory_shortsalethresholdindicator;
++    uint8_t  itch_v5_stockdirectory_ipoflag;
++    uint8_t  itch_v5_stockdirectory_luldreferencepricetier;
++    uint8_t  itch_v5_stockdirectory_etpflag;
++    uint32_t itch_v5_stockdirectory_etpleveragefactor;
++    uint8_t  itch_v5_stockdirectory_inverseindicator;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_STOCKDIRECTORY_H */

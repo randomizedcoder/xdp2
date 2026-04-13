@@ -1,0 +1,9 @@
+--- /dev/null
++++ b/src/proto_audit/soupbintcp_sequenceddata.rs
+@@ -0,0 +1,6 @@
++//! SoupBinTCP_SequencedData header — 1 bytes.
++
++/// SoupBinTCP_SequencedData header — 1 bytes.
++pub struct SoupBinTCP_SequencedDataHeader {
++    pub sequencedmessagetype: u8,
++}

@@ -2181,13 +2181,16 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
 
         // Nasdaq ITCH v5.0 (TotalView) — market data feed
         PN::new("ITCH_v5_SystemEvent", 6)
+            .xdp2("xdp2_parse_itch_v5_system_event")
             .omi("SystemEventMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_StockDirectory", 26)
+            .xdp2("xdp2_parse_itch_v5_stock_directory")
             .omi("StockDirectoryMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         // tshark dissector name for ITCH v5.0 OMI Lua (shared across all messages).
         // Per-message sub-field extraction is a Phase 2b refinement; current
         // extraction returns a superset of the packet including session/seq/header.
         PN::new("ITCH_v5_StockTradingAction", 19)
+            .xdp2("xdp2_parse_itch_v5_stock_trading_action")
             .omi("StockTradingActionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
             .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
             .omi_tshark(
@@ -2196,6 +2199,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "nasdaq.nsmequities.totalview.itch.v5.0.stocktradingactionmessage",
             ),
         PN::new("ITCH_v5_AddOrder", 30)
+            .xdp2("xdp2_parse_itch_v5_add_order")
             .omi("AddOrderNoMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
             .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
             .omi_tshark(
@@ -2204,8 +2208,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "nasdaq.nsmequities.totalview.itch.v5.0.addordernompidattributionmessage",
             ),
         PN::new("ITCH_v5_AddOrderMPID", 34)
+            .xdp2("xdp2_parse_itch_v5_add_order_mpid")
             .omi("AddOrderWithMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_OrderExecuted", 25)
+            .xdp2("xdp2_parse_itch_v5_order_executed")
             .omi("OrderExecutedMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
             .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
             .omi_tshark(
@@ -2214,10 +2220,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "nasdaq.nsmequities.totalview.itch.v5.0.orderexecutedmessage",
             ),
         PN::new("ITCH_v5_OrderExecutedWithPrice", 30)
+            .xdp2("xdp2_parse_itch_v5_order_executed_with_price")
             .omi("OrderExecutedWithPriceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_OrderCancel", 17)
+            .xdp2("xdp2_parse_itch_v5_order_cancel")
             .omi("OrderCancelMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_OrderDelete", 13)
+            .xdp2("xdp2_parse_itch_v5_order_delete")
             .omi("OrderDeleteMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
             .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
             .omi_tshark(
@@ -2226,6 +2235,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "nasdaq.nsmequities.totalview.itch.v5.0.orderdeletemessage",
             ),
         PN::new("ITCH_v5_OrderReplace", 29)
+            .xdp2("xdp2_parse_itch_v5_order_replace")
             .omi("OrderReplaceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
             .tshark("nasdaq.nsmequities.totalview.itch.v5.0.lua")
             .omi_tshark(
@@ -2234,15 +2244,19 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "nasdaq.nsmequities.totalview.itch.v5.0.orderreplacemessage",
             ),
         PN::new("ITCH_v5_NonCrossTrade", 38)
+            .xdp2("xdp2_parse_itch_v5_non_cross_trade")
             .omi("NonCrossTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_CrossTrade", 39)
+            .xdp2("xdp2_parse_itch_v5_cross_trade")
             .omi("CrossTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
         PN::new("ITCH_v5_BrokenTrade", 19)
+            .xdp2("xdp2_parse_itch_v5_broken_trade")
             .omi("BrokenTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
 
         // CBOE PITCH v2 (BYX Equities Depth-of-Book — chosen because OMI ships
         // Byx sample PCAPs; Bzx has identical wire layout but no PCAPs.)
         PN::new("PITCH_v2_AddOrderShort", 26)
+            .xdp2("xdp2_parse_pitch_v2_add_order_short")
             .omi("AddOrderShortMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h")
             .tshark("cboe.byx.equities.depthofbook.pitch.v2.41.29.lua")
             .omi_tshark(
@@ -2251,8 +2265,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "cboe.byx.equities.depthofbook.pitch.v2.41.29.addordershortmessage",
             ),
         PN::new("PITCH_v2_AddOrderLong", 34)
+            .xdp2("xdp2_parse_pitch_v2_add_order_long")
             .omi("AddOrderLongMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
         PN::new("PITCH_v2_OrderExecuted", 26)
+            .xdp2("xdp2_parse_pitch_v2_order_executed")
             .omi("OrderExecutedMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
 
         // CME Simple Binary Encoding (MDP 3.0) — little-endian
@@ -2262,7 +2278,36 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi("BinaryPacketHeaderT", "cme/Cme.Futures.Mdp3.Sbe.v1.13.h"),
 
         // Eurex T7 EOBI (Enhanced Order Book Interface) — little-endian
+        // v12.0 entry kept for c-struct coverage; no sample PCAPs in omi-data-packets for v12.
         PN::new("EOBI_TradeReport", 16)
             .omi("TradeReportT", "eurex/Eurex.Derivatives.Eobi.T7.v12.0.h"),
+
+        // Eurex T7 EOBI v3.0 — messages with full c-struct + Lua + PCAP triangle.
+        // Lua proto name lowercased = `eurex.derivatives.eobi.t7.v3.0.lua`;
+        // per-message PDML field follows the same struct-name lowercase pattern.
+        PN::new("EOBI_v3_OrderAdd", 40)
+            .omi("OrderAddT", "eurex/Eurex.Derivatives.Eobi.T7.v3.0.h")
+            .tshark("eurex.derivatives.eobi.t7.v3.0.lua")
+            .omi_tshark(
+                "Eurex/Eurex_Derivatives_Eobi_T7_v3_0_Dissector.lua",
+                "Eurex/Eobi.T7.v3.0/OrderAdd.pcap",
+                "eurex.derivatives.eobi.t7.v3.0.orderadd",
+            ),
+        PN::new("EOBI_v3_SnapshotOrder", 24)
+            .omi("SnapshotOrderT", "eurex/Eurex.Derivatives.Eobi.T7.v3.0.h")
+            .tshark("eurex.derivatives.eobi.t7.v3.0.lua")
+            .omi_tshark(
+                "Eurex/Eurex_Derivatives_Eobi_T7_v3_0_Dissector.lua",
+                "Eurex/Eobi.T7.v3.0/SnapshotOrder.pcap",
+                "eurex.derivatives.eobi.t7.v3.0.snapshotorder",
+            ),
+        PN::new("EOBI_v3_Heartbeat", 8)
+            .omi("HeartbeatT", "eurex/Eurex.Derivatives.Eobi.T7.v3.0.h")
+            .tshark("eurex.derivatives.eobi.t7.v3.0.lua")
+            .omi_tshark(
+                "Eurex/Eurex_Derivatives_Eobi_T7_v3_0_Dissector.lua",
+                "Eurex/Eobi.T7.v3.0/Heartbeat.pcap",
+                "eurex.derivatives.eobi.t7.v3.0.heartbeat",
+            ),
     ]
 }

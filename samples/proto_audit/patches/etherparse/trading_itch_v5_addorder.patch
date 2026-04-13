@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_addorder.rs
+@@ -0,0 +1,13 @@
++//! ITCH_v5_AddOrder header — 30 bytes.
++
++/// ITCH_v5_AddOrder header — 30 bytes.
++pub struct ITCH_v5_AddOrderHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub orderreferencenumber: u64,
++    pub buysellindicator: u8,
++    pub shares: u32,
++    pub stock: u64,
++    pub price: u32,
++}

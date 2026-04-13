@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/sbe_mdp3_binarypacketheader.h
+@@ -0,0 +1,16 @@
++/*
++ * sbe_mdp3_binarypacketheader.h — sbe_mdp3_binarypacketheader_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SBE_MDP3_BINARYPACKETHEADER_H
++#define PROTO_AUDIT_SBE_MDP3_BINARYPACKETHEADER_H
++
++#include <stdint.h>
++
++/* SBE_MDP3_BinaryPacketHeader header — 12 bytes minimum */
++struct sbe_mdp3_binarypacketheader_header {
++    uint32_t sbe_mdp3_binarypacketheader_messagesequencenumber;
++    uint64_t sbe_mdp3_binarypacketheader_sendingtime;
++};
++
++#endif /* PROTO_AUDIT_SBE_MDP3_BINARYPACKETHEADER_H */

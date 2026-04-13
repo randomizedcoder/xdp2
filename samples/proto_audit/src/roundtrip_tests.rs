@@ -1026,3 +1026,45 @@ fn roundtrip_omi_name_mapping_lookup() {
     let p2 = crate::name_mapping::find_by_omi_struct("NonCrossTradeMessageT").unwrap();
     assert_eq!(p2.canonical, "ITCH_v5_NonCrossTrade");
 }
+
+#[test]
+fn roundtrip_omi_eobi_v3_triangle_entries() {
+    // Workstream 1: EOBI v3.0 entries with full c-struct + Lua + PCAP triangle.
+    // Verify each entry carries omi / tshark / omi_tshark slots so the tshark
+    // extractor can descend into the per-message PDML field.
+    for (canonical, struct_name, pcap_path, field_name, expected_bytes) in [
+        (
+            "EOBI_v3_OrderAdd",
+            "OrderAddT",
+            "Eurex/Eobi.T7.v3.0/OrderAdd.pcap",
+            "eurex.derivatives.eobi.t7.v3.0.orderadd",
+            40u32,
+        ),
+        (
+            "EOBI_v3_SnapshotOrder",
+            "SnapshotOrderT",
+            "Eurex/Eobi.T7.v3.0/SnapshotOrder.pcap",
+            "eurex.derivatives.eobi.t7.v3.0.snapshotorder",
+            24,
+        ),
+        (
+            "EOBI_v3_Heartbeat",
+            "HeartbeatT",
+            "Eurex/Eobi.T7.v3.0/Heartbeat.pcap",
+            "eurex.derivatives.eobi.t7.v3.0.heartbeat",
+            8,
+        ),
+    ] {
+        let p = crate::name_mapping::find_by_canonical(canonical).unwrap();
+        assert_eq!(p.omi_struct, Some(struct_name));
+        assert_eq!(p.omi_file, Some("eurex/Eurex.Derivatives.Eobi.T7.v3.0.h"));
+        assert_eq!(p.tshark, Some("eurex.derivatives.eobi.t7.v3.0.lua"));
+        assert_eq!(
+            p.omi_lua,
+            Some("Eurex/Eurex_Derivatives_Eobi_T7_v3_0_Dissector.lua")
+        );
+        assert_eq!(p.omi_pcap, Some(pcap_path));
+        assert_eq!(p.omi_tshark_field, Some(field_name));
+        assert_eq!(p.min_header_bytes, expected_bytes);
+    }
+}

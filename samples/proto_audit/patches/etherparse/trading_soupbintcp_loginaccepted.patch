@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/src/proto_audit/soupbintcp_loginaccepted.rs
+@@ -0,0 +1,7 @@
++//! SoupBinTCP_LoginAccepted header — 30 bytes.
++
++/// SoupBinTCP_LoginAccepted header — 30 bytes.
++pub struct SoupBinTCP_LoginAcceptedHeader {
++    pub session: u128,
++    pub sequencenumber: u128,
++}

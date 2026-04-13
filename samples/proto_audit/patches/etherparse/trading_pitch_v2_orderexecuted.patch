@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/pitch_v2_orderexecuted.rs
+@@ -0,0 +1,9 @@
++//! PITCH_v2_OrderExecuted header — 24 bytes.
++
++/// PITCH_v2_OrderExecuted header — 24 bytes.
++pub struct PITCH_v2_OrderExecutedHeader {
++    pub timeoffset: u32,
++    pub orderid: u64,
++    pub executedquantity: u32,
++    pub executionid: u64,
++}

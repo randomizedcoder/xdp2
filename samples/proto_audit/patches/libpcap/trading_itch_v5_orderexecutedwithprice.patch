@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_orderexecutedwithprice.h
+@@ -0,0 +1,22 @@
++/*
++ * itch_v5_orderexecutedwithprice.h — itch_v5_orderexecutedwithprice_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_ORDEREXECUTEDWITHPRICE_H
++#define PROTO_AUDIT_ITCH_V5_ORDEREXECUTEDWITHPRICE_H
++
++#include <stdint.h>
++
++/* ITCH_v5_OrderExecutedWithPrice header — 30 bytes minimum */
++struct itch_v5_orderexecutedwithprice_header {
++    uint16_t itch_v5_orderexecutedwithprice_stocklocate;
++    uint16_t itch_v5_orderexecutedwithprice_trackingnumber;
++    uint8_t  itch_v5_orderexecutedwithprice_timestamp;
++    uint64_t itch_v5_orderexecutedwithprice_orderreferencenumber;
++    uint32_t itch_v5_orderexecutedwithprice_executedshares;
++    uint64_t itch_v5_orderexecutedwithprice_matchnumber;
++    uint8_t  itch_v5_orderexecutedwithprice_printable;
++    uint32_t itch_v5_orderexecutedwithprice_executionprice;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_ORDEREXECUTEDWITHPRICE_H */

@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/src/proto_audit/sbe_mdp3_binarypacketheader.rs
+@@ -0,0 +1,7 @@
++//! SBE_MDP3_BinaryPacketHeader header — 12 bytes.
++
++/// SBE_MDP3_BinaryPacketHeader header — 12 bytes.
++pub struct SBE_MDP3_BinaryPacketHeaderHeader {
++    pub messagesequencenumber: u32,
++    pub sendingtime: u64,
++}

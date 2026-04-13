@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/soupbintcp_loginrequest.rs
+@@ -0,0 +1,9 @@
++//! SoupBinTCP_LoginRequest header — 46 bytes.
++
++/// SoupBinTCP_LoginRequest header — 46 bytes.
++pub struct SoupBinTCP_LoginRequestHeader {
++    pub username: u64,
++    pub password: u128,
++    pub requestedsession: u128,
++    pub requestedsequencenumber: u128,
++}

@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/pitch_v2_addorderlong.h
+@@ -0,0 +1,21 @@
++/*
++ * pitch_v2_addorderlong.h — pitch_v2_addorderlong_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PITCH_V2_ADDORDERLONG_H
++#define PROTO_AUDIT_PITCH_V2_ADDORDERLONG_H
++
++#include <stdint.h>
++
++/* PITCH_v2_AddOrderLong header — 31 bytes minimum */
++struct pitch_v2_addorderlong_header {
++    uint32_t pitch_v2_addorderlong_timeoffset;
++    uint64_t pitch_v2_addorderlong_orderid;
++    uint8_t  pitch_v2_addorderlong_sideindicator;
++    uint32_t pitch_v2_addorderlong_quantity;
++    uint8_t  pitch_v2_addorderlong_symbol;
++    uint64_t pitch_v2_addorderlong_price;
++    uint8_t  pitch_v2_addorderlong_addorderflags;
++};
++
++#endif /* PROTO_AUDIT_PITCH_V2_ADDORDERLONG_H */

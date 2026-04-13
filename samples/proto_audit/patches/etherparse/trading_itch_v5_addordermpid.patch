@@ -1,0 +1,17 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_addordermpid.rs
+@@ -0,0 +1,14 @@
++//! ITCH_v5_AddOrderMPID header — 34 bytes.
++
++/// ITCH_v5_AddOrderMPID header — 34 bytes.
++pub struct ITCH_v5_AddOrderMPIDHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub orderreferencenumber: u64,
++    pub buysellindicator: u8,
++    pub shares: u32,
++    pub stock: u64,
++    pub price: u32,
++    pub attribution: u32,
++}

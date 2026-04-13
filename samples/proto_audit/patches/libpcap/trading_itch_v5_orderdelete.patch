@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_orderdelete.h
+@@ -0,0 +1,18 @@
++/*
++ * itch_v5_orderdelete.h — itch_v5_orderdelete_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_ORDERDELETE_H
++#define PROTO_AUDIT_ITCH_V5_ORDERDELETE_H
++
++#include <stdint.h>
++
++/* ITCH_v5_OrderDelete header — 13 bytes minimum */
++struct itch_v5_orderdelete_header {
++    uint16_t itch_v5_orderdelete_stocklocate;
++    uint16_t itch_v5_orderdelete_trackingnumber;
++    uint8_t  itch_v5_orderdelete_timestamp;
++    uint64_t itch_v5_orderdelete_orderreferencenumber;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_ORDERDELETE_H */

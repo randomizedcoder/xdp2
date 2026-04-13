@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_stockdirectory.rs
+@@ -0,0 +1,22 @@
++//! ITCH_v5_StockDirectory header — 33 bytes.
++
++/// ITCH_v5_StockDirectory header — 33 bytes.
++pub struct ITCH_v5_StockDirectoryHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub stock: u64,
++    pub marketcategory: u8,
++    pub financialstatusindicator: u8,
++    pub roundlotsize: u32,
++    pub roundlotsonly: u8,
++    pub issueclassification: u8,
++    pub issuesubtype: u16,
++    pub authenticity: u8,
++    pub shortsalethresholdindicator: u8,
++    pub ipoflag: u8,
++    pub luldreferencepricetier: u8,
++    pub etpflag: u8,
++    pub etpleveragefactor: u32,
++    pub inverseindicator: u8,
++}
