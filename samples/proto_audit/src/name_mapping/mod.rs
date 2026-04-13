@@ -50,6 +50,11 @@ pub struct ProtocolNames {
     /// OMI sample PCAP path (relative to omi-data-packets root, e.g.
     /// "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/AddOrderNoMpidAttributionMessage.pcap")
     pub omi_pcap: Option<&'static str>,
+    /// OMI per-message PDML field name (e.g.
+    /// "nasdaq.nsmequities.totalview.itch.v5.0.addordernompidattributionmessage").
+    /// When set, tshark extraction descends into this field under the outer
+    /// Lua proto instead of returning the whole-packet superset.
+    pub omi_tshark_field: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -85,6 +90,7 @@ impl ProtocolNames {
             omi_file: None,
             omi_lua: None,
             omi_pcap: None,
+            omi_tshark_field: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -156,13 +162,22 @@ impl ProtocolNames {
         self
     }
 
-    /// Set OMI Wireshark Lua dissector + sample PCAP paths. Both are relative
-    /// to the root of their respective OMI repositories (`wireshark-lua` and
-    /// `omi-data-packets`). Enables tshark-based cross-verification of the
-    /// same protocol already wired via `.omi(...)`.
-    pub const fn omi_tshark(mut self, lua: &'static str, pcap: &'static str) -> Self {
+    /// Set OMI Wireshark Lua dissector path + sample PCAP path + per-message
+    /// PDML field name. The Lua/PCAP paths are relative to the roots of their
+    /// respective OMI repositories (`wireshark-lua` and `omi-data-packets`).
+    /// The field name is what tshark reports as `<field name="X">` under the
+    /// outer Lua proto once the dissector is loaded — proto-audit descends to
+    /// this field so extraction yields the per-message wire layout (not the
+    /// whole packet including session/seq/header).
+    pub const fn omi_tshark(
+        mut self,
+        lua: &'static str,
+        pcap: &'static str,
+        field: &'static str,
+    ) -> Self {
         self.omi_lua = Some(lua);
         self.omi_pcap = Some(pcap);
+        self.omi_tshark_field = Some(field);
         self
     }
 

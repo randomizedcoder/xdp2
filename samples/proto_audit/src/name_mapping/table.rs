@@ -2193,6 +2193,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi_tshark(
                 "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
                 "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/StockTradingActionMessage.pcap",
+                "nasdaq.nsmequities.totalview.itch.v5.0.stocktradingactionmessage",
             ),
         PN::new("ITCH_v5_AddOrder", 30)
             .omi("AddOrderNoMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
@@ -2200,6 +2201,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi_tshark(
                 "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
                 "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/AddOrderNoMpidAttributionMessage.pcap",
+                "nasdaq.nsmequities.totalview.itch.v5.0.addordernompidattributionmessage",
             ),
         PN::new("ITCH_v5_AddOrderMPID", 34)
             .omi("AddOrderWithMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
@@ -2209,6 +2211,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi_tshark(
                 "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
                 "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/OrderExecutedMessage.pcap",
+                "nasdaq.nsmequities.totalview.itch.v5.0.orderexecutedmessage",
             ),
         PN::new("ITCH_v5_OrderExecutedWithPrice", 30)
             .omi("OrderExecutedWithPriceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
@@ -2220,6 +2223,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi_tshark(
                 "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
                 "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/OrderDeleteMessage.pcap",
+                "nasdaq.nsmequities.totalview.itch.v5.0.orderdeletemessage",
             ),
         PN::new("ITCH_v5_OrderReplace", 29)
             .omi("OrderReplaceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
@@ -2227,6 +2231,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi_tshark(
                 "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua",
                 "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/OrderReplaceMessage.pcap",
+                "nasdaq.nsmequities.totalview.itch.v5.0.orderreplacemessage",
             ),
         PN::new("ITCH_v5_NonCrossTrade", 38)
             .omi("NonCrossTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
@@ -2243,6 +2248,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .omi_tshark(
                 "Cboe/Cboe_Byx_Equities_DepthOfBook_Pitch_v2_41_29_Dissector.lua",
                 "Cboe/Byx.Equities.DepthOfBook.Pitch.v2.41/AddOrderShortMessage.pcap",
+                "cboe.byx.equities.depthofbook.pitch.v2.41.29.addordershortmessage",
             ),
         PN::new("PITCH_v2_AddOrderLong", 34)
             .omi("AddOrderLongMessageT", "cboe/Cboe.Byx.Equities.DepthOfBook.Pitch.v2.41.29.h"),

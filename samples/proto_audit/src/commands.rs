@@ -72,17 +72,23 @@ fn try_extract(
                 paths.omi_lua_dir.as_ref(),
                 paths.omi_pcaps_dir.as_ref(),
             ) {
-                let dissector = names.as_ref().and_then(|n| n.tshark)
-                    // fall back to first token of the Lua filename when not set
-                    .unwrap_or("data");
+                let outer_proto = names.as_ref().and_then(|n| n.tshark).unwrap_or("data");
                 let lua_path = lua_dir.join(lua_rel);
                 let pcap_path = pcaps_dir.join(pcap_rel);
                 let xml = extractors::tshark::run_tshark_with_lua(
                     &pcap_path, &paths.tshark_bin, 1, &lua_path,
                 ).ok()?;
-                let packets = extractors::tshark::parse_pdml(&xml).ok()?;
-                let pdml =
-                    extractors::tshark::extract_protocol_from_pdml(&packets, dissector)?;
+                // If the entry names a per-message PDML field, descend into
+                // it so extraction yields only the wire layout of that specific
+                // message type (not the whole-packet superset).
+                let pdml = if let Some(msg_field) =
+                    names.as_ref().and_then(|n| n.omi_tshark_field)
+                {
+                    extractors::tshark::extract_field_as_proto(&xml, outer_proto, msg_field)?
+                } else {
+                    let packets = extractors::tshark::parse_pdml(&xml).ok()?;
+                    extractors::tshark::extract_protocol_from_pdml(&packets, outer_proto)?
+                };
                 let mut def = extractors::tshark::to_protocol_def(&pdml);
                 def.name = proto.to_string();
                 return Some(def);

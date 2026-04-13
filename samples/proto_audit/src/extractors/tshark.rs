@@ -293,6 +293,50 @@ pub fn extract_protocol_from_pdml(
     best
 }
 
+/// Extract a nested `<field name="X">` within a `<proto>` layer and return it
+/// as a synthetic `PdmlProtocol` whose `pos`/`size` match the field and whose
+/// `fields` are the field's (recursive) named children.
+///
+/// Used for OMI trading protocols where a single outer Lua dissector groups
+/// many distinct wire messages as sibling `<field>` elements. The caller knows
+/// which message (by field name, e.g.
+/// `nasdaq.nsmequities.totalview.itch.v5.0.addordernompidattributionmessage`)
+/// they want to treat as "the protocol" for cross-source comparison.
+pub fn extract_field_as_proto(
+    xml: &str,
+    outer_proto: &str,
+    field_name: &str,
+) -> Option<PdmlProtocol> {
+    let doc = Document::parse(xml).ok()?;
+    for packet in doc.descendants().filter(|n| n.has_tag_name("packet")) {
+        // Find the outer proto (may appear at top level, not nested in this case)
+        let proto = packet
+            .descendants()
+            .find(|n| n.has_tag_name("proto") && n.attribute("name") == Some(outer_proto))?;
+
+        // Depth-first search for a <field name="field_name"> under the proto
+        let target = proto
+            .descendants()
+            .find(|n| n.has_tag_name("field") && n.attribute("name") == Some(field_name))?;
+
+        let pos: u32 = target.attribute("pos").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let size: u32 = target.attribute("size").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let show_name = target.attribute("showname").unwrap_or("").to_string();
+
+        let mut fields = Vec::new();
+        extract_fields_recursive(&target, &mut fields);
+
+        return Some(PdmlProtocol {
+            name: field_name.to_string(),
+            show_name,
+            fields,
+            pos,
+            size,
+        });
+    }
+    None
+}
+
 /// Infer field type from tshark field name patterns using loaded mappings.
 fn infer_field_type(name: &str, _show: &str, bits: u32, mappings: &TsharkMappings) -> FieldType {
     mappings.infer_field_type(name, bits)
