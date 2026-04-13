@@ -149,24 +149,101 @@ Mitigate with `#[inline(never)]` on cold paths.
 
 ### Step 3: SIMD Header Parsing
 
-**Goal:** Exploit data parallelism in header field validation and extraction.
+SIMD splits into two very different ideas that share an instruction set
+but not a use case. We dismissed one and deferred the other.
 
-**Targets:**
+#### Step 3a — Per-packet SIMD (skip)
 
-- MAC address compare (6 bytes) — single AVX instruction.
-- IPv4 header checksum — SSE2-accelerated one's-complement sum.
-- Parsing multiple port / flag fields in a single SIMD load.
-- IPv6 address comparison (16 bytes) — single SSE/AVX load+compare.
+**Goal:** Use vector instructions to process a *single* packet's header
+faster — MAC compare (6 B), IPv6 address compare (16 B), IPv4 checksum,
+multi-field extraction.
 
-**Approach:**
+**Verdict after Step 2:** skip.
 
-- Start with `std::arch::x86_64` intrinsics (stable) for hot paths.
-- Consider `std::simd` (portable, nightly) if we need ARM NEON too.
-- Measure against Step 1 baseline before committing — SIMD often wins
-  less than expected for tiny buffers due to setup cost.
+- After monomorphization the hot loop is 52 instructions / 35 cycles per
+  packet with IPC 1.47. The critical path is a dependent-load chain:
+  ethertype → protocol byte → next_proto branch → next header's fields.
+  Each load feeds the next branch. You cannot vectorize a pointer chase.
+- This benchmark does not extract IPv6 addresses, compute checksums, or
+  compare MACs — there is no bulk header data to put through SIMD lanes.
+- For a full-metadata parser that does extract addresses or checksums,
+  per-packet SIMD would matter again. Revisit when metadata extraction
+  is enabled.
 
-**Expected impact:** 5-15% on compute-bound paths. Only worth it if
-Step 1 shows IPC headroom (meaning we are not already stalling on memory).
+#### Step 3b — Cross-packet (batch) SIMD (deferred, not skipped)
+
+**Goal:** Process **N packets in parallel** within one thread, using
+SIMD lanes to hide the dependent-load latency that limits single-packet
+throughput.
+
+**Sketch:** load ethertype for packets 0..7 into one AVX2 register,
+test against 0x0800 / 0x86DD / 0x8100 in parallel, gather the
+next headers, and so on. DPDK's vector PMDs and several flow-dissector
+forks use this technique.
+
+**Why it could win big:** the single-packet parser is limited by
+dependent-load latency, not compute. Batching amortizes those loads
+across N packets — we stop waiting on any individual chain. A 2-4x
+single-thread throughput improvement is plausible on uniform-path
+traffic.
+
+**The lane-divergence problem (and why it does not block us in practice):**
+
+A naive batch parser falls off a cliff when packets in the batch take
+different paths (one TCP, one UDP, one IPv6-EH chain) — the SIMD lanes
+have to fall back to scalar per-lane execution, and you end up slower
+than the mono parser. On arbitrary mixed internet traffic this kills
+most of the gain.
+
+**But** modern NICs already sort packets for us, so this is a solved
+problem for deployments that control the NIC configuration:
+
+- **Intel Flow Director / RSS hash tuning** can steer same-5-tuple or
+  same-protocol flows to dedicated receive queues.
+- **nFlow / ntuple rules** (`ethtool -N`) let you pin e.g. "IPv4 TCP
+  port 443" to queue 3, "VXLAN" to queue 7, etc.
+- **Mellanox / Nvidia ConnectX** has similar steering primitives.
+
+So in a deployment where operators configure the NIC to stream a small
+number of dominant packet types to dedicated queues — and the parser
+reads from one queue at a time — batches are naturally homogeneous and
+the lane-divergence problem disappears.
+
+**Concrete scenario where this pays off:**
+
+Mobile / cellular packet core (5G UPF, GTP-U termination, etc.) —
+typical traffic mix is dominated by a handful of encapsulations:
+GTP-U / IPv4+TCP (browsing), GTP-U / IPv4+UDP (QUIC, video), GTP-U /
+IPv6+{TCP,UDP}, and control-plane PFCP. Four to eight NIC queues,
+each bound to a CPU running a batch-SIMD parser specialized for that
+queue's dominant path, covers ~80-90% of traffic with fully uniform
+batches. The long tail falls through to a scalar fallback. This is
+exactly the topology where batch SIMD stops being a theoretical
+exercise and starts being 2-4x of real throughput on top of Step 6's
+1 Gpps per host.
+
+**Approach (when pursued):**
+
+- Restructure the parser into a stage-based pipeline (`parse_eth_stage`,
+  `parse_ipv4_stage`, ...) that operates on arrays of N packet cursors.
+- Start with AVX2 (256-bit, 8×32 or 4×64 lanes) using
+  `std::arch::x86_64` intrinsics.
+- Consider `std::simd` (portable, nightly) for ARM NEON / SVE if the
+  parser ships on non-x86 platforms (edge / telco ARM SoCs are
+  increasingly relevant here).
+- Provide a scalar fallback path and a "batch size 1" degenerate mode
+  so lane-divergent traffic still gets the Step 2 mono performance.
+- Measure against the Step 6 baseline (per-core throughput) with
+  homogeneous synthetic PCAPs first, then with realistic NIC-steered
+  mixes.
+
+**Expected impact (on uniform batches, single-threaded):** 2-4x vs the
+mono parser. Stacks multiplicatively with Step 6's multi-core scaling.
+On a 16-thread host that currently does 1 Gpps, this could push per-host
+throughput toward 2-4 Gpps on favorable deployments.
+
+**Expected impact (on arbitrary mixed traffic, no NIC steering):** near
+zero or slightly negative. Do not pursue without the steering story.
 
 ### Step 4: Branchless / Table-Driven Protocol Dispatch
 
@@ -287,7 +364,8 @@ which one actually helped.
 | LTO + `#[inline]` | done | 59 | 16 | Current baseline |
 | Step 1: CPU counters | done | 62 | 16 | IPC 2.24, branch-miss 0.47%, cache-miss 1.87% |
 | Step 2: Monomorphized graph (PoC) | done | **10** | **100** | Hand-rolled mono parser: 6.4x faster, 35 cycles/pkt, 52 ins/pkt |
-| Step 3: SIMD header parsing | skip | — | — | After mono, IPC 1.47 — load-latency bound, not compute |
+| Step 3a: Per-packet SIMD | skip | — | — | No bulk data in hot path; critical path is a dependent-load chain |
+| Step 3b: Cross-packet (batch) SIMD | deferred | — | — | High ROI on uniform-path traffic (NIC-steered queues); requires pipeline rewrite |
 | Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
 | Step 6: Multi-core (mono) | done | — | **1046** | 16 threads, Threadripper 3945WX (12c/24t) |
