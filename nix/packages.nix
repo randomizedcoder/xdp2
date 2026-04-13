@@ -98,6 +98,7 @@ in
     pkgs.rustfmt
     pkgs.rust-analyzer
     pkgs.cargo-audit
+    pkgs.cargo-show-asm  # Assembly output viewer for Rust functions
 
     # Utilities
     pkgs.jp2a          # ASCII art for logo

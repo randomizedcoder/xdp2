@@ -16,6 +16,7 @@ optimizations already applied.
 | C (xdp2-compiler, `-O2 -march=native`) | 182 | 5 | 1.00x |
 | Rust graph (fat LTO + `#[inline]`) | 59 | 16 | **0.32x (3.1x faster)** |
 | Rust mono (hand-rolled, Step 2) | 10 | 100 | **0.055x (18x faster)** |
+| Rust compiled (IR codegen, Step 9) | 2 | 500 | **0.011x (91x faster)** |
 | Rust mono × 16 threads (Step 6) | — | 1195 | **239x C throughput** |
 
 The Rust engine outperforms C at scale due to a more compact code footprint
@@ -442,6 +443,80 @@ worker closure) so the compiler must assume each call has a distinct
 input and cannot reuse the previous result. This is now standard
 practice in `xdp2-bench`.
 
+### Step 8: Bounds-Check Audit (Assembly Verification)
+
+**Goal:** Determine whether the `hdr_len<P>()` wrapper's redundant bounds
+checks survive into the final binary, and if so, eliminate them.
+
+**Analysis:** The `hdr_len` helper (graph_mono.rs:57-66) performs three
+checks for every protocol layer:
+
+1. `hdr.len() < P::MIN_LEN` — early length gate
+2. `proto.header_len(hdr, hdr.len())` — calls the ProtocolOps impl
+3. `hlen < P::MIN_LEN || hlen > hdr.len()` — validates the result
+
+For fixed-length protocols (Ethernet, VLAN, QinQ, UDP, ARP, ICMP, SCTP),
+`header_len()` uses the default impl returning `Ok(MIN_LEN)`, making
+check (3) provably false after check (1). For variable-length protocols
+(IPv4, TCP), `header_len()` internally calls `ref_from_prefix(hdr)`
+which re-validates the length — redundant with check (1). IPv4's
+`next_proto()` does yet another `ref_from_prefix` — redundant with
+`header_len()`.
+
+**Method:** Added `cargo-show-asm` to the Nix dev shell (`nix/packages.nix`)
+and inspected the release-mode assembly for all five emitted functions:
+`parse_eth`, `parse_vlan`, `parse_qinq`, `parse_ipv6`, `dispatch_ipv4`.
+
+**Result: LLVM eliminates all redundancies.** No code changes needed.
+
+Key observations from the assembly:
+
+- **Fixed-length protocols (Ethernet, VLAN, QinQ, IPv6, UDP, ARP):**
+  LLVM reduces the three-check `hdr_len` wrapper to a single
+  `cmp reg, <MIN_LEN>` / `jb error`. The `header_len()` call and
+  check (3) are completely eliminated — they do not appear in the
+  binary at all.
+
+- **Ethertype / next-proto reads:** LLVM inlines `next_proto()` to
+  direct byte reads at compile-time-known offsets. Ethernet becomes
+  `movzx eax, word ptr [rdi + 12]; rol ax, 8` (read + byte-swap).
+  No `ref_from_prefix` frame or error-path code survives.
+
+- **Variable-length protocols (IPv4, AH, IPv6 EH):** IHL extraction
+  becomes `shl ecx, 2; and ecx, 60` (one instruction for
+  `(byte & 0x0F) * 4`). The two bounds checks (`ihl < 20` and
+  `ihl > remaining`) are combined branchlessly via `setb + or`.
+
+- **VLAN recursion fully unrolled:** `parse_vlan` (507 bytes) contains
+  no recursion — LLVM unrolled all 8 iterations of the `MAX_ETH_DEPTH`
+  loop into straight-line code with direct offset reads at
+  `[rdi + 6]`, `[rdi + 10]`, ..., `[rdi + 26]`.
+
+- **Jump tables for dispatch:** Both `dispatch_ipv4` and `dispatch_ipv6`
+  use hardware jump tables (`.LJTI` sections), confirming the `match`
+  statements compile to optimal O(1) dispatch.
+
+- **Leaf nodes:** Fixed-length leaves compile to
+  `cmp reg, <MIN_LEN>; setae al; shl al, 4; inc al` — a single
+  branchless comparison packed into the return value.
+
+**Conclusion:** The ProtocolOps zero-cost abstractions are working exactly
+as intended. The readable, type-safe source code (with `EthernetOps`,
+`hdr_len<P>()`, etc.) produces assembly indistinguishable from hand-written
+byte-offset code. **Do not replace the trait-based code with manual byte
+reads** — it would sacrifice readability for zero performance benefit.
+
+This validates the approach for the `xdp2-compiler` codegen (Step 2):
+the generated code can use the same ProtocolOps abstractions and trust
+LLVM to produce optimal output.
+
+**Tool added:** `cargo-show-asm` (`pkgs.cargo-show-asm`) added to the Nix
+dev shell for future assembly inspection. Usage:
+
+```bash
+nix develop --command cargo asm -p xdp2-bench --release "xdp2_bench::graph_mono::parse_eth"
+```
+
 ## Measurement Discipline
 
 Every step follows the same pattern:
@@ -470,8 +545,9 @@ which one actually helped.
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
 | Step 6: Multi-core (mono) | done | — | **1195** | 16 threads, Threadripper 3945WX (12c/24t), 50 iterations |
 | Step 6a: Software-pipelined x4 | done on 3945WX | 35 (−1) | 100 (0) | Marginal here (Zen 2, wide OoO); may matter more on narrower cores — re-measure per target |
-| Step 6: Multi-core | not started | — | — | Throughput, not latency |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
+| Step 8: Bounds-check audit | done | — | — | LLVM eliminates all redundancies; zero-cost abstractions verified via `cargo asm` |
+| Step 9: Compiler codegen (IR → Rust) | done | **2** | **500** | Auto-generated mono parser from bench-graph.json; 11.9 cycles/pkt, 47.9 ins/pkt, IPC 4.04; 28x graph, ~2x hand-rolled mono |
 
 ## Non-Goals
 

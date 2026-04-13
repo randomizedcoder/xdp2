@@ -68,6 +68,10 @@ struct Cli {
     /// Output JSON IR file (roundtrip).
     #[arg(long)]
     output_json: Option<String>,
+
+    /// Output Rust monomorphic parser file.
+    #[arg(long)]
+    output_rust: Option<String>,
 }
 
 fn main() {
@@ -164,6 +168,20 @@ fn main() {
                 process::exit(1);
             }
         }
+    }
+
+    // Generate Rust monomorphic parser output.
+    if let Some(ref path) = cli.output_rust {
+        let parser = ir.parsers.first().unwrap_or_else(|| {
+            eprintln!("error: no parser definition in IR");
+            process::exit(1);
+        });
+        let code = codegen::render_rust(&pg, parser);
+        if let Err(e) = fs::write(path, &code) {
+            eprintln!("error: cannot write '{}': {}", path, e);
+            process::exit(1);
+        }
+        eprintln!("Wrote Rust parser: {}", path);
     }
 
     // Generate JSON IR output (roundtrip).

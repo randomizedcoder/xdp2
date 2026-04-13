@@ -31,6 +31,7 @@
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
 
 mod graph;
+mod graph_compiled;
 mod graph_mono;
 mod pcap;
 mod perf;
@@ -50,7 +51,9 @@ enum ParserMode {
     /// Mono parser, outer loop software-pipelined 4 packets wide.
     /// Feeds the OoO engine 4 independent parse chains per iteration.
     MonoX4,
-    /// Run graph + mono + mono-x4 back-to-back for direct A/B/C comparison.
+    /// Auto-generated monomorphic parser from xdp2-compiler codegen.
+    Compiled,
+    /// Run graph + mono + mono-x4 + compiled back-to-back for comparison.
     Both,
 }
 
@@ -186,6 +189,7 @@ fn main() {
     let run_graph = matches!(cli.mode, ParserMode::Graph | ParserMode::Both);
     let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
     let run_monox4 = matches!(cli.mode, ParserMode::MonoX4 | ParserMode::Both);
+    let run_compiled = matches!(cli.mode, ParserMode::Compiled | ParserMode::Both);
 
     // Correctness & anti-DCE: count successful parses across one full sweep
     // and print the total. This prevents LLVM from eliding the parse body
@@ -198,6 +202,10 @@ fn main() {
     let mono_ok = packets
         .iter()
         .filter(|pkt| graph_mono::parse_packet_mono(&pkt.data).is_ok())
+        .count();
+    let compiled_ok = packets
+        .iter()
+        .filter(|pkt| graph_compiled::parse_packet(&pkt.data).is_ok())
         .count();
 
     if cli.threads <= 1 {
@@ -234,6 +242,19 @@ fn main() {
                 std::hint::black_box(bench_mono_x4(&packets));
             });
             report("mono-x4  ", ns, total_pkts, snap);
+        }
+
+        if run_compiled {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                let mut acc: u64 = 0;
+                for pkt in &packets {
+                    if graph_compiled::parse_packet(&pkt.data).is_ok() {
+                        acc += 1;
+                    }
+                }
+                std::hint::black_box(acc);
+            });
+            report("compiled ", ns, total_pkts, snap);
         }
     } else {
         eprintln!(
@@ -274,11 +295,25 @@ fn main() {
             });
             report_mt("mono-x4-mt", ns, total_pkts, cli.threads);
         }
+
+        if run_compiled {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let slice = std::hint::black_box(slice);
+                let mut acc: u64 = 0;
+                for pkt in slice {
+                    if graph_compiled::parse_packet(&pkt.data).is_ok() {
+                        acc += 1;
+                    }
+                }
+                acc
+            });
+            report_mt("compiled-mt", ns, total_pkts, cli.threads);
+        }
     }
 
     println!(
-        "Correctness: graph ok={}/{}, mono ok={}/{}",
-        graph_ok, npkts, mono_ok, npkts
+        "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}",
+        graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts
     );
 }
 

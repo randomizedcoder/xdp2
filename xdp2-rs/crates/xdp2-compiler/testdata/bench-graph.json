@@ -1,0 +1,202 @@
+{
+  "parsers": [{
+    "name": "bench_parser",
+    "root-node": "ethernet",
+    "max-nodes": 8
+  }],
+  "parse-nodes": [
+    {
+      "name": "ethernet",
+      "min-hdr-length": 14,
+      "next-proto": {
+        "field-off": 12,
+        "field-len": 2,
+        "ents": [
+          {"key": "0x0800", "node": "ipv4"},
+          {"key": "0x86DD", "node": "ipv6"},
+          {"key": "0x8100", "node": "vlan"},
+          {"key": "0x88A8", "node": "qinq"},
+          {"key": "0x0806", "node": "arp"}
+        ]
+      }
+    },
+    {
+      "name": "vlan",
+      "min-hdr-length": 4,
+      "next-proto": {
+        "field-off": 2,
+        "field-len": 2,
+        "ents": [
+          {"key": "0x0800", "node": "ipv4"},
+          {"key": "0x86DD", "node": "ipv6"},
+          {"key": "0x8100", "node": "vlan"},
+          {"key": "0x88A8", "node": "qinq"},
+          {"key": "0x0806", "node": "arp"}
+        ]
+      }
+    },
+    {
+      "name": "qinq",
+      "min-hdr-length": 4,
+      "next-proto": {
+        "field-off": 2,
+        "field-len": 2,
+        "ents": [
+          {"key": "0x0800", "node": "ipv4"},
+          {"key": "0x86DD", "node": "ipv6"},
+          {"key": "0x8100", "node": "vlan"},
+          {"key": "0x88A8", "node": "qinq"},
+          {"key": "0x0806", "node": "arp"}
+        ]
+      }
+    },
+    {
+      "name": "ipv4",
+      "min-hdr-length": 20,
+      "hdr-length": {
+        "field-off": 0,
+        "field-len": 1,
+        "mask": "0xf",
+        "multiplier": 4
+      },
+      "next-proto": {
+        "field-off": 9,
+        "field-len": 1,
+        "ents": [
+          {"key": 6, "node": "tcp"},
+          {"key": 17, "node": "udp"},
+          {"key": 1, "node": "icmpv4"},
+          {"key": 132, "node": "sctp"},
+          {"key": 4, "node": "ip_in_ip"},
+          {"key": 51, "node": "ah"}
+        ]
+      }
+    },
+    {
+      "name": "ipv6",
+      "min-hdr-length": 40,
+      "next-proto": {
+        "field-off": 6,
+        "field-len": 1,
+        "ents": [
+          {"key": 6, "node": "tcp"},
+          {"key": 17, "node": "udp"},
+          {"key": 58, "node": "icmpv6"},
+          {"key": 132, "node": "sctp"},
+          {"key": 0, "node": "ipv6_eh"},
+          {"key": 60, "node": "ipv6_eh"},
+          {"key": 44, "node": "ipv6_frag"},
+          {"key": 51, "node": "ah"}
+        ]
+      }
+    },
+    {
+      "name": "ipv6_eh",
+      "min-hdr-length": 2,
+      "hdr-length": {
+        "field-off": 1,
+        "field-len": 1,
+        "multiplier": 8,
+        "add": 8
+      },
+      "next-proto": {
+        "field-off": 0,
+        "field-len": 1,
+        "ents": [
+          {"key": 6, "node": "tcp"},
+          {"key": 17, "node": "udp"},
+          {"key": 58, "node": "icmpv6"},
+          {"key": 132, "node": "sctp"},
+          {"key": 0, "node": "ipv6_eh"},
+          {"key": 60, "node": "ipv6_eh"},
+          {"key": 44, "node": "ipv6_frag"},
+          {"key": 51, "node": "ah"}
+        ]
+      }
+    },
+    {
+      "name": "ipv6_frag",
+      "min-hdr-length": 8,
+      "next-proto": {
+        "field-off": 0,
+        "field-len": 1,
+        "ents": [
+          {"key": 6, "node": "tcp"},
+          {"key": 17, "node": "udp"},
+          {"key": 58, "node": "icmpv6"},
+          {"key": 132, "node": "sctp"},
+          {"key": 0, "node": "ipv6_eh"},
+          {"key": 60, "node": "ipv6_eh"},
+          {"key": 44, "node": "ipv6_frag"},
+          {"key": 51, "node": "ah"}
+        ]
+      }
+    },
+    {
+      "name": "ip_in_ip",
+      "min-hdr-length": 20,
+      "encap": true,
+      "hdr-length": {
+        "field-off": 0,
+        "field-len": 1,
+        "mask": "0xf",
+        "multiplier": 4
+      },
+      "next-proto": {
+        "field-off": 9,
+        "field-len": 1,
+        "ents": [
+          {"key": 6, "node": "tcp"},
+          {"key": 17, "node": "udp"},
+          {"key": 1, "node": "icmpv4"}
+        ]
+      }
+    },
+    {
+      "name": "ah",
+      "min-hdr-length": 12,
+      "hdr-length": {
+        "field-off": 1,
+        "field-len": 1,
+        "multiplier": 4,
+        "add": 8
+      },
+      "next-proto": {
+        "field-off": 0,
+        "field-len": 1,
+        "ents": [
+          {"key": 6, "node": "tcp"},
+          {"key": 17, "node": "udp"},
+          {"key": 1, "node": "icmpv4"},
+          {"key": 132, "node": "sctp"},
+          {"key": 4, "node": "ip_in_ip"},
+          {"key": 51, "node": "ah"}
+        ]
+      }
+    },
+    {
+      "name": "tcp",
+      "min-hdr-length": 20
+    },
+    {
+      "name": "udp",
+      "min-hdr-length": 8
+    },
+    {
+      "name": "icmpv4",
+      "min-hdr-length": 8
+    },
+    {
+      "name": "icmpv6",
+      "min-hdr-length": 8
+    },
+    {
+      "name": "sctp",
+      "min-hdr-length": 12
+    },
+    {
+      "name": "arp",
+      "min-hdr-length": 28
+    }
+  ]
+}
