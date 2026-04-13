@@ -46,6 +46,7 @@ impl ProtocolOps for EthernetOps {
     ///
     /// Returns the raw big-endian EtherType value (matching C behavior where
     /// protocol table entries are also stored in network byte order).
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let eth = EthernetHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

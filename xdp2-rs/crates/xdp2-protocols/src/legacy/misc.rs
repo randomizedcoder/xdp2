@@ -38,6 +38,7 @@ impl ProtocolOps for Ieee802154Ops {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "IEEE 802.15.4";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -63,6 +64,7 @@ impl ProtocolOps for MctpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "MCTP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -89,6 +91,7 @@ impl ProtocolOps for AtmOps {
     const MIN_LEN: usize = 5;
     const NAME: &'static str = "ATM";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -116,6 +119,7 @@ impl ProtocolOps for PhonetOps {
     const MIN_LEN: usize = 7;
     const NAME: &'static str = "Phonet";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -146,6 +150,7 @@ impl ProtocolOps for AppletalkOps {
     const MIN_LEN: usize = 13;
     const NAME: &'static str = "AppleTalk";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -171,6 +176,7 @@ impl ProtocolOps for ProtobufOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Protobuf";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -193,6 +199,7 @@ impl ProtocolOps for DsaOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "DSA";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -216,6 +223,7 @@ impl ProtocolOps for X25Ops {
     const MIN_LEN: usize = 3;
     const NAME: &'static str = "X.25";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

@@ -44,6 +44,7 @@ impl ProtocolOps for IbRdethOps {
     /// Return constant 1 (always chains to DETH).
     ///
     /// Reimplements: `ib_rdeth_proto()` in `proto_ib_rdeth.h:43-49`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.len() < 4 {
             return Err(ParseError::Length);

@@ -53,6 +53,7 @@ impl ProtocolOps for ErfOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "ERF";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -79,6 +80,7 @@ impl ProtocolOps for MpegTsOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "MPEG-TS";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -115,6 +117,7 @@ impl ProtocolOps for SrtOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "SRT";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -146,6 +149,7 @@ impl ProtocolOps for TplinkSmarthomeOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "TP-Link SmartHome";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

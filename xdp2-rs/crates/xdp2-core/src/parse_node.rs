@@ -146,40 +146,49 @@ pub trait ParseNodeDyn<M: 'static>: Send + Sync {
 }
 
 impl<M: 'static, P: ProtocolOps> ParseNodeDyn<M> for ParseNode<M, P> {
+    #[inline]
     fn min_len(&self) -> usize {
         P::MIN_LEN
     }
 
+    #[inline]
     fn name(&self) -> &'static str {
         self.name
     }
 
+    #[inline]
     fn node_type(&self) -> NodeType {
         P::NODE_TYPE
     }
 
+    #[inline]
     fn is_encap(&self) -> bool {
         P::ENCAP
     }
 
+    #[inline]
     fn is_overlay(&self) -> bool {
         P::OVERLAY
     }
 
+    #[inline]
     fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         self.proto.header_len(hdr, maxlen)
     }
 
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         self.proto.next_proto(hdr)
     }
 
+    #[inline]
     fn extract_metadata(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) {
         if let Some(f) = self.ops.extract_metadata {
             f(hdr, hdr_len, metadata, ctrl);
         }
     }
 
+    #[inline]
     fn handler(
         &self,
         hdr: &[u8],
@@ -193,6 +202,7 @@ impl<M: 'static, P: ProtocolOps> ParseNodeDyn<M> for ParseNode<M, P> {
         }
     }
 
+    #[inline]
     fn post_handler(
         &self,
         hdr: &[u8],
@@ -206,14 +216,17 @@ impl<M: 'static, P: ProtocolOps> ParseNodeDyn<M> for ParseNode<M, P> {
         }
     }
 
+    #[inline]
     fn proto_table(&self) -> Option<&'static ProtoTable<M>> {
         self.proto_table
     }
 
+    #[inline]
     fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>> {
         self.wildcard_node
     }
 
+    #[inline]
     fn unknown_ret(&self) -> ParseError {
         self.unknown_ret
     }

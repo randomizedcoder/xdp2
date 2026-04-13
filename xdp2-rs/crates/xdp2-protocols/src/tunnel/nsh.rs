@@ -72,6 +72,7 @@ impl ProtocolOps for NshOps {
     /// Map NSH next_proto to EtherType for dispatch.
     ///
     /// Reimplements: `nsh_proto()` in `proto_nsh.h:57-73`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let nsh = NshHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

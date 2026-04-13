@@ -5,8 +5,17 @@
 # Generates a test PCAP, runs both the C flow_dissector benchmark and the
 # Rust xdp2-bench on the same packets, and reports side-by-side results.
 #
+# Supports optional PGO (Profile-Guided Optimization) for both C and Rust:
+#   --pgo flag triggers a two-pass build using profiling data from the
+#   actual benchmark workload to optimize branch prediction, code layout,
+#   and inlining decisions.
+#
 # Targets:
 #   nix build .#parser-benchmark  — run C vs Rust parser benchmark
+#
+# Usage:
+#   ./result/bin/xdp2-parser-benchmark [iterations] [npkts]        — standard
+#   ./result/bin/xdp2-parser-benchmark [iterations] [npkts] --pgo  — with PGO
 #
 # Architecture:
 #   gen_test_pcap.py → test.pcap (mixed protocols)
@@ -18,6 +27,11 @@
 #            │                           │
 #            ▼                           ▼
 #     C: ns/pkt, Mpps              Rust: ns/pkt, Mpps
+#
+# PGO Pipeline (when --pgo):
+#   Pass 1: Build instrumented binaries
+#   Profile: Run benchmark workload to collect profiling data
+#   Pass 2: Rebuild with profiling data for optimized code layout
 #
 
 { pkgs
@@ -32,6 +46,7 @@ let
   # Source directories
   flowDissectorSrc = ../samples/flow_dissector;
   genTestPcap = ../samples/flow_dissector/gen_test_pcap.py;
+  rustSrc = ../xdp2-rs;
 
   # Shared C compiler environment (matches nix/xdp-samples.nix)
   cppCompilerEnv = ''
@@ -56,6 +71,7 @@ pkgs.writeShellApplication {
     pkgs.coreutils
     pkgs.gnugrep
     pkgs.gnused
+    pkgs.gawk
     pkgs.gcc
     pkgs.libpcap
     pkgs.libpcap.lib
@@ -63,12 +79,32 @@ pkgs.writeShellApplication {
     (pkgs.python314.withPackages (ps: [ ps.scapy ]))
     xdp2
     xdp2Rs.build
+    # PGO dependencies: Rust toolchain + LLVM profdata merge tool
+    pkgs.cargo
+    pkgs.rustc
+    pkgs.llvmPackages.bintools-unwrapped  # provides llvm-profdata
   ];
   text = ''
     set -euo pipefail
 
+    # ── Parse arguments ──
+    PGO_MODE=false
+    POSITIONAL_ARGS=()
+    for arg in "$@"; do
+      case "$arg" in
+        --pgo) PGO_MODE=true ;;
+        *) POSITIONAL_ARGS+=("$arg") ;;
+      esac
+    done
+
+    ITERATIONS=''${POSITIONAL_ARGS[0]:-100}
+    NPKTS=''${POSITIONAL_ARGS[1]:-500000}
+
     echo "============================================"
     echo "  XDP2 Parser Benchmark: C vs Rust"
+    if [[ "$PGO_MODE" == "true" ]]; then
+      echo "  (PGO enabled — two-pass build)"
+    fi
     echo "============================================"
     echo ""
 
@@ -87,9 +123,6 @@ pkgs.writeShellApplication {
     export NIX_HARDENING_ENABLE=
 
     # ── Phase 1: Generate test PCAP ──
-    ITERATIONS=''${1:-100}
-    NPKTS=''${2:-500000}
-
     echo "--- Phase 1: Generate test PCAP ($NPKTS packets) ---"
     python3 ${genTestPcap} -o test.pcap -n "$NPKTS" 2>&1
     echo ""
@@ -115,18 +148,51 @@ pkgs.writeShellApplication {
     C_NS="N/A"
     C_PARSEONLY_NS="N/A"
 
-    if gcc -I${xdp2}/include -I${pkgs.libpcap}/include -g -O2 -c -o parser.o parser.c 2>&1; then
+    C_COMMON_FLAGS=(
+      "-I${xdp2}/include"
+      "-I${pkgs.libpcap}/include"
+      -g -O2 -march=native
+    )
+    C_LINK_FLAGS=(
+      "-L${xdp2}/lib"
+      "-L${pkgs.libpcap.lib}/lib"
+      "-Wl,-rpath,${xdp2}/lib"
+      "-Wl,-rpath,${pkgs.libpcap.lib}/lib"
+    )
+    C_LIBS=(-lpcap -lxdp2 -lcli -lflowdis -lsiphash)
+
+    if gcc "''${C_COMMON_FLAGS[@]}" -c -o parser.o parser.c 2>&1; then
       # Generate optimized parser
       ${xdp2}/bin/xdp2-compiler -I${xdp2}/include -i parser.c -o parser.p.c
 
-      # Build benchmark binary
-      gcc -I${xdp2}/include -I${pkgs.libpcap}/include -g -O2 \
-          -L${xdp2}/lib -L${pkgs.libpcap.lib}/lib \
-          -Wl,-rpath,${xdp2}/lib -Wl,-rpath,${pkgs.libpcap.lib}/lib \
-          -o benchmark benchmark.c parser.p.c \
-          -lpcap -lxdp2 -lcli -lflowdis -lsiphash
+      if [[ "$PGO_MODE" == "true" ]]; then
+        # ── C PGO Pass 1: Build with instrumentation ──
+        echo "  C PGO Pass 1: Building instrumented binary..."
+        gcc "''${C_COMMON_FLAGS[@]}" -fprofile-generate \
+            "''${C_LINK_FLAGS[@]}" \
+            -o benchmark-pgo1 benchmark.c parser.p.c \
+            "''${C_LIBS[@]}"
 
-      echo "C benchmark built successfully"
+        # ── C PGO Profile: Run workload to collect data ──
+        echo "  C PGO Profile: Collecting profiling data (10 iterations)..."
+        ./benchmark-pgo1 -p -n 10 filtered.pcap >/dev/null 2>&1 || true
+
+        # ── C PGO Pass 2: Rebuild with profile data ──
+        echo "  C PGO Pass 2: Building optimized binary..."
+        gcc "''${C_COMMON_FLAGS[@]}" -fprofile-use -fprofile-correction \
+            "''${C_LINK_FLAGS[@]}" \
+            -o benchmark benchmark.c parser.p.c \
+            "''${C_LIBS[@]}"
+        echo "C benchmark built successfully (PGO optimized)"
+      else
+        # Standard build (no PGO)
+        gcc "''${C_COMMON_FLAGS[@]}" \
+            "''${C_LINK_FLAGS[@]}" \
+            -o benchmark benchmark.c parser.p.c \
+            "''${C_LIBS[@]}"
+        echo "C benchmark built successfully"
+      fi
+
       C_BUILD_OK=true
     else
       echo "WARNING: C benchmark build failed (header conflicts with updated xdp2 headers)"
@@ -152,7 +218,66 @@ pkgs.writeShellApplication {
 
     # ── Phase 5: Run Rust benchmark on FILTERED PCAP ──
     echo "--- Phase 5: Rust Performance ($FILTERED_PKTS filtered packets x $ITERATIONS iterations) ---"
-    RUST_OUTPUT=$(xdp2-bench --pcap filtered.pcap --iterations "$ITERATIONS" --warmup 3 2>&1 || true)
+
+    if [[ "$PGO_MODE" == "true" ]]; then
+      # ── Rust PGO Pipeline ──
+      #
+      # Two-pass PGO build using the same benchmark workload as profiling input.
+      # Rust PGO is stable since Rust 1.71 and uses LLVM's instrumentation.
+      #
+      # Pass 1: cargo build with -Cprofile-generate → instrumented binary
+      # Profile: Run the instrumented binary on the filtered PCAP
+      # Merge: llvm-profdata merge → single .profdata file
+      # Pass 2: cargo build with -Cprofile-use → optimized binary
+      echo "  Rust PGO: Preparing source tree..."
+      RUST_BUILD_DIR="$WORKDIR/rust-pgo"
+      mkdir -p "$RUST_BUILD_DIR"
+      cp -r ${rustSrc}/* "$RUST_BUILD_DIR/"
+      chmod -R u+w "$RUST_BUILD_DIR"
+
+      PGO_DATA_DIR="$WORKDIR/pgo-data"
+      mkdir -p "$PGO_DATA_DIR"
+
+      # Pass 1: Build with instrumentation
+      echo "  Rust PGO Pass 1: Building instrumented binary..."
+      RUSTFLAGS="-Cprofile-generate=$PGO_DATA_DIR -C target-cpu=native" \
+        cargo build --release -p xdp2-bench \
+        --manifest-path "$RUST_BUILD_DIR/Cargo.toml" \
+        --target-dir "$RUST_BUILD_DIR/target" \
+        2>&1 | tail -5
+
+      # Profile: Run workload to collect data
+      echo "  Rust PGO Profile: Collecting profiling data (10 iterations)..."
+      "$RUST_BUILD_DIR/target/release/xdp2-bench" \
+        --pcap "$WORKDIR/filtered.pcap" --iterations 10 --warmup 1 \
+        2>&1 | tail -3
+
+      # Merge profiling data
+      echo "  Rust PGO: Merging profiling data..."
+      PROF_COUNT=$(find "$PGO_DATA_DIR" -name '*.profraw' | wc -l)
+      echo "  Found $PROF_COUNT .profraw files"
+
+      llvm-profdata merge -o "$WORKDIR/merged.profdata" "$PGO_DATA_DIR/" 2>&1
+
+      # Pass 2: Build with profile data
+      echo "  Rust PGO Pass 2: Building optimized binary..."
+      RUSTFLAGS="-Cprofile-use=$WORKDIR/merged.profdata -C target-cpu=native" \
+        cargo build --release -p xdp2-bench \
+        --manifest-path "$RUST_BUILD_DIR/Cargo.toml" \
+        --target-dir "$RUST_BUILD_DIR/target" \
+        2>&1 | tail -5
+
+      echo "  Rust PGO: Build complete"
+      echo ""
+
+      # Benchmark the PGO-optimized binary
+      RUST_OUTPUT=$("$RUST_BUILD_DIR/target/release/xdp2-bench" \
+        --pcap "$WORKDIR/filtered.pcap" --iterations "$ITERATIONS" --warmup 3 2>&1 || true)
+    else
+      # Standard benchmark using pre-built binary
+      RUST_OUTPUT=$(xdp2-bench --pcap filtered.pcap --iterations "$ITERATIONS" --warmup 3 2>&1 || true)
+    fi
+
     echo "$RUST_OUTPUT"
     echo ""
 
@@ -164,6 +289,9 @@ pkgs.writeShellApplication {
     echo "============================================"
     echo "  Side-by-Side Comparison"
     echo "  ($FILTERED_PKTS packets — Rust-parseable subset)"
+    if [[ "$PGO_MODE" == "true" ]]; then
+      echo "  (Both C and Rust PGO-optimized)"
+    fi
     echo "============================================"
     echo ""
     printf "%-20s  %10s  %10s\n" "" "C (ns/pkt)" "Rust (ns/pkt)"

@@ -53,6 +53,7 @@ impl ProtocolOps for CanXlOps {
     /// Return SDT field for dispatch.
     ///
     /// Reimplements: `canxl_proto()` in `proto_canxl.h:50-53`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let xl = CanXlHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

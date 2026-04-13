@@ -75,6 +75,7 @@ impl ProtocolOps for PbbOps {
     /// Return fixed length: I-TAG + inner Ethernet header.
     ///
     /// Reimplements: `pbb_len()` in `proto_pbb.h:57-60`
+    #[inline]
     fn header_len(&self, _hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         Ok(18)
     }
@@ -82,6 +83,7 @@ impl ProtocolOps for PbbOps {
     /// Return inner Ethernet EtherType.
     ///
     /// Reimplements: `pbb_proto()` in `proto_pbb.h:51-54`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let pbb = PbbHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

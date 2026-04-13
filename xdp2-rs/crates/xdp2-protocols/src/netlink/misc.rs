@@ -37,6 +37,7 @@ impl ProtocolOps for GenlmsghdrOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "Generic Netlink";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -72,6 +73,7 @@ impl ProtocolOps for NlattrOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "Netlink Attr";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

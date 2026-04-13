@@ -10,3 +10,7 @@ license = "BSD-2-Clause-FreeBSD"
 [workspace.dependencies]
 zerocopy = { version = "0.8", features = ["derive"] }
 bitflags = "2"
+
+[profile.release]
+lto = "fat"         # Full cross-crate optimization (protocol Ops in xdp2-protocols → parse loop in xdp2-core)
+codegen-units = 1   # Single codegen unit for maximum optimization

@@ -64,6 +64,7 @@ impl ProtocolOps for IbLrhOps {
     /// Return LNH field for dispatch.
     ///
     /// Reimplements: `ib_lrh_proto()` in `proto_ib_lrh.h:54-57`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let lrh = IbLrhHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

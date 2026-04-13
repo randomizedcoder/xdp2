@@ -98,6 +98,7 @@ impl ProtocolOps for Ipv4Ops {
     /// Return header length from IHL field.
     ///
     /// Reimplements: `ipv4_length()` in `proto_ipv4.h:75-78`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let iph = Ipv4Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -111,6 +112,7 @@ impl ProtocolOps for Ipv4Ops {
     ///
     /// Non-first fragments return `StopOkay` (encoded as a negative value
     /// that the engine interprets as "stop parsing, no error").
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let iph = Ipv4Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -141,6 +143,7 @@ impl ProtocolOps for Ipv4CheckOps {
     /// Return header length, checking version is 4.
     ///
     /// Reimplements: `ipv4_length_check()` in `proto_ipv4.h:80-88`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let iph = Ipv4Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -151,6 +154,7 @@ impl ProtocolOps for Ipv4CheckOps {
         Ok(iph.ihl_bytes())
     }
 
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         Ipv4Ops.next_proto(hdr)
     }

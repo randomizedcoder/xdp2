@@ -78,6 +78,7 @@ impl ProtocolOps for Ipv6Ops {
     /// Return next header protocol number.
     ///
     /// Reimplements: `ipv6_proto()` in `proto_ipv6.h:25-28`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let iph = Ipv6Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -102,6 +103,7 @@ impl ProtocolOps for Ipv6StopFlowLabelOps {
     /// Return next header, or stop if flow label is non-zero.
     ///
     /// Reimplements: `ipv6_proto_stopflowlabel()` in `proto_ipv6.h:30-39`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let iph = Ipv6Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -132,6 +134,7 @@ impl ProtocolOps for Ipv6CheckOps {
     /// Return header length, checking version is 6.
     ///
     /// Reimplements: `ipv6_length_check()` in `proto_ipv6.h:41-48`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let iph = Ipv6Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -142,6 +145,7 @@ impl ProtocolOps for Ipv6CheckOps {
         Ok(40)
     }
 
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         Ipv6Ops.next_proto(hdr)
     }

@@ -57,6 +57,7 @@ impl ProtocolOps for UdpLiteOps {
     const MIN_LEN: usize = 8; // sizeof(struct udplitehdr)
     const NAME: &'static str = "UDP-Lite";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

@@ -29,6 +29,7 @@ let
     version = "0.1.0";
     inherit src cargoHash;
     nativeBuildInputs = [ pkgs.pkg-config ];
+    RUSTFLAGS = "-C target-cpu=native";
     meta = {
       description = "Rust reimplementation of the XDP2 packet parsing framework";
       license = pkgs.lib.licenses.bsd2;

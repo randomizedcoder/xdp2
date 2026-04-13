@@ -48,6 +48,7 @@ impl ProtocolOps for ScsiOps {
     const MIN_LEN: usize = 32;
     const NAME: &'static str = "SCSI";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -83,6 +84,7 @@ impl ProtocolOps for IscsiOps {
     const MIN_LEN: usize = 48;
     const NAME: &'static str = "iSCSI";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -112,6 +114,7 @@ impl ProtocolOps for IserOps {
     const MIN_LEN: usize = 28;
     const NAME: &'static str = "iSER";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -141,6 +144,7 @@ impl ProtocolOps for AoeOps {
     const MIN_LEN: usize = 10;
     const NAME: &'static str = "AoE";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -165,6 +169,7 @@ impl ProtocolOps for EthercatOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "EtherCAT";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -198,6 +203,7 @@ impl ProtocolOps for NvmeOps {
     const MIN_LEN: usize = 64;
     const NAME: &'static str = "NVMe";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

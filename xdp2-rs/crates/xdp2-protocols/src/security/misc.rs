@@ -69,6 +69,7 @@ impl ProtocolOps for EspOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "ESP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -105,6 +106,7 @@ impl ProtocolOps for TlsOps {
     const MIN_LEN: usize = 5;
     const NAME: &'static str = "TLS";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -146,6 +148,7 @@ impl ProtocolOps for DtlsOps {
     const MIN_LEN: usize = 13;
     const NAME: &'static str = "DTLS";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -190,6 +193,7 @@ impl ProtocolOps for MacsecOps {
     const MIN_LEN: usize = 6;
     const NAME: &'static str = "MACsec";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -218,6 +222,7 @@ impl ProtocolOps for WireguardOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "WireGuard";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -253,6 +258,7 @@ impl ProtocolOps for EapOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "EAP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -288,6 +294,7 @@ impl ProtocolOps for EapolOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "EAPOL";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -337,6 +344,7 @@ impl ProtocolOps for Ikev2Ops {
     const MIN_LEN: usize = 28;
     const NAME: &'static str = "IKEv2";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -371,6 +379,7 @@ impl ProtocolOps for SshOps {
     const MIN_LEN: usize = 5;
     const NAME: &'static str = "SSH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -398,6 +407,7 @@ impl ProtocolOps for KerberosOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Kerberos";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -425,6 +435,7 @@ impl ProtocolOps for OcspOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "OCSP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -460,6 +471,7 @@ impl ProtocolOps for NtlmsspOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "NTLMSSP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -509,6 +521,7 @@ impl ProtocolOps for TacacsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "TACACS+";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

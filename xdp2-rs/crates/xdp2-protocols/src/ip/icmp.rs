@@ -106,6 +106,7 @@ impl ProtocolOps for IcmpV4Ops {
     /// Return remaining packet length (consumes all bytes).
     ///
     /// Reimplements: `icmp_all_len()` in `proto_icmp.h:39-42`
+    #[inline]
     fn header_len(&self, _hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         Ok(maxlen)
     }
@@ -113,6 +114,7 @@ impl ProtocolOps for IcmpV4Ops {
     /// Return ICMP type for sub-type dispatch.
     ///
     /// Reimplements: `icmp_get_type()` in `proto_icmp.h:48-51`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let icmp = IcmpHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -134,11 +136,13 @@ impl ProtocolOps for IcmpV6Ops {
     const OVERLAY: bool = true;
 
     /// Return remaining packet length.
+    #[inline]
     fn header_len(&self, _hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         Ok(maxlen)
     }
 
     /// Return ICMPv6 type for sub-type dispatch.
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let icmp = Icmp6Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

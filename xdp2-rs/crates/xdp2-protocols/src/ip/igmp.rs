@@ -100,6 +100,7 @@ impl ProtocolOps for IgmpOps {
     const MIN_LEN: usize = 8; // sizeof(struct igmphdr)
     const NAME: &'static str = "IGMP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -114,6 +115,7 @@ impl ProtocolOps for Igmpv3QueryOps {
     const MIN_LEN: usize = 12; // sizeof(struct igmpv3_query)
     const NAME: &'static str = "IGMPv3 Query";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -128,6 +130,7 @@ impl ProtocolOps for Igmpv3ReportOps {
     const MIN_LEN: usize = 8; // sizeof(struct igmpv3_report)
     const NAME: &'static str = "IGMPv3 Report";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

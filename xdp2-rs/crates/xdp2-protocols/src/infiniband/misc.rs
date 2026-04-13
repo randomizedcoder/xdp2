@@ -40,6 +40,7 @@ impl ProtocolOps for IbGrhOps {
     const MIN_LEN: usize = 40;
     const NAME: &'static str = "IB GRH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -75,6 +76,7 @@ impl ProtocolOps for IbBthOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "IB BTH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -98,6 +100,7 @@ impl ProtocolOps for IbRethOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "IB RETH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -119,6 +122,7 @@ impl ProtocolOps for IbAethOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "IB AETH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -150,6 +154,7 @@ impl ProtocolOps for IbDethOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IB DETH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -177,6 +182,7 @@ impl ProtocolOps for IbImmdtOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "IB ImmDt";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -201,6 +207,7 @@ impl ProtocolOps for IbAtomicethOps {
     const MIN_LEN: usize = 28;
     const NAME: &'static str = "IB AtomicETH";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -231,6 +238,7 @@ impl ProtocolOps for IbMadOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "IB MAD";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

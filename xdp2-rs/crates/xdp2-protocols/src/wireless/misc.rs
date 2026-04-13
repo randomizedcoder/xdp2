@@ -21,6 +21,7 @@ impl ProtocolOps for Ieee80211DataOps {
     const MIN_LEN: usize = 0;
     const NAME: &'static str = "802.11 Data";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -35,6 +36,7 @@ impl ProtocolOps for Ieee80211MgmtOps {
     const MIN_LEN: usize = 0;
     const NAME: &'static str = "802.11 Mgmt";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

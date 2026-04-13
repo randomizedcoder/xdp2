@@ -116,6 +116,7 @@ impl ProtocolOps for GeneveBaseOps {
     /// Return Geneve version (upper 2 bits, shifted to 0xC0/0x00).
     ///
     /// Reimplements: `geneve_base_proto()` in `proto_geneve.h:80-83`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.is_empty() {
             return Err(ParseError::Length);
@@ -140,6 +141,7 @@ impl ProtocolOps for GeneveV0Ops {
     /// Return variable header length: 8 + 4 * optlen.
     ///
     /// Reimplements: `geneve_len_v0()` in `proto_geneve.h:90-95`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let geneve = GeneveHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -150,6 +152,7 @@ impl ProtocolOps for GeneveV0Ops {
     /// Return protocol field (EtherType).
     ///
     /// Reimplements: `geneve_proto_v0()` in `proto_geneve.h:85-88`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let geneve = GeneveHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

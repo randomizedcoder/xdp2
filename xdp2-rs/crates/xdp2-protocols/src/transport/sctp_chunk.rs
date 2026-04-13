@@ -117,6 +117,7 @@ impl ProtocolOps for SctpWithChunksOps {
     const MIN_LEN: usize = 12; // sizeof(struct sctphdr)
     const NAME: &'static str = "SCTP with chunks";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // TLV sub-parsing handles chunks
     }

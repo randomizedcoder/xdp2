@@ -32,6 +32,7 @@ impl ProtocolOps for IpOverlayOps {
     /// Return IP version number (4 or 6).
     ///
     /// Reimplements: `ip_proto()` in `proto_ip.h:40-43`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         Ok((hdr[0] >> 4) as i32)
     }

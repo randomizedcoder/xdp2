@@ -63,6 +63,7 @@ impl ProtocolOps for AhOps {
     /// Return AH header length: `(hdrlen + 2) * 4`.
     ///
     /// Reimplements: `ah_len()` in `proto_ah.h:41-44`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         if hdr.len() < 2 {
             return Err(ParseError::Length);
@@ -73,6 +74,7 @@ impl ProtocolOps for AhOps {
     /// Return next IP protocol from `nexthdr` field.
     ///
     /// Reimplements: `ah_next_proto()` in `proto_ah.h:36-39`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.is_empty() {
             return Err(ParseError::Length);

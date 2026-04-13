@@ -45,6 +45,7 @@ impl ProtocolOps for BtBnepOps {
     /// Return EtherType for dispatch.
     ///
     /// Reimplements: `bt_bnep_proto()` in `proto_bt_bnep.h:42-45`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let bnep = BtBnepHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

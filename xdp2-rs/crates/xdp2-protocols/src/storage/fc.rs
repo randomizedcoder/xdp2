@@ -76,6 +76,7 @@ impl ProtocolOps for FcOps {
     /// Return FC type for dispatch.
     ///
     /// Reimplements: `fc_frame_type()` in `proto_fc.h:60-63`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let fc = FcHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

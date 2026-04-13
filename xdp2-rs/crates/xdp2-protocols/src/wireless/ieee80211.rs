@@ -62,6 +62,7 @@ impl ProtocolOps for Ieee80211Ops {
     /// Return frame type for dispatch.
     ///
     /// Reimplements: `ieee80211_proto()` in `proto_ieee80211.h:58-61`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let wifi = Ieee80211Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

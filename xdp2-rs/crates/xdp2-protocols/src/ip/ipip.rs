@@ -31,6 +31,7 @@ impl ProtocolOps for Ipv4InIpOps {
     /// Return 0 indicating IPv4.
     ///
     /// Reimplements: `ipv4_proto_default()` in `proto_ipv4ip.h:36-39`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(0)
     }
@@ -53,6 +54,7 @@ impl ProtocolOps for Ipv6InIpOps {
     /// Return 0 indicating IPv6.
     ///
     /// Reimplements: `ipv6_proto_default()` in `proto_ipv6ip.h:36-39`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(0)
     }

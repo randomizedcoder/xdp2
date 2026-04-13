@@ -65,6 +65,7 @@ pub struct ErspanOps;
 impl ProtocolOps for ErspanOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "ERSPAN";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -92,6 +93,7 @@ pub struct GrePptpOps;
 impl ProtocolOps for GrePptpOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "GRE-PPTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -126,6 +128,7 @@ impl ProtocolOps for GueOps {
     /// Return proto_ctype field (IP protocol number).
     ///
     /// Reimplements: `gue_proto()` in `proto_gue.h:56-59`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let gue = GueHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -165,6 +168,7 @@ impl ProtocolOps for HsrOps {
     /// Return encapsulated EtherType.
     ///
     /// Reimplements: `hsr_proto()` in `proto_hsr.h:44-47`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let h = HsrHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -198,6 +202,7 @@ impl ProtocolOps for LispOps {
     /// Determine inner protocol from first nibble of payload.
     ///
     /// Reimplements: `lisp_proto()` in `proto_lisp.h:44-57`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.len() < 9 {
             return Err(ParseError::Length);
@@ -235,6 +240,7 @@ impl ProtocolOps for LwappOps {
     const NAME: &'static str = "LWAPP";
     const ENCAP: bool = true;
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -275,6 +281,7 @@ impl ProtocolOps for NvgreOps {
     /// Always returns ETH_P_TEB (inner is Ethernet).
     ///
     /// Reimplements: `nvgre_proto()` in `proto_nvgre.h:43-46`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(ETH_P_TEB)
     }
@@ -311,6 +318,7 @@ impl ProtocolOps for PppOps {
     /// Return PPP protocol field.
     ///
     /// Reimplements: `ppp_proto()` in `proto_ppp.h:42-45`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let ppp = PppHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -361,6 +369,7 @@ impl ProtocolOps for PppoeOps {
     /// Return PPP protocol field.
     ///
     /// Reimplements: `pppoe_proto()` in `proto_pppoe.h:51-54`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let pppoe = PppoeHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -399,6 +408,7 @@ impl ProtocolOps for SttOps {
     /// Always returns ETH_P_TEB (inner is Ethernet).
     ///
     /// Reimplements: `stt_proto()` in `proto_stt.h:47-50`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(ETH_P_TEB)
     }
@@ -428,6 +438,7 @@ impl ProtocolOps for TeredoOps {
     /// Always returns ETH_P_IPV6 (inner is IPv6).
     ///
     /// Reimplements: `teredo_proto()` in `proto_teredo.h:44-47`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(ETH_P_IPV6)
     }
@@ -465,6 +476,7 @@ impl ProtocolOps for TzspOps {
     /// Return encapsulated protocol.
     ///
     /// Reimplements: `tzsp_proto()` in `proto_tzsp.h:43-46`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let tzsp = TzspHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -500,6 +512,7 @@ impl ProtocolOps for CapwapOps {
     /// Always returns ETH_P_TEB.
     ///
     /// Reimplements: `capwap_proto()` in `proto_capwap.h:46-49`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(ETH_P_TEB)
     }

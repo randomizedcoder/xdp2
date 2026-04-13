@@ -58,6 +58,7 @@ impl ProtocolOps for VxlanGpeOps {
     /// Map next_protocol to EtherType for dispatch.
     ///
     /// Reimplements: `vxlan_gpe_proto()` in `proto_vxlan_gpe.h:52-66`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let vgpe = VxlanGpeHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

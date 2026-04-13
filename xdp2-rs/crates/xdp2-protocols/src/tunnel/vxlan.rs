@@ -54,6 +54,7 @@ impl ProtocolOps for VxlanOps {
     /// Always returns ETH_P_TEB — VXLAN encapsulates Ethernet.
     ///
     /// Reimplements: `vxlan_proto()` in `proto_vxlan.h:25-28`
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Ok(ETH_P_TEB)
     }

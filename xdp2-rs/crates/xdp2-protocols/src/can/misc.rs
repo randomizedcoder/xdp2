@@ -46,6 +46,7 @@ impl ProtocolOps for CanOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "CAN";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -82,6 +83,7 @@ impl ProtocolOps for CanFdOps {
     const MIN_LEN: usize = 72;
     const NAME: &'static str = "CAN FD";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

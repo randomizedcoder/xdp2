@@ -55,6 +55,7 @@ impl ProtocolOps for UdpOps {
     const NAME: &'static str = "UDP";
 
     /// UDP is a leaf — no next protocol.
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

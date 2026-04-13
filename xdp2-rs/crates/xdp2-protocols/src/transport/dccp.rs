@@ -71,6 +71,7 @@ impl ProtocolOps for DccpOps {
     /// Return header length from data offset field.
     ///
     /// Reimplements: `dccp_len()` in `proto_dccp.h:48-51`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let dccp = DccpHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -78,6 +79,7 @@ impl ProtocolOps for DccpOps {
         Ok(dccp.header_length())
     }
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

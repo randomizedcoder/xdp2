@@ -113,6 +113,7 @@ impl ProtocolOps for GreBaseOps {
     const OVERLAY: bool = true;
 
     /// Return GRE version for dispatch (0 or 1).
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let gre = GreHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -138,6 +139,7 @@ impl ProtocolOps for GreV0Ops {
     /// Validate flags and compute header length.
     ///
     /// Reimplements: `gre_v0_len_check()` in `proto_gre.h:44-53`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let gre = GreHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -163,6 +165,7 @@ impl ProtocolOps for GreV0Ops {
     /// Return encapsulated protocol (EtherType).
     ///
     /// Reimplements: `gre_v0_proto()` in `proto_gre.h:62-65`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let gre = GreHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

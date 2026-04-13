@@ -40,6 +40,7 @@ impl ProtocolOps for HciCommandOps {
     const MIN_LEN: usize = 3;
     const NAME: &'static str = "HCI Command";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -63,6 +64,7 @@ impl ProtocolOps for HciEventOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "HCI Event";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -86,6 +88,7 @@ impl ProtocolOps for HciAclOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "HCI ACL";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -109,6 +112,7 @@ impl ProtocolOps for HciScoOps {
     const MIN_LEN: usize = 3;
     const NAME: &'static str = "HCI SCO";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -132,6 +136,7 @@ impl ProtocolOps for HciIsoOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "HCI ISO";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -164,6 +169,7 @@ impl ProtocolOps for L2capOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "L2CAP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -187,6 +193,7 @@ impl ProtocolOps for BtRfcommOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "BT RFCOMM";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -211,6 +218,7 @@ impl ProtocolOps for BtSdpOps {
     const MIN_LEN: usize = 5;
     const NAME: &'static str = "BT SDP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -233,6 +241,7 @@ impl ProtocolOps for BtAttOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "BT ATT";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -255,6 +264,7 @@ impl ProtocolOps for BtSmpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "BT SMP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }
@@ -278,6 +288,7 @@ impl ProtocolOps for BtAvdtpOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "BT AVDTP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

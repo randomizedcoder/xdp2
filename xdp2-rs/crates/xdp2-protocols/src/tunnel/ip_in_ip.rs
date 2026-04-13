@@ -29,6 +29,7 @@ impl ProtocolOps for IpInIpOps {
     /// Return inner IPv4 header length: IHL * 4.
     ///
     /// Reimplements: `ip_in_ip_length()` in `proto_ip_in_ip.h:52-55`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         if hdr.is_empty() {
             return Err(ParseError::Length);
@@ -40,6 +41,7 @@ impl ProtocolOps for IpInIpOps {
     /// Return inner IPv4 protocol field.
     ///
     /// Reimplements: `ip_in_ip_proto()` in `proto_ip_in_ip.h:47-50`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.len() < 10 {
             return Err(ParseError::Length);

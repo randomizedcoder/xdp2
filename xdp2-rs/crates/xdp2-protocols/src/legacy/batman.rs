@@ -62,6 +62,7 @@ impl ProtocolOps for BatmanOps {
     /// Validate BATMAN header and return fixed length.
     ///
     /// Reimplements: `batman_len_check()` in `proto_batman.h:72-81`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let bat = BatmanHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -75,6 +76,7 @@ impl ProtocolOps for BatmanOps {
     /// Return inner EtherType for dispatch.
     ///
     /// Reimplements: `batman_proto()` in `proto_batman.h:83-86`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let bat = BatmanHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

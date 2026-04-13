@@ -71,6 +71,7 @@ impl ProtocolOps for PpoedOps {
     const MIN_LEN: usize = 6; // sizeof(struct ppoed_hdr)
     const NAME: &'static str = "PPPoE Discovery";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

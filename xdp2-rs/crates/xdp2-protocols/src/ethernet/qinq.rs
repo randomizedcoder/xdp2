@@ -33,6 +33,7 @@ impl ProtocolOps for QinQOps {
     /// Return encapsulated EtherType (typically 0x8100 for inner VLAN).
     ///
     /// Reimplements: `vlan_proto()` in `proto_vlan.h:20-23` (reused by QinQ)
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let vh = VlanHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

@@ -63,6 +63,7 @@ impl ProtocolOps for MplsOps {
     const MIN_LEN: usize = 8; // 2 * sizeof(struct mpls_label)
     const NAME: &'static str = "MPLS";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

@@ -89,6 +89,7 @@ impl ProtocolOps for ArpOps {
     /// Validate ARP header and return fixed length.
     ///
     /// Reimplements: `arp_len_check()` in `proto_arp_rarp.h:34-48`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let earp = EtherArpHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -107,6 +108,7 @@ impl ProtocolOps for ArpOps {
         Ok(28) // sizeof(struct earphdr)
     }
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -123,10 +125,12 @@ impl ProtocolOps for RarpOps {
     const MIN_LEN: usize = 28;
     const NAME: &'static str = "RARP";
 
+    #[inline]
     fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         ArpOps.header_len(hdr, maxlen)
     }
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

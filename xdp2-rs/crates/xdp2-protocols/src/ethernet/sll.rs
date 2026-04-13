@@ -60,6 +60,7 @@ impl ProtocolOps for SllOps {
     /// Return the protocol field (EtherType).
     ///
     /// Reimplements: `sll_proto()` in `proto_sll.h:45-48`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let sll = SllHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -119,6 +120,7 @@ impl ProtocolOps for Sll2Ops {
     /// Return the protocol field (EtherType).
     ///
     /// Reimplements: `sll2_proto()` in `proto_sll2.h:47-50`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let sll2 = Sll2Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

@@ -102,6 +102,7 @@ impl ProtocolOps for RtpOps {
     const MIN_LEN: usize = 12; // sizeof(struct rtphdr)
     const NAME: &'static str = "RTP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -116,6 +117,7 @@ impl ProtocolOps for RtcpOps {
     const MIN_LEN: usize = 8; // sizeof(struct rtcp_hdr)
     const NAME: &'static str = "RTCP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

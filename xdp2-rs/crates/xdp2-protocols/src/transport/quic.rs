@@ -46,6 +46,7 @@ impl ProtocolOps for QuicOps {
     const MIN_LEN: usize = 1; // sizeof(struct quic_hdr)
     const NAME: &'static str = "QUIC";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

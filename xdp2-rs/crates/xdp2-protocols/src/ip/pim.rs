@@ -48,6 +48,7 @@ impl ProtocolOps for PimOps {
     const MIN_LEN: usize = 4; // sizeof(struct pimhdr)
     const NAME: &'static str = "PIM";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

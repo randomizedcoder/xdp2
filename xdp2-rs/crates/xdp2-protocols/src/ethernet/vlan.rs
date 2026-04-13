@@ -73,6 +73,7 @@ impl ProtocolOps for VlanOps {
     /// Return encapsulated EtherType.
     ///
     /// Reimplements: `vlan_proto()` in `proto_vlan.h:20-23`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let vh = VlanHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

@@ -79,6 +79,7 @@ impl ProtocolOps for Srv6Ops {
     /// Return header length: `(hdrextlen + 1) * 8`.
     ///
     /// Reimplements: `ipv6_srv6_len()` in `proto_srv6.h:39-42`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let srv6 = Srv6Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -89,6 +90,7 @@ impl ProtocolOps for Srv6Ops {
     /// Return next header protocol.
     ///
     /// Reimplements: `ipv6_srv6_proto()` in `proto_srv6.h:34-37`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let srv6 = Srv6Header::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

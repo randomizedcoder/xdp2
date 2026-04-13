@@ -75,6 +75,7 @@ impl ProtocolOps for LlcOps {
     const MIN_LEN: usize = 3; // sizeof(struct llc_hdr)
     const NAME: &'static str = "LLC";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -96,6 +97,7 @@ impl ProtocolOps for LlcSnapOps {
     /// Return encapsulated EtherType.
     ///
     /// Reimplements: `llc_snap_next_proto()` in `proto_llc.h:55-58`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let snap = LlcSnapHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

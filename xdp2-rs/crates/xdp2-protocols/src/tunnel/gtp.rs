@@ -64,6 +64,7 @@ impl ProtocolOps for GtpuOps {
     /// Determine inner protocol from first nibble of payload.
     ///
     /// Reimplements: `gtpu_proto()` in `proto_gtp.h:48-61`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.len() < 9 {
             return Err(ParseError::Length);
@@ -102,6 +103,7 @@ impl ProtocolOps for GtpcOps {
     const MIN_LEN: usize = 8; // sizeof(struct gtpchdr)
     const NAME: &'static str = "GTP-C";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

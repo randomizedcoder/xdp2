@@ -42,6 +42,7 @@ impl ProtocolOps for L2tpBaseOps {
     /// Return L2TP version (lower 4 bits of byte 1).
     ///
     /// Reimplements: `l2tp_proto_version()` in `proto_l2tp.h:36-39`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.len() < 2 {
             return Err(ParseError::Length);
@@ -82,6 +83,7 @@ impl ProtocolOps for L2tpV0BaseOps {
     /// Compute variable header length from flags.
     ///
     /// Reimplements: `l2tp_v0_base_len_check()` in `proto_l2tp_v0.h:80-83`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         if hdr.len() < 2 {
             return Err(ParseError::Length);
@@ -93,6 +95,7 @@ impl ProtocolOps for L2tpV0BaseOps {
     /// Return whether offset-size field is present.
     ///
     /// Reimplements: `l2tp_v0_base_proto_version()` in `proto_l2tp_v0.h:85-88`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.len() < 2 {
             return Err(ParseError::Length);
@@ -116,6 +119,7 @@ impl ProtocolOps for L2tpV0OffszOps {
     /// Return offset-size field length: 2 + value.
     ///
     /// Reimplements: `l2tp_v0_offsz_len()` in `proto_l2tp_v0.h:90-93`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         if hdr.len() < 2 {
             return Err(ParseError::Length);
@@ -124,6 +128,7 @@ impl ProtocolOps for L2tpV0OffszOps {
         Ok(2 + offset_size)
     }
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

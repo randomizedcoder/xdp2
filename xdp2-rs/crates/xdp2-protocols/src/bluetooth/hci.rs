@@ -44,6 +44,7 @@ impl ProtocolOps for HciOps {
     /// Return HCI packet type for dispatch.
     ///
     /// Reimplements: `hci_proto()` in `proto_hci.h:51-54`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         if hdr.is_empty() {
             return Err(ParseError::Length);

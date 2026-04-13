@@ -31,6 +31,7 @@ pub struct DnsOps;
 impl ProtocolOps for DnsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "DNS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -40,6 +41,7 @@ pub struct MdnsOps;
 impl ProtocolOps for MdnsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "mDNS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -49,6 +51,7 @@ pub struct NbnsOps;
 impl ProtocolOps for NbnsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "NBNS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -58,6 +61,7 @@ pub struct LlmnrOps;
 impl ProtocolOps for LlmnrOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "LLMNR";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -88,6 +92,7 @@ pub struct DhcpOps;
 impl ProtocolOps for DhcpOps {
     const MIN_LEN: usize = 236;
     const NAME: &'static str = "DHCP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -102,6 +107,7 @@ pub struct Dhcpv6Ops;
 impl ProtocolOps for Dhcpv6Ops {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "DHCPv6";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -125,6 +131,7 @@ pub struct NtpOps;
 impl ProtocolOps for NtpOps {
     const MIN_LEN: usize = 48;
     const NAME: &'static str = "NTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -144,6 +151,7 @@ pub struct BgpOps;
 impl ProtocolOps for BgpOps {
     const MIN_LEN: usize = 19;
     const NAME: &'static str = "BGP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -163,6 +171,7 @@ pub struct OspfOps;
 impl ProtocolOps for OspfOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "OSPF";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -183,6 +192,7 @@ pub struct IsisOps;
 impl ProtocolOps for IsisOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IS-IS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -198,6 +208,7 @@ pub struct EigrpOps;
 impl ProtocolOps for EigrpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "EIGRP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -213,6 +224,7 @@ pub struct RipOps;
 impl ProtocolOps for RipOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "RIP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -230,6 +242,7 @@ pub struct LldpOps;
 impl ProtocolOps for LldpOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "LLDP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -254,6 +267,7 @@ pub struct StpOps;
 impl ProtocolOps for StpOps {
     const MIN_LEN: usize = 35;
     const NAME: &'static str = "STP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -267,6 +281,7 @@ pub struct MacControlOps;
 impl ProtocolOps for MacControlOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "MAC Control";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -280,6 +295,7 @@ pub struct LacpOps;
 impl ProtocolOps for LacpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "LACP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -293,6 +309,7 @@ pub struct SlowOps;
 impl ProtocolOps for SlowOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Slow";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -306,6 +323,7 @@ pub struct MvrpOps;
 impl ProtocolOps for MvrpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "MVRP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -329,6 +347,7 @@ pub struct VrrpOps;
 impl ProtocolOps for VrrpOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "VRRP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -351,6 +370,7 @@ pub struct HsrpOps;
 impl ProtocolOps for HsrpOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "HSRP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -366,6 +386,7 @@ pub struct GlbpOps;
 impl ProtocolOps for GlbpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "GLBP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -382,6 +403,7 @@ pub struct CarpOps;
 impl ProtocolOps for CarpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CARP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -402,6 +424,7 @@ pub struct CfmOps;
 impl ProtocolOps for CfmOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CFM";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -420,6 +443,7 @@ pub struct SnmpOps;
 impl ProtocolOps for SnmpOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "SNMP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -436,6 +460,7 @@ pub struct RadiusOps;
 impl ProtocolOps for RadiusOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "RADIUS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -455,6 +480,7 @@ pub struct DiameterOps;
 impl ProtocolOps for DiameterOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "Diameter";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -470,6 +496,7 @@ pub struct HttpOps;
 impl ProtocolOps for HttpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "HTTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -486,6 +513,7 @@ pub struct Http2Ops;
 impl ProtocolOps for Http2Ops {
     const MIN_LEN: usize = 9;
     const NAME: &'static str = "HTTP/2";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -497,6 +525,7 @@ pub struct RtspOps;
 impl ProtocolOps for RtspOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "RTSP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -508,6 +537,7 @@ pub struct FtpOps;
 impl ProtocolOps for FtpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "FTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -523,6 +553,7 @@ pub struct SipOps;
 impl ProtocolOps for SipOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "SIP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -534,6 +565,7 @@ pub struct SmtpOps;
 impl ProtocolOps for SmtpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "SMTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -545,6 +577,7 @@ pub struct ImapOps;
 impl ProtocolOps for ImapOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "IMAP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -556,6 +589,7 @@ pub struct TelnetOps;
 impl ProtocolOps for TelnetOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Telnet";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -570,6 +604,7 @@ pub struct TftpOps;
 impl ProtocolOps for TftpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "TFTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -584,6 +619,7 @@ pub struct MqttOps;
 impl ProtocolOps for MqttOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "MQTT";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -601,6 +637,7 @@ pub struct AmqpOps;
 impl ProtocolOps for AmqpOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "AMQP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -617,6 +654,7 @@ pub struct KafkaOps;
 impl ProtocolOps for KafkaOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "Kafka";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -628,6 +666,7 @@ pub struct RedisOps;
 impl ProtocolOps for RedisOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Redis";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -649,6 +688,7 @@ pub struct MemcacheOps;
 impl ProtocolOps for MemcacheOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "Memcache";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -660,6 +700,7 @@ pub struct ZeromqOps;
 impl ProtocolOps for ZeromqOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "ZeroMQ";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -682,6 +723,7 @@ pub struct OncRpcOps;
 impl ProtocolOps for OncRpcOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "ONC RPC";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -695,6 +737,7 @@ pub struct NfsOps;
 impl ProtocolOps for NfsOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "NFS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -709,6 +752,7 @@ pub struct LdapOps;
 impl ProtocolOps for LdapOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "LDAP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -722,6 +766,7 @@ pub struct SmbOps;
 impl ProtocolOps for SmbOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "SMB";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -735,6 +780,7 @@ pub struct Smb2Ops;
 impl ProtocolOps for Smb2Ops {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "SMB2";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -755,6 +801,7 @@ pub struct ModbusOps;
 impl ProtocolOps for ModbusOps {
     const MIN_LEN: usize = 7;
     const NAME: &'static str = "Modbus";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -768,6 +815,7 @@ pub struct ProfinetOps;
 impl ProtocolOps for ProfinetOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "Profinet";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -783,6 +831,7 @@ pub struct CoapOps;
 impl ProtocolOps for CoapOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CoAP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -801,6 +850,7 @@ pub struct Dnp3Ops;
 impl ProtocolOps for Dnp3Ops {
     const MIN_LEN: usize = 10;
     const NAME: &'static str = "DNP3";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -816,6 +866,7 @@ pub struct BacnetOps;
 impl ProtocolOps for BacnetOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "BACnet";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -830,6 +881,7 @@ pub struct CipOps;
 impl ProtocolOps for CipOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "CIP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -846,6 +898,7 @@ pub struct IecGooseOps;
 impl ProtocolOps for IecGooseOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IEC GOOSE";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -862,6 +915,7 @@ pub struct IecSvOps;
 impl ProtocolOps for IecSvOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IEC SV";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -876,6 +930,7 @@ pub struct IecMmsOps;
 impl ProtocolOps for IecMmsOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "IEC MMS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -894,6 +949,7 @@ pub struct EnipOps;
 impl ProtocolOps for EnipOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "EtherNet/IP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -914,6 +970,7 @@ pub struct LdpOps;
 impl ProtocolOps for LdpOps {
     const MIN_LEN: usize = 10;
     const NAME: &'static str = "LDP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -930,6 +987,7 @@ pub struct MplsOamOps;
 impl ProtocolOps for MplsOamOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "MPLS OAM";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -950,6 +1008,7 @@ pub struct OpenflowOps;
 impl ProtocolOps for OpenflowOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "OpenFlow";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -961,6 +1020,7 @@ pub struct HomePlugAvOps;
 impl ProtocolOps for HomePlugAvOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "HomePlug AV";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -989,6 +1049,7 @@ pub struct PtpOps;
 impl ProtocolOps for PtpOps {
     const MIN_LEN: usize = 34;
     const NAME: &'static str = "PTP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1010,6 +1071,7 @@ pub struct NetflowV5Ops;
 impl ProtocolOps for NetflowV5Ops {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "Netflow v5";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1028,6 +1090,7 @@ pub struct NetflowV9Ops;
 impl ProtocolOps for NetflowV9Ops {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "Netflow v9";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1045,6 +1108,7 @@ pub struct IpfixOps;
 impl ProtocolOps for IpfixOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "IPFIX";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1064,6 +1128,7 @@ pub struct CdpOps;
 impl ProtocolOps for CdpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CDP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1081,6 +1146,7 @@ pub struct LltdOps;
 impl ProtocolOps for LltdOps {
     const MIN_LEN: usize = 10;
     const NAME: &'static str = "LLTD";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1094,6 +1160,7 @@ pub struct WolOps;
 impl ProtocolOps for WolOps {
     const MIN_LEN: usize = 6;
     const NAME: &'static str = "WoL";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1105,6 +1172,7 @@ pub struct SyslogOps;
 impl ProtocolOps for SyslogOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Syslog";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1121,6 +1189,7 @@ pub struct NcsiOps;
 impl ProtocolOps for NcsiOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "NC-SI";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1142,6 +1211,7 @@ pub struct BfdOps;
 impl ProtocolOps for BfdOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "BFD";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1158,6 +1228,7 @@ pub struct StunOps;
 impl ProtocolOps for StunOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "STUN";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1169,6 +1240,7 @@ pub struct MgcpOps;
 impl ProtocolOps for MgcpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "MGCP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1184,6 +1256,7 @@ pub struct SkinnyOps;
 impl ProtocolOps for SkinnyOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "Skinny";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1199,6 +1272,7 @@ pub struct OpcUaOps;
 impl ProtocolOps for OpcUaOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "OPC UA";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1216,6 +1290,7 @@ pub struct ZigbeeNwkOps;
 impl ProtocolOps for ZigbeeNwkOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "Zigbee NWK";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1234,6 +1309,7 @@ pub struct ZigbeeApsOps;
 impl ProtocolOps for ZigbeeApsOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "Zigbee APS";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 
@@ -1252,6 +1328,7 @@ pub struct FipOps;
 impl ProtocolOps for FipOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "FIP";
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
 }
 

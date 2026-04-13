@@ -69,6 +69,7 @@ pub trait ProtocolOps: Send + Sync {
     /// # Arguments
     /// - `hdr`: Packet bytes starting at this protocol header (guaranteed >= MIN_LEN)
     /// - `maxlen`: Maximum remaining packet bytes
+    #[inline]
     fn header_len(&self, _hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         Ok(Self::MIN_LEN)
     }

@@ -59,6 +59,7 @@ impl ProtocolOps for NetlinkOps {
     /// Return nlmsg_type for dispatch.
     ///
     /// Reimplements: `netlink_proto()` in `proto_netlink.h:54-57`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let nl = NetlinkHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

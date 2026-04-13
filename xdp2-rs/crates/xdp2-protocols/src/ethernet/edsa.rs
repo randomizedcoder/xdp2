@@ -52,6 +52,7 @@ impl ProtocolOps for EdsaOps {
     /// Return inner EtherType.
     ///
     /// Reimplements: `edsa_proto()` in `proto_edsa.h:43-46`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let edsa = EdsaHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

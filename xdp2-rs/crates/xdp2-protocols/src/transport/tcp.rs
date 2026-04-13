@@ -70,6 +70,7 @@ impl ProtocolOps for TcpOps {
     const NAME: &'static str = "TCP";
 
     /// Return header length from data offset field.
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let tcp = TcpHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -78,6 +79,7 @@ impl ProtocolOps for TcpOps {
     }
 
     /// TCP is a leaf — no next protocol.
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
     }

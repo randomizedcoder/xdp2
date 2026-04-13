@@ -90,6 +90,7 @@ impl ProtocolOps for MldOps {
     const MIN_LEN: usize = 24; // sizeof(struct mld_msg) = 8 + 16
     const NAME: &'static str = "MLD";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -104,6 +105,7 @@ impl ProtocolOps for Mldv2QueryOps {
     const MIN_LEN: usize = 28; // sizeof(struct mld2_query)
     const NAME: &'static str = "MLDv2 Query";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }
@@ -118,6 +120,7 @@ impl ProtocolOps for Mldv2ReportOps {
     const MIN_LEN: usize = 12; // sizeof(struct mld2_report) = 8 + 2 + 2
     const NAME: &'static str = "MLDv2 Report";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

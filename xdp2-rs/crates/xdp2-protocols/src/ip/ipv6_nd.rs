@@ -77,10 +77,12 @@ impl ProtocolOps for Icmpv6NdSolicitOps {
     /// Consumes all remaining bytes.
     ///
     /// Reimplements: `icmpv6_nd_all_len()` in `proto_ipv6_nd.h:65-68`
+    #[inline]
     fn header_len(&self, _hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         Ok(maxlen)
     }
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf (TLV options are sub-parsed)
     }

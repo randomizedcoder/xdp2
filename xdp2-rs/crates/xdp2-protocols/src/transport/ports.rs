@@ -48,6 +48,7 @@ impl ProtocolOps for PortsOps {
     const MIN_LEN: usize = 4; // sizeof(struct port_hdr)
     const NAME: &'static str = "Transport with ports";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

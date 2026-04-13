@@ -117,6 +117,7 @@ impl ProtocolOps for Ipv6EhOps {
     /// Return header length from hdrlen field.
     ///
     /// Reimplements: `ipv6_eh_len()` in `proto_ipv6_eh.h:42-45`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         let opt = Ipv6OptHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -127,6 +128,7 @@ impl ProtocolOps for Ipv6EhOps {
     /// Return next header type.
     ///
     /// Reimplements: `ipv6_eh_proto()` in `proto_ipv6_eh.h:37-40`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let opt = Ipv6OptHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -150,6 +152,7 @@ impl ProtocolOps for Ipv6FragOps {
     /// Return next header, stopping at non-first fragments.
     ///
     /// Reimplements: `ipv6_frag_proto()` in `proto_ipv6_eh.h:47-56`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let frag = Ipv6FragHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
@@ -173,6 +176,7 @@ impl ProtocolOps for Ipv6FragStopAllOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IPv6 Frag EH (stop all)";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         // Always stop — no next_proto defined in C
         Err(ParseError::UnknownProto)
@@ -195,6 +199,7 @@ impl ProtocolOps for Ipv6RoutingHdrOps {
     const OVERLAY: bool = true;
 
     /// Return header length using standard EH formula.
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         // Uses the same hdrlen field as generic EH
         if hdr.len() < 2 {
@@ -206,6 +211,7 @@ impl ProtocolOps for Ipv6RoutingHdrOps {
     /// Return routing header type for sub-type dispatch.
     ///
     /// Reimplements: `ipv6_routing_header_proto()` in `proto_ipv6_eh.h:58-61`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let rh = Ipv6RoutingHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?

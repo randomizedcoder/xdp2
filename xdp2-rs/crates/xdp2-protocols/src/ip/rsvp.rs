@@ -54,6 +54,7 @@ impl ProtocolOps for RsvpOps {
     const MIN_LEN: usize = 8; // sizeof(struct rsvphdr)
     const NAME: &'static str = "RSVP";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

@@ -35,6 +35,7 @@ impl ProtocolOps for TipcOps {
     const MIN_LEN: usize = 16; // sizeof(struct tipc_basic_hdr) = 4 * 4
     const NAME: &'static str = "TIPC";
 
+    #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto) // Leaf node
     }

@@ -59,6 +59,7 @@ impl ProtocolOps for TrillOps {
     /// Return fixed header length (20 bytes).
     ///
     /// Reimplements: `trill_len()` in `proto_trill.h:59-62`
+    #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
         if hdr.len() < 20 {
             return Err(ParseError::Length);
@@ -69,6 +70,7 @@ impl ProtocolOps for TrillOps {
     /// Return inner EtherType for dispatch.
     ///
     /// Reimplements: `trill_proto()` in `proto_trill.h:53-56`
+    #[inline]
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         let trill = TrillHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
