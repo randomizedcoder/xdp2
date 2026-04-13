@@ -82,6 +82,12 @@ struct Cli {
     /// Which parser implementation to benchmark.
     #[arg(long, value_enum, default_value_t = ParserMode::Graph)]
     mode: ParserMode,
+
+    /// Number of worker threads for the multi-core benchmark.
+    /// When > 1, perf counters are disabled (they are per-thread and
+    /// not aggregated here). `--perf` still works with `--threads 1`.
+    #[arg(long, default_value_t = 1)]
+    threads: usize,
 }
 
 fn main() {
@@ -190,37 +196,121 @@ fn main() {
         .filter(|pkt| graph_mono::parse_packet_mono(&pkt.data).is_ok())
         .count();
 
-    if run_graph {
-        let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
-            // Sum successes into a black_box-fed accumulator so the
-            // compiler cannot elide the loop.
-            let mut acc: u64 = 0;
-            for pkt in &packets {
-                if graph::parse_packet(&parser, &pkt.data).is_ok() {
-                    acc += 1;
+    if cli.threads <= 1 {
+        if run_graph {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                // Sum successes into a black_box-fed accumulator so the
+                // compiler cannot elide the loop.
+                let mut acc: u64 = 0;
+                for pkt in &packets {
+                    if graph::parse_packet(&parser, &pkt.data).is_ok() {
+                        acc += 1;
+                    }
                 }
-            }
-            std::hint::black_box(acc);
-        });
-        report("graph    ", ns, total_pkts, snap);
-    }
+                std::hint::black_box(acc);
+            });
+            report("graph    ", ns, total_pkts, snap);
+        }
 
-    if run_mono {
-        let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
-            let mut acc: u64 = 0;
-            for pkt in &packets {
-                if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
-                    acc += 1;
+        if run_mono {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                let mut acc: u64 = 0;
+                for pkt in &packets {
+                    if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
+                        acc += 1;
+                    }
                 }
-            }
-            std::hint::black_box(acc);
-        });
-        report("mono     ", ns, total_pkts, snap);
+                std::hint::black_box(acc);
+            });
+            report("mono     ", ns, total_pkts, snap);
+        }
+    } else {
+        eprintln!(
+            "Multi-threaded benchmark: {} threads (perf counters disabled)",
+            cli.threads
+        );
+        if run_graph {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let mut acc: u64 = 0;
+                for pkt in slice {
+                    if graph::parse_packet(&parser, &pkt.data).is_ok() {
+                        acc += 1;
+                    }
+                }
+                acc
+            });
+            report_mt("graph-mt ", ns, total_pkts, cli.threads);
+        }
+
+        if run_mono {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let mut acc: u64 = 0;
+                for pkt in slice {
+                    if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
+                        acc += 1;
+                    }
+                }
+                acc
+            });
+            report_mt("mono-mt  ", ns, total_pkts, cli.threads);
+        }
     }
 
     println!(
         "Correctness: graph ok={}/{}, mono ok={}/{}",
         graph_ok, npkts, mono_ok, npkts
+    );
+}
+
+/// Multi-threaded benchmark: split packets across `threads` workers, each
+/// processing its chunk `iterations` times. The work closure must be `Sync`
+/// (each thread calls it with a disjoint slice). Returns wallclock nanos.
+fn run_mt<F>(
+    packets: &[&pcap::StoredPacket],
+    iterations: u32,
+    threads: usize,
+    work: F,
+) -> u64
+where
+    F: Fn(&[&pcap::StoredPacket]) -> u64 + Sync,
+{
+    let chunk = packets.len().div_ceil(threads);
+    let slices: Vec<&[&pcap::StoredPacket]> = packets.chunks(chunk).collect();
+    let work = &work;
+
+    let t_start = Instant::now();
+    std::thread::scope(|s| {
+        let mut handles = Vec::with_capacity(slices.len());
+        for slice in slices {
+            handles.push(s.spawn(move || {
+                let mut acc: u64 = 0;
+                for _ in 0..iterations {
+                    acc = acc.wrapping_add(work(slice));
+                }
+                std::hint::black_box(acc)
+            }));
+        }
+        for h in handles {
+            let _ = h.join();
+        }
+    });
+    t_start.elapsed().as_nanos() as u64
+}
+
+fn report_mt(label: &str, ns: u64, total_pkts: u64, threads: usize) {
+    let avg = ns / total_pkts;
+    let mpps = if ns > 0 {
+        (total_pkts as f64 * 1000.0) / ns as f64
+    } else {
+        0.0
+    };
+    println!(
+        "Rust {}: {} ns/pkt wall,  {:.1} Mpps  ({}T, {:.2} Mpps/thread)",
+        label,
+        avg,
+        mpps,
+        threads,
+        mpps / threads as f64
     );
 }
 

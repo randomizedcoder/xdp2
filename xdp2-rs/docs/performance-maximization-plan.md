@@ -14,7 +14,9 @@ optimizations already applied.
 | Engine | ns/pkt | Mpps | Ratio to C |
 |--------|--------|------|------------|
 | C (xdp2-compiler, `-O2 -march=native`) | 182 | 5 | 1.00x |
-| Rust (fat LTO + `#[inline]`) | 59 | 16 | **0.32x (3.1x faster)** |
+| Rust graph (fat LTO + `#[inline]`) | 59 | 16 | **0.32x (3.1x faster)** |
+| Rust mono (hand-rolled, Step 2) | 10 | 100 | **0.055x (18x faster)** |
+| Rust mono × 16 threads (Step 6) | — | 1046 | **190x C throughput** |
 
 The Rust engine outperforms C at scale due to a more compact code footprint
 that stays hot in L1/L2 instruction cache. However, we're still flying blind
@@ -220,6 +222,35 @@ depends on use case. For single-flow low-latency parsing (e.g., intrusion
 detection on a single stream), stick with Steps 1-5. For aggregate
 throughput (all-flow analysis), multi-core is the biggest knob.
 
+**Measured scaling (AMD Ryzen Threadripper PRO 3945WX, 12c/24t,
+500K filtered packets × 10 iterations, mono parser):**
+
+| Threads | Mpps (mono) | Mpps / thread | Notes |
+|---------|-------------|---------------|-------|
+| 1       |    100      |  100          | Single-core baseline |
+| 2       |    179      |   89          | Near-linear |
+| 4       |    352      |   88          | Near-linear, NUMA-local |
+| 8       |    596      |   74          | L3 bandwidth starts to matter |
+| 12      |    821      |   68          | All physical cores busy |
+| 16      | **1046**    |   65          | **Peak — 1.05 Gpps** |
+| 24      |    680      |   28          | SMT contention, counter-productive |
+
+At 16 threads we exceed **1 billion packets per second** on a single host.
+The packet set is ~72 MB, so each thread's slice fits comfortably in L2
+on the first pass and the remaining passes are L3-resident — this is why
+per-thread throughput stays so high even at 12 threads.
+
+The 24-thread regression is not a bug: at that point each SMT pair is
+competing for the same core's L1 and execution ports, and the parser is
+already issue-bound (IPC 1.47 → lower under contention). For this
+workload, stop at ~N_physical_cores; SMT is not a win.
+
+**Implementation:** `run_mt` in `xdp2-bench/src/main.rs`:
+partitions packets into equal chunks, spawns one `std::thread::scope`
+worker per chunk, each running `iterations` full passes with a
+black-box-fed accumulator. No synchronization in the inner loop — every
+byte read is from a shared read-only buffer.
+
 ### Step 7: Kernel-Bypass I/O Integration
 
 **Goal:** Feed the parser at line rate from a real NIC.
@@ -256,9 +287,10 @@ which one actually helped.
 | LTO + `#[inline]` | done | 59 | 16 | Current baseline |
 | Step 1: CPU counters | done | 62 | 16 | IPC 2.24, branch-miss 0.47%, cache-miss 1.87% |
 | Step 2: Monomorphized graph (PoC) | done | **10** | **100** | Hand-rolled mono parser: 6.4x faster, 35 cycles/pkt, 52 ins/pkt |
-| Step 3: SIMD header parsing | deferred | — | — | Maybe — IPC 2.24 leaves some compute room |
+| Step 3: SIMD header parsing | skip | — | — | After mono, IPC 1.47 — load-latency bound, not compute |
 | Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
+| Step 6: Multi-core (mono) | done | — | **1046** | 16 threads, Threadripper 3945WX (12c/24t) |
 | Step 6: Multi-core | not started | — | — | Throughput, not latency |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 
