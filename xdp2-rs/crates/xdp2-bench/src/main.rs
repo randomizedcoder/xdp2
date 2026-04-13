@@ -47,7 +47,10 @@ enum ParserMode {
     Graph,
     /// Hand-rolled monomorphic parser (Step 2 proof-of-concept).
     Mono,
-    /// Run both back-to-back for direct A/B comparison.
+    /// Mono parser, outer loop software-pipelined 4 packets wide.
+    /// Feeds the OoO engine 4 independent parse chains per iteration.
+    MonoX4,
+    /// Run graph + mono + mono-x4 back-to-back for direct A/B/C comparison.
     Both,
 }
 
@@ -182,6 +185,7 @@ fn main() {
 
     let run_graph = matches!(cli.mode, ParserMode::Graph | ParserMode::Both);
     let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
+    let run_monox4 = matches!(cli.mode, ParserMode::MonoX4 | ParserMode::Both);
 
     // Correctness & anti-DCE: count successful parses across one full sweep
     // and print the total. This prevents LLVM from eliding the parse body
@@ -224,6 +228,13 @@ fn main() {
             });
             report("mono     ", ns, total_pkts, snap);
         }
+
+        if run_monox4 {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                std::hint::black_box(bench_mono_x4(&packets));
+            });
+            report("mono-x4  ", ns, total_pkts, snap);
+        }
     } else {
         eprintln!(
             "Multi-threaded benchmark: {} threads (perf counters disabled)",
@@ -231,6 +242,7 @@ fn main() {
         );
         if run_graph {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let slice = std::hint::black_box(slice);
                 let mut acc: u64 = 0;
                 for pkt in slice {
                     if graph::parse_packet(&parser, &pkt.data).is_ok() {
@@ -244,6 +256,7 @@ fn main() {
 
         if run_mono {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let slice = std::hint::black_box(slice);
                 let mut acc: u64 = 0;
                 for pkt in slice {
                     if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
@@ -253,6 +266,13 @@ fn main() {
                 acc
             });
             report_mt("mono-mt  ", ns, total_pkts, cli.threads);
+        }
+
+        if run_monox4 {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                bench_mono_x4(slice)
+            });
+            report_mt("mono-x4-mt", ns, total_pkts, cli.threads);
         }
     }
 
@@ -295,6 +315,44 @@ where
         }
     });
     t_start.elapsed().as_nanos() as u64
+}
+
+/// Software-pipelined scalar parser: process 4 packets per iteration with
+/// 4 independent parse chains visible to the compiler and OoO engine.
+///
+/// The theory: a single mono parse is a serial dependent-load chain
+/// (ethertype → protocol → ...) capped by the OoO window's ability to
+/// overlap the next packet. By explicitly fanning out to 4 in-flight
+/// packets per loop iteration, we give the scheduler 4x the independent
+/// work and potentially hide the per-packet load-latency.
+///
+/// Returns the count of successful parses so the caller can black_box it.
+#[inline(never)]
+fn bench_mono_x4(packets: &[&pcap::StoredPacket]) -> u64 {
+    use graph_mono::parse_packet_mono as mono;
+
+    // `black_box` on the input prevents LLVM from inferring the call as
+    // `readonly` + loop-invariant and hoisting it out of the caller's
+    // `for _ in 0..iterations { work(slice) }` loop (which happened
+    // initially and produced fake 10x multi-thread numbers).
+    let packets = std::hint::black_box(packets);
+    let mut acc: u64 = 0;
+    let mut chunks = packets.chunks_exact(4);
+    for c in chunks.by_ref() {
+        // Four independent parse chains. With `#[inline]` on mono's
+        // internals and fat LTO, the compiler can interleave the loads
+        // from all four packets across the OoO window.
+        let r0 = mono(&c[0].data).is_ok() as u64;
+        let r1 = mono(&c[1].data).is_ok() as u64;
+        let r2 = mono(&c[2].data).is_ok() as u64;
+        let r3 = mono(&c[3].data).is_ok() as u64;
+        acc += r0 + r1 + r2 + r3;
+    }
+    // Tail.
+    for pkt in chunks.remainder() {
+        acc += mono(&pkt.data).is_ok() as u64;
+    }
+    acc
 }
 
 fn report_mt(label: &str, ns: u64, total_pkts: u64, threads: usize) {

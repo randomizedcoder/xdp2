@@ -16,7 +16,7 @@ optimizations already applied.
 | C (xdp2-compiler, `-O2 -march=native`) | 182 | 5 | 1.00x |
 | Rust graph (fat LTO + `#[inline]`) | 59 | 16 | **0.32x (3.1x faster)** |
 | Rust mono (hand-rolled, Step 2) | 10 | 100 | **0.055x (18x faster)** |
-| Rust mono × 16 threads (Step 6) | — | 1046 | **190x C throughput** |
+| Rust mono × 16 threads (Step 6) | — | 1195 | **239x C throughput** |
 
 The Rust engine outperforms C at scale due to a more compact code footprint
 that stays hot in L1/L2 instruction cache. However, we're still flying blind
@@ -300,17 +300,21 @@ detection on a single stream), stick with Steps 1-5. For aggregate
 throughput (all-flow analysis), multi-core is the biggest knob.
 
 **Measured scaling (AMD Ryzen Threadripper PRO 3945WX, 12c/24t,
-500K filtered packets × 10 iterations, mono parser):**
+500K filtered packets × 50 iterations, mono parser, `black_box` on
+each worker's slice to prevent LLVM LICM):**
 
 | Threads | Mpps (mono) | Mpps / thread | Notes |
 |---------|-------------|---------------|-------|
 | 1       |    100      |  100          | Single-core baseline |
-| 2       |    179      |   89          | Near-linear |
-| 4       |    352      |   88          | Near-linear, NUMA-local |
-| 8       |    596      |   74          | L3 bandwidth starts to matter |
-| 12      |    821      |   68          | All physical cores busy |
-| 16      | **1046**    |   65          | **Peak — 1.05 Gpps** |
-| 24      |    680      |   28          | SMT contention, counter-productive |
+| 4       |    370      |   93          | Near-linear |
+| 8       |    713      |   89          | Near-linear |
+| 12      |    959      |   80          | All physical cores busy |
+| 16      | **1195**    |   75          | **Peak — 1.2 Gpps** |
+| 24      |   1094      |   46          | SMT contention, net negative |
+
+Earlier short runs (10 iterations) reported 1046 Mpps at this same
+configuration — that was undersampled, not inflated. Use ≥50 iterations
+for stable numbers.
 
 At 16 threads we exceed **1 billion packets per second** on a single host.
 The packet set is ~72 MB, so each thread's slice fits comfortably in L2
@@ -342,6 +346,50 @@ byte read is from a shared read-only buffer.
 **Expected impact:** Enables the parser to run at production line rates.
 Zero improvement to parser microbenchmarks.
 
+### Step 6a — Software-Pipelined Scalar (x4)
+
+**Goal:** Test whether the out-of-order engine has spare scheduling
+headroom on a single packet. If so, interleaving 4 independent parse
+chains per loop iteration should shorten wall-time by fanning out
+dependent-load chains across the OoO window.
+
+**Approach:** `bench_mono_x4` in `xdp2-bench/src/main.rs` — process
+packets in groups of 4 with 4 fully independent `parse_packet_mono`
+calls per iteration. No new parser; just a restructured outer loop.
+
+**Result:**
+
+| Config | Mpps | cycles/pkt | IPC |
+|--------|------|------------|-----|
+| mono (1T)    | 100  | 36.6 | 1.44 |
+| mono-x4 (1T) | 100  | 35.0 | 1.49 |
+| mono-mt (16T)    | 1195 | — | — |
+| mono-x4-mt (16T) | 1180 | — | — |
+
+Single-thread: ~4% fewer cycles and ~3% higher IPC. Real, but at the
+measurement-noise boundary for a wall-clock ns/pkt number.
+
+Multi-thread: no benefit. At 16 threads the L3 and core-private memory
+paths saturate; adding software-level interleaving on top does not
+extract more because the system is already bandwidth-limited rather
+than OoO-window-limited.
+
+**Conclusion:** the OoO engine is already nearly saturated on a single
+packet. To extract meaningfully more per-thread throughput we need to
+either (a) shorten the per-packet critical path itself, or (b) use true
+SIMD to issue batched loads across packets (Step 3b). Software pipelining
+alone is a dead end for this workload at this code size.
+
+**Lesson — LLVM LICM can invalidate pure-function benchmarks.** The
+first x4 run reported 4x multi-thread speedups that turned out to be
+fake: `bench_mono_x4` is `#[inline(never)]` and pure, so LLVM hoisted
+the call out of the worker's `for _ in 0..iterations` loop and
+effectively divided the work by `iterations`. Fix: `black_box` the
+input slice at the top of the function (and at the top of every MT
+worker closure) so the compiler must assume each call has a distinct
+input and cannot reuse the previous result. This is now standard
+practice in `xdp2-bench`.
+
 ## Measurement Discipline
 
 Every step follows the same pattern:
@@ -368,7 +416,8 @@ which one actually helped.
 | Step 3b: Cross-packet (batch) SIMD | deferred | — | — | High ROI on uniform-path traffic (NIC-steered queues); requires pipeline rewrite |
 | Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
-| Step 6: Multi-core (mono) | done | — | **1046** | 16 threads, Threadripper 3945WX (12c/24t) |
+| Step 6: Multi-core (mono) | done | — | **1195** | 16 threads, Threadripper 3945WX (12c/24t), 50 iterations |
+| Step 6a: Software-pipelined x4 | done | 35 (−1) | 100 (0) | ~4% cycles single-thread, zero win multi-thread — OoO window nearly full |
 | Step 6: Multi-core | not started | — | — | Throughput, not latency |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 
