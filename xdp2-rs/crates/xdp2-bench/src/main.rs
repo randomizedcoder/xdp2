@@ -36,6 +36,7 @@ mod graph_mono;
 mod pcap;
 mod perf;
 
+use std::fmt::Write as _;
 use std::process;
 use std::time::Instant;
 
@@ -94,6 +95,46 @@ struct Cli {
     /// not aggregated here). `--perf` still works with `--threads 1`.
     #[arg(long, default_value_t = 1)]
     threads: usize,
+
+    /// Emit machine-parseable JSON report to stdout instead of
+    /// human-readable text. Suitable for automated collection.
+    #[arg(long)]
+    report: bool,
+}
+
+/// Collected result from one benchmark run.
+struct BenchResult {
+    mode: String,
+    ns_pkt: u64,
+    mpps: f64,
+    threads: usize,
+    total_pkts: u64,
+    perf: Option<perf::PerfSnapshot>,
+}
+
+impl BenchResult {
+    fn new(
+        mode: &str,
+        ns: u64,
+        total_pkts: u64,
+        threads: usize,
+        perf: Option<perf::PerfSnapshot>,
+    ) -> Self {
+        let ns_pkt = if total_pkts > 0 { ns / total_pkts } else { 0 };
+        let mpps = if ns > 0 {
+            (total_pkts as f64 * 1000.0) / ns as f64
+        } else {
+            0.0
+        };
+        Self {
+            mode: mode.to_string(),
+            ns_pkt,
+            mpps,
+            threads,
+            total_pkts,
+            perf,
+        }
+    }
 }
 
 fn main() {
@@ -181,10 +222,12 @@ fn main() {
 
     let total_pkts = npkts as u64 * cli.iterations as u64;
 
-    println!(
-        "--- Performance ({} packets x {} iterations) ---",
-        npkts, cli.iterations
-    );
+    if !cli.report {
+        println!(
+            "--- Performance ({} packets x {} iterations) ---",
+            npkts, cli.iterations
+        );
+    }
 
     let run_graph = matches!(cli.mode, ParserMode::Graph | ParserMode::Both);
     let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
@@ -208,6 +251,8 @@ fn main() {
         .filter(|pkt| graph_compiled::parse_packet(&pkt.data).is_ok())
         .count();
 
+    let mut results: Vec<BenchResult> = Vec::new();
+
     if cli.threads <= 1 {
         if run_graph {
             let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
@@ -221,7 +266,7 @@ fn main() {
                 }
                 std::hint::black_box(acc);
             });
-            report("graph    ", ns, total_pkts, snap);
+            results.push(BenchResult::new("graph", ns, total_pkts, 1, snap));
         }
 
         if run_mono {
@@ -234,14 +279,14 @@ fn main() {
                 }
                 std::hint::black_box(acc);
             });
-            report("mono     ", ns, total_pkts, snap);
+            results.push(BenchResult::new("mono", ns, total_pkts, 1, snap));
         }
 
         if run_monox4 {
             let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
                 std::hint::black_box(bench_mono_x4(&packets));
             });
-            report("mono-x4  ", ns, total_pkts, snap);
+            results.push(BenchResult::new("mono-x4", ns, total_pkts, 1, snap));
         }
 
         if run_compiled {
@@ -254,13 +299,15 @@ fn main() {
                 }
                 std::hint::black_box(acc);
             });
-            report("compiled ", ns, total_pkts, snap);
+            results.push(BenchResult::new("compiled", ns, total_pkts, 1, snap));
         }
     } else {
-        eprintln!(
-            "Multi-threaded benchmark: {} threads (perf counters disabled)",
-            cli.threads
-        );
+        if !cli.report {
+            eprintln!(
+                "Multi-threaded benchmark: {} threads (perf counters disabled)",
+                cli.threads
+            );
+        }
         if run_graph {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
                 let slice = std::hint::black_box(slice);
@@ -272,7 +319,7 @@ fn main() {
                 }
                 acc
             });
-            report_mt("graph-mt ", ns, total_pkts, cli.threads);
+            results.push(BenchResult::new("graph-mt", ns, total_pkts, cli.threads, None));
         }
 
         if run_mono {
@@ -286,14 +333,14 @@ fn main() {
                 }
                 acc
             });
-            report_mt("mono-mt  ", ns, total_pkts, cli.threads);
+            results.push(BenchResult::new("mono-mt", ns, total_pkts, cli.threads, None));
         }
 
         if run_monox4 {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
                 bench_mono_x4(slice)
             });
-            report_mt("mono-x4-mt", ns, total_pkts, cli.threads);
+            results.push(BenchResult::new("mono-x4-mt", ns, total_pkts, cli.threads, None));
         }
 
         if run_compiled {
@@ -307,14 +354,34 @@ fn main() {
                 }
                 acc
             });
-            report_mt("compiled-mt", ns, total_pkts, cli.threads);
+            results.push(BenchResult::new("compiled-mt", ns, total_pkts, cli.threads, None));
         }
     }
 
-    println!(
-        "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}",
-        graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts
-    );
+    // Output results
+    if cli.report {
+        print_json_report(
+            &cli.pcap,
+            npkts,
+            cli.iterations,
+            &results,
+            graph_ok,
+            mono_ok,
+            compiled_ok,
+        );
+    } else {
+        for r in &results {
+            if r.threads > 1 {
+                report_mt(&r.mode, r.ns_pkt, r.mpps, r.threads);
+            } else {
+                report(r);
+            }
+        }
+        println!(
+            "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}",
+            graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts
+        );
+    }
 }
 
 /// Multi-threaded benchmark: split packets across `threads` workers, each
@@ -390,17 +457,11 @@ fn bench_mono_x4(packets: &[&pcap::StoredPacket]) -> u64 {
     acc
 }
 
-fn report_mt(label: &str, ns: u64, total_pkts: u64, threads: usize) {
-    let avg = ns / total_pkts;
-    let mpps = if ns > 0 {
-        (total_pkts as f64 * 1000.0) / ns as f64
-    } else {
-        0.0
-    };
+fn report_mt(mode: &str, ns_pkt: u64, mpps: f64, threads: usize) {
     println!(
-        "Rust {}: {} ns/pkt wall,  {:.1} Mpps  ({}T, {:.2} Mpps/thread)",
-        label,
-        avg,
+        "Rust {:<11}: {} ns/pkt wall,  {:.1} Mpps  ({}T, {:.2} Mpps/thread)",
+        mode,
+        ns_pkt,
         mpps,
         threads,
         mpps / threads as f64
@@ -430,14 +491,58 @@ fn time_run<F: FnMut()>(
     (ns, snap)
 }
 
-fn report(label: &str, ns: u64, total_pkts: u64, snap: Option<perf::PerfSnapshot>) {
-    let avg = ns / total_pkts;
-    print!("Rust {}: {} ns/pkt", label, avg);
-    if avg > 0 {
-        print!(",  {} Mpps", 1000 / avg);
+fn report(r: &BenchResult) {
+    print!("Rust {:<9}: {} ns/pkt", r.mode, r.ns_pkt);
+    if r.mpps > 0.0 {
+        print!(",  {:.0} Mpps", r.mpps);
     }
     println!();
-    if let Some(s) = snap {
-        s.report(total_pkts);
+    if let Some(ref s) = r.perf {
+        s.report(r.total_pkts);
     }
+}
+
+fn print_json_report(
+    pcap: &str,
+    npkts: usize,
+    iterations: u32,
+    results: &[BenchResult],
+    graph_ok: usize,
+    mono_ok: usize,
+    compiled_ok: usize,
+) {
+    let mut json = String::with_capacity(2048);
+    writeln!(json, "{{").unwrap();
+    writeln!(json, "  \"pcap\": \"{pcap}\",").unwrap();
+    writeln!(json, "  \"packets\": {npkts},").unwrap();
+    writeln!(json, "  \"iterations\": {iterations},").unwrap();
+    writeln!(json, "  \"correctness\": {{").unwrap();
+    writeln!(json, "    \"graph\": {graph_ok},").unwrap();
+    writeln!(json, "    \"mono\": {mono_ok},").unwrap();
+    writeln!(json, "    \"compiled\": {compiled_ok}").unwrap();
+    writeln!(json, "  }},").unwrap();
+    writeln!(json, "  \"results\": [").unwrap();
+    for (i, r) in results.iter().enumerate() {
+        let comma = if i + 1 < results.len() { "," } else { "" };
+        write!(json, "    {{").unwrap();
+        write!(json, "\"mode\": \"{}\", ", r.mode).unwrap();
+        write!(json, "\"ns_pkt\": {}, ", r.ns_pkt).unwrap();
+        write!(json, "\"mpps\": {:.1}, ", r.mpps).unwrap();
+        write!(json, "\"threads\": {}, ", r.threads).unwrap();
+        write!(json, "\"total_pkts\": {}", r.total_pkts).unwrap();
+        if let Some(ref p) = r.perf {
+            write!(json, ", \"perf\": {{").unwrap();
+            write!(json, "\"cycles\": {}, ", p.cycles).unwrap();
+            write!(json, "\"instructions\": {}, ", p.instructions).unwrap();
+            write!(json, "\"branches\": {}, ", p.branches).unwrap();
+            write!(json, "\"branch_misses\": {}, ", p.branch_misses).unwrap();
+            write!(json, "\"cache_refs\": {}, ", p.cache_refs).unwrap();
+            write!(json, "\"cache_misses\": {}", p.cache_misses).unwrap();
+            write!(json, "}}").unwrap();
+        }
+        writeln!(json, "}}{comma}").unwrap();
+    }
+    writeln!(json, "  ]").unwrap();
+    writeln!(json, "}}").unwrap();
+    print!("{json}");
 }
