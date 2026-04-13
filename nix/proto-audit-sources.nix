@@ -241,7 +241,7 @@ in
   # producing a pre-extracted JSON cache of protocol fields for cross-source audit.
   pcapCorpus = pkgs.runCommand "pcap-corpus" {
     nativeBuildInputs = [ tshark pkgs.python314 ];
-    inherit packetlifePcaps wiresharkSamples;
+    inherit packetlifePcaps wiresharkSamples omiDataPackets;
   } ''
     mkdir -p $out/pdml
 
@@ -280,6 +280,16 @@ in
     echo "  Found $(wc -l < /tmp/ws_files.txt) files in Wireshark samples"
     extract_pdml "wireshark" $(cat /tmp/ws_files.txt)
 
+    echo "Extracting PDML from OMI trading PCAPs..."
+    # OMI sample PCAPs (Ethernet/UDP/TCP framing — trading payload stays opaque
+    # without Lua dissectors). Each OMI protocol is extracted with its matching
+    # Lua dissector on-demand by `extract --source tshark` in Phase 2; here we
+    # just get network-layer PDML for corpus stats and ensure reproducible
+    # coverage of real exchange traffic framing.
+    find $omiDataPackets -type f \( -name '*.pcap' -o -name '*.pcapng' \) > /tmp/omi_files.txt
+    echo "  Found $(wc -l < /tmp/omi_files.txt) files in OMI data packets"
+    extract_pdml "omi" $(cat /tmp/omi_files.txt)
+
     # Build summary: list all unique dissector names found across all PDML files
     echo "Building protocol summary..."
     python3 ${../samples/proto_audit/helpers/summarize_corpus.py} \
@@ -296,6 +306,7 @@ in
     wiresharkSamples = wiresharkSamplesRev;
     omiCStructs = omiCStructsRev;
     omiDataPackets = omiDataPacketsRev;
+    omiWiresharkLua = omiWiresharkLuaRev;
     tshark = tshark.version or "unknown";
     scapy = scapyPython.version or "unknown";
   };
