@@ -4,7 +4,7 @@
 //! 1. Forward: extractor produces correct IR field properties
 //! 2. Reverse: TOML reverse lookup confirms the original mapping is consistent
 
-use crate::extractors::{etherparse, kernel, libpcap, scapy, tshark};
+use crate::extractors::{etherparse, kernel, libpcap, omi, scapy, tshark};
 use crate::ir::{Endian, FieldDef, FieldType};
 use crate::test_data::*;
 use crate::type_mapping;
@@ -936,4 +936,93 @@ fn pcap_roundtrip_tcp_tshark() {
     assert!(tcp.is_some(), "tshark should find TCP protocol in generated PCAP");
 
     let _ = std::fs::remove_file(&tmp);
+}
+
+// ── OMI (Open Markets Initiative) roundtrip tests ──
+
+#[test]
+fn roundtrip_omi_soupbin_packet_header() {
+    let mappings = type_mapping::load_omi_mappings(None).unwrap();
+    let def = omi::extract_from_source(
+        OMI_SOUPBIN_PACKET_HEADER,
+        "SoupBinTCP_PacketHeader",
+        "PacketHeaderT",
+        "nasdaq/Nasdaq.Common.SoupBinTcp.Ouch.v3.0.h",
+        &mappings,
+    )
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(def.fields.len(), 2);
+    assert_eq!(def.min_header_bits, 24);
+    assert_field(&def.fields, "PacketLength", 0, 16, FieldType::Uint, Endian::Big);
+    // char PacketType → Enum via field_type_overrides
+    assert_field(&def.fields, "PacketType", 16, 8, FieldType::Enum, Endian::Na);
+}
+
+#[test]
+fn roundtrip_omi_itch_non_cross_trade() {
+    let mappings = type_mapping::load_omi_mappings(None).unwrap();
+    let def = omi::extract_from_source(
+        OMI_ITCH_NON_CROSS_TRADE,
+        "ITCH_v5_NonCrossTrade",
+        "NonCrossTradeMessageT",
+        "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h",
+        &mappings,
+    )
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(def.fields.len(), 9);
+    // 16+16+8+64+8+32+64+32+64 = 304 bits = 38 bytes
+    assert_eq!(def.min_header_bits, 304);
+
+    assert_field(&def.fields, "StockLocate", 0, 16, FieldType::Uint, Endian::Big);
+    assert_field(&def.fields, "TrackingNumber", 16, 16, FieldType::Uint, Endian::Big);
+    // OMI's char Timestamp is 1 byte — a known wire/struct divergence
+    // (wire format uses 6 bytes). Preserved as a cross-source finding.
+    assert_field(&def.fields, "Timestamp", 32, 8, FieldType::Uint, Endian::Na);
+    assert_field(&def.fields, "OrderReferenceNumber", 40, 64, FieldType::Uint, Endian::Big);
+    // BuySellIndicator → Enum via field_type_overrides
+    assert_field(&def.fields, "BuySellIndicator", 104, 8, FieldType::Enum, Endian::Na);
+    assert_field(&def.fields, "Shares", 112, 32, FieldType::Uint, Endian::Big);
+    // char[8] → 64 bits, Na endian (ASCII symbol override)
+    assert_field(&def.fields, "Stock", 144, 64, FieldType::Uint, Endian::Na);
+    assert_field(&def.fields, "Price", 208, 32, FieldType::Uint, Endian::Big);
+    assert_field(&def.fields, "MatchNumber", 240, 64, FieldType::Uint, Endian::Big);
+}
+
+#[test]
+fn roundtrip_omi_sbe_message_header() {
+    let mappings = type_mapping::load_omi_mappings(None).unwrap();
+    let def = omi::extract_from_source(
+        OMI_SBE_MESSAGE_HEADER,
+        "SBE_MDP3_MessageHeader",
+        "MessageHeaderT",
+        "cme/Cme.Futures.Mdp3.Sbe.v1.13.h",
+        &mappings,
+    )
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(def.fields.len(), 4);
+    assert_eq!(def.min_header_bits, 64);
+    // CME SBE is little-endian by spec
+    assert_field(&def.fields, "BlockLength", 0, 16, FieldType::Uint, Endian::Little);
+    assert_field(&def.fields, "TemplateId", 16, 16, FieldType::Uint, Endian::Little);
+    assert_field(&def.fields, "SchemaId", 32, 16, FieldType::Uint, Endian::Little);
+    assert_field(&def.fields, "Version", 48, 16, FieldType::Uint, Endian::Little);
+}
+
+#[test]
+fn roundtrip_omi_name_mapping_lookup() {
+    let p = crate::name_mapping::find_by_canonical("ITCH_v5_NonCrossTrade").unwrap();
+    assert_eq!(p.omi_struct, Some("NonCrossTradeMessageT"));
+    assert_eq!(
+        p.omi_file,
+        Some("nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+    );
+
+    let p2 = crate::name_mapping::find_by_omi_struct("NonCrossTradeMessageT").unwrap();
+    assert_eq!(p2.canonical, "ITCH_v5_NonCrossTrade");
 }

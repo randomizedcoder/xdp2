@@ -130,6 +130,7 @@
             export PROTO_AUDIT_IANA_DIR="''${PROTO_AUDIT_IANA_DIR:-${protoAuditSources.ianaRegistries}}"
             export PROTO_AUDIT_KAITAI_DIR="''${PROTO_AUDIT_KAITAI_DIR:-${protoAuditSources.kaitaiFormats}}"
             export PROTO_AUDIT_SURICATA_DIR="''${PROTO_AUDIT_SURICATA_DIR:-${protoAuditSources.suricataSrc}}"
+            export PROTO_AUDIT_OMI_CSTRUCTS_DIR="''${PROTO_AUDIT_OMI_CSTRUCTS_DIR:-${protoAuditSources.omiCStructs}}"
             exec proto-audit "$@"
           '';
         };
@@ -144,6 +145,7 @@
           "--pcap ${test-pcap}/combo.pcap"
           "--etherparse-src ${protoAuditSources.etherparseSrc}"
           "--libpcap-src ${protoAuditSources.libpcapSrc}"
+          "--omi-cstructs-dir ${protoAuditSources.omiCStructs}"
         ];
 
         # Full audit report (cached Nix derivation)

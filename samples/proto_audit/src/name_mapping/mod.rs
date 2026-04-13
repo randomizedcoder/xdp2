@@ -41,6 +41,10 @@ pub struct ProtocolNames {
     pub suricata_module: Option<&'static str>,
     /// Suricata struct name (e.g., "DnsHeader")
     pub suricata_struct: Option<&'static str>,
+    /// OMI c-struct typedef name (e.g., "NonCrossTradeMessageT")
+    pub omi_struct: Option<&'static str>,
+    /// OMI c-struct source file (e.g., "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+    pub omi_file: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -72,6 +76,8 @@ impl ProtocolNames {
             kaitai_file: None,
             suricata_module: None,
             suricata_struct: None,
+            omi_struct: None,
+            omi_file: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -133,6 +139,13 @@ impl ProtocolNames {
     pub const fn suricata(mut self, module: &'static str, struct_name: &'static str) -> Self {
         self.suricata_module = Some(module);
         self.suricata_struct = Some(struct_name);
+        self
+    }
+
+    /// Set both OMI c-struct typedef name and source file path.
+    pub const fn omi(mut self, struct_name: &'static str, file: &'static str) -> Self {
+        self.omi_struct = Some(struct_name);
+        self.omi_file = Some(file);
         self
     }
 
@@ -226,6 +239,13 @@ pub fn find_by_suricata_struct(name: &str) -> Option<ProtocolNames> {
         .find(|p| p.suricata_struct == Some(name))
 }
 
+/// Look up a protocol by its OMI c-struct typedef name.
+pub fn find_by_omi_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.omi_struct == Some(name))
+}
+
 /// Build a HashMap from source-specific name → canonical name.
 ///
 /// `source` must be one of: "xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"
@@ -242,6 +262,7 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             "libpcap" => p.libpcap_name.map(|s| s.to_string()),
             "kaitai" => p.kaitai_id.map(|s| s.to_string()),
             "suricata" => p.suricata_struct.map(|s| s.to_string()),
+            "omi" => p.omi_struct.map(|s| s.to_string()),
             _ => None,
         };
         if let Some(n) = name {

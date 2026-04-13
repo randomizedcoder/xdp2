@@ -409,3 +409,47 @@ struct dns_header {
     uint16_t dns_ar_count;
 };
 "#;
+
+// ── OMI (Open Markets Initiative) trading protocols ──
+
+/// SoupBinTCP packet header — transport for ITCH/OUCH.
+/// 3 bytes: uint16 PacketLength (big-endian) + char PacketType.
+pub const OMI_SOUPBIN_PACKET_HEADER: &str = r#"
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t PacketLength;
+    char PacketType;
+} PacketHeaderT;
+#pragma pack(pop)
+"#;
+
+/// ITCH v5.0 NonCrossTrade message — the canonical worked example.
+/// 38 bytes total, Nasdaq = big-endian.
+pub const OMI_ITCH_NON_CROSS_TRADE: &str = r#"
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t StockLocate;
+    uint16_t TrackingNumber;
+    char Timestamp;
+    uint64_t OrderReferenceNumber;
+    char BuySellIndicator;
+    uint32_t Shares;
+    char Stock[8];
+    uint32_t Price;
+    uint64_t MatchNumber;
+} NonCrossTradeMessageT;
+#pragma pack(pop)
+"#;
+
+/// CME SBE MDP3 MessageHeader — little-endian by spec.
+/// 8 bytes: four uint16_t fields.
+pub const OMI_SBE_MESSAGE_HEADER: &str = r#"
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t BlockLength;
+    uint16_t TemplateId;
+    uint16_t SchemaId;
+    uint16_t Version;
+} MessageHeaderT;
+#pragma pack(pop)
+"#;

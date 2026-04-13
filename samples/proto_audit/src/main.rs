@@ -75,6 +75,10 @@ pub(crate) struct SourcePaths {
     /// Path to Suricata Rust source directory
     #[arg(long, env = "PROTO_AUDIT_SURICATA_DIR")]
     pub(crate) suricata_dir: Option<PathBuf>,
+
+    /// Path to OMI c-structs source tree
+    #[arg(long, env = "PROTO_AUDIT_OMI_CSTRUCTS_DIR")]
+    pub(crate) omi_cstructs_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]

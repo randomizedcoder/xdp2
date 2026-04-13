@@ -2162,5 +2162,67 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_erspan_v3").tshark("erspan").variable(),
         PN::new("VXLAN_GBP", 8)
             .xdp2("xdp2_parse_vxlan_gbp").tshark("vxlan").variable(),
+
+        // ── Trading Protocols (OMI) ──
+        // Open Markets Initiative auto-generated packed C struct headers.
+        // One entry per wire message type; dispatch via MessageType char field.
+
+        // SoupBinTCP transport (wraps ITCH/OUCH payloads)
+        PN::new("SoupBinTCP_PacketHeader", 3)
+            .omi("PacketHeaderT", "nasdaq/Nasdaq.Common.SoupBinTcp.Ouch.v3.0.h"),
+        PN::new("SoupBinTCP_LoginRequest", 46)
+            .omi("LoginRequestPacketT", "nasdaq/Nasdaq.Common.SoupBinTcp.Ouch.v3.0.h"),
+        PN::new("SoupBinTCP_LoginAccepted", 30)
+            .omi("LoginAcceptedPacketT", "nasdaq/Nasdaq.Common.SoupBinTcp.Ouch.v3.0.h"),
+        PN::new("SoupBinTCP_LoginRejected", 1)
+            .omi("LoginRejectedPacketT", "nasdaq/Nasdaq.Common.SoupBinTcp.Ouch.v3.0.h"),
+        PN::new("SoupBinTCP_SequencedData", 1)
+            .omi("SequencedDataPacketT", "nasdaq/Nasdaq.Common.SoupBinTcp.Ouch.v3.0.h"),
+
+        // Nasdaq ITCH v5.0 (TotalView) — market data feed
+        PN::new("ITCH_v5_SystemEvent", 6)
+            .omi("SystemEventMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_StockDirectory", 26)
+            .omi("StockDirectoryMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_StockTradingAction", 19)
+            .omi("StockTradingActionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_AddOrder", 30)
+            .omi("AddOrderNoMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_AddOrderMPID", 34)
+            .omi("AddOrderWithMpidAttributionMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_OrderExecuted", 25)
+            .omi("OrderExecutedMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_OrderExecutedWithPrice", 30)
+            .omi("OrderExecutedWithPriceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_OrderCancel", 17)
+            .omi("OrderCancelMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_OrderDelete", 13)
+            .omi("OrderDeleteMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_OrderReplace", 29)
+            .omi("OrderReplaceMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_NonCrossTrade", 38)
+            .omi("NonCrossTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_CrossTrade", 39)
+            .omi("CrossTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+        PN::new("ITCH_v5_BrokenTrade", 19)
+            .omi("BrokenTradeMessageT", "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h"),
+
+        // CBOE PITCH v2 (BZX Equities Depth-of-Book)
+        PN::new("PITCH_v2_AddOrderShort", 26)
+            .omi("AddOrderShortMessageT", "cboe/Cboe.Bzx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
+        PN::new("PITCH_v2_AddOrderLong", 34)
+            .omi("AddOrderLongMessageT", "cboe/Cboe.Bzx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
+        PN::new("PITCH_v2_OrderExecuted", 26)
+            .omi("OrderExecutedMessageT", "cboe/Cboe.Bzx.Equities.DepthOfBook.Pitch.v2.41.29.h"),
+
+        // CME Simple Binary Encoding (MDP 3.0) — little-endian
+        PN::new("SBE_MDP3_MessageHeader", 8)
+            .omi("MessageHeaderT", "cme/Cme.Futures.Mdp3.Sbe.v1.13.h"),
+        PN::new("SBE_MDP3_BinaryPacketHeader", 12)
+            .omi("BinaryPacketHeaderT", "cme/Cme.Futures.Mdp3.Sbe.v1.13.h"),
+
+        // Eurex T7 EOBI (Enhanced Order Book Interface) — little-endian
+        PN::new("EOBI_TradeReport", 16)
+            .omi("TradeReportT", "eurex/Eurex.Derivatives.Eobi.T7.v12.0.h"),
     ]
 }

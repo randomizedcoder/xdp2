@@ -14,6 +14,7 @@ mod scapy;
 mod tshark;
 mod etherparse;
 mod libpcap;
+mod omi;
 mod scapy_gen;
 
 pub use kernel::*;
@@ -21,6 +22,7 @@ pub use scapy::*;
 pub use tshark::*;
 pub use etherparse::*;
 pub use libpcap::*;
+pub use omi::*;
 pub use scapy_gen::*;
 
 use std::path::Path;
@@ -39,6 +41,7 @@ const DEFAULT_ETHERPARSE_TOML: &str = include_str!("../../mappings/etherparse.to
 const DEFAULT_ETHERPARSE_GEN_TOML: &str = include_str!("../../mappings/etherparse_gen.toml");
 const DEFAULT_SCAPY_GEN_TOML: &str = include_str!("../../mappings/scapy_gen.toml");
 const DEFAULT_LIBPCAP_TOML: &str = include_str!("../../mappings/libpcap.toml");
+const DEFAULT_OMI_TOML: &str = include_str!("../../mappings/omi.toml");
 
 // ── Shared types ──
 
@@ -122,6 +125,11 @@ pub fn load_scapy_gen_mappings(dir: Option<&Path>) -> Result<ScapyGenMappings> {
 /// Load libpcap mappings from a directory, or use embedded defaults.
 pub fn load_libpcap_mappings(dir: Option<&Path>) -> Result<LibpcapMappings> {
     load_mappings(dir, "libpcap.toml", DEFAULT_LIBPCAP_TOML)
+}
+
+/// Load OMI (Open Markets Initiative) mappings from a directory, or use embedded defaults.
+pub fn load_omi_mappings(dir: Option<&Path>) -> Result<OmiMappings> {
+    load_mappings(dir, "omi.toml", DEFAULT_OMI_TOML)
 }
 
 fn load_mappings<T: serde::de::DeserializeOwned>(

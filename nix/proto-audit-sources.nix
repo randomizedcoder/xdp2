@@ -25,6 +25,8 @@ let
   packetlifeRev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";  # packetlife-backup git rev
   wiresharkSamplesRev = "4131f845f5b2d319a2cb2014fe2738889adcd889";  # briliant-ben/SampleCaptures git rev
   kaitaiFormatsRev = "07429db0a5c73dbedf207c8ea8d6a7ad82cb53be";  # kaitai-io/kaitai_struct_formats git rev
+  omiCStructsRev = "9d6db5270847c60cefefc2bd7e1238d828701545";  # Open-Markets-Initiative/c-structs git rev
+  omiDataPacketsRev = "5e0dfb113c7c7160b685b6a6d52ce19917915c8f";  # Open-Markets-Initiative/omi-data-packets git rev
 
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
@@ -62,6 +64,27 @@ let
     repo = "kaitai_struct_formats";
     rev = kaitaiFormatsRev;
     hash = "sha256-CP75xJjU/uD+f6/htodGtiywqcac2bbkUKpeHPvagcU=";
+  };
+
+  # Open Markets Initiative c-structs: auto-generated packed C struct headers for
+  # 231 financial exchange binary protocols (ITCH, OUCH, PITCH, SBE, EOBI, etc.)
+  # across 22 exchange directories (Nasdaq, CME, CBOE, NYSE, Eurex, ...).
+  # Independent ninth source for proto-audit's trading-protocol coverage.
+  omiCStructs = pkgs.fetchFromGitHub {
+    owner = "Open-Markets-Initiative";
+    repo = "c-structs";
+    rev = omiCStructsRev;
+    hash = "sha256-7HvigLQDStLMoQEpE59iEgeH7kJ9Cf1Z8xSpzwHaFPg=";
+  };
+
+  # Open Markets Initiative data packets: 370 real Ethernet/UDP/TCP PCAPs covering
+  # 66 exchange protocol feeds and 275 unique message types. Used (in a later
+  # phase) as corpus input once OMI Lua dissectors are loaded into tshark.
+  omiDataPackets = pkgs.fetchFromGitHub {
+    owner = "Open-Markets-Initiative";
+    repo = "omi-data-packets";
+    rev = omiDataPacketsRev;
+    hash = "";  # fill in after first build from the error message
   };
 
   # Helper: collect all .patch files from a directory.
@@ -119,6 +142,12 @@ in
 
   # Kaitai Struct format specs (network/ directory has protocol definitions)
   inherit kaitaiFormats;
+
+  # Open Markets Initiative c-structs (231 packed C headers for trading protocols)
+  inherit omiCStructs;
+
+  # Open Markets Initiative data packets (370 real PCAPs for trading protocols)
+  inherit omiDataPackets;
 
   # Suricata Rust app-layer parsers: independent protocol definitions
   # Covers ~40 protocols (DNS, HTTP, TLS, SSH, DHCP, NTP, MQTT, etc.)
@@ -251,6 +280,8 @@ in
     libpcap = libpcapRev;
     packetlife = packetlifeRev;
     wiresharkSamples = wiresharkSamplesRev;
+    omiCStructs = omiCStructsRev;
+    omiDataPackets = omiDataPacketsRev;
     tshark = tshark.version or "unknown";
     scapy = scapyPython.version or "unknown";
   };

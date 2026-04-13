@@ -128,6 +128,24 @@ fn try_extract(
             def.name = proto.to_string();
             Some(def)
         }
+        "omi" => {
+            let names = name_mapping::find_by_canonical(proto)?;
+            let omi_struct = names.omi_struct?;
+            let omi_file = names.omi_file?;
+            let mappings = type_mapping::load_omi_mappings(None).ok()?;
+            let mut def = extractors::omi::extract_protocol(
+                paths.omi_cstructs_dir.as_deref(),
+                proto,
+                omi_struct,
+                omi_file,
+                &mappings,
+            )
+            .ok()
+            .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         "suricata" => {
             let suricata_dir = paths.suricata_dir.as_ref()?;
             // Prefer curated suricata_module from name mapping for targeted extraction
@@ -256,7 +274,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {

@@ -3,6 +3,7 @@
 pub mod etherparse;
 pub mod kernel;
 pub mod libpcap;
+pub mod omi;
 pub mod scapy;
 pub mod tshark;
 pub mod tshark_registry;
