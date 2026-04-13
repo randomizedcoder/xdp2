@@ -13,3 +13,6 @@ path = "src/main.rs"
 xdp2-core = { path = "../xdp2-core" }
 xdp2-protocols = { path = "../xdp2-protocols" }
 clap = { version = "4", features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+perf-event = "0.4"

@@ -54,18 +54,31 @@ to push.
 - Optional: emit a `perf stat`-compatible one-line summary for easy diffing
   across changes.
 
-**Example target output:**
+**Actual measured baseline** (500K packets × 10 iterations on AMD Ryzen-class CPU):
 
 ```text
---- Performance (500000 packets x 100 iterations) ---
-Rust parser:     59 ns/pkt,  16 Mpps
-  cycles/pkt:          180
-  instructions/pkt:    420   (IPC 2.33)
-  L1-dcache-misses:    0.8/pkt
-  L1-icache-misses:    0.15/pkt
-  LLC-misses:          0.02/pkt
-  branch-misses:       0.15/pkt  (3.1%)
+--- Performance (500000 packets x 10 iterations) ---
+Rust parser:     62 ns/pkt,  16 Mpps
+  cycles/pkt:             200.3
+  instructions/pkt:       449.2   (IPC 2.24)
+  branches/pkt:           111.8
+  branch-misses/pkt:      0.525   (0.47% miss rate)
+  cache-refs/pkt:         2.909
+  cache-misses/pkt:       0.055   (1.87% miss rate)
 ```
+
+**What this tells us:**
+
+- **IPC 2.24** out of ~4 theoretical max — the core is doing real work but
+  has headroom. Some fraction of cycles is spent on indirect calls the
+  compiler could not devirtualize.
+- **Branch-miss rate 0.47%** — extremely low. Step 4 (branchless dispatch)
+  will not move the needle; skip it.
+- **Cache-miss rate 1.87%** — low. We are not memory-bound. Step 5
+  (metadata layout) unlikely to help.
+- **Conclusion:** Remaining cost is compute + vtable dispatch. Step 2
+  (monomorphized parse graph) is the correct next target — it directly
+  attacks the indirect-call overhead that is eating IPC headroom.
 
 **Prerequisites:**
 
@@ -216,11 +229,11 @@ which one actually helped.
 |------|--------|--------|------|-------|
 | Baseline (pre-optimization) | done | 109 | 9 | Default release profile |
 | LTO + `#[inline]` | done | 59 | 16 | Current baseline |
-| Step 1: CPU counters | in progress | — | — | Measurement infrastructure |
-| Step 2: Monomorphized graph | not started | target ~25 | target ~40 | Biggest expected win |
-| Step 3: SIMD header parsing | not started | — | — | Only if Step 1 shows compute headroom |
-| Step 4: Branchless dispatch | not started | — | — | Only if Step 1 shows branch-miss |
-| Step 5: Metadata layout | not started | — | — | Only if flamegraph shows issue |
+| Step 1: CPU counters | done | 62 | 16 | IPC 2.24, branch-miss 0.47%, cache-miss 1.87% |
+| Step 2: Monomorphized graph | next | target ~25 | target ~40 | Biggest expected win — IPC headroom confirms |
+| Step 3: SIMD header parsing | deferred | — | — | Maybe — IPC 2.24 leaves some compute room |
+| Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
+| Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
 | Step 6: Multi-core | not started | — | — | Throughput, not latency |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 

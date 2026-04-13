@@ -32,6 +32,7 @@
 
 mod graph;
 mod pcap;
+mod perf;
 
 use std::process;
 use std::time::Instant;
@@ -60,6 +61,11 @@ struct Cli {
     /// Write filtered PCAP (only parseable packets) for C benchmark.
     #[arg(long)]
     output_pcap: Option<String>,
+
+    /// Collect CPU performance counters (Linux only, requires
+    /// `kernel.perf_event_paranoid <= 2`).
+    #[arg(long)]
+    perf: bool,
 }
 
 fn main() {
@@ -129,7 +135,26 @@ fn main() {
         }
     }
 
+    // Optional: create perf counter group. Fails gracefully with a message
+    // if unavailable (paranoid level too high, non-Linux, etc.).
+    let mut perf_counters = if cli.perf {
+        match perf::PerfCounters::new() {
+            Ok(c) => Some(c),
+            Err(e) => {
+                eprintln!("warning: could not initialize perf counters: {e}");
+                eprintln!("         (try: sudo sysctl -w kernel.perf_event_paranoid=1)");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // ── Benchmark 1: Full parse (metadata re-initialized per packet) ──
+    if let Some(c) = perf_counters.as_mut() {
+        let _ = c.reset();
+        let _ = c.start();
+    }
     let t_start = Instant::now();
     for _ in 0..cli.iterations {
         for pkt in &packets {
@@ -137,8 +162,16 @@ fn main() {
         }
     }
     let full_ns = t_start.elapsed().as_nanos() as u64;
+    let full_perf = perf_counters.as_mut().and_then(|c| {
+        let _ = c.stop();
+        c.read().ok()
+    });
 
     // ── Benchmark 2: Parse-only ──
+    if let Some(c) = perf_counters.as_mut() {
+        let _ = c.reset();
+        let _ = c.start();
+    }
     let t_start = Instant::now();
     for _ in 0..cli.iterations {
         for pkt in &packets {
@@ -146,6 +179,10 @@ fn main() {
         }
     }
     let parseonly_ns = t_start.elapsed().as_nanos() as u64;
+    let parseonly_perf = perf_counters.as_mut().and_then(|c| {
+        let _ = c.stop();
+        c.read().ok()
+    });
 
     // ── Report ──
     let total_pkts = npkts as u64 * cli.iterations as u64;
@@ -161,6 +198,9 @@ fn main() {
         print!(",  {} Mpps", 1000 / avg_full);
     }
     println!();
+    if let Some(snap) = full_perf {
+        snap.report(total_pkts);
+    }
 
     let avg_parseonly = parseonly_ns / total_pkts;
     print!("Rust parse-only: {} ns/pkt", avg_parseonly);
@@ -168,4 +208,7 @@ fn main() {
         print!(",  {} Mpps", 1000 / avg_parseonly);
     }
     println!();
+    if let Some(snap) = parseonly_perf {
+        snap.report(total_pkts);
+    }
 }
