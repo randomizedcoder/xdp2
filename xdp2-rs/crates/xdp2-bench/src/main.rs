@@ -35,6 +35,7 @@ mod graph_compiled;
 mod graph_mono;
 mod pcap;
 mod perf;
+mod simd_batch;
 
 use std::fmt::Write as _;
 use std::process;
@@ -54,7 +55,9 @@ enum ParserMode {
     MonoX4,
     /// Auto-generated monomorphic parser from xdp2-compiler codegen.
     Compiled,
-    /// Run graph + mono + mono-x4 + compiled back-to-back for comparison.
+    /// AVX2 batch SIMD parser (8 packets at a time, Eth/IPv4 fast path).
+    Simd,
+    /// Run graph + mono + mono-x4 + compiled + simd back-to-back.
     Both,
 }
 
@@ -233,6 +236,7 @@ fn main() {
     let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
     let run_monox4 = matches!(cli.mode, ParserMode::MonoX4 | ParserMode::Both);
     let run_compiled = matches!(cli.mode, ParserMode::Compiled | ParserMode::Both);
+    let run_simd = matches!(cli.mode, ParserMode::Simd | ParserMode::Both);
 
     // Correctness & anti-DCE: count successful parses across one full sweep
     // and print the total. This prevents LLVM from eliding the parse body
@@ -301,6 +305,16 @@ fn main() {
             });
             results.push(BenchResult::new("compiled", ns, total_pkts, 1, snap));
         }
+
+        if run_simd && simd_batch::is_available() {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                // Safety: is_available() checked above.
+                std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(&packets) });
+            });
+            results.push(BenchResult::new("simd", ns, total_pkts, 1, snap));
+        } else if run_simd {
+            eprintln!("warning: AVX2 not available, skipping SIMD benchmark");
+        }
     } else {
         if !cli.report {
             eprintln!(
@@ -355,6 +369,13 @@ fn main() {
                 acc
             });
             results.push(BenchResult::new("compiled-mt", ns, total_pkts, cli.threads, None));
+        }
+
+        if run_simd && simd_batch::is_available() {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                unsafe { simd_batch::parse_batch_avx2(slice) }
+            });
+            results.push(BenchResult::new("simd-mt", ns, total_pkts, cli.threads, None));
         }
     }
 

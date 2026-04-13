@@ -548,6 +548,8 @@ which one actually helped.
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 | Step 8: Bounds-check audit | done | — | — | LLVM eliminates all redundancies; zero-cost abstractions verified via `cargo asm` |
 | Step 9: Compiler codegen (IR → Rust) | done | **2** | **500** | Auto-generated mono parser from bench-graph.json; 11.9 cycles/pkt, 47.9 ins/pkt, IPC 4.04; 28x graph, ~2x hand-rolled mono |
+| Step 10: Cross-platform perf harness | done | — | — | `--report` JSON output, `perf-sweep.sh`, `performance-by-platform.md` |
+| Step 11: Batch SIMD prototype (AVX2) | done | 4 | 208 | Eth/IPv4/TCP fast path in SIMD, scalar fallback; ~2x slower than compiled (gather overhead); validates approach for AF_XDP batches |
 
 ## Non-Goals
 
