@@ -31,13 +31,25 @@
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
 
 mod graph;
+mod graph_mono;
 mod pcap;
 mod perf;
 
 use std::process;
 use std::time::Instant;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+/// Which parser implementation to exercise.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum ParserMode {
+    /// Graph-dispatched engine (`&dyn ParseNodeDyn`), the default.
+    Graph,
+    /// Hand-rolled monomorphic parser (Step 2 proof-of-concept).
+    Mono,
+    /// Run both back-to-back for direct A/B comparison.
+    Both,
+}
 
 #[derive(Parser)]
 #[command(
@@ -66,6 +78,10 @@ struct Cli {
     /// `kernel.perf_event_paranoid <= 2`).
     #[arg(long)]
     perf: bool,
+
+    /// Which parser implementation to benchmark.
+    #[arg(long, value_enum, default_value_t = ParserMode::Graph)]
+    mode: ParserMode,
 }
 
 fn main() {
@@ -128,7 +144,8 @@ fn main() {
         eprintln!("Wrote filtered PCAP: {} ({} packets)", path, npkts);
     }
 
-    // Warmup
+    // Warmup (always exercises the graph-dispatched path; good enough to
+    // warm icache, TLB, and the branch predictor for both modes).
     for _ in 0..cli.warmup {
         for pkt in &packets {
             let _ = graph::parse_packet(&parser, &pkt.data);
@@ -150,41 +167,6 @@ fn main() {
         None
     };
 
-    // ── Benchmark 1: Full parse (metadata re-initialized per packet) ──
-    if let Some(c) = perf_counters.as_mut() {
-        let _ = c.reset();
-        let _ = c.start();
-    }
-    let t_start = Instant::now();
-    for _ in 0..cli.iterations {
-        for pkt in &packets {
-            let _ = graph::parse_packet(&parser, &pkt.data);
-        }
-    }
-    let full_ns = t_start.elapsed().as_nanos() as u64;
-    let full_perf = perf_counters.as_mut().and_then(|c| {
-        let _ = c.stop();
-        c.read().ok()
-    });
-
-    // ── Benchmark 2: Parse-only ──
-    if let Some(c) = perf_counters.as_mut() {
-        let _ = c.reset();
-        let _ = c.start();
-    }
-    let t_start = Instant::now();
-    for _ in 0..cli.iterations {
-        for pkt in &packets {
-            let _ = graph::parse_packet(&parser, &pkt.data);
-        }
-    }
-    let parseonly_ns = t_start.elapsed().as_nanos() as u64;
-    let parseonly_perf = perf_counters.as_mut().and_then(|c| {
-        let _ = c.stop();
-        c.read().ok()
-    });
-
-    // ── Report ──
     let total_pkts = npkts as u64 * cli.iterations as u64;
 
     println!(
@@ -192,23 +174,87 @@ fn main() {
         npkts, cli.iterations
     );
 
-    let avg_full = full_ns / total_pkts;
-    print!("Rust parser:     {} ns/pkt", avg_full);
-    if avg_full > 0 {
-        print!(",  {} Mpps", 1000 / avg_full);
-    }
-    println!();
-    if let Some(snap) = full_perf {
-        snap.report(total_pkts);
+    let run_graph = matches!(cli.mode, ParserMode::Graph | ParserMode::Both);
+    let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
+
+    // Correctness & anti-DCE: count successful parses across one full sweep
+    // and print the total. This prevents LLVM from eliding the parse body
+    // and lets us sanity-check that both modes agree on which packets
+    // parse. Counts printed after timing so they do not perturb it.
+    let graph_ok = packets
+        .iter()
+        .filter(|pkt| graph::parse_packet(&parser, &pkt.data).is_ok())
+        .count();
+    let mono_ok = packets
+        .iter()
+        .filter(|pkt| graph_mono::parse_packet_mono(&pkt.data).is_ok())
+        .count();
+
+    if run_graph {
+        let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            // Sum successes into a black_box-fed accumulator so the
+            // compiler cannot elide the loop.
+            let mut acc: u64 = 0;
+            for pkt in &packets {
+                if graph::parse_packet(&parser, &pkt.data).is_ok() {
+                    acc += 1;
+                }
+            }
+            std::hint::black_box(acc);
+        });
+        report("graph    ", ns, total_pkts, snap);
     }
 
-    let avg_parseonly = parseonly_ns / total_pkts;
-    print!("Rust parse-only: {} ns/pkt", avg_parseonly);
-    if avg_parseonly > 0 {
-        print!(",  {} Mpps", 1000 / avg_parseonly);
+    if run_mono {
+        let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let mut acc: u64 = 0;
+            for pkt in &packets {
+                if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
+                    acc += 1;
+                }
+            }
+            std::hint::black_box(acc);
+        });
+        report("mono     ", ns, total_pkts, snap);
+    }
+
+    println!(
+        "Correctness: graph ok={}/{}, mono ok={}/{}",
+        graph_ok, npkts, mono_ok, npkts
+    );
+}
+
+/// Run `body` for `iterations` iterations under the given perf counter group
+/// and return (elapsed nanos, optional perf snapshot).
+fn time_run<F: FnMut()>(
+    mut counters: Option<&mut perf::PerfCounters>,
+    iterations: u32,
+    mut body: F,
+) -> (u64, Option<perf::PerfSnapshot>) {
+    if let Some(c) = counters.as_deref_mut() {
+        let _ = c.reset();
+        let _ = c.start();
+    }
+    let t_start = Instant::now();
+    for _ in 0..iterations {
+        body();
+    }
+    let ns = t_start.elapsed().as_nanos() as u64;
+    let snap = counters.and_then(|c| {
+        let _ = c.stop();
+        c.read().ok()
+    });
+    (ns, snap)
+}
+
+fn report(label: &str, ns: u64, total_pkts: u64, snap: Option<perf::PerfSnapshot>) {
+    let avg = ns / total_pkts;
+    print!("Rust {}: {} ns/pkt", label, avg);
+    if avg > 0 {
+        print!(",  {} Mpps", 1000 / avg);
     }
     println!();
-    if let Some(snap) = parseonly_perf {
-        snap.report(total_pkts);
+    if let Some(s) = snap {
+        s.report(total_pkts);
     }
 }

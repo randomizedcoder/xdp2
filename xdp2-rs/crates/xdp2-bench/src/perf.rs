@@ -225,7 +225,7 @@ mod stub {
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::PerfCounters;
+pub use linux::{PerfCounters, PerfSnapshot};
 
 #[cfg(not(target_os = "linux"))]
-pub use stub::PerfCounters;
+pub use stub::{PerfCounters, PerfSnapshot};

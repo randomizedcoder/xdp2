@@ -117,6 +117,31 @@ what the C `xdp2-compiler` does, and why the C parser wins at small scale.
 
 **Expected impact:** Another 2-3x speedup. Targeting **~20-30 ns/pkt**.
 
+**Actual impact (hand-rolled PoC in `graph_mono.rs`):**
+
+```text
+Rust graph    : 64 ns/pkt,  15 Mpps   (206 cyc, 450 ins, IPC 2.18)
+Rust mono     : 10 ns/pkt, 100 Mpps   ( 35 cyc,  52 ins, IPC 1.47)
+Correctness: graph ok=500000/500000, mono ok=500000/500000
+```
+
+- **6.4x faster** than the graph-dispatched engine
+- **18x faster** than C (was 182 ns/pkt)
+- 10x fewer instructions per packet — vtable dispatch and the linear
+  `ProtoTable::lookup` were generating real work, not just indirect
+  branches
+- IPC drops from 2.18 → 1.47 because the remaining sequence is too
+  short for the OOO core to find ILP; we are now slightly load-latency
+  bound inside the tiny hot loop
+- Branch-misses per packet stay roughly constant in absolute terms
+  (0.530 → 0.547); the higher *rate* (4.65% vs 0.47%) is just the same
+  mispredicts divided by a much smaller total
+
+**Conclusion:** The `xdp2-compiler` codegen pass is strongly justified.
+A hand-written monomorphic parser for this protocol set closes the gap
+entirely and then some — the question now is only how to produce one
+automatically from a `.xdp2` graph definition.
+
 **Risk:** Code size explosion if many graph topologies are instantiated.
 Mitigate with `#[inline(never)]` on cold paths.
 
@@ -230,7 +255,7 @@ which one actually helped.
 | Baseline (pre-optimization) | done | 109 | 9 | Default release profile |
 | LTO + `#[inline]` | done | 59 | 16 | Current baseline |
 | Step 1: CPU counters | done | 62 | 16 | IPC 2.24, branch-miss 0.47%, cache-miss 1.87% |
-| Step 2: Monomorphized graph | next | target ~25 | target ~40 | Biggest expected win — IPC headroom confirms |
+| Step 2: Monomorphized graph (PoC) | done | **10** | **100** | Hand-rolled mono parser: 6.4x faster, 35 cycles/pkt, 52 ins/pkt |
 | Step 3: SIMD header parsing | deferred | — | — | Maybe — IPC 2.24 leaves some compute room |
 | Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
