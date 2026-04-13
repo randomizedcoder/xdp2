@@ -316,6 +316,31 @@ Earlier short runs (10 iterations) reported 1046 Mpps at this same
 configuration — that was undersampled, not inflated. Use ≥50 iterations
 for stable numbers.
 
+**These numbers are specific to this machine.** The 3945WX is a
+12-core / 24-thread workstation CPU with 8-channel DDR4-3200 and 64 MB
+L3. On a server-class box, the scaling shape will shift:
+
+- A 64-core EPYC 9xxx or 128-core Altra Max will likely keep near-linear
+  scaling further than 12 cores, because (a) per-core bandwidth is
+  comparable or higher, and (b) L3 is larger per socket, so the
+  packet buffer stays resident longer.
+- At ~75 Mpps per physical core and 64-128 cores, per-socket throughput
+  should land in the 5-10 Gpps range on current-generation servers —
+  but memory-bandwidth saturation will eventually dominate just like it
+  does here, just at a higher knee.
+- Multi-socket (2P EPYC, 2P Xeon SP) adds NUMA. Without packet-buffer
+  replication per socket, cross-socket L3 traffic will cap scaling
+  well before 2x per-socket. This is worth testing before deploying.
+- SMT behavior differs by generation: Zen 3+ and Sapphire Rapids have
+  larger execution resources and may tolerate SMT better than Zen 2.
+  Re-measure — the "stop at N_physical_cores" rule is empirical, not
+  theoretical.
+
+**Action item:** re-run `--threads 1,2,4,8,16,32,64,128 --mode both`
+on every production-candidate CPU before pinning a deployment sizing
+recommendation. Add results to a new `performance-by-platform.md`
+once we have data from more than one box.
+
 At 16 threads we exceed **1 billion packets per second** on a single host.
 The packet set is ~72 MB, so each thread's slice fits comfortably in L2
 on the first pass and the remaining passes are L3-resident — this is why
@@ -374,11 +399,38 @@ paths saturate; adding software-level interleaving on top does not
 extract more because the system is already bandwidth-limited rather
 than OoO-window-limited.
 
-**Conclusion:** the OoO engine is already nearly saturated on a single
-packet. To extract meaningfully more per-thread throughput we need to
-either (a) shorten the per-packet critical path itself, or (b) use true
-SIMD to issue batched loads across packets (Step 3b). Software pipelining
-alone is a dead end for this workload at this code size.
+**Conclusion (on this machine):** the Zen 2 OoO engine is already nearly
+saturated on a single packet. To extract meaningfully more per-thread
+throughput here we need either (a) a shorter per-packet critical path,
+or (b) true SIMD to issue batched loads across packets (Step 3b).
+
+**Do not generalize this to "x4 is a dead end everywhere."** The 3945WX
+is workstation-class: 12 cores, 8-channel DDR4-3200 per-socket
+bandwidth, Zen 2 OoO width of 10-way dispatch. The result could look
+very different on other hardware:
+
+- **Wider server cores (EPYC 9004 / Intel Sapphire Rapids / Graviton 3/4):**
+  bigger ROBs, more load/store ports, higher per-core memory bandwidth.
+  Software pipelining may matter even less here (the OoO engine already
+  handles more packets in flight) — or more (if the critical path stays
+  fixed while the window grows). Needs to be measured.
+- **Narrower cores (cloud-edge ARM, embedded Xeon-D, older chips):**
+  smaller OoO window, shorter pipelines. x4 pipelining could
+  plausibly give 20-30% here because the single-packet chain does not
+  fit in the window.
+- **Many-core servers (EPYC 9754 128c, Altra Max 128c):** multi-thread
+  scaling is a different problem. At 16T on the 3945WX we are L3-
+  and memory-bandwidth-limited; on a 128-core system with 12-channel
+  DDR5 and 256 MB L3 per socket, the scaling ceiling is far higher
+  and the per-thread ceiling may also shift. The "stop at 16 threads"
+  guidance is specific to the test machine, not general.
+- **Multi-socket systems:** NUMA adds a new axis entirely — pin workers
+  to local memory, duplicate the read-only packet buffer per socket, etc.
+
+The `mono-x4` mode is kept in `xdp2-bench` for exactly this reason:
+it is cheap infrastructure for characterizing new hardware. Re-run
+`--mode both --threads N` on any target of interest before deciding
+whether to ship the vanilla `mono` loop or the pipelined one.
 
 **Lesson — LLVM LICM can invalidate pure-function benchmarks.** The
 first x4 run reported 4x multi-thread speedups that turned out to be
@@ -417,7 +469,7 @@ which one actually helped.
 | Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
 | Step 6: Multi-core (mono) | done | — | **1195** | 16 threads, Threadripper 3945WX (12c/24t), 50 iterations |
-| Step 6a: Software-pipelined x4 | done | 35 (−1) | 100 (0) | ~4% cycles single-thread, zero win multi-thread — OoO window nearly full |
+| Step 6a: Software-pipelined x4 | done on 3945WX | 35 (−1) | 100 (0) | Marginal here (Zen 2, wide OoO); may matter more on narrower cores — re-measure per target |
 | Step 6: Multi-core | not started | — | — | Throughput, not latency |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 
