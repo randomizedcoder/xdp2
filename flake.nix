@@ -155,6 +155,13 @@
           xdp2 = xdp2-debug;
         };
 
+        # Rust parser performance benchmarks (reproducible, all modes)
+        # Usage: nix run .#perf-bench           — standard benchmark
+        #        nix run .#perf-sweep           — full sweep (all threads, JSON)
+        perfBench = import ./nix/perf-bench.nix {
+          inherit pkgs xdp2Rs;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -427,6 +434,15 @@
           # Usage: nix build .#parser-benchmark && ./result/bin/xdp2-parser-benchmark
           # ===================================================================
           parser-benchmark = parserBenchmark;
+
+          # ===================================================================
+          # Rust Parser Performance Benchmarks (reproducible)
+          # Quick:  nix run .#perf-bench                — all modes, perf counters
+          # Custom: nix run .#perf-bench -- --mode template -n 1000
+          # Sweep:  nix run .#perf-sweep                — all thread counts, JSON
+          # ===================================================================
+          perf-bench = perfBench.bench;
+          perf-sweep = perfBench.sweep;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

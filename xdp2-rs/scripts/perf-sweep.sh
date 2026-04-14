@@ -21,7 +21,7 @@ PCAP="${1:?Usage: perf-sweep.sh <pcap-file> [iterations] [output-dir]}"
 ITERATIONS="${2:-500}"
 OUTDIR="${3:-perf-results}"
 
-BENCH="cargo run -p xdp2-bench --release --"
+BENCH="${BENCH:-cargo run -p xdp2-bench --release --}"
 
 # Collect machine identity
 HOSTNAME="$(hostname)"
