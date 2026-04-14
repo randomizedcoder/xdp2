@@ -19,6 +19,16 @@ both target the same LLVM backend (when using Clang), and C++ avoids Rust's
 crate-boundary visibility limitations for inlining. This document plans a
 new high-performance C++ implementation that applies the same optimizations.
 
+**Important context:** The Rust benchmark numbers (2--3 ns/pkt) were
+measured on a **reduced-scope parser** -- 15 protocol types with no
+metadata extraction, no TLV/flag-field processing, and no tunnel
+decapsulation. The C flow_dissector parser being compared handles ~40+
+nodes with 18 active metadata extractors, GRE flag-fields, and VXLAN/Geneve
+tunnels. Part of the Rust speedup is doing less work per packet, not just
+doing the same work faster. See `performance-lecture.md` Section "Scope and
+Fair Comparison" for details. The C++ backport should target feature parity
+with the C flow_dissector, not just the reduced Rust benchmark scope.
+
 ## 2. Goals and Non-Goals
 
 ### Goals

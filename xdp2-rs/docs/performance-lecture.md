@@ -3,9 +3,10 @@
 This lecture is the sequel to Lectures 9 and 10. Those lectures ported the
 XDP2 parse engine from C to Rust and achieved performance roughly on par
 with the C implementation (~54--86 ns/pkt depending on platform). This
-lecture shows how **measurement-driven optimization** took that baseline and
-improved it by **20--90x**, reaching 2--3 ns per packet on commodity
-hardware.
+lecture shows how **measurement-driven optimization** took the Rust graph
+dispatch baseline and improved it by **~30x** (86 ns → 2--3 ns per packet)
+using a combination of monomorphization, compiler code generation, SIMD
+batching, and hardware-classified template extraction.
 
 The original XDP2 blog post
 ([Programming a Parser in XDP2 Is as Easy as Pie](https://medium.com/@tom_84912/programming-a-parser-in-xdp2-is-as-easy-as-pie-8f26c8b3e704))
@@ -17,13 +18,66 @@ graph-dispatch engine is "fast enough." This lecture asks: *what if it
 isn't?* What if you need to parse packets at 100 million, 500 million, or
 a billion packets per second? The parse graph is not just a clean
 abstraction -- it is a **compilation target**. The same graph that can be
-walked by a generic engine can also be compiled into code that runs 90x
-faster. The abstraction *enables* the optimization.
+walked by a generic engine can also be compiled into code that runs 30x
+faster (comparing like-for-like within the Rust implementation). The
+abstraction *enables* the optimization.
 
 **Prerequisites:** Lectures 0--10 (parse graph architecture, protocol
 definitions, the runtime engine, and the Rust port). Familiarity with CPU
 microarchitecture (IPC, branch prediction, caches) is helpful but not
 required -- we will explain each concept as it arises.
+
+---
+
+## Important: Scope and Fair Comparison
+
+Before diving in, a critical caveat about interpreting the performance
+numbers in this lecture.
+
+**The Rust benchmark parser is significantly simpler than the C parser it
+is compared against.** Understanding what each parser does -- and does not
+do -- is essential for interpreting the speedup claims honestly.
+
+| Feature | C flow_dissector (benchmark) | Rust bench graph |
+|---|---|---|
+| Protocol nodes | ~40+ (Ethernet, IP, GRE, VXLAN, Geneve, PPPoE, MPLS, TIPC, etc.) | **15** (Ethernet, IPv4/6, TCP, UDP, ICMP, SCTP, ARP, AH, EH, IP-in-IP) |
+| Metadata extraction | **18 active extractors** (IPv4 addrs, IPv6 addrs, ports, ICMP, GRE keys, VLAN tags, ARP, ESP, AH, L2TP, MPLS, TIPC) | **None** (all `extract_metadata: None`) |
+| Handlers / post-handlers | Active on some nodes | **None** (all `handler: None`) |
+| TLV parsing | TCP options (MSS, WS, TS, SACK) | **Not supported** |
+| Flag-field parsing | GRE v0/v1 (checksum, key, sequence) | **Not supported** |
+| Tunnel decapsulation | VXLAN, Geneve, GRE → inner Ethernet re-dispatch | **Not supported** |
+| Encapsulation tracking | Frame metadata stack, depth limits, exit nodes | **Not supported** |
+| Protocol table sizes | Larger tables (~10--15 entries in Ethernet/IPv4 tables) | Smaller tables (5--8 entries) |
+
+The benchmark methodology filters both parsers to the **same set of
+packets** (the "Rust-parseable subset"), so the C parser processes
+identical packets. However, the C parser still:
+
+1. **Extracts metadata** at every layer (copies fields into a metadata struct)
+2. **Evaluates conditionals** for TLV/flag-field/array processing at each
+   node (even when the current packet does not trigger them)
+3. **Searches larger protocol tables** (more entries in each `proto_table`)
+4. **Runs through a more complex hot loop** (`__xdp2_parse()` has ~200
+   lines of per-node logic vs the Rust engine's ~50)
+
+**The fair comparisons in this lecture are:**
+
+- **Rust graph → Rust compiled/mono/template** (same protocol set, same
+  features, different dispatch mechanisms). These speedups (graph 86 ns →
+  compiled 2--3 ns, ~30x) are entirely attributable to optimization
+  techniques and are apples-to-apples.
+
+- **C vs Rust graph dispatch** requires qualification: the Rust graph
+  engine is doing *less work* per packet (no metadata, fewer protocols,
+  simpler loop). A C parser with the same 15-protocol, no-metadata
+  configuration would likely be significantly faster than 182 ns/pkt.
+
+The "91x faster than C" headline number combines *real optimization
+techniques* (monomorphization, codegen, template extraction) with *reduced
+scope* (fewer protocols, no metadata, no TLV/flag-field processing). Both
+factors contribute. The optimization techniques are the focus of this
+lecture, but readers should understand that a fair cross-language comparison
+would require building equivalent reduced-scope parsers in both languages.
 
 ---
 
@@ -124,8 +178,19 @@ dynamic nature of `&dyn` dispatch limit what the optimizer can recover.
 | `lookup_node()` (linear search) | `ProtoTable::lookup()` (linear search) | O(n) scan per layer |
 | `static inline` protocol functions | `#[inline]` trait methods | LLVM can partially inline |
 
+**Rust benchmark scope:** The Rust benchmark graph covers 15 protocol
+types (Ethernet, VLAN, QinQ, ARP, IPv4, IPv6, IPv6 EH/Frag, TCP, UDP,
+ICMPv4/v6, SCTP, AH, IP-in-IP) with **no metadata extraction** and **no
+handlers** -- purely structural parsing to determine if the packet is
+well-formed. The C flow_dissector parser handles ~40+ protocol nodes with
+18 active metadata extractors, GRE flag-field processing, and tunnel
+decapsulation. See the "Scope and Fair Comparison" section above for
+details.
+
 **Baseline performance:** ~86 ns/pkt on an AMD Ryzen Threadripper 3945WX
-(Zen 2), comparable to the C implementation.
+(Zen 2). The C flow_dissector parser achieves ~182 ns/pkt on the same
+hardware at 500K packets, but note this is not an apples-to-apples
+comparison due to the scope differences described above.
 
 ```mermaid
 flowchart LR
@@ -891,6 +956,7 @@ deployment requires.
 
 | Optimization | What It Costs | Severity | Mitigation |
 |---|---|---|---|
+| Reduced protocol scope | Benchmark covers 15 of ~65+ C flow_dissector protocols; no metadata extraction, no TLV/flag-field processing | **High** | Must add protocols, metadata, and TLV support to reach feature parity with C parser |
 | Fat LTO (`lto = "fat"`) | Compilation time increases 3-5x (no parallel codegen) | Low | Only affects release builds; dev builds use defaults |
 | `codegen-units = 1` | Further compile-time increase | Low | Same as above |
 | `target-cpu = native` | Binary is not portable to older CPUs without the same ISA extensions | Medium | Build per-target or use runtime feature detection |
@@ -920,7 +986,7 @@ parser handles everything. The optimized layers handle the common cases
 faster. You choose how many layers to deploy based on your hardware and
 latency requirements.
 
-## What We Are NOT Giving Up
+## What We Are NOT Giving Up (Within Current Scope)
 
 Some things that might seem like tradeoffs are actually not:
 
@@ -937,6 +1003,36 @@ Some things that might seem like tradeoffs are actually not:
 - **Readability.** The trait-based protocol definitions are unchanged. The
   assembly audit (Section 11.5) proved that readable Rust compiles to
   optimal code. There is no incentive to write less readable code.
+
+## What IS Missing (Compared to the Full C Parser)
+
+The Rust benchmark does not yet implement:
+
+- **Metadata extraction** -- the C parser extracts 18 types of metadata
+  (IP addresses, ports, ICMP codes, GRE keys, VLAN tags, ARP fields,
+  etc.) at every layer. Adding metadata extraction will increase per-packet
+  work and reduce the speedup.
+
+- **TLV parsing** -- TCP options (MSS, window scaling, timestamp, SACK)
+  require iterating a variable-length TLV list inside the header. This is
+  a significant source of per-packet work.
+
+- **Flag-field processing** -- GRE v0/v1 headers have conditional fields
+  (checksum, key, sequence number) that require bit-flag inspection and
+  variable-offset reads.
+
+- **Tunnel decapsulation** -- VXLAN, Geneve, and GRE tunnels require
+  parsing an outer header stack, then re-entering the parse graph for the
+  inner Ethernet frame. This doubles (or more) the per-packet work.
+
+- **Most protocols** -- the benchmark handles 15 of the ~65 protocol
+  types in the C flow_dissector, and far fewer than the 222 protocol types
+  defined in `xdp2-protocols`.
+
+Adding these features will narrow the gap between the Rust and C parsers.
+The optimization techniques (monomorphization, codegen, template extraction)
+will still provide large speedups, but the absolute ns/pkt numbers will
+increase as the parser does more real work per packet.
 
 ---
 
@@ -973,8 +1069,18 @@ generate specialized code that an imperative parser could never achieve.
 The irony: the most compelling argument for the parse graph is not
 abstraction or maintainability (though those matter). It is **performance**.
 A well-designed abstraction, when it aligns with compiler optimization
-passes, produces faster code than hand-optimized implementations. The
+passes, produces faster code than a generic interpreted dispatch loop. The
 parse graph is such an abstraction.
+
+A caveat: the Rust optimizations demonstrated here operate on a
+15-protocol subset with no metadata extraction. The C parser's full
+feature set (metadata, TLVs, flag-fields, tunnels) adds real per-packet
+work that the Rust benchmark does not perform. The optimization techniques
+(monomorphization, codegen, template extraction) are real and would benefit
+the C parser too, but the cross-language speedup numbers overstate the
+language-specific advantage. A C++ or C implementation with the same
+reduced scope and the same optimization techniques (see
+`cpp-backport-plan.md`) would likely achieve comparable performance.
 
 ---
 
@@ -982,16 +1088,27 @@ parse graph is such an abstraction.
 
 ## The Full Progression
 
-| Engine | ns/pkt | Mpps (1T) | ins/pkt | IPC | Speedup vs Baseline |
+**Within the Rust implementation** (apples-to-apples, same 15-protocol
+graph, no metadata):
+
+| Engine | ns/pkt | Mpps (1T) | ins/pkt | IPC | Speedup vs Rust graph |
 |---|---|---|---|---|---|
-| C graph (baseline) | 182 | 5 | -- | -- | 1.0x |
-| Rust graph (`&dyn`) | 86 | 12 | 543 | 1.63 | 2.1x |
-| Rust + LTO + `#[inline]` | 59 | 16 | 449 | 2.24 | 3.1x |
-| Rust monomorphized | 10 | 100 | 52 | 2.78 | **18x** |
-| Rust compiled (codegen) | 2--3 | 250--500 | 48 | 4.04 | **60--91x** |
-| Rust template extraction | 3 | 261 | 36 | 2.25 | **61x** |
-| Rust SIMD batch (AVX2) | 4 | 208 | 56 | 2.29 | **45x** |
-| Rust multi-core (16T) | -- | **1195** | -- | -- | **239x throughput** |
+| Rust graph (`&dyn`) | 86 | 12 | 543 | 1.63 | 1.0x (baseline) |
+| Rust + LTO + `#[inline]` | 59 | 16 | 449 | 2.24 | 1.5x |
+| Rust monomorphized | 10 | 100 | 52 | 2.78 | **8.6x** |
+| Rust compiled (codegen) | 2--3 | 250--500 | 48 | 4.04 | **~30x** |
+| Rust template extraction | 3 | 261 | 36 | 2.25 | **~29x** |
+| Rust SIMD batch (AVX2) | 4 | 208 | 56 | 2.29 | **~22x** |
+| Rust multi-core (16T) | -- | **1195** | -- | -- | **~100x throughput** |
+
+**Cross-language** (not apples-to-apples -- C parser has ~40 nodes, 18
+metadata extractors, GRE flag-fields; Rust has 15 nodes, no metadata):
+
+| Engine | ns/pkt | vs C flow_dissector | Caveat |
+|---|---|---|---|
+| C flow_dissector (500K pkts) | 182 | 1.0x | Full-featured: metadata, flag-fields, tunnels |
+| Rust graph | 86 | 2.1x | Reduced scope partially explains gap |
+| Rust compiled | 2--3 | 60--91x | Combines optimization + reduced scope |
 
 ## Key Takeaways
 
@@ -1019,6 +1136,14 @@ parse graph is such an abstraction.
    "extract."** When the NIC already knows the packet type, the parser
    becomes a fixed-offset memory copy. This is the ultimate optimization:
    the fastest code is the code you do not run.
+
+6. **Reduced scope matters.** The Rust benchmark graph covers 15 protocols
+   with no metadata extraction, no TLV/flag-field processing, and no
+   tunnel decapsulation. The C comparison parser handles ~40+ nodes with
+   18 active metadata extractors. Part of the cross-language performance
+   gap is the Rust parser doing less work per packet -- not just doing the
+   same work faster. The ~30x speedup from Rust graph → Rust compiled
+   (same scope) is the number that isolates the optimization techniques.
 
 ## Exercises
 
