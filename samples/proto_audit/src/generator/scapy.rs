@@ -1,7 +1,7 @@
 use crate::ir::{Endian, FieldType, ProtocolDef};
 use crate::type_mapping;
 
-use super::{canonical_to_pascal, format_value};
+use super::{canonical_to_pascal, canonical_to_snake, format_value};
 
 /// Generate a Python Scapy Packet class definition from a ProtocolDef.
 pub fn generate_scapy(proto: &ProtocolDef) -> String {
@@ -73,6 +73,30 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
     }
 
     out
+}
+
+/// Generate a Scapy module as a new-file patch (--- /dev/null → +++ b/scapy/proto_audit/<name>.py).
+///
+/// Output is a self-contained Python module with imports, class, and fields_desc.
+/// Suitable for use with `gen-patches --target scapy`.
+pub fn generate_scapy_patch(proto: &ProtocolDef) -> Option<String> {
+    if proto.fields.is_empty() {
+        return None;
+    }
+    let snake = canonical_to_snake(&proto.name);
+    let body = generate_scapy(proto);
+    let num_lines = body.lines().count();
+
+    let mut out = String::new();
+    out.push_str("--- /dev/null\n");
+    out.push_str(&format!("+++ b/scapy/proto_audit/{}.py\n", snake));
+    out.push_str(&format!("@@ -0,0 +1,{} @@\n", num_lines));
+    for line in body.lines() {
+        out.push('+');
+        out.push_str(line);
+        out.push('\n');
+    }
+    Some(out)
 }
 
 /// Determine the Scapy field class for a given IR field.

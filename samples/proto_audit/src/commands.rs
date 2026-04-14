@@ -2766,7 +2766,7 @@ pub(crate) fn cmd_gen_patches(
             source
         );
     }
-    let valid_targets = ["libpcap", "etherparse"];
+    let valid_targets = ["libpcap", "etherparse", "scapy", "kaitai"];
     if !valid_targets.contains(&target) {
         anyhow::bail!(
             "gen-patches --target must be one of: {} (got '{}')",
@@ -2781,6 +2781,8 @@ pub(crate) fn cmd_gen_patches(
     let default_dir = match target {
         "libpcap" => PathBuf::from("samples/proto_audit/patches/libpcap"),
         "etherparse" => PathBuf::from("samples/proto_audit/patches/etherparse"),
+        "scapy" => PathBuf::from("samples/proto_audit/patches/scapy"),
+        "kaitai" => PathBuf::from("samples/proto_audit/patches/kaitai"),
         _ => unreachable!(),
     };
     let out_dir = out.unwrap_or(default_dir);
@@ -2826,6 +2828,8 @@ pub(crate) fn cmd_gen_patches(
         let patch = match target {
             "libpcap" => generator::generate_libpcap_patch(&def),
             "etherparse" => generator::generate_etherparse_patch(&def),
+            "scapy" => generator::generate_scapy_patch(&def),
+            "kaitai" => generator::generate_kaitai_patch(&def),
             _ => unreachable!(),
         };
         let Some(patch) = patch else {
