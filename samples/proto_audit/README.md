@@ -187,6 +187,7 @@ See [Nix Packaging](docs/nix-packaging.md) for flake outputs and source pinning.
 | [Mapping Pipeline](docs/mapping-pipeline.md) | Bidirectional extraction/generation pipeline, per-source fidelity |
 | [Inconsistency Analysis](docs/inconsistency-analysis.md) | Root causes of cross-source disagreements, worked examples |
 | [IR as Standard](docs/ir-as-standard.md) | Positioning the IR as a universal protocol header format |
+| [Upstream Contribution](docs/upstream-contribution.md) | Trading protocol contribution guide (Scapy, Kaitai, Wireshark targets) |
 
 ## Project Layout
 
@@ -210,7 +211,9 @@ samples/proto_audit/
     gen_fine_grained.py    Generator script for overlay struct patches
     etherparse/            332 per-protocol Rust overlay patches (incl. 27 trading_*.patch)
     libpcap/               332 per-protocol C header overlay patches (incl. 27 trading_*.patch)
-  docs/                    15 reference documents (see Documentation)
+    scapy/                 27 trading Scapy Packet class patches (gen-patches --target scapy)
+    kaitai/                27 trading Kaitai .ksy format patches (gen-patches --target kaitai)
+  docs/                    16 reference documents (see Documentation)
 ```
 
 ## Status
