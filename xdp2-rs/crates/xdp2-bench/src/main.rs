@@ -37,6 +37,7 @@ mod pcap;
 mod perf;
 mod simd_batch;
 mod template;
+mod template_simd;
 
 use std::fmt::Write as _;
 use std::process;
@@ -60,7 +61,9 @@ enum ParserMode {
     Simd,
     /// Hardware-classified template extraction (fixed offsets, no branching).
     Template,
-    /// Run graph + mono + mono-x4 + compiled + simd + template back-to-back.
+    /// Batch AVX2 template extraction (8 packets at a time, fixed offsets).
+    TemplateSimd,
+    /// Run graph + mono + mono-x4 + compiled + simd + template + template-simd back-to-back.
     Both,
 }
 
@@ -241,6 +244,7 @@ fn main() {
     let run_compiled = matches!(cli.mode, ParserMode::Compiled | ParserMode::Both);
     let run_simd = matches!(cli.mode, ParserMode::Simd | ParserMode::Both);
     let run_template = matches!(cli.mode, ParserMode::Template | ParserMode::Both);
+    let run_template_simd = matches!(cli.mode, ParserMode::TemplateSimd | ParserMode::Both);
 
     // Correctness & anti-DCE: count successful parses across one full sweep
     // and print the total. This prevents LLVM from eliding the parse body
@@ -349,6 +353,17 @@ fn main() {
             });
             results.push(BenchResult::new("template", ns, total_pkts, 1, snap));
         }
+
+        if run_template_simd && template_simd::is_available() {
+            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+                std::hint::black_box(unsafe {
+                    template_simd::extract_batch_avx2(&packets, &template_ids)
+                });
+            });
+            results.push(BenchResult::new("template-simd", ns, total_pkts, 1, snap));
+        } else if run_template_simd {
+            eprintln!("warning: AVX2 not available, skipping template-simd benchmark");
+        }
     } else {
         if !cli.report {
             eprintln!(
@@ -428,6 +443,18 @@ fn main() {
                 acc
             });
             results.push(BenchResult::new("template-mt", ns, total_pkts, cli.threads, None));
+        }
+
+        if run_template_simd && template_simd::is_available() {
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                // Re-select template IDs per slice (same as template-mt).
+                let tids: Vec<Option<template::TemplateId>> = slice
+                    .iter()
+                    .map(|pkt| template::select_template_id(&pkt.data))
+                    .collect();
+                unsafe { template_simd::extract_batch_avx2(slice, &tids) }
+            });
+            results.push(BenchResult::new("template-simd-mt", ns, total_pkts, cli.threads, None));
         }
     }
 
