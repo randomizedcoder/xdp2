@@ -1166,6 +1166,62 @@ fn crossgen_one(
                 }),
             }
         }
+        "kaitai" => {
+            // Kaitai round-trip: generate .ksy → write to temp → parse back → compare
+            let generated = generator::generate_kaitai_ksy(&ir);
+            let tmp = std::env::temp_dir().join(format!(
+                "crossgen_{}.ksy",
+                ir.name.to_lowercase()
+            ));
+            if std::fs::write(&tmp, &generated).is_err() {
+                return Some(CrossGenResult {
+                    target: "kaitai".to_string(),
+                    passed: false,
+                    original_fields: ir.fields.len(),
+                    roundtrip_fields: 0,
+                    fields_agree: 0,
+                    fields_mismatch: 0,
+                    error: Some("cannot write temp .ksy file".to_string()),
+                });
+            }
+            let result = extractors::kaitai::extract_from_ksy(&tmp);
+            let _ = std::fs::remove_file(&tmp);
+            match result {
+                Ok(Some(roundtrip_def)) => {
+                    let audit = comparator::audit_protocol(
+                        &ir.name,
+                        &[("original", &ir), ("roundtrip", &roundtrip_def)],
+                    );
+                    Some(CrossGenResult {
+                        target: "kaitai".to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    })
+                }
+                Ok(None) => Some(CrossGenResult {
+                    target: "kaitai".to_string(),
+                    passed: false,
+                    original_fields: ir.fields.len(),
+                    roundtrip_fields: 0,
+                    fields_agree: 0,
+                    fields_mismatch: 0,
+                    error: Some("kaitai re-extraction found no fields".to_string()),
+                }),
+                Err(e) => Some(CrossGenResult {
+                    target: "kaitai".to_string(),
+                    passed: false,
+                    original_fields: ir.fields.len(),
+                    roundtrip_fields: 0,
+                    fields_agree: 0,
+                    fields_mismatch: 0,
+                    error: Some(format!("kaitai re-extraction failed: {}", e)),
+                }),
+            }
+        }
         _ => None,
     }
 }
@@ -1177,7 +1233,7 @@ pub(crate) fn cmd_crossgen(
     paths: &SourcePaths,
 ) -> Result<()> {
     let targets: Vec<&str> = if target == "all" {
-        vec!["etherparse", "c", "scapy", "pcap"]
+        vec!["etherparse", "c", "scapy", "kaitai", "pcap"]
     } else {
         vec![target]
     };
@@ -1509,7 +1565,7 @@ pub(crate) fn cmd_validate(
 /// Prefers kernel fields (most accurate struct layout), supplemented by scapy defaults.
 fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
     // Try each source in priority order
-    let source_priority = ["kernel", "scapy", "tshark", "etherparse"];
+    let source_priority = ["kernel", "omi", "scapy", "tshark", "etherparse"];
     let mut best: Option<ir::ProtocolDef> = None;
 
     for source in &source_priority {

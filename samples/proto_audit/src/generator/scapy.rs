@@ -129,8 +129,8 @@ fn determine_scapy_class(
         })
         .to_string();
 
-    // 4. Apply LE prefix if little-endian
-    if *endian == Endian::Little {
+    // 4. Apply LE prefix if little-endian (skip for 1-byte fields — no endianness)
+    if *endian == Endian::Little && bits > 8 {
         if let Some(le) = mappings.le_variant(&base_class) {
             return le.to_string();
         }
@@ -155,6 +155,16 @@ fn format_scapy_field(
                 name,
                 default.as_deref().unwrap_or("0"),
                 bits
+            )
+        }
+        c if c.ends_with("EnumField") => {
+            // EnumField types need an enum dict as 3rd arg; use empty dict
+            // if no dispatch values are available (common for OMI fields).
+            format!(
+                "{}(\"{}\", {}, {{}})",
+                c,
+                name,
+                default.as_deref().unwrap_or("0")
             )
         }
         "FlagsField" => {
