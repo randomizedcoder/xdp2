@@ -16,6 +16,7 @@
 
 use xdp2_core::{ParseError, ProtocolOps};
 use xdp2_protocols::ethernet::ether::EthernetOps;
+use xdp2_protocols::ethernet::llc::LlcSnapOps;
 use xdp2_protocols::ethernet::pbb::PbbOps;
 use xdp2_protocols::ethernet::qinq::QinQOps;
 use xdp2_protocols::ethernet::vlan::VlanOps;
@@ -32,6 +33,7 @@ use xdp2_protocols::management::misc::{
 use xdp2_protocols::management::trill::TrillOps;
 use xdp2_protocols::security::ah::AhOps;
 use xdp2_protocols::security::misc::{EapolOps, EspOps, MacsecOps};
+use xdp2_protocols::storage::fc::FcoeOps;
 use xdp2_protocols::storage::misc::EthercatOps;
 use xdp2_protocols::transport::dccp::DccpOps;
 use xdp2_protocols::transport::sctp::SctpOps;
@@ -89,11 +91,15 @@ fn parse_leaf<P: ProtocolOps>(proto: &P, pkt: &[u8]) -> Result<(), ParseError> {
     Ok(())
 }
 
-// ── Ethernet dispatch (26 ethertypes) ────────────────────────────────
+// ── Ethernet dispatch (28 ethertypes + LLC) ─────────────────────────
 
 /// Shared ethertype dispatch — called by parse_eth, parse_vlan, parse_qinq,
 /// and chainable L2 nodes (HSR, BATMAN, PBB, TRILL).
 fn dispatch_ether(next: i32, rest: &[u8], depth: u32) -> Result<(), ParseError> {
+    // LLC detection: ethertype ≤ 1500 means IEEE 802.3 length field
+    if next > 0 && next <= 1500 {
+        return parse_llc(rest);
+    }
     match next {
         // Core L3
         0x0800 | 0x86DD => parse_ip_check(rest),
@@ -123,6 +129,7 @@ fn dispatch_ether(next: i32, rest: &[u8], depth: u32) -> Result<(), ParseError> 
         0x88E5 => parse_leaf(&MacsecOps, rest),
         0x88A4 => parse_leaf(&EthercatOps, rest),
         0x88CA => parse_leaf(&TipcOps, rest),
+        0x8906 => parse_leaf(&FcoeOps, rest),     // FCoE
         _ => Err(ParseError::UnknownProto),
     }
 }
@@ -206,6 +213,7 @@ fn dispatch_ipv4(next: i32, rest: &[u8]) -> Result<(), ParseError> {
         50 => parse_leaf(&EspOps, rest),
         51 => parse_ah(rest, dispatch_ipv4),
         132 => parse_leaf(&SctpOps, rest),
+        115 => { if rest.len() < 4 { Err(ParseError::Length) } else { Ok(()) } } // L2TPv3
         136 => parse_leaf(&UdpLiteOps, rest),
         137 => parse_leaf(&MplsOps, rest),
         _ => Err(ParseError::UnknownProto),
@@ -237,6 +245,7 @@ fn dispatch_ipv6(mut next: i32, mut rest: &[u8], mut depth: u32) -> Result<(), P
             4 | 41 => return parse_ip_check(rest), // IP-in-IP
             47 => return parse_gre_base(rest),
             50 => return parse_leaf(&EspOps, rest),
+            115 => return if rest.len() < 4 { Err(ParseError::Length) } else { Ok(()) }, // L2TPv3
             0 | 60 => {
                 // HBH / DST extension headers
                 if depth >= MAX_EH_DEPTH {
@@ -472,6 +481,31 @@ fn parse_nsh(pkt: &[u8]) -> Result<(), ParseError> {
         0x8847 => parse_leaf(&MplsOps, rest),
         _ => Err(ParseError::UnknownProto),
     }
+}
+
+// ── LLC/SNAP dispatch ───────────────────────────────────────────────
+
+fn parse_llc(pkt: &[u8]) -> Result<(), ParseError> {
+    if pkt.len() < 3 {
+        return Err(ParseError::Length);
+    }
+    let dsap = pkt[0];
+    match dsap {
+        0xAA => parse_snap(pkt), // LLC/SNAP — re-dispatch encapsulated ethertype
+        0x42 => Ok(()),          // STP BPDU — leaf (3-byte LLC header is sufficient)
+        _ => Err(ParseError::UnknownProto),
+    }
+}
+
+fn parse_snap(pkt: &[u8]) -> Result<(), ParseError> {
+    let proto = LlcSnapOps;
+    let hlen = hdr_len(&proto, pkt)?;
+    let next = match next_or_stop(proto.next_proto(&pkt[..hlen]))? {
+        Some(p) => p,
+        None => return Ok(()),
+    };
+    // Re-dispatch through ethertype space (depth=0 since we're starting fresh)
+    dispatch_ether(next, &pkt[hlen..], 0)
 }
 
 #[cfg(test)]

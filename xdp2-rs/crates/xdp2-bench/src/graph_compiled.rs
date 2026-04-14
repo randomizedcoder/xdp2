@@ -17,9 +17,13 @@ pub fn parse_packet(pkt: &[u8]) -> Result<(), ParseError> {
     parse_ethernet(pkt, 0)
 }
 
-// ── Ethernet dispatch (26 ethertypes) ────────────────────────────────
+// ── Ethernet dispatch (28 ethertypes + LLC) ─────────────────────────
 
 fn dispatch_ether(next: i64, rest: &[u8], depth: u32) -> Result<(), ParseError> {
+    // LLC detection: ethertype ≤ 1500 means IEEE 802.3 length field
+    if next > 0 && next <= 1500 {
+        return parse_llc(rest);
+    }
     match next {
         // Core L3
         0x0800 | 0x86DD => parse_ip_check(rest, depth + 1),
@@ -49,6 +53,7 @@ fn dispatch_ether(next: i64, rest: &[u8], depth: u32) -> Result<(), ParseError> 
         0x88E5 => leaf(rest, 6),   // MACsec
         0x88A4 => leaf(rest, 2),   // EtherCAT
         0x88CA => leaf(rest, 16),  // TIPC
+        0x8906 => leaf(rest, 38),  // FCoE
         _ => Err(ParseError::UnknownProto),
     }
 }
@@ -104,6 +109,7 @@ fn parse_ipv4(pkt: &[u8], depth: u32) -> Result<(), ParseError> {
         47 => parse_gre(rest, depth + 1),  // GRE
         50 => leaf(rest, 8),               // ESP
         51 => parse_ah_v4(rest, depth + 1), // AH → IPv4 table
+        115 => leaf(rest, 4),               // L2TPv3
         132 => leaf(rest, 12),             // SCTP
         136 => leaf(rest, 8),              // UDPLite
         137 => parse_mpls(rest),           // MPLS
@@ -133,6 +139,7 @@ fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32) -> Result<(), P
             4 | 41 => return parse_ip_check(rest, depth + 1), // IP-in-IP
             47 => return parse_gre(rest, depth + 1),   // GRE
             50 => return leaf(rest, 8),                // ESP
+            115 => return leaf(rest, 4),               // L2TPv3
             0 | 60 | 43 => {
                 // HBH / DST / Routing extension headers
                 if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
@@ -186,6 +193,7 @@ fn parse_ah_v4(pkt: &[u8], depth: u32) -> Result<(), ParseError> {
         47 => parse_gre(rest, depth + 1),
         50 => leaf(rest, 8),
         51 => parse_ah_v4(rest, depth + 1),
+        115 => leaf(rest, 4),
         132 => leaf(rest, 12),
         136 => leaf(rest, 8),
         137 => parse_mpls(rest),
@@ -310,6 +318,23 @@ fn parse_nsh(pkt: &[u8], depth: u32) -> Result<(), ParseError> {
 fn parse_batman(pkt: &[u8]) -> Result<(), ParseError> { leaf(pkt, 24) }
 fn parse_pbb(pkt: &[u8]) -> Result<(), ParseError> { leaf(pkt, 18) }
 fn parse_trill(pkt: &[u8]) -> Result<(), ParseError> { leaf(pkt, 20) }
+
+// ── LLC/SNAP dispatch ────────────────────────────────────────────
+
+fn parse_llc(pkt: &[u8]) -> Result<(), ParseError> {
+    if pkt.len() < 3 { return Err(ParseError::Length); }
+    match pkt[0] { // DSAP
+        0xAA => parse_snap(pkt),
+        0x42 => Ok(()), // STP leaf
+        _ => Err(ParseError::UnknownProto),
+    }
+}
+
+fn parse_snap(pkt: &[u8]) -> Result<(), ParseError> {
+    if pkt.len() < 8 { return Err(ParseError::Length); }
+    let next = u16::from_be_bytes([pkt[6], pkt[7]]) as i64;
+    dispatch_ether(next, &pkt[8..], 0)
+}
 
 // ── Leaf nodes ───────────────────────────────────────────────────────
 

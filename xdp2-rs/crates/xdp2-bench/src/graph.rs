@@ -10,17 +10,18 @@
 //!
 //! ## Protocol Coverage
 //!
-//! **Ether table (26 entries):**
+//! **Ether table (28 entries):**
 //! - Core L3: IPv4, IPv6 (via IP check overlay), ARP, RARP
-//! - VLAN: 802.1Q, 802.1AD (QinQ)
+//! - VLAN: 802.1Q, 802.1AD (QinQ) — with LLC detection (ethertype ≤ 1500)
 //! - MPLS: unicast (0x8847), multicast (0x8848)
 //! - Tunnels: PPPoE→PPP→IP, BATMAN, PBB, TRILL, HSR/PRP, NSH
 //! - Management leaves: LLDP, SLOW, MAC_CONTROL, EAPOL, PTP, MVRP, CFM, FIP
-//! - Security/storage leaves: MACsec, EtherCAT, TIPC
+//! - Security/storage leaves: MACsec, EtherCAT, TIPC, FCoE
+//! - LLC: IEEE 802.2 dispatch (SNAP → ethertype re-dispatch, STP leaf)
 //!
-//! **IPv4/IPv6 tables (13/16 entries):**
+//! **IPv4/IPv6 tables (14/17 entries):**
 //! TCP, UDP (tunnel dispatch), ICMP, IGMP, SCTP, DCCP, UDPLite,
-//! GRE (flag-fields), ESP, AH, MPLS, IP-in-IP
+//! GRE (flag-fields), ESP, AH, MPLS, IP-in-IP, L2TP
 //!
 //! **Tunnel dispatch:** UDP dport → VXLAN (4789), Geneve (6081)
 //! **GRE v0:** flag-field sub-parsing (csum/key/seq) → IPv4/IPv6/TEB
@@ -34,9 +35,8 @@ use xdp2_core::flag_fields::{
     FlagFieldsTable, FlagFieldsTableEntry,
     ParseFlagFieldNode, ParseFlagFieldNodeOps, ParseFlagFieldsNode,
 };
-use xdp2_protocols::ethernet::ether::EthernetOps;
-use xdp2_protocols::ethernet::vlan::VlanOps;
-use xdp2_protocols::ethernet::qinq::QinQOps;
+use xdp2_protocols::ethernet::llc::{LlcOps, LlcSnapOps};
+
 use xdp2_protocols::ip::arp::ArpOps;
 use xdp2_protocols::ip::ipv4::Ipv4Ops;
 use xdp2_protocols::ip::ipv6::Ipv6Ops;
@@ -59,6 +59,7 @@ use xdp2_protocols::ip::arp::RarpOps;
 use xdp2_protocols::transport::tipc::TipcOps;
 use xdp2_protocols::management::misc::{LldpOps, SlowOps, MacControlOps, PtpOps, MvrpOps, CfmOps, FipOps};
 use xdp2_protocols::management::trill::TrillOps;
+use xdp2_protocols::storage::fc::FcoeOps;
 use xdp2_protocols::storage::misc::EthercatOps;
 use xdp2_protocols::legacy::BatmanOps;
 use xdp2_protocols::ethernet::pbb::PbbOps;
@@ -178,6 +179,7 @@ pub struct FlowMeta {
     pub keyid: u32,
     pub esp_spi: u32,
     pub ah_spi: u32,
+    pub l2tp_session_id: u32,
     pub ports: PortsMeta,
     pub icmp: IcmpMeta,
     pub addrs: AddrsMeta,
@@ -314,6 +316,12 @@ fn extract_tipc_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl
     meta.addrs.tipc_key = u32::from_be_bytes([hdr[8], hdr[9], hdr[10], hdr[11]]);
 }
 
+/// L2TPv3 (over IP, proto 115): extract session ID.
+/// Matches C's `XDP2_METADATA_TEMP_l2tp`.
+fn extract_l2tp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+    meta.l2tp_session_id = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]);
+}
+
 // ── Local Ops types (bench-specific behavior) ────────────────────
 
 /// UDP with destination-port dispatch for tunnel detection.
@@ -334,6 +342,77 @@ impl ProtocolOps for UdpDportOps {
     fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
         // Return destination port (host-order) for tunnel table lookup.
         Ok(u16::from_be_bytes([hdr[2], hdr[3]]) as i32)
+    }
+}
+
+// ── LLC-aware Ethernet/VLAN/QinQ Ops ────────────────────────────
+//
+// When the ethertype field is ≤ 1500, the frame is LLC-encapsulated
+// (IEEE 802.3 length field, not Ethernet II ethertype). We map these
+// to the sentinel value ETH_P_802_2 (0x0004) so the ETHER_TABLE can
+// dispatch to LLC handling.
+
+/// Sentinel ethertype for LLC frames in the ether dispatch table.
+const ETH_P_802_2: i32 = 0x0004;
+
+/// Convert raw ethertype to LLC-aware value: ≤ 1500 becomes ETH_P_802_2.
+#[inline]
+fn etype_or_llc(raw: u16) -> i32 {
+    if raw <= 1500 { ETH_P_802_2 } else { raw as i32 }
+}
+
+/// Ethernet with LLC detection (14 bytes).
+/// Returns ETH_P_802_2 for LLC frames, real ethertype otherwise.
+struct EtherLlcOps;
+
+impl ProtocolOps for EtherLlcOps {
+    const MIN_LEN: usize = 14;
+    const NAME: &'static str = "Ethernet-LLC";
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        Ok(etype_or_llc(u16::from_be_bytes([hdr[12], hdr[13]])))
+    }
+}
+
+/// VLAN with LLC detection (4 bytes).
+/// Returns ETH_P_802_2 for LLC frames, real ethertype otherwise.
+struct VlanLlcOps;
+
+impl ProtocolOps for VlanLlcOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "VLAN-LLC";
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        Ok(etype_or_llc(u16::from_be_bytes([hdr[2], hdr[3]])))
+    }
+}
+
+/// QinQ with LLC detection (4 bytes).
+/// Returns ETH_P_802_2 for LLC frames, real ethertype otherwise.
+struct QinQLlcOps;
+
+impl ProtocolOps for QinQLlcOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "QinQ-LLC";
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        Ok(etype_or_llc(u16::from_be_bytes([hdr[2], hdr[3]])))
+    }
+}
+
+/// LLC dispatch: reads DSAP byte, routes to SNAP (0xAA) or STP (0x42).
+struct LlcDispatchOps;
+
+impl ProtocolOps for LlcDispatchOps {
+    const MIN_LEN: usize = 3; // LLC header is 3 bytes minimum
+    const NAME: &'static str = "LLC-dispatch";
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        Ok(hdr[0] as i32) // DSAP byte for table dispatch
     }
 }
 
@@ -485,6 +564,31 @@ static MPLS_NODE: ParseNode<FlowMeta, MplsOps> = ParseNode {
     name: "mpls",
 };
 
+/// L2TPv3 session header (4-byte session ID, leaf node).
+///
+/// When L2TP runs directly over IP (proto 115), the first 4 bytes
+/// are the session ID. This matches C's `l2tp_v3_session_def`.
+struct L2tpV3Ops;
+
+impl ProtocolOps for L2tpV3Ops {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "L2TPv3";
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto) // Leaf node
+    }
+}
+
+static L2TP_NODE: ParseNode<FlowMeta, L2tpV3Ops> = ParseNode {
+    proto: L2tpV3Ops,
+    ops: ParseNodeOps { extract_metadata: Some(extract_l2tp_metadata), handler: None, post_handler: None },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "l2tp",
+};
+
 // ── L2 leaf nodes (simple protocols that terminate the parse) ────
 
 static RARP_NODE: ParseNode<FlowMeta, RarpOps> = ParseNode {
@@ -595,6 +699,15 @@ static ETHERCAT_NODE: ParseNode<FlowMeta, EthercatOps> = ParseNode {
     name: "ethercat",
 };
 
+static FCOE_NODE: ParseNode<FlowMeta, FcoeOps> = ParseNode {
+    proto: FcoeOps,
+    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "fcoe",
+};
+
 // ── PPPoE → PPP dispatch ─────────────────────────────────────────
 
 /// PPP protocol dispatch table.
@@ -690,6 +803,7 @@ static IPV4_TABLE: ProtoTable<FlowMeta> = proto_table![
     (50, &ESP_NODE),          // IPPROTO_ESP
     (51, &AH_V4_NODE),        // IPPROTO_AH
     (132, &SCTP_NODE),        // IPPROTO_SCTP
+    (115, &L2TP_NODE),        // IPPROTO_L2TP
     (136, &UDPLITE_NODE),     // IPPROTO_UDPLITE
     (137, &MPLS_NODE),        // IPPROTO_MPLS
 ];
@@ -889,6 +1003,7 @@ static IPV6_TABLE: ProtoTable<FlowMeta> = proto_table![
     (51, &AH_V6_NODE),         // IPPROTO_AH
     (58, &ICMPV6_NODE),        // IPPROTO_ICMPV6
     (60, &IPV6_DST_NODE),      // IPPROTO_DSTOPTS
+    (115, &L2TP_NODE),         // IPPROTO_L2TP
     (132, &SCTP_NODE),         // IPPROTO_SCTP
     (136, &UDPLITE_NODE),      // IPPROTO_UDPLITE
     (137, &MPLS_NODE),         // IPPROTO_MPLS
@@ -1020,13 +1135,52 @@ static GENEVE_NODE: ParseNode<FlowMeta, GeneveV0Ops> = ParseNode {
 /// Inner Ethernet node — re-dispatches through ETHER_TABLE after tunnel decap.
 ///
 /// Matches C's `ether_inner_node` in flow_dissector_nodes.h.
-static ETHER_INNER_NODE: ParseNode<FlowMeta, EthernetOps> = ParseNode {
-    proto: EthernetOps,
+static ETHER_INNER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
+    proto: EtherLlcOps,
     ops: ParseNodeOps { extract_metadata: Some(extract_ether_metadata), handler: None, post_handler: None },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
     name: "ethernet-inner",
+};
+
+// ── LLC/SNAP dispatch ────────────────────────────────────────────
+//
+// When Ethernet/VLAN returns ETH_P_802_2 (ethertype ≤ 1500), we dispatch
+// through the LLC layer. DSAP=0xAA routes to SNAP (which re-dispatches
+// through ETHER_TABLE), DSAP=0x42 routes to STP (leaf).
+
+static STP_NODE: ParseNode<FlowMeta, LlcOps> = ParseNode {
+    proto: LlcOps,
+    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "stp",
+};
+
+static SNAP_NODE: ParseNode<FlowMeta, LlcSnapOps> = ParseNode {
+    proto: LlcSnapOps,
+    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    proto_table: Some(&ETHER_TABLE), // re-dispatch encapsulated ethertype
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "llc-snap",
+};
+
+/// LLC dispatch table — routes DSAP to SNAP or STP.
+static LLC_TABLE: ProtoTable<FlowMeta> = proto_table![
+    (0xAA, &SNAP_NODE),   // LLC_SAP_SNAP → LLC/SNAP encapsulation
+    (0x42, &STP_NODE),    // LLC_SAP_STP → STP BPDU (leaf)
+];
+
+static LLC_NODE: ParseNode<FlowMeta, LlcDispatchOps> = ParseNode {
+    proto: LlcDispatchOps,
+    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    proto_table: Some(&LLC_TABLE),
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "llc",
 };
 
 // ── Ethernet + VLAN dispatch ──────────────────────────────────────
@@ -1063,10 +1217,14 @@ static ETHER_TABLE: ProtoTable<FlowMeta> = proto_table![
     (0x88E5, &MACSEC_NODE),        // ETH_P_MACSEC
     (0x88A4, &ETHERCAT_NODE),      // ETH_P_ETHERCAT
     (0x88CA, &TIPC_NODE),          // ETH_P_TIPC
+    // Storage
+    (0x8906, &FCOE_NODE),          // ETH_P_FCOE
+    // LLC
+    (ETH_P_802_2, &LLC_NODE),     // IEEE 802.2 LLC (ethertype ≤ 1500)
 ];
 
-static ETHER_NODE: ParseNode<FlowMeta, EthernetOps> = ParseNode {
-    proto: EthernetOps,
+static ETHER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
+    proto: EtherLlcOps,
     ops: ParseNodeOps { extract_metadata: Some(extract_ether_metadata), handler: None, post_handler: None },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
@@ -1074,8 +1232,8 @@ static ETHER_NODE: ParseNode<FlowMeta, EthernetOps> = ParseNode {
     name: "ethernet",
 };
 
-static VLAN_NODE: ParseNode<FlowMeta, VlanOps> = ParseNode {
-    proto: VlanOps,
+static VLAN_NODE: ParseNode<FlowMeta, VlanLlcOps> = ParseNode {
+    proto: VlanLlcOps,
     ops: ParseNodeOps { extract_metadata: Some(extract_vlan_8021q_metadata), handler: None, post_handler: None },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
@@ -1083,8 +1241,8 @@ static VLAN_NODE: ParseNode<FlowMeta, VlanOps> = ParseNode {
     name: "vlan",
 };
 
-static QINQ_NODE: ParseNode<FlowMeta, QinQOps> = ParseNode {
-    proto: QinQOps,
+static QINQ_NODE: ParseNode<FlowMeta, QinQLlcOps> = ParseNode {
+    proto: QinQLlcOps,
     ops: ParseNodeOps { extract_metadata: Some(extract_vlan_8021ad_metadata), handler: None, post_handler: None },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,

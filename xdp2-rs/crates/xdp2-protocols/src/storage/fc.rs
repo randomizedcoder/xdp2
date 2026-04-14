@@ -85,6 +85,31 @@ impl ProtocolOps for FcOps {
     }
 }
 
+/// FCoE (Fibre Channel over Ethernet) header length.
+///
+/// 14-byte FCoE encapsulation header + 24-byte FC frame header = 38 bytes.
+/// Matches C's `FCOE_HEADER_LEN` in `proto_fcoe.h`.
+pub const FCOE_HEADER_LEN: usize = 38;
+
+/// FCoE protocol operations (leaf node).
+///
+/// Reimplements: C's `xdp2_parse_fcoe` leaf node in flow_dissector.
+///
+/// FCoE frames carry a complete FC frame after a 14-byte FCoE header.
+/// We treat the combined 38 bytes (FCoE + FC) as a leaf — no further
+/// dispatch into FC sub-types for flow classification.
+pub struct FcoeOps;
+
+impl ProtocolOps for FcoeOps {
+    const MIN_LEN: usize = FCOE_HEADER_LEN;
+    const NAME: &'static str = "FCoE";
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto) // Leaf node
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +136,22 @@ mod tests {
     fn fc_dispatch_ct() {
         let ops = FcOps;
         assert_eq!(ops.next_proto(&make_fc(0x20)).unwrap(), FC_TYPE_CT);
+    }
+
+    #[test]
+    fn fcoe_is_leaf() {
+        let ops = FcoeOps;
+        assert!(ops.next_proto(&[0u8; 38]).is_err());
+    }
+
+    #[test]
+    fn fcoe_min_len() {
+        assert_eq!(FcoeOps::MIN_LEN, 38);
+    }
+
+    #[test]
+    fn fcoe_header_len() {
+        let ops = FcoeOps;
+        assert_eq!(ops.header_len(&[0u8; 38], 38).unwrap(), 38);
     }
 }
