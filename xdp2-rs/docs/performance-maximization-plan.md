@@ -358,19 +358,25 @@ worker per chunk, each running `iterations` full passes with a
 black-box-fed accumulator. No synchronization in the inner loop — every
 byte read is from a shared read-only buffer.
 
-### Step 7: Kernel-Bypass I/O Integration
+### Step 7: Kernel-Bypass I/O Integration (AF_XDP)
 
 **Goal:** Feed the parser at line rate from a real NIC.
 
-**Approach:**
+**Approach:** AF_XDP zero-copy packet delivery from NIC → UMEM → Rust parser.
+New `af_xdp_parser` sample (XDP program with XSKMAP + XDP_REDIRECT) and
+`xdp2-af-xdp` Rust crate for socket/UMEM management.  Builds on existing
+`flow_tracker_combo` XDP sample infrastructure and microvm test framework.
 
-- Integrate with `AF_XDP`, DPDK, or `io_uring` for zero-copy packet
-  ingress.
-- This is a separate problem from the parser itself — the parser is
-  already fast enough that I/O becomes the bottleneck around 10-25 Gbps.
+See **[af-xdp-integration-plan.md](./af-xdp-integration-plan.md)** for the
+full design: architecture, implementation phases, testing strategy (software
+via microvms + hardware via Intel X710), and Rust crate design.
+
+**Key insight:** UMEM frames are contiguous fixed-size buffers at predictable
+addresses — exactly the memory layout that batch SIMD template extraction
+(Step 12d) needs.  AF_XDP + template extraction is the designed-for combination.
 
 **Expected impact:** Enables the parser to run at production line rates.
-Zero improvement to parser microbenchmarks.
+Zero improvement to parser microbenchmarks, but unlocks real-world throughput.
 
 ### Step 6a — Software-Pipelined Scalar (x4)
 
