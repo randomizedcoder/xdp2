@@ -710,8 +710,9 @@ Matching the Rust benchmark's methodology:
 
 ## 10. Summary
 
-The Rust optimization journey from 86 ns/pkt to 2--3 ns/pkt used
-techniques that are all available in C++. The key mappings are:
+The Rust optimization journey from 95 ns/pkt (graph with full feature-parity)
+to 3 ns/pkt (template extraction) used techniques that are all available in
+C++. The key mappings are:
 
 ```
 Rust trait objects        →  C++ virtual functions (baseline)

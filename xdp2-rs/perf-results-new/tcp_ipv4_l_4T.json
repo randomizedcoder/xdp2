@@ -1,0 +1,20 @@
+{
+  "pcap": "../data/pcaps/tcp_ipv4.pcap",
+  "packets": 11,
+  "iterations": 500,
+  "correctness": {
+    "graph": 11,
+    "mono": 11,
+    "compiled": 11,
+    "template": 11
+  },
+  "results": [
+    {"mode": "graph-mt", "ns_pkt": 69, "mpps": 14.5, "threads": 4, "total_pkts": 5500},
+    {"mode": "mono-mt", "ns_pkt": 29, "mpps": 34.1, "threads": 4, "total_pkts": 5500},
+    {"mode": "mono-x4-mt", "ns_pkt": 25, "mpps": 39.3, "threads": 4, "total_pkts": 5500},
+    {"mode": "compiled-mt", "ns_pkt": 22, "mpps": 44.5, "threads": 4, "total_pkts": 5500},
+    {"mode": "simd-mt", "ns_pkt": 21, "mpps": 46.6, "threads": 4, "total_pkts": 5500},
+    {"mode": "template-mt", "ns_pkt": 19, "mpps": 50.6, "threads": 4, "total_pkts": 5500},
+    {"mode": "template-simd-mt", "ns_pkt": 23, "mpps": 42.1, "threads": 4, "total_pkts": 5500}
+  ]
+}

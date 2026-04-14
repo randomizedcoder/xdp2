@@ -144,32 +144,46 @@ the Rust parse graph, more packets pass the filter automatically.
 
 ## 4. Results
 
-### 4.1 Before Optimization
+### 4.1 C vs Rust: Fair Comparison (Post Feature-Parity)
 
-Configuration: default release profile (`lto = false`, `codegen-units = 16`),
-no `#[inline]` annotations.
-
-| Engine | ns/pkt | Mpps | Notes |
-|--------|--------|------|-------|
-| C (xdp2_parse) | 182 | 5 | `-O2`, compiler-inlined parse loop |
-| C (parse-only) | 176 | 5 | No metadata extraction |
-| Rust | 109 | 9 | Default release profile |
-| Rust (parse-only) | 109 | 9 | |
-
-Rust/C ratio: **0.60x** (Rust faster due to smaller code footprint / better
-cache behavior at 500k packets; see Section 5 for analysis).
-
-### 4.2 After Optimization
-
-Configuration: `lto = "fat"`, `codegen-units = 1`, `#[inline]` on all 254
-protocol and dispatch methods.
+As of 2026-04-14, the Rust benchmark has full feature-parity with the C
+flow_dissector: 26 ethertypes, 13 IPv4 protocols, 16 IPv6 protocols, 18
+metadata extractors, GRE flag-field sub-parsing, VXLAN/Geneve tunnel
+decapsulation. Both benchmarks parse the same 430K mixed-protocol packets
+(86.2% pass rate from gen_test_pcap.py's 500K output).
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
-| Rust | 59 | 16 | Fat LTO + `#[inline]` |
-| Rust (parse-only) | 59 | 16 | |
+| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
+| Rust graph (fat LTO + `#[inline]`) | 160 | 6 | Full parse + FlowMeta |
 
-**Improvement: 109 -> 59 ns/pkt (46% faster, 9 -> 16 Mpps)**
+**Rust/C ratio: 0.89x (Rust ~11% faster)** on identical workload.
+
+The Rust graph engine's advantage at scale comes from code compactness:
+the C compiler inlines all protocol functions into a single large function
+that exceeds L2 at 430K packets, while Rust's vtable dispatch produces more
+compact code that stays cache-resident.
+
+### 4.2 Optimization History
+
+**Before optimization** (default release profile, no LTO, no `#[inline]`):
+
+| Engine | ns/pkt | Mpps | Notes |
+|--------|--------|------|-------|
+| C (xdp2_parse) | 180 | 5 | `-O2`, compiler-inlined parse loop |
+| Rust graph | 109 | 9 | Default release profile |
+
+**After LTO + `#[inline]`** (`lto = "fat"`, `codegen-units = 1`, `#[inline]`
+on all 254 protocol and dispatch methods):
+
+| Engine | ns/pkt | Mpps | Notes |
+|--------|--------|------|-------|
+| Rust graph | 95 | 10 | Fat LTO + `#[inline]` + feature-parity |
+
+**Note:** The pre-parity number was 59 ns/pkt because the Rust parser only
+handled ~15 protocol nodes with no metadata extraction. Post feature-parity,
+the graph mode is 95 ns/pkt — reflecting the real cost of full protocol
+coverage and metadata extraction comparable to the C implementation.
 
 ### 4.3 Optimization Breakdown
 
@@ -189,14 +203,15 @@ a multiplicative effect**.
 
 Benchmark results are sensitive to dataset size due to CPU cache effects:
 
-| Dataset | C ns/pkt | Rust ns/pkt | Winner |
-|---------|----------|-------------|--------|
-| 5,000 packets (~80 KB, fits L1/L2) | 78 | 106 | C |
-| 500,000 packets (~16 MB, exceeds L2) | 182 | 59* | Rust |
+| Dataset | C ns/pkt | Rust graph ns/pkt | Winner |
+|---------|----------|-------------------|--------|
+| Small (fits L1/L2) | ~100 | ~95 | Comparable |
+| 430K packets (~14 MB, exceeds L2) | 180 | 160 | Rust |
 
-*After optimization.
+Post feature-parity, both engines do comparable work. The Rust advantage at
+scale comes from code compactness.
 
-**Why the reversal:**
+**Why Rust wins at scale:**
 
 - The C parser's optimizing compiler inlines all protocol functions into a single
   large function. This maximizes instruction-level parallelism but increases code
@@ -304,13 +319,21 @@ The PGO pipeline requires the Rust toolchain and LLVM tools at runtime
 The Rust source tree (`xdp2-rs/`) is copied to a writable temp directory
 for the PGO build, preserving the Nix store's immutability.
 
-## 7. Future Optimizations
+## 7. Beyond Graph Mode: Specialized Parsers
 
-### 7.1 Monomorphized Parse Graph
+The graph engine (160 ns/pkt at scale) is the general-purpose parser. For
+higher throughput, three specialized modes eliminate different overheads:
 
-The ultimate optimization is to eliminate vtable dispatch entirely by generating
-a monomorphized parse graph at compile time. This would produce a parse function
-specialized for each concrete graph topology -- equivalent to what the C
-`xdp2-compiler` does.
+| Mode | ns/pkt | Mpps | What it eliminates |
+|------|--------|------|--------------------|
+| mono | 8 | 121 | Vtable dispatch (hand-rolled monomorphization) |
+| compiled | 5 | 196 | Vtable + zerocopy overhead (direct byte reads) |
+| template | 3 | 321 | The graph walk entirely (NIC-classified fixed offsets) |
 
-This is planned for the Rust compiler crate (`xdp2-compiler`) in Phase 4.
+These modes do not perform metadata extraction — they benchmark pure parse
+speed. The graph mode remains the correct comparison point for the C parser
+because both perform full metadata extraction.
+
+The Rust `xdp2-compiler` crate (Phase 4, planned) will auto-generate the
+compiled parser from the graph IR, replacing the current hand-maintained
+`graph_compiled.rs`.

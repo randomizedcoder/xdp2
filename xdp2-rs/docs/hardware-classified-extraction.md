@@ -11,14 +11,15 @@ shuffle, done.
 
 | Engine | cycles/pkt | ins/pkt | IPC | branches | status |
 |--------|-----------|---------|-----|----------|--------|
-| Rust graph (`&dyn` dispatch) | 226 | 542 | 2.40 | ~112 | measured |
-| Rust compiled (IR codegen) | 12 | 48 | 4.04 | ~8 | measured |
-| AVX2 batch SIMD (8-wide) | 16 | — | — | ~4 | measured (4 ns/pkt) |
-| Template scalar (projected) | 5–7 | 5–8 | — | 0–1 | **target** |
-| Template + batch AVX2 (projected) | 2–3 | 3–5 | — | 0 | **target** |
-| Template + batch AVX-512 (projected) | 1–2 | 2–3 | — | 0 | **target** |
+| Rust graph (`&dyn` dispatch + metadata) | 379 | 910 | 2.40 | ~216 | measured |
+| Rust compiled (IR codegen, parse only) | 21 | 81 | 3.95 | ~20 | measured |
+| AVX2 batch SIMD (8-wide, parse only) | — | 65 | — | ~14 | measured (4 ns/pkt) |
+| Template scalar | — | 36 | — | ~5 | **measured (3 ns/pkt)** |
+| Template + batch AVX2 | — | 44 | — | ~4 | **measured (3 ns/pkt)** |
+| Template + batch AVX-512 (projected) | 1–2 | 2–3 | — | 0 | target |
 
-All "measured" numbers from AMD Ryzen Threadripper 3945WX (Zen 2), 2026-04-13.
+All "measured" numbers from AMD Ryzen Threadripper 3945WX (Zen 2), 2026-04-14
+(post feature-parity: 26 ethertypes, 18 metadata extractors).
 See [performance-maximization-plan.md](./performance-maximization-plan.md) for
 methodology and full results.
 
@@ -275,27 +276,28 @@ For a 42-byte Eth/IPv4/UDP extraction:
 
 **Total: ~5 cycles, 3 instructions, 0 data-dependent branches.**
 
-### Instruction Count Comparison
+### Instruction Count Comparison (Measured)
 
 | Parser | Instructions/pkt | Branches/pkt | Dependent loads |
 |--------|-----------------|-------------|-----------------|
-| Graph (`&dyn` dispatch) | 542 | ~112 | 5+ (vtable + proto chain) |
-| Compiled (IR codegen) | 48 | ~8 | 3 (ethertype → IHL → proto) |
-| Template scalar | 5–8 | 0–1 | 0 (all offsets constant) |
-| Template AVX-512 | 2–3 | 0 | 0 |
+| Graph (`&dyn` dispatch + metadata) | 910 | ~216 | 5+ (vtable + proto chain) |
+| Compiled (IR codegen, parse only) | 81 | ~20 | 3 (ethertype → IHL → proto) |
+| Template scalar | 36 | ~5 | 0 (all offsets constant) |
+| Template AVX-512 (projected) | 2–3 | 0 | 0 |
 
-### Projected Performance
+### Measured Performance
 
-> **These are projections/targets, not measurements.**  Actual numbers will
-> depend on µarch, cache state, and surrounding code.  They will be validated
-> in the implementation phase.
+| Configuration | ns/pkt | Mpps | Speedup vs compiled |
+|--------------|--------|------|-------------------|
+| Compiled (baseline) | 5 | 196 | 1.0x |
+| Template scalar | 3 | 321 | **1.6x** |
+| Template + batch AVX2 (8-wide) | 3 | 254 | 1.3x |
+| Template + batch AVX-512 (projected) | 1–2 | 2000–4000 | 10–20x |
 
-| Configuration | cycles/pkt (projected) | Mpps (projected, 4 GHz) | Speedup vs compiled |
-|--------------|----------------------|------------------------|-------------------|
-| Compiled (baseline) | 12 | 333 | 1.0x |
-| Template scalar | 5–7 | 570–800 | 1.7–2.4x |
-| Template + batch AVX2 (8-wide) | 2–3 | 1300–2000 | 4–6x |
-| Template + batch AVX-512 (16-wide) | 1–2 | 2000–4000 | 6–12x |
+Template scalar achieved 1.6x over compiled (projected 1.7–2.4x).
+Batch AVX2 was 1.3x (projected 4–6x) — the 11-packet test PCAP does
+not produce enough batches for SIMD overhead to amortize; expect better
+results with AF_XDP UMEM and hundreds of contiguous packets.
 
 The key advantage is not just fewer cycles — it is the **elimination of the
 dependent-load chain**.  With no serial dependencies, the out-of-order engine
@@ -635,6 +637,6 @@ This is proposed as **Step 12** in the
   is bottlenecked by the multi-stage gather-compare pipeline.  Templates
   remove that bottleneck.
 - Together, Steps 9 + 11 + 12 form a performance hierarchy:
-  1. **Graph parser** — universal, handles all 218 protocols (~56 ns/pkt)
-  2. **Compiled parser** — auto-generated, handles known graph topologies (~2 ns/pkt)
-  3. **Template extraction** — hardware-classified, handles ~35 common stacks (~0.5–1 ns/pkt projected)
+  1. **Graph parser** — universal, handles all protocols with metadata extraction (~95 ns/pkt single, ~160 ns/pkt at scale)
+  2. **Compiled parser** — auto-generated, handles known graph topologies (~5 ns/pkt)
+  3. **Template extraction** — hardware-classified, handles ~35 common stacks (~3 ns/pkt measured, ~0.5–1 ns/pkt projected with AVX-512)

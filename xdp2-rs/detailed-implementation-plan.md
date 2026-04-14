@@ -13,7 +13,7 @@
 
 - eBPF/XDP runtime (Phase 4+)
 - Full 205 protocol coverage immediately (incremental)
-- Performance parity benchmarking (Phase 3)
+- Performance parity benchmarking (Phase 3) — **done** as of 2026-04-14
 
 ### 1.3 Architecture
 

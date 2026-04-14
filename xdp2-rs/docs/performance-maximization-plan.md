@@ -1,28 +1,43 @@
 # Performance Maximization Plan
 
 This document captures the roadmap for maximizing packet parsing performance
-in the Rust XDP2 implementation, beyond the current optimized baseline of
-**59 ns/pkt (16 Mpps)** achieved through fat LTO + `#[inline]` hints.
+in the Rust XDP2 implementation. The graph engine baseline is **95 ns/pkt
+(10 Mpps)** with full feature-parity (26 ethertypes, 18 metadata extractors).
+The fair C comparison is **160 vs 180 ns/pkt (Rust ~11% faster)** on 430K
+mixed-protocol packets.
 
 See [performance-optimization.md](./performance-optimization.md) for the
-optimizations already applied.
+optimizations applied and [performance-by-platform.md](./performance-by-platform.md)
+for cross-platform results.
 
 ## Current State
 
-**Baseline: 500K filtered packets, single-threaded, AMD Ryzen / Intel Core class CPU**
+**Post feature-parity (2026-04-14): 430K mixed-protocol packets, single-threaded,
+AMD Ryzen Threadripper 3945WX (Zen 2)**
+
+The Rust benchmark now has full feature-parity with the C flow_dissector:
+26 ethertypes, 13 IPv4 protocols, 16 IPv6 protocols, 18 metadata extractors,
+GRE flag-field sub-parsing, VXLAN/Geneve tunnel decapsulation.
+
+**C vs Rust (fair comparison, identical workload):**
 
 | Engine | ns/pkt | Mpps | Ratio to C |
 |--------|--------|------|------------|
-| C (xdp2-compiler, `-O2 -march=native`) | 182 | 5 | 1.00x |
-| Rust graph (fat LTO + `#[inline]`) | 59 | 16 | **0.32x (3.1x faster)** |
-| Rust mono (hand-rolled, Step 2) | 10 | 100 | **0.055x (18x faster)** |
-| Rust compiled (IR codegen, Step 9) | 2 | 500 | **0.011x (91x faster)** |
-| Rust mono × 16 threads (Step 6) | — | 1195 | **239x C throughput** |
+| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | 1.00x |
+| Rust graph (fat LTO + `#[inline]` + metadata) | 160 | 6 | **0.89x (11% faster)** |
 
-The Rust engine outperforms C at scale due to a more compact code footprint
-that stays hot in L1/L2 instruction cache. However, we're still flying blind
-on microarchitectural behavior — we don't know whether the remaining time is
-spent on compute, memory, or branch misprediction.
+**Rust-only modes (tcp_ipv4.pcap, parse speed, no metadata extraction):**
+
+| Engine | ns/pkt | Mpps | Notes |
+|--------|--------|------|-------|
+| Rust graph (with metadata) | 95 | 10 | Full parse + FlowMeta |
+| Rust mono (hand-rolled) | 8 | 121 | Parse only |
+| Rust compiled (IR codegen) | 5 | 196 | Parse only |
+| Rust template (NIC-classified) | 3 | 321 | Fixed-offset, no graph walk |
+
+The Rust graph engine's advantage over C at scale comes from code compactness:
+selective devirtualization via LTO keeps code compact and L2-resident, while
+the C compiler unconditionally inlines all protocol functions.
 
 ## Strategy
 
@@ -57,31 +72,33 @@ to push.
 - Optional: emit a `perf stat`-compatible one-line summary for easy diffing
   across changes.
 
-**Actual measured baseline** (500K packets × 10 iterations on AMD Ryzen-class CPU):
+**Measured baseline** (post feature-parity, tcp_ipv4.pcap, 11 pkts × 500 iterations):
 
 ```text
---- Performance (500000 packets x 10 iterations) ---
-Rust parser:     62 ns/pkt,  16 Mpps
-  cycles/pkt:             200.3
-  instructions/pkt:       449.2   (IPC 2.24)
-  branches/pkt:           111.8
-  branch-misses/pkt:      0.525   (0.47% miss rate)
-  cache-refs/pkt:         2.909
-  cache-misses/pkt:       0.055   (1.87% miss rate)
+Rust graph    : 95 ns/pkt,  10 Mpps
+  cycles/pkt:             379.3
+  instructions/pkt:       910.0   (IPC 2.40)
+  branches/pkt:           216.2
+  branch-misses/pkt:      0.103   (0.05% miss rate)
+  cache-refs/pkt:         0.200
+  cache-misses/pkt:       0.000   (0.00% miss rate)
 ```
 
 **What this tells us:**
 
-- **IPC 2.24** out of ~4 theoretical max — the core is doing real work but
+- **IPC 2.40** out of ~4 theoretical max — the core is doing real work but
   has headroom. Some fraction of cycles is spent on indirect calls the
   compiler could not devirtualize.
-- **Branch-miss rate 0.47%** — extremely low. Step 4 (branchless dispatch)
+- **Branch-miss rate 0.05%** — extremely low. Step 4 (branchless dispatch)
   will not move the needle; skip it.
-- **Cache-miss rate 1.87%** — low. We are not memory-bound. Step 5
-  (metadata layout) unlikely to help.
-- **Conclusion:** Remaining cost is compute + vtable dispatch. Step 2
-  (monomorphized parse graph) is the correct next target — it directly
-  attacks the indirect-call overhead that is eating IPC headroom.
+- **Cache-miss rate 0.00%** — at small scale (11 packets), fully cached.
+  At 430K+ packets Rust still wins on cache behavior vs C.
+- **910 ins/pkt** — significantly higher than pre-parity (449) due to metadata
+  extraction callbacks and larger dispatch tables. This reflects the real
+  cost of feature-parity with C.
+- **Conclusion:** The graph mode cost is dominated by vtable dispatch +
+  metadata extraction. Mono/compiled modes eliminate vtable dispatch; template
+  mode eliminates the graph walk entirely.
 
 **Prerequisites:**
 
@@ -120,30 +137,27 @@ what the C `xdp2-compiler` does, and why the C parser wins at small scale.
 
 **Expected impact:** Another 2-3x speedup. Targeting **~20-30 ns/pkt**.
 
-**Actual impact (hand-rolled PoC in `graph_mono.rs`):**
+**Actual impact (hand-rolled PoC in `graph_mono.rs`, post feature-parity):**
 
 ```text
-Rust graph    : 64 ns/pkt,  15 Mpps   (206 cyc, 450 ins, IPC 2.18)
-Rust mono     : 10 ns/pkt, 100 Mpps   ( 35 cyc,  52 ins, IPC 1.47)
-Correctness: graph ok=500000/500000, mono ok=500000/500000
+Rust graph    : 95 ns/pkt,  10 Mpps   (379 cyc, 910 ins, IPC 2.40)
+Rust mono     :  8 ns/pkt, 121 Mpps   ( 33 cyc,  99 ins, IPC 2.99)
+Correctness: graph ok=11/11, mono ok=11/11
 ```
 
-- **6.4x faster** than the graph-dispatched engine
-- **18x faster** than C (was 182 ns/pkt)
-- 10x fewer instructions per packet — vtable dispatch and the linear
-  `ProtoTable::lookup` were generating real work, not just indirect
-  branches
-- IPC drops from 2.18 → 1.47 because the remaining sequence is too
-  short for the OOO core to find ILP; we are now slightly load-latency
-  bound inside the tiny hot loop
-- Branch-misses per packet stay roughly constant in absolute terms
-  (0.530 → 0.547); the higher *rate* (4.65% vs 0.47%) is just the same
-  mispredicts divided by a much smaller total
+- **~12x faster** than the graph-dispatched engine
+- **22x faster** than C (C = 180 ns/pkt at scale)
+- ~9x fewer instructions per packet — vtable dispatch, metadata extraction
+  callbacks, and the linear `ProtoTable::lookup` are the main overhead
+  eliminated by monomorphization
+- IPC improves from 2.40 → 2.99 (mono has no vtable indirection stalls)
+- Note: mono does not perform metadata extraction, so the comparison to C
+  is not apples-to-apples. The graph mode (95 ns/pkt) is the fair C comparison.
 
 **Conclusion:** The `xdp2-compiler` codegen pass is strongly justified.
-A hand-written monomorphic parser for this protocol set closes the gap
-entirely and then some — the question now is only how to produce one
-automatically from a `.xdp2` graph definition.
+A hand-written monomorphic parser for this protocol set demonstrates that
+vtable dispatch overhead is substantial. The question is how to produce
+this automatically and whether to add metadata extraction to the mono path.
 
 **Risk:** Code size explosion if many graph topologies are instantiated.
 Mitigate with `#[inline(never)]` on cold paths.
@@ -300,9 +314,8 @@ depends on use case. For single-flow low-latency parsing (e.g., intrusion
 detection on a single stream), stick with Steps 1-5. For aggregate
 throughput (all-flow analysis), multi-core is the biggest knob.
 
-**Measured scaling (AMD Ryzen Threadripper PRO 3945WX, 12c/24t,
-500K filtered packets × 50 iterations, mono parser, `black_box` on
-each worker's slice to prevent LLVM LICM):**
+**Pre-parity scaling (AMD Ryzen Threadripper PRO 3945WX, 12c/24t,
+500K filtered packets × 50 iterations, mono parser):**
 
 | Threads | Mpps (mono) | Mpps / thread | Notes |
 |---------|-------------|---------------|-------|
@@ -313,9 +326,11 @@ each worker's slice to prevent LLVM LICM):**
 | 16      | **1195**    |   75          | **Peak — 1.2 Gpps** |
 | 24      |   1094      |   46          | SMT contention, net negative |
 
-Earlier short runs (10 iterations) reported 1046 Mpps at this same
-configuration — that was undersampled, not inflated. Use ≥50 iterations
-for stable numbers.
+**Note (2026-04-14):** These numbers are from pre-parity measurements (15
+protocol nodes). Post feature-parity, per-thread throughput is lower:
+mono drops from 168→121 Mpps single-threaded due to larger dispatch tables.
+Multi-threaded scaling shape should be similar but needs re-measurement
+with a large PCAP (≥100K packets) for meaningful numbers.
 
 **These numbers are specific to this machine.** The 3945WX is a
 12-core / 24-thread workstation CPU with 8-channel DDR4-3200 and 64 MB
@@ -389,17 +404,16 @@ dependent-load chains across the OoO window.
 packets in groups of 4 with 4 fully independent `parse_packet_mono`
 calls per iteration. No new parser; just a restructured outer loop.
 
-**Result:**
+**Result (post feature-parity):**
 
 | Config | Mpps | cycles/pkt | IPC |
 |--------|------|------------|-----|
-| mono (1T)    | 100  | 36.6 | 1.44 |
-| mono-x4 (1T) | 100  | 35.0 | 1.49 |
-| mono-mt (16T)    | 1195 | — | — |
-| mono-x4-mt (16T) | 1180 | — | — |
+| mono (1T)    | 121  | 33.0 | 2.99 |
+| mono-x4 (1T) | 134  | 30.1 | 3.27 |
 
-Single-thread: ~4% fewer cycles and ~3% higher IPC. Real, but at the
-measurement-noise boundary for a wall-clock ns/pkt number.
+Single-thread: ~9% fewer cycles and ~9% higher IPC with x4 pipelining.
+Meaningful improvement post feature-parity — the larger dispatch tables
+provide more opportunities for OoO overlap across independent parse chains.
 
 Multi-thread: no benefit. At 16 threads the L3 and core-private memory
 paths saturate; adding software-level interleaving on top does not
@@ -539,27 +553,32 @@ which one actually helped.
 
 ## Tracking Table
 
+All numbers post feature-parity (2026-04-14): 26 ethertypes, 18 metadata
+extractors, matching C flow_dissector scope.
+
 | Step | Status | ns/pkt | Mpps | Notes |
 |------|--------|--------|------|-------|
 | Baseline (pre-optimization) | done | 109 | 9 | Default release profile |
-| LTO + `#[inline]` | done | 59 | 16 | Current baseline |
-| Step 1: CPU counters | done | 62 | 16 | IPC 2.24, branch-miss 0.47%, cache-miss 1.87% |
-| Step 2: Monomorphized graph (PoC) | done | **10** | **100** | Hand-rolled mono parser: 6.4x faster, 35 cycles/pkt, 52 ins/pkt |
+| LTO + `#[inline]` | done | 95 | 10 | Post feature-parity graph mode |
+| Step 1: CPU counters | done | 95 | 10 | IPC 2.40, branch-miss 0.05%, cache-miss 0.00% (910 ins/pkt) |
+| Step 2: Monomorphized graph (PoC) | done | **8** | **121** | Hand-rolled mono parser: ~12x faster, 33 cycles/pkt, 99 ins/pkt |
 | Step 3a: Per-packet SIMD | skip | — | — | No bulk data in hot path; critical path is a dependent-load chain |
 | Step 3b: Cross-packet (batch) SIMD | deferred | — | — | High ROI on uniform-path traffic (NIC-steered queues); requires pipeline rewrite |
-| Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.47%, nothing to gain |
-| Step 5: Metadata layout | skip | — | — | Cache-miss already 1.87%, not memory-bound |
-| Step 6: Multi-core (mono) | done | — | **1195** | 16 threads, Threadripper 3945WX (12c/24t), 50 iterations |
-| Step 6a: Software-pipelined x4 | done on 3945WX | 35 (−1) | 100 (0) | Marginal here (Zen 2, wide OoO); may matter more on narrower cores — re-measure per target |
+| Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.05%, nothing to gain |
+| Step 5: Metadata layout | skip | — | — | Cache-miss already 0.00%, not memory-bound |
+| Step 6: Multi-core | done | — | — | 4T template: 50.6 Mpps; needs re-measurement with larger PCAP |
+| Step 6a: Software-pipelined x4 | done on 3945WX | 7 | 134 | Marginal here (Zen 2, wide OoO); may matter more on narrower cores |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 | Step 8: Bounds-check audit | done | — | — | LLVM eliminates all redundancies; zero-cost abstractions verified via `cargo asm` |
-| Step 9: Compiler codegen (IR → Rust) | done | **2** | **500** | Auto-generated mono parser from bench-graph.json; 11.9 cycles/pkt, 47.9 ins/pkt, IPC 4.04; 28x graph, ~2x hand-rolled mono |
+| Step 9: Compiler codegen (IR → Rust) | done | **5** | **196** | Inline byte reads; 20.5 cycles/pkt, 80.9 ins/pkt, IPC 3.95 |
 | Step 10: Cross-platform perf harness | done | — | — | `--report` JSON output, `perf-sweep.sh`, `performance-by-platform.md` |
-| Step 11: Batch SIMD prototype (AVX2) | done | 4 | 208 | Eth/IPv4/TCP fast path in SIMD, scalar fallback; ~2x slower than compiled (gather overhead); validates approach for AF_XDP batches |
-| Step 12a-c: Template extraction | done | **3** | **317** | Hardware-classified fixed-offset extraction; 35.8 ins/pkt (25% fewer than compiled), 5.2 branches (49% fewer); IPC 2.81 limited by XOR anti-DCE chain |
-| Step 12d: Batch template SIMD | done | **4** | **200** | AVX2 batch (8 pkts/pass), 43.5 ins/pkt, IPC 2.10; SIMD overhead doesn't amortize with 11 pkts — needs larger batches + AF_XDP UMEM |
+| Step 11: Batch SIMD prototype (AVX2) | done | 4 | 216 | Eth/IPv4/TCP fast path in SIMD, scalar fallback |
+| Step 12a-c: Template extraction | done | **3** | **321** | Hardware-classified fixed-offset extraction; 35.8 ins/pkt, 5.2 branches |
+| Step 12d: Batch template SIMD | done | **3** | **254** | AVX2 batch (8 pkts/pass), 43.5 ins/pkt |
 | Step 12e: Queue-template binding | not started | — | — | Map AF_XDP queues → templates; depends on Step 7 |
 | Step 12f: NIC config helper | not started | — | — | `ethtool -N` ntuple setup scripts; depends on Step 12e |
+| **Feature-parity** | **done** | — | — | **26 ethertypes, 13 IPv4 protos, 16 IPv6 protos, 18 metadata extractors** |
+| **C vs Rust (fair)** | **done** | **160** | **6** | **0.89x C (11% faster) on 430K mixed-protocol packets** |
 
 ## Non-Goals
 

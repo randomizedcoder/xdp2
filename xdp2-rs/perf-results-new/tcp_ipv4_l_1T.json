@@ -1,0 +1,20 @@
+{
+  "pcap": "../data/pcaps/tcp_ipv4.pcap",
+  "packets": 11,
+  "iterations": 500,
+  "correctness": {
+    "graph": 11,
+    "mono": 11,
+    "compiled": 11,
+    "template": 11
+  },
+  "results": [
+    {"mode": "graph", "ns_pkt": 92, "mpps": 10.8, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 1980698, "instructions": 5004854, "branches": 1189144, "branch_misses": 550, "cache_refs": 767, "cache_misses": 0}},
+    {"mode": "mono", "ns_pkt": 6, "mpps": 145.4, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 151357, "instructions": 543847, "branches": 133141, "branch_misses": 529, "cache_refs": 128, "cache_misses": 0}},
+    {"mode": "mono-x4", "ns_pkt": 5, "mpps": 172.6, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 127704, "instructions": 542840, "branches": 128139, "branch_misses": 39, "cache_refs": 123, "cache_misses": 0}},
+    {"mode": "compiled", "ns_pkt": 4, "mpps": 213.0, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 103713, "instructions": 444846, "branches": 111141, "branch_misses": 34, "cache_refs": 73, "cache_misses": 0}},
+    {"mode": "simd", "ns_pkt": 4, "mpps": 214.2, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 103183, "instructions": 354846, "branches": 75139, "branch_misses": 54, "cache_refs": 210, "cache_misses": 14}},
+    {"mode": "template", "ns_pkt": 3, "mpps": 320.3, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 69786, "instructions": 0, "branches": 28641, "branch_misses": 34, "cache_refs": 166, "cache_misses": 32}},
+    {"mode": "template-simd", "ns_pkt": 4, "mpps": 249.8, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 88651, "instructions": 0, "branches": 22142, "branch_misses": 45, "cache_refs": 208, "cache_misses": 81}}
+  ]
+}

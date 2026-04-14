@@ -35,6 +35,32 @@ See **[detailed-implementation-plan.md](./detailed-implementation-plan.md)** for
 the full phased implementation strategy, C-to-Rust mapping tables, verification
 approach, and Nix integration.
 
+## Performance (2026-04-14)
+
+Feature-parity with C flow_dissector: 26 ethertypes, 13 IPv4 protocols,
+16 IPv6 protocols, 18 metadata extractors, GRE flag-field sub-parsing,
+VXLAN/Geneve tunnel decapsulation.
+
+**C vs Rust (430K mixed-protocol packets, AMD Ryzen Threadripper 3945WX):**
+
+| Engine | ns/pkt | Mpps |
+|--------|--------|------|
+| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 |
+| Rust graph (fat LTO + `#[inline]`) | 160 | 6 |
+
+Rust/C ratio: **0.89x (Rust ~11% faster)** on identical workload.
+
+**Specialized Rust modes (parse speed, no metadata extraction):**
+
+| Mode | ns/pkt | Mpps |
+|------|--------|------|
+| mono (hand-rolled) | 8 | 121 |
+| compiled (inline byte reads) | 5 | 196 |
+| template (NIC-classified fixed offsets) | 3 | 321 |
+
+See [docs/performance-by-platform.md](./docs/performance-by-platform.md) for
+full results, perf counter data, and multi-threaded scaling.
+
 ## Architecture
 
 This is a Cargo workspace with three crates:
@@ -43,7 +69,8 @@ This is a Cargo workspace with three crates:
 xdp2-rs/
 ├── crates/
 │   ├── xdp2-core/          # Parse engine: types, traits, main loop, TLV/flag/array
-│   ├── xdp2-protocols/     # Protocol definitions (Ethernet, IPv4, TCP, etc.)
+│   ├── xdp2-protocols/     # 205 protocol definitions (Ethernet, IPv4, TCP, GRE, etc.)
+│   ├── xdp2-bench/         # Benchmark harness (7 parser modes, perf counters)
 │   └── xdp2-compiler/      # Optimizing compiler (Phase 4, stub for now)
 ├── Cargo.toml              # Workspace root
 └── README.md
