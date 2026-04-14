@@ -550,6 +550,10 @@ which one actually helped.
 | Step 9: Compiler codegen (IR → Rust) | done | **2** | **500** | Auto-generated mono parser from bench-graph.json; 11.9 cycles/pkt, 47.9 ins/pkt, IPC 4.04; 28x graph, ~2x hand-rolled mono |
 | Step 10: Cross-platform perf harness | done | — | — | `--report` JSON output, `perf-sweep.sh`, `performance-by-platform.md` |
 | Step 11: Batch SIMD prototype (AVX2) | done | 4 | 208 | Eth/IPv4/TCP fast path in SIMD, scalar fallback; ~2x slower than compiled (gather overhead); validates approach for AF_XDP batches |
+| Step 12a-c: Template extraction | done | **3** | **317** | Hardware-classified fixed-offset extraction; 35.8 ins/pkt (25% fewer than compiled), 5.2 branches (49% fewer); IPC 2.81 limited by XOR anti-DCE chain |
+| Step 12d: Batch template SIMD | not started | — | — | AVX2/512 batch + template; projected 1-2 cyc/pkt |
+| Step 12e: Queue-template binding | not started | — | — | Map AF_XDP queues → templates; depends on Step 7 |
+| Step 12f: NIC config helper | not started | — | — | `ethtool -N` ntuple setup scripts; depends on Step 12e |
 
 ## Non-Goals
 
