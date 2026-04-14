@@ -3,8 +3,8 @@
 ## Context
 
 The proto-audit tool (`samples/proto_audit/`) compares protocol header definitions
-across 8 independent sources (XDP2, Linux kernel, Scapy, tshark, etherparse,
-libpcap, Kaitai Struct, Suricata), normalizes them into a common IR, and generates code
+across 9 independent sources (XDP2, Linux kernel, Scapy, tshark, etherparse,
+libpcap, Kaitai Struct, Suricata, OMI), normalizes them into a common IR, and generates code
 for all targets.
 
 The goal is to scale beyond **1,000 protocols** with extreme correctness, making
@@ -13,28 +13,20 @@ with XDP2 as the primary beneficiary.
 
 ---
 
-## Current State (2026-04-06)
+## Current State (2026-04-13)
 
 | Metric | Count |
 |--------|-------|
-| Total protocols tracked | 8,358 (206 curated + 8,152 discovered) |
-| Curated protocols | 206 |
-| Gold (round-trip validated) | 112 |
-| Silver (2+ sources agree) | 36 |
-| Bronze (single source) | 27 |
-| Independent sources | 8 (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai, Suricata) |
-| XDP2 proto_defs | 222 (206 curated) |
-| Etherparse structs | 206/206 curated |
-| Libpcap overlays | 206/206 curated |
-| Kaitai curated | 12 protocols |
-| Suricata curated | 20 protocols |
-| Overlay patches | 206 etherparse + 206 libpcap (batch-generated from PDML corpus) |
-| Unit tests | 400 |
+| Curated protocols | 428 |
+| Gold (round-trip validated) | 212+ |
+| Independent sources | 9 (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai, Suricata, OMI) |
+| XDP2 proto_defs | 238 (incl. 16 new trading leaf proto_defs) |
+| OMI trading msgs curated | ~27 (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
+| Overlay patches | 332 etherparse + 332 libpcap (incl. 27 trading `trading_*.patch` each) |
+| Unit tests | 420 |
 | PCAP templates | 62 |
 | PCAP corpus | 624 files covering 305 dissectors |
-| Decode table entries | 217 |
-| RFC references (curated) | 97 protocols, 181 total RFCs |
-| CLI commands | 19 |
+| CLI commands | 22 (adds `gen-patches`) |
 
 ## Completed Phases
 
@@ -97,6 +89,26 @@ with XDP2 as the primary beneficiary.
 - ~15 protocols with struct-level field extraction
 - 48 PCAP templates for round-trip validation
 - 390 unit tests
+
+### Phase 9: OMI as 9th Source + Trading Protocol Expansion (DONE)
+
+- **OMI extractor**: `src/extractors/omi.rs` consumes Open Markets Initiative
+  c-structs and Wireshark Lua dissectors for exchange trading feeds. 9th
+  independent proto-audit source.
+- **Per-message tshark extraction**: `extract_field_as_proto` in
+  `src/extractors/tshark.rs` pulls only the leaf message fields when an
+  `.omi_tshark(lua, pcap, field)` triple is wired in the name table.
+- **Workstream 1 — OMI tshark coverage**: 3 EOBI v3 entries (OrderAdd,
+  SnapshotOrder, Heartbeat) with full c-struct + Lua + PCAP triangle and
+  per-entry roundtrip tests.
+- **Workstream 2 — IR → upstream patches**: New `gen-patches --target
+  <libpcap|etherparse> --source omi` subcommand. Produced 27 libpcap + 27
+  etherparse `trading_*.patch` files from OMI IR.
+- **Workstream 3 — XDP2 trading parse-nodes**: 16 leaf proto_defs under
+  `src/include/xdp2/proto_defs/trading/` (ITCH v5 + PITCH v2). xdp2
+  extractor prefers curated `.xdp2()` var lookup over fuzzy matching.
+- Phase A (leaf proto_defs with `min_len`) complete; Phase B (char-based
+  dispatch DSL) and Phase C (OMI c-structs as XDP2 field layouts) deferred.
 
 ### Phase 8: Curated Integration & Verification Expansion (DONE)
 

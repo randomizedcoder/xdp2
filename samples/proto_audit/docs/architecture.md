@@ -2,7 +2,7 @@
 
 ## Overview
 
-proto-audit extracts protocol definitions from eight independent sources,
+proto-audit extracts protocol definitions from nine independent sources,
 normalizes them into a common IR, then compares, reports, and generates code.
 
 ```
@@ -82,6 +82,7 @@ both directions, per-source fidelity tables, and a worked IPv4 example.
 | **libpcap** | C structs + BPF gencode offsets | Nix-pinned + overlay patches | ~6 native + overlays |
 | **Kaitai Struct** | Format specification files (.ksy) | Nix-pinned .ksy files | ~20 protocols (12 curated) |
 | **Suricata** | Rust app-layer parser structs | Nix-pinned source, regex Rust parse | ~15 protocols (20 curated) |
+| **OMI** | Exchange trading c-structs + Wireshark Lua dissectors | Nix-pinned c-structs + wireshark-lua trees | ~27 trading msgs (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
 
 ## Intermediate Representation
 

@@ -1,8 +1,8 @@
 # Extractors
 
-Each source has a dedicated extractor that reads native definitions (C structs,
-Python field descriptors, Rust types, XML dissections, BPF gencode offsets) and
-normalizes them into the common IR (`ProtocolDef`). Every field is indexed by
+Each of the 9 sources has a dedicated extractor that reads native definitions
+(C structs, Python field descriptors, Rust types, XML dissections, BPF gencode
+offsets, OMI Lua dissectors) and normalizes them into the common IR (`ProtocolDef`). Every field is indexed by
 its wire bit offset and size. Type inference is driven by per-source TOML
 mapping files in `mappings/`.
 
@@ -182,3 +182,28 @@ Telnet, TFTP, mDNS, WebSocket. For non-curated protocols, the extractor
 uses a `PROTO_MAP` table for module→struct lookup.
 
 No TOML mapping file is needed — Rust types map directly to IR types.
+
+## OMI (`src/extractors/omi.rs`)
+
+The Open Markets Initiative ships (a) canonical C-struct definitions for
+exchange trading protocols and (b) Wireshark Lua dissectors for those same
+feeds. proto-audit treats these as two halves of a 9th independent source.
+
+- **C-struct half**: Parses packed `typedef struct ... T` definitions from
+  OMI feed headers (e.g., `nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h`,
+  `eurex/Eurex.Derivatives.Eobi.T7.v3.0.h`). Produces IR fields with wire
+  sizes sourced from the c-struct, pinned by Nix.
+- **Wireshark Lua half**: When a name table entry supplies an
+  `.omi_tshark(lua, pcap, field)` triple, the extractor runs the referenced
+  sample PCAP through tshark with the OMI Lua dissector preloaded, then
+  extracts only the per-message leaf fields (via
+  `extract_field_as_proto`) — avoiding the outer-packet superset that plain
+  tshark would return.
+
+Covers ~27 trading protocol messages across ITCH v5, PITCH v2, SBE MDP3,
+EOBI, and SoupBinTCP. Wired into the name table via builder methods
+`.omi(struct_name, header_file)`, `.omi_tshark(lua, pcap, field)`, and
+`.xdp2(parse_node_var)` when a matching XDP2 `trading/proto_*.h` leaf exists.
+
+See [Source Patching](patching.md) for the `gen-patches` pipeline that
+converts OMI IR into upstream libpcap / etherparse overlay patches.

@@ -1,28 +1,26 @@
 # proto-audit Status
 
-## Current State (2026-04-06)
+## Current State (2026-04-13)
 
-206 curated protocols audited across 8 sources (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata).
-8,358 total protocols tracked (206 curated + 8,152 discovered from tshark/Scapy registries).
-400 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, and exhaustive TOML coverage validation.
-36 protocols with Silver-tier structural agreement (2+ independent sources agree on field layout).
-112 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
-205 protocols routable through PCAP generation (all except TPLINK_SMARTHOME).
+428 curated protocols audited across 9 sources (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
+420 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, and exhaustive TOML coverage validation.
+212+ protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
 62 PCAP templates with valid protocol content for round-trip validation.
+332 libpcap + 332 etherparse per-protocol overlay patches (incl. 27 trading `trading_*.patch` each).
 
 ### Source Coverage Summary
 
 | Source | Coverage |
 |--------|----------|
-| XDP2 proto_defs | 222 (206 curated) |
-| Etherparse structs | 206/206 curated |
-| Libpcap overlays | 206/206 curated |
+| XDP2 proto_defs | 238 (incl. 16 new trading leaf proto_defs) |
+| Etherparse structs | 332 overlay patches |
+| Libpcap overlays | 332 overlay patches |
 | Scapy classes | 5,798 (109 curated) |
 | tshark filters | 3,753 (3,155 protocols) |
 | Kernel structs | 74 (173 in registry) |
 | Kaitai Struct | ~20 protocols (12 curated) |
 | Suricata parsers | ~15 protocols (20 curated) |
-| Multi-source (2+) | 1,198 |
+| OMI trading msgs | ~27 (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
 
 ### Validation Tier Breakdown
 
@@ -51,6 +49,20 @@ SNMP, SSH, STP, STUN, Skinny, Slow_Protocols, Syslog, TCP, TFTP, TLS,
 UDP, UDPLite, VLAN, VRRP, VXLAN, VXLAN_GPE, WireGuard, iSCSI, mDNS
 
 ### Recent Changes
+
+#### Trading Protocol Expansion (3 Workstreams, 2026-04-13)
+
+Three parallel expansions built on the OMI IR:
+
+- **W1: OMI tshark coverage** — 3 EOBI v3 entries (OrderAdd, SnapshotOrder, Heartbeat) wired with the full `.omi()` + `.tshark()` + `.omi_tshark(lua, pcap, field)` triangle; per-entry roundtrip tests verify all 7 slots. Remaining ITCH v5 / PITCH v2 messages are blocked on missing sample PCAPs in omi-data-packets.
+- **W2: IR → upstream patches** — New `gen-patches --target <libpcap|etherparse> --source omi` subcommand pipes OMI IR through the existing `generate_libpcap_patch` / `generate_etherparse_patch` generators. Produced 27 libpcap + 27 etherparse `trading_*.patch` files.
+- **W3: XDP2 trading parse-nodes** — 16 leaf `proto_def`s added under `src/include/xdp2/proto_defs/trading/` (13 ITCH v5 + 3 PITCH v2). `trading` added to proto_defs Makefile SUBDIRS. `xdp2` extractor now prefers the curated `.xdp2()` name-table var before falling back to fuzzy matching, so canonical names like `ITCH_v5_AddOrder` resolve. Field lists remain empty (Phase A); char-based dispatch DSL (Phase B) and OMI-sourced field layouts (Phase C) are deferred.
+
+#### OMI as 9th Source (earlier, 2026-04)
+
+- Added OMI extractor (`src/extractors/omi.rs`) consuming Open Markets Initiative c-structs and Wireshark Lua dissectors.
+- Name-table builders `.omi(struct, file)`, `.tshark(lua_file)`, `.omi_tshark(lua, pcap, field)`.
+- OMI PCAPs added to `pcapCorpus`; OMI Lua dissectors loaded into tshark for per-message field extraction.
 
 #### Kaitai & Suricata Curated Integration (8 Sources)
 

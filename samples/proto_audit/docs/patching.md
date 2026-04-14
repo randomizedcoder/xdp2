@@ -3,7 +3,9 @@
 proto-audit extends two third-party sources (etherparse and libpcap) with
 **overlay struct patches** — small, per-protocol patch files that add struct
 definitions for protocols not natively covered. This enables cross-source
-comparison for 49 additional protocols beyond what each library defines.
+comparison for hundreds of additional protocols beyond what each library
+defines, including 27 trading protocols (ITCH v5, PITCH v2, SBE MDP3, EOBI,
+SoupBinTCP) generated from OMI IR via the `gen-patches` pipeline.
 
 ## Why Patch?
 
@@ -23,17 +25,21 @@ typically has its own maintainer.
 
 ```
 patches/
-  gen_fine_grained.py         # Generator script (maintenance tool)
-  etherparse/                 # 31 Rust overlay struct patches
+  gen_fine_grained.py         # Legacy batch generator (PDML corpus → overlay structs)
+  etherparse/                 # 332 Rust overlay struct patches
     gre.patch                 # → src/proto_audit/gre.rs
     vxlan.patch               # → src/proto_audit/vxlan.rs
-    mpls.patch                # → ...
     ...
-  libpcap/                    # 18 C header overlay struct patches
+    trading_itch_v5_addorder.patch     # → src/proto_audit/itch_v5_addorder.rs (from OMI IR)
+    trading_eobi_v3_orderadd.patch     # → src/proto_audit/eobi_v3_orderadd.rs
+    ...                                # 27 trading_*.patch files total
+  libpcap/                    # 332 C header overlay struct patches
     gre.patch                 # → pcap/proto_audit/gre.h
     vxlan.patch               # → pcap/proto_audit/vxlan.h
-    mpls.patch                # → ...
     ...
+    trading_itch_v5_addorder.patch     # → pcap/proto_audit/itch_v5_addorder.h
+    trading_eobi_v3_orderadd.patch     # → pcap/proto_audit/eobi_v3_orderadd.h
+    ...                                # 27 trading_*.patch files total
 ```
 
 Each patch creates a single new file (`--- /dev/null` → `+++ b/path`),
@@ -149,21 +155,41 @@ supported by the libpcap extractor's extended regex parser.
 
 *ep = etherparse only, both = etherparse + libpcap*
 
-## Generator Script
+## Generators
 
-`patches/gen_fine_grained.py` contains all 49 struct definitions as Python
-data and generates the patch files. Run it to regenerate after editing:
+proto-audit has two patch generation paths:
+
+### `gen-patches` — IR-driven (current)
+
+The `gen-patches` subcommand walks the name-mapping table, extracts each
+entry with the requested source, and pipes the IR through the existing
+`generate_libpcap_patch` / `generate_etherparse_patch` generators.
+
+```bash
+nix run .#proto-audit -- gen-patches --target libpcap --source omi \
+    --out samples/proto_audit/patches/libpcap/
+nix run .#proto-audit -- gen-patches --target etherparse --source omi \
+    --out samples/proto_audit/patches/etherparse/
+```
+
+Supported targets: `libpcap`, `etherparse`. Supported source: `omi` (the
+only source currently wired for round-trip patch generation). Filter with
+`--protos P1,P2` or preview with `--dry-run`. This is the pipeline that
+produced the 27 `trading_*.patch` files.
+
+### `gen_fine_grained.py` — legacy batch
+
+`patches/gen_fine_grained.py` contains hand-curated struct definitions for
+the older non-trading overlay set and generates their patches from a
+Python dict source of truth:
 
 ```bash
 cd samples/proto_audit/patches
 python3 gen_fine_grained.py
-# Generated 31 etherparse patches
-# Generated 18 libpcap patches
 ```
 
-The script is the single source of truth for overlay struct definitions.
-Edit the `ETHERPARSE` and `LIBPCAP` lists, then regenerate — don't edit
-`.patch` files directly.
+Edit the `ETHERPARSE` / `LIBPCAP` lists in the script, then regenerate —
+don't edit those `.patch` files directly.
 
 ## Relationship to Other Sources
 
