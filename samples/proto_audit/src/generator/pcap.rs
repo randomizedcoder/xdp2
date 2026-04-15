@@ -2111,13 +2111,35 @@ fn try_pcap_template(target: &str) -> Option<StackResult> {
 ///
 /// Looks for `$PROTO_AUDIT_PCAP_TEMPLATES/<proto>.pcap`.
 pub fn load_pcap_template(target: &str) -> Option<PcapTemplate> {
-    let template_dir = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES").ok()?;
-    let template_path = std::path::Path::new(&template_dir)
-        .join(format!("{}.pcap", target.to_lowercase()));
+    let lower = target.to_lowercase();
+    let filenames = [
+        format!("{}.pcap", lower),
+        format!("{}.pcap", lower.replace('.', "").replace('-', "_")),
+        format!("{}.pcap", lower.replace('-', "_")),
+    ];
 
-    if !template_path.exists() {
-        return None;
+    // Candidate directories in priority order.
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(d) = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES") {
+        dirs.push(std::path::PathBuf::from(d));
     }
+    dirs.push(std::path::PathBuf::from("pcap_templates"));
+    dirs.push(std::path::PathBuf::from("samples/proto_audit/pcap_templates"));
+    if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+        dirs.push(std::path::PathBuf::from(&manifest).join("pcap_templates"));
+    }
+
+    let mut template_path: Option<std::path::PathBuf> = None;
+    'outer: for dir in &dirs {
+        for fname in &filenames {
+            let p = dir.join(fname);
+            if p.exists() {
+                template_path = Some(p);
+                break 'outer;
+            }
+        }
+    }
+    let template_path = template_path?;
 
     let data = std::fs::read(&template_path).ok()?;
     if data.len() < 24 + 16 {

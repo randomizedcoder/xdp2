@@ -30,6 +30,7 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
     out.push_str(&format!("    name = \"{}\"\n", proto.name));
     out.push_str("    fields_desc = [\n");
 
+    let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     for field in &proto.fields {
         let raw_name = field
             .source_names
@@ -38,14 +39,31 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
             .unwrap_or(&field.name);
         // Sanitize: strip protocol prefix (e.g. "ip.version" → "version"),
         // replace dots/dashes/spaces with underscores for valid Python identifiers
-        let sanitized;
-        let scapy_name = if raw_name.contains('.') || raw_name.contains('-') || raw_name.contains(' ') {
-            let stripped = raw_name.rsplit('.').next().unwrap_or(raw_name);
-            sanitized = stripped.replace('-', "_").replace(' ', "_");
-            &sanitized
+        let stripped = if raw_name.contains('.') {
+            raw_name.rsplit('.').next().unwrap_or(raw_name)
         } else {
             raw_name
         };
+        let mut candidate = stripped
+            .replace('-', "_")
+            .replace(' ', "_")
+            .replace('/', "_");
+
+        // Escape Python reserved words and Scapy-reserved kwargs.
+        if is_python_reserved(&candidate) {
+            candidate.push('_');
+        }
+
+        // Deduplicate within this protocol — Scapy raises on duplicate field
+        // names (e.g. ARP has two "type" fields: hwtype + ptype after stripping).
+        let mut final_name = candidate.clone();
+        let mut suffix = 2u32;
+        while seen_names.contains(&final_name) {
+            final_name = format!("{}_{}", candidate, suffix);
+            suffix += 1;
+        }
+        seen_names.insert(final_name.clone());
+        let scapy_name = final_name.as_str();
 
         let field_class = determine_scapy_class(&field.field_type, field.size_bits,
                                                  scapy_name, &field.endian,
@@ -109,6 +127,20 @@ pub fn generate_scapy_patch(proto: &ProtocolDef) -> Option<String> {
         out.push('\n');
     }
     Some(out)
+}
+
+/// Python reserved words and Scapy-reserved kwargs that can't be used as field names.
+fn is_python_reserved(name: &str) -> bool {
+    matches!(
+        name,
+        "False" | "None" | "True" | "and" | "as" | "assert" | "async" | "await"
+        | "break" | "class" | "continue" | "def" | "del" | "elif" | "else"
+        | "except" | "finally" | "for" | "from" | "global" | "if" | "import"
+        | "in" | "is" | "lambda" | "nonlocal" | "not" | "or" | "pass" | "raise"
+        | "return" | "try" | "while" | "with" | "yield" | "match" | "case"
+        // Scapy-specific reserved attribute names
+        | "name" | "fields_desc" | "payload" | "underlayer"
+    )
 }
 
 /// Determine the Scapy field class for a given IR field.

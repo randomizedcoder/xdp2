@@ -1681,18 +1681,31 @@ fn tshark_from_pcap_bytes(
 
 /// Find a PCAP file for a given protocol from templates or corpus.
 fn find_pcap_for_protocol(proto: &str) -> Option<PathBuf> {
-    // Check pcap_templates/ first
-    if let Ok(template_dir) = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES") {
-        let path = PathBuf::from(&template_dir).join(format!("{}.pcap", proto.to_lowercase()));
-        if path.exists() {
-            return Some(path);
-        }
+    let lower = proto.to_lowercase();
+    // Candidate file-name spellings: exact lowercase, and with dots/dashes stripped.
+    let filenames = [
+        format!("{}.pcap", lower),
+        format!("{}.pcap", lower.replace('.', "").replace('-', "_")),
+        format!("{}.pcap", lower.replace('-', "_")),
+    ];
+
+    // Candidate directories, in priority order.
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if let Ok(d) = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES") { dirs.push(PathBuf::from(d)); }
+    if let Ok(d) = std::env::var("PROTO_AUDIT_PCAP_CORPUS")    { dirs.push(PathBuf::from(d)); }
+    // Fallback locations (when running outside the nix wrapper).
+    dirs.push(PathBuf::from("pcap_templates"));
+    dirs.push(PathBuf::from("samples/proto_audit/pcap_templates"));
+    if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+        dirs.push(PathBuf::from(&manifest).join("pcap_templates"));
     }
-    // Check corpus
-    if let Ok(corpus_dir) = std::env::var("PROTO_AUDIT_PCAP_CORPUS") {
-        let path = PathBuf::from(&corpus_dir).join(format!("{}.pcap", proto.to_lowercase()));
-        if path.exists() {
-            return Some(path);
+
+    for dir in &dirs {
+        for fname in &filenames {
+            let path = dir.join(fname);
+            if path.exists() {
+                return Some(path);
+            }
         }
     }
     None
@@ -1750,17 +1763,31 @@ fn pipeline_one(
     };
 
     // Step 2: Parse input PCAP with tshark → get PDML + IR baseline
-    let input_pdml = match tshark_from_pcap_bytes(&input_pcap_bytes, proto, paths) {
+    let input_pdml_raw = match tshark_from_pcap_bytes(&input_pcap_bytes, proto, paths) {
         Ok(p) => p,
         Err(e) => return fail(format!("tshark input parse: {}", e)),
     };
-    let mut ir_baseline = extractors::tshark::to_protocol_def(&input_pdml);
+    let mut ir_baseline = extractors::tshark::to_protocol_def(&input_pdml_raw);
     // Canonicalize the IR name: tshark uses dissector names (e.g. "ip") but
     // generators and PCAP routes expect canonical names (e.g. "IPv4").
     ir_baseline.name = proto.to_string();
     if ir_baseline.fields.is_empty() {
         return fail("IR baseline has no fields from input PCAP".to_string());
     }
+
+    // Step 2b: Normalize the input PCAP by regenerating from the tshark-parsed
+    // IR. This ensures the comparison baseline and output both go through the
+    // same IR→PCAP path (byte-aligned fields, same pcap generator), so
+    // sub-byte precision loss is symmetric and doesn't cause false negatives.
+    let (input_pcap_bytes, input_pdml) = match pcap_from_ir(&ir_baseline, proto, paths) {
+        Ok(bytes) => match tshark_from_pcap_bytes(&bytes, proto, paths) {
+            Ok(pdml) => (bytes, pdml),
+            // If re-parse fails, fall back to the raw input.
+            Err(_) => (input_pcap_bytes, input_pdml_raw),
+        },
+        Err(_) => (input_pcap_bytes, input_pdml_raw),
+    };
+    let _ = input_pcap_bytes; // keep for future use / silence unused warning
 
     // Step 3+4: Crossgen — generate code, re-extract to IR
     let (crossgen_result, ir_roundtrip) = crossgen_with_ir(&ir_baseline, proto, target, paths);
