@@ -43,20 +43,26 @@ pub unsafe fn extract_batch_avx2(
     debug_assert_eq!(packets.len(), template_ids.len());
 
     let mut acc: u64 = 0;
-    let mut chunks_pkt = packets.chunks_exact(8);
-    let mut chunks_tid = template_ids.chunks_exact(8);
+    let n = packets.len();
+    let full_chunks = n / 8;
 
-    loop {
-        let pkt_chunk = match chunks_pkt.next() {
-            Some(c) => c,
-            None => break,
-        };
-        let tid_chunk = chunks_tid.next().unwrap();
+    for i in 0..full_chunks {
+        let pkt_chunk = &packets[i * 8..(i + 1) * 8];
+        let tid_chunk = &template_ids[i * 8..(i + 1) * 8];
+        // Prefetch next chunk's packet headers into L1 cache.
+        if i + 1 < full_chunks {
+            for j in 0..8 {
+                _mm_prefetch(
+                    packets[(i + 1) * 8 + j].data.as_ptr() as *const i8,
+                    _MM_HINT_T0,
+                );
+            }
+        }
         acc = acc.wrapping_add(extract_8_avx2(pkt_chunk, tid_chunk));
     }
 
     // Tail: scalar fallback for remaining packets.
-    for (pkt, tid) in chunks_pkt.remainder().iter().zip(chunks_tid.remainder()) {
+    for (pkt, tid) in packets[full_chunks * 8..].iter().zip(&template_ids[full_chunks * 8..]) {
         if let Some(id) = tid {
             if let Ok(v) = template::extract_by_id(&pkt.data, *id) {
                 acc = acc.wrapping_add(v);

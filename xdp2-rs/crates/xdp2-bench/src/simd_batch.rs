@@ -40,14 +40,27 @@ use crate::pcap::StoredPacket;
 #[target_feature(enable = "avx2")]
 pub unsafe fn parse_batch_avx2(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     let mut acc: u64 = 0;
-    let mut chunks = packets.chunks_exact(8);
+    let n = packets.len();
+    let full_chunks = n / 8;
 
-    for chunk in chunks.by_ref() {
+    for i in 0..full_chunks {
+        let chunk = &packets[i * 8..(i + 1) * 8];
+        // Prefetch next chunk's packet headers into L1 cache.
+        // Each prefetch brings in 64 bytes (one cache line), covering
+        // the full Eth+IPv4+L4 header for the fast path.
+        if i + 1 < full_chunks {
+            for j in 0..8 {
+                _mm_prefetch(
+                    packets[(i + 1) * 8 + j].data.as_ptr() as *const i8,
+                    _MM_HINT_T0,
+                );
+            }
+        }
         acc += parse_8_avx2(chunk, meta);
     }
 
     // Tail: scalar fallback for remaining packets.
-    for pkt in chunks.remainder() {
+    for pkt in &packets[full_chunks * 8..] {
         *meta = FlowMeta::default();
         if graph_compiled::parse_packet(&pkt.data, meta).is_ok() {
             acc += 1;
