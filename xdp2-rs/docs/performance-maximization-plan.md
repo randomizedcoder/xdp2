@@ -1,10 +1,10 @@
 # Performance Maximization Plan
 
 This document captures the roadmap for maximizing packet parsing performance
-in the Rust XDP2 implementation. The graph engine baseline is **174 ns/pkt
-(6 Mpps)** on 445K mixed-protocol packets with full feature-parity (28
-ethertypes, 31 metadata extractors). The fair C comparison is **174 vs
-180 ns/pkt (Rust ~3% faster)**.
+in the Rust XDP2 implementation. The graph engine baseline is **158 ns/pkt
+(6 Mpps)** on 445K filtered packets with full feature-parity (28
+ethertypes, 31 metadata extractors). The fair C comparison is **158 vs
+174 ns/pkt (Rust ~9% faster)**.
 
 See [performance-optimization.md](./performance-optimization.md) for the
 optimizations applied and [performance-by-platform.md](./performance-by-platform.md)
@@ -24,8 +24,8 @@ FCoE, L2TP.
 
 | Engine | ns/pkt | Mpps | Ratio to C |
 |--------|--------|------|------------|
-| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | 1.00x |
-| Rust graph (fat LTO + `#[inline]` + metadata) | 174 | 6 | **0.97x (3% faster)** |
+| C (xdp2-compiler, `-O2 -march=native`) | 174 | 6 | 1.00x |
+| Rust graph (fat LTO + `#[inline]` + metadata) | 158 | 6 | **0.91x (9% faster)** |
 
 **Rust-only modes (445K mixed packets, full parse + metadata extraction):**
 
@@ -589,7 +589,7 @@ apples-to-apples comparison.
 | Step 12e: Queue-template binding | not started | — | — | Map AF_XDP queues → templates; depends on Step 7 |
 | Step 12f: NIC config helper | not started | — | — | `ethtool -N` ntuple setup scripts; depends on Step 12e |
 | **Feature-parity** | **done** | — | — | **28 ethertypes, 14 IPv4 protos, 17 IPv6 protos, 31 metadata extractors** |
-| **C vs Rust (fair)** | **done** | **174** | **6** | **0.97x C (3% faster) on 445K mixed-protocol packets** |
+| **C vs Rust (fair)** | **done** | **158** | **6** | **0.91x C (9% faster) on 445K filtered packets** |
 | **Honest benchmarks** | **done** | — | — | **All modes extract FlowMeta; template separated as field extraction** |
 
 ## Non-Goals

@@ -69,14 +69,14 @@ identical packets. However, the C parser still:
 
 - **C vs Rust graph dispatch** (post feature-parity, 2026-04-14): with
   the same protocol coverage (28 ethertypes, 31 metadata extractors),
-  Rust graph mode is **~3% faster** than C (174 vs 180 ns/pkt on 445K
-  mixed-protocol packets). The gap comes from code compactness — Rust's
+  Rust graph mode is **~9% faster** than C (158 vs 174 ns/pkt on 445K
+  filtered packets). The gap comes from code compactness — Rust's
   selective devirtualization stays L2-resident at scale while the C
   compiler's unconditional inlining exceeds L2.
 
-The mono/compiled/template modes do not perform metadata extraction,
-so they are not directly comparable to C. They demonstrate the performance
-ceiling of the Rust parse engine when dispatch overhead is removed.
+All parser modes (graph, mono, compiled, simd) perform identical metadata
+extraction. Template mode is field extraction on pre-classified packets,
+not parsing.
 The optimization techniques are the focus of this lecture.
 
 ---
@@ -187,11 +187,11 @@ flow_dissector parser handles the same workload. See the "Scope and Fair
 Comparison" section above for
 details.
 
-**Baseline performance (post feature-parity):** ~174 ns/pkt on an AMD Ryzen
+**Baseline performance (post feature-parity):** ~158 ns/pkt on an AMD Ryzen
 Threadripper 3945WX (Zen 2) with full protocol coverage (28 ethertypes, 31
-metadata extractors) on 445K mixed-protocol packets. The C flow_dissector
-parser achieves ~180 ns/pkt on the same workload; Rust graph mode achieves
-~174 ns/pkt (**0.97x, ~3% faster**).
+metadata extractors) on 445K filtered packets. The C flow_dissector
+parser achieves ~174 ns/pkt on the same workload; Rust graph mode achieves
+~158 ns/pkt (**0.91x, ~9% faster**).
 
 ```mermaid
 flowchart LR
@@ -375,7 +375,7 @@ a straight-line function. Both modes perform identical metadata extraction
 
 ```mermaid
 flowchart LR
-    subgraph Before["Graph Dispatch (174 ns/pkt)"]
+    subgraph Before["Graph Dispatch (158 ns/pkt)"]
         A1["pkt"] --> B1["vtable"] --> C1["indirect call"] --> D1["table scan"] --> E1["next vtable"]
     end
     subgraph After["Monomorphized (38 ns/pkt)"]
@@ -1124,8 +1124,8 @@ FCoE, L2TP):
 
 | Engine | ns/pkt | vs C flow_dissector | Notes |
 |---|---|---|---|
-| C flow_dissector (445K mixed pkts) | 180 | 1.0x | Full-featured |
-| Rust graph (445K mixed pkts) | 174 | **0.97x (3% faster)** | Full-featured, same workload |
+| C flow_dissector (445K filtered pkts) | 174 | 1.0x | Full-featured |
+| Rust graph (445K filtered pkts) | 158 | **0.91x (9% faster)** | Full-featured, same workload |
 
 Rust's advantage at scale comes from code compactness (stays L2-resident).
 

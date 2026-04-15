@@ -61,10 +61,10 @@ VLAN tags, GRE fields, MPLS labels, ESP/AH SPIs, ICMP, TIPC, L2TP, etc.).
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
-| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
-| Rust graph (fat LTO + `#[inline]`) | 174 | 6 | Full parse + FlowMeta |
+| C (xdp2-compiler, `-O2 -march=native`) | 174 | 6 | Full parse + metadata |
+| Rust graph (fat LTO + `#[inline]`) | 158 | 6 | Full parse + FlowMeta |
 
-Rust/C ratio: **0.97x (Rust ~3% faster)** on identical workload.
+Rust/C ratio: **0.91x (Rust ~9% faster)** on identical filtered workload (445K packets).
 Filter pass rate: **89.0%** (445,178/500,000 — Rust parses 89% of gen_test_pcap output).
 
 **Multi-threaded (4 threads, tcp_ipv4.pcap):**
@@ -99,10 +99,10 @@ _Not yet measured._
 ## Notes
 
 - **C vs Rust comparison:** With feature-parity (same protocol coverage,
-  same metadata extraction), Rust graph mode is ~3% faster than C at scale
-  (174 vs 180 ns/pkt on 445K packets). The gap is driven by code compactness
-  (Rust stays L2-resident while C's inlined code exceeds L2).
-- **graph vs mono/compiled:** The ~4.7x gap (174 vs 36-38 ns) is due to
+  same metadata extraction), Rust graph mode is ~9% faster than C at scale
+  (158 vs 174 ns/pkt on 445K filtered packets). The gap is driven by code
+  compactness (Rust stays L2-resident while C's inlined code exceeds L2).
+- **graph vs mono/compiled:** The ~4.6x gap (158 vs 34-36 ns) is due to
   `&dyn` dispatch overhead (vtable indirection, opaque pointers blocking
   inlining, ProtoTable lookups). All modes now perform identical metadata
   extraction — the gap is purely dispatch overhead.

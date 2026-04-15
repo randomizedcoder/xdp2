@@ -45,13 +45,13 @@ VXLAN/Geneve tunnel decapsulation, LLC/SNAP, FCoE, L2TP.
 
 | Engine | ns/pkt | Mpps | What it measures |
 |--------|--------|------|------------------|
-| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
-| Rust graph (`&dyn` dispatch + ProtoTable) | 174 | 6 | Full parse + FlowMeta |
-| Rust mono (monomorphized) | 38 | 26 | Same work, no vtable dispatch |
-| Rust compiled (inline byte reads) | 36 | 27 | Same work, no trait overhead |
-| Rust simd (AVX2 batch classify) | 44 | 22 | Same work, SIMD classification |
+| C (xdp2-compiler, `-O2 -march=native`) | 174 | 6 | Full parse + metadata |
+| Rust graph (`&dyn` dispatch + ProtoTable) | 158 | 6 | Full parse + FlowMeta |
+| Rust mono (monomorphized) | 36 | 27 | Same work, no vtable dispatch |
+| Rust compiled (inline byte reads) | 34 | 29 | Same work, no trait overhead |
+| Rust simd (AVX2 batch classify) | 36 | 28 | Same work, SIMD classification |
 
-The `&dyn` dispatch + ProtoTable overhead costs ~4.7x (174 vs 36 ns). All modes
+The `&dyn` dispatch + ProtoTable overhead costs ~4.6x (158 vs 34 ns). All modes
 above perform identical metadata extraction (MACs, IPs, ports, VLAN, GRE, etc.).
 
 **Field extraction (not parsing — different workload, shown separately):**

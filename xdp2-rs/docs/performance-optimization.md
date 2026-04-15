@@ -154,10 +154,10 @@ mixed-protocol packets (89.0% pass rate from gen_test_pcap.py's 500K output).
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
-| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
-| Rust graph (fat LTO + `#[inline]`) | 174 | 6 | Full parse + FlowMeta |
+| C (xdp2-compiler, `-O2 -march=native`) | 174 | 6 | Full parse + metadata |
+| Rust graph (fat LTO + `#[inline]`) | 158 | 6 | Full parse + FlowMeta |
 
-**Rust/C ratio: 0.97x (Rust ~3% faster)** on identical workload.
+**Rust/C ratio: 0.91x (Rust ~9% faster)** on identical filtered workload (445K packets).
 
 The Rust graph engine's advantage at scale comes from code compactness:
 the C compiler inlines all protocol functions into a single large function
@@ -179,13 +179,13 @@ on all 254 protocol and dispatch methods):
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
-| Rust graph | 174 | 6 | Fat LTO + `#[inline]` + full feature-parity (445K mixed packets) |
+| Rust graph | 158 | 6 | Fat LTO + `#[inline]` + full feature-parity (445K filtered packets) |
 
 **Note:** The pre-parity number was 59 ns/pkt because the Rust parser only
 handled ~15 protocol nodes with no metadata extraction. Intermediate numbers
 (95 ns on small PCAPs) reflected partial coverage. Post feature-parity with
-28 ethertypes, 31 metadata extractors, and 445K mixed-protocol packets, the
-graph mode is 174 ns/pkt — reflecting the real cost of full protocol
+28 ethertypes, 31 metadata extractors, and 445K filtered packets, the
+graph mode is 158 ns/pkt — reflecting the real cost of full protocol
 coverage and metadata extraction comparable to the C implementation.
 
 ### 4.3 Optimization Breakdown
@@ -209,7 +209,7 @@ Benchmark results are sensitive to dataset size due to CPU cache effects:
 | Dataset | C ns/pkt | Rust graph ns/pkt | Winner |
 |---------|----------|-------------------|--------|
 | Small (fits L1/L2) | ~100 | ~95 | Comparable |
-| 445K packets (~57 MB PCAP) | 180 | 174 | Rust (marginal) |
+| 445K packets (~57 MB PCAP) | 174 | 158 | Rust (~9% faster) |
 
 Post feature-parity, both engines do comparable work. The Rust advantage at
 scale comes from code compactness.
