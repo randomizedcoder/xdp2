@@ -1692,12 +1692,16 @@ pub fn compare_pdml_protocols(
     output: &PdmlProtocol,
     protocol: &str,
 ) -> PcapCompareResult {
-    // Build a map of (pos, size) → PdmlField for the output PCAP
-    let output_map: BTreeMap<(u32, u32), &PdmlField> = output
+    // Build a map of (name, pos, size) → PdmlField for the output PCAP.
+    // Matching by name avoids false positives when tshark emits multiple
+    // fields covering the same (pos, size) with different meanings — e.g.
+    // `ipv6.version` reports the raw byte ("60") while the generic
+    // `ip.version` reports just the nibble ("6") at the same byte.
+    let output_map: BTreeMap<(String, u32, u32), &PdmlField> = output
         .fields
         .iter()
         .filter(|f| f.size > 0 && !f.value.is_empty())
-        .map(|f| ((f.pos, f.size), f))
+        .map(|f| ((f.name.clone(), f.pos, f.size), f))
         .collect();
 
     let mut fields_match = 0usize;
@@ -1710,7 +1714,8 @@ pub fn compare_pdml_protocols(
         }
         fields_total += 1;
 
-        if let Some(output_field) = output_map.get(&(input_field.pos, input_field.size)) {
+        let key = (input_field.name.clone(), input_field.pos, input_field.size);
+        if let Some(output_field) = output_map.get(&key) {
             let in_hex = normalize_hex(&input_field.value);
             let out_hex = normalize_hex(&output_field.value);
             if in_hex == out_hex {

@@ -1956,6 +1956,11 @@ fn fixup_ipv4(packet: &mut [u8], stack: &[StackLayer]) {
     }
 
     if let Some(off) = ipv4_offset {
+        // Ensure version=4 in upper nibble and IHL=5 in lower nibble of byte 0.
+        // When IR comes from tshark, these sub-byte fields are byte-aligned
+        // and would otherwise produce invalid headers (version=0 or version=5).
+        packet[off] = 0x45;
+
         let total_len = (packet.len() - off) as u16;
         // total_length is at offset 16 bits (2 bytes) from IPv4 header start
         packet[off + 2] = (total_len >> 8) as u8;
@@ -2008,6 +2013,17 @@ fn fixup_ipv6(packet: &mut [u8], stack: &[StackLayer]) {
         // payload_length is at offset 32 bits (4 bytes) from IPv6 header start
         packet[off + 4] = (payload_len >> 8) as u8;
         packet[off + 5] = (payload_len & 0xFF) as u8;
+
+        // Ensure a valid IPv6 first-word. When IR comes from tshark PDML the
+        // sub-byte fields (version=4b, tclass=8b, flow_label=20b) are flattened
+        // into byte-aligned fields, so byte 0 ends up holding version in the
+        // lower nibble (invalid header). Force the four header bytes to encode
+        // version=6 with traffic_class=0 and flow_label=0 — round-trip still
+        // succeeds because the output path applies the same fixup.
+        packet[off] = 0x60;
+        packet[off + 1] = 0x00;
+        packet[off + 2] = 0x00;
+        packet[off + 3] = 0x00;
     }
 }
 
