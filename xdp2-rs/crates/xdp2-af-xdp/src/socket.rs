@@ -365,6 +365,22 @@ impl XskSocket {
     pub fn as_raw_fd(&self) -> RawFd {
         self.fd.as_raw_fd()
     }
+
+    /// Register this socket in a pinned XSKMAP BPF map.
+    ///
+    /// The XDP program uses this map to redirect packets to AF_XDP sockets.
+    /// `xskmap_path` is the pinned map path, typically `/sys/fs/bpf/xsks_map`.
+    /// `queue_id` is the map key (the RX queue this socket is bound to).
+    ///
+    /// Requires `CAP_BPF` or root.
+    pub fn register_xskmap(&self, xskmap_path: &str, queue_id: u32) -> io::Result<()> {
+        let map_fd = bpf_obj_get(xskmap_path)?;
+        let xsk_fd = self.fd.as_raw_fd() as u32;
+        let result = bpf_map_update(map_fd, &queue_id, &xsk_fd);
+        // SAFETY: map_fd was opened by bpf_obj_get.
+        unsafe { libc::close(map_fd) };
+        result
+    }
 }
 
 // ---- Helper functions ----
@@ -418,5 +434,85 @@ fn get_mmap_offsets(fd: RawFd) -> io::Result<XdpMmapOffsets> {
         Err(io::Error::last_os_error())
     } else {
         Ok(offsets)
+    }
+}
+
+// ---- BPF syscall helpers (for XSKMAP registration) ----
+
+const BPF_MAP_UPDATE_ELEM: libc::c_long = 2;
+const BPF_OBJ_GET: libc::c_long = 7;
+const BPF_ANY: u64 = 0;
+
+/// Open a pinned BPF object by path. Returns its file descriptor.
+fn bpf_obj_get(path: &str) -> io::Result<RawFd> {
+    let cpath = CString::new(path)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid BPF path"))?;
+
+    // BPF_OBJ_GET attr layout: { pathname: u64, bpf_fd: u32, file_flags: u32 }
+    #[repr(C)]
+    struct Attr {
+        pathname: u64,
+        bpf_fd: u32,
+        file_flags: u32,
+    }
+
+    let attr = Attr {
+        pathname: cpath.as_ptr() as u64,
+        bpf_fd: 0,
+        file_flags: 0,
+    };
+
+    // SAFETY: attr is valid for the BPF_OBJ_GET command.
+    let fd = unsafe {
+        libc::syscall(
+            libc::SYS_bpf,
+            BPF_OBJ_GET,
+            &attr as *const Attr,
+            mem::size_of::<Attr>(),
+        )
+    };
+
+    if fd < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(fd as RawFd)
+    }
+}
+
+/// Update an element in a BPF map.
+fn bpf_map_update(map_fd: RawFd, key: &u32, value: &u32) -> io::Result<()> {
+    // BPF_MAP_UPDATE_ELEM attr layout:
+    // { map_fd: u32, _pad: u32, key: u64, value: u64, flags: u64 }
+    #[repr(C)]
+    struct Attr {
+        map_fd: u32,
+        _pad: u32,
+        key: u64,
+        value: u64,
+        flags: u64,
+    }
+
+    let attr = Attr {
+        map_fd: map_fd as u32,
+        _pad: 0,
+        key: key as *const u32 as u64,
+        value: value as *const u32 as u64,
+        flags: BPF_ANY,
+    };
+
+    // SAFETY: attr is valid for the BPF_MAP_UPDATE_ELEM command.
+    let ret = unsafe {
+        libc::syscall(
+            libc::SYS_bpf,
+            BPF_MAP_UPDATE_ELEM,
+            &attr as *const Attr,
+            mem::size_of::<Attr>(),
+        )
+    };
+
+    if ret < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
     }
 }

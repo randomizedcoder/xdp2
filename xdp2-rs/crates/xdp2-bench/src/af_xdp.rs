@@ -39,10 +39,16 @@ impl Stats {
     }
 }
 
+/// Default pinned path for the XSKMAP BPF map.
+pub const DEFAULT_XSKMAP_PATH: &str = "/sys/fs/bpf/xsks_map";
+
 /// Run the AF_XDP receive + parse loop for `duration_secs` seconds.
 ///
 /// Calls `process` for each received packet. The closure should parse
 /// the packet and black_box the result to prevent dead-code elimination.
+///
+/// If an XSKMAP is pinned at `/sys/fs/bpf/xsks_map`, the socket FD
+/// is automatically registered so the XDP program can redirect to it.
 #[cfg(target_os = "linux")]
 pub fn run<F>(
     ifname: &str,
@@ -58,6 +64,12 @@ where
     let config = Config::default();
     let mut xsk = XskSocket::bind(ifname, queue_id, config)
         .map_err(|e| format!("AF_XDP bind failed: {e}"))?;
+
+    // Try to register in the XSKMAP (non-fatal if not present).
+    match xsk.register_xskmap(DEFAULT_XSKMAP_PATH, queue_id) {
+        Ok(()) => eprintln!("AF_XDP: registered in XSKMAP at {DEFAULT_XSKMAP_PATH}"),
+        Err(e) => eprintln!("AF_XDP: XSKMAP not found ({e}), assuming external setup"),
+    }
 
     let mut batch = vec![XdpDesc::default(); 64];
     let mut total_pkts = 0u64;
