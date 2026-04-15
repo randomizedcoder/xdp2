@@ -50,6 +50,9 @@ pub enum PerfPass {
     Stalls,
     /// Cache hierarchy detail: L1I misses, LL (last-level) misses.
     Detail,
+    /// AMD Zen 2/3/4 raw PMU events: op cache hits, dispatch stalls,
+    /// retired micro-ops. Falls back gracefully on non-AMD CPUs.
+    Zen,
 }
 
 #[cfg(target_os = "linux")]
@@ -58,6 +61,18 @@ mod linux {
     use perf_event::events::{Cache, CacheOp, CacheResult, Hardware, WhichCache};
     use perf_event::{Builder, Counter};
     use std::io;
+
+    // PERF_TYPE_RAW from linux/perf_event.h
+    const PERF_TYPE_RAW: u32 = 4;
+
+    /// Build a counter for a raw PMU event code (AMD/Intel specific).
+    fn build_raw(code: u64) -> io::Result<Counter> {
+        let mut builder = Builder::new();
+        let attrs = builder.attrs_mut();
+        attrs.type_ = PERF_TYPE_RAW;
+        attrs.config = code;
+        builder.build()
+    }
 
     /// A bundle of hardware performance counters for one pass.
     ///
@@ -141,6 +156,20 @@ mod linux {
                             .build()?,
                     );
                 }
+                PerfPass::Zen => {
+                    // AMD Zen 2/3/4 raw PMU events.
+                    // These will fail with ENOENT/EINVAL on non-AMD or
+                    // unsupported kernels — that's fine, handled by caller.
+                    counters.push(Builder::new().kind(Hardware::CPU_CYCLES).build()?);
+                    // Op Cache Hit (event 0x028A, umask 0x07): micro-op cache hits
+                    counters.push(build_raw(0x0728)?);
+                    // Retired Micro-Ops (event 0x00C1): true work done
+                    counters.push(build_raw(0x00C1)?);
+                    // Dispatch Resource Stall Cycles 1 (event 0x00AF): any dispatch stall
+                    counters.push(build_raw(0x01AF)?);
+                    // MAB Allocation Stall (event 0x0041, umask 0x00): pending load stalls
+                    counters.push(build_raw(0x0041)?);
+                }
             }
             let n = counters.len();
             Ok(Self {
@@ -212,6 +241,11 @@ mod linux {
         // --- detail pass ---
         pub l1i_misses: u64,
         pub ll_misses: u64,
+        // --- zen pass (AMD raw PMU) ---
+        pub op_cache_hits: u64,
+        pub retired_uops: u64,
+        pub dispatch_stalls: u64,
+        pub mab_stalls: u64,
     }
 
     impl PerfSnapshot {
@@ -239,6 +273,13 @@ mod linux {
                     s.cycles = deltas[0];
                     s.l1i_misses = deltas[1];
                     s.ll_misses = deltas[2];
+                }
+                PerfPass::Zen => {
+                    s.cycles = deltas[0];
+                    s.op_cache_hits = deltas[1];
+                    s.retired_uops = deltas[2];
+                    s.dispatch_stalls = deltas[3];
+                    s.mab_stalls = deltas[4];
                 }
             }
             s
@@ -289,6 +330,19 @@ mod linux {
             }
             if other.ll_misses > 0 {
                 self.ll_misses = other.ll_misses;
+            }
+            // zen
+            if other.op_cache_hits > 0 {
+                self.op_cache_hits = other.op_cache_hits;
+            }
+            if other.retired_uops > 0 {
+                self.retired_uops = other.retired_uops;
+            }
+            if other.dispatch_stalls > 0 {
+                self.dispatch_stalls = other.dispatch_stalls;
+            }
+            if other.mab_stalls > 0 {
+                self.mab_stalls = other.mab_stalls;
             }
         }
 
@@ -382,6 +436,32 @@ mod linux {
                 }
                 println!("  l1i-misses/pkt:      {:>8.3}", per(self.l1i_misses));
                 println!("  ll-misses/pkt:       {:>8.3}", per(self.ll_misses));
+            }
+
+            // --- zen pass (AMD raw PMU) ---
+            if self.retired_uops > 0 || self.op_cache_hits > 0 {
+                let upc = if self.cycles > 0 {
+                    self.retired_uops as f64 / self.cycles as f64
+                } else {
+                    0.0
+                };
+                let dispatch_stall_pct = if self.cycles > 0 {
+                    100.0 * self.dispatch_stalls as f64 / self.cycles as f64
+                } else {
+                    0.0
+                };
+                let mab_stall_pct = if self.cycles > 0 {
+                    100.0 * self.mab_stalls as f64 / self.cycles as f64
+                } else {
+                    0.0
+                };
+                println!("  retired-uops/pkt:    {:>8.1}   (UPC {:.2})",
+                    per(self.retired_uops), upc);
+                println!("  op-cache-hits/pkt:   {:>8.1}", per(self.op_cache_hits));
+                println!("  dispatch-stalls/pkt: {:>8.1}   ({:.1}% of cycles)",
+                    per(self.dispatch_stalls), dispatch_stall_pct);
+                println!("  mab-stalls/pkt:      {:>8.1}   ({:.1}% of cycles)",
+                    per(self.mab_stalls), mab_stall_pct);
             }
 
             // --- TMA Level 1 summary (when basic + stalls passes available) ---
@@ -502,6 +582,10 @@ mod stub {
         pub l1d_misses: u64,
         pub l1i_misses: u64,
         pub ll_misses: u64,
+        pub op_cache_hits: u64,
+        pub retired_uops: u64,
+        pub dispatch_stalls: u64,
+        pub mab_stalls: u64,
     }
 
     impl PerfCounters {

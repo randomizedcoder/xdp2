@@ -5,8 +5,14 @@
 # Usage:
 #   ./scripts/perf-sweep.sh <pcap-file> [iterations] [output-dir]
 #
+# Flags (set as environment variables):
+#   FLAMEGRAPH=1  — generate a flamegraph SVG after the benchmark run
+#   ANNOTATE=1    — run perf annotate on the hottest function
+#   CORE_PIN=N    — pin benchmark to core N (reduces jitter)
+#
 # Example:
 #   ./scripts/perf-sweep.sh ../data/pcaps/tcp_ipv4.pcap 500 results/
+#   FLAMEGRAPH=1 CORE_PIN=3 ./scripts/perf-sweep.sh combo.pcap 500
 #
 # Output: one JSON file per mode+thread combination in the output directory.
 # The filename encodes the run parameters for easy diffing across machines.
@@ -14,6 +20,8 @@
 # Prerequisites:
 #   - Built xdp2-bench in release mode (cargo build -p xdp2-bench --release)
 #   - For perf counters: kernel.perf_event_paranoid <= 2
+#   - For flamegraph: `perf` tool + `flamegraph` (cargo install flamegraph, or inferno)
+#   - For annotate: `perf` tool
 
 set -euo pipefail
 
@@ -22,6 +30,9 @@ ITERATIONS="${2:-500}"
 OUTDIR="${3:-perf-results}"
 
 BENCH="${BENCH:-cargo run -p xdp2-bench --release --}"
+FLAMEGRAPH="${FLAMEGRAPH:-0}"
+ANNOTATE="${ANNOTATE:-0}"
+CORE_PIN="${CORE_PIN:-}"
 
 # Collect machine identity
 HOSTNAME="$(hostname)"
@@ -56,12 +67,20 @@ if [ "$CORES" -ge 16 ]; then
     THREAD_COUNTS="1 2 4 8 16"
 fi
 
+# Build core-pin argument if requested
+PIN_ARG=""
+if [ -n "$CORE_PIN" ]; then
+    PIN_ARG="--core-pin $CORE_PIN"
+    echo "Core pin:   $CORE_PIN"
+fi
+echo ""
+
 # Single-threaded with perf counters (all three passes merged)
 echo "--- Single-threaded (with perf counters: basic + stalls + detail) ---"
 OUTFILE="$OUTDIR/${PCAP_BASENAME}_${HOSTNAME}_1T.json"
 $BENCH --pcap "$PCAP" --iterations "$ITERATIONS" --mode both --perf \
     --perf-pass basic --perf-pass stalls --perf-pass detail \
-    --report > "$OUTFILE"
+    $PIN_ARG --report > "$OUTFILE"
 echo "Wrote: $OUTFILE"
 
 # Multi-threaded sweeps (perf counters disabled)
@@ -89,4 +108,63 @@ cat > "$META" <<METAEOF
 METAEOF
 echo ""
 echo "Wrote metadata: $META"
+
+# ── Optional: Flamegraph generation ──
+if [ "$FLAMEGRAPH" = "1" ]; then
+    echo ""
+    echo "--- Flamegraph (compiled mode, $ITERATIONS iterations) ---"
+    FLAME_SVG="$OUTDIR/${PCAP_BASENAME}_${HOSTNAME}_flamegraph.svg"
+    PERF_DATA="$OUTDIR/.perf.data"
+
+    if ! command -v perf &>/dev/null; then
+        echo "warning: 'perf' not found — skipping flamegraph"
+    else
+        # Record samples at 10kHz for the compiled parser (best signal-to-noise).
+        TASKSET_CMD=""
+        if [ -n "$CORE_PIN" ]; then
+            TASKSET_CMD="taskset -c $CORE_PIN"
+        fi
+        $TASKSET_CMD perf record -g -F 10000 -o "$PERF_DATA" -- \
+            $BENCH --pcap "$PCAP" --iterations "$ITERATIONS" --mode compiled \
+            $PIN_ARG 2>/dev/null
+
+        # Generate flamegraph — try inferno (Rust), then flamegraph.pl.
+        if command -v inferno-collapse-perf &>/dev/null; then
+            perf script -i "$PERF_DATA" | inferno-collapse-perf | inferno-flamegraph > "$FLAME_SVG"
+            echo "Wrote flamegraph: $FLAME_SVG"
+        elif command -v stackcollapse-perf.pl &>/dev/null; then
+            perf script -i "$PERF_DATA" | stackcollapse-perf.pl | flamegraph.pl > "$FLAME_SVG"
+            echo "Wrote flamegraph: $FLAME_SVG"
+        else
+            echo "warning: neither inferno nor flamegraph.pl found"
+            echo "  install: cargo install inferno"
+        fi
+        rm -f "$PERF_DATA"
+    fi
+fi
+
+# ── Optional: perf annotate on hot function ──
+if [ "$ANNOTATE" = "1" ]; then
+    echo ""
+    echo "--- perf annotate (compiled mode) ---"
+    PERF_DATA="$OUTDIR/.perf.data"
+    ANNOTATE_TXT="$OUTDIR/${PCAP_BASENAME}_${HOSTNAME}_annotate.txt"
+
+    if ! command -v perf &>/dev/null; then
+        echo "warning: 'perf' not found — skipping annotate"
+    else
+        TASKSET_CMD=""
+        if [ -n "$CORE_PIN" ]; then
+            TASKSET_CMD="taskset -c $CORE_PIN"
+        fi
+        $TASKSET_CMD perf record -g -F 10000 -o "$PERF_DATA" -- \
+            $BENCH --pcap "$PCAP" --iterations "$ITERATIONS" --mode compiled \
+            $PIN_ARG 2>/dev/null
+
+        perf annotate -i "$PERF_DATA" --stdio > "$ANNOTATE_TXT" 2>/dev/null || true
+        echo "Wrote annotation: $ANNOTATE_TXT"
+        rm -f "$PERF_DATA"
+    fi
+fi
+
 echo "Done. Results in $OUTDIR/"

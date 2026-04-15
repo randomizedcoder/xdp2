@@ -777,6 +777,13 @@ fn print_json_report(
                 write!(json, ", \"l1i_misses\": {}", p.l1i_misses).unwrap();
                 write!(json, ", \"ll_misses\": {}", p.ll_misses).unwrap();
             }
+            // zen pass fields (only if measured)
+            if p.retired_uops > 0 || p.op_cache_hits > 0 {
+                write!(json, ", \"op_cache_hits\": {}", p.op_cache_hits).unwrap();
+                write!(json, ", \"retired_uops\": {}", p.retired_uops).unwrap();
+                write!(json, ", \"dispatch_stalls\": {}", p.dispatch_stalls).unwrap();
+                write!(json, ", \"mab_stalls\": {}", p.mab_stalls).unwrap();
+            }
             write!(json, "}}").unwrap();
         }
         writeln!(json, "}}{comma}").unwrap();
