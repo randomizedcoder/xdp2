@@ -95,6 +95,12 @@ struct Cli {
     #[arg(long)]
     perf: bool,
 
+    /// Which perf counter pass to run. Requires `--perf`.
+    /// Use `basic` (default), `stalls`, `detail`, or pass the flag
+    /// multiple times to run several passes and merge results.
+    #[arg(long, value_enum)]
+    perf_pass: Vec<perf::PerfPass>,
+
     /// Which parser implementation to benchmark.
     #[arg(long, value_enum, default_value_t = ParserMode::Graph)]
     mode: ParserMode,
@@ -214,20 +220,28 @@ fn main() {
         }
     }
 
-    // Optional: create perf counter group. Fails gracefully with a message
-    // if unavailable (paranoid level too high, non-Linux, etc.).
-    let mut perf_counters = if cli.perf {
-        match perf::PerfCounters::new() {
-            Ok(c) => Some(c),
+    // Determine which perf passes to run.
+    // Default to Basic if --perf is given without --perf-pass.
+    let perf_passes: Vec<perf::PerfPass> = if cli.perf {
+        if cli.perf_pass.is_empty() {
+            vec![perf::PerfPass::Basic]
+        } else {
+            cli.perf_pass.clone()
+        }
+    } else {
+        vec![]
+    };
+
+    // Validate perf counter availability up front (fail-fast).
+    if let Some(&first_pass) = perf_passes.first() {
+        match perf::PerfCounters::new(first_pass) {
+            Ok(_) => {} // counters work; they'll be created per-pass in time_run_passes
             Err(e) => {
                 eprintln!("warning: could not initialize perf counters: {e}");
                 eprintln!("         (try: sudo sysctl -w kernel.perf_event_paranoid=1)");
-                None
             }
         }
-    } else {
-        None
-    };
+    }
 
     let total_pkts = npkts as u64 * cli.iterations as u64;
 
@@ -288,7 +302,7 @@ fn main() {
 
     if cli.threads <= 1 {
         if run_graph {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 // Sum successes into a black_box-fed accumulator so the
                 // compiler cannot elide the loop.
                 let mut acc: u64 = 0;
@@ -303,7 +317,7 @@ fn main() {
         }
 
         if run_mono {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 let mut acc: u64 = 0;
                 let mut meta = graph::FlowMeta::default();
                 for pkt in &packets {
@@ -319,14 +333,14 @@ fn main() {
         }
 
         if run_monox4 {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 std::hint::black_box(bench_mono_x4(&packets));
             });
             results.push(BenchResult::new("mono-x4", ns, total_pkts, 1, snap));
         }
 
         if run_compiled {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 let mut acc: u64 = 0;
                 let mut meta = graph::FlowMeta::default();
                 for pkt in &packets {
@@ -342,7 +356,7 @@ fn main() {
         }
 
         if run_simd && simd_batch::is_available() {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 // Safety: is_available() checked above.
                 let mut meta = graph::FlowMeta::default();
                 std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(&packets, &mut meta) });
@@ -354,7 +368,7 @@ fn main() {
         }
 
         if run_template {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 let mut acc: u64 = 0;
                 for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
                     if let Some(id) = tid {
@@ -369,7 +383,7 @@ fn main() {
         }
 
         if run_template_simd && template_simd::is_available() {
-            let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
                 std::hint::black_box(unsafe {
                     template_simd::extract_batch_avx2(&packets, &template_ids)
                 });
@@ -626,6 +640,47 @@ fn time_run<F: FnMut()>(
     (ns, snap)
 }
 
+/// Run `body` across all perf passes, merging results.
+///
+/// Returns (elapsed_nanos from first pass, merged snapshot).
+/// If `passes` is empty, runs once without counters.
+fn time_run_passes<F: FnMut()>(
+    passes: &[perf::PerfPass],
+    iterations: u32,
+    mut body: F,
+) -> (u64, Option<perf::PerfSnapshot>) {
+    if passes.is_empty() {
+        // No perf — just time it once.
+        let t_start = Instant::now();
+        for _ in 0..iterations {
+            body();
+        }
+        return (t_start.elapsed().as_nanos() as u64, None);
+    }
+
+    let mut merged = perf::PerfSnapshot::default();
+    let mut first_ns = 0u64;
+
+    for (i, &pass) in passes.iter().enumerate() {
+        let mut counters = match perf::PerfCounters::new(pass) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("warning: perf pass {pass:?} failed: {e}");
+                continue;
+            }
+        };
+        let (ns, snap) = time_run(Some(&mut counters), iterations, &mut body);
+        if i == 0 {
+            first_ns = ns;
+        }
+        if let Some(s) = snap {
+            merged.merge(&s);
+        }
+    }
+
+    (first_ns, Some(merged))
+}
+
 fn report(r: &BenchResult) {
     print!("Rust {:<9}: {} ns/pkt", r.mode, r.ns_pkt);
     if r.mpps > 0.0 {
@@ -675,6 +730,19 @@ fn print_json_report(
             write!(json, "\"branch_misses\": {}, ", p.branch_misses).unwrap();
             write!(json, "\"cache_refs\": {}, ", p.cache_refs).unwrap();
             write!(json, "\"cache_misses\": {}", p.cache_misses).unwrap();
+            // stalls pass fields (only if measured)
+            if p.frontend_stalls > 0 || p.backend_stalls > 0 {
+                write!(json, ", \"frontend_stalls\": {}", p.frontend_stalls).unwrap();
+                write!(json, ", \"backend_stalls\": {}", p.backend_stalls).unwrap();
+                write!(json, ", \"dtlb_misses\": {}", p.dtlb_misses).unwrap();
+                write!(json, ", \"itlb_misses\": {}", p.itlb_misses).unwrap();
+                write!(json, ", \"l1d_misses\": {}", p.l1d_misses).unwrap();
+            }
+            // detail pass fields (only if measured)
+            if p.l1i_misses > 0 || p.ll_misses > 0 {
+                write!(json, ", \"l1i_misses\": {}", p.l1i_misses).unwrap();
+                write!(json, ", \"ll_misses\": {}", p.ll_misses).unwrap();
+            }
             write!(json, "}}").unwrap();
         }
         writeln!(json, "}}{comma}").unwrap();
