@@ -68,8 +68,8 @@ identical packets. However, the C parser still:
   techniques and are apples-to-apples.
 
 - **C vs Rust graph dispatch** (post feature-parity, 2026-04-14): with
-  the same protocol coverage (26 ethertypes, 18 metadata extractors),
-  Rust graph mode is **~11% faster** than C (160 vs 180 ns/pkt on 430K
+  the same protocol coverage (28 ethertypes, 31 metadata extractors),
+  Rust graph mode is **~3% faster** than C (174 vs 180 ns/pkt on 445K
   mixed-protocol packets). The gap comes from code compactness — Rust's
   selective devirtualization stays L2-resident at scale while the C
   compiler's unconditional inlining exceeds L2.
@@ -178,20 +178,20 @@ dynamic nature of `&dyn` dispatch limit what the optimizer can recover.
 | `lookup_node()` (linear search) | `ProtoTable::lookup()` (linear search) | O(n) scan per layer |
 | `static inline` protocol functions | `#[inline]` trait methods | LLVM can partially inline |
 
-**Rust benchmark scope:** The Rust benchmark graph covers 15 protocol
-types (Ethernet, VLAN, QinQ, ARP, IPv4, IPv6, IPv6 EH/Frag, TCP, UDP,
-ICMPv4/v6, SCTP, AH, IP-in-IP) with **no metadata extraction** and **no
-handlers** -- purely structural parsing to determine if the packet is
-well-formed. The C flow_dissector parser handles ~40+ protocol nodes with
-18 active metadata extractors, GRE flag-field processing, and tunnel
-decapsulation. See the "Scope and Fair Comparison" section above for
+**Rust benchmark scope:** The Rust benchmark graph covers 28 ethertypes,
+14 IPv4 protocols, 17 IPv6 protocols with **full metadata extraction** (31
+extractors: MACs, IPs, ports, VLAN, GRE fields, MPLS, ESP, AH, ICMP,
+TIPC, L2TP, tunnel VNIs). All parser modes (graph, mono, compiled, SIMD)
+perform identical metadata extraction for honest comparison. The C
+flow_dissector parser handles the same workload. See the "Scope and Fair
+Comparison" section above for
 details.
 
-**Baseline performance (post feature-parity):** ~95 ns/pkt on an AMD Ryzen
-Threadripper 3945WX (Zen 2) with full protocol coverage (26 ethertypes, 18
-metadata extractors). The C flow_dissector parser achieves ~180 ns/pkt on
-430K mixed-protocol packets; Rust graph mode achieves ~160 ns/pkt on the
-same workload (**0.89x, ~11% faster**).
+**Baseline performance (post feature-parity):** ~174 ns/pkt on an AMD Ryzen
+Threadripper 3945WX (Zen 2) with full protocol coverage (28 ethertypes, 31
+metadata extractors) on 445K mixed-protocol packets. The C flow_dissector
+parser achieves ~180 ns/pkt on the same workload; Rust graph mode achieves
+~174 ns/pkt (**0.97x, ~3% faster**).
 
 ```mermaid
 flowchart LR
@@ -358,26 +358,27 @@ collapse into one direct branch.
 
 ## The Results
 
+(445K mixed-protocol packets, full parse + metadata extraction in both modes)
+
 | Metric | Graph Dispatch | Monomorphized | Improvement |
 |---|---|---|---|
-| ns/pkt | 86 | 10 | **8.6x** |
-| cycles/pkt | 334 | 35 | 9.5x |
-| instructions/pkt | 543 | 52 | **10.4x** |
-| IPC | 1.63 | 2.78 | +70% |
-| branch-miss rate | 0.12% | 0.05% | -- |
+| ns/pkt | 174 | 38 | **4.6x** |
+| cycles/pkt | 584 | 130 | 4.5x |
+| instructions/pkt | 1066 | 190 | **5.6x** |
+| IPC | 1.83 | 1.46 | -20% |
+| branch-miss rate | 1.00% | 6.13% | higher (direct branches vs predicted vtable) |
 
-The instruction count dropped by **10x** because the vtable indirection,
+The instruction count dropped by **5.6x** because the vtable indirection,
 linear scan, and call/return overhead are gone. Everything is inlined into
-a straight-line function. IPC *improved* from 1.63 to 2.78 because the
-CPU's out-of-order engine can now see further ahead -- there are no
-data-dependent indirect branches stalling the pipeline.
+a straight-line function. Both modes perform identical metadata extraction
+(MACs, IPs, ports, VLAN, GRE, etc.) — the gap is purely dispatch overhead.
 
 ```mermaid
 flowchart LR
-    subgraph Before["Graph Dispatch (95 ns/pkt)"]
+    subgraph Before["Graph Dispatch (174 ns/pkt)"]
         A1["pkt"] --> B1["vtable"] --> C1["indirect call"] --> D1["table scan"] --> E1["next vtable"]
     end
-    subgraph After["Monomorphized (8 ns/pkt)"]
+    subgraph After["Monomorphized (38 ns/pkt)"]
         A2["pkt"] --> B2["inline len check"] --> C2["jump table"] --> D2["inline len check"] --> E2["done"]
     end
     style B1 fill:#f96
@@ -455,22 +456,24 @@ Notice what is happening:
 
 ## The Results
 
+(445K mixed-protocol packets, full parse + metadata extraction in both modes)
+
 | Metric | Mono (hand-rolled) | Compiled (generated) | Improvement |
 |---|---|---|---|
-| ns/pkt | 5 | 2--3 | **~2x** |
-| cycles/pkt | 25 | 12--17 | ~2x |
-| instructions/pkt | 52--69 | 48 | modest |
-| IPC | 2.78 | 4.04 | **+45%** |
+| ns/pkt | 38 | 36 | ~1.05x |
+| cycles/pkt | 130 | 123 | ~1.05x |
+| instructions/pkt | 190 | 160 | 16% fewer |
+| IPC | 1.46 | 1.31 | comparable |
 
-The generated code achieves **IPC 4.04** -- nearly the theoretical maximum
-for Zen 2's 4-wide dispatch. The CPU's superscalar pipeline is *saturated*.
-Every cycle, 4 instructions retire. There is almost nothing left to
-optimize at the single-core, single-packet level.
+With full metadata extraction, the two modes are nearly identical -- the
+ProtocolOps trait overhead is negligible when monomorphized. The compiled
+parser uses slightly fewer instructions (160 vs 190) from direct byte reads,
+but both modes spend most time on the same metadata extraction work.
 
-The speedup over the hand-rolled version comes from the generated code
-using direct byte reads (`pkt[12]`) instead of the trait-based
-`next_proto()` abstraction. The trait version is zero-cost in theory, but
-in practice the generated code gives LLVM a simpler IR to optimize,
+The compiled code's advantage comes from direct byte reads (`pkt[12]`)
+instead of the trait-based `next_proto()` abstraction. The trait version
+is zero-cost in theory, but in practice the generated code gives LLVM a
+simpler IR to optimize,
 allowing slightly tighter instruction scheduling.
 
 ---
@@ -598,12 +601,11 @@ parser, 500K packets, 50 iterations:
 | 24 | 1094 | 45.6 | 45.6% | SMT contention (regression) |
 
 **1.2 billion packets per second** on a workstation CPU (pre-parity mono
-parser). Post feature-parity, the mono parser's single-thread throughput
-drops from 168→121 Mpps due to larger dispatch tables; multi-threaded
-scaling shape should be similar but peak aggregate throughput needs
-re-measurement with larger PCAPs. For context, a 100 Gbps Ethernet link
-at minimum-size (64-byte) packets produces 148.8 million packets per
-second.
+parser without metadata extraction). Post feature-parity with full metadata
+extraction, mono single-thread throughput is 26 Mpps on 445K mixed packets.
+Multi-threaded scaling shape should be similar but peak aggregate throughput
+needs re-measurement. For context, a 100 Gbps Ethernet link at minimum-size
+(64-byte) packets produces 148.8 million packets per second.
 
 Key observations:
 
@@ -748,18 +750,20 @@ scalar compiled parser.
 
 ## Results and Limitations
 
+(445K mixed-protocol packets, full parse + metadata extraction)
+
 | Metric | Compiled (scalar) | SIMD Batch (AVX2) |
 |---|---|---|
-| ns/pkt | 2--3 | 4 |
-| cycles/pkt | 12--17 | 24 |
-| instructions/pkt | 48 | 56 |
-| IPC | 4.04 | 2.29 |
+| ns/pkt | 36 | 44 |
+| cycles/pkt | 123 | 149 |
+| instructions/pkt | 160 | 187 |
+| IPC | 1.31 | 1.25 |
 
-The SIMD version is **2x slower** than the scalar compiled parser. Why?
+The SIMD version is **~22% slower** than the scalar compiled parser. Why?
 
 1. **Gather overhead.** AVX2 `vpgatherdd` on Zen 2 takes ~5 cycles for 8
-   elements from random memory addresses. With only 11 test packets in our
-   PCAP (one batch of 8 + 3 tail), the gather overhead does not amortize.
+   elements from random memory addresses. The classification overhead doesn't
+   amortize when most time is spent on per-packet metadata extraction.
 
 2. **Scattered pointers.** PCAP packets are heap-allocated at arbitrary
    addresses. The gather instruction must load from 8 unrelated memory
@@ -884,11 +888,14 @@ no function calls.
 
 ## Results
 
-| Metric | Compiled | Template | Improvement |
+**Important:** Template is field extraction, not parsing. It does fundamentally
+different (and less) work than the compiled parser. Shown for comparison only.
+
+| Metric | Compiled (full parse + metadata) | Template (field extraction) | Ratio |
 |---|---|---|---|
-| ns/pkt | 2--3 | 3 | comparable |
-| instructions/pkt | 48 | 36 | **25% fewer** |
-| branches/pkt | ~8 | ~5 | **37% fewer** |
+| ns/pkt | 36 | 2 | **18x** |
+| instructions/pkt | 160 | 7 | **23x fewer** |
+| branches/pkt | ~30 | ~2 | **15x fewer** |
 | IPC | 4.04 | 2.25 | lower (fewer instructions to overlap) |
 
 Template extraction achieves the **fewest instructions** of any mode (36
@@ -960,7 +967,7 @@ deployment requires.
 
 | Optimization | What It Costs | Severity | Mitigation |
 |---|---|---|---|
-| Reduced protocol scope | Benchmark covers 15 of ~65+ C flow_dissector protocols; no metadata extraction, no TLV/flag-field processing | **High** | Must add protocols, metadata, and TLV support to reach feature parity with C parser |
+| Full protocol scope | All modes now have 28 ethertypes, 31 metadata extractors, matching C feature-parity | **Resolved** | Done — all modes extract identical FlowMeta |
 | Fat LTO (`lto = "fat"`) | Compilation time increases 3-5x (no parallel codegen) | Low | Only affects release builds; dev builds use defaults |
 | `codegen-units = 1` | Further compile-time increase | Low | Same as above |
 | `target-cpu = native` | Binary is not portable to older CPUs without the same ISA extensions | Medium | Build per-target or use runtime feature detection |
@@ -1076,15 +1083,14 @@ A well-designed abstraction, when it aligns with compiler optimization
 passes, produces faster code than a generic interpreted dispatch loop. The
 parse graph is such an abstraction.
 
-A caveat: the Rust optimizations demonstrated here operate on a
-15-protocol subset with no metadata extraction. The C parser's full
-feature set (metadata, TLVs, flag-fields, tunnels) adds real per-packet
-work that the Rust benchmark does not perform. The optimization techniques
-(monomorphization, codegen, template extraction) are real and would benefit
-the C parser too, but the cross-language speedup numbers overstate the
-language-specific advantage. A C++ or C implementation with the same
-reduced scope and the same optimization techniques (see
-`cpp-backport-plan.md`) would likely achieve comparable performance.
+All Rust parser modes (graph, mono, compiled, SIMD) now perform identical
+metadata extraction — the same FlowMeta population as the C parser (MACs,
+IPs, ports, VLAN tags, GRE fields, MPLS labels, etc.). The speedup numbers
+between modes reflect real dispatch overhead differences, not workload
+skew. Template extraction is fundamentally different (field extraction on
+pre-classified packets) and is presented separately. The optimization
+techniques (monomorphization, codegen) are real and would benefit a C/C++
+implementation too (see `cpp-backport-plan.md`).
 
 ---
 
@@ -1092,27 +1098,34 @@ reduced scope and the same optimization techniques (see
 
 ## The Full Progression
 
-**Within the Rust implementation** (post feature-parity: 26 ethertypes,
-18 metadata extractors, full protocol coverage):
+**Within the Rust implementation** (post feature-parity: 28 ethertypes,
+31 metadata extractors, full protocol coverage, 445K mixed-protocol packets):
+
+All parser modes perform identical metadata extraction (MACs, IPs, ports,
+VLAN, GRE, MPLS, ESP, AH, ICMP, TIPC, L2TP, etc.). Template is field
+extraction, not parsing — shown separately.
 
 | Engine | ns/pkt | Mpps (1T) | ins/pkt | IPC | Speedup vs Rust graph |
 |---|---|---|---|---|---|
-| Rust graph (`&dyn` + metadata) | 95 | 10 | 910 | 2.40 | 1.0x (baseline) |
-| Rust monomorphized (parse only) | 8 | 121 | 99 | 2.99 | **~12x** |
-| Rust compiled (codegen, parse only) | 5 | 196 | 81 | 3.95 | **~19x** |
-| Rust SIMD batch (AVX2, parse only) | 4 | 216 | 65 | — | **~24x** |
-| Rust template extraction | 3 | 321 | 36 | — | **~32x** |
-| Rust template-simd (AVX2 batch) | 3 | 254 | 44 | — | **~32x** |
+| Rust graph (`&dyn` + metadata) | 174 | 6 | 1066 | 1.83 | 1.0x (baseline) |
+| Rust monomorphized (same work) | 38 | 26 | 190 | 1.46 | **~4.6x** |
+| Rust compiled (same work) | 36 | 27 | 160 | 1.31 | **~4.8x** |
+| Rust SIMD batch (AVX2, same work) | 44 | 22 | 187 | 1.25 | **~4.0x** |
+| Rust template (field extraction) | 2 | 364 | 7 | 0.71 | (different workload) |
+| Rust template-simd (field extraction) | 2 | 493 | 6 | 0.87 | (different workload) |
+
+The `&dyn` dispatch + ProtoTable overhead accounts for the ~4.7x gap.
 
 **Cross-language (post feature-parity, 2026-04-14):**
 
-Both engines now have the same protocol coverage (26 ethertypes, 18
-metadata extractors, GRE flag-fields, VXLAN/Geneve tunnels):
+Both engines now have the same protocol coverage (28 ethertypes, 31
+metadata extractors, GRE flag-fields, VXLAN/Geneve tunnels, LLC/SNAP,
+FCoE, L2TP):
 
 | Engine | ns/pkt | vs C flow_dissector | Notes |
 |---|---|---|---|
-| C flow_dissector (430K mixed pkts) | 180 | 1.0x | Full-featured |
-| Rust graph (430K mixed pkts) | 160 | **0.89x (11% faster)** | Full-featured, same workload |
+| C flow_dissector (445K mixed pkts) | 180 | 1.0x | Full-featured |
+| Rust graph (445K mixed pkts) | 174 | **0.97x (3% faster)** | Full-featured, same workload |
 
 Rust's advantage at scale comes from code compactness (stays L2-resident).
 
@@ -1143,13 +1156,13 @@ Rust's advantage at scale comes from code compactness (stays L2-resident).
    becomes a fixed-offset memory copy. This is the ultimate optimization:
    the fastest code is the code you do not run.
 
-6. **Reduced scope matters.** The Rust benchmark graph covers 15 protocols
-   with no metadata extraction, no TLV/flag-field processing, and no
-   tunnel decapsulation. The C comparison parser handles ~40+ nodes with
-   18 active metadata extractors. Part of the cross-language performance
-   gap is the Rust parser doing less work per packet -- not just doing the
-   same work faster. The ~30x speedup from Rust graph → Rust compiled
-   (same scope) is the number that isolates the optimization techniques.
+6. **Honest benchmarks require identical workloads.** All Rust parser modes
+   (graph, mono, compiled, SIMD) now perform the same metadata extraction
+   as the C parser — 31 extractors covering MACs, IPs, ports, VLAN, GRE,
+   MPLS, ESP, AH, ICMP, TIPC, L2TP. The ~4.7x speedup from graph → compiled
+   (174 → 36 ns) isolates the `&dyn` dispatch overhead. Template mode is
+   a fundamentally different workload (field extraction, not parsing) and
+   is presented separately.
 
 ## Exercises
 

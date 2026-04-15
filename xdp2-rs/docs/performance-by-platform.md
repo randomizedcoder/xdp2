@@ -34,30 +34,38 @@ cd xdp2-rs
 
 ### AMD Ryzen Threadripper 3945WX (Zen 2, 12c/24t)
 
-Measured 2026-04-14 (post feature-parity: 26 ethertypes, 13 IPv4 protos,
-16 IPv6 protos, 18 metadata extractors — matching C flow_dissector scope).
+Measured 2026-04-14 (post feature-parity: 28 ethertypes, 14 IPv4 protos,
+17 IPv6 protos, 31 metadata extractors — matching C flow_dissector scope).
 
-**Single-threaded (tcp_ipv4.pcap, 11 packets):**
+**Single-threaded (combo.pcap, 445K mixed-protocol packets, full parse + metadata, 200 iterations):**
+
+All parser modes perform identical metadata extraction (MACs, IPs, ports,
+VLAN tags, GRE fields, MPLS labels, ESP/AH SPIs, ICMP, TIPC, L2TP, etc.).
 
 | Mode | ns/pkt | Mpps | cycles/pkt | ins/pkt | IPC | branch-miss% | cache-miss% |
 |------|--------|------|-----------|---------|-----|-------------|------------|
-| graph | 95 | 10 | 379.3 | 910.0 | 2.40 | 0.05% | 0.00% |
-| mono | 8 | 121 | 33.0 | 98.9 | 2.99 | 0.40% | 0.00% |
-| mono-x4 | 7 | 134 | 30.1 | 98.7 | 3.27 | 0.04% | 0.00% |
-| compiled | 5 | 196 | 20.5 | 80.9 | 3.95 | 0.03% | 0.00% |
-| simd | 4 | 216 | — | 64.5 | — | 0.07% | 67.07% |
-| template | 3 | 321 | — | 35.8 | — | 0.12% | 21.49% |
-| template-simd | 3 | 254 | — | 43.5 | — | 0.20% | 46.96% |
+| graph | 174 | 6 | 583.8 | 1065.7 | 1.83 | 1.00% | 2.85% |
+| mono | 38 | 26 | 129.5 | 189.7 | 1.46 | 6.13% | 2.51% |
+| mono-x4 | 51 | 19 | 173.7 | 188.3 | 1.08 | 6.23% | 2.82% |
+| compiled | 36 | 27 | 122.5 | 160.0 | 1.31 | 6.54% | 2.80% |
+| simd | 44 | 22 | 148.8 | 186.6 | 1.25 | 6.76% | 6.68% |
 
-**C vs Rust (mixed-protocol PCAP, 430K packets, 100 iterations):**
+**Field extraction (not parsing — pre-classified packets, no protocol walk):**
+
+| Mode | ns/pkt | Mpps | cycles/pkt | ins/pkt | IPC | branch-miss% | cache-miss% |
+|------|--------|------|-----------|---------|-----|-------------|------------|
+| template | 2 | 364 | 9.3 | 6.6 | 0.71 | 1.94% | 47.93% |
+| template-simd | 2 | 493 | 6.8 | 6.0 | 0.87 | 2.17% | 48.85% |
+
+**C vs Rust (mixed-protocol PCAP, 445K packets):**
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
 | C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
-| Rust graph (fat LTO + `#[inline]`) | 160 | 6 | Full parse + FlowMeta |
+| Rust graph (fat LTO + `#[inline]`) | 174 | 6 | Full parse + FlowMeta |
 
-Rust/C ratio: **0.89x (Rust ~11% faster)** on identical workload.
-Filter pass rate: **86.2%** (430,755/500,000 — Rust parses 86% of gen_test_pcap output).
+Rust/C ratio: **0.97x (Rust ~3% faster)** on identical workload.
+Filter pass rate: **89.0%** (445,178/500,000 — Rust parses 89% of gen_test_pcap output).
 
 **Multi-threaded (4 threads, tcp_ipv4.pcap):**
 
@@ -91,30 +99,34 @@ _Not yet measured._
 ## Notes
 
 - **C vs Rust comparison:** With feature-parity (same protocol coverage,
-  same metadata extraction), Rust graph mode is ~11% faster than C at scale.
-  The gap is driven by code compactness (Rust stays L2-resident at 430K
-  packets while C's inlined code exceeds L2).
-- **graph vs mono:** The ~12x gap (95 vs 8 ns) is due to dynamic dispatch
-  (`&dyn`) overhead (vtable indirection, opaque pointers blocking inlining)
-  plus metadata extraction callbacks. Mono eliminates all indirection via
-  monomorphization and skips metadata extraction.
-- **mono vs compiled:** The compiled parser uses direct byte reads instead of
-  zerocopy `ref_from_prefix`, producing fewer instructions (80.9 vs 98.9).
+  same metadata extraction), Rust graph mode is ~3% faster than C at scale
+  (174 vs 180 ns/pkt on 445K packets). The gap is driven by code compactness
+  (Rust stays L2-resident while C's inlined code exceeds L2).
+- **graph vs mono/compiled:** The ~4.7x gap (174 vs 36-38 ns) is due to
+  `&dyn` dispatch overhead (vtable indirection, opaque pointers blocking
+  inlining, ProtoTable lookups). All modes now perform identical metadata
+  extraction — the gap is purely dispatch overhead.
+- **mono vs compiled:** Nearly identical (38 vs 36 ns) — the ProtocolOps
+  trait overhead is negligible when monomorphized. Compiled uses direct byte
+  reads instead of zerocopy `ref_from_prefix`, producing fewer instructions
+  (160 vs 190).
+- **simd vs compiled:** SIMD is slower (44 vs 36 ns) — AVX2 gather overhead
+  doesn't pay off with scattered PCAP pointers. Expect improvement with
+  contiguous AF_XDP UMEM buffers.
 - **template vs compiled:** Template extraction has the fewest instructions
-  (35.8/pkt) and near-zero branches — fixed-offset reads with one bounds
-  check. Fastest single-threaded mode at 321 Mpps.
+  (6.6/pkt) and near-zero branches — fixed-offset reads with one bounds
+  check. Fastest single-threaded mode at 364 Mpps (field extraction, not parsing).
 - **template-simd:** SIMD batch template extraction processes 8 packets per
-  AVX2 pass. With only 11 packets (1 batch of 8 + 3 scalar tail), the
-  gather + horizontal sum overhead doesn't fully amortize. Expect better
-  results with larger packet counts and contiguous AF_XDP UMEM.
-- **simd:** Batch SIMD parser with multi-stage classification pipeline.
-  Zero branches but higher instruction count due to gather-compare stages.
-  Fastest mode at 216 Mpps for graph-walking (non-template) parsing.
+  AVX2 pass at 493 Mpps. Expect even better results with contiguous AF_XDP UMEM.
+- **simd:** Batch SIMD parser with multi-stage AVX2 classification pipeline
+  and scalar metadata extraction. Slower than compiled (44 vs 36 ns) because
+  gather overhead doesn't amortize with scattered PCAP pointers.
 - **Multi-threaded scaling:** Near-linear up to physical core count, then
   drops due to SMT sharing. The parser is purely CPU-bound with no shared
   state, so scaling is limited only by hardware resources.
-- **Cache-miss%:** Higher percentages on simd/template modes are artifacts
+- **Cache-miss%:** Higher percentages on template modes are artifacts
   of very small total cache-ref counts, not real cache pressure.
-- **Feature-parity impact:** Graph mode ~10% slower than pre-parity (86→95
-  ns/pkt) due to larger dispatch tables and metadata extraction. Template
-  mode unaffected (fixed-offset reads bypass the graph entirely).
+- **All modes now extract FlowMeta:** mono/compiled/simd perform the same
+  metadata extraction as graph mode (MACs, IPs, ports, VLAN, GRE, etc.).
+  The ~4.7x gap between graph and compiled is purely `&dyn` dispatch overhead.
+  Template is field extraction on pre-classified packets, not parsing.

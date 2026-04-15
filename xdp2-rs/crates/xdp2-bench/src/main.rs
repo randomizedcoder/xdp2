@@ -256,11 +256,17 @@ fn main() {
         .count();
     let mono_ok = packets
         .iter()
-        .filter(|pkt| graph_mono::parse_packet_mono(&pkt.data).is_ok())
+        .filter(|pkt| {
+            let mut meta = graph::FlowMeta::default();
+            graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok()
+        })
         .count();
     let compiled_ok = packets
         .iter()
-        .filter(|pkt| graph_compiled::parse_packet(&pkt.data).is_ok())
+        .filter(|pkt| {
+            let mut meta = graph::FlowMeta::default();
+            graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok()
+        })
         .count();
     let template_ok = packets
         .iter()
@@ -299,12 +305,15 @@ fn main() {
         if run_mono {
             let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
                 let mut acc: u64 = 0;
+                let mut meta = graph::FlowMeta::default();
                 for pkt in &packets {
-                    if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
+                    meta = graph::FlowMeta::default();
+                    if graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok() {
                         acc += 1;
                     }
                 }
                 std::hint::black_box(acc);
+                std::hint::black_box(&meta);
             });
             results.push(BenchResult::new("mono", ns, total_pkts, 1, snap));
         }
@@ -319,12 +328,15 @@ fn main() {
         if run_compiled {
             let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
                 let mut acc: u64 = 0;
+                let mut meta = graph::FlowMeta::default();
                 for pkt in &packets {
-                    if graph_compiled::parse_packet(&pkt.data).is_ok() {
+                    meta = graph::FlowMeta::default();
+                    if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
                         acc += 1;
                     }
                 }
                 std::hint::black_box(acc);
+                std::hint::black_box(&meta);
             });
             results.push(BenchResult::new("compiled", ns, total_pkts, 1, snap));
         }
@@ -332,7 +344,9 @@ fn main() {
         if run_simd && simd_batch::is_available() {
             let (ns, snap) = time_run(perf_counters.as_mut(), cli.iterations, || {
                 // Safety: is_available() checked above.
-                std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(&packets) });
+                let mut meta = graph::FlowMeta::default();
+                std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(&packets, &mut meta) });
+                std::hint::black_box(&meta);
             });
             results.push(BenchResult::new("simd", ns, total_pkts, 1, snap));
         } else if run_simd {
@@ -389,11 +403,14 @@ fn main() {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
                 let slice = std::hint::black_box(slice);
                 let mut acc: u64 = 0;
+                let mut meta = graph::FlowMeta::default();
                 for pkt in slice {
-                    if graph_mono::parse_packet_mono(&pkt.data).is_ok() {
+                    meta = graph::FlowMeta::default();
+                    if graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok() {
                         acc += 1;
                     }
                 }
+                std::hint::black_box(&meta);
                 acc
             });
             results.push(BenchResult::new("mono-mt", ns, total_pkts, cli.threads, None));
@@ -410,11 +427,14 @@ fn main() {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
                 let slice = std::hint::black_box(slice);
                 let mut acc: u64 = 0;
+                let mut meta = graph::FlowMeta::default();
                 for pkt in slice {
-                    if graph_compiled::parse_packet(&pkt.data).is_ok() {
+                    meta = graph::FlowMeta::default();
+                    if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
                         acc += 1;
                     }
                 }
+                std::hint::black_box(&meta);
                 acc
             });
             results.push(BenchResult::new("compiled-mt", ns, total_pkts, cli.threads, None));
@@ -422,7 +442,10 @@ fn main() {
 
         if run_simd && simd_batch::is_available() {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                unsafe { simd_batch::parse_batch_avx2(slice) }
+                let mut meta = graph::FlowMeta::default();
+                let r = unsafe { simd_batch::parse_batch_avx2(slice, &mut meta) };
+                std::hint::black_box(&meta);
+                r
             });
             results.push(BenchResult::new("simd-mt", ns, total_pkts, cli.threads, None));
         }
@@ -540,21 +563,32 @@ fn bench_mono_x4(packets: &[&pcap::StoredPacket]) -> u64 {
     // initially and produced fake 10x multi-thread numbers).
     let packets = std::hint::black_box(packets);
     let mut acc: u64 = 0;
+    let mut m0 = graph::FlowMeta::default();
+    let mut m1;
+    let mut m2;
+    let mut m3;
     let mut chunks = packets.chunks_exact(4);
     for c in chunks.by_ref() {
         // Four independent parse chains. With `#[inline]` on mono's
         // internals and fat LTO, the compiler can interleave the loads
         // from all four packets across the OoO window.
-        let r0 = mono(&c[0].data).is_ok() as u64;
-        let r1 = mono(&c[1].data).is_ok() as u64;
-        let r2 = mono(&c[2].data).is_ok() as u64;
-        let r3 = mono(&c[3].data).is_ok() as u64;
+        m0 = graph::FlowMeta::default();
+        m1 = graph::FlowMeta::default();
+        m2 = graph::FlowMeta::default();
+        m3 = graph::FlowMeta::default();
+        let r0 = mono(&c[0].data, &mut m0).is_ok() as u64;
+        let r1 = mono(&c[1].data, &mut m1).is_ok() as u64;
+        let r2 = mono(&c[2].data, &mut m2).is_ok() as u64;
+        let r3 = mono(&c[3].data, &mut m3).is_ok() as u64;
         acc += r0 + r1 + r2 + r3;
     }
     // Tail.
+    let mut mt;
     for pkt in chunks.remainder() {
-        acc += mono(&pkt.data).is_ok() as u64;
+        mt = graph::FlowMeta::default();
+        acc += mono(&pkt.data, &mut mt).is_ok() as u64;
     }
+    std::hint::black_box(&m0);
     acc
 }
 

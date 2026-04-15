@@ -9,17 +9,20 @@ shuffle, done.
 
 ## At a Glance
 
+All parser modes now perform identical metadata extraction (full parse + FlowMeta).
+Template is field extraction, not parsing — shown separately.
+
 | Engine | cycles/pkt | ins/pkt | IPC | branches | status |
 |--------|-----------|---------|-----|----------|--------|
-| Rust graph (`&dyn` dispatch + metadata) | 379 | 910 | 2.40 | ~216 | measured |
-| Rust compiled (IR codegen, parse only) | 21 | 81 | 3.95 | ~20 | measured |
-| AVX2 batch SIMD (8-wide, parse only) | — | 65 | — | ~14 | measured (4 ns/pkt) |
-| Template scalar | — | 36 | — | ~5 | **measured (3 ns/pkt)** |
-| Template + batch AVX2 | — | 44 | — | ~4 | **measured (3 ns/pkt)** |
+| Rust graph (`&dyn` dispatch + metadata) | 584 | 1066 | 1.83 | ~268 | measured (174 ns/pkt) |
+| Rust compiled (inline byte reads + metadata) | 123 | 160 | 1.31 | ~30 | measured (36 ns/pkt) |
+| AVX2 batch SIMD (8-wide + metadata) | 149 | 187 | 1.25 | ~33 | measured (44 ns/pkt) |
+| Template scalar (field extraction) | 9 | 7 | 0.71 | ~2 | **measured (2 ns/pkt)** |
+| Template + batch AVX2 (field extraction) | 7 | 6 | 0.87 | ~2 | **measured (2 ns/pkt)** |
 | Template + batch AVX-512 (projected) | 1–2 | 2–3 | — | 0 | target |
 
 All "measured" numbers from AMD Ryzen Threadripper 3945WX (Zen 2), 2026-04-14
-(post feature-parity: 26 ethertypes, 18 metadata extractors).
+(post feature-parity: 28 ethertypes, 31 metadata extractors, 445K mixed packets).
 See [performance-maximization-plan.md](./performance-maximization-plan.md) for
 methodology and full results.
 
@@ -280,24 +283,24 @@ For a 42-byte Eth/IPv4/UDP extraction:
 
 | Parser | Instructions/pkt | Branches/pkt | Dependent loads |
 |--------|-----------------|-------------|-----------------|
-| Graph (`&dyn` dispatch + metadata) | 910 | ~216 | 5+ (vtable + proto chain) |
-| Compiled (IR codegen, parse only) | 81 | ~20 | 3 (ethertype → IHL → proto) |
-| Template scalar | 36 | ~5 | 0 (all offsets constant) |
+| Graph (`&dyn` dispatch + metadata) | 1066 | ~268 | 5+ (vtable + proto chain) |
+| Compiled (full parse + metadata) | 160 | ~30 | 3 (ethertype → IHL → proto) |
+| Template scalar (field extraction) | 7 | ~2 | 0 (all offsets constant) |
 | Template AVX-512 (projected) | 2–3 | 0 | 0 |
 
 ### Measured Performance
 
 | Configuration | ns/pkt | Mpps | Speedup vs compiled |
 |--------------|--------|------|-------------------|
-| Compiled (baseline) | 5 | 196 | 1.0x |
-| Template scalar | 3 | 321 | **1.6x** |
-| Template + batch AVX2 (8-wide) | 3 | 254 | 1.3x |
-| Template + batch AVX-512 (projected) | 1–2 | 2000–4000 | 10–20x |
+| Compiled (full parse + metadata) | 36 | 27 | 1.0x |
+| Template scalar (field extraction) | 2 | 364 | **13.5x** |
+| Template + batch AVX2 (8-wide) | 2 | 493 | **18.3x** |
+| Template + batch AVX-512 (projected) | 1–2 | 2000–4000 | 74–148x |
 
-Template scalar achieved 1.6x over compiled (projected 1.7–2.4x).
-Batch AVX2 was 1.3x (projected 4–6x) — the 11-packet test PCAP does
-not produce enough batches for SIMD overhead to amortize; expect better
-results with AF_XDP UMEM and hundreds of contiguous packets.
+**Important:** Template is not a parser — it performs fixed-offset field
+extraction on NIC-pre-classified packets (7 ins/pkt vs 160 ins/pkt for
+compiled parsing). The speedup reflects the elimination of all protocol
+walking, not a parser optimization. Measured on 445K mixed-protocol packets.
 
 The key advantage is not just fewer cycles — it is the **elimination of the
 dependent-load chain**.  With no serial dependencies, the out-of-order engine
@@ -637,6 +640,6 @@ This is proposed as **Step 12** in the
   is bottlenecked by the multi-stage gather-compare pipeline.  Templates
   remove that bottleneck.
 - Together, Steps 9 + 11 + 12 form a performance hierarchy:
-  1. **Graph parser** — universal, handles all protocols with metadata extraction (~95 ns/pkt single, ~160 ns/pkt at scale)
-  2. **Compiled parser** — auto-generated, handles known graph topologies (~5 ns/pkt)
-  3. **Template extraction** — hardware-classified, handles ~35 common stacks (~3 ns/pkt measured, ~0.5–1 ns/pkt projected with AVX-512)
+  1. **Graph parser** — universal, handles all protocols with metadata extraction (~174 ns/pkt at scale)
+  2. **Compiled parser** — auto-generated, same work as graph, no vtable overhead (~36 ns/pkt)
+  3. **Template extraction** — hardware-classified field extraction, not parsing (~2 ns/pkt measured, ~0.5–1 ns/pkt projected with AVX-512)

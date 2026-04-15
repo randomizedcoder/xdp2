@@ -37,26 +37,29 @@ approach, and Nix integration.
 
 ## Performance (2026-04-14)
 
-Feature-parity with C flow_dissector: 26 ethertypes, 13 IPv4 protocols,
-16 IPv6 protocols, 18 metadata extractors, GRE flag-field sub-parsing,
-VXLAN/Geneve tunnel decapsulation.
+Feature-parity with C flow_dissector: 28 ethertypes, 14 IPv4 protocols,
+17 IPv6 protocols, 31 metadata extractors, GRE flag-field sub-parsing,
+VXLAN/Geneve tunnel decapsulation, LLC/SNAP, FCoE, L2TP.
 
-**C vs Rust (430K mixed-protocol packets, AMD Ryzen Threadripper 3945WX):**
+**All parser modes (445K mixed-protocol packets, full parse + metadata, AMD Ryzen Threadripper 3945WX):**
 
-| Engine | ns/pkt | Mpps |
-|--------|--------|------|
-| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 |
-| Rust graph (fat LTO + `#[inline]`) | 160 | 6 |
+| Engine | ns/pkt | Mpps | What it measures |
+|--------|--------|------|------------------|
+| C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
+| Rust graph (`&dyn` dispatch + ProtoTable) | 174 | 6 | Full parse + FlowMeta |
+| Rust mono (monomorphized) | 38 | 26 | Same work, no vtable dispatch |
+| Rust compiled (inline byte reads) | 36 | 27 | Same work, no trait overhead |
+| Rust simd (AVX2 batch classify) | 44 | 22 | Same work, SIMD classification |
 
-Rust/C ratio: **0.89x (Rust ~11% faster)** on identical workload.
+The `&dyn` dispatch + ProtoTable overhead costs ~4.7x (174 vs 36 ns). All modes
+above perform identical metadata extraction (MACs, IPs, ports, VLAN, GRE, etc.).
 
-**Specialized Rust modes (parse speed, no metadata extraction):**
+**Field extraction (not parsing — different workload, shown separately):**
 
-| Mode | ns/pkt | Mpps |
-|------|--------|------|
-| mono (hand-rolled) | 8 | 121 |
-| compiled (inline byte reads) | 5 | 196 |
-| template (NIC-classified fixed offsets) | 3 | 321 |
+| Mode | ns/pkt | Mpps | Notes |
+|------|--------|------|-------|
+| template (NIC-classified fixed offsets) | 2 | 364 | 7 ins/pkt, pre-classified packets only |
+| template-simd (AVX2 batch) | 2 | 493 | 6 ins/pkt, 8 packets per pass |
 
 See [docs/performance-by-platform.md](./docs/performance-by-platform.md) for
 full results, perf counter data, and multi-threaded scaling.

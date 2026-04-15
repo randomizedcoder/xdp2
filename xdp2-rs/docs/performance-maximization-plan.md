@@ -1,10 +1,10 @@
 # Performance Maximization Plan
 
 This document captures the roadmap for maximizing packet parsing performance
-in the Rust XDP2 implementation. The graph engine baseline is **95 ns/pkt
-(10 Mpps)** with full feature-parity (26 ethertypes, 18 metadata extractors).
-The fair C comparison is **160 vs 180 ns/pkt (Rust ~11% faster)** on 430K
-mixed-protocol packets.
+in the Rust XDP2 implementation. The graph engine baseline is **174 ns/pkt
+(6 Mpps)** on 445K mixed-protocol packets with full feature-parity (28
+ethertypes, 31 metadata extractors). The fair C comparison is **174 vs
+180 ns/pkt (Rust ~3% faster)**.
 
 See [performance-optimization.md](./performance-optimization.md) for the
 optimizations applied and [performance-by-platform.md](./performance-by-platform.md)
@@ -12,32 +12,42 @@ for cross-platform results.
 
 ## Current State
 
-**Post feature-parity (2026-04-14): 430K mixed-protocol packets, single-threaded,
+**Post feature-parity (2026-04-14): 445K mixed-protocol packets, single-threaded,
 AMD Ryzen Threadripper 3945WX (Zen 2)**
 
 The Rust benchmark now has full feature-parity with the C flow_dissector:
-26 ethertypes, 13 IPv4 protocols, 16 IPv6 protocols, 18 metadata extractors,
-GRE flag-field sub-parsing, VXLAN/Geneve tunnel decapsulation.
+28 ethertypes, 14 IPv4 protocols, 17 IPv6 protocols, 31 metadata extractors,
+GRE flag-field sub-parsing, VXLAN/Geneve tunnel decapsulation, LLC/SNAP,
+FCoE, L2TP.
 
 **C vs Rust (fair comparison, identical workload):**
 
 | Engine | ns/pkt | Mpps | Ratio to C |
 |--------|--------|------|------------|
 | C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | 1.00x |
-| Rust graph (fat LTO + `#[inline]` + metadata) | 160 | 6 | **0.89x (11% faster)** |
+| Rust graph (fat LTO + `#[inline]` + metadata) | 174 | 6 | **0.97x (3% faster)** |
 
-**Rust-only modes (tcp_ipv4.pcap, parse speed, no metadata extraction):**
+**Rust-only modes (445K mixed packets, full parse + metadata extraction):**
+
+All modes perform identical work — full protocol parse + FlowMeta population
+(MACs, IPs, ports, VLAN, GRE, MPLS, ESP, AH, ICMP, TIPC, L2TP, etc.).
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
-| Rust graph (with metadata) | 95 | 10 | Full parse + FlowMeta |
-| Rust mono (hand-rolled) | 8 | 121 | Parse only |
-| Rust compiled (IR codegen) | 5 | 196 | Parse only |
-| Rust template (NIC-classified) | 3 | 321 | Fixed-offset, no graph walk |
+| Rust graph (`&dyn` dispatch) | 174 | 6 | Full parse + FlowMeta |
+| Rust mono (monomorphized) | 38 | 26 | Same work, no vtable |
+| Rust compiled (inline byte reads) | 36 | 27 | Same work, no trait overhead |
+| Rust simd (AVX2 batch) | 44 | 22 | Same work, SIMD classification |
 
-The Rust graph engine's advantage over C at scale comes from code compactness:
-selective devirtualization via LTO keeps code compact and L2-resident, while
-the C compiler unconditionally inlines all protocol functions.
+**Field extraction (not parsing — separate category):**
+
+| Engine | ns/pkt | Mpps | Notes |
+|--------|--------|------|-------|
+| Rust template (NIC-classified) | 2 | 364 | Fixed-offset, no graph walk, 7 ins/pkt |
+| Rust template-simd (AVX2 batch) | 2 | 493 | 8 packets per pass, 6 ins/pkt |
+
+The `&dyn` dispatch + ProtoTable overhead accounts for the ~4.7x gap between
+graph (174 ns) and compiled (36 ns). All modes now do the same work.
 
 ## Strategy
 
@@ -92,7 +102,7 @@ Rust graph    : 95 ns/pkt,  10 Mpps
 - **Branch-miss rate 0.05%** — extremely low. Step 4 (branchless dispatch)
   will not move the needle; skip it.
 - **Cache-miss rate 0.00%** — at small scale (11 packets), fully cached.
-  At 430K+ packets Rust still wins on cache behavior vs C.
+  At 445K+ packets Rust still wins on cache behavior vs C.
 - **910 ins/pkt** — significantly higher than pre-parity (449) due to metadata
   extraction callbacks and larger dispatch tables. This reflects the real
   cost of feature-parity with C.
@@ -137,19 +147,18 @@ what the C `xdp2-compiler` does, and why the C parser wins at small scale.
 
 **Expected impact:** Another 2-3x speedup. Targeting **~20-30 ns/pkt**.
 
-**Actual impact (hand-rolled PoC in `graph_mono.rs`, post feature-parity):**
+**Actual impact (hand-rolled PoC in `graph_mono.rs`, with full metadata extraction):**
 
 ```text
-Rust graph    : 95 ns/pkt,  10 Mpps   (379 cyc, 910 ins, IPC 2.40)
-Rust mono     :  8 ns/pkt, 121 Mpps   ( 33 cyc,  99 ins, IPC 2.99)
-Correctness: graph ok=11/11, mono ok=11/11
+Rust graph    : 174 ns/pkt,   6 Mpps   (584 cyc, 1066 ins, IPC 1.83)
+Rust mono     :  38 ns/pkt,  26 Mpps   (130 cyc,  190 ins, IPC 1.46)
+Correctness: graph ok=445178/445178, mono ok=445178/445178
 ```
 
-- **~12x faster** than the graph-dispatched engine
-- **22x faster** than C (C = 180 ns/pkt at scale)
-- ~9x fewer instructions per packet — vtable dispatch, metadata extraction
-  callbacks, and the linear `ProtoTable::lookup` are the main overhead
-  eliminated by monomorphization
+- **~4.6x faster** than the graph-dispatched engine (on same work)
+- ~5.6x fewer instructions per packet — vtable dispatch, ProtoTable lookup,
+  and opaque pointer barriers are the main overhead eliminated by
+  monomorphization
 - IPC improves from 2.40 → 2.99 (mono has no vtable indirection stalls)
 - Note: mono does not perform metadata extraction, so the comparison to C
   is not apples-to-apples. The graph mode (95 ns/pkt) is the fair C comparison.
@@ -327,10 +336,10 @@ throughput (all-flow analysis), multi-core is the biggest knob.
 | 24      |   1094      |   46          | SMT contention, net negative |
 
 **Note (2026-04-14):** These numbers are from pre-parity measurements (15
-protocol nodes). Post feature-parity, per-thread throughput is lower:
-mono drops from 168→121 Mpps single-threaded due to larger dispatch tables.
+protocol nodes, no metadata extraction). Post feature-parity with full
+metadata extraction, mono is 26 Mpps single-threaded on 445K mixed packets.
 Multi-threaded scaling shape should be similar but needs re-measurement
-with a large PCAP (≥100K packets) for meaningful numbers.
+with the larger PCAP for meaningful numbers.
 
 **These numbers are specific to this machine.** The 3945WX is a
 12-core / 24-thread workstation CPU with 8-channel DDR4-3200 and 64 MB
@@ -553,32 +562,35 @@ which one actually helped.
 
 ## Tracking Table
 
-All numbers post feature-parity (2026-04-14): 26 ethertypes, 18 metadata
-extractors, matching C flow_dissector scope.
+All numbers post feature-parity (2026-04-14): 28 ethertypes, 31 metadata
+extractors, matching C flow_dissector scope. All parser modes (graph, mono,
+compiled, simd) now perform identical metadata extraction for honest
+apples-to-apples comparison.
 
 | Step | Status | ns/pkt | Mpps | Notes |
 |------|--------|--------|------|-------|
-| Baseline (pre-optimization) | done | 109 | 9 | Default release profile |
-| LTO + `#[inline]` | done | 95 | 10 | Post feature-parity graph mode |
-| Step 1: CPU counters | done | 95 | 10 | IPC 2.40, branch-miss 0.05%, cache-miss 0.00% (910 ins/pkt) |
-| Step 2: Monomorphized graph (PoC) | done | **8** | **121** | Hand-rolled mono parser: ~12x faster, 33 cycles/pkt, 99 ins/pkt |
+| Baseline (pre-optimization) | done | 109 | 9 | Default release profile (~15 protos, no metadata, small PCAP) |
+| LTO + `#[inline]` | done | 95→174 | 10→6 | 95 on small PCAP; 174 on 445K mixed with full metadata |
+| Step 1: CPU counters | done | 174 | 6 | IPC 1.83, branch-miss 1.00%, cache-miss 2.85% (1066 ins/pkt, 445K mixed) |
+| Step 2: Monomorphized graph (PoC) | done | **38** | **26** | Mono parser with full metadata: 4.6x faster, 130 cycles/pkt, 190 ins/pkt |
 | Step 3a: Per-packet SIMD | skip | — | — | No bulk data in hot path; critical path is a dependent-load chain |
-| Step 3b: Cross-packet (batch) SIMD | deferred | — | — | High ROI on uniform-path traffic (NIC-steered queues); requires pipeline rewrite |
+| Step 3b: Cross-packet (batch) SIMD | done | 44 | 22 | AVX2 classify + scalar metadata; slower than compiled on scattered PCAP |
 | Step 4: Branchless dispatch | skip | — | — | Branch-miss already 0.05%, nothing to gain |
 | Step 5: Metadata layout | skip | — | — | Cache-miss already 0.00%, not memory-bound |
 | Step 6: Multi-core | done | — | — | 4T template: 50.6 Mpps; needs re-measurement with larger PCAP |
-| Step 6a: Software-pipelined x4 | done on 3945WX | 7 | 134 | Marginal here (Zen 2, wide OoO); may matter more on narrower cores |
+| Step 6a: Software-pipelined x4 | done on 3945WX | 51 | 19 | Regressed with metadata (register pressure from 4 FlowMetas) |
 | Step 7: AF_XDP / DPDK | not started | — | — | I/O, not parser |
 | Step 8: Bounds-check audit | done | — | — | LLVM eliminates all redundancies; zero-cost abstractions verified via `cargo asm` |
-| Step 9: Compiler codegen (IR → Rust) | done | **5** | **196** | Inline byte reads; 20.5 cycles/pkt, 80.9 ins/pkt, IPC 3.95 |
+| Step 9: Compiler codegen (IR → Rust) | done | **36** | **27** | Inline byte reads with full metadata; 122.5 cycles/pkt, 160 ins/pkt, IPC 1.31 |
 | Step 10: Cross-platform perf harness | done | — | — | `--report` JSON output, `perf-sweep.sh`, `performance-by-platform.md` |
-| Step 11: Batch SIMD prototype (AVX2) | done | 4 | 216 | Eth/IPv4/TCP fast path in SIMD, scalar fallback |
-| Step 12a-c: Template extraction | done | **3** | **321** | Hardware-classified fixed-offset extraction; 35.8 ins/pkt, 5.2 branches |
-| Step 12d: Batch template SIMD | done | **3** | **254** | AVX2 batch (8 pkts/pass), 43.5 ins/pkt |
+| Step 11: Batch SIMD prototype (AVX2) | done | 44 | 22 | Eth/IPv4 fast path in SIMD + metadata extraction, scalar fallback |
+| Step 12a-c: Template extraction | done | **2** | **364** | Hardware-classified fixed-offset extraction; 6.6 ins/pkt (field extraction, not parsing) |
+| Step 12d: Batch template SIMD | done | **2** | **493** | AVX2 batch (8 pkts/pass), 6.0 ins/pkt (field extraction, not parsing) |
 | Step 12e: Queue-template binding | not started | — | — | Map AF_XDP queues → templates; depends on Step 7 |
 | Step 12f: NIC config helper | not started | — | — | `ethtool -N` ntuple setup scripts; depends on Step 12e |
-| **Feature-parity** | **done** | — | — | **26 ethertypes, 13 IPv4 protos, 16 IPv6 protos, 18 metadata extractors** |
-| **C vs Rust (fair)** | **done** | **160** | **6** | **0.89x C (11% faster) on 430K mixed-protocol packets** |
+| **Feature-parity** | **done** | — | — | **28 ethertypes, 14 IPv4 protos, 17 IPv6 protos, 31 metadata extractors** |
+| **C vs Rust (fair)** | **done** | **174** | **6** | **0.97x C (3% faster) on 445K mixed-protocol packets** |
+| **Honest benchmarks** | **done** | — | — | **All modes extract FlowMeta; template separated as field extraction** |
 
 ## Non-Goals
 

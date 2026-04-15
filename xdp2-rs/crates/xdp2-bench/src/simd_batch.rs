@@ -5,6 +5,10 @@
 //! (non-IPv4, non-TCP, variable IHL, etc.) fall back to the scalar
 //! compiled parser.
 //!
+//! Populates FlowMeta with the same metadata extractors as graph mode,
+//! ensuring honest apples-to-apples benchmarking. The SIMD stages handle
+//! classification; metadata extraction is scalar per-packet.
+//!
 //! ## Theory
 //!
 //! A single packet parse is a serial dependent-load chain: read ethertype
@@ -22,6 +26,7 @@
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+use crate::graph::{AddrType, FlowMeta};
 use crate::graph_compiled;
 use crate::pcap::StoredPacket;
 
@@ -33,22 +38,73 @@ use crate::pcap::StoredPacket;
 /// Requires AVX2 support. Caller must check `is_x86_feature_detected!("avx2")`.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
-pub unsafe fn parse_batch_avx2(packets: &[&StoredPacket]) -> u64 {
+pub unsafe fn parse_batch_avx2(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     let mut acc: u64 = 0;
     let mut chunks = packets.chunks_exact(8);
 
     for chunk in chunks.by_ref() {
-        acc += parse_8_avx2(chunk);
+        acc += parse_8_avx2(chunk, meta);
     }
 
     // Tail: scalar fallback for remaining packets.
     for pkt in chunks.remainder() {
-        if graph_compiled::parse_packet(&pkt.data).is_ok() {
+        *meta = FlowMeta::default();
+        if graph_compiled::parse_packet(&pkt.data, meta).is_ok() {
             acc += 1;
         }
     }
 
     acc
+}
+
+/// Extract metadata for a fast-path Eth/IPv4 packet (scalar, after SIMD classification).
+#[inline]
+fn extract_fast_path_meta(ptr: *const u8, len: usize, protocol: u8, meta: &mut FlowMeta) {
+    *meta = FlowMeta::default();
+
+    // Ethernet metadata (bytes 0..14)
+    unsafe {
+        meta.eth_addrs[..12].copy_from_slice(std::slice::from_raw_parts(ptr, 12));
+    }
+    meta.eth_proto = 0x0800; // IPv4
+
+    // IPv4 metadata (bytes 14..34)
+    unsafe {
+        let ip = ptr.add(14);
+        let frag_off = u16::from_be_bytes([*ip.add(6), *ip.add(7)]);
+        if (frag_off & 0x3FFF) != 0 {
+            meta.is_fragment = true;
+            meta.first_frag = (frag_off & 0x1FFF) == 0;
+        }
+        meta.addr_type = AddrType::Ipv4;
+        meta.ip_proto = *ip.add(9);
+        meta.addrs.v4_src = u32::from_be_bytes([*ip.add(12), *ip.add(13), *ip.add(14), *ip.add(15)]);
+        meta.addrs.v4_dst = u32::from_be_bytes([*ip.add(16), *ip.add(17), *ip.add(18), *ip.add(19)]);
+    }
+
+    // Transport leaf metadata (bytes 34+)
+    let l4_off = 34usize; // 14 (Eth) + 20 (IPv4 IHL=5)
+    if l4_off >= len { return; }
+    unsafe {
+        let l4 = ptr.add(l4_off);
+        match protocol {
+            6 | 17 | 132 => {
+                // TCP, UDP, SCTP — extract ports
+                meta.ports.src_port = u16::from_be_bytes([*l4, *l4.add(1)]);
+                meta.ports.dst_port = u16::from_be_bytes([*l4.add(2), *l4.add(3)]);
+            }
+            1 => {
+                // ICMPv4 — extract type/code/id
+                meta.icmp.icmp_type = *l4;
+                meta.icmp.code = *l4.add(1);
+                let t = *l4;
+                if t == 0 || t == 8 {
+                    meta.icmp.id = u16::from_be_bytes([*l4.add(4), *l4.add(5)]);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Process exactly 8 packets with AVX2 gather + comparison.
@@ -58,7 +114,7 @@ pub unsafe fn parse_batch_avx2(packets: &[&StoredPacket]) -> u64 {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 #[inline]
-unsafe fn parse_8_avx2(chunk: &[&StoredPacket]) -> u64 {
+unsafe fn parse_8_avx2(chunk: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     debug_assert_eq!(chunk.len(), 8);
 
     // Minimum packet length for the fast path: 14 (Eth) + 20 (IPv4) + 8 (UDP min) = 42
@@ -83,23 +139,10 @@ unsafe fn parse_8_avx2(chunk: &[&StoredPacket]) -> u64 {
 
     if long_enough == 0 {
         // All too short — scalar fallback for all.
-        return scalar_fallback_all(chunk);
+        return scalar_fallback_all(chunk, meta);
     }
 
     // ── Stage 2: Gather ethertypes from offset 12-13 (big-endian u16) ──
-    //
-    // We gather 32-bit values starting at byte offset 12, then mask
-    // to the lower 16 bits and byte-swap for big-endian.
-    // Since gather reads i32 values aligned to the base pointer,
-    // we use byte offsets via the index vector.
-    //
-    // Actually, vpgatherdd requires base + index*scale where scale is 1/2/4/8.
-    // We'll use base=null, index=ptr, scale=1 — but x86 gather doesn't work
-    // with absolute addresses this way. Instead, gather from each pointer
-    // individually.
-    //
-    // For the prototype, use scalar loads into a SIMD vector (efficient enough
-    // since L1 hits are ~4 cycles and we're loading 8 values).
     let mut ethertypes = [0u16; 8];
     for i in 0..8 {
         if long_enough & (1 << i) != 0 {
@@ -128,7 +171,7 @@ unsafe fn parse_8_avx2(chunk: &[&StoredPacket]) -> u64 {
     let fast_mask = long_enough & ipv4_lanes;
 
     if fast_mask == 0 {
-        return scalar_fallback_all(chunk);
+        return scalar_fallback_all(chunk, meta);
     }
 
     // ── Stage 4: Check IHL == 5 (20 bytes) for fast-path IPv4 ──
@@ -167,14 +210,23 @@ unsafe fn parse_8_avx2(chunk: &[&StoredPacket]) -> u64 {
         }
     }
 
-    // ── Stage 6: Count SIMD successes + scalar fallback for the rest ──
-    let mut count = simd_ok.count_ones() as u64;
+    // ── Stage 6: Extract metadata for SIMD successes + scalar fallback for the rest ──
+    let mut count = 0u64;
+
+    // Extract metadata for each SIMD-classified packet.
+    for i in 0..8 {
+        if simd_ok & (1 << i) != 0 {
+            extract_fast_path_meta(ptrs[i], lens[i], protocols[i], meta);
+            count += 1;
+        }
+    }
 
     // Fallback mask: packets NOT handled by SIMD.
     let fallback = !simd_ok;
     for i in 0..8 {
         if fallback & (1 << i) != 0 {
-            if graph_compiled::parse_packet(&chunk[i].data).is_ok() {
+            *meta = FlowMeta::default();
+            if graph_compiled::parse_packet(&chunk[i].data, meta).is_ok() {
                 count += 1;
             }
         }
@@ -200,10 +252,11 @@ fn compress_byte_mask_to_lanes(byte_mask: u32) -> u8 {
 
 /// Scalar fallback for all 8 packets.
 #[inline]
-fn scalar_fallback_all(chunk: &[&StoredPacket]) -> u64 {
+fn scalar_fallback_all(chunk: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     let mut count = 0u64;
     for pkt in chunk {
-        if graph_compiled::parse_packet(&pkt.data).is_ok() {
+        *meta = FlowMeta::default();
+        if graph_compiled::parse_packet(&pkt.data, meta).is_ok() {
             count += 1;
         }
     }
@@ -212,10 +265,11 @@ fn scalar_fallback_all(chunk: &[&StoredPacket]) -> u64 {
 
 /// Non-AVX2 stub for other architectures.
 #[cfg(not(target_arch = "x86_64"))]
-pub fn parse_batch_avx2(packets: &[&StoredPacket]) -> u64 {
+pub fn parse_batch_avx2(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     let mut acc: u64 = 0;
     for pkt in packets {
-        if graph_compiled::parse_packet(&pkt.data).is_ok() {
+        *meta = FlowMeta::default();
+        if graph_compiled::parse_packet(&pkt.data, meta).is_ok() {
             acc += 1;
         }
     }

@@ -147,42 +147,45 @@ the Rust parse graph, more packets pass the filter automatically.
 ### 4.1 C vs Rust: Fair Comparison (Post Feature-Parity)
 
 As of 2026-04-14, the Rust benchmark has full feature-parity with the C
-flow_dissector: 26 ethertypes, 13 IPv4 protocols, 16 IPv6 protocols, 18
+flow_dissector: 28 ethertypes, 14 IPv4 protocols, 17 IPv6 protocols, 31
 metadata extractors, GRE flag-field sub-parsing, VXLAN/Geneve tunnel
-decapsulation. Both benchmarks parse the same 430K mixed-protocol packets
-(86.2% pass rate from gen_test_pcap.py's 500K output).
+decapsulation, LLC/SNAP, FCoE, L2TP. Both benchmarks parse 445K
+mixed-protocol packets (89.0% pass rate from gen_test_pcap.py's 500K output).
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
 | C (xdp2-compiler, `-O2 -march=native`) | 180 | 5 | Full parse + metadata |
-| Rust graph (fat LTO + `#[inline]`) | 160 | 6 | Full parse + FlowMeta |
+| Rust graph (fat LTO + `#[inline]`) | 174 | 6 | Full parse + FlowMeta |
 
-**Rust/C ratio: 0.89x (Rust ~11% faster)** on identical workload.
+**Rust/C ratio: 0.97x (Rust ~3% faster)** on identical workload.
 
 The Rust graph engine's advantage at scale comes from code compactness:
 the C compiler inlines all protocol functions into a single large function
-that exceeds L2 at 430K packets, while Rust's vtable dispatch produces more
+that exceeds L2 at 445K packets, while Rust's vtable dispatch produces more
 compact code that stays cache-resident.
 
 ### 4.2 Optimization History
 
-**Before optimization** (default release profile, no LTO, no `#[inline]`):
+**Before optimization** (default release profile, no LTO, no `#[inline]`,
+limited protocol coverage, no metadata extraction):
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
 | C (xdp2_parse) | 180 | 5 | `-O2`, compiler-inlined parse loop |
-| Rust graph | 109 | 9 | Default release profile |
+| Rust graph | 109 | 9 | Default release profile (~15 protos, no metadata) |
 
 **After LTO + `#[inline]`** (`lto = "fat"`, `codegen-units = 1`, `#[inline]`
 on all 254 protocol and dispatch methods):
 
 | Engine | ns/pkt | Mpps | Notes |
 |--------|--------|------|-------|
-| Rust graph | 95 | 10 | Fat LTO + `#[inline]` + feature-parity |
+| Rust graph | 174 | 6 | Fat LTO + `#[inline]` + full feature-parity (445K mixed packets) |
 
 **Note:** The pre-parity number was 59 ns/pkt because the Rust parser only
-handled ~15 protocol nodes with no metadata extraction. Post feature-parity,
-the graph mode is 95 ns/pkt — reflecting the real cost of full protocol
+handled ~15 protocol nodes with no metadata extraction. Intermediate numbers
+(95 ns on small PCAPs) reflected partial coverage. Post feature-parity with
+28 ethertypes, 31 metadata extractors, and 445K mixed-protocol packets, the
+graph mode is 174 ns/pkt — reflecting the real cost of full protocol
 coverage and metadata extraction comparable to the C implementation.
 
 ### 4.3 Optimization Breakdown
@@ -206,7 +209,7 @@ Benchmark results are sensitive to dataset size due to CPU cache effects:
 | Dataset | C ns/pkt | Rust graph ns/pkt | Winner |
 |---------|----------|-------------------|--------|
 | Small (fits L1/L2) | ~100 | ~95 | Comparable |
-| 430K packets (~14 MB, exceeds L2) | 180 | 160 | Rust |
+| 445K packets (~57 MB PCAP) | 180 | 174 | Rust (marginal) |
 
 Post feature-parity, both engines do comparable work. The Rust advantage at
 scale comes from code compactness.
@@ -321,18 +324,23 @@ for the PGO build, preserving the Nix store's immutability.
 
 ## 7. Beyond Graph Mode: Specialized Parsers
 
-The graph engine (160 ns/pkt at scale) is the general-purpose parser. For
-higher throughput, three specialized modes eliminate different overheads:
+The graph engine (174 ns/pkt at scale) is the general-purpose parser. For
+higher throughput, specialized modes eliminate different overheads while
+performing the **same work** (full parse + metadata extraction):
 
-| Mode | ns/pkt | Mpps | What it eliminates |
-|------|--------|------|--------------------|
-| mono | 8 | 121 | Vtable dispatch (hand-rolled monomorphization) |
-| compiled | 5 | 196 | Vtable + zerocopy overhead (direct byte reads) |
-| template | 3 | 321 | The graph walk entirely (NIC-classified fixed offsets) |
+| Mode | ns/pkt | Mpps | What it eliminates | Speedup vs graph |
+|------|--------|------|--------------------|------------------|
+| mono | 38 | 26 | Vtable dispatch (monomorphized calls) | 4.6x |
+| compiled | 36 | 27 | Vtable + zerocopy overhead (direct byte reads) | 4.8x |
+| simd | 44 | 22 | Scalar classification (AVX2 batch fast path) | 4.0x |
 
-These modes do not perform metadata extraction — they benchmark pure parse
-speed. The graph mode remains the correct comparison point for the C parser
-because both perform full metadata extraction.
+All modes above extract identical FlowMeta (MACs, IPs, ports, VLAN, GRE,
+MPLS, ESP, AH, ICMP, TIPC, L2TP, etc.). The `&dyn` dispatch + ProtoTable
+overhead accounts for the ~4.7x difference.
+
+Template mode is **not a parser** — it performs fixed-offset field extraction
+on NIC-pre-classified packets (2 ns/pkt, 7 ins/pkt). It belongs in a
+different category; see [hardware-classified-extraction.md](./hardware-classified-extraction.md).
 
 The Rust `xdp2-compiler` crate (Phase 4, planned) will auto-generate the
 compiled parser from the graph IR, replacing the current hand-maintained
