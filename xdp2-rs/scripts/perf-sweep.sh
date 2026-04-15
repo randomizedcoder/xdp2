@@ -56,10 +56,12 @@ if [ "$CORES" -ge 16 ]; then
     THREAD_COUNTS="1 2 4 8 16"
 fi
 
-# Single-threaded with perf counters
-echo "--- Single-threaded (with perf counters) ---"
+# Single-threaded with perf counters (all three passes merged)
+echo "--- Single-threaded (with perf counters: basic + stalls + detail) ---"
 OUTFILE="$OUTDIR/${PCAP_BASENAME}_${HOSTNAME}_1T.json"
-$BENCH --pcap "$PCAP" --iterations "$ITERATIONS" --mode both --perf --report > "$OUTFILE"
+$BENCH --pcap "$PCAP" --iterations "$ITERATIONS" --mode both --perf \
+    --perf-pass basic --perf-pass stalls --perf-pass detail \
+    --report > "$OUTFILE"
 echo "Wrote: $OUTFILE"
 
 # Multi-threaded sweeps (perf counters disabled)
