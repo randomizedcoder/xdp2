@@ -227,6 +227,7 @@ impl<M: 'static, P: ProtocolOps> ParseNodeDyn<M> for ParseNode<M, P> {
     }
 
     #[inline]
+    #[cold]
     fn unknown_ret(&self) -> ParseError {
         self.unknown_ret
     }

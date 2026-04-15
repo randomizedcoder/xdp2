@@ -77,6 +77,8 @@ impl ParseError {
     /// Convert from C-style integer return code.
     ///
     /// Reimplements: implicit integer-to-enum mapping in `parser_types.h:70-95`
+    #[cold]
+    #[inline(never)]
     pub fn from_c_code(code: i32) -> Option<Self> {
         match code {
             -12 => Some(Self::Fail),
@@ -101,6 +103,8 @@ impl ParseError {
     }
 
     /// Convert to C-style integer return code.
+    #[cold]
+    #[inline(never)]
     pub fn to_c_code(self) -> i32 {
         match self {
             Self::Fail => -12,
@@ -157,6 +161,8 @@ impl ParseResult {
 ///
 /// In C, return codes >= 0 are protocol numbers, 0 to -6 are okay/stop codes,
 /// and <= -12 are errors. Values -1, -7 to -11 are unused/reserved.
+#[cold]
+#[inline(never)]
 pub fn classify_return_code(code: i32) -> Result<ParseResult, ParseError> {
     if code >= 0 {
         Ok(ParseResult::Okay)
