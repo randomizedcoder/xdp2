@@ -111,6 +111,12 @@ struct Cli {
     #[arg(long, default_value_t = 1)]
     threads: usize,
 
+    /// Pin the benchmark thread to a specific CPU core (Linux only).
+    /// Eliminates jitter from OS scheduler migration. Use with `isolcpus`
+    /// for HFT-grade measurement consistency.
+    #[arg(long)]
+    core_pin: Option<usize>,
+
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
     #[arg(long)]
@@ -154,6 +160,11 @@ impl BenchResult {
 
 fn main() {
     let cli = Cli::parse();
+
+    // Pin to a specific CPU core if requested (reduces jitter).
+    if let Some(core) = cli.core_pin {
+        pin_to_core(core);
+    }
 
     // Load packets
     let all_packets = match pcap::load_pcap(std::path::Path::new(&cli.pcap)) {
@@ -679,6 +690,29 @@ fn time_run_passes<F: FnMut()>(
     }
 
     (first_ns, Some(merged))
+}
+
+/// Pin the calling thread to a specific CPU core via `sched_setaffinity`.
+#[cfg(target_os = "linux")]
+fn pin_to_core(core: usize) {
+    unsafe {
+        let mut set: libc::cpu_set_t = std::mem::zeroed();
+        libc::CPU_SET(core, &mut set);
+        let ret = libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &set);
+        if ret == 0 {
+            eprintln!("Pinned to core {core}");
+        } else {
+            eprintln!(
+                "warning: failed to pin to core {core}: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn pin_to_core(core: usize) {
+    eprintln!("warning: --core-pin is only supported on Linux (requested core {core})");
 }
 
 fn report(r: &BenchResult) {
