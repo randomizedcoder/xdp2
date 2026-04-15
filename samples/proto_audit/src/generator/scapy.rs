@@ -21,7 +21,9 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
 
     // Imports
     out.push_str("from scapy.packet import Packet, bind_layers\n");
-    out.push_str("from scapy.fields import *\n\n\n");
+    out.push_str("from scapy.fields import *\n");
+    out.push_str("from scapy.layers.inet import *\n");
+    out.push_str("from scapy.layers.inet6 import *\n\n\n");
 
     // Class definition
     out.push_str(&format!("class {}(Packet):\n", class_name));
@@ -29,11 +31,21 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
     out.push_str("    fields_desc = [\n");
 
     for field in &proto.fields {
-        let scapy_name = field
+        let raw_name = field
             .source_names
             .get("scapy")
             .map(|s| s.as_str())
             .unwrap_or(&field.name);
+        // Sanitize: strip protocol prefix (e.g. "ip.version" → "version"),
+        // replace dots/dashes/spaces with underscores for valid Python identifiers
+        let sanitized;
+        let scapy_name = if raw_name.contains('.') || raw_name.contains('-') || raw_name.contains(' ') {
+            let stripped = raw_name.rsplit('.').next().unwrap_or(raw_name);
+            sanitized = stripped.replace('-', "_").replace(' ', "_");
+            &sanitized
+        } else {
+            raw_name
+        };
 
         let field_class = determine_scapy_class(&field.field_type, field.size_bits,
                                                  scapy_name, &field.endian,
@@ -178,13 +190,21 @@ fn format_scapy_field(
                     names_str.join(", ")
                 )
             } else {
+                // No flag names available — fall back to BitField which doesn't require names
                 format!(
-                    "FlagsField(\"{}\", {}, {})",
+                    "BitField(\"{}\", {}, {})",
                     name,
                     default.as_deref().unwrap_or("0"),
                     bits
                 )
             }
+        }
+        // SourceIPField(name) and DestIPField(name, default) in modern Scapy
+        "SourceIPField" => {
+            format!("SourceIPField(\"{}\")", name)
+        }
+        "DestIPField" => {
+            format!("DestIPField(\"{}\", \"127.0.0.1\")", name)
         }
         _ => {
             if let Some(ref d) = default {

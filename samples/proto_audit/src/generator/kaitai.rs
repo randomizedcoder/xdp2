@@ -46,7 +46,9 @@ pub fn generate_kaitai_ksy(proto: &ProtocolDef) -> String {
         }
 
         if !field.description.is_empty() {
-            out.push_str(&format!("    doc: {}\n", field.description));
+            // Quote the description to avoid YAML parsing issues with special chars
+            let escaped = field.description.replace('\\', "\\\\").replace('"', "\\\"");
+            out.push_str(&format!("    doc: \"{}\"\n", escaped));
         }
     }
 

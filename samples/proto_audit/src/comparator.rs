@@ -1633,3 +1633,158 @@ fn normalize_value(v: &str) -> String {
     }
     v.to_lowercase()
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PCAP-level comparison (Phase 5: end-to-end pipeline verification)
+// ═══════════════════════════════════════════════════════════════════════════
+
+use crate::extractors::tshark::{PdmlField, PdmlProtocol};
+
+/// A single field-level difference between two PCAPs.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PcapFieldDiff {
+    /// tshark field name (e.g., "ip.version")
+    pub field_name: String,
+    /// Raw hex value from the input PCAP
+    pub input_hex: String,
+    /// Raw hex value from the output PCAP
+    pub output_hex: String,
+    /// Byte position in packet
+    pub pos: u32,
+    /// Size in bytes
+    pub size: u32,
+}
+
+/// Result of comparing two PCAPs for a given protocol layer.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PcapCompareResult {
+    /// Protocol being compared
+    pub protocol: String,
+    /// Total fields compared
+    pub fields_total: usize,
+    /// Fields with matching hex values
+    pub fields_match: usize,
+    /// Fields with differing hex values
+    pub fields_differ: Vec<PcapFieldDiff>,
+    /// True if all fields match (fields_match == fields_total)
+    pub pass: bool,
+}
+
+/// Result of the full pipeline with both PCAP and IR diagnostics.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PipelineDiagnostics {
+    /// PCAP-level comparison (the acid test)
+    pub pcap_result: PcapCompareResult,
+    /// IR comparison: baseline vs after crossgen (did the generator lose fields?)
+    pub ir_stage1: Option<AuditResult>,
+    /// IR comparison: after crossgen vs from output PCAP (did serialization lose fields?)
+    pub ir_stage2: Option<AuditResult>,
+    /// IR comparison: baseline vs from output PCAP (end-to-end drift)
+    pub ir_stage3: Option<AuditResult>,
+}
+
+/// Compare two PDML protocol layers field-by-field using raw hex values.
+///
+/// This is the PCAP-level acid test: if every field's raw hex value matches
+/// between the input and output PCAPs, the pipeline preserved wire bytes.
+pub fn compare_pdml_protocols(
+    input: &PdmlProtocol,
+    output: &PdmlProtocol,
+    protocol: &str,
+) -> PcapCompareResult {
+    // Build a map of (pos, size) → PdmlField for the output PCAP
+    let output_map: BTreeMap<(u32, u32), &PdmlField> = output
+        .fields
+        .iter()
+        .filter(|f| f.size > 0 && !f.value.is_empty())
+        .map(|f| ((f.pos, f.size), f))
+        .collect();
+
+    let mut fields_match = 0usize;
+    let mut fields_differ = Vec::new();
+    let mut fields_total = 0usize;
+
+    for input_field in &input.fields {
+        if input_field.size == 0 || input_field.value.is_empty() {
+            continue; // Skip metadata fields
+        }
+        fields_total += 1;
+
+        if let Some(output_field) = output_map.get(&(input_field.pos, input_field.size)) {
+            let in_hex = normalize_hex(&input_field.value);
+            let out_hex = normalize_hex(&output_field.value);
+            if in_hex == out_hex {
+                fields_match += 1;
+            } else {
+                fields_differ.push(PcapFieldDiff {
+                    field_name: input_field.name.clone(),
+                    input_hex: input_field.value.clone(),
+                    output_hex: output_field.value.clone(),
+                    pos: input_field.pos,
+                    size: input_field.size,
+                });
+            }
+        } else {
+            // Field exists in input but not output — count as mismatch
+            fields_differ.push(PcapFieldDiff {
+                field_name: input_field.name.clone(),
+                input_hex: input_field.value.clone(),
+                output_hex: String::new(),
+                pos: input_field.pos,
+                size: input_field.size,
+            });
+        }
+    }
+
+    PcapCompareResult {
+        protocol: protocol.to_string(),
+        fields_total,
+        fields_match,
+        pass: fields_differ.is_empty() && fields_total > 0,
+        fields_differ,
+    }
+}
+
+/// Build full pipeline diagnostics: PCAP comparison + IR-level diagnostics
+/// at each stage when the PCAP comparison fails.
+pub fn pipeline_diagnostics(
+    pcap_result: PcapCompareResult,
+    ir_baseline: &ProtocolDef,
+    ir_after_crossgen: Option<&ProtocolDef>,
+    ir_from_output_pcap: Option<&ProtocolDef>,
+) -> PipelineDiagnostics {
+    // Only compute IR diagnostics if the PCAP comparison failed
+    let (ir_stage1, ir_stage2, ir_stage3) = if !pcap_result.pass {
+        let stage1 = ir_after_crossgen.map(|cg| {
+            audit_protocol("crossgen-check", &[("baseline", ir_baseline), ("after-crossgen", cg)])
+        });
+        let stage2 = match (ir_after_crossgen, ir_from_output_pcap) {
+            (Some(cg), Some(out)) => Some(audit_protocol(
+                "serialization-check",
+                &[("after-crossgen", cg), ("from-output-pcap", out)],
+            )),
+            _ => None,
+        };
+        let stage3 = ir_from_output_pcap.map(|out| {
+            audit_protocol("e2e-check", &[("baseline", ir_baseline), ("from-output-pcap", out)])
+        });
+        (stage1, stage2, stage3)
+    } else {
+        (None, None, None)
+    };
+
+    PipelineDiagnostics {
+        pcap_result,
+        ir_stage1,
+        ir_stage2,
+        ir_stage3,
+    }
+}
+
+/// Normalize hex strings for comparison: lowercase, strip whitespace, strip colons.
+fn normalize_hex(hex: &str) -> String {
+    hex.trim()
+        .to_lowercase()
+        .replace(':', "")
+        .replace(' ', "")
+}

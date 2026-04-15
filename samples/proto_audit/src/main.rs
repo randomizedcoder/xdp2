@@ -474,6 +474,25 @@ enum Commands {
         json: bool,
     },
 
+    /// Pipeline coverage matrix: run pipeline across all protocols × all targets
+    #[command(name = "pipeline-matrix")]
+    PipelineMatrix {
+        /// Only these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Only these targets (comma-separated: etherparse,c,scapy,kaitai,pcap,libpcap)
+        #[arg(long)]
+        targets: Option<String>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Cross-generator round-trip: generate code → re-extract → compare to original IR
     CrossGen {
         /// Protocol name (canonical: IPv4, TCP, etc.) or "all"
@@ -523,6 +542,33 @@ enum Commands {
 
         #[command(flatten)]
         paths: SourcePaths,
+    },
+
+    /// Full pipeline: PCAP → IR → code → IR → PCAP → compare (PCAP-level verification)
+    #[command(name = "pipeline")]
+    Pipeline {
+        /// Protocol name (canonical: IPv4, TCP, etc.)
+        #[arg(long)]
+        proto: String,
+
+        /// Target: etherparse, c, scapy, kaitai, pcap, or all
+        #[arg(long, default_value = "all")]
+        target: String,
+
+        /// Input PCAP file (optional, auto-finds from templates/corpus)
+        #[arg(long)]
+        input_pcap: Option<PathBuf>,
+
+        /// Keep generated output PCAPs for inspection
+        #[arg(long)]
+        keep_pcap: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Generate PCAP, feed to tshark, compare IR vs tshark round-trip
@@ -670,6 +716,20 @@ fn main() -> Result<()> {
             dry_run,
             paths,
         } => cmd_gen_patches(&target, &source, protos.as_deref(), out, dry_run, &paths),
+        Commands::Pipeline {
+            proto,
+            target,
+            input_pcap,
+            keep_pcap: _,
+            paths,
+            json,
+        } => cmd_pipeline(&proto, &target, input_pcap.as_deref(), json, &paths),
+        Commands::PipelineMatrix {
+            protos,
+            targets,
+            paths,
+            json,
+        } => cmd_pipeline_matrix(protos.as_deref(), targets.as_deref(), json, &paths),
         Commands::Validate {
             proto,
             tier,
