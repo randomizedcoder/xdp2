@@ -1168,3 +1168,7 @@ bytes of key fields would you extract?
 artifact caused by LLVM's LICM pass. Describe a benchmark design that would
 be immune to this class of error *without* using `black_box`. (Hint: how
 can you make each loop iteration observably different?)
+
+---
+
+[< Lecture 10: Porting the Compiler and XDP Target -- C++ to Rust](lecture10-rust-compiler.md) | [Table of Contents](README.md)
