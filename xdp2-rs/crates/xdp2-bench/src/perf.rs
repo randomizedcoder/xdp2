@@ -383,6 +383,99 @@ mod linux {
                 println!("  l1i-misses/pkt:      {:>8.3}", per(self.l1i_misses));
                 println!("  ll-misses/pkt:       {:>8.3}", per(self.ll_misses));
             }
+
+            // --- TMA Level 1 summary (when basic + stalls passes available) ---
+            if self.instructions > 0
+                && (self.frontend_stalls > 0 || self.backend_stalls > 0)
+                && self.cycles > 0
+            {
+                self.report_tma();
+            }
+        }
+
+        /// Print TopDown Microarchitecture Analysis Level 1 summary.
+        ///
+        /// TMA decomposes pipeline utilization into four buckets:
+        /// - **Retiring**: slots doing useful work (instructions / (cycles × pipeline_width))
+        /// - **Bad Speculation**: wasted slots from branch mispredicts
+        /// - **Frontend Bound**: stalls from instruction fetch/decode
+        /// - **Backend Bound**: stalls from execution/memory
+        ///
+        /// This is a simplified model using generic perf events. For precise
+        /// TMA, architecture-specific PMU events would be needed.
+        fn report_tma(&self) {
+            // Simplified TMA: estimate pipeline width from IPC ceiling.
+            // Zen 2 can retire up to 5 µops/cycle; we use 4 as a conservative
+            // estimate since generic perf events count instructions, not µops.
+            const PIPELINE_WIDTH: f64 = 4.0;
+
+            let total_slots = self.cycles as f64 * PIPELINE_WIDTH;
+            if total_slots == 0.0 {
+                return;
+            }
+
+            // Retiring: fraction of slots that did useful work
+            let retiring = self.instructions as f64 / total_slots;
+
+            // Bad Speculation: approximate from branch mispredicts.
+            // Each mispredict wastes ~15-20 cycles on Zen 2; estimate
+            // wasted slots as mispredicts × pipeline_width × penalty.
+            let bad_spec = if self.branch_misses > 0 {
+                // Conservative: assume 15 cycle penalty per mispredict
+                (self.branch_misses as f64 * 15.0 * PIPELINE_WIDTH) / total_slots
+            } else {
+                0.0
+            };
+
+            // Frontend Bound: stalled cycles with no µops delivered
+            let fe_bound = self.frontend_stalls as f64 / self.cycles as f64;
+
+            // Backend Bound: stalled cycles where execution units are busy/waiting
+            let be_bound = self.backend_stalls as f64 / self.cycles as f64;
+
+            // Normalize: these are estimates that may not sum to 100%
+            let total = retiring + bad_spec + fe_bound + be_bound;
+            let norm = if total > 0.0 { 100.0 / total } else { 1.0 };
+
+            println!("  --- TMA Level 1 (approximate) ---");
+            println!(
+                "  Retiring:         {:>5.1}%   (useful work)",
+                retiring * norm
+            );
+            println!(
+                "  Bad Speculation:  {:>5.1}%   (branch mispredicts)",
+                bad_spec * norm
+            );
+            println!(
+                "  Frontend Bound:   {:>5.1}%   (fetch/decode stalls)",
+                fe_bound * norm
+            );
+            println!(
+                "  Backend Bound:    {:>5.1}%   (memory/execution stalls)",
+                be_bound * norm
+            );
+
+            // Level 2 hints
+            if be_bound > fe_bound && be_bound > retiring {
+                let dtlb_rate = if self.cache_refs > 0 {
+                    self.dtlb_misses as f64 / self.cache_refs as f64
+                } else {
+                    0.0
+                };
+                if self.l1d_misses > 0 || self.ll_misses > 0 {
+                    println!("    -> Memory Bound: L1D misses={}, LL misses={}, DTLB misses={}",
+                        self.l1d_misses, self.ll_misses, self.dtlb_misses);
+                }
+                if dtlb_rate > 0.01 {
+                    println!("    -> High DTLB miss rate — consider huge pages");
+                }
+            }
+            if fe_bound > be_bound && fe_bound > retiring {
+                if self.l1i_misses > 0 {
+                    println!("    -> Instruction cache pressure: L1I misses={}, ITLB misses={}",
+                        self.l1i_misses, self.itlb_misses);
+                }
+            }
         }
     }
 }
