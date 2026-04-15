@@ -1433,6 +1433,7 @@ dependencies = [
  "clap",
  "libc",
  "perf-event",
+ "xdp2-af-xdp",
  "xdp2-core",
  "xdp2-protocols",
 ]

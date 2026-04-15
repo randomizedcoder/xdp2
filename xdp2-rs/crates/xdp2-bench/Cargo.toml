@@ -17,3 +17,4 @@ clap = { version = "4", features = ["derive"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 perf-event = "0.4"
 libc = "0.2"
+xdp2-af-xdp = { path = "../xdp2-af-xdp" }

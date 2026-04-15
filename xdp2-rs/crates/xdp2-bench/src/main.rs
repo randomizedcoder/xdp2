@@ -30,6 +30,7 @@
 //! | `graph::make_parser()` | `flow_dissector_parsers.h` | L2 parser definition |
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
 
+mod af_xdp;
 mod graph;
 mod graph_compiled;
 mod graph_mono;
@@ -65,6 +66,9 @@ enum ParserMode {
     TemplateSimd,
     /// Run graph + mono + mono-x4 + compiled + simd + template + template-simd back-to-back.
     Both,
+    /// AF_XDP live capture: receive packets from a NIC via zero-copy kernel
+    /// bypass and parse with the compiled parser. Requires --interface.
+    AfXdp,
 }
 
 #[derive(Parser)]
@@ -74,9 +78,9 @@ enum ParserMode {
     version
 )]
 struct Cli {
-    /// Input PCAP file.
+    /// Input PCAP file (required for all modes except af-xdp).
     #[arg(short, long)]
-    pcap: String,
+    pcap: Option<String>,
 
     /// Number of benchmark iterations.
     #[arg(short = 'n', long, default_value_t = 100)]
@@ -116,6 +120,18 @@ struct Cli {
     /// for HFT-grade measurement consistency.
     #[arg(long)]
     core_pin: Option<usize>,
+
+    /// Network interface for AF_XDP mode (e.g., "eth0", "veth1").
+    #[arg(long)]
+    interface: Option<String>,
+
+    /// RX queue number for AF_XDP mode.
+    #[arg(long, default_value_t = 0)]
+    queue: u32,
+
+    /// Duration in seconds for AF_XDP mode.
+    #[arg(long, default_value_t = 10)]
+    duration: u32,
 
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
@@ -166,22 +182,34 @@ fn main() {
         pin_to_core(core);
     }
 
+    // AF_XDP mode: live packet capture from NIC (exits after run).
+    if matches!(cli.mode, ParserMode::AfXdp) {
+        run_af_xdp(&cli);
+        return;
+    }
+
+    // All other modes require a PCAP file.
+    let pcap_path = cli.pcap.as_deref().unwrap_or_else(|| {
+        eprintln!("error: --pcap is required for mode {:?}", cli.mode);
+        process::exit(1);
+    });
+
     // Load packets
-    let all_packets = match pcap::load_pcap(std::path::Path::new(&cli.pcap)) {
+    let all_packets = match pcap::load_pcap(std::path::Path::new(pcap_path)) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("error: cannot load '{}': {}", cli.pcap, e);
+            eprintln!("error: cannot load '{pcap_path}': {e}");
             process::exit(1);
         }
     };
 
     let total_loaded = all_packets.len();
     if total_loaded == 0 {
-        eprintln!("error: no packets in '{}'", cli.pcap);
+        eprintln!("error: no packets in '{pcap_path}'");
         process::exit(1);
     }
 
-    eprintln!("Loaded {} packets from {}", total_loaded, cli.pcap);
+    eprintln!("Loaded {} packets from {pcap_path}", total_loaded);
 
     let parser = graph::make_parser();
 
@@ -509,7 +537,7 @@ fn main() {
     // Output results
     if cli.report {
         print_json_report(
-            &cli.pcap,
+            pcap_path,
             npkts,
             cli.iterations,
             &results,
@@ -530,6 +558,54 @@ fn main() {
             "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}, template ok={}/{}",
             graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts, template_ok, npkts
         );
+    }
+}
+
+/// AF_XDP live capture benchmark. Binds to a NIC via AF_XDP, receives
+/// packets for `--duration` seconds, and parses each with the compiled parser.
+fn run_af_xdp(cli: &Cli) {
+    let iface = match &cli.interface {
+        Some(s) => s.as_str(),
+        None => {
+            eprintln!("error: --interface is required for --mode af-xdp");
+            process::exit(1);
+        }
+    };
+
+    let result = af_xdp::run(iface, cli.queue, cli.duration, |pkt| {
+        let mut meta = graph::FlowMeta::default();
+        let _ = graph_compiled::parse_packet(pkt, &mut meta);
+        std::hint::black_box(&meta);
+    });
+
+    match result {
+        Ok(stats) => {
+            println!("AF_XDP Results ({iface} queue {}):", cli.queue);
+            println!("  Packets:  {}", stats.total_pkts);
+            println!(
+                "  Duration: {:.2}s",
+                stats.elapsed.as_secs_f64()
+            );
+            if stats.total_pkts > 0 {
+                println!(
+                    "  {} ns/pkt,  {:.1} Mpps",
+                    stats.ns_pkt(),
+                    stats.mpps()
+                );
+            }
+            println!(
+                "  {:.1} MB received",
+                stats.total_bytes as f64 / 1_000_000.0
+            );
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            eprintln!("Hints:");
+            eprintln!("  - AF_XDP requires root or CAP_NET_RAW + CAP_NET_ADMIN");
+            eprintln!("  - An XDP program must be loaded on the interface");
+            eprintln!("  - The XDP program must redirect to an XSKMAP");
+            process::exit(1);
+        }
     }
 }
 
