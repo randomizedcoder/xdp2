@@ -176,8 +176,8 @@ Every technique from the Open Markets Initiative
 | 11 | **Prefetching** | **Not started** | Zero `_mm_prefetch` calls in codebase. | **High priority**: prefetch next packet in batch loops.  ~10–20% potential, especially with AF_XDP UMEM. |
 | 12 | **Lock-free Programming** | Done (100%) | MT benchmark: zero locks, disjoint partitions, private `FlowMeta` per thread.  AF_XDP rings are inherently lock-free. | None for parsing.  AF_XDP ring integration uses lock-free ring buffer pattern. |
 | 13 | **Inlining** | Done (100%) | 254+ `#[inline]` annotations.  Fat LTO enables cross-crate inlining.  46% combined improvement. | None — well calibrated. |
-| 14 | **LMAX Disruptor** | Designed (0% impl) | AF_XDP uses the same ring buffer pattern: TX/RX/Fill/Completion rings with sequence numbers and memory barriers. | **Critical**: implement AF_XDP integration. |
-| 15 | **Kernel Bypass** | Designed (0% impl) | AF_XDP chosen over DPDK.  Comprehensive plan in `af-xdp-integration-plan.md`. | **Critical**: single most impactful remaining work. |
+| 14 | **LMAX Disruptor** | In progress | `xdp2-af-xdp` crate implements lock-free producer/consumer rings with cached counters and proper memory ordering (volatile + fence). | Integrate with parser benchmark (`--mode af-xdp`). |
+| 15 | **Kernel Bypass** | In progress | `xdp2-af-xdp` crate: UMEM allocation, AF_XDP socket, ring mmap, fill/RX/comp rings, bind.  Zero-copy receive path. | Bind to real NIC (X710), add XDP program. |
 | 16 | **Fixed-size Arrays** | Partial (80%) | Template mode: stack-allocated.  Protocol tables: `&'static` slices. | Graph mode: `CtrlData` allocates `Vec` per packet — replace with fixed arrays. |
 
 **Summary:** 11 of 16 techniques are fully implemented, 3 are partially done,
@@ -230,7 +230,7 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 
 | Technique | Status | Impact | Effort | Notes |
 |-----------|--------|--------|--------|-------|
-| **AF_XDP (kernel bypass)** | **Designed** | **Critical** | **High** | Zero-copy NIC → userspace.  Plan: `af-xdp-integration-plan.md` |
+| **AF_XDP (kernel bypass)** | **In progress** | **Critical** | **High** | `xdp2-af-xdp` crate: UMEM, XSK socket, ring buffers, zero-copy RX.  Plan: `af-xdp-integration-plan.md` |
 | CPU pinning (`--core-pin`) | Done | Med | Low | `sched_setaffinity` via `--core-pin N` CLI flag |
 | **CPU isolation** (`isolcpus`, `nohz_full`) | **Not started** | **High (HFT)** | **Low** | Kernel params; eliminates timer-tick jitter |
 | IRQ affinity | Not started | Med | Low | Pin NIC IRQs away from parser cores |
@@ -267,7 +267,7 @@ Ordered by expected production impact for HFT/DPI workloads:
 
 | Rank | Action | Category | Impact | Effort | Status |
 |------|--------|----------|--------|--------|--------|
-| 1 | AF_XDP integration | System | Enables production | High | Designed |
+| 1 | AF_XDP integration | System | Enables production | High | **In progress** (`xdp2-af-xdp` crate) |
 | 2 | Frontend/backend stall counters | Profiling | Identifies next bottleneck | Low | **Done** |
 | 3 | DTLB/ITLB miss counters | Profiling | Quantifies TLB pressure | Low | **Done** |
 | 4 | Software prefetching | Memory | 10–20% batch modes | Low | **Done** |

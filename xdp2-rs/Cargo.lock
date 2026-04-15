@@ -1420,10 +1420,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "xdp2-af-xdp"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "xdp2-bench"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "libc",
  "perf-event",
  "xdp2-core",
  "xdp2-protocols",

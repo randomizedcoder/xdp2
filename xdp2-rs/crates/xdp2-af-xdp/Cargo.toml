@@ -1,0 +1,9 @@
+[package]
+name = "xdp2-af-xdp"
+description = "AF_XDP socket abstraction for zero-copy packet I/O"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+libc = "0.2"
