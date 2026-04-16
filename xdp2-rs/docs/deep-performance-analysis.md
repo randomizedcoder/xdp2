@@ -217,7 +217,7 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 | Technique | Status | Impact | Effort | Notes |
 |-----------|--------|--------|--------|-------|
 | Software prefetching | Done | Med–High | Low | `_mm_prefetch` in SIMD batch loops; critical for AF_XDP UMEM |
-| Huge pages (2 MB / 1 GB) | Not started | Med | Low | Reduces TLB misses for 32 MB+ UMEM; `MAP_HUGETLB` |
+| Huge pages (2 MB / 1 GB) | Done | Med | Low | `MAP_HUGETLB` with fallback in UMEM; `--huge-pages` flag |
 | Cache line alignment | Partial | Low | Low | Headers: `#[repr(C, packed)]`.  `FlowMeta` hot fields not aligned |
 | NUMA-aware allocation | Not started | High (multi-socket) | Med | N/A on current single-socket machine |
 | Arena allocator for packets | Not started | Med | Med | Replace per-packet `Vec<u8>` with single buffer + slices |
@@ -230,7 +230,7 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 
 | Technique | Status | Impact | Effort | Notes |
 |-----------|--------|--------|--------|-------|
-| **AF_XDP (kernel bypass)** | **In progress** | **Critical** | **High** | `xdp2-af-xdp` crate: UMEM, XSK socket, ring buffers, zero-copy RX.  Plan: `af-xdp-integration-plan.md` |
+| **AF_XDP (kernel bypass)** | **In progress** | **Critical** | **High** | `xdp2-af-xdp` crate: UMEM, XSK socket, ring buffers, zero-copy RX, multi-queue (`--queues N`).  Plan: `af-xdp-integration-plan.md` |
 | CPU pinning (`--core-pin`) | Done | Med | Low | `sched_setaffinity` via `--core-pin N` CLI flag |
 | **CPU isolation** (`isolcpus`, `nohz_full`) | **Not started** | **High (HFT)** | **Low** | Kernel params; eliminates timer-tick jitter |
 | IRQ affinity | Not started | Med | Low | Pin NIC IRQs away from parser cores |

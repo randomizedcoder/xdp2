@@ -122,6 +122,107 @@ where
     })
 }
 
+/// Run AF_XDP receive across multiple NIC queues in parallel.
+///
+/// Spawns one thread per queue, each with its own XskSocket and UMEM.
+/// Returns per-queue stats (one entry per queue). The `process` closure
+/// must be `Send + Sync` since it runs on multiple threads.
+///
+/// If `core_pin_start` is `Some(cpu)`, thread for queue N is pinned to
+/// core `cpu + N` (round-robin across available cores).
+#[cfg(target_os = "linux")]
+pub fn run_multi_queue<F>(
+    ifname: &str,
+    queue_start: u32,
+    num_queues: u32,
+    duration_secs: u32,
+    huge_pages: bool,
+    busy_poll_us: Option<u32>,
+    core_pin_start: Option<usize>,
+    process: F,
+) -> Result<Vec<Stats>, String>
+where
+    F: Fn(&[u8]) + Send + Sync,
+{
+    use std::thread;
+
+    if num_queues == 0 {
+        return Err("num_queues must be >= 1".to_string());
+    }
+
+    let process = &process;
+
+    thread::scope(|s| {
+        let mut handles = Vec::with_capacity(num_queues as usize);
+
+        for i in 0..num_queues {
+            let queue_id = queue_start + i;
+            let handle = s.spawn(move || {
+                // Pin to core if requested.
+                if let Some(base) = core_pin_start {
+                    let cpu = base + i as usize;
+                    pin_to_core(cpu);
+                }
+
+                run(ifname, queue_id, duration_secs, huge_pages, busy_poll_us, |pkt| {
+                    process(pkt);
+                })
+            });
+            handles.push(handle);
+        }
+
+        let mut results = Vec::with_capacity(handles.len());
+        for (i, h) in handles.into_iter().enumerate() {
+            match h.join() {
+                Ok(Ok(stats)) => results.push(stats),
+                Ok(Err(e)) => {
+                    return Err(format!("queue {} failed: {}", queue_start + i as u32, e));
+                }
+                Err(_) => {
+                    return Err(format!("queue {} thread panicked", queue_start + i as u32));
+                }
+            }
+        }
+        Ok(results)
+    })
+}
+
+/// Aggregate stats from multiple queues into a single summary.
+pub fn aggregate_stats(per_queue: &[Stats]) -> Stats {
+    let total_pkts: u64 = per_queue.iter().map(|s| s.total_pkts).sum();
+    let total_bytes: u64 = per_queue.iter().map(|s| s.total_bytes).sum();
+    // Use the maximum elapsed time (all threads run concurrently).
+    let elapsed = per_queue
+        .iter()
+        .map(|s| s.elapsed)
+        .max()
+        .unwrap_or_default();
+    Stats {
+        total_pkts,
+        total_bytes,
+        elapsed,
+    }
+}
+
+/// Best-effort CPU pinning via sched_setaffinity.
+#[cfg(target_os = "linux")]
+fn pin_to_core(cpu: usize) {
+    unsafe {
+        let mut cpuset: libc::cpu_set_t = std::mem::zeroed();
+        libc::CPU_ZERO(&mut cpuset);
+        libc::CPU_SET(cpu, &mut cpuset);
+        let ret = libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &cpuset);
+        if ret == 0 {
+            eprintln!("AF_XDP: pinned thread to core {cpu}");
+        } else {
+            eprintln!(
+                "AF_XDP: failed to pin to core {cpu}: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+    }
+}
+
 #[cfg(not(target_os = "linux"))]
 pub fn run<F>(
     _ifname: &str,
@@ -133,6 +234,23 @@ pub fn run<F>(
 ) -> Result<Stats, String>
 where
     F: FnMut(&[u8]),
+{
+    Err("AF_XDP requires Linux".to_string())
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn run_multi_queue<F>(
+    _ifname: &str,
+    _queue_start: u32,
+    _num_queues: u32,
+    _duration_secs: u32,
+    _huge_pages: bool,
+    _busy_poll_us: Option<u32>,
+    _core_pin_start: Option<usize>,
+    _process: F,
+) -> Result<Vec<Stats>, String>
+where
+    F: Fn(&[u8]) + Send + Sync,
 {
     Err("AF_XDP requires Linux".to_string())
 }

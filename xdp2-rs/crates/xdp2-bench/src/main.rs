@@ -125,9 +125,14 @@ struct Cli {
     #[arg(long)]
     interface: Option<String>,
 
-    /// RX queue number for AF_XDP mode.
+    /// Starting RX queue number for AF_XDP mode.
     #[arg(long, default_value_t = 0)]
     queue: u32,
+
+    /// Number of RX queues for AF_XDP mode (multi-queue).
+    /// Spawns one thread per queue (queue, queue+1, ..., queue+N-1).
+    #[arg(long, default_value_t = 1)]
+    queues: u32,
 
     /// Duration in seconds for AF_XDP mode.
     #[arg(long, default_value_t = 10)]
@@ -573,6 +578,9 @@ fn main() {
 
 /// AF_XDP live capture benchmark. Binds to a NIC via AF_XDP, receives
 /// packets for `--duration` seconds, and parses each with the compiled parser.
+///
+/// With `--queues N`, spawns N threads, one per NIC queue, for multi-queue
+/// receive. Each thread gets its own XskSocket, UMEM, and optional core pin.
 fn run_af_xdp(cli: &Cli) {
     let iface = match &cli.interface {
         Some(s) => s.as_str(),
@@ -582,41 +590,78 @@ fn run_af_xdp(cli: &Cli) {
         }
     };
 
-    let result = af_xdp::run(iface, cli.queue, cli.duration, cli.huge_pages, cli.busy_poll, |pkt| {
+    let process = |pkt: &[u8]| {
         let mut meta = graph::FlowMeta::default();
         let _ = graph_compiled::parse_packet(pkt, &mut meta);
         std::hint::black_box(&meta);
-    });
+    };
 
-    match result {
-        Ok(stats) => {
-            println!("AF_XDP Results ({iface} queue {}):", cli.queue);
-            println!("  Packets:  {}", stats.total_pkts);
-            println!(
-                "  Duration: {:.2}s",
-                stats.elapsed.as_secs_f64()
-            );
-            if stats.total_pkts > 0 {
-                println!(
-                    "  {} ns/pkt,  {:.1} Mpps",
-                    stats.ns_pkt(),
-                    stats.mpps()
-                );
-            }
-            println!(
-                "  {:.1} MB received",
-                stats.total_bytes as f64 / 1_000_000.0
-            );
+    if cli.queues <= 1 {
+        // Single-queue path (original).
+        let result = af_xdp::run(
+            iface, cli.queue, cli.duration, cli.huge_pages, cli.busy_poll, process,
+        );
+        match result {
+            Ok(stats) => print_af_xdp_stats(iface, cli.queue, &stats),
+            Err(e) => af_xdp_error(&e),
         }
-        Err(e) => {
-            eprintln!("error: {e}");
-            eprintln!("Hints:");
-            eprintln!("  - AF_XDP requires root or CAP_NET_RAW + CAP_NET_ADMIN");
-            eprintln!("  - An XDP program must be loaded on the interface");
-            eprintln!("  - The XDP program must redirect to an XSKMAP");
-            process::exit(1);
+    } else {
+        // Multi-queue path.
+        let result = af_xdp::run_multi_queue(
+            iface,
+            cli.queue,
+            cli.queues,
+            cli.duration,
+            cli.huge_pages,
+            cli.busy_poll,
+            cli.core_pin,
+            process,
+        );
+        match result {
+            Ok(per_queue) => {
+                for (i, stats) in per_queue.iter().enumerate() {
+                    let qid = cli.queue + i as u32;
+                    print_af_xdp_stats(iface, qid, stats);
+                }
+                if per_queue.len() > 1 {
+                    let agg = af_xdp::aggregate_stats(&per_queue);
+                    println!("\nAF_XDP Aggregate ({} queues):", per_queue.len());
+                    println!("  Packets:  {}", agg.total_pkts);
+                    println!("  Duration: {:.2}s", agg.elapsed.as_secs_f64());
+                    if agg.total_pkts > 0 {
+                        println!("  {} ns/pkt,  {:.1} Mpps", agg.ns_pkt(), agg.mpps());
+                    }
+                    println!(
+                        "  {:.1} MB received",
+                        agg.total_bytes as f64 / 1_000_000.0
+                    );
+                }
+            }
+            Err(e) => af_xdp_error(&e),
         }
     }
+}
+
+fn print_af_xdp_stats(iface: &str, queue: u32, stats: &af_xdp::Stats) {
+    println!("AF_XDP Results ({iface} queue {queue}):");
+    println!("  Packets:  {}", stats.total_pkts);
+    println!("  Duration: {:.2}s", stats.elapsed.as_secs_f64());
+    if stats.total_pkts > 0 {
+        println!("  {} ns/pkt,  {:.1} Mpps", stats.ns_pkt(), stats.mpps());
+    }
+    println!(
+        "  {:.1} MB received",
+        stats.total_bytes as f64 / 1_000_000.0
+    );
+}
+
+fn af_xdp_error(e: &str) -> ! {
+    eprintln!("error: {e}");
+    eprintln!("Hints:");
+    eprintln!("  - AF_XDP requires root or CAP_NET_RAW + CAP_NET_ADMIN");
+    eprintln!("  - An XDP program must be loaded on the interface");
+    eprintln!("  - The XDP program must redirect to an XSKMAP");
+    process::exit(1);
 }
 
 /// Multi-threaded benchmark: split packets across `threads` workers, each
