@@ -8,32 +8,42 @@ data structure.
 
 ## Reference Documentation
 
-The complete technical specification of XDP2 is documented as an 11-lecture
+The complete technical specification of XDP2 is documented as a 12-lecture
 series designed for 3rd-year CS students:
 
-**[XDP2 Technical Lectures](../documentation/xdp2-lectures.md)**
+**[XDP2 Technical Lectures](../documentation/lectures/)**
 
 | Lecture | Topic |
 |---------|-------|
-| 0 | Orientation and Motivation |
-| 1 | Protocol Definitions (`xdp2_proto_def`, `ops.len`, `ops.next_proto`) |
-| 2 | Parse Nodes, Protocol Tables, and Parsers (macro API) |
-| 3 | The Runtime Parsing Engine (`__xdp2_parse()` main loop) |
-| 4 | Metadata and Advanced Node Types (TLVs, flag-fields, arrays) |
-| 5 | The Optimizing Compiler (Clang AST → Boost Graph → codegen) |
-| 6 | The XDP/eBPF Target (tail-call architecture, verifier constraints) |
-| 7 | Worked Examples (byte-by-byte packet traces) |
-| 8 | Testing and Clean-Room Reimplementation Guide |
-| 9 | Porting the Runtime -- C to Rust |
-| 10 | Porting the Compiler and XDP Target -- C++ to Rust |
+| [0](../documentation/lectures/lecture00-xdp2-overview.md) | Orientation and Motivation |
+| [1](../documentation/lectures/lecture01-protocol-definitions.md) | Protocol Definitions -- The Vocabulary of Parsing |
+| [2](../documentation/lectures/lecture02-parse-graph.md) | Parse Nodes, Protocol Tables, and Parsers -- Building the Graph |
+| [3](../documentation/lectures/lecture03-runtime-engine.md) | The Runtime Parsing Engine -- Walking the Graph |
+| [4](../documentation/lectures/lecture04-metadata-extraction.md) | Metadata Extraction and Advanced Node Types |
+| [5](../documentation/lectures/lecture05-compiler.md) | The Optimizing Compiler -- From Graph to Linear Code |
+| [6](../documentation/lectures/lecture06-xdp-ebpf.md) | The XDP/eBPF Target -- Kernel-Space Parsing |
+| [7](../documentation/lectures/lecture07-worked-examples.md) | Worked Examples -- Packets Walking the Parse Graph |
+| [8](../documentation/lectures/lecture08-testing.md) | Testing and Clean-Room Reimplementation Guide |
+| [9](../documentation/lectures/lecture09-rust-runtime.md) | Porting the Runtime -- C to Rust |
+| [10](../documentation/lectures/lecture10-rust-compiler.md) | Porting the Compiler and XDP Target -- C++ to Rust |
+| [11](../documentation/lectures/lecture11-performance.md) | High-Performance Parsing -- From 158 ns/pkt to 2 ns/pkt |
 
-Lectures 8-10 are the primary design references for this Rust reimplementation.
+Lectures 8-11 are the primary design references for this Rust reimplementation.
 
-## Implementation Plan
+## Documentation
 
-See **[detailed-implementation-plan.md](./detailed-implementation-plan.md)** for
-the full phased implementation strategy, C-to-Rust mapping tables, verification
-approach, and Nix integration.
+| Document | Description |
+|----------|-------------|
+| [detailed-implementation-plan.md](./detailed-implementation-plan.md) | Phased implementation strategy, C-to-Rust mapping tables, Nix integration |
+| [docs/adding-protocol-support.md](./docs/adding-protocol-support.md) | How to add a new protocol across all four parser variants |
+| [docs/deep-performance-analysis.md](./docs/deep-performance-analysis.md) | CPU profiling data, optimization taxonomy, HFT design pattern cross-reference |
+| [docs/performance-optimization.md](./docs/performance-optimization.md) | Trait object dispatch overhead and optimization techniques |
+| [docs/performance-by-platform.md](./docs/performance-by-platform.md) | Cross-platform benchmark results |
+| [docs/performance-maximization-plan.md](./docs/performance-maximization-plan.md) | Optimization roadmap from graph engine baseline (158 ns/pkt) |
+| [Lecture 11](../documentation/lectures/lecture11-performance.md) | Measurement-driven optimization walkthrough (95 ns/pkt to 3 ns/pkt) |
+| [docs/hardware-classified-extraction.md](./docs/hardware-classified-extraction.md) | NIC hardware classification and fixed-offset template extraction |
+| [docs/af-xdp-integration-plan.md](./docs/af-xdp-integration-plan.md) | AF_XDP integration for line-rate NIC parsing via shared memory |
+| [docs/cpp-backport-plan.md](./docs/cpp-backport-plan.md) | Plan to backport Rust performance gains to C++ |
 
 ## Performance (2026-04-15)
 
