@@ -54,14 +54,21 @@ pub fn run<F>(
     ifname: &str,
     queue_id: u32,
     duration_secs: u32,
+    huge_pages: bool,
     mut process: F,
 ) -> Result<Stats, String>
 where
     F: FnMut(&[u8]),
 {
-    use xdp2_af_xdp::{Config, XdpDesc, XskSocket};
+    use xdp2_af_xdp::{Config, UmemConfig, XdpDesc, XskSocket};
 
-    let config = Config::default();
+    let config = Config {
+        umem: UmemConfig {
+            huge_pages,
+            ..UmemConfig::default()
+        },
+        ..Config::default()
+    };
     let mut xsk = XskSocket::bind(ifname, queue_id, config)
         .map_err(|e| format!("AF_XDP bind failed: {e}"))?;
 
@@ -111,6 +118,7 @@ pub fn run<F>(
     _ifname: &str,
     _queue_id: u32,
     _duration_secs: u32,
+    _huge_pages: bool,
     _process: F,
 ) -> Result<Stats, String>
 where

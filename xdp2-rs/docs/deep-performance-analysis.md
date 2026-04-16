@@ -276,7 +276,7 @@ Ordered by expected production impact for HFT/DPI workloads:
 | 7 | CPU isolation (`isolcpus` / `nohz_full`) | System | Eliminates latency jitter | Low | Production deploy |
 | 8 | Full TMA analysis mode | Profiling | Systematic bottleneck ID | Med | **Done** |
 | 9 | `#[cold]` on error paths | CPU | 1–3% (i-cache) | Low | **Done** |
-| 10 | Huge pages for UMEM | Memory | Reduces TLB misses | Low | Needs AF_XDP |
+| 10 | Huge pages for UMEM | Memory | Reduces TLB misses | Low | **Done** (`--huge-pages` flag) |
 | 11 | Cache warming for HFT | Memory | Latency consistency | Low | Needs AF_XDP |
 | 12 | AVX-512 template extraction | CPU | 4–8x template throughput | Med | Needs Zen 4+ |
 | 13 | Arena allocator for packets | Memory | TLB/alloc pressure | Med | Not started |

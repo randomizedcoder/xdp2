@@ -19,6 +19,13 @@ pub struct UmemConfig {
     pub frame_count: u32,
     /// Per-frame headroom in bytes (reserved space before packet data).
     pub headroom: u32,
+    /// Use 2MB huge pages for the UMEM region.
+    ///
+    /// Reduces TLB misses for large UMEM sizes (32MB+ = 8192 frames).
+    /// Requires huge pages configured on the system:
+    ///   `echo 64 > /proc/sys/vm/nr_hugepages`
+    /// Falls back to normal pages if huge pages are unavailable.
+    pub huge_pages: bool,
 }
 
 impl Default for UmemConfig {
@@ -27,6 +34,7 @@ impl Default for UmemConfig {
             frame_size: 4096,
             frame_count: 4096,
             headroom: 0,
+            huge_pages: false,
         }
     }
 }
@@ -56,17 +64,36 @@ impl Umem {
     pub fn new(config: &UmemConfig) -> io::Result<Self> {
         let len = config.frame_size as usize * config.frame_count as usize;
 
+        let mut flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_POPULATE;
+        if config.huge_pages {
+            flags |= libc::MAP_HUGETLB;
+        }
+
         // SAFETY: mmap with MAP_ANONYMOUS creates a new private mapping.
-        let base = unsafe {
+        let mut base = unsafe {
             libc::mmap(
                 ptr::null_mut(),
                 len,
                 libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_POPULATE,
+                flags,
                 -1,
                 0,
             )
         };
+
+        // Fall back to normal pages if huge pages fail.
+        if base == libc::MAP_FAILED && config.huge_pages {
+            base = unsafe {
+                libc::mmap(
+                    ptr::null_mut(),
+                    len,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                    libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_POPULATE,
+                    -1,
+                    0,
+                )
+            };
+        }
 
         if base == libc::MAP_FAILED {
             return Err(io::Error::last_os_error());

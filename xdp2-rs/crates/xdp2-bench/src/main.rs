@@ -133,6 +133,11 @@ struct Cli {
     #[arg(long, default_value_t = 10)]
     duration: u32,
 
+    /// Use 2MB huge pages for AF_XDP UMEM (reduces TLB misses).
+    /// Requires: echo 64 > /proc/sys/vm/nr_hugepages
+    #[arg(long)]
+    huge_pages: bool,
+
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
     #[arg(long)]
@@ -572,7 +577,7 @@ fn run_af_xdp(cli: &Cli) {
         }
     };
 
-    let result = af_xdp::run(iface, cli.queue, cli.duration, |pkt| {
+    let result = af_xdp::run(iface, cli.queue, cli.duration, cli.huge_pages, |pkt| {
         let mut meta = graph::FlowMeta::default();
         let _ = graph_compiled::parse_packet(pkt, &mut meta);
         std::hint::black_box(&meta);
