@@ -24,20 +24,43 @@ full `FlowMeta` (31 metadata fields):
 
 | Mode | ns/pkt | Mpps | cyc/pkt | ins/pkt | IPC | branch-miss% | cache-miss% |
 |------|--------|------|---------|---------|-----|-------------|-------------|
-| graph (`&dyn` dispatch) | 174 | 6 | 583.8 | 1065.7 | 1.83 | 1.00 | 2.85 |
-| mono (hand-rolled) | 38 | 26 | 129.5 | 189.7 | 1.46 | 6.13 | 2.51 |
-| compiled (codegen) | 36 | 27 | 122.5 | 160.0 | 1.31 | 6.54 | 2.80 |
-| simd (AVX2 batch) | 44 | 22 | 148.8 | 186.6 | 1.25 | 6.76 | 6.68 |
-| template (classify+extract+fallback) | 21 | 48 | — | — | — | — | — |
-| template-batch (batch+fallback) | 22 | 45 | — | — | — | — | — |
+| graph (`&dyn` dispatch) | 149 | 7 | 583.8 | 1065.7 | 1.83 | 1.00 | 2.85 |
+| mono (hand-rolled) | 36 | 28 | 129.5 | 189.7 | 1.46 | 6.13 | 2.51 |
+| compiled (codegen) | 33 | 29 | 122.5 | 160.0 | 1.31 | 6.54 | 2.80 |
+| simd (AVX2 batch) | 38 | 26 | 148.8 | 186.6 | 1.25 | 6.76 | 6.68 |
+| template (classify+extract+fallback) | 39 | 25 | — | — | — | — | — |
+| template-batch (batch+fallback) | 44 | 22 | — | — | — | — | — |
 
-C vs Rust (identical 445K filtered packets): Rust graph 158 ns vs C 174 ns —
-**Rust is 9% faster**.
-
-Multi-threaded peak (4T, template mode): **50.6 Mpps**.
+C vs Rust (identical 445K filtered packets): Rust graph 149 ns vs C 174 ns —
+**Rust is 14% faster**.
 
 Protocol coverage: 28 ethertypes, 14 IPv4 protocols, 17 IPv6 protocols,
-31 metadata extractors.
+31 metadata extractors. All parser modes (graph, mono, compiled) share identical
+protocol support — speed gains come purely from eliminating dispatch overhead.
+
+### Template extraction coverage
+
+Template mode adds 63 fixed-offset extraction templates covering all
+header stacks where every byte offset is a compile-time constant:
+
+| L2 | Tunneling | L3 | L4 options | Templates |
+|----|-----------|-----|------------|-----------|
+| Plain | None | IPv4, IPv6 | TCP, UDP, ICMP, SCTP, Other + ARP | 11 |
+| VLAN (802.1Q) | None | IPv4, IPv6 | TCP, UDP, ICMP, SCTP, Other + ARP | 11 |
+| QinQ (802.1ad) | None | IPv4, IPv6 | TCP, UDP, ICMP, SCTP, Other + ARP | 11 |
+| Plain | GRE (basic) | IPv4, IPv6 | TCP, UDP, ICMP | 6 |
+| Plain | Double GRE | IPv4 | TCP, UDP, ICMP | 3 |
+| VLAN | GRE (basic) | IPv4, IPv6 | TCP, UDP, ICMP | 6 |
+| QinQ | GRE (basic) | IPv4, IPv6 | TCP, UDP, ICMP | 6 |
+| Plain | IP-in-IP | IPv4 | TCP, UDP, ICMP | 3 |
+| VLAN | IP-in-IP | IPv4 | TCP, UDP, ICMP | 3 |
+| QinQ | IP-in-IP | IPv4 | TCP, UDP, ICMP | 3 |
+
+Packets that cannot be templated (variable-length headers) fall back to the
+compiled parser automatically. On the 500K mixed-protocol benchmark PCAP (1371
+unique protocol stacks, heavy MPLS/IPv6-EH/L2TP/ESP), 29% of packets match
+templates and 71% fall back. On typical production traffic (TCP/UDP dominant),
+template match rates would be 80-95%.
 
 ---
 

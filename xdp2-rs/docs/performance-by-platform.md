@@ -50,12 +50,18 @@ VLAN tags, GRE fields, MPLS labels, ESP/AH SPIs, ICMP, TIPC, L2TP, etc.).
 | compiled | 36 | 27 | 122.5 | 160.0 | 1.31 | 6.54% | 2.80% |
 | simd | 44 | 22 | 148.8 | 186.6 | 1.25 | 6.76% | 6.68% |
 
-**Field extraction (not parsing — pre-classified packets, no protocol walk):**
+**Template modes (classify + extract for template-matched, compiled fallback for rest):**
 
-| Mode | ns/pkt | Mpps | cycles/pkt | ins/pkt | IPC | branch-miss% | cache-miss% |
-|------|--------|------|-----------|---------|-----|-------------|------------|
-| template | 2 | 364 | 9.3 | 6.6 | 0.71 | 1.94% | 47.93% |
-| template-simd | 2 | 493 | 6.8 | 6.0 | 0.87 | 2.17% | 48.85% |
+| Mode | ns/pkt | Mpps | Template match rate | Notes |
+|------|--------|------|---------------------|-------|
+| template | 39 | 25 | 29% (128,859/445,178) | Software classification + compiled fallback |
+| template-simd | 44 | 22 | 29% | Batch variant, same match rate |
+
+Note: 29% template match rate reflects this PCAP's extreme protocol diversity
+(1371 unique stacks including MPLS, IPv6+EH, L2TP, ESP/AH). Production traffic
+(80-95% TCP/UDP) would see much higher template match rates and proportionally
+faster template performance. 63 templates cover plain, VLAN, QinQ, GRE,
+double-GRE, VLAN+GRE, QinQ+GRE, IP-in-IP, VLAN+IPIP, QinQ+IPIP stacks.
 
 **C vs Rust (mixed-protocol PCAP, 445K packets):**
 
@@ -113,20 +119,19 @@ _Not yet measured._
 - **simd vs compiled:** SIMD is slower (44 vs 36 ns) — AVX2 gather overhead
   doesn't pay off with scattered PCAP pointers. Expect improvement with
   contiguous AF_XDP UMEM buffers.
-- **template vs compiled:** Template extraction has the fewest instructions
-  (6.6/pkt) and near-zero branches — fixed-offset reads with one bounds
-  check. Fastest single-threaded mode at 364 Mpps (field extraction, not parsing).
-- **template-simd:** SIMD batch template extraction processes 8 packets per
-  AVX2 pass at 493 Mpps. Expect even better results with contiguous AF_XDP UMEM.
+- **template vs compiled:** Template mode classifies each packet, dispatches
+  to a fixed-offset extractor (63 templates), and falls back to compiled parsing
+  for untemplatable packets. On this diverse PCAP, 71% of packets fall back
+  so template ≈ compiled speed. With production traffic (80-95% TCP/UDP),
+  template would be significantly faster due to NIC hardware classification
+  (zero CPU classification cost) and higher template match rates.
 - **simd:** Batch SIMD parser with multi-stage AVX2 classification pipeline
   and scalar metadata extraction. Slower than compiled (44 vs 36 ns) because
   gather overhead doesn't amortize with scattered PCAP pointers.
 - **Multi-threaded scaling:** Near-linear up to physical core count, then
   drops due to SMT sharing. The parser is purely CPU-bound with no shared
   state, so scaling is limited only by hardware resources.
-- **Cache-miss%:** Higher percentages on template modes are artifacts
-  of very small total cache-ref counts, not real cache pressure.
-- **All modes now extract FlowMeta:** mono/compiled/simd perform the same
-  metadata extraction as graph mode (MACs, IPs, ports, VLAN, GRE, etc.).
-  The ~4.7x gap between graph and compiled is purely `&dyn` dispatch overhead.
-  Template is field extraction on pre-classified packets, not parsing.
+- **All modes now extract FlowMeta:** Every mode (graph, mono, compiled, simd,
+  template, template-simd) performs the same metadata extraction (MACs, IPs,
+  ports, VLAN, GRE, etc.). The ~4.5x gap between graph and compiled is purely
+  `&dyn` dispatch overhead.

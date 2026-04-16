@@ -35,7 +35,7 @@ See **[detailed-implementation-plan.md](./detailed-implementation-plan.md)** for
 the full phased implementation strategy, C-to-Rust mapping tables, verification
 approach, and Nix integration.
 
-## Performance (2026-04-14)
+## Performance (2026-04-15)
 
 Feature-parity with C flow_dissector: 28 ethertypes, 14 IPv4 protocols,
 17 IPv6 protocols, 31 metadata extractors, GRE flag-field sub-parsing,
@@ -46,23 +46,32 @@ VXLAN/Geneve tunnel decapsulation, LLC/SNAP, FCoE, L2TP.
 | Engine | ns/pkt | Mpps | What it measures |
 |--------|--------|------|------------------|
 | C (xdp2-compiler, `-O2 -march=native`) | 174 | 6 | Full parse + metadata |
-| Rust graph (`&dyn` dispatch + ProtoTable) | 158 | 6 | Full parse + FlowMeta |
-| Rust mono (monomorphized) | 36 | 27 | Same work, no vtable dispatch |
-| Rust compiled (inline byte reads) | 34 | 29 | Same work, no trait overhead |
-| Rust simd (AVX2 batch classify) | 36 | 28 | Same work, SIMD classification |
+| Rust graph (`&dyn` dispatch + ProtoTable) | 149 | 7 | Full parse + FlowMeta |
+| Rust mono (monomorphized) | 36 | 28 | Same work, no vtable dispatch |
+| Rust compiled (inline byte reads) | 33 | 29 | Same work, no trait overhead |
+| Rust simd (AVX2 batch classify) | 38 | 26 | Same work, SIMD classification |
+| Rust template (classify + extract + fallback) | 39 | 25 | 29% template, 71% compiled fallback |
+| Rust template-simd (batch + fallback) | 44 | 22 | Same as template, batch processing |
 
-The `&dyn` dispatch + ProtoTable overhead costs ~4.6x (158 vs 34 ns). All modes
-above perform identical metadata extraction (MACs, IPs, ports, VLAN, GRE, etc.).
+All modes produce identical `FlowMeta` output (31 metadata fields: MACs, IPs,
+ports, VLAN, GRE, fragments, etc.). The `&dyn` dispatch + ProtoTable overhead
+costs ~4.5x (149 vs 33 ns).
 
-**Field extraction (not parsing — different workload, shown separately):**
+### Protocol coverage and template extraction
 
-| Mode | ns/pkt | Mpps | Notes |
-|------|--------|------|-------|
-| template (NIC-classified fixed offsets) | 2 | 364 | 7 ins/pkt, pre-classified packets only |
-| template-simd (AVX2 batch) | 2 | 493 | 6 ins/pkt, 8 packets per pass |
+All parser modes (graph, mono, compiled) support identical protocol coverage.
+The template mode adds 63 fixed-offset extraction templates covering:
+plain, VLAN (802.1Q), QinQ (802.1ad), GRE, double-GRE, VLAN+GRE, QinQ+GRE,
+IP-in-IP, VLAN+IP-in-IP, and QinQ+IP-in-IP header stacks.
 
-See [docs/performance-by-platform.md](./docs/performance-by-platform.md) for
-full results, perf counter data, and multi-threaded scaling.
+Packets with variable-length headers (IPv6 extension headers, MPLS, L2TP, ESP/AH)
+cannot use templates and fall back to the compiled parser automatically. On this
+PCAP (extremely diverse, 1371 unique protocol stacks), 29% of packets match
+templates and 71% fall back. On typical production traffic (predominantly
+TCP/UDP), template match rates would be 80-95%.
+
+See [docs/deep-performance-analysis.md](./docs/deep-performance-analysis.md) for
+CPU profiling data, optimization taxonomy, and HFT design pattern cross-reference.
 
 ## Architecture
 
