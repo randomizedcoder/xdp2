@@ -71,6 +71,19 @@ enum ParserMode {
     AfXdp,
 }
 
+/// Template selection for AF_XDP template extraction mode.
+#[derive(Clone, Debug, clap::ValueEnum)]
+enum AfXdpTemplate {
+    /// Eth / IPv4 (IHL=5) / TCP — 54 bytes minimum.
+    EthIpv4Tcp,
+    /// Eth / IPv4 (IHL=5) / UDP — 42 bytes minimum.
+    EthIpv4Udp,
+    /// Eth / IPv6 / TCP — 74 bytes minimum.
+    EthIpv6Tcp,
+    /// Auto-detect template from packet headers (adds classification overhead).
+    Auto,
+}
+
 #[derive(Parser)]
 #[command(
     name = "xdp2-bench",
@@ -147,6 +160,12 @@ struct Cli {
     /// Value is the busy-poll timeout in microseconds (e.g., 20).
     #[arg(long)]
     busy_poll: Option<u32>,
+
+    /// Use template extraction in AF_XDP mode instead of the compiled parser.
+    /// Simulates the production path where the NIC classifies packets and
+    /// each queue uses fixed-offset extraction. "auto" classifies per-packet.
+    #[arg(long, value_enum)]
+    af_xdp_template: Option<AfXdpTemplate>,
 
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
@@ -590,19 +609,46 @@ fn run_af_xdp(cli: &Cli) {
         }
     };
 
-    let process = |pkt: &[u8]| {
-        let mut meta = graph::FlowMeta::default();
-        let _ = graph_compiled::parse_packet(pkt, &mut meta);
-        std::hint::black_box(&meta);
+    // Build the per-packet processing closure based on template selection.
+    let tmpl = &cli.af_xdp_template;
+    let process = move |pkt: &[u8]| {
+        match tmpl {
+            Some(AfXdpTemplate::EthIpv4Tcp) => {
+                let _ = std::hint::black_box(template::extract_eth_ipv4_tcp(pkt));
+            }
+            Some(AfXdpTemplate::EthIpv4Udp) => {
+                let _ = std::hint::black_box(template::extract_eth_ipv4_udp(pkt));
+            }
+            Some(AfXdpTemplate::EthIpv6Tcp) => {
+                let _ = std::hint::black_box(template::extract_eth_ipv6_tcp(pkt));
+            }
+            Some(AfXdpTemplate::Auto) => {
+                if let Some(id) = template::select_template_id(pkt) {
+                    let _ = std::hint::black_box(template::extract_by_id(pkt, id));
+                }
+            }
+            None => {
+                let mut meta = graph::FlowMeta::default();
+                let _ = graph_compiled::parse_packet(pkt, &mut meta);
+                std::hint::black_box(&meta);
+            }
+        }
+    };
+
+    let parser_label = match &cli.af_xdp_template {
+        Some(t) => format!("template:{t:?}"),
+        None => "compiled".to_string(),
     };
 
     if cli.queues <= 1 {
-        // Single-queue path (original).
+        // Single-queue path.
         let result = af_xdp::run(
             iface, cli.queue, cli.duration, cli.huge_pages, cli.busy_poll, process,
         );
         match result {
-            Ok(stats) => print_af_xdp_stats(iface, cli.queue, &stats),
+            Ok(stats) => {
+                print_af_xdp_stats(iface, cli.queue, &parser_label, &stats);
+            }
             Err(e) => af_xdp_error(&e),
         }
     } else {
@@ -621,11 +667,11 @@ fn run_af_xdp(cli: &Cli) {
             Ok(per_queue) => {
                 for (i, stats) in per_queue.iter().enumerate() {
                     let qid = cli.queue + i as u32;
-                    print_af_xdp_stats(iface, qid, stats);
+                    print_af_xdp_stats(iface, qid, &parser_label, stats);
                 }
                 if per_queue.len() > 1 {
                     let agg = af_xdp::aggregate_stats(&per_queue);
-                    println!("\nAF_XDP Aggregate ({} queues):", per_queue.len());
+                    println!("\nAF_XDP Aggregate ({} queues, parser={parser_label}):", per_queue.len());
                     println!("  Packets:  {}", agg.total_pkts);
                     println!("  Duration: {:.2}s", agg.elapsed.as_secs_f64());
                     if agg.total_pkts > 0 {
@@ -642,8 +688,8 @@ fn run_af_xdp(cli: &Cli) {
     }
 }
 
-fn print_af_xdp_stats(iface: &str, queue: u32, stats: &af_xdp::Stats) {
-    println!("AF_XDP Results ({iface} queue {queue}):");
+fn print_af_xdp_stats(iface: &str, queue: u32, parser: &str, stats: &af_xdp::Stats) {
+    println!("AF_XDP Results ({iface} queue {queue}, parser={parser}):");
     println!("  Packets:  {}", stats.total_pkts);
     println!("  Duration: {:.2}s", stats.elapsed.as_secs_f64());
     if stats.total_pkts > 0 {
