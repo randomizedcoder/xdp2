@@ -195,7 +195,7 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 | Fat LTO (`lto = "fat"`, `codegen-units = 1`) | Done | — | — | Cross-crate inlining, devirtualization |
 | `target-cpu=native` | Done | — | — | Enables AVX2, BMI2 on Zen 2 |
 | `#[inline]` annotations (254 methods) | Done | — | — | 46% combined with LTO |
-| PGO (profile-guided optimization) | Partial | Low–Med | Low | Pipeline exists in Nix, never measured |
+| PGO (profile-guided optimization) | **Done** | **14–30%** | Low | Measured: graph 14%, mono 29%, compiled 21%, simd 25%.  Template at floor (2 ns) — no change.  Pipeline: `RUSTFLAGS="-Cprofile-generate"` → profile → `llvm-profdata merge` → `"-Cprofile-use"`.  Requires LLVM 21 `llvm-profdata` to match rustc. |
 | BOLT (post-link binary optimization) | Not started | Low–Med | Med | Reorders code by profile for i-cache |
 | AutoFDO (sampling-based PGO) | Not started | Low | Med | Less precise than PGO |
 | `panic = "abort"` | Done | Low | Low | Removes unwind tables, ~5% smaller binary |
@@ -272,7 +272,7 @@ Ordered by expected production impact for HFT/DPI workloads:
 | 3 | DTLB/ITLB miss counters | Profiling | Quantifies TLB pressure | Low | **Done** |
 | 4 | Software prefetching | Memory | 10–20% batch modes | Low | **Done** |
 | 5 | Queue-template binding + ntuple | System | Template in production | Med | Needs AF_XDP |
-| 6 | PGO (run and measure) | Compiler | 3–8% graph mode | Low | Infra ready |
+| 6 | PGO (run and measure) | Compiler | **14–30%** | Low | **Done** — graph 14%, mono 29%, compiled 21%, simd 25% |
 | 7 | CPU isolation (`isolcpus` / `nohz_full`) | System | Eliminates latency jitter | Low | Production deploy |
 | 8 | Full TMA analysis mode | Profiling | Systematic bottleneck ID | Med | **Done** |
 | 9 | `#[cold]` on error paths | CPU | 1–3% (i-cache) | Low | **Done** |
@@ -306,8 +306,26 @@ Ordered by expected production impact for HFT/DPI workloads:
 **Phase 0 — Profiling foundation (DONE)**
 - ~~Add stall + TLB counters to `perf.rs`~~ Done (13 generic + 4 AMD raw counters)
 - ~~Run `perf annotate` and flamegraphs~~ Integrated into perf-sweep.sh
-- Run PGO pipeline and record results (infrastructure ready, needs benchmark run)
+- ~~Run PGO pipeline and record results~~ **Done** — see PGO results below
 - TMA Level 1 analysis auto-prints when basic + stalls data available
+
+**PGO benchmark results** (combo.pcap, 871 mixed-protocol packets, 500 iterations):
+
+| Mode | Baseline ns/pkt | PGO ns/pkt | Speedup |
+|------|----------------|------------|---------|
+| graph | 271 | 233 | **14%** |
+| mono | 28 | 20 | **29%** |
+| mono-x4 | 27 | 19 | **30%** |
+| compiled | 19 | 15 | **21%** |
+| simd | 24 | 18 | **25%** |
+| template | 2 | 2 | ~0% (at 2 ns floor) |
+| template-simd | 3 | 3 | ~0% (at 3 ns floor) |
+
+PGO pipeline: `RUSTFLAGS="-Cprofile-generate=$DIR"` → profile run →
+`llvm-profdata merge` (requires LLVM 21 to match rustc) →
+`RUSTFLAGS="-Cprofile-use=merged.profdata"`.  Template modes are already at
+their hardware floor so PGO cannot help there, but all software-parsing modes
+see 14–30% improvement — far exceeding the initial 3–8% estimate.
 
 **Phase 1 — Low-hanging fruit (DONE)**
 - ~~Software prefetching in batch loops~~ Done (simd_batch.rs, template_simd.rs)
@@ -352,5 +370,5 @@ Ordered by expected production impact for HFT/DPI workloads:
 | Does the compiled parser fit in the op cache? | AMD op cache raw events | Likely yes — ~200 micro-ops for hot path vs 4K-entry capacity |
 | Is there false sharing in MT mode? | `perf c2c` | Likely no — no shared mutable state |
 | Which protocol layer costs the most cycles? | `rdpmc` per-function | Unknown — this is the next measurement to take |
-| How much does PGO actually help? | PGO benchmark | Expected 3–8% for graph mode (6.54% branch-miss) |
+| How much does PGO actually help? | PGO benchmark | **Answered**: 14% graph, 29% mono, 21% compiled, 25% simd.  Far exceeds the 3–8% estimate — PGO improves branch layout AND code placement. |
 | Would prefetching help with scattered PCAP packets? | Benchmark with `_mm_prefetch` | Yes for batch modes; dramatic for contiguous AF_XDP UMEM |
