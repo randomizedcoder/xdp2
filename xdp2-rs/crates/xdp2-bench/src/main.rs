@@ -138,6 +138,11 @@ struct Cli {
     #[arg(long)]
     huge_pages: bool,
 
+    /// Enable busy-polling for AF_XDP (lowest latency, burns CPU).
+    /// Value is the busy-poll timeout in microseconds (e.g., 20).
+    #[arg(long)]
+    busy_poll: Option<u32>,
+
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
     #[arg(long)]
@@ -577,7 +582,7 @@ fn run_af_xdp(cli: &Cli) {
         }
     };
 
-    let result = af_xdp::run(iface, cli.queue, cli.duration, cli.huge_pages, |pkt| {
+    let result = af_xdp::run(iface, cli.queue, cli.duration, cli.huge_pages, cli.busy_poll, |pkt| {
         let mut meta = graph::FlowMeta::default();
         let _ = graph_compiled::parse_packet(pkt, &mut meta);
         std::hint::black_box(&meta);

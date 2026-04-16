@@ -55,6 +55,7 @@ pub fn run<F>(
     queue_id: u32,
     duration_secs: u32,
     huge_pages: bool,
+    busy_poll_us: Option<u32>,
     mut process: F,
 ) -> Result<Stats, String>
 where
@@ -76,6 +77,14 @@ where
     match xsk.register_xskmap(DEFAULT_XSKMAP_PATH, queue_id) {
         Ok(()) => eprintln!("AF_XDP: registered in XSKMAP at {DEFAULT_XSKMAP_PATH}"),
         Err(e) => eprintln!("AF_XDP: XSKMAP not found ({e}), assuming external setup"),
+    }
+
+    // Enable busy-polling if requested.
+    if let Some(timeout_us) = busy_poll_us {
+        match xsk.set_busy_poll(64, timeout_us) {
+            Ok(()) => eprintln!("AF_XDP: busy-poll enabled ({timeout_us}us timeout)"),
+            Err(e) => eprintln!("AF_XDP: busy-poll failed ({e}), using interrupt mode"),
+        }
     }
 
     let mut batch = vec![XdpDesc::default(); 64];
@@ -119,6 +128,7 @@ pub fn run<F>(
     _queue_id: u32,
     _duration_secs: u32,
     _huge_pages: bool,
+    _busy_poll_us: Option<u32>,
     _process: F,
 ) -> Result<Stats, String>
 where

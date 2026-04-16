@@ -366,6 +366,30 @@ impl XskSocket {
         self.fd.as_raw_fd()
     }
 
+    /// Enable busy-polling on this socket.
+    ///
+    /// With busy-poll, the kernel driver polls the NIC directly instead of
+    /// using interrupts, eliminating syscall and context-switch overhead.
+    /// This is the lowest-latency receive mode but burns CPU cycles.
+    ///
+    /// - `budget`: max packets to process per poll (e.g., 64)
+    /// - `timeout_us`: busy-poll timeout in microseconds (e.g., 20)
+    ///
+    /// Requires `CAP_NET_ADMIN` and kernel 5.11+.
+    pub fn set_busy_poll(&self, budget: u32, timeout_us: u32) -> io::Result<()> {
+        let rfd = self.fd.as_raw_fd();
+        let enable: libc::c_int = 1;
+
+        // SO_PREFER_BUSY_POLL (69): prefer busy-poll over interrupt-driven.
+        setsockopt_sol_socket(rfd, 69, &enable)?;
+        // SO_BUSY_POLL_BUDGET (70): max packets per poll invocation.
+        setsockopt_sol_socket(rfd, 70, &budget)?;
+        // SO_BUSY_POLL (46): busy-poll timeout in microseconds.
+        setsockopt_sol_socket(rfd, 46, &timeout_us)?;
+
+        Ok(())
+    }
+
     /// Register this socket in a pinned XSKMAP BPF map.
     ///
     /// The XDP program uses this map to redirect packets to AF_XDP sockets.
@@ -404,6 +428,25 @@ fn setsockopt<T>(fd: RawFd, opt: i32, val: &T) -> io::Result<()> {
         libc::setsockopt(
             fd,
             SOL_XDP,
+            opt,
+            val as *const T as *const libc::c_void,
+            mem::size_of::<T>() as libc::socklen_t,
+        )
+    };
+    if ret < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+/// Set a SOL_SOCKET-level option.
+fn setsockopt_sol_socket<T>(fd: RawFd, opt: libc::c_int, val: &T) -> io::Result<()> {
+    // SAFETY: val is a valid reference to T.
+    let ret = unsafe {
+        libc::setsockopt(
+            fd,
+            libc::SOL_SOCKET,
             opt,
             val as *const T as *const libc::c_void,
             mem::size_of::<T>() as libc::socklen_t,

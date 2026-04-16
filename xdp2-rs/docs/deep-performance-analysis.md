@@ -234,7 +234,7 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 | CPU pinning (`--core-pin`) | Done | Med | Low | `sched_setaffinity` via `--core-pin N` CLI flag |
 | **CPU isolation** (`isolcpus`, `nohz_full`) | **Not started** | **High (HFT)** | **Low** | Kernel params; eliminates timer-tick jitter |
 | IRQ affinity | Not started | Med | Low | Pin NIC IRQs away from parser cores |
-| Busy-polling (`SO_PREFER_BUSY_POLL`) | Not started | High (latency) | Low | For AF_XDP; eliminates syscall overhead |
+| Busy-polling (`SO_PREFER_BUSY_POLL`) | **Done** | High (latency) | Low | `--busy-poll` flag; `set_busy_poll()` in `xdp2-af-xdp` |
 | Queue-template binding | Not started | High | Med | NIC queue → parser template; zero software classification |
 | NIC ntuple / Flow Director | Not started | High | Low | `ethtool -N` rules; designed in `hardware-classified-extraction.md` |
 | Interrupt coalescing (`ethtool -C`) | Not started | Med | Low | Throughput vs latency tradeoff |
