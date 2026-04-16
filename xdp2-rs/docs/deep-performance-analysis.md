@@ -230,7 +230,7 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 
 | Technique | Status | Impact | Effort | Notes |
 |-----------|--------|--------|--------|-------|
-| **AF_XDP (kernel bypass)** | **In progress** | **Critical** | **High** | `xdp2-af-xdp` crate: UMEM, XSK socket, ring buffers, zero-copy RX, multi-queue (`--queues N`).  Plan: `af-xdp-integration-plan.md` |
+| **AF_XDP (kernel bypass)** | **Done (core)** | **Critical** | **High** | `xdp2-af-xdp` crate: UMEM, XSK, ring buffers, zero-copy RX, multi-queue, busy-poll, template, XSKMAP.  Remaining: X710 ntuple validation |
 | CPU pinning (`--core-pin`) | Done | Med | Low | `sched_setaffinity` via `--core-pin N` CLI flag |
 | **CPU isolation** (`isolcpus`, `nohz_full`) | **Not started** | **High (HFT)** | **Low** | Kernel params; eliminates timer-tick jitter |
 | IRQ affinity | Not started | Med | Low | Pin NIC IRQs away from parser cores |
@@ -267,7 +267,7 @@ Ordered by expected production impact for HFT/DPI workloads:
 
 | Rank | Action | Category | Impact | Effort | Status |
 |------|--------|----------|--------|--------|--------|
-| 1 | AF_XDP integration | System | Enables production | High | **In progress** (`xdp2-af-xdp` crate) |
+| 1 | AF_XDP integration | System | Enables production | High | **Done (core)** — multi-queue, template, busy-poll, zero-copy |
 | 2 | Frontend/backend stall counters | Profiling | Identifies next bottleneck | Low | **Done** |
 | 3 | DTLB/ITLB miss counters | Profiling | Quantifies TLB pressure | Low | **Done** |
 | 4 | Software prefetching | Memory | 10–20% batch modes | Low | **Done** |
@@ -293,6 +293,13 @@ Ordered by expected production impact for HFT/DPI workloads:
 - `--core-pin N` CLI flag for CPU affinity pinning
 - AMD Zen raw PMU pass (`--perf-pass zen`): op cache, retired µops, dispatch/MAB stalls
 - `perf-sweep.sh` updated: all three passes, FLAMEGRAPH=1, ANNOTATE=1, CORE_PIN=N
+- `xdp2-af-xdp` crate: complete AF_XDP socket abstraction (UMEM, rings, zero-copy RX)
+- Multi-queue AF_XDP (`--queues N`): one thread per NIC queue with per-core pinning
+- Template AF_XDP (`--af-xdp-template`): NIC-classified fixed-offset extraction
+- Busy-poll (`--busy-poll`), zero-copy (`--zero-copy`), huge pages (`--huge-pages`)
+- NEED_WAKEUP (`--need-wakeup`), configurable batch size (`--batch-size`)
+- XDP sample program (`samples/xdp/af_xdp_parser/`) with XSKMAP redirect
+- veth test script (`scripts/af-xdp-veth-test.sh`)
 
 ### Execution Phases
 
@@ -308,12 +315,22 @@ Ordered by expected production impact for HFT/DPI workloads:
 - CtrlData stack allocation — skipped (num_counters=0, num_keys=0: no heap alloc)
 - ~~`panic = "abort"` in release profile~~ Done
 
-**Phase 2 — AF_XDP and production path (NEXT)**
-- AF_XDP integration (the critical enabler)
-- Queue-template binding + NIC ntuple configuration
-- Huge pages + prefetching for UMEM
-- CPU isolation + core pinning + IRQ affinity
-- Cache warming
+**Phase 2 — AF_XDP and production path (IN PROGRESS)**
+- ~~AF_XDP crate (`xdp2-af-xdp`)~~ Done: UMEM, XSK socket, ring buffers, zero-copy RX
+- ~~AF_XDP benchmark mode (`--mode af-xdp`)~~ Done: compiled parser + template extraction
+- ~~Multi-queue (`--queues N`)~~ Done: one thread per queue, per-core pinning, aggregate stats
+- ~~Busy-poll (`--busy-poll`)~~ Done: SO_PREFER_BUSY_POLL for lowest latency
+- ~~Huge pages (`--huge-pages`)~~ Done: MAP_HUGETLB with fallback
+- ~~Zero-copy (`--zero-copy`)~~ Done: XDP_ZEROCOPY bind flag
+- ~~NEED_WAKEUP (`--need-wakeup`)~~ Done: efficient fill ring wakeup
+- ~~Template connection (`--af-xdp-template`)~~ Done: fixed-offset extraction per queue
+- ~~Configurable batch size (`--batch-size`)~~ Done: tunable recv batch
+- ~~XDP sample program~~ Done: `samples/xdp/af_xdp_parser/` with XSKMAP redirect
+- ~~XSKMAP registration~~ Done: auto-register via BPF syscall
+- ~~veth test script~~ Done: `scripts/af-xdp-veth-test.sh`
+- Queue-template binding + NIC ntuple configuration — needs X710 hardware
+- CPU isolation + IRQ affinity — production deploy docs
+- Cache warming — needs AF_XDP idle loop
 
 **Phase 3 — Hardware-dependent**
 - AVX-512 template extraction (Zen 4+ / Intel)
