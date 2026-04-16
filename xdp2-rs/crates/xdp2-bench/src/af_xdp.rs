@@ -42,6 +42,27 @@ impl Stats {
 /// Default pinned path for the XSKMAP BPF map.
 pub const DEFAULT_XSKMAP_PATH: &str = "/sys/fs/bpf/xsks_map";
 
+/// AF_XDP socket configuration for the benchmark.
+pub struct RunConfig {
+    pub huge_pages: bool,
+    pub busy_poll_us: Option<u32>,
+    pub batch_size: usize,
+    pub bind_flags: u16,
+    pub need_wakeup: bool,
+}
+
+impl Default for RunConfig {
+    fn default() -> Self {
+        Self {
+            huge_pages: false,
+            busy_poll_us: None,
+            batch_size: 64,
+            bind_flags: 0,
+            need_wakeup: false,
+        }
+    }
+}
+
 /// Run the AF_XDP receive + parse loop for `duration_secs` seconds.
 ///
 /// Calls `process` for each received packet. The closure should parse
@@ -54,21 +75,28 @@ pub fn run<F>(
     ifname: &str,
     queue_id: u32,
     duration_secs: u32,
-    huge_pages: bool,
-    busy_poll_us: Option<u32>,
+    cfg: &RunConfig,
     mut process: F,
 ) -> Result<Stats, String>
 where
     F: FnMut(&[u8]),
 {
-    use xdp2_af_xdp::{Config, UmemConfig, XdpDesc, XskSocket};
+    use xdp2_af_xdp::{Config, SocketConfig, UmemConfig, XdpDesc, XskSocket};
+
+    let mut bind_flags = cfg.bind_flags;
+    if cfg.need_wakeup {
+        bind_flags |= xdp2_af_xdp::sys::XDP_USE_NEED_WAKEUP;
+    }
 
     let config = Config {
         umem: UmemConfig {
-            huge_pages,
+            huge_pages: cfg.huge_pages,
             ..UmemConfig::default()
         },
-        ..Config::default()
+        socket: SocketConfig {
+            bind_flags,
+            ..SocketConfig::default()
+        },
     };
     let mut xsk = XskSocket::bind(ifname, queue_id, config)
         .map_err(|e| format!("AF_XDP bind failed: {e}"))?;
@@ -80,26 +108,31 @@ where
     }
 
     // Enable busy-polling if requested.
-    if let Some(timeout_us) = busy_poll_us {
-        match xsk.set_busy_poll(64, timeout_us) {
+    if let Some(timeout_us) = cfg.busy_poll_us {
+        match xsk.set_busy_poll(cfg.batch_size as u32, timeout_us) {
             Ok(()) => eprintln!("AF_XDP: busy-poll enabled ({timeout_us}us timeout)"),
             Err(e) => eprintln!("AF_XDP: busy-poll failed ({e}), using interrupt mode"),
         }
     }
 
-    let mut batch = vec![XdpDesc::default(); 64];
+    let batch_size = cfg.batch_size;
+    let mut batch = vec![XdpDesc::default(); batch_size];
     let mut total_pkts = 0u64;
     let mut total_bytes = 0u64;
     let deadline = Duration::from_secs(duration_secs as u64);
     let t_start = Instant::now();
+    let use_wakeup = cfg.need_wakeup;
 
     eprintln!(
-        "AF_XDP: receiving on {ifname} queue {queue_id} for {duration_secs}s..."
+        "AF_XDP: receiving on {ifname} queue {queue_id} for {duration_secs}s (batch={batch_size})..."
     );
 
     while t_start.elapsed() < deadline {
         let n = xsk.recv(&mut batch);
         if n == 0 {
+            if use_wakeup && xsk.fill_needs_wakeup() {
+                let _ = xsk.wakeup();
+            }
             let _ = xsk.poll(10); // 10ms timeout
             continue;
         }
@@ -136,8 +169,7 @@ pub fn run_multi_queue<F>(
     queue_start: u32,
     num_queues: u32,
     duration_secs: u32,
-    huge_pages: bool,
-    busy_poll_us: Option<u32>,
+    cfg: &RunConfig,
     core_pin_start: Option<usize>,
     process: F,
 ) -> Result<Vec<Stats>, String>
@@ -164,7 +196,7 @@ where
                     pin_to_core(cpu);
                 }
 
-                run(ifname, queue_id, duration_secs, huge_pages, busy_poll_us, |pkt| {
+                run(ifname, queue_id, duration_secs, cfg, |pkt| {
                     process(pkt);
                 })
             });
@@ -228,8 +260,7 @@ pub fn run<F>(
     _ifname: &str,
     _queue_id: u32,
     _duration_secs: u32,
-    _huge_pages: bool,
-    _busy_poll_us: Option<u32>,
+    _cfg: &RunConfig,
     _process: F,
 ) -> Result<Stats, String>
 where
@@ -244,8 +275,7 @@ pub fn run_multi_queue<F>(
     _queue_start: u32,
     _num_queues: u32,
     _duration_secs: u32,
-    _huge_pages: bool,
-    _busy_poll_us: Option<u32>,
+    _cfg: &RunConfig,
     _core_pin_start: Option<usize>,
     _process: F,
 ) -> Result<Vec<Stats>, String>

@@ -167,6 +167,20 @@ struct Cli {
     #[arg(long, value_enum)]
     af_xdp_template: Option<AfXdpTemplate>,
 
+    /// Request zero-copy mode for AF_XDP (NIC driver must support it).
+    /// Falls back to copy mode if the driver doesn't support zero-copy.
+    #[arg(long)]
+    zero_copy: bool,
+
+    /// Batch size for AF_XDP receive (number of descriptors per recv call).
+    #[arg(long, default_value_t = 64)]
+    batch_size: usize,
+
+    /// Enable NEED_WAKEUP for AF_XDP fill ring. The kernel signals when
+    /// it needs a wakeup, reducing unnecessary sendto() calls.
+    #[arg(long)]
+    need_wakeup: bool,
+
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
     #[arg(long)]
@@ -640,11 +654,22 @@ fn run_af_xdp(cli: &Cli) {
         None => "compiled".to_string(),
     };
 
+    let mut bind_flags: u16 = 0;
+    if cli.zero_copy {
+        bind_flags |= xdp2_af_xdp::sys::XDP_ZEROCOPY;
+    }
+
+    let run_cfg = af_xdp::RunConfig {
+        huge_pages: cli.huge_pages,
+        busy_poll_us: cli.busy_poll,
+        batch_size: cli.batch_size,
+        bind_flags,
+        need_wakeup: cli.need_wakeup,
+    };
+
     if cli.queues <= 1 {
         // Single-queue path.
-        let result = af_xdp::run(
-            iface, cli.queue, cli.duration, cli.huge_pages, cli.busy_poll, process,
-        );
+        let result = af_xdp::run(iface, cli.queue, cli.duration, &run_cfg, process);
         match result {
             Ok(stats) => {
                 print_af_xdp_stats(iface, cli.queue, &parser_label, &stats);
@@ -658,8 +683,7 @@ fn run_af_xdp(cli: &Cli) {
             cli.queue,
             cli.queues,
             cli.duration,
-            cli.huge_pages,
-            cli.busy_poll,
+            &run_cfg,
             cli.core_pin,
             process,
         );
