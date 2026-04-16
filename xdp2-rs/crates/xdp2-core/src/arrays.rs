@@ -184,3 +184,119 @@ pub fn parse_array<M>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Simple test metadata: counts elements and records their types.
+    #[derive(Default)]
+    struct TestMeta {
+        count: usize,
+        types: Vec<i32>,
+    }
+
+    static TEST_EL_NODE_A: ParseArrayElNode<TestMeta> = ParseArrayElNode {
+        ops: ParseArrayElNodeOps {
+            extract_metadata: Some(|_hdr, _len, meta, _ctrl| {
+                meta.count += 1;
+                meta.types.push(1);
+            }),
+            handler: None,
+        },
+        name: "el-type-a",
+    };
+
+    static TEST_EL_NODE_B: ParseArrayElNode<TestMeta> = ParseArrayElNode {
+        ops: ParseArrayElNodeOps {
+            extract_metadata: Some(|_hdr, _len, meta, _ctrl| {
+                meta.count += 1;
+                meta.types.push(2);
+            }),
+            handler: None,
+        },
+        name: "el-type-b",
+    };
+
+    static TEST_TABLE: ArrayTable<TestMeta> = ArrayTable {
+        entries: &[
+            ArrayTableEntry { el_type: 1, node: &TEST_EL_NODE_A },
+            ArrayTableEntry { el_type: 2, node: &TEST_EL_NODE_B },
+        ],
+    };
+
+    static TEST_OPS: ArrayOps = ArrayOps {
+        num_els: |_hdr, _len| 3,
+        el_type: |el_hdr| Ok(el_hdr[0] as i32),
+        start_offset: |_hdr| 0,
+    };
+
+    #[test]
+    fn lookup_finds_known_type() {
+        assert_eq!(TEST_TABLE.lookup(1).unwrap().name, "el-type-a");
+        assert_eq!(TEST_TABLE.lookup(2).unwrap().name, "el-type-b");
+    }
+
+    #[test]
+    fn lookup_returns_none_for_unknown() {
+        assert!(TEST_TABLE.lookup(99).is_none());
+    }
+
+    #[test]
+    fn parse_array_processes_elements() {
+        // 3 elements of 4 bytes each: type=1, type=2, type=1
+        let hdr = [1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_array(&hdr, hdr.len(), &TEST_OPS, &TEST_TABLE, 4, 10, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert_eq!(meta.count, 3);
+        assert_eq!(meta.types, vec![1, 2, 1]);
+    }
+
+    #[test]
+    fn parse_array_respects_max_els() {
+        let hdr = [1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+        let ops = ArrayOps {
+            num_els: |_hdr, _len| 3,
+            el_type: |el_hdr| Ok(el_hdr[0] as i32),
+            start_offset: |_hdr| 0,
+        };
+
+        let result = parse_array(&hdr, hdr.len(), &ops, &TEST_TABLE, 4, 2, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert_eq!(meta.count, 2); // capped at max_els=2
+    }
+
+    #[test]
+    fn parse_array_truncated_returns_error() {
+        // Only 6 bytes but claims 3 elements of 4 bytes
+        let hdr = [1, 0, 0, 0, 2, 0];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_array(&hdr, hdr.len(), &TEST_OPS, &TEST_TABLE, 4, 10, &mut meta, &ctrl);
+        assert!(result.is_err());
+        assert_eq!(meta.count, 1); // first element parsed before truncation
+    }
+
+    #[test]
+    fn parse_array_skips_unknown_types() {
+        // type=99 is not in table — should be silently skipped
+        let hdr = [99, 0, 0, 0, 1, 0, 0, 0];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+        let ops = ArrayOps {
+            num_els: |_hdr, _len| 2,
+            el_type: |el_hdr| Ok(el_hdr[0] as i32),
+            start_offset: |_hdr| 0,
+        };
+
+        let result = parse_array(&hdr, hdr.len(), &ops, &TEST_TABLE, 4, 10, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert_eq!(meta.count, 1); // only type=1 matched
+    }
+}

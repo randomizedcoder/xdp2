@@ -22,22 +22,30 @@
 //! Variable-length headers (IPv4 options, IPv6 extension headers, GRE
 //! with flags, MPLS) cannot have templates and fall back to compiled parsing.
 
-use crate::graph::{AddrType, FlowMeta};
+use crate::flow_meta::{AddrType, FlowMeta};
+
+pub(crate) use crate::template_plain::*;
+pub(crate) use crate::template_vlan::*;
+pub(crate) use crate::template_qinq::*;
+pub(crate) use crate::template_gre::*;
+pub(crate) use crate::template_ipip::*;
 
 // ── Inline helpers ─────────────────────────────────────────────
 //
 // Each helper extracts one protocol layer at a known byte offset.
 // All are #[inline(always)] so the compiler folds them into the
 // caller, producing the same code as hand-written literal offsets.
+//
+// pub(crate) so template_plain/vlan/qinq/gre/ipip modules can call them.
 
 #[inline(always)]
-fn extract_eth(pkt: &[u8], meta: &mut FlowMeta) {
+pub(crate) fn extract_eth(pkt: &[u8], meta: &mut FlowMeta) {
     meta.eth_addrs[..12].copy_from_slice(&pkt[0..12]);
     meta.eth_proto = u16::from_be_bytes([pkt[12], pkt[13]]);
 }
 
 #[inline(always)]
-fn extract_ipv4(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
+pub(crate) fn extract_ipv4(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     let frag_off = u16::from_be_bytes([pkt[off + 6], pkt[off + 7]]);
     const IP_MF: u16 = 0x2000;
     const IP_OFFSET: u16 = 0x1FFF;
@@ -56,7 +64,7 @@ fn extract_ipv4(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
 }
 
 #[inline(always)]
-fn extract_ipv6(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
+pub(crate) fn extract_ipv6(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     meta.addr_type = AddrType::Ipv6;
     meta.ip_proto = pkt[off + 6];
     meta.flow_label = ((pkt[off + 1] as u32 & 0x0F) << 16)
@@ -67,13 +75,13 @@ fn extract_ipv6(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
 }
 
 #[inline(always)]
-fn extract_ports(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
+pub(crate) fn extract_ports(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     meta.ports.src_port = u16::from_be_bytes([pkt[off], pkt[off + 1]]);
     meta.ports.dst_port = u16::from_be_bytes([pkt[off + 2], pkt[off + 3]]);
 }
 
 #[inline(always)]
-fn extract_icmp(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
+pub(crate) fn extract_icmp(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     meta.icmp.icmp_type = pkt[off];
     meta.icmp.code = pkt[off + 1];
     let t = pkt[off];
@@ -83,7 +91,7 @@ fn extract_icmp(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
 }
 
 #[inline(always)]
-fn extract_vlan(pkt: &[u8], off: usize, tpid: u16, meta: &mut FlowMeta) {
+pub(crate) fn extract_vlan(pkt: &[u8], off: usize, tpid: u16, meta: &mut FlowMeta) {
     let idx = meta.vlan_count as usize;
     if idx < 2 {
         meta.vlan[idx].tci = u16::from_be_bytes([pkt[off], pkt[off + 1]]);
@@ -93,7 +101,7 @@ fn extract_vlan(pkt: &[u8], off: usize, tpid: u16, meta: &mut FlowMeta) {
 }
 
 #[inline(always)]
-fn extract_arp(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
+pub(crate) fn extract_arp(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     meta.l3_off = off as u16;
     meta.arp.op = (u16::from_be_bytes([pkt[off + 6], pkt[off + 7]]) & 0xFF) as u8;
     meta.arp.sha.copy_from_slice(&pkt[off + 8..off + 14]);
@@ -220,760 +228,12 @@ pub fn extract_by_id(pkt: &[u8], id: TemplateId, meta: &mut FlowMeta) -> Result<
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  Plain templates — Eth(14) + L3 + L4
+//  Classifier — in production this is the NIC queue number
 // ═══════════════════════════════════════════════════════════════
 
 const PLAIN_L3: usize = 14;
-
-#[inline]
-pub fn extract_eth_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 54 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 20) as u16;
-    extract_ipv4(pkt, PLAIN_L3, meta);
-    extract_ports(pkt, PLAIN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-pub fn extract_eth_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 42 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 20) as u16;
-    extract_ipv4(pkt, PLAIN_L3, meta);
-    extract_ports(pkt, PLAIN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 42 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 20) as u16;
-    extract_ipv4(pkt, PLAIN_L3, meta);
-    extract_icmp(pkt, PLAIN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv4_sctp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 46 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 20) as u16;
-    extract_ipv4(pkt, PLAIN_L3, meta);
-    extract_ports(pkt, PLAIN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv4_other(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 34 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 20) as u16;
-    extract_ipv4(pkt, PLAIN_L3, meta);
-    Ok(())
-}
-
-#[inline]
-pub fn extract_eth_ipv6_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 74 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 40) as u16;
-    extract_ipv6(pkt, PLAIN_L3, meta);
-    extract_ports(pkt, PLAIN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv6_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 62 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 40) as u16;
-    extract_ipv6(pkt, PLAIN_L3, meta);
-    extract_ports(pkt, PLAIN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv6_icmpv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 62 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 40) as u16;
-    extract_ipv6(pkt, PLAIN_L3, meta);
-    extract_icmp(pkt, PLAIN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv6_sctp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 40) as u16;
-    extract_ipv6(pkt, PLAIN_L3, meta);
-    extract_ports(pkt, PLAIN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_ipv6_other(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 54 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = PLAIN_L3 as u16; meta.l4_off = (PLAIN_L3 + 40) as u16;
-    extract_ipv6(pkt, PLAIN_L3, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_eth_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 42 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0;
-    extract_arp(pkt, PLAIN_L3, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  VLAN templates — Eth(14) + VLAN(4) + L3 + L4
-// ═══════════════════════════════════════════════════════════════
-
 const VLAN_L3: usize = 18;
-
-#[inline]
-fn extract_vlan_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 58 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 20) as u16;
-    extract_ipv4(pkt, VLAN_L3, meta);
-    extract_ports(pkt, VLAN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 46 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 20) as u16;
-    extract_ipv4(pkt, VLAN_L3, meta);
-    extract_ports(pkt, VLAN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 46 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 20) as u16;
-    extract_ipv4(pkt, VLAN_L3, meta);
-    extract_icmp(pkt, VLAN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv4_sctp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 50 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 20) as u16;
-    extract_ipv4(pkt, VLAN_L3, meta);
-    extract_ports(pkt, VLAN_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv4_other(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 38 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 20) as u16;
-    extract_ipv4(pkt, VLAN_L3, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv6_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 78 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 40) as u16;
-    extract_ipv6(pkt, VLAN_L3, meta);
-    extract_ports(pkt, VLAN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv6_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 40) as u16;
-    extract_ipv6(pkt, VLAN_L3, meta);
-    extract_ports(pkt, VLAN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv6_icmpv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 40) as u16;
-    extract_ipv6(pkt, VLAN_L3, meta);
-    extract_icmp(pkt, VLAN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv6_sctp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 40) as u16;
-    extract_ipv6(pkt, VLAN_L3, meta);
-    extract_ports(pkt, VLAN_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipv6_other(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 58 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_L3 as u16; meta.l4_off = (VLAN_L3 + 40) as u16;
-    extract_ipv6(pkt, VLAN_L3, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 46 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0;
-    extract_arp(pkt, VLAN_L3, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  QinQ templates — Eth(14) + 802.1ad(4) + 802.1Q(4) + L3 + L4
-// ═══════════════════════════════════════════════════════════════
-
 const QINQ_L3: usize = 22;
-
-#[inline]
-fn extract_qinq_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 62 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 20) as u16;
-    extract_ipv4(pkt, QINQ_L3, meta);
-    extract_ports(pkt, QINQ_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 50 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 20) as u16;
-    extract_ipv4(pkt, QINQ_L3, meta);
-    extract_ports(pkt, QINQ_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 50 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 20) as u16;
-    extract_ipv4(pkt, QINQ_L3, meta);
-    extract_icmp(pkt, QINQ_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv4_sctp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 54 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 20) as u16;
-    extract_ipv4(pkt, QINQ_L3, meta);
-    extract_ports(pkt, QINQ_L3 + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv4_other(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 42 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 20) as u16;
-    extract_ipv4(pkt, QINQ_L3, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv6_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 82 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 40) as u16;
-    extract_ipv6(pkt, QINQ_L3, meta);
-    extract_ports(pkt, QINQ_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv6_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 40) as u16;
-    extract_ipv6(pkt, QINQ_L3, meta);
-    extract_ports(pkt, QINQ_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv6_icmpv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 40) as u16;
-    extract_ipv6(pkt, QINQ_L3, meta);
-    extract_icmp(pkt, QINQ_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv6_sctp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 74 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 40) as u16;
-    extract_ipv6(pkt, QINQ_L3, meta);
-    extract_ports(pkt, QINQ_L3 + 40, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipv6_other(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 62 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_L3 as u16; meta.l4_off = (QINQ_L3 + 40) as u16;
-    extract_ipv6(pkt, QINQ_L3, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 50 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0;
-    extract_arp(pkt, QINQ_L3, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  GRE templates — Eth(14) + IPv4(20) + GRE(4) + inner
-//  Both GRE headers must be basic (no optional fields, version 0).
-// ═══════════════════════════════════════════════════════════════
-
-const GRE_INNER: usize = 14 + 20 + 4; // 38
-
-// GRE + IPv4 inner (L3 at 38, L4 at 58)
-#[inline]
-fn extract_gre_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 78 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE_INNER as u16; meta.l4_off = (GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, GRE_INNER, meta);
-    extract_ports(pkt, GRE_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_gre_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE_INNER as u16; meta.l4_off = (GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, GRE_INNER, meta);
-    extract_ports(pkt, GRE_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_gre_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE_INNER as u16; meta.l4_off = (GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, GRE_INNER, meta);
-    extract_icmp(pkt, GRE_INNER + 20, meta);
-    Ok(())
-}
-
-// GRE + IPv6 inner (L3 at 38, L4 at 78)
-const GRE_IPV6_L4: usize = GRE_INNER + 40; // 78
-
-#[inline]
-fn extract_gre_ipv6_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 98 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE_INNER as u16; meta.l4_off = GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, GRE_INNER, meta);
-    extract_ports(pkt, GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_gre_ipv6_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 86 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE_INNER as u16; meta.l4_off = GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, GRE_INNER, meta);
-    extract_ports(pkt, GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_gre_ipv6_icmpv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 86 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE_INNER as u16; meta.l4_off = GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, GRE_INNER, meta);
-    extract_icmp(pkt, GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Double GRE — Eth(14) + IPv4(20) + GRE(4) + IPv4(20) + GRE(4) + inner
-// ═══════════════════════════════════════════════════════════════
-
-const GRE2_INNER: usize = 14 + 20 + 4 + 20 + 4; // 62
-
-#[inline]
-fn extract_gre2_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 102 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE2_INNER as u16; meta.l4_off = (GRE2_INNER + 20) as u16;
-    extract_ipv4(pkt, GRE2_INNER, meta);
-    extract_ports(pkt, GRE2_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_gre2_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 90 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE2_INNER as u16; meta.l4_off = (GRE2_INNER + 20) as u16;
-    extract_ipv4(pkt, GRE2_INNER, meta);
-    extract_ports(pkt, GRE2_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_gre2_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 90 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = GRE2_INNER as u16; meta.l4_off = (GRE2_INNER + 20) as u16;
-    extract_ipv4(pkt, GRE2_INNER, meta);
-    extract_icmp(pkt, GRE2_INNER + 20, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  VLAN + GRE — Eth(14) + VLAN(4) + IPv4(20) + GRE(4) + inner
-// ═══════════════════════════════════════════════════════════════
-
-const VLAN_GRE_INNER: usize = 14 + 4 + 20 + 4; // 42
-
-#[inline]
-fn extract_vlan_gre_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 82 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_GRE_INNER as u16; meta.l4_off = (VLAN_GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, VLAN_GRE_INNER, meta);
-    extract_ports(pkt, VLAN_GRE_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_gre_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_GRE_INNER as u16; meta.l4_off = (VLAN_GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, VLAN_GRE_INNER, meta);
-    extract_ports(pkt, VLAN_GRE_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_gre_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_GRE_INNER as u16; meta.l4_off = (VLAN_GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, VLAN_GRE_INNER, meta);
-    extract_icmp(pkt, VLAN_GRE_INNER + 20, meta);
-    Ok(())
-}
-
-// VLAN + GRE + IPv6 inner (L3 at 42, L4 at 82)
-const VLAN_GRE_IPV6_L4: usize = VLAN_GRE_INNER + 40; // 82
-
-#[inline]
-fn extract_vlan_gre_ipv6_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 102 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_GRE_INNER as u16; meta.l4_off = VLAN_GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, VLAN_GRE_INNER, meta);
-    extract_ports(pkt, VLAN_GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_gre_ipv6_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 90 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_GRE_INNER as u16; meta.l4_off = VLAN_GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, VLAN_GRE_INNER, meta);
-    extract_ports(pkt, VLAN_GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_gre_ipv6_icmpv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 90 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_GRE_INNER as u16; meta.l4_off = VLAN_GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, VLAN_GRE_INNER, meta);
-    extract_icmp(pkt, VLAN_GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  QinQ + GRE — Eth(14) + 802.1ad(4) + 802.1Q(4) + IPv4(20) + GRE(4) + inner
-// ═══════════════════════════════════════════════════════════════
-
-const QINQ_GRE_INNER: usize = 14 + 4 + 4 + 20 + 4; // 46
-
-#[inline]
-fn extract_qinq_gre_ipv4_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 86 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_GRE_INNER as u16; meta.l4_off = (QINQ_GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, QINQ_GRE_INNER, meta);
-    extract_ports(pkt, QINQ_GRE_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_gre_ipv4_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 74 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_GRE_INNER as u16; meta.l4_off = (QINQ_GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, QINQ_GRE_INNER, meta);
-    extract_ports(pkt, QINQ_GRE_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_gre_ipv4_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 74 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_GRE_INNER as u16; meta.l4_off = (QINQ_GRE_INNER + 20) as u16;
-    extract_ipv4(pkt, QINQ_GRE_INNER, meta);
-    extract_icmp(pkt, QINQ_GRE_INNER + 20, meta);
-    Ok(())
-}
-
-// QinQ + GRE + IPv6 inner
-const QINQ_GRE_IPV6_L4: usize = QINQ_GRE_INNER + 40; // 86
-
-#[inline]
-fn extract_qinq_gre_ipv6_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 106 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_GRE_INNER as u16; meta.l4_off = QINQ_GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, QINQ_GRE_INNER, meta);
-    extract_ports(pkt, QINQ_GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_gre_ipv6_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 94 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_GRE_INNER as u16; meta.l4_off = QINQ_GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, QINQ_GRE_INNER, meta);
-    extract_ports(pkt, QINQ_GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_gre_ipv6_icmpv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 94 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_GRE_INNER as u16; meta.l4_off = QINQ_GRE_IPV6_L4 as u16;
-    extract_ipv6(pkt, QINQ_GRE_INNER, meta);
-    extract_icmp(pkt, QINQ_GRE_IPV6_L4, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  IP-in-IP templates — outer IPv4 (proto 4) + inner IPv4
-// ═══════════════════════════════════════════════════════════════
-
-const IPIP_INNER: usize = 14 + 20; // 34
-
-#[inline]
-fn extract_ipip_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 74 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = IPIP_INNER as u16; meta.l4_off = (IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, IPIP_INNER, meta);
-    extract_ports(pkt, IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_ipip_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 62 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = IPIP_INNER as u16; meta.l4_off = (IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, IPIP_INNER, meta);
-    extract_ports(pkt, IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_ipip_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 62 { return Err(()); }
-    extract_eth(pkt, meta);
-    meta.l2_off = 0; meta.l3_off = IPIP_INNER as u16; meta.l4_off = (IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, IPIP_INNER, meta);
-    extract_icmp(pkt, IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  VLAN + IP-in-IP — Eth(14) + VLAN(4) + outer IPv4(20) + inner IPv4(20) + L4
-// ═══════════════════════════════════════════════════════════════
-
-const VLAN_IPIP_INNER: usize = 14 + 4 + 20; // 38
-
-#[inline]
-fn extract_vlan_ipip_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 78 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_IPIP_INNER as u16; meta.l4_off = (VLAN_IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, VLAN_IPIP_INNER, meta);
-    extract_ports(pkt, VLAN_IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipip_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_IPIP_INNER as u16; meta.l4_off = (VLAN_IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, VLAN_IPIP_INNER, meta);
-    extract_ports(pkt, VLAN_IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_vlan_ipip_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 66 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = VLAN_IPIP_INNER as u16; meta.l4_off = (VLAN_IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, VLAN_IPIP_INNER, meta);
-    extract_icmp(pkt, VLAN_IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  QinQ + IP-in-IP — Eth(14) + 802.1ad(4) + 802.1Q(4) + outer IPv4(20) + inner IPv4(20) + L4
-// ═══════════════════════════════════════════════════════════════
-
-const QINQ_IPIP_INNER: usize = 14 + 4 + 4 + 20; // 42
-
-#[inline]
-fn extract_qinq_ipip_tcp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 82 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_IPIP_INNER as u16; meta.l4_off = (QINQ_IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, QINQ_IPIP_INNER, meta);
-    extract_ports(pkt, QINQ_IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipip_udp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_IPIP_INNER as u16; meta.l4_off = (QINQ_IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, QINQ_IPIP_INNER, meta);
-    extract_ports(pkt, QINQ_IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-#[inline]
-fn extract_qinq_ipip_icmp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ()> {
-    if pkt.len() < 70 { return Err(()); }
-    extract_eth(pkt, meta);
-    extract_vlan(pkt, 14, 0x88A8, meta);
-    extract_vlan(pkt, 18, 0x8100, meta);
-    meta.l2_off = 0; meta.l3_off = QINQ_IPIP_INNER as u16; meta.l4_off = (QINQ_IPIP_INNER + 20) as u16;
-    extract_ipv4(pkt, QINQ_IPIP_INNER, meta);
-    extract_icmp(pkt, QINQ_IPIP_INNER + 20, meta);
-    Ok(())
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Classifier — in production this is the NIC queue number
-// ═══════════════════════════════════════════════════════════════
 
 /// Returns true if basic GRE (no optional fields, version 0).
 #[inline]
@@ -1024,7 +284,6 @@ fn classify_qinq(pkt: &[u8]) -> Option<TemplateId> {
     if pkt.len() < QINQ_L3 + 2 {
         return None;
     }
-    // 802.1ad outer at 14, inner 802.1Q must be at 18 with ethertype 0x8100
     let inner_vlan_et = u16::from_be_bytes([pkt[16], pkt[17]]);
     if inner_vlan_et != 0x8100 {
         return None;
@@ -1168,7 +427,6 @@ fn classify_gre(pkt: &[u8], gre_off: usize, kind: L2Kind) -> Option<TemplateId> 
                 return None;
             }
             let next_hdr = pkt[inner + 6];
-            // Only template IPv6 without extension headers
             match next_hdr {
                 6 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv6Tcp,
@@ -1242,5 +500,222 @@ fn classify_ipip(pkt: &[u8], inner_off: usize, kind: L2Kind) -> Option<TemplateI
             L2Kind::QinQ  => TemplateId::EthQinQIpv4Ipv4Icmp,
         }),
         _ => None,
+    }
+}
+
+// ── Tests ────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a minimal Eth/IPv4/TCP packet (54 bytes).
+    fn make_eth_ipv4_tcp() -> Vec<u8> {
+        let mut pkt = vec![0u8; 54];
+        pkt[0..6].copy_from_slice(&[0xAA; 6]);
+        pkt[6..12].copy_from_slice(&[0xBB; 6]);
+        pkt[12..14].copy_from_slice(&0x0800u16.to_be_bytes());
+        pkt[14] = 0x45; // IPv4, IHL=5
+        pkt[23] = 6;    // TCP
+        pkt[26..30].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[30..34].copy_from_slice(&[10, 0, 0, 2]);
+        pkt[34..36].copy_from_slice(&80u16.to_be_bytes());
+        pkt[36..38].copy_from_slice(&443u16.to_be_bytes());
+        pkt
+    }
+
+    // ── Classifier tests ─────────────────────────────────────────
+
+    #[test]
+    fn classify_eth_ipv4_tcp() {
+        let pkt = make_eth_ipv4_tcp();
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Tcp)));
+    }
+
+    #[test]
+    fn classify_eth_ipv4_udp() {
+        let mut pkt = make_eth_ipv4_tcp();
+        pkt[23] = 17;
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Udp)));
+    }
+
+    #[test]
+    fn classify_eth_ipv4_icmp() {
+        let mut pkt = make_eth_ipv4_tcp();
+        pkt[23] = 1;
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Icmp)));
+    }
+
+    #[test]
+    fn classify_eth_ipv4_sctp() {
+        let mut pkt = vec![0u8; 46];
+        pkt[12..14].copy_from_slice(&0x0800u16.to_be_bytes());
+        pkt[14] = 0x45;
+        pkt[23] = 132;
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Sctp)));
+    }
+
+    #[test]
+    fn classify_eth_ipv6_tcp() {
+        let mut pkt = vec![0u8; 74];
+        pkt[12..14].copy_from_slice(&0x86DDu16.to_be_bytes());
+        pkt[14] = 0x60;
+        pkt[20] = 6;
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv6Tcp)));
+    }
+
+    #[test]
+    fn classify_eth_arp() {
+        let mut pkt = vec![0u8; 42];
+        pkt[12..14].copy_from_slice(&0x0806u16.to_be_bytes());
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthArp)));
+    }
+
+    #[test]
+    fn classify_vlan_ipv4_tcp() {
+        let mut pkt = vec![0u8; 58];
+        pkt[12..14].copy_from_slice(&0x8100u16.to_be_bytes());
+        pkt[16..18].copy_from_slice(&0x0800u16.to_be_bytes());
+        pkt[18] = 0x45;
+        pkt[27] = 6;
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthVlanIpv4Tcp)));
+    }
+
+    #[test]
+    fn classify_qinq_ipv4_tcp() {
+        let mut pkt = vec![0u8; 62];
+        pkt[12..14].copy_from_slice(&0x88A8u16.to_be_bytes());
+        pkt[16..18].copy_from_slice(&0x8100u16.to_be_bytes());
+        pkt[20..22].copy_from_slice(&0x0800u16.to_be_bytes());
+        pkt[22] = 0x45;
+        pkt[31] = 6;
+        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthQinQIpv4Tcp)));
+    }
+
+    #[test]
+    fn classify_ipv4_with_options_returns_none() {
+        let mut pkt = make_eth_ipv4_tcp();
+        pkt[14] = 0x46; // IHL=6
+        assert!(select_template_id(&pkt).is_none());
+    }
+
+    #[test]
+    fn classify_too_short_returns_none() {
+        let pkt = vec![0u8; 10];
+        assert!(select_template_id(&pkt).is_none());
+    }
+
+    #[test]
+    fn classify_unknown_ethertype_returns_none() {
+        let mut pkt = vec![0u8; 64];
+        pkt[12..14].copy_from_slice(&0x1234u16.to_be_bytes());
+        assert!(select_template_id(&pkt).is_none());
+    }
+
+    #[test]
+    fn classify_ipv6_ext_header_returns_none() {
+        let mut pkt = vec![0u8; 74];
+        pkt[12..14].copy_from_slice(&0x86DDu16.to_be_bytes());
+        pkt[14] = 0x60;
+        pkt[20] = 0; // Hop-by-Hop
+        assert!(select_template_id(&pkt).is_none());
+    }
+
+    // ── Extractor tests ──────────────────────────────────────────
+
+    #[test]
+    fn extract_eth_ipv4_tcp_populates_meta() {
+        let pkt = make_eth_ipv4_tcp();
+        let mut meta = FlowMeta::default();
+        assert!(extract_eth_ipv4_tcp(&pkt, &mut meta).is_ok());
+        assert_eq!(meta.addr_type, AddrType::Ipv4);
+        assert_eq!(meta.ip_proto, 6);
+        assert_eq!(meta.addrs.v4_src, u32::from_be_bytes([10, 0, 0, 1]));
+        assert_eq!(meta.addrs.v4_dst, u32::from_be_bytes([10, 0, 0, 2]));
+        assert_eq!(meta.ports.src_port, 80);
+        assert_eq!(meta.ports.dst_port, 443);
+        assert_eq!(meta.eth_proto, 0x0800);
+        assert_eq!(meta.l3_off, 14);
+        assert_eq!(meta.l4_off, 34);
+    }
+
+    #[test]
+    fn extract_eth_ipv4_tcp_too_short() {
+        let pkt = vec![0u8; 53];
+        let mut meta = FlowMeta::default();
+        assert!(extract_eth_ipv4_tcp(&pkt, &mut meta).is_err());
+    }
+
+    #[test]
+    fn extract_eth_ipv6_tcp_populates_meta() {
+        let mut pkt = vec![0u8; 74];
+        pkt[0..6].copy_from_slice(&[0xCC; 6]);
+        pkt[6..12].copy_from_slice(&[0xDD; 6]);
+        pkt[12..14].copy_from_slice(&0x86DDu16.to_be_bytes());
+        pkt[14] = 0x60;
+        pkt[15] = 0x0A;
+        pkt[16] = 0xBC;
+        pkt[17] = 0xDE;
+        pkt[20] = 6;
+        pkt[22..38].copy_from_slice(&[1; 16]);
+        pkt[38..54].copy_from_slice(&[2; 16]);
+        pkt[54..56].copy_from_slice(&8080u16.to_be_bytes());
+        pkt[56..58].copy_from_slice(&443u16.to_be_bytes());
+        let mut meta = FlowMeta::default();
+        assert!(extract_eth_ipv6_tcp(&pkt, &mut meta).is_ok());
+        assert_eq!(meta.addr_type, AddrType::Ipv6);
+        assert_eq!(meta.flow_label, 0xABCDE);
+        assert_eq!(meta.ports.src_port, 8080);
+        assert_eq!(meta.ports.dst_port, 443);
+    }
+
+    #[test]
+    fn extract_vlan_ipv4_tcp_populates_vlan() {
+        let mut pkt = vec![0u8; 58];
+        pkt[12..14].copy_from_slice(&0x8100u16.to_be_bytes());
+        pkt[14..16].copy_from_slice(&100u16.to_be_bytes());
+        pkt[16..18].copy_from_slice(&0x0800u16.to_be_bytes());
+        pkt[18] = 0x45;
+        pkt[27] = 6;
+        pkt[30..34].copy_from_slice(&[192, 168, 1, 1]);
+        pkt[34..38].copy_from_slice(&[192, 168, 1, 2]);
+        pkt[38..40].copy_from_slice(&22u16.to_be_bytes());
+        pkt[40..42].copy_from_slice(&12345u16.to_be_bytes());
+        let mut meta = FlowMeta::default();
+        assert!(extract_vlan_ipv4_tcp(&pkt, &mut meta).is_ok());
+        assert_eq!(meta.vlan_count, 1);
+        assert_eq!(meta.vlan[0].tci, 100);
+        assert_eq!(meta.vlan[0].tpid, 0x8100);
+        assert_eq!(meta.ports.src_port, 22);
+        assert_eq!(meta.ports.dst_port, 12345);
+    }
+
+    #[test]
+    fn extract_by_id_dispatch_matches_direct() {
+        let pkt = make_eth_ipv4_tcp();
+        let mut meta1 = FlowMeta::default();
+        let mut meta2 = FlowMeta::default();
+        extract_eth_ipv4_tcp(&pkt, &mut meta1).unwrap();
+        extract_by_id(&pkt, TemplateId::EthIpv4Tcp, &mut meta2).unwrap();
+        assert_eq!(meta1.ports.src_port, meta2.ports.src_port);
+        assert_eq!(meta1.ports.dst_port, meta2.ports.dst_port);
+        assert_eq!(meta1.addrs.v4_src, meta2.addrs.v4_src);
+    }
+
+    #[test]
+    fn extract_eth_arp_populates_arp_meta() {
+        let mut pkt = vec![0u8; 42];
+        pkt[12..14].copy_from_slice(&0x0806u16.to_be_bytes());
+        pkt[20..22].copy_from_slice(&1u16.to_be_bytes());
+        pkt[22..28].copy_from_slice(&[0xAA; 6]);
+        pkt[28..32].copy_from_slice(&[192, 168, 1, 1]);
+        pkt[32..38].copy_from_slice(&[0x00; 6]);
+        pkt[38..42].copy_from_slice(&[192, 168, 1, 2]);
+        let mut meta = FlowMeta::default();
+        assert!(extract_eth_arp(&pkt, &mut meta).is_ok());
+        assert_eq!(meta.arp.op, 1);
+        assert_eq!(meta.arp.sha, [0xAA; 6]);
+        assert_eq!(meta.arp.spa, u32::from_be_bytes([192, 168, 1, 1]));
+        assert_eq!(meta.arp.tpa, u32::from_be_bytes([192, 168, 1, 2]));
     }
 }

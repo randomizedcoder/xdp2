@@ -10,4 +10,3 @@ xdp2-core = { path = "../xdp2-core" }
 zerocopy = { workspace = true }
 
 [dev-dependencies]
-insta = "1"

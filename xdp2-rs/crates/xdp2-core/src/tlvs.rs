@@ -230,3 +230,131 @@ pub fn parse_tlvs<M>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Simple test metadata: tracks parsed TLV types.
+    #[derive(Default)]
+    struct TestMeta {
+        types: Vec<i32>,
+    }
+
+    static TEST_TLV_NODE_A: ParseTlvNode<TestMeta> = ParseTlvNode {
+        ops: ParseTlvNodeOps {
+            extract_metadata: Some(|_hdr, _len, meta, _ctrl| {
+                meta.types.push(1);
+            }),
+            handler: None,
+        },
+        name: "tlv-type-a",
+    };
+
+    static TEST_TLV_NODE_B: ParseTlvNode<TestMeta> = ParseTlvNode {
+        ops: ParseTlvNodeOps {
+            extract_metadata: Some(|_hdr, _len, meta, _ctrl| {
+                meta.types.push(2);
+            }),
+            handler: None,
+        },
+        name: "tlv-type-b",
+    };
+
+    static TEST_TLV_TABLE: TlvTable<TestMeta> = TlvTable {
+        entries: &[
+            TlvTableEntry { tlv_type: 1, node: &TEST_TLV_NODE_A },
+            TlvTableEntry { tlv_type: 2, node: &TEST_TLV_NODE_B },
+        ],
+    };
+
+    // Simple TLV format: [type, length, ...data]
+    // length includes the type+length bytes themselves
+    static TEST_TLV_OPS: TlvOps = TlvOps {
+        len: |hdr, maxlen| {
+            if maxlen < 2 { return Err(ParseError::TlvLength); }
+            Ok(hdr[1] as usize)
+        },
+        type_fn: |hdr| Ok(hdr[0] as i32),
+        start_offset: |_hdr| 0,
+    };
+
+    #[test]
+    fn tlv_lookup_finds_known_type() {
+        assert_eq!(TEST_TLV_TABLE.lookup(1).unwrap().name, "tlv-type-a");
+        assert_eq!(TEST_TLV_TABLE.lookup(2).unwrap().name, "tlv-type-b");
+    }
+
+    #[test]
+    fn tlv_lookup_returns_none_for_unknown() {
+        assert!(TEST_TLV_TABLE.lookup(99).is_none());
+    }
+
+    #[test]
+    fn parse_tlvs_processes_entries() {
+        // TLV: [type=1, len=3, data=0xAA], [type=2, len=4, data=0xBB, 0xCC]
+        let hdr = [1, 3, 0xAA, 2, 4, 0xBB, 0xCC];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert_eq!(meta.types, vec![1, 2]);
+    }
+
+    #[test]
+    fn parse_tlvs_respects_max_tlvs() {
+        let hdr = [1, 3, 0xAA, 2, 4, 0xBB, 0xCC];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 1, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert_eq!(meta.types, vec![1]); // stopped after 1
+    }
+
+    #[test]
+    fn parse_tlvs_zero_length_returns_error() {
+        // TLV with length=0 is invalid
+        let hdr = [1, 0];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_tlvs_length_exceeds_remaining() {
+        // TLV claims len=10 but only 3 bytes remain
+        let hdr = [1, 10, 0xAA];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_tlvs_skips_unknown_types() {
+        // type=99 not in table — skipped, type=1 processed
+        let hdr = [99, 2, 1, 3, 0xAA];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert_eq!(meta.types, vec![1]);
+    }
+
+    #[test]
+    fn parse_tlvs_empty_is_ok() {
+        let hdr: [u8; 0] = [];
+        let mut meta = TestMeta::default();
+        let ctrl = CtrlData::default();
+
+        let result = parse_tlvs(&hdr, 0, &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        assert!(result.is_ok());
+        assert!(meta.types.is_empty());
+    }
+}

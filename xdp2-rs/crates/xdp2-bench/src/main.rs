@@ -31,196 +31,33 @@
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
 
 mod af_xdp;
+mod cli;
+mod extractors;
+mod flow_meta;
 mod graph;
 mod graph_compiled;
 mod graph_mono;
+mod nodes;
 mod pcap;
 mod perf;
+mod report;
+mod runners;
 mod simd_batch;
 mod template;
+mod template_gre;
+mod template_ipip;
+mod template_plain;
+mod template_qinq;
 mod template_simd;
+mod template_vlan;
 
-use std::fmt::Write as _;
 use std::process;
-use std::time::Instant;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
-/// Which parser implementation to exercise.
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum ParserMode {
-    /// Graph-dispatched engine (`&dyn ParseNodeDyn`), the default.
-    Graph,
-    /// Hand-rolled monomorphic parser (Step 2 proof-of-concept).
-    Mono,
-    /// Mono parser, outer loop software-pipelined 4 packets wide.
-    /// Feeds the OoO engine 4 independent parse chains per iteration.
-    MonoX4,
-    /// Auto-generated monomorphic parser from xdp2-compiler codegen.
-    Compiled,
-    /// AVX2 batch SIMD parser (8 packets at a time, Eth/IPv4 fast path).
-    Simd,
-    /// Hardware-classified template extraction (fixed offsets, no branching).
-    Template,
-    /// Batch AVX2 template extraction (8 packets at a time, fixed offsets).
-    TemplateSimd,
-    /// Run graph + mono + mono-x4 + compiled + simd + template + template-simd back-to-back.
-    Both,
-    /// AF_XDP live capture: receive packets from a NIC via zero-copy kernel
-    /// bypass and parse with the compiled parser. Requires --interface.
-    AfXdp,
-}
-
-/// Template selection for AF_XDP template extraction mode.
-#[derive(Clone, Debug, clap::ValueEnum)]
-enum AfXdpTemplate {
-    /// Eth / IPv4 (IHL=5) / TCP — 54 bytes minimum.
-    EthIpv4Tcp,
-    /// Eth / IPv4 (IHL=5) / UDP — 42 bytes minimum.
-    EthIpv4Udp,
-    /// Eth / IPv6 / TCP — 74 bytes minimum.
-    EthIpv6Tcp,
-    /// Auto-detect template from packet headers (adds classification overhead).
-    Auto,
-}
-
-#[derive(Parser)]
-#[command(
-    name = "xdp2-bench",
-    about = "XDP2 Rust parse engine benchmark",
-    version
-)]
-struct Cli {
-    /// Input PCAP file (required for all modes except af-xdp).
-    #[arg(short, long)]
-    pcap: Option<String>,
-
-    /// Number of benchmark iterations.
-    #[arg(short = 'n', long, default_value_t = 100)]
-    iterations: u32,
-
-    /// Number of warmup iterations (discarded).
-    #[arg(short, long, default_value_t = 3)]
-    warmup: u32,
-
-    /// Write filtered PCAP (only parseable packets) for C benchmark.
-    #[arg(long)]
-    output_pcap: Option<String>,
-
-    /// Collect CPU performance counters (Linux only, requires
-    /// `kernel.perf_event_paranoid <= 2`).
-    #[arg(long)]
-    perf: bool,
-
-    /// Which perf counter pass to run. Requires `--perf`.
-    /// Use `basic` (default), `stalls`, `detail`, or pass the flag
-    /// multiple times to run several passes and merge results.
-    #[arg(long, value_enum)]
-    perf_pass: Vec<perf::PerfPass>,
-
-    /// Which parser implementation to benchmark.
-    #[arg(long, value_enum, default_value_t = ParserMode::Graph)]
-    mode: ParserMode,
-
-    /// Number of worker threads for the multi-core benchmark.
-    /// When > 1, perf counters are disabled (they are per-thread and
-    /// not aggregated here). `--perf` still works with `--threads 1`.
-    #[arg(long, default_value_t = 1)]
-    threads: usize,
-
-    /// Pin the benchmark thread to a specific CPU core (Linux only).
-    /// Eliminates jitter from OS scheduler migration. Use with `isolcpus`
-    /// for HFT-grade measurement consistency.
-    #[arg(long)]
-    core_pin: Option<usize>,
-
-    /// Network interface for AF_XDP mode (e.g., "eth0", "veth1").
-    #[arg(long)]
-    interface: Option<String>,
-
-    /// Starting RX queue number for AF_XDP mode.
-    #[arg(long, default_value_t = 0)]
-    queue: u32,
-
-    /// Number of RX queues for AF_XDP mode (multi-queue).
-    /// Spawns one thread per queue (queue, queue+1, ..., queue+N-1).
-    #[arg(long, default_value_t = 1)]
-    queues: u32,
-
-    /// Duration in seconds for AF_XDP mode.
-    #[arg(long, default_value_t = 10)]
-    duration: u32,
-
-    /// Use 2MB huge pages for AF_XDP UMEM (reduces TLB misses).
-    /// Requires: echo 64 > /proc/sys/vm/nr_hugepages
-    #[arg(long)]
-    huge_pages: bool,
-
-    /// Enable busy-polling for AF_XDP (lowest latency, burns CPU).
-    /// Value is the busy-poll timeout in microseconds (e.g., 20).
-    #[arg(long)]
-    busy_poll: Option<u32>,
-
-    /// Use template extraction in AF_XDP mode instead of the compiled parser.
-    /// Simulates the production path where the NIC classifies packets and
-    /// each queue uses fixed-offset extraction. "auto" classifies per-packet.
-    #[arg(long, value_enum)]
-    af_xdp_template: Option<AfXdpTemplate>,
-
-    /// Request zero-copy mode for AF_XDP (NIC driver must support it).
-    /// Falls back to copy mode if the driver doesn't support zero-copy.
-    #[arg(long)]
-    zero_copy: bool,
-
-    /// Batch size for AF_XDP receive (number of descriptors per recv call).
-    #[arg(long, default_value_t = 64)]
-    batch_size: usize,
-
-    /// Enable NEED_WAKEUP for AF_XDP fill ring. The kernel signals when
-    /// it needs a wakeup, reducing unnecessary sendto() calls.
-    #[arg(long)]
-    need_wakeup: bool,
-
-    /// Emit machine-parseable JSON report to stdout instead of
-    /// human-readable text. Suitable for automated collection.
-    #[arg(long)]
-    report: bool,
-}
-
-/// Collected result from one benchmark run.
-struct BenchResult {
-    mode: String,
-    ns_pkt: u64,
-    mpps: f64,
-    threads: usize,
-    total_pkts: u64,
-    perf: Option<perf::PerfSnapshot>,
-}
-
-impl BenchResult {
-    fn new(
-        mode: &str,
-        ns: u64,
-        total_pkts: u64,
-        threads: usize,
-        perf: Option<perf::PerfSnapshot>,
-    ) -> Self {
-        let ns_pkt = if total_pkts > 0 { ns / total_pkts } else { 0 };
-        let mpps = if ns > 0 {
-            (total_pkts as f64 * 1000.0) / ns as f64
-        } else {
-            0.0
-        };
-        Self {
-            mode: mode.to_string(),
-            ns_pkt,
-            mpps,
-            threads,
-            total_pkts,
-            perf,
-        }
-    }
-}
+use cli::{AfXdpTemplate, BenchResult, Cli, ParserMode};
+use report::{af_xdp_error, print_af_xdp_stats, print_json_report, report, report_mt};
+use runners::{bench_mono_x4, pin_to_core, run_mt, time_run_passes};
 
 fn main() {
     let cli = Cli::parse();
@@ -262,10 +99,6 @@ fn main() {
     let parser = graph::make_parser();
 
     // ── Filter: keep only packets the Rust parser handles ──
-    //
-    // Run each packet through the parser once. Keep packets where
-    // parse returns Ok (any successful result). As protocols are added
-    // to graph.rs, more packets will pass this filter automatically.
     let packets: Vec<&pcap::StoredPacket> = all_packets
         .iter()
         .filter(|pkt| graph::parse_packet(&parser, &pkt.data).is_ok())
@@ -299,8 +132,7 @@ fn main() {
         eprintln!("Wrote filtered PCAP: {} ({} packets)", path, npkts);
     }
 
-    // Warmup (always exercises the graph-dispatched path; good enough to
-    // warm icache, TLB, and the branch predictor for both modes).
+    // Warmup
     for _ in 0..cli.warmup {
         for pkt in &packets {
             let _ = graph::parse_packet(&parser, &pkt.data);
@@ -308,7 +140,6 @@ fn main() {
     }
 
     // Determine which perf passes to run.
-    // Default to Basic if --perf is given without --perf-pass.
     let perf_passes: Vec<perf::PerfPass> = if cli.perf {
         if cli.perf_pass.is_empty() {
             vec![perf::PerfPass::Basic]
@@ -322,7 +153,7 @@ fn main() {
     // Validate perf counter availability up front (fail-fast).
     if let Some(&first_pass) = perf_passes.first() {
         match perf::PerfCounters::new(first_pass) {
-            Ok(_) => {} // counters work; they'll be created per-pass in time_run_passes
+            Ok(_) => {}
             Err(e) => {
                 eprintln!("warning: could not initialize perf counters: {e}");
                 eprintln!("         (try: sudo sysctl -w kernel.perf_event_paranoid=1)");
@@ -340,10 +171,7 @@ fn main() {
     let run_template = matches!(cli.mode, ParserMode::Template | ParserMode::Both);
     let run_template_simd = matches!(cli.mode, ParserMode::TemplateSimd | ParserMode::Both);
 
-    // Correctness & anti-DCE: count successful parses across one full sweep
-    // and print the total. This prevents LLVM from eliding the parse body
-    // and lets us sanity-check that both modes agree on which packets
-    // parse. Counts printed after timing so they do not perturb it.
+    // Correctness & anti-DCE: count successful parses across one full sweep.
     let graph_ok = packets
         .iter()
         .filter(|pkt| graph::parse_packet(&parser, &pkt.data).is_ok())
@@ -384,8 +212,6 @@ fn main() {
     if cli.threads <= 1 {
         if run_graph {
             let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                // Sum successes into a black_box-fed accumulator so the
-                // compiler cannot elide the loop.
                 let mut acc: u64 = 0;
                 for pkt in &packets {
                     if graph::parse_packet(&parser, &pkt.data).is_ok() {
@@ -438,7 +264,6 @@ fn main() {
 
         if run_simd && simd_batch::is_available() {
             let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                // Safety: is_available() checked above.
                 let mut meta = graph::FlowMeta::default();
                 std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(&packets, &mut meta) });
                 std::hint::black_box(&meta);
@@ -454,7 +279,6 @@ fn main() {
                 let mut meta = graph::FlowMeta::default();
                 for pkt in &packets {
                     meta = graph::FlowMeta::default();
-                    // Classify + template extract, or fall back to compiled parser.
                     if let Some(id) = template::select_template_id(&pkt.data) {
                         if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
                             acc += 1;
@@ -472,16 +296,13 @@ fn main() {
         }
 
         if run_template_simd && template_simd::is_available() {
-            // Pre-select template IDs for the SIMD batch path.
             let template_ids: Vec<Option<template::TemplateId>> = packets
                 .iter()
                 .map(|pkt| template::select_template_id(&pkt.data))
                 .collect();
             let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                // Batch extraction for template-matched packets.
                 let batch_acc =
                     template_simd::extract_batch(&packets, &template_ids);
-                // Compiled fallback for unmatched packets.
                 let mut meta = graph::FlowMeta::default();
                 let mut fallback_acc: u64 = 0;
                 for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
@@ -600,9 +421,7 @@ fn main() {
                     .iter()
                     .map(|pkt| template::select_template_id(&pkt.data))
                     .collect();
-                // Batch extraction for matched packets.
                 let batch_acc = template_simd::extract_batch(slice, &tids);
-                // Compiled fallback for unmatched packets.
                 let mut meta = graph::FlowMeta::default();
                 let mut fallback_acc: u64 = 0;
                 for (pkt, tid) in slice.iter().zip(tids.iter()) {
@@ -647,11 +466,7 @@ fn main() {
     }
 }
 
-/// AF_XDP live capture benchmark. Binds to a NIC via AF_XDP, receives
-/// packets for `--duration` seconds, and parses each with the compiled parser.
-///
-/// With `--queues N`, spawns N threads, one per NIC queue, for multi-queue
-/// receive. Each thread gets its own XskSocket, UMEM, and optional core pin.
+/// AF_XDP live capture benchmark.
 fn run_af_xdp(cli: &Cli) {
     let iface = match &cli.interface {
         Some(s) => s.as_str(),
@@ -661,7 +476,6 @@ fn run_af_xdp(cli: &Cli) {
         }
     };
 
-    // Build the per-packet processing closure based on template selection.
     let tmpl = &cli.af_xdp_template;
     let process = move |pkt: &[u8]| {
         let mut meta = graph::FlowMeta::default();
@@ -708,7 +522,6 @@ fn run_af_xdp(cli: &Cli) {
     };
 
     if cli.queues <= 1 {
-        // Single-queue path.
         let result = af_xdp::run(iface, cli.queue, cli.duration, &run_cfg, process);
         match result {
             Ok(stats) => {
@@ -717,7 +530,6 @@ fn run_af_xdp(cli: &Cli) {
             Err(e) => af_xdp_error(&e),
         }
     } else {
-        // Multi-queue path.
         let result = af_xdp::run_multi_queue(
             iface,
             cli.queue,
@@ -750,286 +562,4 @@ fn run_af_xdp(cli: &Cli) {
             Err(e) => af_xdp_error(&e),
         }
     }
-}
-
-fn print_af_xdp_stats(iface: &str, queue: u32, parser: &str, stats: &af_xdp::Stats) {
-    println!("AF_XDP Results ({iface} queue {queue}, parser={parser}):");
-    println!("  Packets:  {}", stats.total_pkts);
-    println!("  Duration: {:.2}s", stats.elapsed.as_secs_f64());
-    if stats.total_pkts > 0 {
-        println!("  {} ns/pkt,  {:.1} Mpps", stats.ns_pkt(), stats.mpps());
-    }
-    println!(
-        "  {:.1} MB received",
-        stats.total_bytes as f64 / 1_000_000.0
-    );
-}
-
-fn af_xdp_error(e: &str) -> ! {
-    eprintln!("error: {e}");
-    eprintln!("Hints:");
-    eprintln!("  - AF_XDP requires root or CAP_NET_RAW + CAP_NET_ADMIN");
-    eprintln!("  - An XDP program must be loaded on the interface");
-    eprintln!("  - The XDP program must redirect to an XSKMAP");
-    process::exit(1);
-}
-
-/// Multi-threaded benchmark: split packets across `threads` workers, each
-/// processing its chunk `iterations` times. The work closure must be `Sync`
-/// (each thread calls it with a disjoint slice). Returns wallclock nanos.
-fn run_mt<F>(
-    packets: &[&pcap::StoredPacket],
-    iterations: u32,
-    threads: usize,
-    work: F,
-) -> u64
-where
-    F: Fn(&[&pcap::StoredPacket]) -> u64 + Sync,
-{
-    let chunk = packets.len().div_ceil(threads);
-    let slices: Vec<&[&pcap::StoredPacket]> = packets.chunks(chunk).collect();
-    let work = &work;
-
-    let t_start = Instant::now();
-    std::thread::scope(|s| {
-        let mut handles = Vec::with_capacity(slices.len());
-        for slice in slices {
-            handles.push(s.spawn(move || {
-                let mut acc: u64 = 0;
-                for _ in 0..iterations {
-                    acc = acc.wrapping_add(work(slice));
-                }
-                std::hint::black_box(acc)
-            }));
-        }
-        for h in handles {
-            let _ = h.join();
-        }
-    });
-    t_start.elapsed().as_nanos() as u64
-}
-
-/// Software-pipelined scalar parser: process 4 packets per iteration with
-/// 4 independent parse chains visible to the compiler and OoO engine.
-///
-/// The theory: a single mono parse is a serial dependent-load chain
-/// (ethertype → protocol → ...) capped by the OoO window's ability to
-/// overlap the next packet. By explicitly fanning out to 4 in-flight
-/// packets per loop iteration, we give the scheduler 4x the independent
-/// work and potentially hide the per-packet load-latency.
-///
-/// Returns the count of successful parses so the caller can black_box it.
-#[inline(never)]
-fn bench_mono_x4(packets: &[&pcap::StoredPacket]) -> u64 {
-    use graph_mono::parse_packet_mono as mono;
-
-    // `black_box` on the input prevents LLVM from inferring the call as
-    // `readonly` + loop-invariant and hoisting it out of the caller's
-    // `for _ in 0..iterations { work(slice) }` loop (which happened
-    // initially and produced fake 10x multi-thread numbers).
-    let packets = std::hint::black_box(packets);
-    let mut acc: u64 = 0;
-    let mut m0 = graph::FlowMeta::default();
-    let mut m1;
-    let mut m2;
-    let mut m3;
-    let mut chunks = packets.chunks_exact(4);
-    for c in chunks.by_ref() {
-        // Four independent parse chains. With `#[inline]` on mono's
-        // internals and fat LTO, the compiler can interleave the loads
-        // from all four packets across the OoO window.
-        m0 = graph::FlowMeta::default();
-        m1 = graph::FlowMeta::default();
-        m2 = graph::FlowMeta::default();
-        m3 = graph::FlowMeta::default();
-        let r0 = mono(&c[0].data, &mut m0).is_ok() as u64;
-        let r1 = mono(&c[1].data, &mut m1).is_ok() as u64;
-        let r2 = mono(&c[2].data, &mut m2).is_ok() as u64;
-        let r3 = mono(&c[3].data, &mut m3).is_ok() as u64;
-        acc += r0 + r1 + r2 + r3;
-    }
-    // Tail.
-    let mut mt;
-    for pkt in chunks.remainder() {
-        mt = graph::FlowMeta::default();
-        acc += mono(&pkt.data, &mut mt).is_ok() as u64;
-    }
-    std::hint::black_box(&m0);
-    acc
-}
-
-fn report_mt(mode: &str, ns_pkt: u64, mpps: f64, threads: usize) {
-    println!(
-        "Rust {:<11}: {} ns/pkt wall,  {:.1} Mpps  ({}T, {:.2} Mpps/thread)",
-        mode,
-        ns_pkt,
-        mpps,
-        threads,
-        mpps / threads as f64
-    );
-}
-
-/// Run `body` for `iterations` iterations under the given perf counter group
-/// and return (elapsed nanos, optional perf snapshot).
-fn time_run<F: FnMut()>(
-    mut counters: Option<&mut perf::PerfCounters>,
-    iterations: u32,
-    mut body: F,
-) -> (u64, Option<perf::PerfSnapshot>) {
-    if let Some(c) = counters.as_deref_mut() {
-        let _ = c.reset();
-        let _ = c.start();
-    }
-    let t_start = Instant::now();
-    for _ in 0..iterations {
-        body();
-    }
-    let ns = t_start.elapsed().as_nanos() as u64;
-    let snap = counters.and_then(|c| {
-        let _ = c.stop();
-        c.read().ok()
-    });
-    (ns, snap)
-}
-
-/// Run `body` across all perf passes, merging results.
-///
-/// Returns (elapsed_nanos from first pass, merged snapshot).
-/// If `passes` is empty, runs once without counters.
-fn time_run_passes<F: FnMut()>(
-    passes: &[perf::PerfPass],
-    iterations: u32,
-    mut body: F,
-) -> (u64, Option<perf::PerfSnapshot>) {
-    if passes.is_empty() {
-        // No perf — just time it once.
-        let t_start = Instant::now();
-        for _ in 0..iterations {
-            body();
-        }
-        return (t_start.elapsed().as_nanos() as u64, None);
-    }
-
-    let mut merged = perf::PerfSnapshot::default();
-    let mut first_ns = 0u64;
-
-    for (i, &pass) in passes.iter().enumerate() {
-        let mut counters = match perf::PerfCounters::new(pass) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("warning: perf pass {pass:?} failed: {e}");
-                continue;
-            }
-        };
-        let (ns, snap) = time_run(Some(&mut counters), iterations, &mut body);
-        if i == 0 {
-            first_ns = ns;
-        }
-        if let Some(s) = snap {
-            merged.merge(&s);
-        }
-    }
-
-    (first_ns, Some(merged))
-}
-
-/// Pin the calling thread to a specific CPU core via `sched_setaffinity`.
-#[cfg(target_os = "linux")]
-fn pin_to_core(core: usize) {
-    unsafe {
-        let mut set: libc::cpu_set_t = std::mem::zeroed();
-        libc::CPU_SET(core, &mut set);
-        let ret = libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &set);
-        if ret == 0 {
-            eprintln!("Pinned to core {core}");
-        } else {
-            eprintln!(
-                "warning: failed to pin to core {core}: {}",
-                std::io::Error::last_os_error()
-            );
-        }
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-fn pin_to_core(core: usize) {
-    eprintln!("warning: --core-pin is only supported on Linux (requested core {core})");
-}
-
-fn report(r: &BenchResult) {
-    print!("Rust {:<9}: {} ns/pkt", r.mode, r.ns_pkt);
-    if r.mpps > 0.0 {
-        print!(",  {:.0} Mpps", r.mpps);
-    }
-    println!();
-    if let Some(ref s) = r.perf {
-        s.report(r.total_pkts);
-    }
-}
-
-fn print_json_report(
-    pcap: &str,
-    npkts: usize,
-    iterations: u32,
-    results: &[BenchResult],
-    graph_ok: usize,
-    mono_ok: usize,
-    compiled_ok: usize,
-    template_ok: usize,
-) {
-    let mut json = String::with_capacity(2048);
-    writeln!(json, "{{").unwrap();
-    writeln!(json, "  \"pcap\": \"{pcap}\",").unwrap();
-    writeln!(json, "  \"packets\": {npkts},").unwrap();
-    writeln!(json, "  \"iterations\": {iterations},").unwrap();
-    writeln!(json, "  \"correctness\": {{").unwrap();
-    writeln!(json, "    \"graph\": {graph_ok},").unwrap();
-    writeln!(json, "    \"mono\": {mono_ok},").unwrap();
-    writeln!(json, "    \"compiled\": {compiled_ok},").unwrap();
-    writeln!(json, "    \"template\": {template_ok}").unwrap();
-    writeln!(json, "  }},").unwrap();
-    writeln!(json, "  \"results\": [").unwrap();
-    for (i, r) in results.iter().enumerate() {
-        let comma = if i + 1 < results.len() { "," } else { "" };
-        write!(json, "    {{").unwrap();
-        write!(json, "\"mode\": \"{}\", ", r.mode).unwrap();
-        write!(json, "\"ns_pkt\": {}, ", r.ns_pkt).unwrap();
-        write!(json, "\"mpps\": {:.1}, ", r.mpps).unwrap();
-        write!(json, "\"threads\": {}, ", r.threads).unwrap();
-        write!(json, "\"total_pkts\": {}", r.total_pkts).unwrap();
-        if let Some(ref p) = r.perf {
-            write!(json, ", \"perf\": {{").unwrap();
-            write!(json, "\"cycles\": {}, ", p.cycles).unwrap();
-            write!(json, "\"instructions\": {}, ", p.instructions).unwrap();
-            write!(json, "\"branches\": {}, ", p.branches).unwrap();
-            write!(json, "\"branch_misses\": {}, ", p.branch_misses).unwrap();
-            write!(json, "\"cache_refs\": {}, ", p.cache_refs).unwrap();
-            write!(json, "\"cache_misses\": {}", p.cache_misses).unwrap();
-            // stalls pass fields (only if measured)
-            if p.frontend_stalls > 0 || p.backend_stalls > 0 {
-                write!(json, ", \"frontend_stalls\": {}", p.frontend_stalls).unwrap();
-                write!(json, ", \"backend_stalls\": {}", p.backend_stalls).unwrap();
-                write!(json, ", \"dtlb_misses\": {}", p.dtlb_misses).unwrap();
-                write!(json, ", \"itlb_misses\": {}", p.itlb_misses).unwrap();
-                write!(json, ", \"l1d_misses\": {}", p.l1d_misses).unwrap();
-            }
-            // detail pass fields (only if measured)
-            if p.l1i_misses > 0 || p.ll_misses > 0 {
-                write!(json, ", \"l1i_misses\": {}", p.l1i_misses).unwrap();
-                write!(json, ", \"ll_misses\": {}", p.ll_misses).unwrap();
-            }
-            // zen pass fields (only if measured)
-            if p.retired_uops > 0 || p.op_cache_hits > 0 {
-                write!(json, ", \"op_cache_hits\": {}", p.op_cache_hits).unwrap();
-                write!(json, ", \"retired_uops\": {}", p.retired_uops).unwrap();
-                write!(json, ", \"dispatch_stalls\": {}", p.dispatch_stalls).unwrap();
-                write!(json, ", \"mab_stalls\": {}", p.mab_stalls).unwrap();
-            }
-            write!(json, "}}").unwrap();
-        }
-        writeln!(json, "}}{comma}").unwrap();
-    }
-    writeln!(json, "  ]").unwrap();
-    writeln!(json, "}}").unwrap();
-    print!("{json}");
 }

@@ -1,4 +1,4 @@
-//! InfiniBand sub-protocol definitions (leaf nodes).
+//! InfiniBand transport header definitions (leaf nodes).
 //!
 //! ## C/C++ Cross-Reference
 //!
@@ -11,7 +11,6 @@
 //! | `IbDethHeader` | `proto_defs/infiniband/proto_ib_deth.h` | `struct ib_deth` |
 //! | `IbImmdtHeader` | `proto_defs/infiniband/proto_ib_immdt.h` | `struct ib_immdt` |
 //! | `IbAtomicethHeader` | `proto_defs/infiniband/proto_ib_atomiceth.h` | `struct ib_atomiceth` |
-//! | `IbMadHeader` | `proto_defs/infiniband/proto_ib_mad.h` | `struct ib_mad_hdr` |
 //!
 //! ## Behavioral Differences
 //! - None. All are leaf nodes.
@@ -213,37 +212,6 @@ impl ProtocolOps for IbAtomicethOps {
     }
 }
 
-// ---------------------------------------------------------------------------
-// IB MAD (Management Datagram) — 24 bytes
-// ---------------------------------------------------------------------------
-
-#[derive(FromBytes, KnownLayout, Immutable, Debug)]
-#[repr(C, packed)]
-pub struct IbMadHeader {
-    pub base_version: u8,
-    pub mgmt_class: u8,
-    pub class_version: u8,
-    pub method: u8,
-    pub status: [u8; 2],
-    pub class_specific: [u8; 2],
-    pub tid: [u8; 8],
-    pub attr_id: [u8; 2],
-    pub resv: [u8; 2],
-    pub attr_mod: [u8; 4],
-}
-
-pub struct IbMadOps;
-
-impl ProtocolOps for IbMadOps {
-    const MIN_LEN: usize = 24;
-    const NAME: &'static str = "IB MAD";
-
-    #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
-        Err(ParseError::UnknownProto)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -281,10 +249,5 @@ mod tests {
     #[test]
     fn ib_atomiceth_is_leaf() {
         assert!(matches!(IbAtomicethOps.next_proto(&[0u8; 28]), Err(ParseError::UnknownProto)));
-    }
-
-    #[test]
-    fn ib_mad_is_leaf() {
-        assert!(matches!(IbMadOps.next_proto(&[0u8; 24]), Err(ParseError::UnknownProto)));
     }
 }

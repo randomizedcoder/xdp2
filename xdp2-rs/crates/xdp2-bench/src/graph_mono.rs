@@ -26,12 +26,12 @@ use xdp2_protocols::ip::ipv4::Ipv4Ops;
 use xdp2_protocols::ip::ipv6::Ipv6Ops;
 use xdp2_protocols::ip::ipv6_eh::{Ipv6EhOps, Ipv6FragOps};
 use xdp2_protocols::legacy::BatmanOps;
-use xdp2_protocols::management::misc::{
+use xdp2_protocols::management::{
     CfmOps, FipOps, LldpOps, MacControlOps, MvrpOps, PtpOps, SlowOps,
 };
 use xdp2_protocols::management::trill::TrillOps;
 use xdp2_protocols::security::ah::AhOps;
-use xdp2_protocols::security::misc::{EapolOps, EspOps, MacsecOps};
+use xdp2_protocols::security::{EapolOps, EspOps, MacsecOps};
 use xdp2_protocols::storage::fc::FcoeOps;
 use xdp2_protocols::storage::misc::EthercatOps;
 use xdp2_protocols::transport::dccp::DccpOps;
@@ -42,7 +42,7 @@ use xdp2_protocols::transport::udp::UdpOps;
 use xdp2_protocols::transport::udplite::UdpLiteOps;
 use xdp2_protocols::tunnel::geneve::GeneveV0Ops;
 use xdp2_protocols::tunnel::gre::{GreBaseOps, GreV0Ops};
-use xdp2_protocols::tunnel::misc::{HsrOps, PppoeOps};
+use xdp2_protocols::tunnel::{HsrOps, PppoeOps};
 use xdp2_protocols::tunnel::mpls::MplsOps;
 use xdp2_protocols::tunnel::nsh::NshOps;
 use xdp2_protocols::tunnel::vxlan::VxlanOps;
