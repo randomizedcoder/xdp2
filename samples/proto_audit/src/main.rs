@@ -485,12 +485,39 @@ enum Commands {
         #[arg(long)]
         targets: Option<String>,
 
+        /// Number of parallel workers (default: 10)
+        #[arg(long, default_value = "10")]
+        workers: usize,
+
         #[command(flatten)]
         paths: SourcePaths,
 
         /// Output as JSON
         #[arg(long)]
         json: bool,
+    },
+
+    /// Auto-generate PCAP templates for protocols that lack them
+    #[command(name = "generate-templates")]
+    GenerateTemplates {
+        /// "missing" for protocols without templates, or comma-separated list
+        #[arg(long, default_value = "missing")]
+        protos: String,
+
+        /// Output directory for generated PCAP templates
+        #[arg(long, default_value = "pcap_templates")]
+        output_dir: PathBuf,
+
+        /// Dry-run: report what would be generated without writing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Number of parallel workers (default: 10)
+        #[arg(long, default_value = "10")]
+        workers: usize,
+
+        #[command(flatten)]
+        paths: SourcePaths,
     },
 
     /// Cross-generator round-trip: generate code → re-extract → compare to original IR
@@ -727,9 +754,17 @@ fn main() -> Result<()> {
         Commands::PipelineMatrix {
             protos,
             targets,
+            workers,
             paths,
             json,
-        } => cmd_pipeline_matrix(protos.as_deref(), targets.as_deref(), json, &paths),
+        } => cmd_pipeline_matrix(protos.as_deref(), targets.as_deref(), json, workers, &paths),
+        Commands::GenerateTemplates {
+            protos,
+            output_dir,
+            dry_run,
+            workers,
+            paths,
+        } => cmd_generate_templates(&protos, &output_dir, dry_run, workers, &paths),
         Commands::Validate {
             proto,
             tier,

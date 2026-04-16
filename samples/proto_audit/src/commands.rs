@@ -1662,7 +1662,12 @@ fn tshark_from_pcap_bytes(
     proto: &str,
     paths: &SourcePaths,
 ) -> Result<extractors::tshark::PdmlProtocol> {
-    let pcap_path = std::env::temp_dir().join(format!("pipeline_{}.pcap", proto.to_lowercase()));
+    let pcap_path = std::env::temp_dir().join(format!(
+        "pipeline_{}_{}_{}.pcap",
+        proto.to_lowercase(),
+        std::process::id(),
+        format!("{:?}", std::thread::current().id()).replace(['(', ')'], ""),
+    ));
     std::fs::write(&pcap_path, pcap_bytes)?;
 
     let hints = extractors::tshark::decode_as_hints(proto);
@@ -1958,8 +1963,11 @@ pub(crate) fn cmd_pipeline_matrix(
     protos_filter: Option<&str>,
     targets_filter: Option<&str>,
     json_output: bool,
+    workers: usize,
     paths: &SourcePaths,
 ) -> Result<()> {
+    use rayon::prelude::*;
+
     let all_targets = vec!["etherparse", "c", "scapy", "kaitai", "pcap", "libpcap", "omi", "suricata"];
     let targets: Vec<&str> = if let Some(tf) = targets_filter {
         tf.split(',').map(|s| s.trim()).collect()
@@ -1982,28 +1990,47 @@ pub(crate) fn cmd_pipeline_matrix(
         targets_total: usize,
     }
 
-    let mut rows = Vec::new();
-    let mut totals: Vec<usize> = vec![0; targets.len()];
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .expect("failed to build rayon thread pool");
 
-    for proto in &protos {
-        let mut row_results = Vec::new();
-        let mut pass_count = 0;
+    let completed = std::sync::atomic::AtomicUsize::new(0);
+    let total = protos.len();
+    let num_targets = targets.len();
 
-        for (ti, t) in targets.iter().enumerate() {
-            let result = pipeline_one(proto, t, None, paths);
-            if result.pcap_pass {
-                pass_count += 1;
-                totals[ti] += 1;
+    eprintln!("Running pipeline-matrix: {} protocols × {} targets = {} cells ({} workers)",
+              total, num_targets, total * num_targets, workers);
+
+    let rows: Vec<MatrixRow> = pool.install(|| {
+        protos.par_iter().map(|proto| {
+            let mut row_results = Vec::new();
+            let mut pass_count = 0;
+
+            for t in &targets {
+                let result = pipeline_one(proto, t, None, paths);
+                if result.pcap_pass { pass_count += 1; }
+                row_results.push(result);
             }
-            row_results.push(result);
-        }
 
-        rows.push(MatrixRow {
-            protocol: proto.to_string(),
-            results: row_results,
-            targets_pass: pass_count,
-            targets_total: targets.len(),
-        });
+            let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            eprintln!("[{}/{}] {} {}/{}", done, total, proto, pass_count, num_targets);
+
+            MatrixRow {
+                protocol: proto.to_string(),
+                results: row_results,
+                targets_pass: pass_count,
+                targets_total: num_targets,
+            }
+        }).collect()
+    });
+
+    // Recompute totals from collected rows
+    let mut totals: Vec<usize> = vec![0; targets.len()];
+    for row in &rows {
+        for (ti, r) in row.results.iter().enumerate() {
+            if r.pcap_pass { totals[ti] += 1; }
+        }
     }
 
     if json_output {
@@ -2035,6 +2062,169 @@ pub(crate) fn cmd_pipeline_matrix(
             print!(" {:<12}", t);
         }
         println!(" {}/{}", totals.iter().sum::<usize>(), protos.len() * targets.len());
+    }
+
+    Ok(())
+}
+
+/// Auto-generate PCAP templates for protocols that lack them.
+///
+/// For each protocol without an existing template, attempts to generate a PCAP
+/// using the existing IR-to-PCAP machinery and validates it via tshark.
+pub(crate) fn cmd_generate_templates(
+    protos_filter: &str,
+    output_dir: &std::path::Path,
+    dry_run: bool,
+    workers: usize,
+    paths: &SourcePaths,
+) -> Result<()> {
+    use rayon::prelude::*;
+
+    let table = name_mapping::protocol_table();
+
+    let protos: Vec<&str> = if protos_filter == "missing" {
+        // Only protocols that don't already have a template
+        table.iter()
+            .map(|p| p.canonical)
+            .filter(|p| find_pcap_for_protocol(p).is_none())
+            .collect()
+    } else {
+        protos_filter.split(',').map(|s| s.trim()).collect()
+    };
+
+    eprintln!("Generating templates for {} protocols ({} workers)", protos.len(), workers);
+
+    if !dry_run {
+        std::fs::create_dir_all(output_dir)?;
+    }
+
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .expect("failed to build rayon thread pool");
+
+    let completed = std::sync::atomic::AtomicUsize::new(0);
+    let total = protos.len();
+
+    struct TemplateResult {
+        proto: String,
+        success: bool,
+        reason: String,
+    }
+
+    let results: Vec<TemplateResult> = pool.install(|| {
+        protos.par_iter().map(|proto| {
+            let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+
+            // Step 1: Build IR for this protocol
+            let ir = match build_rich_ir(proto, paths) {
+                Ok(ir) if !ir.fields.is_empty() => ir,
+                Ok(_) => {
+                    eprintln!("[{}/{}] {} SKIP (no fields in IR)", done, total, proto);
+                    return TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: "no fields in IR".into(),
+                    };
+                }
+                Err(e) => {
+                    eprintln!("[{}/{}] {} SKIP (no IR: {})", done, total, proto, e);
+                    return TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: format!("no IR: {}", e),
+                    };
+                }
+            };
+
+            // Step 2: Generate PCAP bytes from IR
+            let pcap_bytes = match pcap_from_ir(&ir, proto, paths) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    eprintln!("[{}/{}] {} SKIP (PCAP gen failed: {})", done, total, proto, e);
+                    return TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: format!("PCAP gen failed: {}", e),
+                    };
+                }
+            };
+
+            // Step 3: Validate — does tshark dissect this protocol from the generated PCAP?
+            match tshark_from_pcap_bytes(&pcap_bytes, proto, paths) {
+                Ok(pdml) if !pdml.fields.is_empty() => {
+                    // Success — tshark parsed it
+                    if dry_run {
+                        eprintln!("[{}/{}] {} OK (would write, {} fields, {} bytes)",
+                                  done, total, proto, pdml.fields.len(), pcap_bytes.len());
+                    } else {
+                        let fname = format!("{}.pcap", proto.to_lowercase()
+                            .replace(' ', "_").replace('-', "_").replace('/', "_"));
+                        let out_path = output_dir.join(&fname);
+                        if let Err(e) = std::fs::write(&out_path, &pcap_bytes) {
+                            eprintln!("[{}/{}] {} FAIL (write error: {})", done, total, proto, e);
+                            return TemplateResult {
+                                proto: proto.to_string(),
+                                success: false,
+                                reason: format!("write error: {}", e),
+                            };
+                        }
+                        eprintln!("[{}/{}] {} OK (wrote {}, {} fields)",
+                                  done, total, proto, fname, pdml.fields.len());
+                    }
+                    TemplateResult {
+                        proto: proto.to_string(),
+                        success: true,
+                        reason: format!("{} fields", pdml.fields.len()),
+                    }
+                }
+                Ok(_) => {
+                    eprintln!("[{}/{}] {} SKIP (tshark parsed 0 fields)", done, total, proto);
+                    TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: "tshark parsed 0 fields".into(),
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[{}/{}] {} SKIP (tshark: {})", done, total, proto, e);
+                    TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: format!("tshark: {}", e),
+                    }
+                }
+            }
+        }).collect()
+    });
+
+    // Summary
+    let succeeded: Vec<_> = results.iter().filter(|r| r.success).collect();
+    let failed: Vec<_> = results.iter().filter(|r| !r.success).collect();
+
+    println!("\n=== Template Generation Summary ===");
+    println!("Generated: {}/{}", succeeded.len(), results.len());
+    println!("Skipped:   {}/{}", failed.len(), results.len());
+
+    if !succeeded.is_empty() {
+        println!("\nGenerated templates:");
+        for r in &succeeded {
+            println!("  {} ({})", r.proto, r.reason);
+        }
+    }
+
+    if !failed.is_empty() {
+        println!("\nSkipped protocols:");
+        // Group by reason
+        let mut by_reason: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+        for r in &failed {
+            by_reason.entry(&r.reason).or_default().push(&r.proto);
+        }
+        for (reason, protos) in &by_reason {
+            println!("  {} ({}): {}", reason, protos.len(),
+                     if protos.len() <= 10 { protos.join(", ") }
+                     else { format!("{}, ... and {} more", protos[..5].join(", "), protos.len() - 5) });
+        }
     }
 
     Ok(())
