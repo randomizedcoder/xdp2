@@ -28,8 +28,8 @@ full `FlowMeta` (31 metadata fields):
 | mono (hand-rolled) | 38 | 26 | 129.5 | 189.7 | 1.46 | 6.13 | 2.51 |
 | compiled (codegen) | 36 | 27 | 122.5 | 160.0 | 1.31 | 6.54 | 2.80 |
 | simd (AVX2 batch) | 44 | 22 | 148.8 | 186.6 | 1.25 | 6.76 | 6.68 |
-| template (scalar) | 2 | 364 | 9.3 | 6.6 | 0.71 | 1.94 | — |
-| template-simd (AVX2) | 2 | 493 | 6.8 | 6.0 | 0.87 | — | — |
+| template (classify+extract+fallback) | 21 | 48 | — | — | — | — | — |
+| template-batch (batch+fallback) | 22 | 45 | — | — | — | — | — |
 
 C vs Rust (identical 445K filtered packets): Rust graph 158 ns vs C 174 ns —
 **Rust is 9% faster**.
@@ -309,7 +309,8 @@ Ordered by expected production impact for HFT/DPI workloads:
 - ~~Run PGO pipeline and record results~~ **Done** — see PGO results below
 - TMA Level 1 analysis auto-prints when basic + stalls data available
 
-**PGO benchmark results** (combo.pcap, 871 mixed-protocol packets, 500 iterations):
+**PGO benchmark results** (combo.pcap, 871 mixed-protocol packets, 500 iterations,
+template modes include classification + compiled fallback for unmatched):
 
 | Mode | Baseline ns/pkt | PGO ns/pkt | Speedup |
 |------|----------------|------------|---------|
@@ -318,14 +319,13 @@ Ordered by expected production impact for HFT/DPI workloads:
 | mono-x4 | 27 | 19 | **30%** |
 | compiled | 19 | 15 | **21%** |
 | simd | 24 | 18 | **25%** |
-| template | 2 | 2 | ~0% (at 2 ns floor) |
-| template-simd | 3 | 3 | ~0% (at 3 ns floor) |
 
 PGO pipeline: `RUSTFLAGS="-Cprofile-generate=$DIR"` → profile run →
 `llvm-profdata merge` (requires LLVM 21 to match rustc) →
-`RUSTFLAGS="-Cprofile-use=merged.profdata"`.  Template modes are already at
-their hardware floor so PGO cannot help there, but all software-parsing modes
+`RUSTFLAGS="-Cprofile-use=merged.profdata"`.  All software-parsing modes
 see 14–30% improvement — far exceeding the initial 3–8% estimate.
+PGO results for template modes pending re-measurement with honest template
+benchmark (classify + FlowMeta extraction + compiled fallback).
 
 **Phase 1 — Low-hanging fruit (DONE)**
 - ~~Software prefetching in batch loops~~ Done (simd_batch.rs, template_simd.rs)

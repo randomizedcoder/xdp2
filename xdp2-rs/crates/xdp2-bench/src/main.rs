@@ -365,40 +365,17 @@ fn main() {
     let template_ok = packets
         .iter()
         .filter(|pkt| {
+            let mut meta = graph::FlowMeta::default();
             template::select_template_id(&pkt.data)
-                .map(|id| template::extract_by_id(&pkt.data, id).is_ok())
+                .map(|id| template::extract_by_id(&pkt.data, id, &mut meta).is_ok())
                 .unwrap_or(false)
         })
         .count();
 
-    // Pre-select templates for all packets (simulates NIC queue assignment).
-    // Done once before timing so the benchmark measures extraction only.
-    let template_ids: Vec<Option<template::TemplateId>> = packets
-        .iter()
-        .map(|pkt| template::select_template_id(&pkt.data))
-        .collect();
-
-    // Build filtered lists for template benchmarks: only packets that
-    // match a template. This ensures ns/pkt reflects actual extraction
-    // cost, not the cost of skipping unmatched packets.
-    let tmpl_packets: Vec<&pcap::StoredPacket> = packets
-        .iter()
-        .zip(template_ids.iter())
-        .filter(|(_, tid)| tid.is_some())
-        .map(|(pkt, _)| *pkt)
-        .collect();
-    let tmpl_ids: Vec<Option<template::TemplateId>> = template_ids
-        .iter()
-        .filter(|tid| tid.is_some())
-        .copied()
-        .collect();
-    let tmpl_npkts = tmpl_packets.len();
-    let total_tmpl_pkts = tmpl_npkts as u64 * cli.iterations as u64;
-
     if !cli.report {
         println!(
             "--- Performance ({} packets x {} iterations, {} template-matched) ---",
-            npkts, cli.iterations, tmpl_npkts
+            npkts, cli.iterations, template_ok
         );
     }
 
@@ -472,35 +449,53 @@ fn main() {
         }
 
         if run_template {
-            if tmpl_npkts == 0 {
-                eprintln!("warning: no packets match a template, skipping template benchmark");
-            } else {
-                let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                    let mut acc: u64 = 0;
-                    for (pkt, tid) in tmpl_packets.iter().zip(tmpl_ids.iter()) {
-                        if let Some(id) = tid {
-                            if let Ok(v) = template::extract_by_id(&pkt.data, *id) {
-                                acc = acc.wrapping_add(v);
-                            }
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
+                let mut acc: u64 = 0;
+                let mut meta = graph::FlowMeta::default();
+                for pkt in &packets {
+                    meta = graph::FlowMeta::default();
+                    // Classify + template extract, or fall back to compiled parser.
+                    if let Some(id) = template::select_template_id(&pkt.data) {
+                        if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
+                            acc += 1;
+                        }
+                    } else {
+                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
+                            acc += 1;
                         }
                     }
-                    std::hint::black_box(acc);
-                });
-                results.push(BenchResult::new("template", ns, total_tmpl_pkts, 1, snap));
-            }
+                }
+                std::hint::black_box(acc);
+                std::hint::black_box(&meta);
+            });
+            results.push(BenchResult::new("template", ns, total_pkts, 1, snap));
         }
 
         if run_template_simd && template_simd::is_available() {
-            if tmpl_npkts == 0 {
-                eprintln!("warning: no packets match a template, skipping template-simd benchmark");
-            } else {
-                let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                    std::hint::black_box(unsafe {
-                        template_simd::extract_batch_avx2(&tmpl_packets, &tmpl_ids)
-                    });
-                });
-                results.push(BenchResult::new("template-simd", ns, total_tmpl_pkts, 1, snap));
-            }
+            // Pre-select template IDs for the SIMD batch path.
+            let template_ids: Vec<Option<template::TemplateId>> = packets
+                .iter()
+                .map(|pkt| template::select_template_id(&pkt.data))
+                .collect();
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
+                // Batch extraction for template-matched packets.
+                let batch_acc =
+                    template_simd::extract_batch(&packets, &template_ids);
+                // Compiled fallback for unmatched packets.
+                let mut meta = graph::FlowMeta::default();
+                let mut fallback_acc: u64 = 0;
+                for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
+                    if tid.is_none() {
+                        meta = graph::FlowMeta::default();
+                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
+                            fallback_acc += 1;
+                        }
+                    }
+                }
+                std::hint::black_box(batch_acc + fallback_acc);
+                std::hint::black_box(&meta);
+            });
+            results.push(BenchResult::new("template-simd", ns, total_pkts, 1, snap));
         } else if run_template_simd {
             eprintln!("warning: AVX2 not available, skipping template-simd benchmark");
         }
@@ -577,38 +572,51 @@ fn main() {
         }
 
         if run_template {
-            if tmpl_npkts == 0 {
-                eprintln!("warning: no packets match a template, skipping template-mt benchmark");
-            } else {
-                let ns = run_mt(&tmpl_packets, cli.iterations, cli.threads, |slice| {
-                    let slice = std::hint::black_box(slice);
-                    let mut acc: u64 = 0;
-                    for pkt in slice {
-                        if let Some(id) = template::select_template_id(&pkt.data) {
-                            if let Ok(v) = template::extract_by_id(&pkt.data, id) {
-                                acc = acc.wrapping_add(v);
-                            }
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let slice = std::hint::black_box(slice);
+                let mut acc: u64 = 0;
+                let mut meta = graph::FlowMeta::default();
+                for pkt in slice {
+                    meta = graph::FlowMeta::default();
+                    if let Some(id) = template::select_template_id(&pkt.data) {
+                        if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
+                            acc += 1;
+                        }
+                    } else {
+                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
+                            acc += 1;
                         }
                     }
-                    acc
-                });
-                results.push(BenchResult::new("template-mt", ns, total_tmpl_pkts, cli.threads, None));
-            }
+                }
+                std::hint::black_box(&meta);
+                acc
+            });
+            results.push(BenchResult::new("template-mt", ns, total_pkts, cli.threads, None));
         }
 
         if run_template_simd && template_simd::is_available() {
-            if tmpl_npkts == 0 {
-                eprintln!("warning: no packets match a template, skipping template-simd-mt benchmark");
-            } else {
-                let ns = run_mt(&tmpl_packets, cli.iterations, cli.threads, |slice| {
-                    let tids: Vec<Option<template::TemplateId>> = slice
-                        .iter()
-                        .map(|pkt| template::select_template_id(&pkt.data))
-                        .collect();
-                    unsafe { template_simd::extract_batch_avx2(slice, &tids) }
-                });
-                results.push(BenchResult::new("template-simd-mt", ns, total_tmpl_pkts, cli.threads, None));
-            }
+            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
+                let tids: Vec<Option<template::TemplateId>> = slice
+                    .iter()
+                    .map(|pkt| template::select_template_id(&pkt.data))
+                    .collect();
+                // Batch extraction for matched packets.
+                let batch_acc = template_simd::extract_batch(slice, &tids);
+                // Compiled fallback for unmatched packets.
+                let mut meta = graph::FlowMeta::default();
+                let mut fallback_acc: u64 = 0;
+                for (pkt, tid) in slice.iter().zip(tids.iter()) {
+                    if tid.is_none() {
+                        meta = graph::FlowMeta::default();
+                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
+                            fallback_acc += 1;
+                        }
+                    }
+                }
+                std::hint::black_box(&meta);
+                batch_acc + fallback_acc
+            });
+            results.push(BenchResult::new("template-simd-mt", ns, total_pkts, cli.threads, None));
         }
     }
 
@@ -656,27 +664,29 @@ fn run_af_xdp(cli: &Cli) {
     // Build the per-packet processing closure based on template selection.
     let tmpl = &cli.af_xdp_template;
     let process = move |pkt: &[u8]| {
+        let mut meta = graph::FlowMeta::default();
         match tmpl {
             Some(AfXdpTemplate::EthIpv4Tcp) => {
-                let _ = std::hint::black_box(template::extract_eth_ipv4_tcp(pkt));
+                let _ = template::extract_eth_ipv4_tcp(pkt, &mut meta);
             }
             Some(AfXdpTemplate::EthIpv4Udp) => {
-                let _ = std::hint::black_box(template::extract_eth_ipv4_udp(pkt));
+                let _ = template::extract_eth_ipv4_udp(pkt, &mut meta);
             }
             Some(AfXdpTemplate::EthIpv6Tcp) => {
-                let _ = std::hint::black_box(template::extract_eth_ipv6_tcp(pkt));
+                let _ = template::extract_eth_ipv6_tcp(pkt, &mut meta);
             }
             Some(AfXdpTemplate::Auto) => {
                 if let Some(id) = template::select_template_id(pkt) {
-                    let _ = std::hint::black_box(template::extract_by_id(pkt, id));
+                    let _ = template::extract_by_id(pkt, id, &mut meta);
+                } else {
+                    let _ = graph_compiled::parse_packet(pkt, &mut meta);
                 }
             }
             None => {
-                let mut meta = graph::FlowMeta::default();
                 let _ = graph_compiled::parse_packet(pkt, &mut meta);
-                std::hint::black_box(&meta);
             }
         }
+        std::hint::black_box(&meta);
     };
 
     let parser_label = match &cli.af_xdp_template {
