@@ -9,6 +9,10 @@ license.workspace = true
 name = "xdp2-bench"
 path = "src/main.rs"
 
+[lib]
+name = "xdp2_bench"
+path = "src/lib.rs"
+
 [dependencies]
 xdp2-core = { path = "../xdp2-core" }
 xdp2-protocols = { path = "../xdp2-protocols" }

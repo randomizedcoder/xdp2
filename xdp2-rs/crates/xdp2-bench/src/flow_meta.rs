@@ -19,7 +19,7 @@ pub enum AddrType {
 }
 
 /// IPv4 or IPv6 addresses — matches `XDP2_METADATA_addrs` union.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct AddrsMeta {
     pub v4_src: u32,
     pub v4_dst: u32,
@@ -29,14 +29,14 @@ pub struct AddrsMeta {
 }
 
 /// Transport ports — matches `XDP2_METADATA_ports` union.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PortsMeta {
     pub src_port: u16,
     pub dst_port: u16,
 }
 
 /// ICMP metadata — matches `XDP2_METADATA_icmp`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct IcmpMeta {
     pub icmp_type: u8,
     pub code: u8,
@@ -44,14 +44,14 @@ pub struct IcmpMeta {
 }
 
 /// VLAN tag metadata — matches `XDP2_METADATA_vlan` array element.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct VlanMeta {
     pub tci: u16,
     pub tpid: u16,
 }
 
 /// MPLS label metadata — matches `XDP2_METADATA_mpls`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MplsMeta {
     pub label: u32,
     pub tc: u8,
@@ -60,7 +60,7 @@ pub struct MplsMeta {
 }
 
 /// ARP metadata — matches `XDP2_METADATA_arp`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ArpMeta {
     pub op: u8,
     pub sha: [u8; 6],
@@ -70,7 +70,7 @@ pub struct ArpMeta {
 }
 
 /// GRE v0 metadata — matches `XDP2_METADATA_gre`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct GreMeta {
     pub flags: u32,
     pub csum: u16,
@@ -80,7 +80,7 @@ pub struct GreMeta {
 }
 
 /// GRE v1/PPTP metadata — matches `XDP2_METADATA_gre_pptp`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct GrePptpMeta {
     pub flags: u32,
     pub length: u16,
@@ -93,7 +93,7 @@ pub struct GrePptpMeta {
 ///
 /// Populated by `extract_metadata` callbacks at each protocol layer.
 /// Fields ordered to match the C struct for easy cross-reference.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FlowMeta {
     pub addr_type: AddrType,
     pub is_fragment: bool,

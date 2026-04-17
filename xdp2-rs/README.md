@@ -44,6 +44,7 @@ Lectures 8-11 are the primary design references for this Rust reimplementation.
 | [docs/hardware-classified-extraction.md](./docs/hardware-classified-extraction.md) | NIC hardware classification and fixed-offset template extraction |
 | [docs/af-xdp-integration-plan.md](./docs/af-xdp-integration-plan.md) | AF_XDP integration for line-rate NIC parsing via shared memory |
 | [docs/cpp-backport-plan.md](./docs/cpp-backport-plan.md) | Plan to backport Rust performance gains to C++ |
+| [docs/adversarial-testing-strategy.md](./docs/adversarial-testing-strategy.md) | Fuzzing and adversarial testing strategy (cargo-fuzz, proptest, PCAP mutation) |
 
 ## Performance (2026-04-15)
 
