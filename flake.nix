@@ -401,12 +401,14 @@
 
           # ===================================================================
           # XDP2 Rust Reimplementation
-          # Build:    nix build .#xdp2-rs
-          # Test:     nix build .#xdp2-rs-test
-          # Lint:     nix build .#xdp2-rs-clippy
-          # Format:   nix build .#xdp2-rs-fmt-check
-          # Docs:     nix build .#xdp2-rs-doc
-          # Golden:   nix build .#xdp2-rs-golden
+          # Build:       nix build .#xdp2-rs
+          # Test:        nix build .#xdp2-rs-test
+          # Lint:        nix build .#xdp2-rs-clippy
+          # Format:      nix build .#xdp2-rs-fmt-check
+          # Docs:        nix build .#xdp2-rs-doc
+          # Golden:      nix build .#xdp2-rs-golden
+          # Adversarial: nix build .#xdp2-rs-adversarial
+          # Stress:      nix run   .#xdp2-rs-stress -- [hours] [threads]
           # ===================================================================
           xdp2-rs = xdp2Rs.build;
           xdp2-rs-test = xdp2Rs.test;
@@ -414,6 +416,8 @@
           xdp2-rs-fmt-check = xdp2Rs.fmt-check;
           xdp2-rs-doc = xdp2Rs.doc;
           xdp2-rs-golden = xdp2Rs.golden;
+          xdp2-rs-adversarial = xdp2Rs.adversarial;
+          xdp2-rs-stress = xdp2Rs.stress;
 
           # ===================================================================
           # Compiler Verification Framework (C++ vs Rust)

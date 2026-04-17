@@ -9,6 +9,8 @@
 #   nix build .#xdp2-rs-fmt-check        — cargo fmt --check (formatting)
 #   nix build .#xdp2-rs-doc              — cargo doc (documentation build)
 #   nix build .#xdp2-rs-golden           — golden tests vs C parser output
+#   nix build .#xdp2-rs-adversarial      — adversarial/fuzz tests (proptest + oracle)
+#   nix run   .#xdp2-rs-stress           — long-running stress test binary
 #
 # Development:
 #   cd xdp2-rs && cargo check --workspace
@@ -22,7 +24,7 @@ let
   src = ../xdp2-rs;
 
   # Base hash — set to lib.fakeHash and build to get correct hash
-  cargoHash = "sha256-Bbvr88+42l26qTynRVu8iuLVzANqTA2obrchMFUvKI4=";
+  cargoHash = "sha256-ZOgVO9PcUn/qU+ztNK9hqFWoh+K5CQ4gt9ZO28rO+CM=";
 
   commonArgs = {
     pname = "xdp2-rs";
@@ -110,4 +112,45 @@ in
     echo "Golden test placeholder — Phase 2" > $out/golden-diff.txt
     echo "PASS (placeholder)" > $out/summary.txt
   '';
+
+  # ── Adversarial testing — proptest + oracle + adversarial vectors ──
+  # Runs the xdp2-fuzz test suite with high case counts:
+  #   - 22 targeted adversarial unit tests (IHL=0, doff=0, etc.)
+  #   - Cross-mode consistency oracle (graph vs mono vs compiled)
+  #   - 9 proptest properties × 10,000 cases each
+  #   - Seed corpus through all modes
+  adversarial = pkgs.rustPlatform.buildRustPackage (commonArgs // {
+    pname = "xdp2-rs-adversarial";
+    buildPhase = ''
+      export HOME=$(mktemp -d)
+      # Unit tests: adversarial vectors + oracle
+      cargo test -p xdp2-fuzz --lib -- --nocapture 2>&1 | tee test-unit.log
+      # Proptest: 10,000 cases per property (10× default)
+      PROPTEST_CASES=10000 cargo test -p xdp2-fuzz --test proptest_parsers -- --nocapture 2>&1 | tee test-proptest.log
+    '';
+    installPhase = ''
+      mkdir -p $out
+      cp test-unit.log test-proptest.log $out/
+      echo "adversarial: all tests passed" > $out/summary.txt
+    '';
+    doCheck = false;
+  });
+
+  # ── Stress test binary — long-running multi-threaded adversarial ───
+  # Usage: nix run .#xdp2-rs-stress -- [hours] [threads]
+  #   Defaults: 12 hours, all cores
+  #   Feeds random + structured packets through all 4 parser modes
+  #   Reports panics and cross-mode divergences
+  stress = pkgs.rustPlatform.buildRustPackage (commonArgs // {
+    pname = "xdp2-rs-stress";
+    buildPhase = ''
+      export HOME=$(mktemp -d)
+      cargo build --release -p xdp2-fuzz --bin stress
+    '';
+    installPhase = ''
+      mkdir -p $out/bin
+      cp target/release/stress $out/bin/xdp2-rs-stress
+    '';
+    doCheck = false;
+  });
 }
