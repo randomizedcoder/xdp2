@@ -1,0 +1,43 @@
+[package]
+name = "xdp2-fuzz-targets"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+xdp2-core = { path = "../crates/xdp2-core" }
+xdp2-bench = { path = "../crates/xdp2-bench" }
+xdp2-fuzz = { path = "../crates/xdp2-fuzz" }
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_graph_engine"
+path = "fuzz_targets/fuzz_graph_engine.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_mono_parser"
+path = "fuzz_targets/fuzz_mono_parser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_compiled_parser"
+path = "fuzz_targets/fuzz_compiled_parser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_consistency"
+path = "fuzz_targets/fuzz_consistency.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_all_modes"
+path = "fuzz_targets/fuzz_all_modes.rs"
+doc = false
