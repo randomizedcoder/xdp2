@@ -314,6 +314,35 @@ targets run concurrently with full CPU utilization.
 
 ---
 
+## Results
+
+### 12-Hour Stress Test (2026-04-16)
+
+Multi-threaded adversarial stress test feeding random and structured packets
+through all 4 parser modes in a tight loop:
+
+| Metric | Value |
+|--------|-------|
+| **Total packets** | 159,020,147,000 (159 billion) |
+| **Duration** | 12.0 hours |
+| **Threads** | 6 |
+| **Sustained rate** | 3,681,022 packets/sec (3.68M/s) |
+| **Panics** | 0 |
+| **Divergences** | 0 |
+
+Every packet was run through all 4 parser modes (graph engine, monomorphized,
+compiled, and template extraction). Input mix was 75% fully random bytes
+(0-2000 bytes) and 25% structured packets with valid Ethernet framing but
+adversarial protocol fields (randomized IHL, ethertypes, payloads).
+
+**Conclusion**: 159 billion packets with zero panics and zero cross-mode
+divergences provides strong evidence that the parser safety architecture
+(engine-level bounds checking) holds for arbitrary input across all modes.
+
+Run with: `nix run .#xdp2-rs-stress -- 12 6`
+
+---
+
 ## Success Criteria
 
 1. **Zero panics** across all fuzz targets after 24h per target
