@@ -75,8 +75,11 @@ in
     pkgs.bpftools
     pkgs.bpftrace        # High-level tracing language for eBPF
     pkgs.bcc             # BPF Compiler Collection with Python bindings
-    pkgs.perf  # Linux performance analysis tool
+    pkgs.perf            # Linux performance analysis tool
     pkgs.pahole          # DWARF debugging info analyzer (useful for BTF)
+
+    # Packet capture / analysis tools
+    pkgs.wireshark-cli   # Provides mergecap, tshark, editcap (no GUI)
 
     # Visualization
     pkgs.graphviz

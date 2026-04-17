@@ -75,11 +75,11 @@ if [ -n "$CORE_PIN" ]; then
 fi
 echo ""
 
-# Single-threaded with perf counters (all three passes merged)
-echo "--- Single-threaded (with perf counters: basic + stalls + detail) ---"
+# Single-threaded with perf counters (all four passes merged)
+echo "--- Single-threaded (with perf counters: basic + stalls + detail + zen) ---"
 OUTFILE="$OUTDIR/${PCAP_BASENAME}_${HOSTNAME}_1T.json"
 $BENCH --pcap "$PCAP" --iterations "$ITERATIONS" --mode both --perf \
-    --perf-pass basic --perf-pass stalls --perf-pass detail \
+    --perf-pass basic --perf-pass stalls --perf-pass detail --perf-pass zen \
     $PIN_ARG --report > "$OUTFILE"
 echo "Wrote: $OUTFILE"
 

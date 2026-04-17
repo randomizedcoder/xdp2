@@ -162,6 +162,17 @@
           inherit pkgs xdp2Rs;
         };
 
+        # Deep performance analysis (reproducible across machines)
+        # Usage: nix run .#perf-sweep-tcp       — baseline sweep
+        #        nix run .#perf-sweep-mixed     — real protocol diversity
+        #        nix run .#perf-sweep-combo     — full-scale 500K packets
+        #        nix run .#perf-flamegraph      — flamegraphs for 3 modes
+        #        nix run .#perf-annotate        — assembly-level hot functions
+        #        nix run .#perf-analysis-all    — run everything
+        perfAnalysis = import ./nix/perf-analysis.nix {
+          inherit pkgs xdp2Rs test-pcap;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -447,6 +458,24 @@
           # ===================================================================
           perf-bench = perfBench.bench;
           perf-sweep = perfBench.sweep;
+
+          # ===================================================================
+          # Deep Performance Analysis (reproducible across machines)
+          # Sweeps:     nix run .#perf-sweep-tcp
+          #             nix run .#perf-sweep-mixed
+          #             nix run .#perf-sweep-combo
+          # Flamegraph: nix run .#perf-flamegraph
+          # Annotate:   nix run .#perf-annotate
+          # All:        nix run .#perf-analysis-all
+          # Mixed PCAP: nix build .#perf-mixed-pcap
+          # ===================================================================
+          perf-sweep-tcp = perfAnalysis.sweep-tcp;
+          perf-sweep-mixed = perfAnalysis.sweep-mixed;
+          perf-sweep-combo = perfAnalysis.sweep-combo;
+          perf-flamegraph = perfAnalysis.flamegraph;
+          perf-annotate = perfAnalysis.annotate;
+          perf-analysis-all = perfAnalysis.analysis-all;
+          perf-mixed-pcap = perfAnalysis.mixed-pcap;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap

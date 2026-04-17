@@ -14,6 +14,34 @@ work and a reference for new contributors.
 optimization journey so far),
 [performance-by-platform.md](performance-by-platform.md) (current numbers).
 
+## Running the Analysis
+
+All analysis is Nix-ified for reproducibility across machines:
+
+```bash
+# Individual sweeps (JSON output to perf-results/)
+nix run .#perf-sweep-tcp              # baseline, 11 packets, fast
+nix run .#perf-sweep-mixed            # real protocol diversity, ~828 packets
+nix run .#perf-sweep-combo            # full-scale, 500K packets
+
+# CPU profiling (requires perf_event_paranoid <= 2)
+nix run .#perf-flamegraph             # SVG flamegraphs for graph/compiled/template
+nix run .#perf-annotate               # assembly-level hot function analysis
+
+# Run everything
+nix run .#perf-analysis-all
+
+# Pin to isolated core for reduced jitter
+CORE_PIN=3 nix run .#perf-analysis-all
+
+# Generate mixed-protocol PCAP only
+nix build .#perf-mixed-pcap           # result/mixed-real.pcap
+```
+
+Each sweep collects perf counters (basic + stalls + detail + zen) on the
+single-threaded run, then scales through 2/4/8/16 threads. All 7 parser modes
+are tested at each thread count. Results are JSON files in `perf-results/`.
+
 ---
 
 ## 1  Current Performance Baseline
