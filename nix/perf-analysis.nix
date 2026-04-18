@@ -11,8 +11,17 @@
 #   nix run  .#perf-graph-enum-compare     — A/B test+bench for graph vs graph-enum vs compiled
 #   nix run  .#chain-histogram             — run chain-signature probe on a PCAP (arg 1)
 #   nix run  .#chain-histogram-all         — run probe on tcp_ipv4 + mixed-real + combo
+#   nix run  .#chain-histogram-workloads   — run probe on the three workload PCAPs
+#   nix run  .#gen-workload-pcap           — interactive scapy PCAP generator (--list, -n, -o)
+#   nix run  .#sweep-workload-https-web    — ns/pkt+Mpps sweep on https-web workload
+#   nix run  .#sweep-workload-nfs-server   — ns/pkt+Mpps sweep on nfs-server workload
+#   nix run  .#sweep-workload-k8s          — ns/pkt+Mpps sweep on k8s-microservices workload
+#   nix run  .#sweep-workloads-all         — sweep all three workload PCAPs
 #   nix run  .#perf-analysis-all           — run all sweeps + flamegraph + annotate
 #   nix build .#perf-mixed-pcap            — generate merged mixed-protocol PCAP
+#   nix build .#workload-pcap-https-web    — cached HTTPS edge-server PCAP
+#   nix build .#workload-pcap-nfs-server   — cached NFS file-server PCAP
+#   nix build .#workload-pcap-k8s-microservices — cached K8s microservices PCAP
 #
 # All nix run targets write results to ./perf-results/ (or user-specified dir).
 # Set CORE_PIN=N to pin benchmarks to a specific core for reduced jitter.
@@ -26,6 +35,31 @@
 
 let
   sweepScript = ../xdp2-rs/scripts/perf-sweep.sh;
+
+  # ── Python env for scapy-based PCAP generation ─────────────────
+  pythonWithScapy = pkgs.python314.withPackages (ps: [ ps.scapy ]);
+
+  # Source of the workload PCAP generator
+  genWorkloadScript = ../samples/flow_dissector/gen_workload_pcap.py;
+
+  # Build a cached workload PCAP. Fixed seed ensures Nix-determinism.
+  # count: number of packets; defaults to 20000 which is enough for
+  # meaningful chain-distribution stats without bloating the store.
+  workloadPcap = { name, count ? 20000, seed ? 42 }:
+    pkgs.runCommand "xdp2-workload-${name}-pcap" {
+      nativeBuildInputs = [ pythonWithScapy ];
+    } ''
+      mkdir -p $out
+      python3 ${genWorkloadScript} \
+        --workload ${name} \
+        --count ${toString count} \
+        --seed ${toString seed} \
+        --output $out/${name}.pcap
+    '';
+
+  workload-pcap-https-web        = workloadPcap { name = "https-web"; };
+  workload-pcap-nfs-server       = workloadPcap { name = "nfs-server"; };
+  workload-pcap-k8s-microservices = workloadPcap { name = "k8s-microservices"; };
 
   # ── Cached: merged mixed-protocol PCAP from real captures ──────────
   mixed-pcap = pkgs.runCommand "xdp2-mixed-pcap" {
@@ -67,7 +101,10 @@ let
 
 in
 {
-  inherit mixed-pcap;
+  inherit mixed-pcap
+    workload-pcap-https-web
+    workload-pcap-nfs-server
+    workload-pcap-k8s-microservices;
 
   # ── Sweep: tcp_ipv4.pcap (baseline, fast) ────────────────────────
   sweep-tcp = pkgs.writeShellApplication {
@@ -302,6 +339,108 @@ in
 
       echo ""
       echo "Wrote: $REPORT"
+    '';
+  };
+
+  # ── Interactive: generate a workload PCAP with custom params ─────
+  #
+  # Usage: nix run .#gen-workload-pcap -- --workload https-web -n 50000 -o out.pcap
+  #        nix run .#gen-workload-pcap -- --list
+  # The three cached variants (workload-pcap-*) are preferred for
+  # reproducible benchmarking; this wrapper is for ad-hoc experiments
+  # with non-default counts/seeds.
+  gen-workload-pcap = pkgs.writeShellApplication {
+    name = "xdp2-gen-workload-pcap";
+    runtimeInputs = [ pythonWithScapy ];
+    text = ''
+      exec python3 ${genWorkloadScript} "$@"
+    '';
+  };
+
+  # ── Chain-histogram across the three workload PCAPs ──────────────
+  #
+  # Runs the chain-signature probe on each cached workload PCAP and
+  # writes a combined report. These PCAPs model real deployment mixes:
+  #   - https-web:         edge web server (HTTPS-dominated)
+  #   - nfs-server:        backend file-server (NFS/TCP-dominated)
+  #   - k8s-microservices: overlay service mesh (VXLAN/IPIP/gRPC/Kafka)
+  chain-histogram-workloads = pkgs.writeShellApplication {
+    name = "xdp2-chain-histogram-workloads";
+    runtimeInputs = [ xdp2Rs.build pkgs.coreutils ];
+    text = ''
+      OUTDIR="''${1:-perf-results/chain-histogram-workloads}"
+      TOP="''${2:-30}"
+      mkdir -p "$OUTDIR"
+      REPORT="$OUTDIR/report.txt"
+
+      {
+        echo "=== Chain histogram probe — workload profiles ==="
+        echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "host: $(hostname)  top: $TOP"
+        echo ""
+        echo "--- https-web.pcap (edge HTTPS web server mix) ---"
+        xdp2-bench --pcap ${workload-pcap-https-web}/https-web.pcap \
+          --chain-histogram --top "$TOP"
+        echo ""
+        echo "--- nfs-server.pcap (backend NFS file-server mix) ---"
+        xdp2-bench --pcap ${workload-pcap-nfs-server}/nfs-server.pcap \
+          --chain-histogram --top "$TOP"
+        echo ""
+        echo "--- k8s-microservices.pcap (overlay service-mesh mix) ---"
+        xdp2-bench --pcap ${workload-pcap-k8s-microservices}/k8s-microservices.pcap \
+          --chain-histogram --top "$TOP"
+      } | tee "$REPORT"
+
+      echo ""
+      echo "Wrote: $REPORT"
+    '';
+  };
+
+  # ── Perf sweeps on workload PCAPs (ns/pkt, Mpps, perf counters) ──
+  sweep-workload-https-web = pkgs.writeShellApplication {
+    name = "xdp2-perf-sweep-https-web";
+    runtimeInputs = sweepInputs;
+    text = ''
+      OUTDIR="''${1:-perf-results/https-web}"
+      export BENCH="xdp2-bench"
+      exec ${sweepScript} "${workload-pcap-https-web}/https-web.pcap" 300 "$OUTDIR"
+    '';
+  };
+
+  sweep-workload-nfs-server = pkgs.writeShellApplication {
+    name = "xdp2-perf-sweep-nfs-server";
+    runtimeInputs = sweepInputs;
+    text = ''
+      OUTDIR="''${1:-perf-results/nfs-server}"
+      export BENCH="xdp2-bench"
+      exec ${sweepScript} "${workload-pcap-nfs-server}/nfs-server.pcap" 300 "$OUTDIR"
+    '';
+  };
+
+  sweep-workload-k8s = pkgs.writeShellApplication {
+    name = "xdp2-perf-sweep-k8s";
+    runtimeInputs = sweepInputs;
+    text = ''
+      OUTDIR="''${1:-perf-results/k8s-microservices}"
+      export BENCH="xdp2-bench"
+      exec ${sweepScript} "${workload-pcap-k8s-microservices}/k8s-microservices.pcap" 300 "$OUTDIR"
+    '';
+  };
+
+  # ── Combined: sweep all three workload PCAPs ─────────────────────
+  sweep-workloads-all = pkgs.writeShellApplication {
+    name = "xdp2-perf-sweep-workloads-all";
+    runtimeInputs = sweepInputs;
+    text = ''
+      ROOT="''${1:-perf-results}"
+      echo ">>> https-web"
+      ${sweepScript} "${workload-pcap-https-web}/https-web.pcap" 300 "$ROOT/https-web"
+      echo ""
+      echo ">>> nfs-server"
+      ${sweepScript} "${workload-pcap-nfs-server}/nfs-server.pcap" 300 "$ROOT/nfs-server"
+      echo ""
+      echo ">>> k8s-microservices"
+      ${sweepScript} "${workload-pcap-k8s-microservices}/k8s-microservices.pcap" 300 "$ROOT/k8s-microservices"
     '';
   };
 

@@ -488,6 +488,31 @@
           perf-analysis-all = perfAnalysis.analysis-all;
           perf-mixed-pcap = perfAnalysis.mixed-pcap;
 
+          # Workload PCAPs — realistic deployment traffic mixes
+          # Cached builds:
+          #   nix build .#workload-pcap-https-web
+          #   nix build .#workload-pcap-nfs-server
+          #   nix build .#workload-pcap-k8s-microservices
+          # Interactive generator:
+          #   nix run .#gen-workload-pcap -- --list
+          #   nix run .#gen-workload-pcap -- --workload https-web -n 50000 -o /tmp/x.pcap
+          # Chain-histogram over the three workload PCAPs:
+          #   nix run .#chain-histogram-workloads
+          # Perf sweeps:
+          #   nix run .#sweep-workload-https-web
+          #   nix run .#sweep-workload-nfs-server
+          #   nix run .#sweep-workload-k8s
+          #   nix run .#sweep-workloads-all
+          workload-pcap-https-web        = perfAnalysis.workload-pcap-https-web;
+          workload-pcap-nfs-server       = perfAnalysis.workload-pcap-nfs-server;
+          workload-pcap-k8s-microservices = perfAnalysis.workload-pcap-k8s-microservices;
+          gen-workload-pcap              = perfAnalysis.gen-workload-pcap;
+          chain-histogram-workloads      = perfAnalysis.chain-histogram-workloads;
+          sweep-workload-https-web       = perfAnalysis.sweep-workload-https-web;
+          sweep-workload-nfs-server      = perfAnalysis.sweep-workload-nfs-server;
+          sweep-workload-k8s             = perfAnalysis.sweep-workload-k8s;
+          sweep-workloads-all            = perfAnalysis.sweep-workloads-all;
+
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap
           # nix build .#test-pcap  → result/combo.pcap (500k packets, cached)
