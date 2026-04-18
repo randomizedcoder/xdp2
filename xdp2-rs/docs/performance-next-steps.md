@@ -140,15 +140,38 @@ prioritize instruction-count reduction and ILP exposure.**
 ## Execution order
 
 1. ✅ Collect TMA data (stalls/detail counter fix + 4-pass run on mixed PCAP).
-2. **In progress:** Tier 1 item 1 — audit `parse_ip_check`, add skip flag,
-   measure.
-3. Tier 1 items 3 & 4 (parse_gre BMI2, classifier LUT/SIMD) — implement the
-   most visible ones, measure after each.
-4. Tier 1 item 2 (graph enum dispatch) — decide whether graph mode still
-   justifies the engineering effort given compiled/template are ~6-13×
-   faster; if yes, prototype.
-5. Tier 2 item 5 (ILP audit) — needs `cargo-show-asm` on specific functions.
-6. Re-evaluate Tier 3 only after Tier 1 + 2 gains are booked.
+2. ✅ **Tier 1 item 1 — `parse_ip_check` audit.** Result: **red herring.**
+   The function is a 3-line IP-version dispatcher, not a checksum. Marking it
+   `#[inline(always)]` did inline it (vanished from the flamegraph) but its
+   samples just redistributed into `parse_ipv4` and `parse_gre` —
+   throughput unchanged (23-28 ns/pkt compiled, within run-to-run noise).
+   **Lesson: flamegraph attribution for small functions is unreliable.**
+   The `#[inline(always)]` is kept as a cleanup.
+3. ✅ Baseline for typical Linux traffic: ran flamegraph on pure TCP/IPv4
+   (`tcp_ipv4.pcap`): compiled **13 ns/pkt / 73 Mpps**, template **14 ns/pkt**,
+   graph **118 ns/pkt**. Hot functions for compiled mode are just
+   `parse_ipv4` (10%) + `dispatch_ipv4` (7%) + `dispatch_ether` (3%) — this
+   is already close to the instruction-count floor for the header fields we
+   extract. Saved to `perf-results/tcp-only/`.
+4. **Open decision:** Where to invest next? Three realistic options given
+   the data:
+
+   - **(a) Graph enum dispatch** — graph is 118 ns/pkt TCP-only vs 13 ns/pkt
+     compiled, a 9× gap that's pure dyn-dispatch instruction overhead. If
+     graph mode is on the production path (e.g. proto_audit, future dynamic
+     parsers), this is by far the biggest absolute-cycles win available.
+     **Highest payoff, most engineering effort.**
+   - **(b) `parse_gre` BMI2/popcnt** — helps GRE-heavy workloads (DPI,
+     overlay networks). Does nothing for the TCP/IPv4 baseline, which is
+     already fast.
+   - **(c) Template classifier LUT/SIMD** — template is already the fastest
+     mode. Marginal gains for already-small numbers.
+
+5. Tier 2 item 5 (ILP audit via `cargo-show-asm`) — always useful; IPC of 1.6
+   suggests serial dependency chains somewhere, but targeted optimizations
+   probably need to wait until we pick (a)/(b)/(c).
+6. Re-evaluate Tier 3 (BOLT, LUT dispatch) only after above gains are booked
+   or invalidated.
 
 ---
 

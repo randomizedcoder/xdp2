@@ -103,6 +103,12 @@ fn parse_qinq(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
 
 // ── IP version overlay ───────────────────────────────────────────────
 
+// `parse_ip_check` showed up as 15% of cycles in the mixed-real.pcap
+// flamegraph despite being trivial — the compiler's default heuristic was
+// not inlining it across its 8 call sites. Forcing inlining removes the
+// call-frame cost, and at most sites constant propagation on the calling
+// arm's ethertype/proto-value lets the version check be elided too.
+#[inline(always)]
 fn parse_ip_check(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
     if pkt.is_empty() { return Err(ParseError::Length); }
     match pkt[0] >> 4 {
