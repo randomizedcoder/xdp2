@@ -32,8 +32,9 @@ CFLAGS+= -std=gnu11 -g -O2
 LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR)
 
 TARGETS= flow_dissector.bpf.o benchmark
-BPF_TARGETS= bpf_flow.kern.o benchmark_bpf
-TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.o parser_xdp.o
+BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf
+TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.o parser_xdp.o \
+	  fast_bpf/fast_flow.bpf.o
 
 # Header fragments included by parser.c (must trigger rebuild on change)
 PARSER_HDRS= flow_dissector_metadata.h flow_dissector_proto_defs.h \
@@ -70,6 +71,14 @@ benchmark: benchmark.c parser.p.c common.h pcap_loader.h
 # incompatible with -target bpf. -D__x86_64__ prevents glibc from pulling
 # in 32-bit stubs when cross-compiling to BPF.
 bpf_flow.kern.o: kern_bpf/bpf_flow.c
+	NIX_HARDENING_ENABLE= $(XCC) -x c -target bpf \
+		-D__TARGET_ARCH_$(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/') \
+		-D__x86_64__ -Wno-unused-command-line-argument \
+		$(XCFLAGS) -c -o $@ $<
+
+# xdp2-flow-ebpf fast-path dissector (see super-flow-dissector-plan.md §5).
+# Same clang invocation as bpf_flow.kern.o — stock headers, no CO-RE yet.
+fast_bpf/fast_flow.bpf.o: fast_bpf/fast_flow.bpf.c
 	NIX_HARDENING_ENABLE= $(XCC) -x c -target bpf \
 		-D__TARGET_ARCH_$(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/') \
 		-D__x86_64__ -Wno-unused-command-line-argument \
