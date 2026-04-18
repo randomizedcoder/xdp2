@@ -1,0 +1,78 @@
+# Flamegraph hot-function summary — mixed real-protocol PCAP
+#
+# PCAP: 828 packets (815 parseable), TCP/UDP/ICMP over IPv4/IPv6,
+#       VLAN/QinQ, GRE (incl. nested), VXLAN, L2TP, IP-in-IP, 6in4,
+#       SRv6, IPv4/IPv6 fragments.
+# Iterations: 5000   Core: 3   perf -F 10000
+#
+# Throughput (from bench output during recording):
+#   graph    : 300 ns/pkt   3 Mpps
+#   compiled : 23 ns/pkt   43 Mpps
+#   template : 17 ns/pkt   58 Mpps
+
+=== graph — top functions ===
+4,553,316,973 samples, 100%) all
+4,553,316,973 samples, 100.00%) xdp2-bench
+3,722,753,624 samples, 81.76%) [unknown]
+1,869,204,853 samples, 41.05%) xdp2_core::engine::parse
+690,287,817 samples, 15.16%) xdp2_core::engine::parse
+178,448,780 samples, 3.92%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::is_overlay
+165,962,927 samples, 3.64%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::handler
+157,703,137 samples, 3.46%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::header_len
+155,521,249 samples, 3.42%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::unknown_ret
+134,377,820 samples, 2.95%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::next_proto
+131,651,032 samples, 2.89%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::extract_metadata
+117,141,152 samples, 2.57%) xdp2_bench::extractors::extract_ipv4_metadata
+99,151,479 samples, 2.18%) &lt;xdp2_core::flag_fields::ParseFlagFieldsNode&lt;M&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::sub_parse
+90,907,468 samples, 2.00%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::proto_table
+86,116,647 samples, 1.89%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::post_handler
+83,801,377 samples, 1.84%) xdp2_core::parse_node::ParseNodeDyn::sub_parse
+67,902,308 samples, 1.49%) __memmove_avx_unaligned_erms
+58,813,242 samples, 1.29%) &lt;xdp2_core::flag_fields::ParseFlagFieldsNode&lt;M&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::sub_parse
+49,250,269 samples, 1.08%) &lt;xdp2_core::flag_fields::ParseFlagFieldsNode&lt;M&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::extract_metadata
+45,110,019 samples, 0.99%) &lt;xdp2_core::flag_fields::ParseFlagFieldsNode&lt;M&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::post_handler
+
+=== compiled — top functions ===
+369,822,990 samples, 100%) all
+369,822,990 samples, 100.00%) xdp2-bench
+178,269,492 samples, 48.20%) xdp2_bench::main
+56,189,802 samples, 15.19%) xdp2_bench::graph_compiled::parse_ip_check
+52,136,087 samples, 14.10%) xdp2_bench::graph_compiled::dispatch_ipv4
+44,862,504 samples, 12.13%) xdp2_bench::graph_compiled::parse_gre
+17,259,763 samples, 4.67%) xdp2_bench::graph_compiled::parse_ipv4
+11,531,455 samples, 3.12%) xdp2_bench::graph_compiled::dispatch_ether
+4,595,941 samples, 1.24%) [unknown]
+2,298,243 samples, 0.62%) xdp2_bench::graph_compiled::parse_vlan
+2,057,067 samples, 0.56%) xdp2_core::engine::parse
+1,154,149 samples, 0.31%) xdp2_bench::graph_compiled::parse_pppoe
+773,803 samples, 0.21%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::unknown_ret
+442,727 samples, 0.12%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::extract_metadata
+415,106 samples, 0.11%) xdp2_core::engine::parse
+406,730 samples, 0.11%) _dl_start_user
+406,730 samples, 0.11%) _dl_start
+386,516 samples, 0.10%) xdp2_bench::graph_compiled::dispatch_ipv6
+383,886 samples, 0.10%) _dl_sysdep_start
+357,814 samples, 0.10%) xdp2_bench::extractors::extract_ipv4_metadata
+
+=== template — top functions ===
+273,973,529 samples, 100%) all
+273,973,529 samples, 100.00%) xdp2-bench
+271,767,828 samples, 99.19%) [unknown]
+201,560,404 samples, 73.57%) xdp2_bench::main
+19,555,559 samples, 7.14%) xdp2_bench::template_gre::extract_gre2_ipv4_icmp
+16,232,376 samples, 5.92%) xdp2_bench::template::classify_ipv4
+8,694,267 samples, 3.17%) xdp2_bench::template::classify_gre2
+6,012,151 samples, 2.19%) xdp2_bench::template::select_template_id
+4,501,993 samples, 1.64%) xdp2_bench::template::extract_by_id
+1,894,194 samples, 0.69%) xdp2_bench::template_plain::extract_eth_ipv4_tcp
+1,868,104 samples, 0.68%) xdp2_bench::graph_compiled::parse_vlan
+1,522,736 samples, 0.56%) xdp2_bench::graph_compiled::dispatch_ipv6
+1,108,336 samples, 0.40%) xdp2_bench::graph_compiled::parse_pppoe
+963,002 samples, 0.35%) xdp2_core::engine::parse
+836,647 samples, 0.31%) &lt;xdp2_core::flag_fields::ParseFlagFieldsNode&lt;M&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::is_encap
+770,185 samples, 0.28%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::proto_table
+761,400 samples, 0.28%) xdp2_bench::graph_compiled::dispatch_ipv4
+759,321 samples, 0.28%) xdp2_bench::graph_compiled::parse_ip_check
+681,704 samples, 0.25%) xdp2_core::engine::parse
+580,401 samples, 0.21%) &lt;xdp2_core::parse_node::ParseNode&lt;M,P&gt; as xdp2_core::parse_node::ParseNodeDyn&lt;M&gt;&gt;::next_proto
+
