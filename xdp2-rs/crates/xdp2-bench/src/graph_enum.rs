@@ -284,12 +284,17 @@ mod tests {
         use crate::{graph, pcap};
         use std::path::PathBuf;
 
-        // Find the repo's tcp_ipv4.pcap relative to the crate dir.
-        let pcap_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../data/pcaps/tcp_ipv4.pcap");
+        // Resolution order (needed so the test runs in the Nix sandbox too):
+        //   1. $XDP2_TEST_PCAPS/tcp_ipv4.pcap  (set by Nix test targets)
+        //   2. <CARGO_MANIFEST_DIR>/../../../data/pcaps/tcp_ipv4.pcap  (repo checkout)
+        let pcap_path = match std::env::var_os("XDP2_TEST_PCAPS") {
+            Some(dir) => PathBuf::from(dir).join("tcp_ipv4.pcap"),
+            None => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../data/pcaps/tcp_ipv4.pcap"),
+        };
         if !pcap_path.exists() {
             eprintln!(
-                "skip: {} not found (only runs inside repo checkout)",
+                "skip: {} not found (set XDP2_TEST_PCAPS or run from a repo checkout)",
                 pcap_path.display()
             );
             return;

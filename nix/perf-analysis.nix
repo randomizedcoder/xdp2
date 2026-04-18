@@ -9,6 +9,8 @@
 #   nix run  .#perf-flamegraph             — flamegraphs for graph/graph-enum/compiled/template
 #   nix run  .#perf-annotate               — perf annotate for hot functions
 #   nix run  .#perf-graph-enum-compare     — A/B test+bench for graph vs graph-enum vs compiled
+#   nix run  .#chain-histogram             — run chain-signature probe on a PCAP (arg 1)
+#   nix run  .#chain-histogram-all         — run probe on tcp_ipv4 + mixed-real + combo
 #   nix run  .#perf-analysis-all           — run all sweeps + flamegraph + annotate
 #   nix build .#perf-mixed-pcap            — generate merged mixed-protocol PCAP
 #
@@ -242,6 +244,64 @@ in
       cat "$SUMMARY"
       echo ""
       echo "Results: $OUTDIR/"
+    '';
+  };
+
+  # ── Chain-signature histogram probe (single PCAP, interactive) ───
+  #
+  # First step of the fast-path dispatch exploration (see
+  # docs/fast-path-dispatch.md). Parses every packet with the graph
+  # engine, buckets by protocol-chain signature derived from FlowMeta,
+  # prints top-N.
+  #
+  # Usage: nix run .#chain-histogram -- <pcap> [top-n]
+  chain-histogram = pkgs.writeShellApplication {
+    name = "xdp2-chain-histogram";
+    runtimeInputs = [ xdp2Rs.build pkgs.coreutils ];
+    text = ''
+      PCAP="''${1:-}"
+      if [ -z "$PCAP" ]; then
+        echo "usage: xdp2-chain-histogram <pcap> [top-n]"
+        echo "       top-n defaults to 20"
+        exit 1
+      fi
+      TOP="''${2:-20}"
+      exec xdp2-bench --pcap "$PCAP" --chain-histogram --top "$TOP"
+    '';
+  };
+
+  # ── Chain-histogram on all three reference PCAPs ─────────────────
+  #
+  # Regenerates perf-results/chain-histogram/report.txt — the reference
+  # dataset cited in docs/fast-path-dispatch.md. Runs the probe on:
+  #   - tcp_ipv4.pcap       (baseline, single chain)
+  #   - mixed-real.pcap     (merged real captures, Linux-box-like mix)
+  #   - combo.pcap          (500 k synthetic, adversarial protocol mix)
+  chain-histogram-all = pkgs.writeShellApplication {
+    name = "xdp2-chain-histogram-all";
+    runtimeInputs = [ xdp2Rs.build pkgs.coreutils ];
+    text = ''
+      OUTDIR="''${1:-perf-results/chain-histogram}"
+      TOP="''${2:-30}"
+      mkdir -p "$OUTDIR"
+      REPORT="$OUTDIR/report.txt"
+
+      {
+        echo "=== Chain histogram probe — $(date -u +%Y-%m-%d) ==="
+        echo "host: $(hostname)  top: $TOP"
+        echo ""
+        echo "--- tcp_ipv4.pcap (baseline, single chain expected) ---"
+        xdp2-bench --pcap ${../data/pcaps/tcp_ipv4.pcap} --chain-histogram --top "$TOP"
+        echo ""
+        echo "--- mixed-real.pcap (real captures merged, Linux-box-like traffic) ---"
+        xdp2-bench --pcap ${mixed-pcap}/mixed-real.pcap --chain-histogram --top "$TOP"
+        echo ""
+        echo "--- combo.pcap (500K synthetic, adversarial protocol mix) ---"
+        xdp2-bench --pcap ${test-pcap}/combo.pcap --chain-histogram --top "$TOP"
+      } | tee "$REPORT"
+
+      echo ""
+      echo "Wrote: $REPORT"
     '';
   };
 

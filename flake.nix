@@ -423,6 +423,7 @@
           # ===================================================================
           xdp2-rs = xdp2Rs.build;
           xdp2-rs-test = xdp2Rs.test;
+          xdp2-rs-test-graph-enum = xdp2Rs.test-graph-enum;
           xdp2-rs-clippy = xdp2Rs.clippy;
           xdp2-rs-fmt-check = xdp2Rs.fmt-check;
           xdp2-rs-doc = xdp2Rs.doc;
@@ -479,6 +480,11 @@
           # runs cargo test + bench + flamegraph for graph / graph-enum / compiled
           # on tcp_ipv4.pcap. Output: perf-results/graph-enum/
           perf-graph-enum-compare = perfAnalysis.graph-enum-compare;
+          # Chain-signature histogram probe (fast-path exploration, step 1).
+          # Single PCAP: nix run .#chain-histogram -- <pcap> [top-n]
+          # All 3 refs:  nix run .#chain-histogram-all
+          chain-histogram = perfAnalysis.chain-histogram;
+          chain-histogram-all = perfAnalysis.chain-histogram-all;
           perf-analysis-all = perfAnalysis.analysis-all;
           perf-mixed-pcap = perfAnalysis.mixed-pcap;
 

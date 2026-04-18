@@ -5,6 +5,7 @@
 # Provides first-class Nix targets for the xdp2-rs Cargo workspace:
 #   nix build .#xdp2-rs                  — production build
 #   nix build .#xdp2-rs-test             — cargo test (unit + integration)
+#   nix build .#xdp2-rs-test-graph-enum   — focused graph-enum A/B test
 #   nix build .#xdp2-rs-clippy           — cargo clippy (lint, deny warnings)
 #   nix build .#xdp2-rs-fmt-check        — cargo fmt --check (formatting)
 #   nix build .#xdp2-rs-doc              — cargo doc (documentation build)
@@ -49,6 +50,27 @@ in
     XDP2_C_HEADERS = "${../src/include}";
     XDP2_TEST_DATA = "${../src/test/parser}";
     # doCheck defaults to true — runs `cargo test` in checkPhase
+  });
+
+  # ── Focused: graph-enum correctness (Option A A/B test) ─────────
+  # Runs the `graph_enum` test module from xdp2-bench, which includes:
+  #   - parses_eth_ipv4_tcp: synthetic-packet unit test
+  #   - matches_graph_on_tcp_ipv4_pcap: byte-for-byte FlowMeta equality
+  #     vs the dyn-dispatch graph engine on every packet in tcp_ipv4.pcap
+  # The A/B test honors XDP2_TEST_PCAPS so it runs inside the Nix sandbox.
+  test-graph-enum = pkgs.rustPlatform.buildRustPackage (commonArgs // {
+    pname = "xdp2-rs-test-graph-enum";
+    XDP2_TEST_PCAPS = "${../data/pcaps}";
+    buildPhase = ''
+      export HOME=$(mktemp -d)
+      cargo test --release -p xdp2-bench graph_enum -- --nocapture 2>&1 | tee test.log
+    '';
+    installPhase = ''
+      mkdir -p $out
+      cp test.log $out/
+      echo "graph-enum: all tests passed" > $out/summary.txt
+    '';
+    doCheck = false;
   });
 
   # ── cargo clippy — lint with deny warnings ───────────────────────
