@@ -30,92 +30,125 @@ mechanism.
 
 ---
 
-## Missing data (collect before Tier 2+)
+## TMA findings (collected 2026-04-17)
 
-The `perf-sweep-tcp` run only gathered `basic` + `zen` counters. `stalls` and
-`detail` passes failed with "No such file or directory" on the Zen 2 desktop.
-Before picking optimizations blindly, we need **TMA Level 1**
-(frontend-bound vs backend-bound vs bad-speculation vs retiring) to know
-*why* the hot functions are slow.
+**Root cause for the earlier sweep failure:** Zen 2 exposes
+`stalled-cycles-frontend` but *not* `stalled-cycles-backend`, and its generic
+last-level-cache event is also missing. The `PerfCounters` setup was
+all-or-nothing, so one missing counter aborted the whole pass. Fixed by
+building counters individually and reporting missing ones as zero — see
+`xdp2-rs/crates/xdp2-bench/src/perf.rs`.
 
-Options:
-1. Fix the stalls/detail sweep — investigate `perf_event_paranoid`, Zen 2 PMU
-   event name differences, or xdp2-bench perf-pass implementation.
-2. Add a dedicated TMA collection step: `perf stat -M TopdownL1 -- xdp2-bench …`
+Full 4-pass TMA results are saved at
+[`perf-results/tma-mixed/full-4pass.txt`](../../perf-results/tma-mixed/full-4pass.txt).
 
-Without TMA, we're guessing. With it we'll know whether to chase icache
-misses, branch mispredicts, load-latency, or port contention.
+| Mode | ns/pkt | IPC | Instructions/pkt | Branches/pkt | Branch-miss % | L1D miss/pkt | L1I miss/pkt | Retiring | Bad Spec | FE Bound | BE Bound |
+|------|--------|-----|------------------|--------------|----------------|--------------|---------------|----------|----------|----------|----------|
+| graph    | 274 | 1.84 | 2028 | 514 | 0.23 | 3.34 | 0.018 | **85.4%** | 3.0% | 11.6% | 0.0%* |
+| compiled |  40 | 1.53 |  242 |  56 | 0.09 | 3.26 | 0.002 | **95.6%** | 1.2% |  3.2% | 0.0%* |
+| template |  22 | 1.62 |  126 |  28 | 0.10 | 3.37 | 0.001 | **94.8%** | 1.3% |  3.9% | 0.0%* |
+
+<sub>*Backend Bound reports 0% because `stalled-cycles-backend` is not exposed
+on Zen 2. The true BE bound value is hidden inside the retirement number.</sub>
+
+**What TMA tells us — this reshuffles priorities dramatically:**
+
+1. **All three modes are retirement-bound, not stall-bound.** Frontend
+   stalls are 1-6% of cycles; branch misses are <0.25%. There is almost
+   no stall time to win back via icache, branch prediction, or TLB
+   optimizations.
+2. **Graph's 6.9× slowdown vs compiled is pure instruction count**:
+   2028 vs 242 instructions/pkt, at roughly similar IPC. The dyn-dispatch
+   vtable costs real uops, not stalls. BOLT and icache optimizations
+   will do very little here — the win must come from eliminating
+   instructions (enum dispatch, inlining vtable methods).
+3. **Compiled at 95% retiring is already near its ceiling at this IPC.**
+   Further gains require either fewer instructions per packet or more
+   ILP. Branch-prediction improvements are out of scope (0.09% miss rate).
+4. **IPC of 1.5-1.6 on compiled/template vs Zen 2's theoretical peak
+   (~4-5)** suggests serial dependency chains in the hot loop. Restructuring
+   to expose more ILP (load decoupling, independent parallel accumulators)
+   is a candidate area.
+
+This refines the roadmap below: **deprioritize BOLT and branchless tricks,
+prioritize instruction-count reduction and ILP exposure.**
 
 ---
 
-## Ranked next steps
+## Ranked next steps (after TMA)
 
-### Tier 1 — cheap, high-confidence wins
+### Tier 1 — instruction-count reduction (biggest expected payoff)
 
-1. **BOLT on top of PGO.** PGO already delivered +14-30%. BOLT (post-link
-   binary layout optimization) typically adds another +5-10% on tight code
-   paths. Requires building with a recent LLVM; add `nix/bolt-build.nix`
-   target and plumb through.
+1. **`parse_ip_check` audit** (15% of compiled samples). If this is IP
+   header checksum computation, it's pure uops we don't need in most
+   production deployments (NIC offloads handle it). Add a
+   `--trust-csum` / `--skip-ip-check` flag, measure the delta. Expected
+   shave: 10-15% off compiled. **Start here** — highest confidence.
 
-2. **Prefetch next packet.** `_mm_prefetch` on `pkt[i+1]` while parsing
-   `pkt[i]`. Benchmark-only loops should see big wins; real gains depend on
-   NIC ring layout (relevant when X710 arrives).
+2. **Graph-mode dyn-dispatch elimination** (was Tier 3). At 2028
+   instructions/pkt vs 242 for compiled, the win here is not 5-10% — it
+   could be 5-6×. Replace `&dyn ParseNodeDyn` with an enum dispatch and
+   measure. If the graph engine is still needed for runtime flexibility
+   (proto_audit, experimentation), this is the biggest single-pass lever
+   for that mode.
 
-3. **Collect stalls/detail/TMA data.** See "Missing data" above.
+3. **`parse_gre` bit-manipulation** (12% of compiled). The GRE header
+   flag-fields expansion uses byte-by-byte conditionals. `popcnt` +
+   `pdep` (BMI2) collapses flag processing to a handful of instructions.
+   Zen 2 supports both.
 
-### Tier 2 — targeted micro-opts on the visible hotspots
+4. **`classify_ipv4` / `classify_gre2`** in template (6% + 3%). Sequential
+   conditional chains deciding which template to use. A small LUT or SIMD
+   byte-compare on the first 16 bytes can collapse these.
 
-4. **`parse_ip_check`** (15% of compiled) — if this is IP header checksum
-   computation, most production deployments get this from NIC offload. Add
-   a `--trust-csum` / `--skip-ip-check` flag and measure. Could shave
-   10-15% off compiled immediately.
+### Tier 2 — ILP improvement
 
-5. **`dispatch_ipv4`** (14%) — look at the assembly: is the `match proto`
-   a cmov chain or jump table? A 256-entry LUT keyed on the 8-bit proto
-   is branch-free; may or may not be faster depending on icache footprint
-   vs branch prediction success.
+5. **Decouple load chains in the hot loop.** IPC is 1.5-1.6 vs Zen 2's
+   ~4-5 theoretical. Almost certainly serial dependency chains: load a
+   header field → compute offset → load next field. Where safe, hoist
+   loads to start before their result is needed. Needs assembly audit
+   (`cargo-show-asm`) on the compiled-mode inner loop.
 
-6. **`parse_gre`** (12%) — GRE flag-field expansion is bit-manipulation
-   heavy; check for `popcnt`/`pdep` (BMI2) opportunities.
+6. **Prefetch next packet.** `_mm_prefetch` on `pkt[i+1]` while parsing
+   `pkt[i]`. Benchmark loops should see improvement; real gains depend on
+   NIC rx-ring layout. Defer measurement until X710 is available.
 
-7. **`classify_ipv4` / `classify_gre2`** in template — these are mini
-   protocol classifiers. SIMD byte-compare on the first 16-32 bytes can
-   collapse multiple sequential branches.
+### Tier 3 — deprioritized by TMA (may still be worth a try, later)
 
-### Tier 3 — architectural bets (bigger effort)
+7. **BOLT on top of PGO.** Previously expected +5-10%. TMA shows
+   frontend stalls are 1-6% of cycles and L1I misses are ~0.002/pkt on
+   compiled — almost no icache pressure. BOLT's main lever is
+   code-layout / icache, so the ceiling is probably closer to +1-3%.
+   Keep on the list but not urgent.
 
-8. **Batched parsing API.** Process N packets in an outer loop with
-   interleaved prefetch. Only pays off at DPDK/AF_XDP batch sizes, but
-   that's the direction we're heading.
+8. **`dispatch_ipv4` LUT.** Previously flagged as a win, but branch miss
+   rate is 0.09% — the predictor already nails it. A LUT adds a load
+   without saving a stall. Skip unless the assembly audit shows a long
+   cmov chain on the critical path.
 
-9. **Graph-mode specialization.** The 13× gap graph→compiled is the
-   dyn-dispatch tax. If any production use case needs the graph mode's
-   flexibility, an `enum`-dispatched variant (not `dyn Trait`) would
-   close most of the gap without giving up runtime composition.
+### Tier 4 — defer until X710 hardware is available
 
-10. **Per-protocol criterion micro-benchmarks.** Isolate each protocol
-    parser so regressions show up per-parser, not only in the aggregate
-    sweep.
-
-### Tier 4 — defer until X710 hardware is available (~mid-April 2026)
-
-11. NIC-side offloads (RSS, ntuple filters, checksum offload) change the
-    baseline completely.
-12. AF_XDP zero-copy changes the memory access pattern.
-13. Cache behavior on a real rx ring is different from a hot pcap buffer
-    in L1.
+9. **Batched parsing API.** Interleave N packets in the outer loop with
+   prefetch. Only pays off at DPDK/AF_XDP batch sizes — the benchmark
+   doesn't exercise this.
+10. Per-protocol criterion micro-benchmarks.
+11. NIC-side offloads (RSS, ntuple filters, checksum offload).
+12. AF_XDP zero-copy rx path.
 
 ---
 
 ## Execution order
 
-1. **Tier 1 item 3** (collect TMA data) — always run analysis before optimization.
-2. **Tier 2 item 4** (`parse_ip_check` audit) — highest-confidence single change
-   based purely on the flamegraph.
-3. **Tier 1 item 1** (BOLT) — infrastructure work, amortizes over everything
-   after it.
-4. Whichever of items 5-7 the TMA data prioritizes.
-5. Defer items 8-13 for now.
+1. ✅ Collect TMA data (stalls/detail counter fix + 4-pass run on mixed PCAP).
+2. **In progress:** Tier 1 item 1 — audit `parse_ip_check`, add skip flag,
+   measure.
+3. Tier 1 items 3 & 4 (parse_gre BMI2, classifier LUT/SIMD) — implement the
+   most visible ones, measure after each.
+4. Tier 1 item 2 (graph enum dispatch) — decide whether graph mode still
+   justifies the engineering effort given compiled/template are ~6-13×
+   faster; if yes, prototype.
+5. Tier 2 item 5 (ILP audit) — needs `cargo-show-asm` on specific functions.
+6. Re-evaluate Tier 3 only after Tier 1 + 2 gains are booked.
 
 ---
 

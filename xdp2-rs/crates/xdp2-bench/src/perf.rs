@@ -82,96 +82,108 @@ mod linux {
     /// We pay a small cost for N syscalls per read, but the measurement
     /// happens once per benchmark phase — not per packet — so the overhead
     /// is negligible.
+    ///
+    /// Each slot holds `Option<Counter>`: individual counters that the
+    /// kernel/CPU does not expose (e.g. `stalled-cycles-backend` on AMD
+    /// Zen 2) are stored as `None` and read as zero. This lets a pass
+    /// return partial data instead of aborting the whole benchmark.
     pub struct PerfCounters {
         pass: PerfPass,
-        counters: Vec<Counter>,
+        counters: Vec<Option<Counter>>,
         baseline: Vec<u64>,
+    }
+
+    /// Build a counter, returning `Ok(None)` if the kernel reports the
+    /// event is unavailable on this CPU (`ENOENT`). Other errors propagate.
+    fn try_build<F: FnOnce() -> io::Result<Counter>>(f: F) -> io::Result<Option<Counter>> {
+        match f() {
+            Ok(c) => Ok(Some(c)),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                eprintln!(
+                    "  note: perf event not available on this CPU, skipping ({})",
+                    e
+                );
+                Ok(None)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     impl PerfCounters {
         /// Create a new counter bundle for the given pass.
+        ///
+        /// Counters the CPU does not expose are stored as `None` (read as 0)
+        /// rather than aborting the pass. This lets e.g. AMD Zen 2 — which
+        /// lacks `stalled-cycles-backend` and some generic cache events — still
+        /// report whatever subset of the pass *is* available.
         pub fn new(pass: PerfPass) -> io::Result<Self> {
-            let mut counters = Vec::new();
+            let mut counters: Vec<Option<Counter>> = Vec::new();
             match pass {
                 PerfPass::Basic => {
-                    counters.push(Builder::new().kind(Hardware::CPU_CYCLES).build()?);
-                    counters.push(Builder::new().kind(Hardware::INSTRUCTIONS).build()?);
-                    counters.push(Builder::new().kind(Hardware::BRANCH_INSTRUCTIONS).build()?);
-                    counters.push(Builder::new().kind(Hardware::BRANCH_MISSES).build()?);
-                    counters.push(Builder::new().kind(Hardware::CACHE_REFERENCES).build()?);
-                    counters.push(Builder::new().kind(Hardware::CACHE_MISSES).build()?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::INSTRUCTIONS).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::BRANCH_INSTRUCTIONS).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::BRANCH_MISSES).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::CACHE_REFERENCES).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::CACHE_MISSES).build())?);
                 }
                 PerfPass::Stalls => {
-                    counters.push(Builder::new().kind(Hardware::CPU_CYCLES).build()?);
-                    counters
-                        .push(Builder::new().kind(Hardware::STALLED_CYCLES_FRONTEND).build()?);
-                    counters
-                        .push(Builder::new().kind(Hardware::STALLED_CYCLES_BACKEND).build()?);
-                    counters.push(
-                        Builder::new()
-                            .kind(Cache {
-                                which: WhichCache::DTLB,
-                                operation: CacheOp::READ,
-                                result: CacheResult::MISS,
-                            })
-                            .build()?,
-                    );
-                    counters.push(
-                        Builder::new()
-                            .kind(Cache {
-                                which: WhichCache::ITLB,
-                                operation: CacheOp::READ,
-                                result: CacheResult::MISS,
-                            })
-                            .build()?,
-                    );
-                    counters.push(
-                        Builder::new()
-                            .kind(Cache {
-                                which: WhichCache::L1D,
-                                operation: CacheOp::READ,
-                                result: CacheResult::MISS,
-                            })
-                            .build()?,
-                    );
+                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::STALLED_CYCLES_FRONTEND).build())?);
+                    // STALLED_CYCLES_BACKEND is missing on AMD Zen — try_build
+                    // will return None and we'll report 0 for backend stalls.
+                    counters.push(try_build(|| Builder::new().kind(Hardware::STALLED_CYCLES_BACKEND).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Cache {
+                        which: WhichCache::DTLB,
+                        operation: CacheOp::READ,
+                        result: CacheResult::MISS,
+                    }).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Cache {
+                        which: WhichCache::ITLB,
+                        operation: CacheOp::READ,
+                        result: CacheResult::MISS,
+                    }).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Cache {
+                        which: WhichCache::L1D,
+                        operation: CacheOp::READ,
+                        result: CacheResult::MISS,
+                    }).build())?);
                 }
                 PerfPass::Detail => {
-                    counters.push(Builder::new().kind(Hardware::CPU_CYCLES).build()?);
-                    counters.push(
-                        Builder::new()
-                            .kind(Cache {
-                                which: WhichCache::L1I,
-                                operation: CacheOp::READ,
-                                result: CacheResult::MISS,
-                            })
-                            .build()?,
-                    );
-                    counters.push(
-                        Builder::new()
-                            .kind(Cache {
-                                which: WhichCache::LL,
-                                operation: CacheOp::READ,
-                                result: CacheResult::MISS,
-                            })
-                            .build()?,
-                    );
+                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Cache {
+                        which: WhichCache::L1I,
+                        operation: CacheOp::READ,
+                        result: CacheResult::MISS,
+                    }).build())?);
+                    counters.push(try_build(|| Builder::new().kind(Cache {
+                        which: WhichCache::LL,
+                        operation: CacheOp::READ,
+                        result: CacheResult::MISS,
+                    }).build())?);
                 }
                 PerfPass::Zen => {
                     // AMD Zen 2/3/4 raw PMU events.
-                    // These will fail with ENOENT/EINVAL on non-AMD or
-                    // unsupported kernels — that's fine, handled by caller.
-                    counters.push(Builder::new().kind(Hardware::CPU_CYCLES).build()?);
+                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
                     // Op Cache Hit (event 0x028A, umask 0x07): micro-op cache hits
-                    counters.push(build_raw(0x0728)?);
+                    counters.push(try_build(|| build_raw(0x0728))?);
                     // Retired Micro-Ops (event 0x00C1): true work done
-                    counters.push(build_raw(0x00C1)?);
+                    counters.push(try_build(|| build_raw(0x00C1))?);
                     // Dispatch Resource Stall Cycles 1 (event 0x00AF): any dispatch stall
-                    counters.push(build_raw(0x01AF)?);
+                    counters.push(try_build(|| build_raw(0x01AF))?);
                     // MAB Allocation Stall (event 0x0041, umask 0x00): pending load stalls
-                    counters.push(build_raw(0x0041)?);
+                    counters.push(try_build(|| build_raw(0x0041))?);
                 }
             }
             let n = counters.len();
+            // If *every* counter failed, surface that as a hard error so the
+            // caller knows the pass is meaningless.
+            if counters.iter().all(|c| c.is_none()) {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "no perf events from this pass are available on this CPU",
+                ));
+            }
             Ok(Self {
                 pass,
                 counters,
@@ -181,7 +193,7 @@ mod linux {
 
         /// Enable all counters and capture the baseline reading.
         pub fn start(&mut self) -> io::Result<()> {
-            for c in &mut self.counters {
+            for c in self.counters.iter_mut().flatten() {
                 c.enable()?;
             }
             self.baseline = self.read_raw()?;
@@ -190,7 +202,7 @@ mod linux {
 
         /// Disable all counters.
         pub fn stop(&mut self) -> io::Result<()> {
-            for c in &mut self.counters {
+            for c in self.counters.iter_mut().flatten() {
                 c.disable()?;
             }
             Ok(())
@@ -214,7 +226,15 @@ mod linux {
         }
 
         fn read_raw(&mut self) -> io::Result<Vec<u64>> {
-            self.counters.iter_mut().map(|c| c.read()).collect()
+            // Missing counters (None) read as 0, keeping indices aligned with
+            // the `PerfSnapshot::from_pass` field layout.
+            self.counters
+                .iter_mut()
+                .map(|c| match c {
+                    Some(c) => c.read(),
+                    None => Ok(0),
+                })
+                .collect()
         }
     }
 
