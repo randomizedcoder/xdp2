@@ -45,6 +45,8 @@ Lectures 8-11 are the primary design references for this Rust reimplementation.
 | [docs/af-xdp-integration-plan.md](./docs/af-xdp-integration-plan.md) | AF_XDP integration for line-rate NIC parsing via shared memory |
 | [docs/cpp-backport-plan.md](./docs/cpp-backport-plan.md) | Plan to backport Rust performance gains to C++ |
 | [docs/adversarial-testing-strategy.md](./docs/adversarial-testing-strategy.md) | Fuzzing and adversarial testing strategy (cargo-fuzz, proptest, PCAP mutation) |
+| [docs/fast-path-dispatch.md](./docs/fast-path-dispatch.md) | Fast-path dispatch exploration: graph-enum A/B, chain-histogram probe, workload profiles |
+| [docs/performance-next-steps.md](./docs/performance-next-steps.md) | Flamegraph-driven optimization roadmap, TMA analysis, tiered priorities |
 
 ## Performance (2026-04-15)
 
@@ -86,25 +88,41 @@ CPU profiling data, optimization taxonomy, and HFT design pattern cross-referenc
 
 ## Architecture
 
-This is a Cargo workspace with three crates:
+This is a Cargo workspace with six crates:
 
 ```
 xdp2-rs/
 ├── crates/
-│   ├── xdp2-core/          # Parse engine: types, traits, main loop, TLV/flag/array
+│   ├── xdp2-core/          # Parse engine: types, traits, main loop, TLV/flag/array,
+│   │                       # graph-enum dispatch (src/enum_dispatch/)
 │   ├── xdp2-protocols/     # 205 protocol definitions (Ethernet, IPv4, TCP, GRE, etc.)
-│   ├── xdp2-bench/         # Benchmark harness (7 parser modes, perf counters)
-│   └── xdp2-compiler/      # Optimizing compiler (Phase 4, stub for now)
+│   ├── xdp2-bench/         # Benchmark harness (parser modes, perf counters,
+│   │                       # --chain-histogram probe, graph-enum A/B test)
+│   ├── xdp2-compiler/      # Optimizing compiler (Phase 4, stub for now)
+│   ├── xdp2-af-xdp/        # AF_XDP integration (shared-memory ring buffers)
+│   └── xdp2-fuzz/          # Cross-mode oracle, adversarial vectors, proptest suites,
+│                           # stress-test binary
+├── fuzz/                   # cargo-fuzz harness (5 libfuzzer targets — see fuzz/README.md)
 ├── Cargo.toml              # Workspace root
 └── README.md
 ```
 
 - **xdp2-core** reimplements `src/lib/xdp2/parser.c` and the core types from
-  `src/include/xdp2/parser_types.h`
+  `src/include/xdp2/parser_types.h`. Also hosts the `graph-enum` dispatch
+  variant (static `match` over an enum of ParseNodes — closes ~77 % of the
+  gap between `graph` and `compiled`; see
+  [docs/fast-path-dispatch.md](./docs/fast-path-dispatch.md)).
 - **xdp2-protocols** reimplements the 205 protocol definitions from
   `src/include/xdp2/proto_defs/`
+- **xdp2-bench** runs the parser modes and perf counters, and also hosts
+  the `--chain-histogram` probe used by the fast-path exploration.
 - **xdp2-compiler** will reimplement `src/tools/compiler/` using `petgraph`
   and `tera` (Phase 4)
+- **xdp2-af-xdp** wraps AF_XDP UMEM/rings for zero-copy NIC parsing (see
+  [docs/af-xdp-integration-plan.md](./docs/af-xdp-integration-plan.md))
+- **xdp2-fuzz** provides the cross-mode oracle, adversarial unit tests,
+  proptest suites, and the long-running `stress` binary (see
+  [docs/adversarial-testing-strategy.md](./docs/adversarial-testing-strategy.md))
 
 ## Cross-Reference Convention
 
