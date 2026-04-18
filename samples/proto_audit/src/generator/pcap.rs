@@ -118,6 +118,17 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("NFSv4", "nfs"),
     ("CAN_J1939", "j1939"),
     ("CAN_OBD2", "obd-ii"),
+    // Bucket 5: protocols with tshark dissectors but routing issues
+    ("SOCKS", "socks"),
+    ("IRC", "irc"),
+    ("GVRP", "gvrp"),
+    ("MMRP", "mmrp"),
+    ("TACACS", "tacacs"),
+    ("sFlow", "sflow"),
+    ("LMP", "btlmp"),
+    ("ERSPAN", "erspan"),
+    ("PVST", "stp"),
+    ("RSTP", "stp"),
 ];
 
 /// Output from PCAP generation.
@@ -570,6 +581,14 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("TZSP_V2", "UDP", "dst_port", 37008),
     ("ERSPAN_V3", "GRE", "protocol_type", 0x22EB),
     ("VXLAN_GBP", "UDP", "dst_port", 4789),
+    // Bucket 5: UpperPDU fallback routes for protocols with tshark dissectors
+    ("SOCKS", "UpperPDU", "_always", 0),
+    ("IRC", "UpperPDU", "_always", 0),
+    ("MMRP", "UpperPDU", "_always", 0),
+    ("TACACS", "UpperPDU", "_always", 0),
+    ("PVST", "UpperPDU", "_always", 0),
+    ("RSTP", "UpperPDU", "_always", 0),
+    ("ERSPAN", "UpperPDU", "_always", 0),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack
@@ -2326,6 +2345,407 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_endian(Endian::Little),
                     FieldDef::new("crc", 64, 16, FieldType::Uint)
                         .with_endian(Endian::Little),
+                ]),
+        ),
+
+        // ═══════════════════════════════════════════════════════════
+        //  Bucket 3: Sub-protocols inheriting parent structure
+        // ═══════════════════════════════════════════════════════════
+
+        // ── HCI_CMD (HCI Command packet, child of HCI type=0x01) ──
+        "HCI_CMD" => Some(
+            ProtocolDef::new("HCI_CMD", 24) // 3-byte header
+                .with_fields(vec![
+                    FieldDef::new("opcode", 0, 16, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("param_len", 16, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── HCI_SCO (HCI Synchronous data, child of HCI type=0x03) ──
+        "HCI_SCO" => Some(
+            ProtocolDef::new("HCI_SCO", 24) // 3-byte header
+                .with_fields(vec![
+                    FieldDef::new("handle", 0, 12, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("status", 12, 4, FieldType::Uint),
+                    FieldDef::new("dlen", 16, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── HCI_Event (HCI Event packet, child of HCI type=0x04) ──
+        "HCI_Event" => Some(
+            ProtocolDef::new("HCI_Event", 16) // 2-byte header
+                .with_fields(vec![
+                    FieldDef::new("event_code", 0, 8, FieldType::Uint)
+                        .with_default_value("14"), // Command Complete (0x0E)
+                    FieldDef::new("param_len", 8, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── HCI_ISO (HCI ISO data, child of HCI type=0x05) ──
+        "HCI_ISO" => Some(
+            ProtocolDef::new("HCI_ISO", 32) // 4-byte header
+                .with_fields(vec![
+                    FieldDef::new("handle_flags", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Little),
+                    FieldDef::new("dlen", 16, 16, FieldType::Uint).with_endian(Endian::Little),
+                ]),
+        ),
+        // ── BT_ATT (Attribute Protocol, child of L2CAP cid=0x0004) ──
+        "BT_ATT" => Some(
+            ProtocolDef::new("BT_ATT", 8)
+                .with_fields(vec![
+                    FieldDef::new("opcode", 0, 8, FieldType::Uint)
+                        .with_default_value("2"), // Exchange MTU Request
+                ]),
+        ),
+        // ── BT_SMP (Security Manager Protocol, child of L2CAP cid=0x0006) ──
+        "BT_SMP" => Some(
+            ProtocolDef::new("BT_SMP", 56) // 7 bytes for Pairing Request
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // Pairing Request
+                    FieldDef::new("io_capability", 8, 8, FieldType::Uint),
+                    FieldDef::new("oob_flag", 16, 8, FieldType::Uint),
+                    FieldDef::new("auth_req", 24, 8, FieldType::Uint),
+                    FieldDef::new("max_key_size", 32, 8, FieldType::Uint)
+                        .with_default_value("16"),
+                    FieldDef::new("init_key_dist", 40, 8, FieldType::Uint),
+                    FieldDef::new("resp_key_dist", 48, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── LMP (Link Manager Protocol, Bluetooth) ──
+        "LMP" => Some(
+            ProtocolDef::new("LMP", 16)
+                .with_fields(vec![
+                    FieldDef::new("tid_opcode", 0, 8, FieldType::Uint)
+                        .with_default_value("3"), // TID=0, opcode=3 (LMP_accepted)
+                    FieldDef::new("content", 8, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── PPP_LCP (Link Control Protocol, PPP 0xC021) ──
+        "PPP_LCP" => Some(
+            ProtocolDef::new("PPP_LCP", 32)
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // Configure-Request
+                    FieldDef::new("identifier", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("4"),
+                ]),
+        ),
+        // ── PPP_IPCP (IP Control Protocol, PPP 0x8021) ──
+        "PPP_IPCP" => Some(
+            ProtocolDef::new("PPP_IPCP", 32)
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // Configure-Request
+                    FieldDef::new("identifier", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("4"),
+                ]),
+        ),
+        // ── PPP_IPv6CP (IPv6 Control Protocol, PPP 0x8057) ──
+        "PPP_IPv6CP" => Some(
+            ProtocolDef::new("PPP_IPv6CP", 32)
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("identifier", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("4"),
+                ]),
+        ),
+        // ── PPP_CCP (Compression Control Protocol, PPP 0x80FD) ──
+        "PPP_CCP" => Some(
+            ProtocolDef::new("PPP_CCP", 32)
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("identifier", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("4"),
+                ]),
+        ),
+        // ── PPP_CHAP (Challenge Handshake Auth, PPP 0xC223) ──
+        "PPP_CHAP" => Some(
+            ProtocolDef::new("PPP_CHAP", 32)
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // Challenge
+                    FieldDef::new("identifier", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("length", 16, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("4"),
+                ]),
+        ),
+        // ── InfiniBand sub-protocols (children of IB_BTH via opcode) ──
+        "IB_DETH" => Some(
+            ProtocolDef::new("IB_DETH", 64) // 8 bytes
+                .with_fields(vec![
+                    FieldDef::new("qkey", 0, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("src_qp", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        "IB_RETH" => Some(
+            ProtocolDef::new("IB_RETH", 128) // 16 bytes
+                .with_fields(vec![
+                    FieldDef::new("va", 0, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("r_key", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("dma_len", 96, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        "IB_AETH" => Some(
+            ProtocolDef::new("IB_AETH", 32) // 4 bytes
+                .with_fields(vec![
+                    FieldDef::new("syndrome", 0, 8, FieldType::Uint),
+                    FieldDef::new("msn", 8, 24, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        "IB_RDETH" => Some(
+            ProtocolDef::new("IB_RDETH", 32) // 4 bytes
+                .with_fields(vec![
+                    FieldDef::new("reserved", 0, 8, FieldType::Pad),
+                    FieldDef::new("ee_context", 8, 24, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        "IB_AtomicETH" => Some(
+            ProtocolDef::new("IB_AtomicETH", 224) // 28 bytes
+                .with_fields(vec![
+                    FieldDef::new("va", 0, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("r_key", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("swap_or_add", 96, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("compare", 160, 64, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        "IB_ImmDt" => Some(
+            ProtocolDef::new("IB_ImmDt", 32) // 4 bytes
+                .with_fields(vec![
+                    FieldDef::new("data", 0, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        "IB_MAD" => Some(
+            ProtocolDef::new("IB_MAD", 192) // 24-byte common MAD header
+                .with_fields(vec![
+                    FieldDef::new("base_version", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("mgmt_class", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // Subnet Management
+                    FieldDef::new("class_version", 16, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("method", 24, 8, FieldType::Uint)
+                        .with_default_value("1"), // Get
+                    FieldDef::new("status", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("class_specific", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("transaction_id", 64, 64, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("attr_id", 128, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("reserved", 144, 16, FieldType::Pad),
+                    FieldDef::new("attr_mod", 160, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── CAN sub-protocols ──
+        "CAN_J1939" => Some(
+            ProtocolDef::new("CAN_J1939", 128) // same frame as CAN
+                .with_fields(vec![
+                    FieldDef::new("can_id", 0, 32, FieldType::Uint).with_endian(Endian::Little)
+                        .with_default_value("2566914048"), // PGN 0xFECA (Address Claimed) with EFF
+                    FieldDef::new("len", 32, 8, FieldType::Uint).with_default_value("8"),
+                    FieldDef::new("pad", 40, 8, FieldType::Pad),
+                    FieldDef::new("res", 48, 16, FieldType::Pad),
+                    FieldDef::new("data", 64, 64, FieldType::Bytes),
+                ]),
+        ),
+        "CAN_OBD2" => Some(
+            ProtocolDef::new("CAN_OBD2", 128)
+                .with_fields(vec![
+                    FieldDef::new("can_id", 0, 32, FieldType::Uint).with_endian(Endian::Little)
+                        .with_default_value("2024"), // 0x7E8 = OBD-II response
+                    FieldDef::new("len", 32, 8, FieldType::Uint).with_default_value("8"),
+                    FieldDef::new("pad", 40, 8, FieldType::Pad),
+                    FieldDef::new("res", 48, 16, FieldType::Pad),
+                    FieldDef::new("data", 64, 64, FieldType::Bytes),
+                ]),
+        ),
+        "CAN_TP" => Some(
+            ProtocolDef::new("CAN_TP", 128)
+                .with_fields(vec![
+                    FieldDef::new("can_id", 0, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("len", 32, 8, FieldType::Uint).with_default_value("8"),
+                    FieldDef::new("pad", 40, 8, FieldType::Pad),
+                    FieldDef::new("res", 48, 16, FieldType::Pad),
+                    FieldDef::new("data", 64, 64, FieldType::Bytes),
+                ]),
+        ),
+
+        // ═══════════════════════════════════════════════════════════
+        //  Bucket 5: Protocols with tshark dissectors (mapping fixes)
+        // ═══════════════════════════════════════════════════════════
+
+        // ── ERSPAN (Encapsulated Remote SPAN, via GRE) ──
+        "ERSPAN" => Some(
+            ProtocolDef::new("ERSPAN", 64) // Type II header (8 bytes)
+                .with_fields(vec![
+                    FieldDef::new("ver_vlan", 0, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("4096"), // version=1, vlan=0
+                    FieldDef::new("cos_en_t_session", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("reserved", 32, 12, FieldType::Pad),
+                    FieldDef::new("index", 44, 20, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── VXLAN_GBP (VXLAN with Group Based Policy) ──
+        "VXLAN_GBP" => Some(
+            ProtocolDef::new("VXLAN_GBP", 64) // 8-byte VXLAN header with GBP flag
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 8, FieldType::Flags)
+                        .with_default_value("136"), // 0x88: I=1, G=1 (GBP flag)
+                    FieldDef::new("reserved1", 8, 8, FieldType::Pad),
+                    FieldDef::new("group_policy_id", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("vni", 32, 24, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("100"),
+                    FieldDef::new("reserved2", 56, 8, FieldType::Pad),
+                ]),
+        ),
+        // ── SDP (Session Description Protocol, text but has PDML fields) ──
+        "SDP" => Some(
+            ProtocolDef::new("SDP", 0) // text protocol, minimal stub
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 0, FieldType::Uint),
+                ]),
+        ),
+        // ── GVRP (GARP VLAN Registration Protocol) ── 802.1Q
+        "GVRP" => Some(
+            ProtocolDef::new("GVRP", 16) // GARP PDU header
+                .with_fields(vec![
+                    FieldDef::new("attribute_type", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // VLAN attribute
+                    FieldDef::new("attribute_length", 8, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── MSTP (Multiple Spanning Tree Protocol) ── 802.1s
+        // ── STP variants (all share BPDU structure, differ by version/flags) ──
+        "RSTP" => Some(
+            ProtocolDef::new("RSTP", 280) // 35-byte BPDU
+                .with_fields(vec![
+                    FieldDef::new("protocol_id", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("version", 16, 8, FieldType::Uint).with_default_value("2"), // RSTP
+                    FieldDef::new("type", 24, 8, FieldType::Uint).with_default_value("2"), // RST BPDU
+                    FieldDef::new("flags", 32, 8, FieldType::Flags),
+                    FieldDef::new("root_id", 40, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("root_path_cost", 104, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("bridge_id", 136, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("port_id", 200, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("message_age", 216, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("max_age", 232, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("5120"), // 20 seconds (in 1/256ths)
+                    FieldDef::new("hello_time", 248, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("512"), // 2 seconds
+                    FieldDef::new("forward_delay", 264, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("3840"), // 15 seconds
+                ]),
+        ),
+        "PVST" => Some(
+            ProtocolDef::new("PVST", 280) // same BPDU as STP, different encapsulation
+                .with_fields(vec![
+                    FieldDef::new("protocol_id", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("version", 16, 8, FieldType::Uint),
+                    FieldDef::new("type", 24, 8, FieldType::Uint),
+                    FieldDef::new("flags", 32, 8, FieldType::Flags),
+                    FieldDef::new("root_id", 40, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("root_path_cost", 104, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("bridge_id", 136, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("port_id", 200, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("message_age", 216, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("max_age", 232, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("5120"),
+                    FieldDef::new("hello_time", 248, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("512"),
+                    FieldDef::new("forward_delay", 264, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("3840"),
+                ]),
+        ),
+        "MSTP" => Some(
+            ProtocolDef::new("MSTP", 280) // BPDU with version=3
+                .with_fields(vec![
+                    FieldDef::new("protocol_id", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("version", 16, 8, FieldType::Uint).with_default_value("3"), // MSTP
+                    FieldDef::new("type", 24, 8, FieldType::Uint).with_default_value("2"),
+                    FieldDef::new("flags", 32, 8, FieldType::Flags),
+                    FieldDef::new("root_id", 40, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("root_path_cost", 104, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("bridge_id", 136, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("port_id", 200, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("message_age", 216, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("max_age", 232, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("5120"),
+                    FieldDef::new("hello_time", 248, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("512"),
+                    FieldDef::new("forward_delay", 264, 16, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("3840"),
+                ]),
+        ),
+        // ── sFlow (sampled flow) ──
+        "sFlow" => Some(
+            ProtocolDef::new("sFlow", 224) // 28-byte v5 header
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 32, FieldType::Uint).with_endian(Endian::Big)
+                        .with_default_value("5"),
+                    FieldDef::new("agent_address_type", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big).with_default_value("1"), // IPv4
+                    FieldDef::new("agent_address", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("sub_agent_id", 96, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("sequence_number", 128, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("uptime", 160, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("num_samples", 192, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+
+        // ── SOCKS (SOCKSv5 handshake) ──
+        "SOCKS" => Some(
+            ProtocolDef::new("SOCKS", 24) // 3-byte v5 greeting
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint).with_default_value("5"),
+                    FieldDef::new("nmethods", 8, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("methods", 16, 8, FieldType::Uint), // 0x00 = no auth
+                ]),
+        ),
+        // ── IRC (Internet Relay Chat) ──
+        "IRC" => Some(
+            ProtocolDef::new("IRC", 0)
+                .with_fields(vec![
+                    FieldDef::new("command", 0, 0, FieldType::Uint),
+                ]),
+        ),
+        // ── TACACS (Terminal Access Controller, RFC 8907) ──
+        "TACACS" => Some(
+            ProtocolDef::new("TACACS", 96) // 12-byte header
+                .with_fields(vec![
+                    FieldDef::new("major_version", 0, 4, FieldType::Uint)
+                        .with_default_value("12"), // major=0xC
+                    FieldDef::new("minor_version", 4, 4, FieldType::Uint),
+                    FieldDef::new("type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // Authentication
+                    FieldDef::new("seq_no", 16, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("flags", 24, 8, FieldType::Flags)
+                        .with_default_value("1"), // TAC_PLUS_UNENCRYPTED_FLAG
+                    FieldDef::new("session_id", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("length", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── MMRP (Multiple MAC Registration Protocol, 802.1Q) ──
+        "MMRP" => Some(
+            ProtocolDef::new("MMRP", 16)
+                .with_fields(vec![
+                    FieldDef::new("attribute_type", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("attribute_length", 8, 8, FieldType::Uint),
                 ]),
         ),
 

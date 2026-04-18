@@ -1696,6 +1696,13 @@ fn tshark_from_pcap_bytes(
         }
     }
 
+    // Fallback: try PDML name alias (for protocols where tshark layer name differs)
+    if let Some(alias) = extractors::tshark::pdml_name_alias(proto) {
+        if let Some(found) = extractors::tshark::extract_protocol_from_pdml(&packets, alias) {
+            return Ok(found);
+        }
+    }
+
     anyhow::bail!("tshark did not dissect protocol '{}'", proto)
 }
 

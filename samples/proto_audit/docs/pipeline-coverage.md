@@ -1,6 +1,6 @@
 # Pipeline Coverage Tracker
 
-**Last updated:** 2026-04-17  
+**Last updated:** 2026-04-18  
 **Baseline commit:** `85d57a5` (fix comparator + IPv4/IPv6 fixups)
 
 ## Summary
@@ -8,37 +8,37 @@
 | Metric | Value |
 |--------|-------|
 | Total cells (protocol x target) | 3424 |
-| PASS | 1321 (38.6%) |
+| PASS | 1432 (41.8%) |
 | FAIL | 78 (2.3%) |
-| ERR (no PCAP template / extractor gap) | 2025 (59.1%) |
-| Protocols at 8/8 | 126 |
-| Protocols at 7/8 | 45 |
+| ERR (no PCAP template / extractor gap) | 1914 (55.9%) |
+| Protocols at 8/8 | 131 |
+| Protocols at 7/8 | 54 |
 | Protocols at 6/8 | 1 |
-| Protocols at 0/8 | 257 |
+| Protocols at 0/8 | 242 |
 
 ## Per-Target Totals
 
 | Target | PASS | Notes |
 |--------|------|-------|
-| etherparse | 171 | |
-| c | 171 | |
-| scapy | 170 | IEEE802.11 ERR |
-| kaitai | 171 | |
-| pcap | 171 | |
-| libpcap | 171 | |
-| omi | 171 | |
-| suricata | 125 | 46 ERR (narrower extractor coverage) |
+| etherparse | 186 | |
+| c | 186 | |
+| scapy | 185 | IEEE802.11 ERR |
+| kaitai | 186 | |
+| pcap | 186 | |
+| libpcap | 186 | |
+| omi | 186 | |
+| suricata | 131 | 55 ERR (narrower extractor coverage) |
 
 ## Score Distribution
 
 ```
-8/8:  126 protocols  (perfect round-trip across all 8 generators)
-7/8:   45 protocols  (all but suricata in most cases)
+8/8:  131 protocols  (perfect round-trip across all 8 generators)
+7/8:   54 protocols  (all but suricata in most cases)
 6/8:    1 protocol   (IEEE802.11 — scapy + suricata ERR)
-0/8:  257 protocols  (no PCAP template or all-ERR)
+0/8:  242 protocols  (no PCAP template or all-ERR)
 ```
 
-## Protocols at 8/8 (126)
+## Protocols at 8/8 (131)
 
 Ethernet, VLAN, PBB, IPv4, IPv6, ARP, RARP, ICMPv4, ICMPv6, IGMP, TCP,
 UDP, GRE, VXLAN, Geneve, MPLS, PPP, PPPoE, L2TP, NSH, ESP, AH, LLDP,
@@ -51,19 +51,21 @@ Diameter, Syslog, TFTP, IPFIX, Kerberos, NTLMSSP, HTTP, FTP, SSH,
 Telnet, IMAP, Kafka, ZeroMQ, Memcache, BFD, LDP, RSVP, OpenFlow, TZSP,
 LWAPP, PPTP, VRRP3, BSSGP, RANAP, WebSocket, Radiotap,
 DCCP, UDPLite, IPComp, EtherIP, RIPng, PIM, MSDP, TWAMP, NVGRE,
-PIMv6, PCP, PFCP, DoIP, IPX, Y1731, GRE6, AVTP, EtherCAT, NFS, OWAMP
+PIMv6, PCP, PFCP, DoIP, IPX, Y1731, GRE6, AVTP, EtherCAT, NFS, OWAMP,
+MSTP, PVST, RSTP, sFlow, SOCKS, TACACS
 
-## Protocols at 7/8 (45 — typically suricata ERR)
+## Protocols at 7/8 (54 — typically suricata ERR)
 
-IPv6_EH, IPv6_ND, HCI_CMD, HCI_ACL, HCI_Event, CAN_XL, MAC_Control,
-NC_SI, Slow_Protocols, BT_BNEP, IGMPv3_Query, IGMPv3_Report,
-MLDv2_Query, MLDv2_Report, MPEG_TS, ONC_RPC, GTP_U, GTP_C,
-IPv6_Fragment, IPv6_DestOpts, IPv6_Routing, IP_in_IP, MODBUS_TCP,
-OPC_UA, IEC_GOOSE, IEC_SV, NetFlow_v5, NetFlow_v9, MPLS_OAM,
-GRE_PPTP, SCTP_Init, WPA_EAPOL_Key, MLD_Report_v1, SCTP_Data,
-SCTP_Sack, L2TP_AVP, GENEVE_OPT,
-VXLAN_GPE, PIM_Assert, PIM_BSR, GTPv2_C, GTP_V0, DNS_TCP,
-IPv6_HopByHop, MPLS_Echo
+IPv6_EH, IPv6_ND, HCI_CMD, HCI_ACL, HCI_Event, HCI_SCO, HCI_ISO,
+CAN_XL, MAC_Control, NC_SI, Slow_Protocols, BT_BNEP,
+IGMPv3_Query, IGMPv3_Report, MLDv2_Query, MLDv2_Report,
+MPEG_TS, ONC_RPC, GTP_U, GTP_C, GTP_V0, GTPv2_C,
+IPv6_Fragment, IPv6_DestOpts, IPv6_Routing, IPv6_HopByHop, IP_in_IP,
+MODBUS_TCP, OPC_UA, IEC_GOOSE, IEC_SV, NetFlow_v5, NetFlow_v9,
+MPLS_OAM, MPLS_Echo, GRE_PPTP, SCTP_Init, SCTP_Data, SCTP_Sack,
+WPA_EAPOL_Key, MLD_Report_v1, L2TP_AVP, GENEVE_OPT,
+VXLAN_GPE, VXLAN_GBP, PIM_Assert, PIM_BSR, DNS_TCP,
+PPP_LCP, PPP_IPCP, PPP_IPv6CP, PPP_CCP, PPP_CHAP, IB_LRH
 
 ## Protocols with FAIL (10 — have PCAP template but comparison fails)
 
@@ -80,11 +82,11 @@ IPv6_HopByHop, MPLS_Echo
 | Redis | 0/8 | RESP text protocol, binary serialization fails |
 | CAPWAP | 0/8 | Minimal 4-byte stub insufficient |
 
-## Protocols at 0/8 ERR (256 — no usable PCAP template)
+## Protocols at 0/8 ERR (242 — no usable PCAP template)
 
 These protocols either lack PCAP templates, have no IR fields, or the
 generated template doesn't produce a valid PCAP that tshark can dissect.
-182 PCAP templates now exist in `pcap_templates/`, but ~257 protocols
+196 PCAP templates now exist in `pcap_templates/`, but ~242 protocols
 still produce no IR fields or have no tshark dissector path.
 
 ## Progress History
@@ -96,6 +98,7 @@ still produce no IR fields or have no tshark dissector path.
 | 2026-04-16 | 1105 | 3424 | 32.3% | Parallel matrix (rayon), auto-generate 65 templates, ICMPv4 fixed |
 | 2026-04-17 | 1283 | 3424 | 37.5% | Hand-written IR for 26 Bucket 1 protocols, embedded_proto fallback in build_rich_ir, decode-as improvements |
 | 2026-04-17 | 1321 | 3424 | 38.6% | +40 embedded_proto defs (Batch 1+2), tshark alias hints (AVTP, EtherCAT, OWAMP, MPLS_Echo, IPv6_HopByHop), 182 templates |
+| 2026-04-18 | 1432 | 3424 | 41.8% | Bucket 3 sub-protocols (HCI, PPP, IB, CAN, BT), Bucket 5 mapping fixes (TACACS, sFlow, SOCKS), STP variants (RSTP, PVST, MSTP), pdml_name_alias refactor |
 
 ## Next Steps (priority order)
 

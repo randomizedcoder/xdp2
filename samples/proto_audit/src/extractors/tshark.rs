@@ -160,7 +160,7 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "TPLINK_SMARTHOME" => vec!["udp.port==9999,tplink-smarthome"],
         // WOL: tshark recognizes WOL via magic FF pattern, no decode-as needed
         // TCP-based protocols that need port-based decode-as
-        "TACACS" => vec!["tcp.port==49,tacacs"],
+        "TACACS" => vec!["tcp.port==49,tacplus"],
         "ZeroMQ" => vec!["tcp.port==5555,zmtp"],
         "NVMe" => vec!["tcp.port==4420,nvme-tcp"],
         "DNP3" => vec!["tcp.port==20000,dnp3"],
@@ -171,21 +171,65 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "Telnet" => vec!["tcp.port==23,telnet"],
         "NFS" => vec!["tcp.port==2049,rpc"],
         "CIP" => vec!["tcp.port==44818,enip"],
-        // ── Protocols where tshark layer name differs from canonical name ──
-        // These aren't real decode-as hints but are used by the fallback in
-        // tshark_from_pcap_bytes to match the actual PDML protocol name.
-        "AVTP" => vec!["ethertype==0x22F0,ieee1722"],
-        "EtherCAT" => vec!["ethertype==0x88A4,ecatf"],
-        "PROFINET" => vec!["ethertype==0x8892,pn_dcp"],
-        "FCoE" => vec!["ethertype==0x8906,fcoe"],
-        "MACsec" => vec!["ethertype==0x88E5,macsec"],
-        "L2TPv3" => vec!["ip.proto==115,l2tp"],
-        "IPv6_HopByHop" => vec!["ip.proto==0,ipv6.hopopts"],
-        "IPv6_MobileIP" => vec!["ip.proto==135,mip6"],
-        "L2CAP" => vec!["btl2cap==0,btl2cap"],
-        "IB_LRH" | "IB_GRH" | "IB_BTH" => vec!["infiniband==0,infiniband"],
-        "WOL" => vec!["ethertype==0,wol"],
+        "VXLAN_GBP" => vec!["udp.port==4789,vxlan"],
+        "sFlow" => vec!["udp.port==6343,sflow"],
         _ => vec![],
+    }
+}
+
+/// Return the PDML `<proto name="...">` that tshark uses for this protocol,
+/// when it differs from the canonical name or the name_mapping tshark field.
+/// This is NOT passed to tshark as a `-d` flag — it's only used for searching
+/// PDML output in `tshark_from_pcap_bytes`.
+pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
+    match proto {
+        // Ethertype-based protocols where tshark layer name differs
+        "AVTP" => Some("ieee1722"),
+        "EtherCAT" => Some("ecatf"),
+        "PROFINET" => Some("pn_dcp"),
+        "FCoE" => Some("fcoe"),
+        "MACsec" => Some("macsec"),
+        "WOL" => Some("wol"),
+        "GVRP" => Some("gvrp"),
+        "MSTP" => Some("stp"),
+        // IP-proto based
+        "L2TPv3" => Some("l2tp"),
+        "IPv6_HopByHop" => Some("ipv6.hopopts"),
+        "IPv6_MobileIP" => Some("mip6"),
+        "ERSPAN" => Some("erspan"),
+        // Bluetooth sub-protocols
+        "L2CAP" => Some("btl2cap"),
+        "BT_ATT" => Some("btatt"),
+        "BT_SMP" => Some("btsmp"),
+        "HCI_CMD" => Some("bthci_cmd"),
+        "HCI_SCO" => Some("bthci_sco"),
+        "HCI_Event" => Some("bthci_evt"),
+        "HCI_ISO" => Some("bthci_iso"),
+        "LMP" => Some("btlmp"),
+        // PPP sub-protocols
+        "PPP_LCP" => Some("lcp"),
+        "PPP_IPCP" => Some("ipcp"),
+        "PPP_IPv6CP" => Some("ipv6cp"),
+        "PPP_CCP" => Some("ccp"),
+        "PPP_CHAP" => Some("chap"),
+        // CAN sub-protocols
+        "CAN_J1939" => Some("j1939"),
+        "CAN_OBD2" => Some("obd-ii"),
+        "CAN_TP" => Some("iso15765"),
+        // InfiniBand sub-protocols
+        "IB_LRH" | "IB_GRH" | "IB_BTH" | "IB_DETH" | "IB_RETH"
+        | "IB_AETH" | "IB_RDETH" | "IB_AtomicETH" | "IB_ImmDt"
+        | "IB_MAD" => Some("infiniband"),
+        // sFlow / VXLAN_GBP use decode_as_hints (real hints), but also need alias
+        "VXLAN_GBP" => Some("vxlan"),
+        "sFlow" => Some("sflow"),
+        "SOCKS" => Some("socks"),
+        "IRC" => Some("irc"),
+        "TACACS" => Some("tacplus"),
+        "MMRP" => Some("mmrp"),
+        "PVST" => Some("stp"),
+        "RSTP" => Some("stp"),
+        _ => None,
     }
 }
 
