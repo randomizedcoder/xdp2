@@ -142,9 +142,18 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "SRT" => vec!["udp.port==1935,srt"],
         "HSRP" => vec!["udp.port==1985,hsrp"],
         "GLBP" => vec!["udp.port==3222,glbp"],
-        "CARP" | "VRRP" => vec!["ip.proto==112,vrrp"],
+        "CARP" => vec!["ip.proto==112,carp"],
+        "VRRP" => vec!["ip.proto==112,vrrp"],
         "Teredo" => vec!["udp.port==3544,teredo"],
         "MPLS_OAM" => vec!["udp.port==3503,mpls-echo"],
+        "TWAMP" => vec!["udp.port==862,twamp.test"],
+        // STT uses heuristic dissector, not port-based decode-as
+        // NVGRE is GRE with Key bit — tshark dissects as "gre", no separate dissector
+        "NVGRE" => vec!["ip.proto==47,gre"],
+        // GUE has no tshark dissector — tshark sees the UDP payload as data
+        "GUE" => vec!["udp.port==6080,data"],
+        "OWAMP" => vec!["udp.port==861,owamp.test"],
+        "MPLS_Echo" => vec!["udp.port==3503,mpls-echo"],
         "CAPWAP" => vec!["udp.port==5247,capwap"],
         "LWAPP" => vec!["udp.port==12222,lwapp"],
         "TZSP" => vec!["udp.port==37008,tzsp"],
@@ -162,6 +171,20 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "Telnet" => vec!["tcp.port==23,telnet"],
         "NFS" => vec!["tcp.port==2049,rpc"],
         "CIP" => vec!["tcp.port==44818,enip"],
+        // ── Protocols where tshark layer name differs from canonical name ──
+        // These aren't real decode-as hints but are used by the fallback in
+        // tshark_from_pcap_bytes to match the actual PDML protocol name.
+        "AVTP" => vec!["ethertype==0x22F0,ieee1722"],
+        "EtherCAT" => vec!["ethertype==0x88A4,ecatf"],
+        "PROFINET" => vec!["ethertype==0x8892,pn_dcp"],
+        "FCoE" => vec!["ethertype==0x8906,fcoe"],
+        "MACsec" => vec!["ethertype==0x88E5,macsec"],
+        "L2TPv3" => vec!["ip.proto==115,l2tp"],
+        "IPv6_HopByHop" => vec!["ip.proto==0,ipv6.hopopts"],
+        "IPv6_MobileIP" => vec!["ip.proto==135,mip6"],
+        "L2CAP" => vec!["btl2cap==0,btl2cap"],
+        "IB_LRH" | "IB_GRH" | "IB_BTH" => vec!["infiniband==0,infiniband"],
+        "WOL" => vec!["ethertype==0,wol"],
         _ => vec![],
     }
 }

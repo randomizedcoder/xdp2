@@ -1678,10 +1678,25 @@ fn tshark_from_pcap_bytes(
     let packets = extractors::tshark::parse_pdml(&xml)?;
     let dissector = name_mapping::find_by_canonical(proto)
         .and_then(|n| n.tshark.map(|s| s.to_string()));
-    dissector
+
+    // Try primary dissector name first
+    let result = dissector
         .as_deref()
-        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d))
-        .context(format!("tshark did not dissect protocol '{}'", proto))
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+    if result.is_some() {
+        return result.context("unreachable");
+    }
+
+    // Fallback: try dissector names from decode-as hints (e.g., CARP→vrrp, NVGRE→gre)
+    for hint in &hints {
+        if let Some(dname) = hint.rsplit(',').next() {
+            if let Some(found) = extractors::tshark::extract_protocol_from_pdml(&packets, dname) {
+                return Ok(found);
+            }
+        }
+    }
+
+    anyhow::bail!("tshark did not dissect protocol '{}'", proto)
 }
 
 /// Find a PCAP file for a given protocol from templates or corpus.
@@ -2576,6 +2591,17 @@ fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
         if let Some(def) = try_extract(source, proto, paths) {
             if best.as_ref().map_or(true, |b| def.fields.len() > b.fields.len()) {
                 best = Some(def);
+            }
+        }
+    }
+
+    // If no extractor produced fields, check embedded_proto definitions
+    if best.as_ref().map_or(true, |b| b.fields.is_empty()) {
+        if let Some(edef) = crate::generator::pcap::embedded_proto(proto) {
+            if !edef.fields.is_empty() {
+                let mut edef = edef;
+                edef.generation_source = Some("embedded".to_string());
+                best = Some(edef);
             }
         }
     }

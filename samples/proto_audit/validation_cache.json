@@ -1135,10 +1135,10 @@
   },
   "IPv6": {
     "validation_tier": "Gold",
-    "fields_agree": 5,
-    "total_fields": 10,
-    "fields_mismatch": 4,
-    "timestamp": "1776011160"
+    "fields_agree": 4,
+    "total_fields": 11,
+    "fields_mismatch": 6,
+    "timestamp": "1776292414"
   },
   "IPv6_DestOpts": {
     "validation_tier": "Gold",

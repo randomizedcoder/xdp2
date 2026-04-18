@@ -805,7 +805,7 @@ fn resolve_proto(name: &str, all_protos: &BTreeMap<String, ProtocolDef>) -> Prot
 }
 
 /// Embedded minimal protocol definitions for stack construction.
-fn embedded_proto(name: &str) -> Option<ProtocolDef> {
+pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
     match name {
         "Ethernet" => Some(
             ProtocolDef::new("Ethernet", 112)
@@ -1461,34 +1461,35 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_endian(Endian::Big),
                 ]),
         ),
-        // ── GUE (Generic UDP Encapsulation) ──
+        // ── GUE (Generic UDP Encapsulation) ── RFC 8926
         "GUE" => Some(
             ProtocolDef::new("GUE", 32)
                 .with_fields(vec![
-                    // Version(2)=0, C(1)=0, Hlen(5)=0, Proto/CT
-                    FieldDef::new("flags_proto", 0, 16, FieldType::Uint)
-                        .with_endian(Endian::Big)
-                        .with_default_value("4"), // proto=IPv4 (4)
-                    FieldDef::new("flags2", 16, 16, FieldType::Uint)
-                        .with_endian(Endian::Big),
-                ]),
+                    FieldDef::new("version", 0, 2, FieldType::Uint),
+                    FieldDef::new("c_bit", 2, 1, FieldType::Uint),
+                    FieldDef::new("hlen", 3, 5, FieldType::Uint),
+                    FieldDef::new("proto", 8, 8, FieldType::Enum)
+                        .with_default_value("4"), // IPv4 inner
+                    FieldDef::new("flags", 16, 16, FieldType::Flags).with_endian(Endian::Big),
+                ])
+                .with_dispatch_field("proto"),
         ),
-        // ── STT (Stateless Transport Tunneling) ──
+        // ── STT (Stateless Transport Tunneling) ── draft-davie-stt
         "STT" => Some(
             ProtocolDef::new("STT", 144)
                 .with_fields(vec![
                     FieldDef::new("version", 0, 8, FieldType::Uint),
-                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("flags", 8, 8, FieldType::Flags),
                     FieldDef::new("l4_offset", 16, 8, FieldType::Uint)
                         .with_default_value("14"),
-                    FieldDef::new("reserved", 24, 8, FieldType::Pad),
+                    FieldDef::new("reserved", 24, 8, FieldType::Uint),
                     FieldDef::new("max_seg_size", 32, 16, FieldType::Uint)
                         .with_endian(Endian::Big),
-                    FieldDef::new("pcp_dei_vid", 48, 16, FieldType::Uint)
+                    FieldDef::new("pcp_v_vlanid", 48, 16, FieldType::Uint)
                         .with_endian(Endian::Big),
                     FieldDef::new("context_id", 64, 64, FieldType::Uint)
                         .with_endian(Endian::Big),
-                    FieldDef::new("padding", 128, 16, FieldType::Pad),
+                    FieldDef::new("padding", 128, 16, FieldType::Uint).with_endian(Endian::Big),
                 ]),
         ),
         // ── BT_RFCOMM (RFCOMM frame: address + control + length + FCS) ──
@@ -1773,6 +1774,561 @@ fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_default_value("0"),
                 ]),
         ),
+        // ══════════════════════════════════════════════════════════════
+        // Bucket 1 — Batch 1: 15 simple RFC-based protocols
+        // ══════════════════════════════════════════════════════════════
+
+        // ── DCCP (Datagram Congestion Control Protocol) ── RFC 4340
+        // 12-byte generic header (before type-specific fields)
+        "DCCP" => Some(
+            ProtocolDef::new("DCCP", 96)
+                .with_fields(vec![
+                    FieldDef::new("src_port", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("dst_port", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("data_offset", 32, 8, FieldType::Uint)
+                        .with_default_value("3"), // 3 × 32-bit words = 12 bytes
+                    FieldDef::new("ccval", 40, 4, FieldType::Uint),
+                    FieldDef::new("cscov", 44, 4, FieldType::Uint),
+                    FieldDef::new("checksum", 48, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("res", 64, 3, FieldType::Uint),
+                    FieldDef::new("type", 67, 4, FieldType::Uint), // 0=Request
+                    FieldDef::new("x", 71, 1, FieldType::Uint),    // extended seq
+                    FieldDef::new("seq_high", 72, 8, FieldType::Uint),
+                    FieldDef::new("seq_low", 80, 16, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── UDPLite ── RFC 3828
+        "UDPLite" => Some(
+            ProtocolDef::new("UDPLite", 64)
+                .with_fields(vec![
+                    FieldDef::new("src_port", 0, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("dst_port", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("checksum_coverage", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("8"), // cover header only
+                    FieldDef::new("checksum", 48, 16, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── IPComp (IP Payload Compression) ── RFC 3173
+        "IPComp" => Some(
+            ProtocolDef::new("IPComp", 32)
+                .with_fields(vec![
+                    FieldDef::new("next_header", 0, 8, FieldType::Enum),
+                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("cpi", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"), // DEFLATE
+                ])
+                .with_dispatch_field("next_header"),
+        ),
+        // ── NVGRE (Network Virtualization using GRE) ── RFC 7637
+        // GRE header with Key bit set, protocol_type=0x6558 (TransEther)
+        "NVGRE" => Some(
+            ProtocolDef::new("NVGRE", 64)
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 4, FieldType::Flags)
+                        .with_default_value("2"), // K bit set
+                    FieldDef::new("version", 4, 3, FieldType::Uint),
+                    FieldDef::new("reserved0", 7, 9, FieldType::Uint),
+                    FieldDef::new("protocol_type", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("25944"), // 0x6558 TransEther
+                    FieldDef::new("vsid", 32, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("flow_id", 56, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── EtherIP ── RFC 3378
+        "EtherIP" => Some(
+            ProtocolDef::new("EtherIP", 16)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("3"), // version 3
+                    FieldDef::new("reserved", 4, 12, FieldType::Uint),
+                ]),
+        ),
+        // ── VXLAN_GPE (VXLAN Generic Protocol Extension) ── draft-ietf-nvo3
+        "VXLAN_GPE" => Some(
+            ProtocolDef::new("VXLAN_GPE", 64)
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 8, FieldType::Flags)
+                        .with_default_value("12"), // I+P bits (0x0C)
+                    FieldDef::new("reserved0", 8, 16, FieldType::Uint),
+                    FieldDef::new("next_protocol", 24, 8, FieldType::Enum)
+                        .with_default_value("1"), // IPv4
+                    FieldDef::new("vni", 32, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("reserved1", 56, 8, FieldType::Uint),
+                ])
+                .with_dispatch_field("next_protocol"),
+        ),
+        // ── OSPFv3 ── RFC 5340
+        "OSPFv3" => Some(
+            ProtocolDef::new("OSPFv3", 128) // 16 bytes
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("3"),
+                    FieldDef::new("type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // Hello
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("16"),
+                    FieldDef::new("router_id", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("16843009"), // 1.1.1.1
+                    FieldDef::new("area_id", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("checksum", 96, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("instance_id", 112, 8, FieldType::Uint),
+                    FieldDef::new("reserved", 120, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── RIPng ── RFC 2080
+        "RIPng" => Some(
+            ProtocolDef::new("RIPng", 32) // 4-byte header
+                .with_fields(vec![
+                    FieldDef::new("command", 0, 8, FieldType::Uint)
+                        .with_default_value("2"), // Response
+                    FieldDef::new("version", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("reserved", 16, 16, FieldType::Uint),
+                ]),
+        ),
+        // ── PIM (Protocol Independent Multicast) ── RFC 4601
+        "PIM" => Some(
+            ProtocolDef::new("PIM", 32) // 4-byte header
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("type", 4, 4, FieldType::Uint), // 0=Hello
+                    FieldDef::new("reserved", 8, 8, FieldType::Uint),
+                    FieldDef::new("checksum", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── MSDP (Multicast Source Discovery Protocol) ── RFC 3618
+        "MSDP" => Some(
+            ProtocolDef::new("MSDP", 24) // 3-byte TLV header
+                .with_fields(vec![
+                    FieldDef::new("type", 0, 8, FieldType::Uint)
+                        .with_default_value("4"), // KeepAlive
+                    FieldDef::new("length", 8, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("3"), // 3 bytes (header only)
+                ]),
+        ),
+        // ── CARP (Common Address Redundancy Protocol) ── RFC 5798 variant
+        "CARP" => Some(
+            ProtocolDef::new("CARP", 160) // 20 bytes
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("type", 4, 4, FieldType::Uint)
+                        .with_default_value("1"), // Advertisement
+                    FieldDef::new("vhid", 8, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("advskew", 16, 8, FieldType::Uint),
+                    FieldDef::new("authlen", 24, 8, FieldType::Uint),
+                    FieldDef::new("demotion", 32, 8, FieldType::Uint),
+                    FieldDef::new("advbase", 40, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("checksum", 48, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("counter0", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("counter1", 96, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("hmac", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── HSRP (Hot Standby Router Protocol) ── RFC 2281
+        "HSRP" => Some(
+            ProtocolDef::new("HSRP", 160) // 20 bytes
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint),
+                    FieldDef::new("opcode", 8, 8, FieldType::Uint), // 0=Hello
+                    FieldDef::new("state", 16, 8, FieldType::Uint)
+                        .with_default_value("16"), // Active
+                    FieldDef::new("hellotime", 24, 8, FieldType::Uint)
+                        .with_default_value("3"),
+                    FieldDef::new("holdtime", 32, 8, FieldType::Uint)
+                        .with_default_value("10"),
+                    FieldDef::new("priority", 40, 8, FieldType::Uint)
+                        .with_default_value("100"),
+                    FieldDef::new("group", 48, 8, FieldType::Uint),
+                    FieldDef::new("reserved", 56, 8, FieldType::Uint),
+                    FieldDef::new("auth", 64, 64, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("vip", 128, 32, FieldType::Ipv4Addr).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── TWAMP (Two-Way Active Measurement Protocol) ── RFC 5357
+        // Sender test packet (unauthenticated mode)
+        "TWAMP" => Some(
+            ProtocolDef::new("TWAMP", 112) // 14 bytes
+                .with_fields(vec![
+                    FieldDef::new("seq_number", 0, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("timestamp_sec", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("timestamp_frac", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("error_estimate", 96, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("32769"), // S=1, scale=0, multiplier=1
+                ]),
+        ),
+
+        // ══════════════════════════════════════════════════════════════
+        // Bucket 1 — Batch 2: remaining simple RFC protocols
+        // ══════════════════════════════════════════════════════════════
+
+        // ── IPv6_HopByHop (Hop-by-Hop Options) ── RFC 2460
+        "IPv6_HopByHop" => Some(
+            ProtocolDef::new("IPv6_HopByHop", 64) // 8 bytes minimum
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("next_header", 0, 8, FieldType::Enum),
+                    FieldDef::new("hdr_ext_len", 8, 8, FieldType::Uint), // in 8-octet units, minus 1
+                    FieldDef::new("opt_type", 16, 8, FieldType::Uint)
+                        .with_default_value("1"), // PadN
+                    FieldDef::new("opt_len", 24, 8, FieldType::Uint)
+                        .with_default_value("4"),
+                    FieldDef::new("opt_data", 32, 32, FieldType::Uint),
+                ])
+                .with_dispatch_field("next_header"),
+        ),
+        // ── IPv6_MobileIP (Mobility Header) ── RFC 6275
+        "IPv6_MobileIP" => Some(
+            ProtocolDef::new("IPv6_MobileIP", 64) // 8 bytes minimum
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("payload_proto", 0, 8, FieldType::Enum),
+                    FieldDef::new("hdr_len", 8, 8, FieldType::Uint),
+                    FieldDef::new("mh_type", 16, 8, FieldType::Uint), // 0=BRR
+                    FieldDef::new("reserved", 24, 8, FieldType::Uint),
+                    FieldDef::new("checksum", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("message_data", 48, 16, FieldType::Uint),
+                ]),
+        ),
+        // ── SixInFour (IPv6-in-IPv4 tunneling) ── RFC 4213
+        // No extra header — just IPv4(proto=41) → IPv6, minimal encap
+        "SixInFour" => Some(
+            ProtocolDef::new("SixInFour", 0), // zero-header tunnel (IPv4 proto 41 = IPv6)
+        ),
+        // ── PIM_Assert ── RFC 4601 (PIM Assert message, type=5)
+        "PIM_Assert" => Some(
+            ProtocolDef::new("PIM_Assert", 64) // 8 bytes PIM header + payload
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("type", 4, 4, FieldType::Uint)
+                        .with_default_value("5"), // Assert
+                    FieldDef::new("reserved", 8, 8, FieldType::Uint),
+                    FieldDef::new("checksum", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("group_addr", 32, 32, FieldType::Ipv4Addr)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── PIM_BSR (Bootstrap Router) ── RFC 4601 (type=4)
+        "PIM_BSR" => Some(
+            ProtocolDef::new("PIM_BSR", 64)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("type", 4, 4, FieldType::Uint)
+                        .with_default_value("4"), // Bootstrap
+                    FieldDef::new("reserved", 8, 8, FieldType::Uint),
+                    FieldDef::new("checksum", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("fragment_tag", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("hash_mask_len", 48, 8, FieldType::Uint),
+                    FieldDef::new("bsr_priority", 56, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── PIMv6 ── RFC 3973 (PIM over IPv6, same header as PIM)
+        "PIMv6" => Some(
+            ProtocolDef::new("PIMv6", 32)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("type", 4, 4, FieldType::Uint),
+                    FieldDef::new("reserved", 8, 8, FieldType::Uint),
+                    FieldDef::new("checksum", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── PCP (Port Control Protocol) ── RFC 6887
+        "PCP" => Some(
+            ProtocolDef::new("PCP", 192) // 24 bytes
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("opcode", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // MAP request (R=0)
+                    FieldDef::new("reserved", 16, 16, FieldType::Uint),
+                    FieldDef::new("lifetime", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("3600"),
+                    FieldDef::new("client_ip", 64, 128, FieldType::Ipv6Addr)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── PFCP (Packet Forwarding Control Protocol) ── 3GPP TS 29.244
+        "PFCP" => Some(
+            ProtocolDef::new("PFCP", 64) // 8-byte base header (no SEID)
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 8, FieldType::Flags)
+                        .with_default_value("32"), // version=1 (0x20)
+                    FieldDef::new("message_type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // Heartbeat Request
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("4"),
+                    FieldDef::new("seq_number", 32, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("spare", 56, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── GTPv2_C (GTP v2 Control) ── 3GPP TS 29.274
+        "GTPv2_C" => Some(
+            ProtocolDef::new("GTPv2_C", 96) // 12 bytes with TEID
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 3, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("p_flag", 3, 1, FieldType::Uint),
+                    FieldDef::new("t_flag", 4, 1, FieldType::Uint)
+                        .with_default_value("1"), // TEID present
+                    FieldDef::new("spare", 5, 3, FieldType::Uint),
+                    FieldDef::new("message_type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // Echo Request
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("8"),
+                    FieldDef::new("teid", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("seq_number", 64, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("spare2", 88, 8, FieldType::Uint),
+                ]),
+        ),
+        // ── GTP_V0 (GTP v0) ── 3GPP TS 09.60
+        "GTP_V0" => Some(
+            ProtocolDef::new("GTP_V0", 160) // 20 bytes
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 8, FieldType::Flags)
+                        .with_default_value("30"), // version=0, PT=1, SNN=1, N-PDU=1 → 0x1E
+                    FieldDef::new("message_type", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // Echo Request
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("12"),
+                    FieldDef::new("seq_number", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("flow_label", 48, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("sndcp_n_pdu", 64, 8, FieldType::Uint),
+                    FieldDef::new("spare", 72, 24, FieldType::Uint),
+                    FieldDef::new("tid", 96, 64, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── OWAMP (One-Way Active Measurement) ── RFC 4656
+        "OWAMP" => Some(
+            ProtocolDef::new("OWAMP", 112) // 14 bytes sender test packet
+                .with_fields(vec![
+                    FieldDef::new("seq_number", 0, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("timestamp_sec", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("timestamp_frac", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("error_estimate", 96, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("32769"),
+                ]),
+        ),
+        // ── MPLS_Echo (MPLS Ping/Traceroute) ── RFC 4379
+        "MPLS_Echo" => Some(
+            ProtocolDef::new("MPLS_Echo", 256) // 32 bytes
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("global_flags", 16, 16, FieldType::Flags)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("msg_type", 32, 8, FieldType::Uint)
+                        .with_default_value("1"), // Echo Request
+                    FieldDef::new("reply_mode", 40, 8, FieldType::Uint)
+                        .with_default_value("2"), // Reply via IPv4/IPv6 UDP
+                    FieldDef::new("return_code", 48, 8, FieldType::Uint),
+                    FieldDef::new("return_subcode", 56, 8, FieldType::Uint),
+                    FieldDef::new("sender_handle", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("seq_number", 96, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_sent_sec", 128, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_sent_frac", 160, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_recv_sec", 192, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ts_recv_frac", 224, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── DoIP (Diagnostics over IP) ── ISO 13400-2
+        "DoIP" => Some(
+            ProtocolDef::new("DoIP", 64) // 8 bytes
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("inv_version", 8, 8, FieldType::Uint)
+                        .with_default_value("253"), // 0xFD = ~0x02
+                    FieldDef::new("type", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"), // Vehicle identification request
+                    FieldDef::new("length", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── DNS_TCP (DNS over TCP with 2-byte length prefix) ── RFC 1035
+        "DNS_TCP" => Some(
+            ProtocolDef::new("DNS_TCP", 112) // 2-byte length + 12-byte DNS header
+                .with_fields(vec![
+                    FieldDef::new("length", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("12"),
+                    FieldDef::new("transaction_id", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("flags", 32, 16, FieldType::Flags)
+                        .with_endian(Endian::Big)
+                        .with_default_value("256"), // 0x0100 = standard query
+                    FieldDef::new("questions", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                    FieldDef::new("answer_rrs", 64, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("authority_rrs", 80, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("additional_rrs", 96, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── ECHO (Echo Protocol) ── RFC 862
+        "ECHO" => Some(
+            ProtocolDef::new("ECHO", 32) // 4 bytes of echo data
+                .with_fields(vec![
+                    FieldDef::new("data", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"),
+                ]),
+        ),
+        // ── DISCARD (Discard Protocol) ── RFC 863
+        "DISCARD" => Some(
+            ProtocolDef::new("DISCARD", 32)
+                .with_fields(vec![
+                    FieldDef::new("data", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── CHARGEN (Character Generator) ── RFC 864
+        "CHARGEN" => Some(
+            ProtocolDef::new("CHARGEN", 32)
+                .with_fields(vec![
+                    FieldDef::new("data", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("538976288"), // " 0 " = 0x20203020
+                ]),
+        ),
+        // ── DAYTIME (Daytime Protocol) ── RFC 867
+        "DAYTIME" => Some(
+            ProtocolDef::new("DAYTIME", 32)
+                .with_fields(vec![
+                    FieldDef::new("data", 0, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── IPX (Internetwork Packet Exchange) ── Novell
+        "IPX" => Some(
+            ProtocolDef::new("IPX", 240) // 30 bytes
+                .with_fields(vec![
+                    FieldDef::new("checksum", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("65535"), // 0xFFFF = no checksum
+                    FieldDef::new("length", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("30"),
+                    FieldDef::new("transport_control", 32, 8, FieldType::Uint),
+                    FieldDef::new("packet_type", 40, 8, FieldType::Uint),
+                    FieldDef::new("dst_network", 48, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("dst_node", 80, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("dst_socket", 128, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("src_network", 144, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("src_node", 176, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("src_socket", 224, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                ]),
+        ),
+        // ── FCoE (Fibre Channel over Ethernet) ── FC-BB-5
+        "FCoE" => Some(
+            ProtocolDef::new("FCoE", 112) // 14-byte FCoE header
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 4, FieldType::Uint),
+                    FieldDef::new("reserved", 4, 100, FieldType::Uint),
+                    FieldDef::new("sof", 104, 8, FieldType::Uint)
+                        .with_default_value("46"), // 0x2E = SOFi3
+                ]),
+        ),
+        // ── AVTP (Audio Video Transport Protocol) ── IEEE 1722
+        "AVTP" => Some(
+            ProtocolDef::new("AVTP", 96) // 12-byte common header
+                .with_fields(vec![
+                    FieldDef::new("subtype", 0, 8, FieldType::Uint),
+                    FieldDef::new("sv_ver_mr_tv", 8, 8, FieldType::Flags),
+                    FieldDef::new("sequence_num", 16, 8, FieldType::Uint),
+                    FieldDef::new("reserved_tu", 24, 8, FieldType::Uint),
+                    FieldDef::new("stream_id", 32, 64, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── L2TPv3 (Layer 2 Tunneling Protocol v3) ── RFC 3931
+        "L2TPv3" => Some(
+            ProtocolDef::new("L2TPv3", 96) // 12-byte header (IP encap)
+                .with_fields(vec![
+                    FieldDef::new("session_id", 0, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("cookie", 32, 64, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── Y1731 (Ethernet OAM) ── IEEE 802.1ag / ITU-T Y.1731
+        "Y1731" => Some(
+            ProtocolDef::new("Y1731", 32) // 4-byte common OAM header
+                .with_fields(vec![
+                    FieldDef::new("md_level", 0, 3, FieldType::Uint),
+                    FieldDef::new("version", 3, 5, FieldType::Uint),
+                    FieldDef::new("opcode", 8, 8, FieldType::Uint)
+                        .with_default_value("1"), // CCM
+                    FieldDef::new("flags", 16, 8, FieldType::Flags),
+                    FieldDef::new("first_tlv_offset", 24, 8, FieldType::Uint)
+                        .with_default_value("70"),
+                ]),
+        ),
+        // ── GRE6 (GRE over IPv6) ── same GRE header, routed via IPv6
+        "GRE6" => Some(
+            ProtocolDef::new("GRE6", 32) // 4-byte minimal GRE
+                .with_fields(vec![
+                    FieldDef::new("flags", 0, 16, FieldType::Flags).with_endian(Endian::Big),
+                    FieldDef::new("protocol_type", 16, 16, FieldType::Enum)
+                        .with_endian(Endian::Big)
+                        .with_default_value("2048"), // 0x0800 = IPv4
+                ])
+                .with_dispatch_field("protocol_type"),
+        ),
+        // ── DNP3 (Distributed Network Protocol 3.0) ── IEEE 1815
+        "DNP3" => Some(
+            ProtocolDef::new("DNP3", 80) // 10-byte data link header
+                .with_fields(vec![
+                    FieldDef::new("start", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1478"), // 0x0564
+                    FieldDef::new("length", 16, 8, FieldType::Uint)
+                        .with_default_value("5"),
+                    FieldDef::new("control", 24, 8, FieldType::Uint)
+                        .with_default_value("196"), // 0xC4 = DIR=1, PRM=1, FCV=0, FC=4
+                    FieldDef::new("destination", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Little), // DNP3 uses little-endian!
+                    FieldDef::new("source", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Little),
+                    FieldDef::new("crc", 64, 16, FieldType::Uint)
+                        .with_endian(Endian::Little),
+                ]),
+        ),
+
         // ── UpperPDU (virtual, 0 bits, root DLT=252) ──
         "UpperPDU" => Some(ProtocolDef::new("UpperPDU", 0)),
         _ => None,
