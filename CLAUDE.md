@@ -8,7 +8,9 @@ Key targets:
 - `nix develop` — development shell with all tools
 - `nix build .#xdp2` — production build
 - `nix build .#proto-audit` — protocol audit tool (wrapped with all sources)
-- `nix build .#proto-audit-report` — full cached audit report
+- `nix build .#proto-audit-report` — full cached audit report (audit, matrix, findings, list, xdp2-scan — text + JSON)
+- `nix build .#proto-audit-c-check` — generate every curated protocol as a C header and compile-test with `clang -target bpf` (CI regression gate)
+- `nix build .#proto-audit-validate-all` — round-trip `validate --proto all --tier curated` (CI regression gate with baseline audit.json)
 - `nix run .#proto-audit -- <subcommand>` — run proto-audit interactively
 - `nix develop --command cargo test` — run Rust tests (from samples/proto_audit/)
 

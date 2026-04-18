@@ -32,6 +32,7 @@ See [IR as Standard](docs/ir-as-standard.md).
 ## Quick Start
 
 ```bash
+# Interactive subcommands
 nix run .#proto-audit -- matrix                              # coverage matrix
 nix run .#proto-audit -- findings                            # cross-source disagreements
 nix run .#proto-audit -- extract --source kernel --proto ARP # single protocol
@@ -41,8 +42,16 @@ nix run .#proto-audit -- generate --proto TCP --target pcap  # PCAP wire output
 nix run .#proto-audit -- validate --proto IPv4               # round-trip validation
 nix run .#proto-audit -- crossgen --proto IPv4 --target all  # cross-generator round-trip
 nix run .#proto-audit -- stats                               # system-wide statistics
-nix build .#proto-audit-report && cat result/matrix.txt      # cached report
+
+# Cached reports (deterministic, diffable)
+nix build .#proto-audit-report        && cat  result/matrix.txt        # full audit
+nix build .#proto-audit-c-check       && cat  result/logs/summary.txt  # all curated C headers compile
+nix build .#proto-audit-validate-all  && head result/validate_all.json # round-trip all curated protos
 ```
+
+See [Nix Packaging](docs/nix-packaging.md) for the full flake output
+table and CI-gate usage of `proto-audit-c-check` and
+`proto-audit-validate-all`.
 
 ## Sources
 
