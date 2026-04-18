@@ -29,7 +29,8 @@ let
     nativeBuildInputs = [ pkgs.wireshark-cli ];
   } ''
     mkdir -p $out
-    mergecap -w $out/mixed-real.pcap \
+    # -F pcap forces legacy pcap format (xdp2-bench does not support pcapng)
+    mergecap -F pcap -w $out/mixed-real.pcap \
       ${../data/pcaps/tcp_ipv4.pcap} \
       ${../data/pcaps/tcp_ipv6.pcap} \
       ${../data/pcaps/tcp_sack.pcap} \
@@ -52,7 +53,14 @@ let
   sweepInputs = [ xdp2Rs.build pkgs.coreutils pkgs.gnugrep ];
 
   # Common runtime inputs for perf record targets
-  perfInputs = [ xdp2Rs.build pkgs.perf pkgs.coreutils ];
+  # - pkgs.flamegraph: stackcollapse-perf.pl, flamegraph.pl
+  # - pkgs.inferno: inferno-collapse-perf, inferno-flamegraph (Rust, faster)
+  perfInputs = [
+    xdp2Rs.build pkgs.perf pkgs.coreutils
+    pkgs.util-linux   # taskset
+    pkgs.inferno
+    pkgs.flamegraph
+  ];
 
 in
 {
