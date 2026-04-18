@@ -444,6 +444,129 @@ advantage and a risk:
 
 ---
 
+## 4.8 Post-plan learnings from the Rust side (2026-04-18 update)
+
+Several techniques have landed in Rust since this plan was first written.
+Each has a direct C++ equivalent the backport should adopt.
+
+### graph-enum dispatch — the proven dyn-dispatch killer
+
+Rather than the Phase 2 "CRTP + template" path originally proposed, the
+xdp2-rs graph engine now has a `graph-enum` variant that packs every
+`ParseNode` into a single enum and dispatches with a static `match`. On
+`tcp_ipv4.pcap`:
+
+| Mode | ns/pkt | Instr/pkt | Cycles/pkt |
+|------|-------:|----------:|-----------:|
+| `graph` (dyn)        | 142 | 751 | 555 |
+| `graph-enum` (match) |  29 | 285 | 117 |
+| `compiled`           |  18 | 132 |  72 |
+
+That closes ~77 % of the gap between dynamic dispatch and a fully
+specialized per-chain parser, with **no per-chain codegen required** —
+only a declarative macro that expands `NodeOps` arms from the existing
+`ParseNode` definitions. (Docs:
+[fast-path-dispatch.md](./fast-path-dispatch.md),
+[performance-next-steps.md](./performance-next-steps.md).)
+
+**C++ equivalent:** a `std::variant<EthernetNode, Ipv4Node, Ipv6Node, …>`
+with a dispatch function that's a `switch` on `variant.index()` (or
+`std::visit` with an explicit overload set). Both lower to the same jump
+table as the Rust `match`. Worth measuring as a **Phase 2.5** between
+virtual dispatch and CRTP — if it hits the Rust graph-enum numbers, it
+may be sufficient on its own and the CRTP rewrite becomes optional.
+
+### Fast-path dispatch architecture — chain-histogram guided
+
+A 2-tier dispatch pattern emerged from traffic analysis:
+
+    pkt ──► [classify] ─┬─► fast path: specialized extractor (17–20 ns/pkt)
+                         │
+                         └─► slow path: graph / graph-enum  (30–150 ns/pkt)
+
+The design explores four classifier options (static top-N, runtime LRU,
+hash-table chain cache, SIMD prefilter). The choice of classifier depends
+on the deployment — HFT wants deterministic latency (static top-N), DPI
+wants throughput across many chains (LRU/hash). Measurements on the three
+workload PCAPs (https-web, nfs-server, k8s-microservices) show **top-5
+chains covering ≥97.8 % of packets** in each single-role deployment, so a
+very small specialized-extractor catalogue is sufficient.
+
+**C++ equivalent:** the specialized extractors are the same
+fixed-offset template readers as Phase 6, and the classifier is a
+handful of byte compares or an AVX-512 prefilter. The design doc
+([fast-path-dispatch.md](./fast-path-dispatch.md)) applies verbatim —
+only the implementation language changes.
+
+### Chain-histogram probe as a measurement primitive
+
+Before writing any fast-path code, we added a `--chain-histogram` probe to
+xdp2-bench that parses a PCAP and buckets packets by protocol-chain
+signature derived from `FlowMeta`. Nix targets
+`.#chain-histogram`, `.#chain-histogram-all`,
+`.#chain-histogram-workloads` reproduce the distribution data on any
+machine. The C++ backport should ship the same probe (either reusing the
+Rust binary against a C++ parse run, or duplicating the logic in
+C++) so fast-path catalog decisions are measurement-driven rather than
+guessed.
+
+### PGO lands 14–30 % on top of LTO
+
+Profile-guided optimization (`-fprofile-generate` → representative run →
+`-fprofile-use`) yielded 14–30 % on the graph/graph-enum modes without
+touching any source. This is orthogonal to the CRTP/template discussion
+and should be added as a standard build flag in the C++ CMake setup
+under a dedicated `--profile pgo` configuration. GCC and Clang both
+support `-fprofile-generate`/`-fprofile-use` with identical semantics.
+
+### Adversarial-safety parity is load-bearing
+
+The Rust port has a cross-mode oracle, 22 adversarial unit vectors,
+proptest suites at 10,000 cases per property, and a 12-hour stress run
+that pushed 159 billion packets through all four modes with 0 panics and
+0 divergences ([adversarial-testing-strategy.md](./adversarial-testing-strategy.md)).
+A C++ port that regresses this safety envelope isn't a win — losing
+memory-safety-by-construction is only acceptable if the testing
+infrastructure is commensurately strong. The C++ backport must include:
+an equivalent oracle comparing all C++ modes + the Rust reference, the
+same adversarial vector set, AddressSanitizer + UndefinedBehaviorSanitizer
+builds in CI, and a stress binary that can run overnight.
+
+### Reproducibility through Nix
+
+Every Rust benchmark / profile / histogram / workload PCAP is a Nix
+derivation:
+
+    nix build .#xdp2-rs                        # production build
+    nix run   .#perf-graph-enum-compare        # A/B numbers + flamegraphs
+    nix run   .#chain-histogram-all            # distribution on reference PCAPs
+    nix run   .#chain-histogram-workloads      # distribution on workload PCAPs
+    nix build .#workload-pcap-{https-web,nfs-server,k8s-microservices}
+
+The C++ backport should ship equivalent Nix targets under the same names
+(with an `-hp` or similar suffix) so cross-language comparisons are
+byte-identical input → identical methodology → directly comparable
+output.
+
+### Implications for Sections 5–6 below
+
+- **Phase 2** should split into **Phase 2a (std::variant)** and
+  **Phase 2b (CRTP)**. Measure both; 2a may be sufficient.
+- **Phase 4 (multi-core)** is unchanged.
+- **Phase 5 (SIMD batch)** is unchanged.
+- **Phase 6 (template extraction)** gains a classifier front-end
+  (fast-path-dispatch) and should cite the chain-histogram numbers from
+  the target deployment rather than assuming 100 % template coverage.
+- Add **Phase 7 (PGO)** as a build-only phase.
+- Add **Phase 8 (adversarial-safety parity)** with the xdp2-fuzz
+  equivalents.
+
+The phase-6 performance prediction of "2–3 ns/pkt" still holds; it's just
+now conditional on real-deployment traffic matching the template set,
+which the chain-histogram probe measures explicitly.
+
+---
+
 ## 5. Phased Implementation Plan
 
 ### Phase 1: Baseline Port (Weeks 1--3)
