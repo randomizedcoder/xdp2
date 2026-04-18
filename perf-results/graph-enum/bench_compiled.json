@@ -1,0 +1,14 @@
+{
+  "pcap": "/nix/store/lwkrw01qxkg7nycvaja5z601cg04mpsx-tcp_ipv4.pcap",
+  "packets": 11,
+  "iterations": 5000,
+  "correctness": {
+    "graph": 11,
+    "mono": 11,
+    "compiled": 11,
+    "template": 11
+  },
+  "results": [
+    {"mode": "compiled", "ns_pkt": 18, "mpps": 54.2, "threads": 1, "total_pkts": 55000, "perf": {"cycles": 3979585, "instructions": 7266359, "branches": 1335244, "branch_misses": 5056, "cache_refs": 2671, "cache_misses": 694, "frontend_stalls": 134191, "backend_stalls": 0, "dtlb_misses": 34, "itlb_misses": 7, "l1d_misses": 902}}
+  ]
+}

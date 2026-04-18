@@ -32,6 +32,11 @@ pub mod proto_table;
 pub mod tlvs;
 pub mod types;
 
+// Experimental enum-dispatch engine — gated behind the `enum-dispatch`
+// feature so the default dyn-dispatch path is unaffected.
+#[cfg(feature = "enum-dispatch")]
+pub mod enum_dispatch;
+
 // Re-export key types at crate root for convenience
 pub use arrays::{ParseArrayNode, parse_array};
 pub use engine::{parse, ParseOutput};

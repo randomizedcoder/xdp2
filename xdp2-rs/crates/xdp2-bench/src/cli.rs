@@ -8,6 +8,11 @@ use crate::perf;
 pub(crate) enum ParserMode {
     /// Graph-dispatched engine (`&dyn ParseNodeDyn`), the default.
     Graph,
+    /// Enum-dispatch graph engine (static `match` instead of vtable).
+    /// Requires the `graph-enum` feature (default). Minimal graph
+    /// (Ether/IPv4/{TCP,UDP,ICMP}) for A/B comparison with `Graph`.
+    #[cfg(feature = "graph-enum")]
+    GraphEnum,
     /// Hand-rolled monomorphic parser (Step 2 proof-of-concept).
     Mono,
     /// Mono parser, outer loop software-pipelined 4 packets wide.
@@ -142,6 +147,17 @@ pub(crate) struct Cli {
     /// human-readable text. Suitable for automated collection.
     #[arg(long)]
     pub report: bool,
+
+    /// Probe mode: parse each packet once with the graph engine, bucket
+    /// by protocol-chain signature, and print a top-N histogram. Used
+    /// to characterize how skewed a PCAP's traffic is (see
+    /// `docs/fast-path-dispatch.md`). No benchmarking is done.
+    #[arg(long)]
+    pub chain_histogram: bool,
+
+    /// Top-N cutoff for `--chain-histogram`.
+    #[arg(long, default_value_t = 20)]
+    pub top: usize,
 }
 
 /// Collected result from one benchmark run.

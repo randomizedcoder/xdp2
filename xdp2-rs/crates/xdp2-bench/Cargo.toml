@@ -13,6 +13,14 @@ path = "src/main.rs"
 name = "xdp2_bench"
 path = "src/lib.rs"
 
+[features]
+# Experimental enum-dispatch graph engine — builds an additional CLI mode
+# (`--mode graph-enum`) that runs the parse loop via static-dispatch match
+# instead of `&dyn ParseNodeDyn`. Enables `xdp2-core/enum-dispatch`.
+# See docs/performance-next-steps.md ("Option A").
+default = ["graph-enum"]
+graph-enum = ["xdp2-core/enum-dispatch"]
+
 [dependencies]
 xdp2-core = { path = "../xdp2-core" }
 xdp2-protocols = { path = "../xdp2-protocols" }

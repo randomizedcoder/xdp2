@@ -4,6 +4,8 @@ pub mod flow_meta;
 pub mod extractors;
 pub mod graph;
 pub mod graph_compiled;
+#[cfg(feature = "graph-enum")]
+pub mod graph_enum;
 pub mod graph_mono;
 pub mod nodes;
 pub mod template;

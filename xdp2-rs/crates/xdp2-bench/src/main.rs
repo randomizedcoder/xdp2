@@ -31,11 +31,14 @@
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
 
 mod af_xdp;
+mod chain_histogram;
 mod cli;
 mod extractors;
 mod flow_meta;
 mod graph;
 mod graph_compiled;
+#[cfg(feature = "graph-enum")]
+mod graph_enum;
 mod graph_mono;
 mod nodes;
 mod pcap;
@@ -117,6 +120,12 @@ fn main() {
         process::exit(1);
     }
 
+    // ── Probe: chain-signature histogram (no benchmarking) ──
+    if cli.chain_histogram {
+        chain_histogram::run(&packets, cli.top);
+        return;
+    }
+
     // ── Write filtered PCAP if requested ──
     if let Some(ref path) = cli.output_pcap {
         let filtered: Vec<pcap::StoredPacket> = packets
@@ -164,6 +173,8 @@ fn main() {
     let total_pkts = npkts as u64 * cli.iterations as u64;
 
     let run_graph = matches!(cli.mode, ParserMode::Graph | ParserMode::Both);
+    #[cfg(feature = "graph-enum")]
+    let run_graph_enum = matches!(cli.mode, ParserMode::GraphEnum);
     let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
     let run_monox4 = matches!(cli.mode, ParserMode::MonoX4 | ParserMode::Both);
     let run_compiled = matches!(cli.mode, ParserMode::Compiled | ParserMode::Both);
@@ -221,6 +232,21 @@ fn main() {
                 std::hint::black_box(acc);
             });
             results.push(BenchResult::new("graph", ns, total_pkts, 1, snap));
+        }
+
+        #[cfg(feature = "graph-enum")]
+        if run_graph_enum {
+            let cfg = graph_enum::make_config();
+            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
+                let mut acc: u64 = 0;
+                for pkt in &packets {
+                    if graph_enum::parse_packet(&cfg, &pkt.data).is_ok() {
+                        acc += 1;
+                    }
+                }
+                std::hint::black_box(acc);
+            });
+            results.push(BenchResult::new("graph-enum", ns, total_pkts, 1, snap));
         }
 
         if run_mono {

@@ -466,6 +466,7 @@
           #             nix run .#perf-sweep-combo
           # Flamegraph: nix run .#perf-flamegraph
           # Annotate:   nix run .#perf-annotate
+          # Option A:   nix run .#perf-graph-enum-compare
           # All:        nix run .#perf-analysis-all
           # Mixed PCAP: nix build .#perf-mixed-pcap
           # ===================================================================
@@ -474,6 +475,10 @@
           perf-sweep-combo = perfAnalysis.sweep-combo;
           perf-flamegraph = perfAnalysis.flamegraph;
           perf-annotate = perfAnalysis.annotate;
+          # A/B comparison for the graph-enum (Option A) experiment:
+          # runs cargo test + bench + flamegraph for graph / graph-enum / compiled
+          # on tcp_ipv4.pcap. Output: perf-results/graph-enum/
+          perf-graph-enum-compare = perfAnalysis.graph-enum-compare;
           perf-analysis-all = perfAnalysis.analysis-all;
           perf-mixed-pcap = perfAnalysis.mixed-pcap;
 

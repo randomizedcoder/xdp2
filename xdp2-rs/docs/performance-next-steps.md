@@ -2,8 +2,10 @@
 
 Flamegraph-driven roadmap for the next round of optimization work. Companion
 to [performance-optimization.md](./performance-optimization.md),
-[performance-maximization-plan.md](./performance-maximization-plan.md), and
-[deep-performance-analysis.md](./deep-performance-analysis.md).
+[performance-maximization-plan.md](./performance-maximization-plan.md),
+[deep-performance-analysis.md](./deep-performance-analysis.md), and
+[fast-path-dispatch.md](./fast-path-dispatch.md) (follow-up design exploration
+after the graph-enum A/B).
 
 Generated from the `mixed-real.pcap` run (828 pkts, 815 parseable — typical
 Linux-box protocol mix: TCP/UDP/ICMP over IPv4/IPv6, VLAN/QinQ, GRE nested,
@@ -153,7 +155,56 @@ prioritize instruction-count reduction and ILP exposure.**
    `parse_ipv4` (10%) + `dispatch_ipv4` (7%) + `dispatch_ether` (3%) — this
    is already close to the instruction-count floor for the header fields we
    extract. Saved to `perf-results/tcp-only/`.
-4. **Open decision:** Where to invest next? Three realistic options given
+4. ✅ **Tier 1 item 2 — graph enum dispatch (Option A), feature-flagged.**
+   Wired up the parallel engine behind `xdp2-core/enum-dispatch` and
+   `xdp2-bench/graph-enum`, plus a new `--mode graph-enum` CLI mode.
+   The bench-side graph is currently a minimal proof-of-concept covering
+   Ether → IPv4 → {TCP, UDP, ICMP}.
+
+   Result on `tcp_ipv4.pcap` (5000 iterations, same binary, same core):
+
+   | Mode | ns/pkt | Mpps |
+   |------|--------|------|
+   | `graph` (dyn) | 148 | 7 |
+   | `graph-enum` (static match) | **26** | **37** |
+   | `compiled` (monomorphic baseline) | 13 | 73 |
+
+   Enum dispatch closes ~80% of the gap between graph and compiled — confirming
+   that the dyn-dispatch overhead identified in the TMA data is real and
+   eliminable. Remaining 2× vs `compiled` is the general 7-step engine
+   dispatch sequence that `graph_compiled.rs` specializes further.
+
+   Code lives in `xdp2-core/src/enum_dispatch/` (engine) and
+   `xdp2-bench/src/graph_enum.rs` (bench node enum). The dyn-dispatch
+   path is untouched.
+
+   **Reproduced end-to-end via Nix** (2026-04-17, tcp_ipv4.pcap,
+   5000 iterations, core 3, `nix run .#perf-graph-enum-compare`):
+
+   | Mode | ns/pkt | Mpps | Instructions/pkt | Cycles/pkt |
+   |------|--------|------|------------------|-----------:|
+   | `graph` (dyn)        | 142 | 7.0  | 751 | 555 |
+   | `graph-enum` (match) |  29 | 34.2 | 285 | 117 |
+   | `compiled`           |  18 | 54.2 | 132 |  72 |
+
+   Instruction count drops **2.6×** (751 → 285) with enum dispatch,
+   confirming the TMA hypothesis that graph's cost is uops from vtable
+   indirection, not stalls. Cycles/pkt drops **4.7×** (555 → 117),
+   closing ~77% of the gap to `compiled`. Remaining 1.6× vs `compiled`
+   is the general 7-step engine sequence that `graph_compiled.rs`
+   specializes further.
+
+   Correctness: `cargo test -p xdp2-bench graph_enum` — both
+   `parses_eth_ipv4_tcp` and `matches_graph_on_tcp_ipv4_pcap` (byte-for-byte
+   FlowMeta equality vs dyn engine across every packet in `tcp_ipv4.pcap`)
+   pass.
+
+   Artifacts under
+   [`perf-results/graph-enum/`](../../perf-results/graph-enum/):
+   `summary.txt`, `bench_{graph,graph-enum,compiled}.json`,
+   `flamegraph_{graph,graph-enum,compiled}.svg`, `test.log`.
+
+5. **Open decision:** Where to invest next? Three realistic options given
    the data:
 
    - **(a) Graph enum dispatch** — graph is 118 ns/pkt TCP-only vs 13 ns/pkt
@@ -167,11 +218,23 @@ prioritize instruction-count reduction and ILP exposure.**
    - **(c) Template classifier LUT/SIMD** — template is already the fastest
      mode. Marginal gains for already-small numbers.
 
-5. Tier 2 item 5 (ILP audit via `cargo-show-asm`) — always useful; IPC of 1.6
+6. Tier 2 item 5 (ILP audit via `cargo-show-asm`) — always useful; IPC of 1.6
    suggests serial dependency chains somewhere, but targeted optimizations
    probably need to wait until we pick (a)/(b)/(c).
-6. Re-evaluate Tier 3 (BOLT, LUT dispatch) only after above gains are booked
+7. Re-evaluate Tier 3 (BOLT, LUT dispatch) only after above gains are booked
    or invalidated.
+
+### Follow-up work on Option A (graph-enum)
+
+The proof-of-concept covers only 5 protocols (Ether, IPv4, TCP, UDP, ICMPv4).
+The full dyn graph in `nodes.rs` has 52 node instances across ~40 distinct
+`ProtocolOps` types including VLAN/QinQ, GRE with flag-field sub-parsing,
+tunnels (VXLAN, Geneve, L2TP, IPIP, 6in4, SRv6), IPv6 extension headers, and
+the wildcard/STOP_LEAF pattern. Extending the enum to cover all of them is
+mechanical but boilerplate-heavy; a declarative macro that takes the existing
+static `ParseNode<M, P>` definitions and emits enum variants + `NodeOps` arms
+would be the clean way forward before running the same A/B on
+`mixed-real.pcap` and `combo.pcap`.
 
 ---
 
@@ -182,6 +245,9 @@ nix run .#perf-flamegraph -- \
   $(nix build --no-link --print-out-paths .#perf-mixed-pcap)/mixed-real.pcap \
   5000 \
   perf-results/flamegraphs-mixed
+
+# Option A A/B (tcp_ipv4.pcap by default, 5000 iterations, core 3):
+nix run .#perf-graph-enum-compare
 ```
 
 See [deep-performance-analysis.md](./deep-performance-analysis.md) for the

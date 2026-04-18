@@ -1,0 +1,8 @@
+graph-enum A/B comparison
+pcap: /nix/store/lwkrw01qxkg7nycvaja5z601cg04mpsx-tcp_ipv4.pcap
+iterations: 5000  core: 3  host: l
+date: 2026-04-18T05:31:12Z
+
+  graph           142 ns/pkt      7.0 Mpps
+  graph-enum       29 ns/pkt     34.2 Mpps
+  compiled         18 ns/pkt     54.2 Mpps

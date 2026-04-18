@@ -1,0 +1,69 @@
+=== Chain histogram probe — 2026-04-18 ===
+
+--- tcp_ipv4.pcap (baseline, single chain expected) ---
+Loaded 11 packets from /home/das/Downloads/x/xdp2/data/pcaps/tcp_ipv4.pcap
+Filtered: 11/11 packets parseable (100.0%)
+Chain histogram: 1 distinct chains across 11 parsed packets (0 failed)
+rank     count     pct     cum  chain
+   1        11  100.0%  100.0%  eth/ipv4/tcp
+
+Summary: top-1 = 100.0%, top-5 = 100.0%, top-10 = 100.0% of 11 packets (11 total, 0 parse failures)
+
+--- mixed-real.pcap (real captures merged, Linux-box-like traffic) ---
+Loaded 828 packets from /nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+Filtered: 815/828 packets parseable (98.4%)
+Chain histogram: 12 distinct chains across 815 parsed packets (0 failed)
+rank     count     pct     cum  chain
+   1       659   80.9%   80.9%  eth/ipv4/icmp
+   2        72    8.8%   89.7%  eth/ipv4/tcp
+   3        25    3.1%   92.8%  eth/ipv4/l2tp+l2tp-sid
+   4        12    1.5%   94.2%  eth/ipv4/udp
+   5        12    1.5%   95.7%  eth/ipv6/tcp
+   6        11    1.3%   97.1%  eth/vlan/eth-0x8100
+   7         9    1.1%   98.2%  eth/eth-0x8864
+   8         4    0.5%   98.7%  eth/ipv6/frag/udp
+   9         4    0.5%   99.1%  eth/ipv6/udp
+  10         3    0.4%   99.5%  eth/vlan/vlan/eth-0x8100
+  11         2    0.2%   99.8%  eth/arp
+  12         2    0.2%  100.0%  eth/ipv4/frag/icmp
+
+Summary: top-1 = 80.9%, top-5 = 95.7%, top-10 = 99.5% of 815 packets (815 total, 0 parse failures)
+
+--- combo.pcap (500K synthetic, adversarial protocol mix) ---
+Loaded 500000 packets from /nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+Filtered: 445178/500000 packets parseable (89.0%)
+Chain histogram: 49 distinct chains across 445178 parsed packets (0 failed)
+rank     count     pct     cum  chain
+   1    206736   46.4%   46.4%  eth/vlan/eth-0x8100
+   2    100955   22.7%   69.1%  eth/vlan/vlan/eth-0x88a8
+   3     16349    3.7%   72.8%  eth/mpls
+   4     12506    2.8%   75.6%  eth/eth-0x8864
+   5      8654    1.9%   77.5%  eth/ipv6/tcp
+   6      8650    1.9%   79.5%  eth/ipv4/tcp
+   7      4810    1.1%   80.6%  eth/ipv6/frag/udp
+   8      4810    1.1%   81.6%  eth/ipv6/icmpv6
+   9      4810    1.1%   82.7%  eth/ipv6/udp
+  10      3844    0.9%   83.6%  eth/ipv4/udp+vxlan?
+  11      3844    0.9%   84.5%  eth/ipv6/udp+vxlan?
+  12      3844    0.9%   85.3%  eth/vlan/ipv4/tcp
+  13      3844    0.9%   86.2%  eth/vlan/ipv4/udp+vxlan?
+  14      3844    0.9%   87.0%  eth/vlan/ipv6/tcp
+  15      3844    0.9%   87.9%  eth/vlan/ipv6/udp+vxlan?
+  16      2884    0.6%   88.6%  eth/ipv4/udp
+  17      2883    0.6%   89.2%  eth/eth-0x22f3
+  18      2883    0.6%   89.9%  eth/eth-0x8809
+  19      2883    0.6%   90.5%  eth/eth-0x88e7
+  20      2883    0.6%   91.1%  eth/eth-0x88f7
+  21      2883    0.6%   91.8%  eth/eth-0x8902
+  22      2883    0.6%   92.4%  eth/eth-0x892f
+  23      2883    0.6%   93.1%  eth/eth-0x894f
+  24      1924    0.4%   93.5%  eth/arp
+  25      1924    0.4%   94.0%  eth/ipv4/frag/udp
+  26      1924    0.4%   94.4%  eth/ipv4/igmp
+  27      1922    0.4%   94.8%  eth/eth-0x8808
+  28      1922    0.4%   95.2%  eth/ipv4/tcp+gre-inner
+  29      1922    0.4%   95.7%  eth/ipv4/udp+vxlan?+gre-inner
+  30       962    0.2%   95.9%  eth/eth-0x88ca
+  ..     18269    4.1%   —     (19 other chains)
+
+Summary: top-1 = 46.4%, top-5 = 77.5%, top-10 = 83.6% of 445178 packets (445178 total, 0 parse failures)

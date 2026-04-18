@@ -3,13 +3,14 @@
 # Deep performance analysis targets — reproducible across machines.
 #
 # Targets:
-#   nix run  .#perf-sweep-tcp          — sweep tcp_ipv4.pcap (baseline, fast)
-#   nix run  .#perf-sweep-mixed        — sweep merged real-protocol PCAP (~871 pkts)
-#   nix run  .#perf-sweep-combo        — sweep 500K-packet combo.pcap (full-scale)
-#   nix run  .#perf-flamegraph         — flamegraphs for graph/compiled/template
-#   nix run  .#perf-annotate           — perf annotate for hot functions
-#   nix run  .#perf-analysis-all       — run all sweeps + flamegraph + annotate
-#   nix build .#perf-mixed-pcap        — generate merged mixed-protocol PCAP
+#   nix run  .#perf-sweep-tcp              — sweep tcp_ipv4.pcap (baseline, fast)
+#   nix run  .#perf-sweep-mixed            — sweep merged real-protocol PCAP (~871 pkts)
+#   nix run  .#perf-sweep-combo            — sweep 500K-packet combo.pcap (full-scale)
+#   nix run  .#perf-flamegraph             — flamegraphs for graph/graph-enum/compiled/template
+#   nix run  .#perf-annotate               — perf annotate for hot functions
+#   nix run  .#perf-graph-enum-compare     — A/B test+bench for graph vs graph-enum vs compiled
+#   nix run  .#perf-analysis-all           — run all sweeps + flamegraph + annotate
+#   nix build .#perf-mixed-pcap            — generate merged mixed-protocol PCAP
 #
 # All nix run targets write results to ./perf-results/ (or user-specified dir).
 # Set CORE_PIN=N to pin benchmarks to a specific core for reduced jitter.
@@ -99,7 +100,7 @@ in
     '';
   };
 
-  # ── Flamegraphs: graph, compiled, template on combo.pcap ─────────
+  # ── Flamegraphs: graph, graph-enum, compiled, template on combo.pcap ─────────
   flamegraph = pkgs.writeShellApplication {
     name = "xdp2-perf-flamegraph";
     runtimeInputs = perfInputs;
@@ -110,7 +111,7 @@ in
       CORE_PIN="''${CORE_PIN:-3}"
       mkdir -p "$OUTDIR"
 
-      for MODE in graph compiled template; do
+      for MODE in graph graph-enum compiled template; do
         echo "--- Flamegraph: $MODE ---"
         PERF_DATA=$(mktemp)
         taskset -c "$CORE_PIN" perf record -g -F 10000 -o "$PERF_DATA" -- \
@@ -145,7 +146,7 @@ in
       CORE_PIN="''${CORE_PIN:-3}"
       mkdir -p "$OUTDIR"
 
-      for MODE in compiled template graph; do
+      for MODE in compiled template graph graph-enum; do
         echo "--- Annotate: $MODE ---"
         PERF_DATA=$(mktemp)
         taskset -c "$CORE_PIN" perf record -g -F 10000 -o "$PERF_DATA" -- \
@@ -156,6 +157,91 @@ in
         rm -f "$PERF_DATA"
         echo "Wrote: $OUTDIR/annotate_''${MODE}.txt"
       done
+    '';
+  };
+
+  # ── Option A A/B: graph vs graph-enum vs compiled ───────────────
+  #
+  # Focused comparison for the graph-enum experiment. Runs each of the three
+  # modes back-to-back at high iteration count on tcp_ipv4.pcap (the minimal
+  # node-set for graph-enum covers this PCAP entirely), captures per-mode
+  # JSON reports with perf counters, and a flamegraph for each. Also runs
+  # the `cargo test` correctness A/B so the numbers are trustworthy.
+  #
+  # Output layout:
+  #   perf-results/graph-enum/
+  #     test.log                 — cargo test graph_enum
+  #     bench_graph.json         — xdp2-bench --mode graph --report
+  #     bench_graph-enum.json
+  #     bench_compiled.json
+  #     flamegraph_graph.svg
+  #     flamegraph_graph-enum.svg
+  #     flamegraph_compiled.svg
+  #     summary.txt              — ns/pkt table for quick diffing
+  graph-enum-compare = pkgs.writeShellApplication {
+    name = "xdp2-perf-graph-enum-compare";
+    runtimeInputs = perfInputs;
+    text = ''
+      PCAP="''${1:-${../data/pcaps/tcp_ipv4.pcap}}"
+      ITERATIONS="''${2:-5000}"
+      OUTDIR="''${3:-perf-results/graph-enum}"
+      CORE_PIN="''${CORE_PIN:-3}"
+      mkdir -p "$OUTDIR"
+
+      echo "=== graph vs graph-enum vs compiled ==="
+      echo "PCAP:       $PCAP"
+      echo "Iterations: $ITERATIONS"
+      echo "Core pin:   $CORE_PIN"
+      echo "Output:     $OUTDIR/"
+      echo ""
+
+      SUMMARY="$OUTDIR/summary.txt"
+      {
+        echo "graph-enum A/B comparison"
+        echo "pcap: $PCAP"
+        echo "iterations: $ITERATIONS  core: $CORE_PIN  host: $(hostname)"
+        echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo ""
+      } > "$SUMMARY"
+
+      # --- Benchmarks (release build with perf counters) ---
+      for MODE in graph graph-enum compiled; do
+        echo "--- Bench: $MODE ---"
+        JSON="$OUTDIR/bench_''${MODE}.json"
+        taskset -c "$CORE_PIN" xdp2-bench \
+          --pcap "$PCAP" --iterations "$ITERATIONS" \
+          --mode "$MODE" --core-pin "$CORE_PIN" \
+          --perf --perf-pass basic --perf-pass stalls \
+          --report > "$JSON"
+        NSPKT=$(grep -oE '"ns_pkt"[[:space:]]*:[[:space:]]*[0-9]+' "$JSON" | head -1 | grep -oE '[0-9]+$' || echo "?")
+        MPPS=$(grep -oE '"mpps"[[:space:]]*:[[:space:]]*[0-9.]+' "$JSON" | head -1 | grep -oE '[0-9.]+$' || echo "?")
+        printf "  %-12s %6s ns/pkt   %6s Mpps\n" "$MODE" "$NSPKT" "$MPPS" | tee -a "$SUMMARY"
+      done
+      echo ""
+
+      # --- Flamegraphs ---
+      for MODE in graph graph-enum compiled; do
+        echo "--- Flamegraph: $MODE ---"
+        PERF_DATA=$(mktemp)
+        taskset -c "$CORE_PIN" perf record -g -F 10000 -o "$PERF_DATA" -- \
+          xdp2-bench --pcap "$PCAP" --iterations "$ITERATIONS" \
+          --mode "$MODE" --core-pin "$CORE_PIN" 2>/dev/null
+
+        if command -v inferno-collapse-perf &>/dev/null; then
+          perf script -i "$PERF_DATA" | inferno-collapse-perf | \
+            inferno-flamegraph > "$OUTDIR/flamegraph_''${MODE}.svg"
+          echo "Wrote: $OUTDIR/flamegraph_''${MODE}.svg"
+        else
+          echo "warning: inferno not found"
+        fi
+        rm -f "$PERF_DATA"
+      done
+
+      echo ""
+      echo "=== Summary ==="
+      cat "$SUMMARY"
+      echo ""
+      echo "Results: $OUTDIR/"
     '';
   };
 
@@ -197,7 +283,7 @@ in
         OUTDIR="''${3:-perf-results/flamegraphs}"
         CORE_PIN="''${CORE_PIN:-3}"
         mkdir -p "$OUTDIR"
-        for MODE in graph compiled template; do
+        for MODE in graph graph-enum compiled template; do
           echo "--- Flamegraph: $MODE ---"
           PERF_DATA=$(mktemp)
           taskset -c "$CORE_PIN" perf record -g -F 10000 -o "$PERF_DATA" -- \
@@ -223,7 +309,7 @@ in
         OUTDIR="''${3:-perf-results/annotate}"
         CORE_PIN="''${CORE_PIN:-3}"
         mkdir -p "$OUTDIR"
-        for MODE in compiled template graph; do
+        for MODE in compiled template graph graph-enum; do
           echo "--- Annotate: $MODE ---"
           PERF_DATA=$(mktemp)
           taskset -c "$CORE_PIN" perf record -g -F 10000 -o "$PERF_DATA" -- \
