@@ -27,7 +27,9 @@ using **etherparse** (a Rust packet parsing crate) as the worked example.
 ## Step 1: Pin the Source
 
 External sources are pinned in `nix/proto-audit-sources.nix` so builds are
-reproducible. For a GitHub project:
+reproducible. See the detailed "How to add a new source" comments at the top
+of that file for the complete 5-step wiring guide (nix derivation → flake.nix
+env var → SourcePaths field → name_mapping → extractor). For a GitHub project:
 
 ```nix
 etherparseSrc = pkgs.fetchFromGitHub {

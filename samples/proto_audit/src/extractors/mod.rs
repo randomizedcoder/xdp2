@@ -11,3 +11,6 @@ pub mod iana;
 pub mod kaitai;
 pub mod suricata;
 pub mod xdp2;
+pub mod dpdk;
+pub mod ndpi;
+pub mod pppd;

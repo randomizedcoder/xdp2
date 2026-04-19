@@ -116,6 +116,9 @@
           text = ''
             export PROTO_AUDIT_PROTO_DEFS_DIR="''${PROTO_AUDIT_PROTO_DEFS_DIR:-${./src/include/xdp2/proto_defs}}"
             export PROTO_AUDIT_KERNEL_SRC="''${PROTO_AUDIT_KERNEL_SRC:-${protoAuditSources.kernelSrc}}"
+            export PROTO_AUDIT_DPDK_SRC="''${PROTO_AUDIT_DPDK_SRC:-${protoAuditSources.dpdkSrc}}"
+            export PROTO_AUDIT_NDPI_SRC="''${PROTO_AUDIT_NDPI_SRC:-${protoAuditSources.ndpiSrc}}"
+            export PROTO_AUDIT_PPPD_SRC="''${PROTO_AUDIT_PPPD_SRC:-${protoAuditSources.pppdSrc}}"
             export PROTO_AUDIT_SCAPY_HELPER="''${PROTO_AUDIT_SCAPY_HELPER:-${proto-audit-bin}/share/proto-audit/scapy_dump.py}"
             export PROTO_AUDIT_PYTHON="''${PROTO_AUDIT_PYTHON:-${protoAuditSources.scapyPython}/bin/python3}"
             export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"

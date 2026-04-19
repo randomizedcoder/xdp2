@@ -13,6 +13,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("eth")
             .etherparse("Ethernet2Header", "etherparse/src/link/ethernet2_header.rs")
             .kaitai("ethernet_frame", "ethernet_frame.ksy")
+            .dpdk("rte_ether_hdr", "rte_ether.h")
+            .ndpi("ndpi_ethhdr", "ndpi_typedefs.h")
             .ieee(&["802.3-2022"])
             .iana_registry("ieee-802-numbers")
             .libpcap("ethernet_header", "pcap/proto_audit/ethernet.h"),
@@ -24,6 +26,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("SingleVlanHeader", "etherparse/src/link/single_vlan_header.rs")
             .libpcap("vlan_tag", "pcap/vlan.h")
             .kaitai("ieee_802_1q", "ieee_802_1q.ksy")
+            .dpdk("rte_vlan_hdr", "rte_ether.h")
             .ieee(&["802.1Q-2022", "802.1Q-2014"]),
         PN::new("PBB", 18)
             .xdp2("xdp2_parse_pbb")
@@ -41,6 +44,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("Ipv4Header", "etherparse/src/net/ipv4_header.rs")
             .libpcap("IPv4", "gencode.c")
             .kaitai("ipv4_packet", "ipv4_packet.ksy")
+            .dpdk("rte_ipv4_hdr", "rte_ip4.h")
+            .ndpi("ndpi_iphdr", "ndpi_typedefs.h")
             .variable()
             .rfcs(&[791, 2474, 3168, 6864])
             .iana_registry("protocol-numbers"),
@@ -52,6 +57,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("Ipv6Header", "etherparse/src/net/ipv6_header.rs")
             .libpcap("IPv6", "gencode.c")
             .kaitai("ipv6_packet", "ipv6_packet.ksy")
+            .dpdk("rte_ipv6_hdr", "rte_ip6.h")
+            .ndpi("ndpi_ipv6hdr", "ndpi_typedefs.h")
             .rfcs(&[8200, 4291, 4443, 6437, 8021])
             .iana_registry("protocol-numbers"),
         PN::new("ARP", 8)
@@ -62,6 +69,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("ArpPacket", "etherparse/src/net/arp_packet.rs")
             .libpcap("ARP", "gencode.c")
             .kaitai("arp", "arp.ksy")
+            .dpdk("rte_arp_hdr", "rte_arp.h")
+            .ndpi("ndpi_arphdr", "ndpi_typedefs.h")
             .variable()
             .rfcs(&[826, 5227]),
         PN::new("RARP", 8)
@@ -81,6 +90,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("Icmpv4Header", "etherparse/src/transport/icmpv4_header.rs")
             .libpcap("icmpv4_header", "pcap/proto_audit/icmpv4.h")
             .kaitai("icmp_packet", "icmp_packet.ksy")
+            .dpdk("rte_icmp_hdr", "rte_icmp.h")
+            .ndpi("ndpi_icmphdr", "ndpi_typedefs.h")
             .rfcs(&[792, 1122, 4884]),
         PN::new("ICMPv6", 8)
             .xdp2("xdp2_parse_icmpv6")
@@ -88,6 +99,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("ICMPv6Unknown")
             .tshark("icmpv6")
             .etherparse("Icmpv6Header", "etherparse/src/transport/icmpv6_header.rs")
+            .ndpi("ndpi_icmp6hdr", "ndpi_typedefs.h")
             .rfcs(&[4443, 4861, 4862])
             .libpcap("icmpv6_header", "pcap/proto_audit/icmpv6.h"),
         PN::new("IGMP", 8)
@@ -107,6 +119,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("TcpHeader", "etherparse/src/transport/tcp_header.rs")
             .libpcap("TCP", "gencode.c")
             .kaitai("tcp_segment", "tcp_segment.ksy")
+            .dpdk("rte_tcp_hdr", "rte_tcp.h")
+            .ndpi("ndpi_tcphdr", "ndpi_typedefs.h")
             .variable()
             .rfcs(&[9293, 793, 1122, 5681, 7323, 7414])
             .iana_registry("service-name-port-numbers"),
@@ -118,6 +132,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("UdpHeader", "etherparse/src/transport/udp_header.rs")
             .libpcap("UDP", "gencode.c")
             .kaitai("udp_datagram", "udp_datagram.ksy")
+            .dpdk("rte_udp_hdr", "rte_udp.h")
+            .ndpi("ndpi_udphdr", "ndpi_typedefs.h")
             .rfcs(&[768])
             .iana_registry("service-name-port-numbers"),
         // ── Tunneling ──
@@ -128,6 +144,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("gre")
             .etherparse("GreHeader", "src/proto_audit/gre.rs")
             .libpcap("gre_header", "pcap/proto_audit/gre.h")
+            .dpdk("rte_gre_hdr", "rte_gre.h")
+            .ndpi("ndpi_gre_basehdr", "ndpi_typedefs.h")
             .variable()
             .rfcs(&[2784, 2890]),
         PN::new("VXLAN", 8)
@@ -137,6 +155,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("vxlan")
             .etherparse("VxlanHeader", "src/proto_audit/vxlan.rs")
             .libpcap("vxlan_header", "pcap/proto_audit/vxlan.h")
+            .dpdk("rte_vxlan_hdr", "rte_vxlan.h")
+            .ndpi("ndpi_vxlanhdr", "ndpi_typedefs.h")
             .rfcs(&[7348]),
         PN::new("Geneve", 8)
             .xdp2("xdp2_parse_geneve_base")
@@ -145,6 +165,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("geneve")
             .etherparse("GeneveHeader", "src/proto_audit/geneve.rs")
             .libpcap("geneve_header", "pcap/proto_audit/geneve.h")
+            .dpdk("rte_geneve_hdr", "rte_geneve.h")
             .variable()
             .rfcs(&[8926]),
         PN::new("MPLS", 4)
@@ -154,6 +175,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("mpls")
             .etherparse("MplsHeader", "src/proto_audit/mpls.rs")
             .libpcap("mpls_header", "pcap/proto_audit/mpls.h")
+            .dpdk("rte_mpls_hdr", "rte_mpls.h")
+            .ndpi("ndpi_mpls_header", "ndpi_typedefs.h")
             .rfcs(&[3031, 3032, 5462]),
         PN::new("PPP", 2)
             .xdp2("xdp2_parse_ppp")
@@ -162,6 +185,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("ppp")
             .etherparse("PppHeader", "src/proto_audit/ppp.rs")
             .libpcap("ppp_header", "pcap/proto_audit/ppp.h")
+            .dpdk("rte_ppp_hdr", "rte_ppp.h")
+            .pppd("PPP")
             .rfcs(&[1661, 1662]),
         PN::new("PPPoE", 6)
             .xdp2("xdp2_parse_pppoe")
@@ -170,6 +195,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("pppoes")
             .etherparse("PppoeHeader", "src/proto_audit/pppoe.rs")
             .libpcap("pppoe_header", "pcap/proto_audit/pppoe.h")
+            .dpdk("rte_pppoe_hdr", "rte_ppp.h")
             .rfcs(&[2516]),
         PN::new("L2TP", 6)
             .xdp2("xdp2_parse_l2tp_base")
@@ -211,6 +237,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("esp")
             .etherparse("EspHeader", "src/proto_audit/esp.rs")
             .libpcap("esp_header", "pcap/proto_audit/esp.h")
+            .dpdk("rte_esp_hdr", "rte_esp.h")
             .variable()
             .rfcs(&[4303, 2406]),
         PN::new("AH", 12)
@@ -228,6 +255,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("MACsecSCI")
             .tshark("macsec")
             .etherparse("MacsecHeader", "src/proto_audit/macsec.rs")
+            .dpdk("rte_macsec_hdr", "rte_macsec.h")
             .ieee(&["802.1AE-2018"])
             .libpcap("macsec_header", "pcap/proto_audit/macsec.h"),
         // ── Management ──
@@ -735,6 +763,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("dns_header", "pcap/proto_audit/dns.h")
             .kaitai("dns_packet", "dns_packet.ksy")
             .suricata("dns", "DnsHeader")
+            .ndpi("ndpi_dns_packet_header", "ndpi_typedefs.h")
             .variable()
             .rfcs(&[1035, 2671, 6891, 8484]),
         PN::new("NTP", 48)
@@ -754,6 +783,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_dhcp").scapy("BOOTP").tshark("dhcp")
             .libpcap("dhcp_header", "pcap/proto_audit/dhcp.h")
             .suricata("dhcp", "DHCPHeader")
+            .ndpi("ndpi_dhcphdr", "ndpi_typedefs.h")
             .variable()
             .rfcs(&[2131, 2132])
             .etherparse("DHCPHeader", "src/proto_audit/dhcp.rs"),
@@ -892,6 +922,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("sctp")
             .etherparse("SctpHeader", "src/proto_audit/sctp.rs")
             .libpcap("SCTP", "gencode.c")
+            .dpdk("rte_sctp_hdr", "rte_sctp.h")
             .variable()
             .rfcs(&[9260, 4960]),
         PN::new("DCCP", 12)
@@ -906,6 +937,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("GTP_U", 8)
             .xdp2("xdp2_parse_gtpu").scapy("GTP_U_Header").tshark("gtp")
             .libpcap("gtp_u_header", "pcap/proto_audit/gtp.h")
+            .dpdk("rte_gtp_hdr", "rte_gtp.h")
             .variable()
             .rfcs(&[2152])
             .etherparse("GTP_UHeader", "src/proto_audit/gtp_u.rs"),
@@ -997,15 +1029,18 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("VXLAN_GPE", 8)
             .xdp2("xdp2_parse_vxlan_gpe").scapy("VXLAN_GPE").tshark("vxlan")
             .etherparse("VxlanGpeHeader", "src/proto_audit/vxlan_gpe.rs")
-            .libpcap("vxlan_gpe_header", "pcap/proto_audit/vxlan_gpe.h"),
+            .libpcap("vxlan_gpe_header", "pcap/proto_audit/vxlan_gpe.h")
+            .dpdk("rte_vxlan_gpe_hdr", "rte_vxlan.h"),
         // ── Security Additions ──
         PN::new("TLS", 5)
             .xdp2("xdp2_parse_tls").scapy("TLS").tshark("tls").variable()
+            .dpdk("rte_tls_hdr", "rte_tls.h")
             .rfcs(&[8446, 5246, 8447])
             .etherparse("TLSHeader", "src/proto_audit/tls.rs")
             .libpcap("tls_header", "pcap/proto_audit/tls.h"),
         PN::new("DTLS", 13)
             .xdp2("xdp2_parse_dtls").scapy("DTLS").tshark("dtls").variable()
+            .dpdk("rte_dtls_hdr", "rte_dtls.h")
             .rfcs(&[9147, 6347])
             .etherparse("DTLSHeader", "src/proto_audit/dtls.rs")
             .libpcap("dtls_header", "pcap/proto_audit/dtls.h"),

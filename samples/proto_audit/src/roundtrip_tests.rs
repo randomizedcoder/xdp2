@@ -824,6 +824,9 @@ fn pcap_generate_ipv4_valid_checksum() {
 
 #[test]
 fn pcap_generate_tcp_stack_correct() {
+    // Point to non-existent dir so test exercises synthetic stack construction
+    let _prev = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES").ok();
+    std::env::set_var("PROTO_AUDIT_PCAP_TEMPLATES", "/nonexistent_pcap_templates");
     let mut protos = BTreeMap::new();
     protos.insert(
         "TCP".to_string(),

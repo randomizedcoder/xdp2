@@ -208,6 +208,45 @@ fn try_extract(
             }
             None
         }
+        "dpdk" => {
+            let src = paths.dpdk_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.dpdk_struct?;
+            let header = names.dpdk_header?;
+            let header_path = src.join("lib").join("net").join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::dpdk::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "ndpi" => {
+            let src = paths.ndpi_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.ndpi_struct?;
+            let header = names.ndpi_header?;
+            let header_path = src.join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::ndpi::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "pppd" => {
+            let src = paths.pppd_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let pppd_proto = names.pppd_proto?;
+            let mut def = extractors::pppd::extract_protocol(src, pppd_proto)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         _ => None,
     }
 }
@@ -313,7 +352,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi", "dpdk", "ndpi", "pppd"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {

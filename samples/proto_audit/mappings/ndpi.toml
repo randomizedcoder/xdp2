@@ -1,0 +1,84 @@
+# nDPI C Type → IR Type Mappings
+#
+# Maps nDPI's BSD-style type annotations to bit widths and byte order.
+# Uses the same KernelMappings schema so the kernel parser can be
+# reused with nDPI-specific type information.
+
+[type_bits]
+# BSD-style unsigned integer types used by nDPI
+u_int8_t = 8
+u_int16_t = 16
+u_int32_t = 32
+u_int64_t = 64
+
+# Standard types also appear
+uint8_t = 8
+uint16_t = 16
+uint32_t = 32
+uint64_t = 64
+
+# BSD legacy types
+u_char = 8
+u_short = 16
+u_int = 32
+
+[struct_sizes]
+# Embedded struct sizes for nDPI composite types
+ndpi_in6_addr = 128    # 16 bytes: IPv6 address
+ndpi_ip6_hdrctl = 64   # 8 bytes: flow(4) + plen(2) + nxt(1) + hlim(1)
+ndpi_snap_extension = 40  # 5 bytes: oui(3) + id(2)
+
+[type_endian]
+# nDPI uses plain integer types — all network protocol fields are
+# implicitly big-endian (network byte order) for multi-byte fields.
+# The nDPI source doesn't annotate endianness in type names like
+# the kernel's __be16/__le16 — it's assumed network order.
+"exact:u_int16_t" = "Big"
+"exact:u_int32_t" = "Big"
+"exact:u_int64_t" = "Big"
+"exact:uint16_t" = "Big"
+"exact:uint32_t" = "Big"
+"exact:uint64_t" = "Big"
+"exact:u_short" = "Big"
+"exact:u_int" = "Big"
+
+[field_type_overrides]
+# Protocol dispatch fields
+[field_type_overrides.protocol]
+type = "Enum"
+reason = "IPv4 protocol number (IANA)"
+
+[field_type_overrides.version]
+type = "Uint"
+reason = "IP version (not an enum, just 4 or 6)"
+
+[field_type_overrides.saddr]
+type = "Ipv4Addr"
+reason = "IPv4 source address"
+require_bits = 32
+
+[field_type_overrides.daddr]
+type = "Ipv4Addr"
+reason = "IPv4 destination address"
+require_bits = 32
+
+[field_type_overrides.ar_hrd]
+type = "Enum"
+reason = "ARP hardware type"
+
+[field_type_overrides.ar_pro]
+type = "Enum"
+reason = "ARP protocol type"
+
+[field_type_overrides.ar_op]
+type = "Enum"
+reason = "ARP operation code"
+
+[array_endian_overrides]
+[array_endian_overrides."u_int8_t:6"]
+endian = "Big"
+reason = "MAC address — network byte order"
+
+[array_endian_overrides."u_char:6"]
+endian = "Big"
+reason = "MAC address — network byte order"

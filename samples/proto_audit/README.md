@@ -1,14 +1,14 @@
 # proto-audit: Cross-Source Protocol Definition Audit
 
-Extracts protocol header definitions from nine independent sources, normalizes
+Extracts protocol header definitions from twelve independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**428 curated protocols** across every network layer (including trading protocols from OMI), code generation in 3 languages + PCAP wire output, 332 per-protocol overlay patches each for etherparse and libpcap, 62 PCAP templates for round-trip validation, 420 unit tests.
+**428 curated protocols** across every network layer (including trading protocols from OMI), code generation in 3 languages + PCAP wire output, 332 per-protocol overlay patches each for etherparse and libpcap, 196 PCAP templates for round-trip validation, 420 unit tests.
 
 ## Highlights
 
-- **9 independent sources** (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI)
+- **12 independent sources** (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI)
 - **428 curated protocols** with hand-verified cross-source mappings
 - **Trading protocol coverage** (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) sourced from Open Markets Initiative c-structs + Wireshark Lua dissectors
 - **212+ Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
@@ -25,7 +25,7 @@ compares to find layout disagreements, coverage gaps, and type differences.
 ## Vision
 
 The IETF has never specified a machine-readable format for protocol header
-definitions. proto-audit demonstrates that 9 independent implementations of
+definitions. proto-audit demonstrates that 12 independent implementations of
 the same RFCs diverge measurably — and that a common IR can reconcile them.
 See [IR as Standard](docs/ir-as-standard.md).
 
@@ -49,7 +49,10 @@ nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 | Source | What It Provides | Access Method | Coverage |
 |---|---|---|---|
 | `xdp2` | Proto_def metadata (struct refs, no fields) | Local repo C header parse | 238 proto_defs (incl. 16 trading) |
-| `kernel` | Linux UAPI struct field definitions | Nix-pinned source, regex C parse | 74 protocols (173 in registry) |
+| `kernel` | Linux UAPI + driver/net struct definitions | Nix-pinned source (include/ + drivers/net/ + net/), regex C parse | 74 protocols (173 in registry) |
+| `dpdk` | DPDK packed protocol header structs | Nix-pinned `pkgs.dpdk.src`, lib/net/*.h | ~28 protocols (eCPRI, L2TPv2, MACsec, PDCP, TLS/DTLS, HiGig, PPP, etc.) |
+| `ndpi` | nDPI deep packet inspection wire structs | Nix-pinned `pkgs.ndpi.src`, ndpi_typedefs.h | ~25 packed structs + 474 protocol IDs |
+| `pppd` | PPP daemon protocol headers and constants | Nix-pinned `pkgs.ppp.src`, pppd/*.h | LCP, IPCP, IPv6CP, CCP, CHAP, EAP, ECP, PAP |
 | `scapy` | Scapy `fields_desc` with dispatch/length | Python runtime introspection (JSON) | 5,798 classes (109 curated) |
 | `tshark` | Wireshark protocol dissection fields | `tshark -T pdml` subprocess (XML) | 3,155 protocols (3,753 with filters) |
 | `etherparse` | Rust packet parsing crate structs | Nix-pinned + 332 overlay patches | 332/428 curated |
@@ -58,8 +61,10 @@ nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 | `suricata` | Rust app-layer parser struct definitions | Nix-pinned source, regex Rust parse | ~15 protocols (20 curated) |
 | `omi` | Open Markets Initiative c-structs + Wireshark Lua dissectors | Nix-pinned c-structs + wireshark-lua trees | ~27 trading msgs (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
 
-All external sources are Nix-pinned for reproducibility. etherparse and libpcap
-are extended with per-protocol overlay patches for cross-source comparison.
+All external sources are Nix-pinned for reproducibility via
+`nix/proto-audit-sources.nix`. See the comments in that file for the full
+guide on adding new sources. etherparse and libpcap are extended with
+per-protocol overlay patches for cross-source comparison.
 See [Source Patching](docs/patching.md) for details.
 
 ## How It Works
@@ -196,7 +201,7 @@ samples/proto_audit/
   src/
     main.rs, commands.rs   CLI entry point + subcommands
     ir.rs, comparator.rs   IR types + cross-source field matching
-    name_mapping/          428-protocol canonical name table (9 sources)
+    name_mapping/          428-protocol canonical name table (12 sources)
     type_mapping/          TOML loading + per-source type inference (7 modules)
     report/                Text/JSON output (matrix, findings)
     generator/             IR → C / Rust / Scapy / PCAP code generation

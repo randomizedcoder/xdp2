@@ -40,9 +40,21 @@ pub(crate) struct SourcePaths {
     #[arg(long, env = "PROTO_AUDIT_PROTO_DEFS_DIR")]
     pub(crate) proto_defs_dir: Option<PathBuf>,
 
-    /// Path to kernel source tree
+    /// Path to kernel source tree (include/ + drivers/net/ + net/)
     #[arg(long, env = "PROTO_AUDIT_KERNEL_SRC")]
     pub(crate) kernel_src: Option<PathBuf>,
+
+    /// Path to DPDK net headers (lib/net/*.h packed protocol structs)
+    #[arg(long, env = "PROTO_AUDIT_DPDK_SRC")]
+    pub(crate) dpdk_src: Option<PathBuf>,
+
+    /// Path to nDPI headers (ndpi_typedefs.h packed protocol structs)
+    #[arg(long, env = "PROTO_AUDIT_NDPI_SRC")]
+    pub(crate) ndpi_src: Option<PathBuf>,
+
+    /// Path to pppd source (PPP control protocol headers and constants)
+    #[arg(long, env = "PROTO_AUDIT_PPPD_SRC")]
+    pub(crate) pppd_src: Option<PathBuf>,
 
     /// Path to pcap file (for tshark)
     #[arg(long, env = "PROTO_AUDIT_PCAP")]

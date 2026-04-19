@@ -2,14 +2,65 @@
 #
 # Pinned external sources for proto-audit.
 #
+# Each source provides packed C structs, protocol definitions, or runtime
+# tools that proto-audit uses for multi-source cross-verification of
+# protocol field definitions.
+#
+# ── How to add a new source ──
+#
+# Adding a new external source requires changes in three places:
+#
+# 1. THIS FILE (nix/proto-audit-sources.nix):
+#    - Add a derivation that extracts the relevant source files from a
+#      nixpkgs package. Use `pkgs.runCommand` to extract only what's
+#      needed (e.g., header files), not the full source tree.
+#    - Export the derivation in the `in { ... }` block at the bottom.
+#    - Add a version entry to `sourceVersions` for tracking.
+#
+# 2. flake.nix (the writeShellApplication wrapper):
+#    - Add a `PROTO_AUDIT_<NAME>` env var export that points to the
+#      nix store path, following the existing pattern:
+#        export PROTO_AUDIT_FOO_SRC="''${PROTO_AUDIT_FOO_SRC:-${protoAuditSources.fooSrc}}"
+#    - This allows local override via env var, with nix default.
+#
+# 3. samples/proto_audit/src/main.rs (SourcePaths struct):
+#    - Add a field with `#[arg(long, env = "PROTO_AUDIT_FOO_SRC")]`
+#    - This makes the path available to all Rust extractors.
+#
+# Optionally, if the source contains C structs parseable by the kernel
+# extractor (packed structs with standard C types):
+#
+# 4. samples/proto_audit/src/name_mapping/table.rs:
+#    - Add `.dpdk("struct_name", "header.h")` or similar method chain
+#      entries mapping canonical protocol names to source-specific
+#      struct names and header file paths.
+#
+# 5. samples/proto_audit/src/commands.rs (extract/build_rich_ir):
+#    - Add an extraction path that reads headers from the new source,
+#      reusing the kernel C struct parser where possible.
+#
+# Example: adding DPDK as a source
+#   1. Here: dpdkSrc extracts lib/net/*.h from pkgs.dpdk.src
+#   2. flake.nix: export PROTO_AUDIT_DPDK_SRC=...
+#   3. main.rs: dpdk_src: Option<PathBuf> with env = "PROTO_AUDIT_DPDK_SRC"
+#   4. table.rs: .dpdk("rte_gre_hdr", "rte_gre.h") on the GRE entry
+#   5. commands.rs: "dpdk" extractor path using kernel::parse_kernel_struct
+#
 # Provides:
-#   - Linux kernel UAPI headers (for struct parsing)
+#   - Linux kernel source (include/ + drivers/net/ for struct parsing)
+#   - DPDK net headers (packed protocol structs for ~28 protocols)
+#   - nDPI headers (deep packet inspection, ~25 packed protocol structs)
+#   - pppd source (PPP control protocol headers and constants)
 #   - Scapy Python environment (for runtime introspection)
 #   - tshark binary (wireshark-cli)
+#   - etherparse, libpcap, kaitai, suricata, OMI sources
 #
 # Usage:
 #   let sources = import ./proto-audit-sources.nix { inherit pkgs; };
-#   sources.kernelSrc   # → /nix/store/.../linux-kernel-src (include/ only)
+#   sources.kernelSrc   # → /nix/store/.../linux-kernel-src
+#   sources.dpdkSrc     # → /nix/store/.../dpdk-net-headers
+#   sources.ndpiSrc     # → /nix/store/.../ndpi-headers
+#   sources.pppdSrc     # → /nix/store/.../pppd-src
 #   sources.scapyPython # → /nix/store/.../bin/python3  (with scapy)
 #   sources.tshark      # → /nix/store/.../bin/tshark
 #
@@ -32,12 +83,71 @@ let
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
 
-  # Linux kernel source (include/ tree only, for UAPI header parsing)
+  # Linux kernel source (include/ + drivers/net/ for protocol struct parsing)
+  #
+  # include/uapi/linux/ has the primary UAPI header structs (iphdr, tcphdr, etc.)
+  # include/linux/ has internal structs sometimes needed for field resolution
+  # drivers/net/ has additional protocol structs used by network drivers:
+  #   - drivers/net/vxlan/ (VXLAN implementation structs)
+  #   - drivers/net/geneve/ (Geneve tunnel structs)
+  #   - drivers/net/macsec.c (MACsec wire format structs)
+  #   - drivers/net/bonding/ (LACP, bonding structs)
+  #   - drivers/net/ppp/ (PPP channel/unit structs)
+  #   - drivers/net/can/ (CAN protocol structs)
+  # net/ has protocol implementation structs:
+  #   - net/bridge/br_stp.c (STP BPDU structs)
+  #   - net/ipv4/ip_gre.c, net/ipv6/ip6_gre.c
+  #   - net/mpls/, net/nsh/, net/openvswitch/
   kernelSrc = pkgs.runCommand "linux-kernel-src-${kernelVersion}" {
     src = pkgs.linuxKernel.kernels.linux_6_12.src;
   } ''
     mkdir -p $out
-    tar xf $src --strip-components=1 -C $out --wildcards '*/include/*'
+    tar xf $src --strip-components=1 -C $out \
+      --wildcards '*/include/*' '*/drivers/net/*' '*/net/*'
+  '';
+
+  # ── Userland protocol sources (packed C struct libraries) ──
+
+  # DPDK net headers: high-quality packed protocol structs from the
+  # Data Plane Development Kit. Covers ~28 protocols including eCPRI,
+  # L2TPv2, MACsec, PDCP, TLS/DTLS wire headers, HiGig, PPP, and
+  # standard protocols (Ethernet, IP, TCP, UDP, GRE, VXLAN, Geneve, etc.)
+  # These use __rte_packed and standard C types — parseable by the
+  # kernel C struct extractor with minor type mapping additions.
+  dpdkSrc = pkgs.runCommand "dpdk-net-headers" {
+    src = pkgs.dpdk.src;
+  } ''
+    mkdir -p $out/lib/net
+    tar xf $src --strip-components=1 -C $out --wildcards '*/lib/net/*.h'
+  '';
+
+  # nDPI (ntop Deep Packet Inspection) headers: ~25 packed protocol wire
+  # format structs in ndpi_typedefs.h, covering CHDLC, SLARP, CDP, DHCP,
+  # DNS, Radiotap, IEEE 802.11, LLC/SNAP, MPLS, IP, TCP, UDP, ICMP,
+  # ICMPv6, VXLAN, GRE, and ARP. Uses PACK_ON/PACK_OFF macros around
+  # struct definitions. The kernel C struct parser handles these with
+  # minor preprocessing (strip PACK_ON/PACK_OFF, map u_int*_t types).
+  # Also has 474 protocol ID constants in ndpi_protocol_ids.h.
+  ndpiSrc = pkgs.runCommand "ndpi-headers" {
+    src = pkgs.ndpi.src;
+  } ''
+    mkdir -p $out
+    cp -r $src/src/include/* $out/
+  '';
+
+  # pppd source: PPP daemon implementation with protocol headers for
+  # LCP (lcp.h), IPCP (ipcp.h), IPv6CP (ipv6cp.h), CCP (ccp.h),
+  # CHAP (chap.h), EAP (eap.h), ECP (ecp.h), PAP (upap.h), and
+  # PPPoE plugin (plugins/pppoe/pppoe.h). Wire format is defined via
+  # #define constants (HEADERLEN=4, CONFREQ=1, CONFACK=2, etc.) rather
+  # than packed structs, but the headers are authoritative for field
+  # names and protocol constants used in cross-verification.
+  pppdSrc = pkgs.runCommand "pppd-src" {
+    src = pkgs.ppp.src;
+  } ''
+    mkdir -p $out/include
+    cp -r $src/pppd/* $out/
+    cp -r $src/include/* $out/include/
   '';
 
   # PacketLife.net captures: ~100 single-protocol PCAPs (clean, one protocol each)
@@ -116,8 +226,17 @@ let
   };
 in
 {
-  # Linux kernel source (include/ tree only)
+  # Linux kernel source (include/ + drivers/net/ + net/)
   inherit kernelSrc;
+
+  # DPDK net headers (packed protocol structs for ~28 protocols)
+  inherit dpdkSrc;
+
+  # nDPI headers (deep packet inspection, ~25 packed protocol structs)
+  inherit ndpiSrc;
+
+  # pppd source (PPP control protocol headers and constants)
+  inherit pppdSrc;
 
   # Scapy Python package (for runtime introspection via helper)
   inherit scapyPython;
@@ -300,6 +419,9 @@ in
   # Source version metadata (for regression tracking and audit reports)
   sourceVersions = {
     kernel = kernelVersion;
+    dpdk = pkgs.dpdk.version or "unknown";
+    ndpi = pkgs.ndpi.version or "unknown";
+    pppd = pkgs.ppp.version or "unknown";
     etherparse = etherparseRev;
     libpcap = libpcapRev;
     packetlife = packetlifeRev;

@@ -55,6 +55,16 @@ pub struct ProtocolNames {
     /// When set, tshark extraction descends into this field under the outer
     /// Lua proto instead of returning the whole-packet superset.
     pub omi_tshark_field: Option<&'static str>,
+    /// DPDK struct name (e.g., "rte_tcp_hdr")
+    pub dpdk_struct: Option<&'static str>,
+    /// DPDK header file (e.g., "rte_tcp.h")
+    pub dpdk_header: Option<&'static str>,
+    /// nDPI struct name (e.g., "ndpi_tcphdr")
+    pub ndpi_struct: Option<&'static str>,
+    /// nDPI header file (e.g., "ndpi_typedefs.h")
+    pub ndpi_header: Option<&'static str>,
+    /// pppd protocol name (e.g., "PPP", "LCP")
+    pub pppd_proto: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -91,6 +101,11 @@ impl ProtocolNames {
             omi_lua: None,
             omi_pcap: None,
             omi_tshark_field: None,
+            dpdk_struct: None,
+            dpdk_header: None,
+            ndpi_struct: None,
+            ndpi_header: None,
+            pppd_proto: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -178,6 +193,26 @@ impl ProtocolNames {
         self.omi_lua = Some(lua);
         self.omi_pcap = Some(pcap);
         self.omi_tshark_field = Some(field);
+        self
+    }
+
+    /// Set both DPDK struct name and header file.
+    pub const fn dpdk(mut self, struct_name: &'static str, header: &'static str) -> Self {
+        self.dpdk_struct = Some(struct_name);
+        self.dpdk_header = Some(header);
+        self
+    }
+
+    /// Set both nDPI struct name and header file.
+    pub const fn ndpi(mut self, struct_name: &'static str, header: &'static str) -> Self {
+        self.ndpi_struct = Some(struct_name);
+        self.ndpi_header = Some(header);
+        self
+    }
+
+    /// Set pppd protocol name.
+    pub const fn pppd(mut self, proto: &'static str) -> Self {
+        self.pppd_proto = Some(proto);
         self
     }
 
@@ -278,6 +313,27 @@ pub fn find_by_omi_struct(name: &str) -> Option<ProtocolNames> {
         .find(|p| p.omi_struct == Some(name))
 }
 
+/// Look up a protocol by its DPDK struct name.
+pub fn find_by_dpdk_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.dpdk_struct == Some(name))
+}
+
+/// Look up a protocol by its nDPI struct name.
+pub fn find_by_ndpi_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.ndpi_struct == Some(name))
+}
+
+/// Look up a protocol by its pppd protocol name.
+pub fn find_by_pppd_proto(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.pppd_proto == Some(name))
+}
+
 /// Build a HashMap from source-specific name → canonical name.
 ///
 /// `source` must be one of: "xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"
@@ -295,6 +351,9 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             "kaitai" => p.kaitai_id.map(|s| s.to_string()),
             "suricata" => p.suricata_struct.map(|s| s.to_string()),
             "omi" => p.omi_struct.map(|s| s.to_string()),
+            "dpdk" => p.dpdk_struct.map(|s| s.to_string()),
+            "ndpi" => p.ndpi_struct.map(|s| s.to_string()),
+            "pppd" => p.pppd_proto.map(|s| s.to_string()),
             _ => None,
         };
         if let Some(n) = name {

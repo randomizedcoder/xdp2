@@ -1,8 +1,9 @@
 # Nix Packaging
 
 proto-audit uses Nix flakes for reproducible builds, external source pinning,
-and cached report generation. All external sources (kernel headers, Scapy,
-tshark, etherparse, libpcap) are Nix-pinned so builds are fully deterministic.
+and cached report generation. All external sources are Nix-pinned so builds
+are fully deterministic. See the comments at the top of
+`nix/proto-audit-sources.nix` for the complete guide on adding new sources.
 
 ## nix/proto-audit.nix
 
@@ -20,11 +21,14 @@ External source pinning, patching, and provisioning:
 
 | Output | Source | Patching |
 |---|---|---|
-| `kernelSrc` | Linux 6.12 `include/` tree | None |
+| `kernelSrc` | Linux 6.12 `include/` + `drivers/net/` + `net/` trees | None |
+| `dpdkSrc` | DPDK `lib/net/*.h` protocol headers | None |
+| `ndpiSrc` | nDPI `src/include/` headers (ndpi_typedefs.h) | None |
+| `pppdSrc` | pppd `pppd/*.h` + `include/` headers | None |
 | `scapyPython` | Python 3.14 + scapy | None |
 | `tshark` | wireshark-cli binary | None |
-| `etherparseSrc` | GitHub-pinned etherparse crate | 31 per-protocol overlay patches |
-| `libpcapSrc` | GitHub-pinned libpcap source | 18 per-protocol overlay patches |
+| `etherparseSrc` | GitHub-pinned etherparse crate | 332 per-protocol overlay patches |
+| `libpcapSrc` | GitHub-pinned libpcap source | 332 per-protocol overlay patches |
 
 ### Source Patching with `applyPatches`
 

@@ -42,6 +42,8 @@ const DEFAULT_ETHERPARSE_GEN_TOML: &str = include_str!("../../mappings/etherpars
 const DEFAULT_SCAPY_GEN_TOML: &str = include_str!("../../mappings/scapy_gen.toml");
 const DEFAULT_LIBPCAP_TOML: &str = include_str!("../../mappings/libpcap.toml");
 const DEFAULT_OMI_TOML: &str = include_str!("../../mappings/omi.toml");
+const DEFAULT_DPDK_TOML: &str = include_str!("../../mappings/dpdk.toml");
+const DEFAULT_NDPI_TOML: &str = include_str!("../../mappings/ndpi.toml");
 
 // ── Shared types ──
 
@@ -130,6 +132,16 @@ pub fn load_libpcap_mappings(dir: Option<&Path>) -> Result<LibpcapMappings> {
 /// Load OMI (Open Markets Initiative) mappings from a directory, or use embedded defaults.
 pub fn load_omi_mappings(dir: Option<&Path>) -> Result<OmiMappings> {
     load_mappings(dir, "omi.toml", DEFAULT_OMI_TOML)
+}
+
+/// Load DPDK type mappings (reuses KernelMappings schema with DPDK type names).
+pub fn load_dpdk_mappings(dir: Option<&Path>) -> Result<KernelMappings> {
+    load_mappings(dir, "dpdk.toml", DEFAULT_DPDK_TOML)
+}
+
+/// Load nDPI type mappings (reuses KernelMappings schema with nDPI type names).
+pub fn load_ndpi_mappings(dir: Option<&Path>) -> Result<KernelMappings> {
+    load_mappings(dir, "ndpi.toml", DEFAULT_NDPI_TOML)
 }
 
 fn load_mappings<T: serde::de::DeserializeOwned>(
