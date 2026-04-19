@@ -14,6 +14,17 @@
 //! 4. Attach the entry program to a network namespace's
 //!    `flow_dissector` hook.
 //!
+//! # Portability
+//!
+//! Requires Linux ≥ 5.1 (for `BPF_FLOW_DISSECTOR_CONTINUE` in the
+//! fast-path `.o`) and system libbpf ≥ 0.7 (for `bpf_tail_call_static`
+//! and the `bpf_prog_attach(BPF_FLOW_DISSECTOR)` family that we
+//! ultimately call through `#[link(name = "bpf")]`). See the block
+//! comment at the top of
+//! `samples/flow_dissector/fast_bpf/fast_flow.bpf.c` for why CO-RE
+//! isn't required (short version: we only read BPF uapi and wire-
+//! format structs, neither of which vary across kernel versions).
+//!
 //! # Status
 //!
 //! - **D7a** — API surface + CLI. ✅

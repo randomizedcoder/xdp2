@@ -16,6 +16,24 @@
 // software dissector takes over — no packet drops on fast-path misses
 // (D6a).
 //
+// ─── Portability (D9) ─────────────────────────────────────────────
+// Minimum kernel: Linux 5.1 — required for BPF_FLOW_DISSECTOR_CONTINUE
+// (commit ad50d30ba39c, "bpf: add BPF_FLOW_DISSECTOR_CONTINUE return
+// code"). BPF_PROG_TYPE_FLOW_DISSECTOR itself has been stable since
+// 4.19. Minimum libbpf: 0.7 — required for bpf_tail_call_static().
+//
+// CO-RE (BPF_CORE_READ / vmlinux.h) is intentionally NOT used: every
+// memory access in this file is one of (a) __sk_buff / bpf_flow_keys
+// fields, both of which are BPF uapi stable structs — the verifier
+// rewrites __sk_buff to direct offset loads and bpf_flow_keys is
+// defined in <linux/bpf.h>, not kernel-internal headers; or (b) raw
+// packet bytes interpreted as wire-format (iphdr / ipv6hdr / tcphdr /
+// udphdr / icmphdr / vlan_hdr), whose layout is defined by RFC and is
+// stable across kernel versions. Upstream tools/testing/selftests/bpf/
+// progs/bpf_flow.c reaches the same conclusion (grep for
+// BPF_CORE_READ there — no hits). If future fields require reading
+// kernel-internal structs, reach for BPF_CORE_READ at that time.
+//
 
 #include <stddef.h>
 #include <linux/bpf.h>
