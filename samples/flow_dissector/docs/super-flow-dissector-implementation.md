@@ -13,7 +13,7 @@
 | **A. Harness integration** | Extend `samples/flow_dissector/` to compare all five implementations | 🔵 in progress (A4 ✅) | Add slot skeletons to `benchmark.c`, `benchmark_bpf.c`, `benchmark_matrix.sh` |
 | **B. BPF selftest patches** | 3 new patches on top of existing 5 from `kernel-patches.md` | 🟡 not started | Patch 8 (unified port load) — lowest risk, lands first |
 | **C. Kernel C patch series** | `net/core/flow_dissector.c` — 7 patches | 🟡 not started | Patch 2 (unified L4 port load) prototype |
-| **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D4 ✅, D5 ✅ minus §5a, D6a ✅) | D6: full slow-path tail call; D7: Rust loader |
+| **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D5 ✅ minus §5a, D6a ✅, D7 ✅) | D6 (full slow-path) awaits xdp2-compiler `.o`; D8 Nix packaging next |
 | **E. Production AF_XDP (`xdp2-flow-afxdp`)** | Rust crate + CLI + XDP classifier + shared control plane | 🟡 not started | Crate skeleton under `xdp2-rs/crates/xdp2-af-xdp/` |
 | **§5a. Shared control plane (`xdp2-fastpath-control`)** | Listen-socket enumeration + PROG_ARRAY update API | 🟡 not started | `sock_diag` netlink enumerator (read-only spike) |
 
