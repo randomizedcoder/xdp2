@@ -53,14 +53,20 @@ fn preprocess_dpdk(content: &str) -> String {
     // DPDK uses these for bitfield overlays, e.g.:
     //   union { uint8_t version_ihl; struct { uint8_t ihl:4; ... }; };
     // The kernel parser skips `union` lines, so we inline the contents.
+    // Within unions, drop non-bitfield members (like `version_ihl`) so only
+    // the bitfield decomposition remains — avoids double-counting the same byte.
     let mut result = String::with_capacity(content.len());
-    let mut anon_depth: Vec<usize> = Vec::new(); // stack of line indices where anon open braces were
+    let mut anon_depth: Vec<usize> = Vec::new(); // stack of brace depths
+    let mut in_union = false; // true when the outermost anonymous block is a union
 
     for l in &lines {
         let trimmed = l.trim();
 
         // Detect anonymous union/struct opener (no field name after {)
         if trimmed == "union {" || trimmed == "struct {" {
+            if anon_depth.is_empty() {
+                in_union = trimmed == "union {";
+            }
             anon_depth.push(0);
             continue; // skip this line
         }
@@ -76,9 +82,33 @@ fn preprocess_dpdk(content: &str) -> String {
                 if let Some(depth) = anon_depth.last_mut() {
                     if *depth == 0 {
                         anon_depth.pop(); // closing }; matches our anonymous wrapper
+                        if anon_depth.is_empty() {
+                            in_union = false;
+                        }
                         continue;
                     }
                     *depth -= 1;
+                }
+            }
+
+            // Within a union, drop non-bitfield field declarations.
+            // Keep bitfields (contain ':') — they're the decomposition we want.
+            // This prevents e.g. `uint8_t version_ihl;` and `uint8_t version:4;`
+            // both appearing as sequential fields.
+            if in_union && anon_depth.len() == 1 && anon_depth[0] == 0 {
+                // Strip trailing inline comments before checking for ';'
+                let stripped = if let Some(pos) = trimmed.find("/*") {
+                    trimmed[..pos].trim()
+                } else if let Some(pos) = trimmed.find("//") {
+                    trimmed[..pos].trim()
+                } else {
+                    trimmed
+                };
+                let is_field = stripped.ends_with(';')
+                    && !stripped.starts_with('#');
+                let is_bitfield = stripped.contains(':');
+                if is_field && !is_bitfield {
+                    continue; // skip aggregate member like `uint8_t version_ihl;`
                 }
             }
         }
@@ -224,12 +254,19 @@ struct __rte_aligned(2) __rte_packed_begin rte_ipv4_hdr {
         let def = extract_protocol(DPDK_IPV4, "rte_ipv4_hdr", "rte_ip4.h")
             .unwrap()
             .unwrap();
-        // The union is skipped, but the bitfields inside are parsed
-        // After preprocessing, we get version:4, ihl:4 from big-endian section
-        assert!(def.fields.len() >= 8, "expected at least 8 fields, got {}", def.fields.len());
+        // Union aggregate member (version_ihl) should be dropped; only bitfields kept
+        assert_eq!(def.fields.len(), 11, "expected 11 fields (no version_ihl), got {}", def.fields.len());
+        assert_eq!(def.fields[0].name, "version");
+        assert_eq!(def.fields[0].size_bits, 4);
+        assert_eq!(def.fields[0].offset_bits, 0);
+        assert_eq!(def.fields[1].name, "ihl");
+        assert_eq!(def.fields[1].size_bits, 4);
+        assert_eq!(def.min_header_bits, 160);
         // Check that src_addr and dst_addr are present
         assert!(def.fields.iter().any(|f| f.name == "src_addr"));
         assert!(def.fields.iter().any(|f| f.name == "dst_addr"));
+        // version_ihl aggregate should NOT be present
+        assert!(!def.fields.iter().any(|f| f.name == "version_ihl"));
     }
 
     #[test]
