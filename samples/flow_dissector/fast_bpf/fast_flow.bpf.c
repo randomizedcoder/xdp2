@@ -6,10 +6,11 @@
 //
 // See samples/flow_dissector/docs/super-flow-dissector-plan.md §5.
 //
-// Status: D1-D3 skeleton (plan implementation log). Entry program with
-// an IPv4/TCP fast-path gate; one specialised program for ETH/IPv4/TCP.
-// Remaining fast-path slots (D5), slow-path fallback (D6), and dynamic
-// socket-driven slot (§5a) are TODO.
+// Status: D1-D3 + partial D5. Entry program gates IPv4 (IHL=5, no
+// fragmentation) and pure IPv6 (no extension headers), dispatching into
+// four specialised programs: ETH/IPv4/TCP, ETH/IPv4/UDP, ETH/IPv6/TCP,
+// ETH/IPv6/UDP. VLAN and ICMP slots (D5), slow-path fallback (D6), and
+// dynamic socket-driven slot (§5a) are TODO.
 //
 
 #include <stddef.h>
@@ -31,9 +32,9 @@
  * templates installed at runtime by xdp2-flow-loader.
  */
 #define CHAIN_ETH_IPV4_TCP      0
-#define CHAIN_ETH_IPV4_UDP      1  /* TODO D5 */
-#define CHAIN_ETH_IPV6_TCP      2  /* TODO D5 */
-#define CHAIN_ETH_IPV6_UDP      3  /* TODO D5 */
+#define CHAIN_ETH_IPV4_UDP      1
+#define CHAIN_ETH_IPV6_TCP      2
+#define CHAIN_ETH_IPV6_UDP      3
 #define CHAIN_ETH_VLAN_IPV4_TCP 4  /* TODO D5 */
 #define CHAIN_ETH_VLAN_IPV4_UDP 5  /* TODO D5 */
 #define CHAIN_ETH_IPV4_ICMP     6  /* TODO D5 */
@@ -86,13 +87,37 @@ int _dissect(struct __sk_buff *skb)
 			bpf_tail_call_static(skb, &jmp_table,
 					     CHAIN_ETH_IPV4_TCP);
 			break;
-		/* TODO D5: IPPROTO_UDP → CHAIN_ETH_IPV4_UDP, ICMP, etc. */
+		case IPPROTO_UDP:
+			bpf_tail_call_static(skb, &jmp_table,
+					     CHAIN_ETH_IPV4_UDP);
+			break;
+		/* TODO D5: ICMP. */
 		default:
 			goto slowpath;
 		}
 		/* tail-call fall-through = slot empty; treat as slow path */
+	} else if (keys->n_proto == bpf_htons(ETH_P_IPV6)) {
+		struct ipv6hdr *ip6h = data + nhoff;
+
+		if ((void *)(ip6h + 1) > data_end)
+			goto slowpath;
+
+		/* Gate: reject any IPv6 with extension headers. A real
+		 * ext-hdr walk belongs in the slow path. */
+		switch (ip6h->nexthdr) {
+		case IPPROTO_TCP:
+			bpf_tail_call_static(skb, &jmp_table,
+					     CHAIN_ETH_IPV6_TCP);
+			break;
+		case IPPROTO_UDP:
+			bpf_tail_call_static(skb, &jmp_table,
+					     CHAIN_ETH_IPV6_UDP);
+			break;
+		default:
+			goto slowpath;
+		}
 	}
-	/* TODO D5: IPv6 fast-path gate dispatching into CHAIN_ETH_IPV6_*. */
+	/* TODO D5: VLAN fast-path gate (unwrap 802.1Q then re-dispatch). */
 
 slowpath:
 	/* TODO D6: tail-call into the slow-path dissector.
@@ -135,6 +160,113 @@ int flow_dissector_eth_ipv4_tcp(struct __sk_buff *skb)
 	keys->sport = ports[0];
 	keys->dport = ports[1];
 	keys->thoff = thoff;
+	keys->is_frag = 0;
+	keys->is_first_frag = 0;
+
+	return BPF_OK;
+}
+
+/* ─── Specialised: ETH / IPv4 / UDP ────────────────────────────────────
+ *
+ * UDP has the same src/dst-port layout as TCP at offsets 0/2, so this is
+ * a literal mirror of the TCP extractor with ip_proto set to UDP.
+ */
+SEC("flow_dissector")
+int flow_dissector_eth_ipv4_udp(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	__u32 nhoff = keys->nhoff;
+	__u32 thoff = nhoff + 20;
+	struct iphdr *iph = data + nhoff;
+	__be16 *ports = data + thoff;
+
+	if ((void *)(iph + 1) > data_end)
+		return BPF_DROP;
+	if ((void *)(ports + 2) > data_end)
+		return BPF_DROP;
+
+	keys->addr_proto = ETH_P_IP;
+	keys->ipv4_src = iph->saddr;
+	keys->ipv4_dst = iph->daddr;
+	keys->ip_proto = IPPROTO_UDP;
+	keys->sport = ports[0];
+	keys->dport = ports[1];
+	keys->thoff = thoff;
+	keys->is_frag = 0;
+	keys->is_first_frag = 0;
+
+	return BPF_OK;
+}
+
+/* ─── Specialised: ETH / IPv6 / TCP ────────────────────────────────────
+ *
+ * Preconditions from the entry gate: IPv6, next-hdr = TCP (no extension
+ * headers). Fixed IPv6 header size = 40 bytes.
+ *
+ * ipv6_src and ipv6_dst are contiguous in the header, so we read them
+ * with one 32-byte memcpy. `flow_label` comes from the 20-bit field in
+ * the first 4 bytes of the header (big-endian).
+ */
+SEC("flow_dissector")
+int flow_dissector_eth_ipv6_tcp(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	__u32 nhoff = keys->nhoff;
+	__u32 thoff = nhoff + sizeof(struct ipv6hdr);
+	struct ipv6hdr *ip6h = data + nhoff;
+	__be16 *ports = data + thoff;
+
+	if ((void *)(ip6h + 1) > data_end)
+		return BPF_DROP;
+	if ((void *)(ports + 2) > data_end)
+		return BPF_DROP;
+
+	keys->addr_proto = ETH_P_IPV6;
+	__builtin_memcpy(&keys->ipv6_src, &ip6h->saddr,
+			 2 * sizeof(ip6h->saddr));
+	keys->ip_proto = IPPROTO_TCP;
+	keys->sport = ports[0];
+	keys->dport = ports[1];
+	keys->thoff = thoff;
+	keys->flow_label = bpf_ntohl(*(__be32 *)ip6h) & 0x000FFFFF;
+	keys->is_frag = 0;
+	keys->is_first_frag = 0;
+
+	return BPF_OK;
+}
+
+/* ─── Specialised: ETH / IPv6 / UDP ────────────────────────────────────
+ *
+ * Mirror of IPv6/TCP with ip_proto = UDP.
+ */
+SEC("flow_dissector")
+int flow_dissector_eth_ipv6_udp(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	__u32 nhoff = keys->nhoff;
+	__u32 thoff = nhoff + sizeof(struct ipv6hdr);
+	struct ipv6hdr *ip6h = data + nhoff;
+	__be16 *ports = data + thoff;
+
+	if ((void *)(ip6h + 1) > data_end)
+		return BPF_DROP;
+	if ((void *)(ports + 2) > data_end)
+		return BPF_DROP;
+
+	keys->addr_proto = ETH_P_IPV6;
+	__builtin_memcpy(&keys->ipv6_src, &ip6h->saddr,
+			 2 * sizeof(ip6h->saddr));
+	keys->ip_proto = IPPROTO_UDP;
+	keys->sport = ports[0];
+	keys->dport = ports[1];
+	keys->thoff = thoff;
+	keys->flow_label = bpf_ntohl(*(__be32 *)ip6h) & 0x000FFFFF;
 	keys->is_frag = 0;
 	keys->is_first_frag = 0;
 

@@ -148,10 +148,30 @@ static int diff_keys(const struct bpf_flow_keys *fast,
 	CHECK(thoff);
 	CHECK(sport);
 	CHECK(dport);
-	CHECK(ipv4_src);
-	CHECK(ipv4_dst);
 	CHECK(is_frag);
 	CHECK(is_first_frag);
+
+	/* Address family-specific fields. For IPv4 the IPv6 bytes are
+	 * zero in both; for IPv6 vice-versa. Only diff the bytes that
+	 * belong to the declared addr_proto, which must already match. */
+	if (fast->addr_proto == ETH_P_IP) {
+		CHECK(ipv4_src);
+		CHECK(ipv4_dst);
+	} else if (fast->addr_proto == ETH_P_IPV6) {
+		if (memcmp(&fast->ipv6_src, &oracle->ipv6_src,
+			   sizeof(fast->ipv6_src)) && n < max) {
+			m[n].field = "ipv6_src";
+			m[n].fast = 0; m[n].oracle = 0;
+			n++;
+		}
+		if (memcmp(&fast->ipv6_dst, &oracle->ipv6_dst,
+			   sizeof(fast->ipv6_dst)) && n < max) {
+			m[n].field = "ipv6_dst";
+			m[n].fast = 0; m[n].oracle = 0;
+			n++;
+		}
+		CHECK(flow_label);
+	}
 #undef CHECK
 	return n;
 }

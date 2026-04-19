@@ -15,16 +15,18 @@ The design is:
 - Packets that don't hit the fast path fall through to a slow-path
   dissector that preserves full protocol coverage.
 
-## Current status (D1–D3 skeleton)
+## Current status (D1–D4 + partial D5)
 
 Tracked in [`../docs/super-flow-dissector-implementation.md`](../docs/super-flow-dissector-implementation.md).
 
 - **D1** — directory + Makefile target ✅
-- **D2** — entry program with signature match ✅ (partial: IPv4 fast-path
-  gate only; IPv6/VLAN fast-path gates are TODO)
-- **D3** — one specialised program: ETH/IPv4/TCP ✅
-- **D4** — coverage parity test vs slow-path ⏳
-- **D5** — remaining 7 fast-path slots ⏳
+- **D2** — entry program with signature match ✅ (IPv4 + pure IPv6 gates;
+  VLAN gate still TODO)
+- **D3** — ETH/IPv4/TCP specialised extractor ✅
+- **D4** — coverage-parity harness `parity_test` ✅ (oracle =
+  `bpf_flow.kern.o` until D6 lands)
+- **D5** — fast-path slots: IPv4/TCP, IPv4/UDP, IPv6/TCP, IPv6/UDP ✅;
+  VLAN×2, ICMP, dynamic still TODO
 - **D6** — slow-path fallback ⏳ (currently drops non-fast-path packets)
 
 ## Build
