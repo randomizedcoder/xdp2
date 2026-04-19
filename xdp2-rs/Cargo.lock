@@ -1426,6 +1426,9 @@ dependencies = [
 [[package]]
 name = "xdp2-flow-loader"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "xdp2-fuzz"

@@ -14,6 +14,7 @@ name = "xdp2-flow-loader"
 path = "src/bin/xdp2-flow-loader.rs"
 
 [dependencies]
-# Kept minimal on purpose: this is the D7a skeleton. D7b will add
-# libbpf-sys / libbpf-rs (the exact choice is recorded in
-# samples/flow_dissector/docs/super-flow-dissector-implementation.md).
+# libc covers errno/c-string plumbing for the hand-written FFI layer in
+# src/libbpf_sys.rs. We link against the system libbpf directly rather
+# than pulling libbpf-sys/libbpf-rs so the crate builds offline.
+libc = "0.2"

@@ -81,14 +81,32 @@ fn main() -> ExitCode {
     cfg.slow_path_object = args.slow_path_object;
     cfg.attach_netns = args.attach_netns;
 
-    match Loader::load(cfg).and_then(|mut l| l.attach()) {
+    let mut loader = match Loader::load(cfg) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("load failed: {}", e);
+            return ExitCode::from(1);
+        }
+    };
+
+    println!(
+        "loaded: entry_fd={}, jmp_table_slots={}",
+        loader.entry_fd(),
+        loader.slot_count()
+    );
+
+    match loader.attach() {
         Ok(()) => ExitCode::SUCCESS,
         Err(LoaderError::NotImplemented { operation }) => {
-            eprintln!(
-                "xdp2-flow-loader D7a skeleton: {} not implemented yet — coming in D7b",
-                operation
-            );
-            ExitCode::from(2)
+            eprintln!("{} not implemented yet — coming in D7c", operation);
+            // Still exit 0: load succeeded, which is the entire D7b
+            // contract. Non-attach exits are not a failure for the
+            // skeleton CLI.
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("attach failed: {}", e);
+            ExitCode::from(1)
         }
     }
 }
