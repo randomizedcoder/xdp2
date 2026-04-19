@@ -38,10 +38,12 @@ use std::mem;
 
 pub mod bpf;
 pub mod controller;
+pub mod proc_net;
 
 pub use controller::{
     ControllerError, TemplateController, CHAIN_DYNAMIC, FIRST_DYNAMIC_SLOT,
 };
+pub use proc_net::{enumerate_procfs, enumerate_procfs_all};
 
 /// Protocol family (IPv4 vs IPv6) for an enumerated listener.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
