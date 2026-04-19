@@ -141,6 +141,14 @@
           xdp2 = xdp2-debug;
         };
 
+        # xdp2-flow-ebpf — production-distribution bundle:
+        # fast_flow.bpf.o + xdp2-flow-loader + man page + systemd unit.
+        # See nix/xdp2-flow-ebpf.nix.
+        xdp2FlowEbpf = import ./nix/xdp2-flow-ebpf.nix {
+          inherit pkgs llvmPackages;
+          xdp2 = xdp2-debug;
+        };
+
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
         # See nix/compiler-verify.nix for all available targets
         compilerVerify = import ./nix/compiler-verify.nix {
@@ -422,6 +430,17 @@
           # Adversarial: nix build .#xdp2-rs-adversarial
           # Stress:      nix run   .#xdp2-rs-stress -- [hours] [threads]
           # ===================================================================
+          # ===================================================================
+          # xdp2-flow-ebpf — production fast-path flow dissector bundle
+          # Build:  nix build .#xdp2-flow-ebpf
+          # Run:    sudo ./result/bin/xdp2-flow-loader \
+          #             --bpf ./result/lib/xdp2-flow-ebpf/fast_flow.bpf.o
+          # Layout: bin/xdp2-flow-loader + lib/xdp2-flow-ebpf/fast_flow.bpf.o
+          #         + share/man/man1/xdp2-flow-loader.1
+          #         + share/xdp2-flow-ebpf/xdp2-flow-loader.service
+          # ===================================================================
+          xdp2-flow-ebpf = xdp2FlowEbpf;
+
           xdp2-rs = xdp2Rs.build;
           xdp2-rs-test = xdp2Rs.test;
           xdp2-rs-test-graph-enum = xdp2Rs.test-graph-enum;
