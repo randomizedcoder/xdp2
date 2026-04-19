@@ -552,6 +552,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("cfm_header", "pcap/proto_audit/cfm.h"),
         PN::new("FIP", 10)
             .xdp2("xdp2_parse_fip")
+            .kernel("fip_header", "scsi/fc/fc_fip.h")
             .scapy("FIP")
             .tshark("fip")
             .etherparse("FIPHeader", "src/proto_audit/fip.rs")
@@ -652,7 +653,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("ATT_HdrHeader", "src/proto_audit/bt_att.rs")
             .libpcap("bt_att_header", "pcap/proto_audit/bt_att.h"),
         PN::new("BT_SMP", 1)
-            .xdp2("xdp2_parse_bt_smp").scapy("SM_Hdr").tshark("btsmp").variable()
+            .xdp2("xdp2_parse_bt_smp")
+            .kernel("smp_cmd_pairing", "net/bluetooth/smp.h")
+            .scapy("SM_Hdr").tshark("btsmp").variable()
             .etherparse("SM_HdrHeader", "src/proto_audit/bt_smp.rs")
             .libpcap("bt_smp_header", "pcap/proto_audit/bt_smp.h"),
         PN::new("BT_RFCOMM", 4)
@@ -679,7 +682,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("IB_DETHHeader", "src/proto_audit/ib_deth.rs")
             .libpcap("ib_deth_header", "pcap/proto_audit/ib_deth.h"),
         PN::new("IB_RETH", 16)
-            .xdp2("xdp2_parse_ib_reth").scapy("IB_RETH").tshark("infiniband.reth")
+            .xdp2("xdp2_parse_ib_reth")
+            .kernel("ib_reth", "rdma/ib_hdrs.h")
+            .scapy("IB_RETH").tshark("infiniband.reth")
             .etherparse("IB_RETHHeader", "src/proto_audit/ib_reth.rs")
             .libpcap("ib_reth_header", "pcap/proto_audit/ib_reth.h"),
         PN::new("IB_AETH", 4)
@@ -691,7 +696,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("IB_RDETHHeader", "src/proto_audit/ib_rdeth.rs")
             .libpcap("ib_rdeth_header", "pcap/proto_audit/ib_rdeth.h"),
         PN::new("IB_AtomicETH", 28)
-            .xdp2("xdp2_parse_ib_atomiceth").scapy("IB_AtomicETH").tshark("infiniband.atomiceth")
+            .xdp2("xdp2_parse_ib_atomiceth")
+            .kernel("ib_atomic_eth", "rdma/ib_hdrs.h")
+            .scapy("IB_AtomicETH").tshark("infiniband.atomiceth")
             .etherparse("IB_AtomicETHHeader", "src/proto_audit/ib_atomiceth.rs")
             .libpcap("ib_atomiceth_header", "pcap/proto_audit/ib_atomiceth.h"),
         PN::new("IB_ImmDt", 4)
@@ -699,7 +706,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("IB_ImmDtHeader", "src/proto_audit/ib_immdt.rs")
             .libpcap("ib_immdt_header", "pcap/proto_audit/ib_immdt.h"),
         PN::new("IB_MAD", 24)
-            .xdp2("xdp2_parse_ib_mad").scapy("IB_MAD").tshark("infiniband.mad").variable()
+            .xdp2("xdp2_parse_ib_mad")
+            .kernel("ib_mad_hdr", "rdma/ib_mad.h")
+            .scapy("IB_MAD").tshark("infiniband.mad").variable()
             .etherparse("IB_MADHeader", "src/proto_audit/ib_mad.rs")
             .libpcap("ib_mad_header", "pcap/proto_audit/ib_mad.h"),
         // ── Multicast ──

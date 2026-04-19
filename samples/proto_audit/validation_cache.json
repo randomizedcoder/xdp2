@@ -924,11 +924,11 @@
     "timestamp": "1776010965"
   },
   "IB_AtomicETH": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Bronze",
+    "fields_agree": 4,
+    "total_fields": 4,
     "fields_mismatch": 0,
-    "timestamp": "1776010975"
+    "timestamp": "1776625222"
   },
   "IB_BTH": {
     "validation_tier": "Unvalidated",
@@ -966,11 +966,11 @@
     "timestamp": "1776011017"
   },
   "IB_MAD": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Bronze",
+    "fields_agree": 10,
+    "total_fields": 10,
     "fields_mismatch": 0,
-    "timestamp": "1776011026"
+    "timestamp": "1776625222"
   },
   "IB_RDETH": {
     "validation_tier": "Unvalidated",
@@ -980,11 +980,11 @@
     "timestamp": "1776011036"
   },
   "IB_RETH": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Bronze",
+    "fields_agree": 3,
+    "total_fields": 3,
     "fields_mismatch": 0,
-    "timestamp": "1776011045"
+    "timestamp": "1776625222"
   },
   "ICMPv4": {
     "validation_tier": "Gold",
