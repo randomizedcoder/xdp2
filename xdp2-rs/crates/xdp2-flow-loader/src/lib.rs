@@ -24,7 +24,10 @@
 //! - **D7c** — `Loader::attach` attaches the entry program to the
 //!   target netns via `bpf_prog_attach(BPF_FLOW_DISSECTOR)`; `Drop`
 //!   detaches. ✅
-//! - **D7d** — slow-path object handling (CHAIN_DYNAMIC install).
+//! - **D7d** — slow-path object: when `config.slow_path_object` is
+//!   set, open/load it and install its `_dissect` fd into the fast
+//!   path's `jmp_table[CHAIN_DYNAMIC]` so misses tail-call into the
+//!   full dissector instead of returning `CONTINUE`. ✅
 
 use std::ffi::{CString, NulError};
 use std::fmt;
@@ -35,6 +38,12 @@ use std::ptr;
 mod libbpf_sys;
 use libbpf_sys as lb;
 
+/// Fast-path `jmp_table` slot reserved for the slow-path dissector.
+///
+/// Must match `CHAIN_DYNAMIC` in
+/// `samples/flow_dissector/fast_bpf/fast_flow.bpf.c`.
+pub const CHAIN_DYNAMIC: u32 = 7;
+
 /// Configuration for loading `fast_flow.bpf.o`.
 #[derive(Debug, Clone)]
 pub struct LoaderConfig {
@@ -42,10 +51,10 @@ pub struct LoaderConfig {
     pub bpf_object: PathBuf,
 
     /// Optional path to a slow-path BPF object. When provided, the
-    /// loader installs its entry program into the `CHAIN_DYNAMIC` slot
-    /// so fast-path misses tail-call into a full xdp2-compiler-generated
-    /// dissector instead of returning `BPF_FLOW_DISSECTOR_CONTINUE`
-    /// (D6). **D7d — not wired yet.**
+    /// loader installs its `_dissect` program into the fast-path
+    /// `jmp_table[CHAIN_DYNAMIC]` slot so fast-path misses tail-call
+    /// into a full dissector instead of returning
+    /// `BPF_FLOW_DISSECTOR_CONTINUE` (D6).
     pub slow_path_object: Option<PathBuf>,
 
     /// Network namespace to attach the flow_dissector hook to. `None`
@@ -73,8 +82,15 @@ impl LoaderConfig {
 pub struct Loader {
     config: LoaderConfig,
     obj: *mut lb::bpf_object,
+    /// Slow-path object — null unless `config.slow_path_object` was
+    /// Some. Owned; freed in `Drop`.
+    slow_obj: *mut lb::bpf_object,
     entry_fd: i32,
     slot_count: usize,
+    /// Whether `CHAIN_DYNAMIC` was populated from `slow_obj`. Separate
+    /// from `slot_count` because `slot_count` tracks the sequential
+    /// 0..N fast-path slots.
+    slow_path_installed: bool,
     /// Owned netns file descriptor — Some(fd) means attach succeeded
     /// and `Drop` should detach. None means never attached (or already
     /// detached).
@@ -89,6 +105,7 @@ impl fmt::Debug for Loader {
             .field("config", &self.config)
             .field("entry_fd", &self.entry_fd)
             .field("slot_count", &self.slot_count)
+            .field("slow_path_installed", &self.slow_path_installed)
             .field("netns_fd", &self.netns_fd)
             .finish()
     }
@@ -115,8 +132,10 @@ impl Loader {
         let mut loader = Loader {
             config,
             obj,
+            slow_obj: ptr::null_mut(),
             entry_fd: -1,
             slot_count: 0,
+            slow_path_installed: false,
             netns_fd: None,
         };
 
@@ -156,12 +175,17 @@ impl Loader {
         // tail-calls can use this loader too.
         let map_name = CString::new("jmp_table").expect("static ASCII");
         let map = unsafe { lb::bpf_object__find_map_by_name(obj, map_name.as_ptr()) };
-        if !map.is_null() {
-            let map_fd = unsafe { lb::bpf_map__fd(map) };
-            if map_fd < 0 {
+        let map_fd = if map.is_null() {
+            -1
+        } else {
+            let fd = unsafe { lb::bpf_map__fd(map) };
+            if fd < 0 {
                 return Err(LoaderError::JmpTableFd);
             }
+            fd
+        };
 
+        if map_fd >= 0 {
             let mut slot: u32 = 0;
             unsafe {
                 let mut p = lb::bpf_object__next_program(obj, ptr::null_mut());
@@ -189,7 +213,43 @@ impl Loader {
             loader.slot_count = slot as usize;
         }
 
+        // D7d — if a slow-path object was configured, load it and
+        // install its `_dissect` fd into `jmp_table[CHAIN_DYNAMIC]`.
+        // Absence of jmp_table is a hard error here: the caller asked
+        // for a slow-path install, but the fast-path object has no
+        // tail-call table to plug into.
+        if loader.config.slow_path_object.is_some() {
+            if map_fd < 0 {
+                return Err(LoaderError::JmpTableFd);
+            }
+            let slow_path = loader.config.slow_path_object.clone().unwrap();
+            let slow_entry_fd = open_and_load_slow_path(&mut loader, &slow_path)?;
+            let slot = CHAIN_DYNAMIC;
+            let prog_fd: i32 = slow_entry_fd;
+            let rc = unsafe {
+                lb::bpf_map_update_elem(
+                    map_fd,
+                    &slot as *const u32 as *const _,
+                    &prog_fd as *const i32 as *const _,
+                    lb::BPF_ANY,
+                )
+            };
+            if rc < 0 {
+                return Err(LoaderError::JmpTableUpdate {
+                    slot,
+                    source: io::Error::last_os_error(),
+                });
+            }
+            loader.slow_path_installed = true;
+        }
+
         Ok(loader)
+    }
+
+    /// True if a slow-path program was installed into
+    /// `jmp_table[CHAIN_DYNAMIC]` at load time.
+    pub fn slow_path_installed(&self) -> bool {
+        self.slow_path_installed
     }
 
     /// File descriptor of the entry program (`_dissect`).
@@ -272,6 +332,15 @@ impl Drop for Loader {
             // SAFETY: fd was produced by our own open() call.
             unsafe { libc::close(fd) };
         }
+        if !self.slow_obj.is_null() {
+            // SAFETY: we own slow_obj; closing it exactly once here.
+            // Close *before* the fast-path obj so the slow-path prog fd
+            // in jmp_table[CHAIN_DYNAMIC] is released first; the kernel
+            // then drops the prog array entry's reference when the map
+            // is freed with the fast-path object.
+            unsafe { lb::bpf_object__close(self.slow_obj) };
+            self.slow_obj = ptr::null_mut();
+        }
         if !self.obj.is_null() {
             // SAFETY: we own obj; closing it exactly once here.
             unsafe { lb::bpf_object__close(self.obj) };
@@ -320,6 +389,18 @@ pub enum LoaderError {
     /// attachment.
     AlreadyAttached,
 
+    /// `bpf_object__open` on the slow-path object returned NULL.
+    SlowPathOpen {
+        path: PathBuf,
+        source: io::Error,
+    },
+
+    /// `bpf_object__load` on the slow-path object returned < 0.
+    SlowPathLoad { source: io::Error },
+
+    /// Slow-path object had no `_dissect` program.
+    SlowPathMissingEntry,
+
     /// Operation is part of the planned API but hasn't been implemented
     /// yet.
     NotImplemented { operation: &'static str },
@@ -354,6 +435,20 @@ impl fmt::Display for LoaderError {
             LoaderError::AlreadyAttached => {
                 write!(f, "loader is already attached")
             }
+            LoaderError::SlowPathOpen { path, source } => {
+                write!(
+                    f,
+                    "bpf_object__open(slow path {}): {}",
+                    path.display(),
+                    source
+                )
+            }
+            LoaderError::SlowPathLoad { source } => {
+                write!(f, "bpf_object__load(slow path): {}", source)
+            }
+            LoaderError::SlowPathMissingEntry => {
+                write!(f, "slow-path object has no _dissect program")
+            }
             LoaderError::NotImplemented { operation } => {
                 write!(f, "{} is not implemented yet", operation)
             }
@@ -370,6 +465,8 @@ impl std::error::Error for LoaderError {
             LoaderError::JmpTableUpdate { source, .. } => Some(source),
             LoaderError::OpenNetns { source, .. } => Some(source),
             LoaderError::Attach { source, .. } => Some(source),
+            LoaderError::SlowPathOpen { source, .. } => Some(source),
+            LoaderError::SlowPathLoad { source } => Some(source),
             _ => None,
         }
     }
@@ -384,6 +481,65 @@ impl From<NulError> for LoaderError {
 fn path_to_cstring(p: &Path) -> Result<CString, NulError> {
     use std::os::unix::ffi::OsStrExt;
     CString::new(p.as_os_str().as_bytes())
+}
+
+/// Open a slow-path BPF object, coerce its programs to
+/// `BPF_PROG_TYPE_FLOW_DISSECTOR`, load, and return its `_dissect`
+/// program fd. The `bpf_object *` is stashed on `loader.slow_obj` so
+/// `Drop` can close it.
+///
+/// Any error leaves `loader.slow_obj` untouched (null) — the caller's
+/// overall `Loader::load` failure unwinds through `Drop` which is a
+/// no-op for the slow path in that case.
+fn open_and_load_slow_path(
+    loader: &mut Loader,
+    path: &Path,
+) -> Result<i32, LoaderError> {
+    let c_path = path_to_cstring(path)?;
+    // SAFETY: c_path is a valid NUL-terminated string; libbpf copies.
+    let sobj = unsafe { lb::bpf_object__open(c_path.as_ptr()) };
+    if sobj.is_null() {
+        return Err(LoaderError::SlowPathOpen {
+            path: path.to_path_buf(),
+            source: io::Error::last_os_error(),
+        });
+    }
+
+    // Same type-coercion dance as the fast path — the slow object's
+    // programs must load as FLOW_DISSECTOR for the prog_array slot
+    // to accept them.
+    unsafe {
+        let mut p = lb::bpf_object__next_program(sobj, ptr::null_mut());
+        while !p.is_null() {
+            lb::bpf_program__set_type(p, lb::BPF_PROG_TYPE_FLOW_DISSECTOR);
+            p = lb::bpf_object__next_program(sobj, p);
+        }
+    }
+
+    let rc = unsafe { lb::bpf_object__load(sobj) };
+    if rc < 0 {
+        let err = io::Error::last_os_error();
+        // SAFETY: sobj was just opened successfully above; close it
+        // before returning so we don't leak on the error path.
+        unsafe { lb::bpf_object__close(sobj) };
+        return Err(LoaderError::SlowPathLoad { source: err });
+    }
+
+    let entry_name = CString::new("_dissect").expect("static ASCII");
+    let prog =
+        unsafe { lb::bpf_object__find_program_by_name(sobj, entry_name.as_ptr()) };
+    if prog.is_null() {
+        unsafe { lb::bpf_object__close(sobj) };
+        return Err(LoaderError::SlowPathMissingEntry);
+    }
+    let fd = unsafe { lb::bpf_program__fd(prog) };
+    if fd < 0 {
+        unsafe { lb::bpf_object__close(sobj) };
+        return Err(LoaderError::SlowPathMissingEntry);
+    }
+
+    loader.slow_obj = sobj;
+    Ok(fd)
 }
 
 #[cfg(test)]
@@ -403,6 +559,31 @@ mod tests {
         let cfg = LoaderConfig::new("/tmp/fast.o");
         assert!(cfg.slow_path_object.is_none());
         assert!(cfg.attach_netns.is_none());
+    }
+
+    #[test]
+    fn slow_path_open_error_bubbles_up() {
+        // When bpf_object__open fails on the slow-path .o, load() must
+        // return SlowPathOpen (not the generic Open) so callers can
+        // distinguish which object errored. We point the fast-path at a
+        // path that will fail first; bpf_object__open(NULL-ish) surface
+        // still returns Open, but the display of each variant names
+        // the object — this smoke test confirms the Display wording.
+        let err = LoaderError::SlowPathOpen {
+            path: PathBuf::from("/nonexistent/slow.bpf.o"),
+            source: io::Error::from_raw_os_error(libc::ENOENT),
+        };
+        let msg = format!("{}", err);
+        assert!(msg.contains("slow path"), "got {}", msg);
+        assert!(msg.contains("/nonexistent/slow.bpf.o"), "got {}", msg);
+    }
+
+    #[test]
+    fn chain_dynamic_matches_fast_flow_header() {
+        // If this ever drifts from CHAIN_DYNAMIC in
+        // samples/flow_dissector/fast_bpf/fast_flow.bpf.c, the
+        // PROG_ARRAY slot install will silently clobber the wrong slot.
+        assert_eq!(CHAIN_DYNAMIC, 7);
     }
 
     #[test]
