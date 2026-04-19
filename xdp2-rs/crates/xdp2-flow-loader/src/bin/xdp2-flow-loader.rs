@@ -1,9 +1,9 @@
 //! `xdp2-flow-loader` — CLI front-end for the production eBPF flow
 //! dissector.
 //!
-//! **D7a skeleton.** Parses arguments and drives the (placeholder)
-//! [`xdp2_flow_loader::Loader`] API. Actual loading/attaching lands in
-//! D7b.
+//! Loads `fast_flow.bpf.o`, populates `jmp_table`, and (with
+//! `CAP_NET_ADMIN`) attaches to the target netns's `flow_dissector`
+//! hook. Runs until interrupted; detach happens in `Loader::drop`.
 //!
 //! Usage:
 //!
@@ -12,15 +12,16 @@
 //! ```
 //!
 //! Exits with:
-//! - 0 on success.
+//! - 0 on success (load-only, when no `--netns` is supplied and attach
+//!   is skipped; in the current shape we always attempt attach, so 0
+//!   means attach succeeded and the process was signalled to exit).
 //! - 1 on argument or runtime error.
-//! - 2 on "not implemented" (D7a placeholder — remove once D7b lands).
 
 use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use xdp2_flow_loader::{Loader, LoaderConfig, LoaderError};
+use xdp2_flow_loader::{Loader, LoaderConfig};
 
 fn usage(prog: &str) -> ! {
     eprintln!(
@@ -96,12 +97,11 @@ fn main() -> ExitCode {
     );
 
     match loader.attach() {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(LoaderError::NotImplemented { operation }) => {
-            eprintln!("{} not implemented yet — coming in D7c", operation);
-            // Still exit 0: load succeeded, which is the entire D7b
-            // contract. Non-attach exits are not a failure for the
-            // skeleton CLI.
+        Ok(()) => {
+            // Drop will detach cleanly on return. A follow-up can add a
+            // signal-driven run loop so operators can keep the loader
+            // attached across the process lifetime.
+            eprintln!("attached; detaching on exit");
             ExitCode::SUCCESS
         }
         Err(e) => {

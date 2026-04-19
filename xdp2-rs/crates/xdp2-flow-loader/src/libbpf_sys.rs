@@ -18,6 +18,9 @@ pub enum bpf_map {}
 /// BPF program types we care about. Full enum is in `<linux/bpf.h>`.
 pub const BPF_PROG_TYPE_FLOW_DISSECTOR: c_uint = 22;
 
+/// `enum bpf_attach_type::BPF_FLOW_DISSECTOR` (uapi value 17).
+pub const BPF_FLOW_DISSECTOR_ATTACH: c_uint = 17;
+
 /// `bpf_map_update_elem` flag — "any" (insert or update).
 pub const BPF_ANY: u64 = 0;
 
@@ -54,5 +57,18 @@ unsafe extern "C" {
         key: *const core::ffi::c_void,
         value: *const core::ffi::c_void,
         flags: u64,
+    ) -> c_int;
+
+    pub fn bpf_prog_attach(
+        prog_fd: c_int,
+        target_fd: c_int,
+        attach_type: c_uint,
+        flags: c_uint,
+    ) -> c_int;
+
+    pub fn bpf_prog_detach2(
+        prog_fd: c_int,
+        target_fd: c_int,
+        attach_type: c_uint,
     ) -> c_int;
 }

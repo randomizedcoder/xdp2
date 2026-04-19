@@ -21,7 +21,9 @@
 //!   every program to `BPF_PROG_TYPE_FLOW_DISSECTOR`, loads, finds
 //!   `_dissect`, and populates `jmp_table` with non-entry programs in
 //!   declaration order. ✅
-//! - **D7c** — `Loader::attach` (flow_dissector netns hook).
+//! - **D7c** — `Loader::attach` attaches the entry program to the
+//!   target netns via `bpf_prog_attach(BPF_FLOW_DISSECTOR)`; `Drop`
+//!   detaches. ✅
 //! - **D7d** — slow-path object handling (CHAIN_DYNAMIC install).
 
 use std::ffi::{CString, NulError};
@@ -47,7 +49,7 @@ pub struct LoaderConfig {
     pub slow_path_object: Option<PathBuf>,
 
     /// Network namespace to attach the flow_dissector hook to. `None`
-    /// means load-only. **D7c — not wired yet.**
+    /// makes [`Loader::attach`] default to `/proc/self/ns/net`.
     pub attach_netns: Option<PathBuf>,
 }
 
@@ -73,6 +75,10 @@ pub struct Loader {
     obj: *mut lb::bpf_object,
     entry_fd: i32,
     slot_count: usize,
+    /// Owned netns file descriptor — Some(fd) means attach succeeded
+    /// and `Drop` should detach. None means never attached (or already
+    /// detached).
+    netns_fd: Option<i32>,
 }
 
 // `bpf_object` is handled through libbpf's own thread-safety model; we
@@ -83,6 +89,7 @@ impl fmt::Debug for Loader {
             .field("config", &self.config)
             .field("entry_fd", &self.entry_fd)
             .field("slot_count", &self.slot_count)
+            .field("netns_fd", &self.netns_fd)
             .finish()
     }
 }
@@ -110,6 +117,7 @@ impl Loader {
             obj,
             entry_fd: -1,
             slot_count: 0,
+            netns_fd: None,
         };
 
         // Force every SEC("flow_dissector") program to the right type.
@@ -197,16 +205,73 @@ impl Loader {
     /// Attach the entry program to the flow_dissector hook in the
     /// configured network namespace.
     ///
-    /// **D7c — not implemented yet.**
+    /// The target netns is taken from `config.attach_netns`; when
+    /// `None`, defaults to `/proc/self/ns/net` (the calling process's
+    /// current netns). The attached program is detached automatically
+    /// when this [`Loader`] is dropped.
+    ///
+    /// Requires `CAP_NET_ADMIN` (typically root).
     pub fn attach(&mut self) -> Result<(), LoaderError> {
-        Err(LoaderError::NotImplemented {
-            operation: "Loader::attach",
-        })
+        if self.netns_fd.is_some() {
+            return Err(LoaderError::AlreadyAttached);
+        }
+        if self.entry_fd < 0 {
+            return Err(LoaderError::MissingEntryProgram);
+        }
+
+        let netns_path = self
+            .config
+            .attach_netns
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("/proc/self/ns/net"));
+        let c_path = path_to_cstring(&netns_path)?;
+
+        // SAFETY: c_path is a valid NUL-terminated string.
+        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDONLY | libc::O_CLOEXEC) };
+        if fd < 0 {
+            return Err(LoaderError::OpenNetns {
+                path: netns_path,
+                source: io::Error::last_os_error(),
+            });
+        }
+
+        let rc = unsafe {
+            lb::bpf_prog_attach(self.entry_fd, fd, lb::BPF_FLOW_DISSECTOR_ATTACH, 0)
+        };
+        if rc < 0 {
+            let err = io::Error::last_os_error();
+            // SAFETY: fd was just opened and is owned by us.
+            unsafe { libc::close(fd) };
+            return Err(LoaderError::Attach {
+                netns: netns_path,
+                source: err,
+            });
+        }
+
+        self.netns_fd = Some(fd);
+        Ok(())
     }
 }
 
 impl Drop for Loader {
     fn drop(&mut self) {
+        // Detach before freeing the program fds — otherwise the attach
+        // survives across `bpf_object__close` until the kernel garbage
+        // collects the last reference, which can interfere with a
+        // second loader instance in the same netns.
+        if let Some(fd) = self.netns_fd.take() {
+            if self.entry_fd >= 0 {
+                unsafe {
+                    lb::bpf_prog_detach2(
+                        self.entry_fd,
+                        fd,
+                        lb::BPF_FLOW_DISSECTOR_ATTACH,
+                    );
+                }
+            }
+            // SAFETY: fd was produced by our own open() call.
+            unsafe { libc::close(fd) };
+        }
         if !self.obj.is_null() {
             // SAFETY: we own obj; closing it exactly once here.
             unsafe { lb::bpf_object__close(self.obj) };
@@ -239,6 +304,22 @@ pub enum LoaderError {
     /// `bpf_map_update_elem` on `jmp_table` failed.
     JmpTableUpdate { slot: u32, source: io::Error },
 
+    /// `open()` on the target netns path failed.
+    OpenNetns {
+        path: PathBuf,
+        source: io::Error,
+    },
+
+    /// `bpf_prog_attach(BPF_FLOW_DISSECTOR)` failed.
+    Attach {
+        netns: PathBuf,
+        source: io::Error,
+    },
+
+    /// `Loader::attach` called while the loader already has an active
+    /// attachment.
+    AlreadyAttached,
+
     /// Operation is part of the planned API but hasn't been implemented
     /// yet.
     NotImplemented { operation: &'static str },
@@ -259,6 +340,20 @@ impl fmt::Display for LoaderError {
             LoaderError::JmpTableUpdate { slot, source } => {
                 write!(f, "jmp_table[{}] update: {}", slot, source)
             }
+            LoaderError::OpenNetns { path, source } => {
+                write!(f, "open netns {}: {}", path.display(), source)
+            }
+            LoaderError::Attach { netns, source } => {
+                write!(
+                    f,
+                    "bpf_prog_attach(BPF_FLOW_DISSECTOR) on {}: {}",
+                    netns.display(),
+                    source
+                )
+            }
+            LoaderError::AlreadyAttached => {
+                write!(f, "loader is already attached")
+            }
             LoaderError::NotImplemented { operation } => {
                 write!(f, "{} is not implemented yet", operation)
             }
@@ -273,6 +368,8 @@ impl std::error::Error for LoaderError {
             LoaderError::Open { source, .. } => Some(source),
             LoaderError::Load { source } => Some(source),
             LoaderError::JmpTableUpdate { source, .. } => Some(source),
+            LoaderError::OpenNetns { source, .. } => Some(source),
+            LoaderError::Attach { source, .. } => Some(source),
             _ => None,
         }
     }
@@ -309,12 +406,16 @@ mod tests {
     }
 
     #[test]
-    fn attach_still_returns_not_implemented() {
-        // Can't actually construct a Loader without a real .o, so just
-        // confirm the error variant exists for D7c wiring.
-        let err = LoaderError::NotImplemented {
-            operation: "Loader::attach",
+    fn attach_error_display_includes_netns() {
+        // Covers the non-OS-dependent branch of LoaderError::Display for
+        // the attach failure path. Full attach exercise requires
+        // CAP_NET_ADMIN + a real .o and lives in the parity test harness.
+        let err = LoaderError::Attach {
+            netns: PathBuf::from("/proc/self/ns/net"),
+            source: io::Error::from_raw_os_error(libc::EPERM),
         };
-        assert!(format!("{}", err).contains("not implemented"));
+        let msg = format!("{}", err);
+        assert!(msg.contains("/proc/self/ns/net"), "got {}", msg);
+        assert!(msg.contains("BPF_FLOW_DISSECTOR"), "got {}", msg);
     }
 }
