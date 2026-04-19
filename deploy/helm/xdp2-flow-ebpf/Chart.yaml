@@ -1,0 +1,33 @@
+apiVersion: v2
+name: xdp2-flow-ebpf
+description: |
+  Fast-path eBPF flow dissector (xdp2-flow-ebpf) — production deliverable.
+  Deploys xdp2-flow-loader as a host-network DaemonSet that attaches a
+  specialised tail-call-dispatched flow dissector BPF program on every
+  node. Drop-in acceleration for workloads that rely on
+  BPF_PROG_TYPE_FLOW_DISSECTOR output (RPS/RFS, Cilium identity, Katran,
+  tracing tools).
+type: application
+
+# Track chart version independently of the app version so we can ship
+# pure-chart fixes without re-releasing the binary.
+version: 0.1.0
+
+# App version should match the container image tag. Bump in lock-step
+# with nix/xdp2-flow-ebpf-image.nix when a release tags a new image.
+appVersion: "0.1.0"
+
+keywords:
+  - ebpf
+  - flow-dissector
+  - networking
+  - observability
+  - xdp2
+
+home: https://github.com/randomizedcoder/xdp2
+sources:
+  - https://github.com/randomizedcoder/xdp2
+
+maintainers:
+  - name: xdp2 authors
+    url: https://github.com/randomizedcoder/xdp2

@@ -1,0 +1,68 @@
+# Default values for xdp2-flow-ebpf.
+#
+# The chart's shape is deliberately minimal: one DaemonSet that attaches
+# the fast-path dissector on every node. All significant knobs live
+# here so operators can override with `helm install --set` or a values
+# file without editing templates.
+
+image:
+  # Registry + repo. The default uses the GitHub Container Registry
+  # location implied by the project's homepage; swap for a private
+  # registry as needed.
+  repository: ghcr.io/randomizedcoder/xdp2-flow-ebpf
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  # Optional imagePullSecrets — list of secret names in the target
+  # namespace. Leave empty for public registries.
+  pullSecrets: []
+
+# Loader flags. The DaemonSet always passes `--bpf` (the path baked
+# into the image); extra args go here. Examples:
+#   - "--slow-path=/lib/xdp2-flow-ebpf/slow.bpf.o"
+#   - "--netns=/proc/1/ns/net"
+extraArgs: []
+
+# Capabilities required to attach the flow-dissector hook. CAP_NET_ADMIN
+# is the minimum; CAP_BPF + CAP_SYS_RESOURCE are required on older
+# kernels (< 5.8) that lacked unprivileged BPF. Leaving all three
+# aligns with the packaged systemd unit.
+capabilities:
+  - NET_ADMIN
+  - BPF
+  - SYS_RESOURCE
+
+# Resource requests/limits. The loader is long-lived, low-CPU — it
+# mostly sleeps after the attach() call. Defaults pick numbers an
+# operator can raise without thinking too hard.
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Pod-level settings.
+podAnnotations: {}
+nodeSelector: {}
+tolerations:
+  # Run on every node including control-plane by default. Operators
+  # concerned about control-plane isolation can set `tolerations: []`
+  # plus a nodeSelector that excludes control-plane nodes.
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+affinity: {}
+
+# Priority class. System-node-critical ensures the DaemonSet survives
+# eviction pressure — flow dissection is best-effort infrastructure and
+# evicting it would leave callers on the slow path.
+priorityClassName: system-node-critical
+
+# RBAC — no API access is required at runtime (the loader only talks
+# to the kernel via BPF syscalls), but a dedicated ServiceAccount
+# still provides a security boundary for pod-level policies.
+serviceAccount:
+  create: true
+  name: ""  # leave empty to derive from release name
+  annotations: {}

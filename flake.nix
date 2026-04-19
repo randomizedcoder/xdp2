@@ -149,6 +149,14 @@
           xdp2 = xdp2-debug;
         };
 
+        # xdp2-flow-ebpf OCI container image. D10 deliverable — packages
+        # xdp2FlowEbpf as a layered image for Kubernetes DaemonSet
+        # deployment. See nix/xdp2-flow-ebpf-image.nix.
+        xdp2FlowEbpfImage = import ./nix/xdp2-flow-ebpf-image.nix {
+          inherit pkgs;
+          xdp2-flow-ebpf = xdp2FlowEbpf;
+        };
+
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
         # See nix/compiler-verify.nix for all available targets
         compilerVerify = import ./nix/compiler-verify.nix {
@@ -440,6 +448,13 @@
           #         + share/xdp2-flow-ebpf/xdp2-flow-loader.service
           # ===================================================================
           xdp2-flow-ebpf = xdp2FlowEbpf;
+
+          # ===================================================================
+          # xdp2-flow-ebpf-image — OCI container for k8s DaemonSet deploy
+          # Build: nix build .#xdp2-flow-ebpf-image
+          # Load:  docker load < result
+          # ===================================================================
+          xdp2-flow-ebpf-image = xdp2FlowEbpfImage;
 
           xdp2-rs = xdp2Rs.build;
           xdp2-rs-test = xdp2Rs.test;

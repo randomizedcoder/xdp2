@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "xdp2-flow-ebpf.fullname" . }}
+  labels:
+    {{- include "xdp2-flow-ebpf.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "xdp2-flow-ebpf.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "xdp2-flow-ebpf.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "xdp2-flow-ebpf.serviceAccountName" . }}
+      # hostNetwork is required so the loader's default
+      # `/proc/self/ns/net` resolves to the host netns — the flow
+      # dissector hook must attach to the node's root netns to affect
+      # traffic for every pod on the node.
+      hostNetwork: true
+      # hostPID lets the loader use PID 1's netns explicitly if the
+      # operator passes `--netns=/proc/1/ns/net` via extraArgs.
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: loader
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The Nix image's ENTRYPOINT is /bin/xdp2-flow-loader and its
+          # default CMD is `--bpf /lib/xdp2-flow-ebpf/fast_flow.bpf.o`.
+          # Repeat that here and append extraArgs so users can override
+          # without overriding the sensible default.
+          args:
+            - "--bpf"
+            - "/lib/xdp2-flow-ebpf/fast_flow.bpf.o"
+            {{- range .Values.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          securityContext:
+            # No privileged: true — we rely on fine-grained caps instead.
+            # allowPrivilegeEscalation must stay false so a loader bug
+            # can't gain capabilities beyond the ones we explicitly grant.
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                {{- range .Values.capabilities }}
+                - {{ . }}
+                {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          # The loader doesn't expose a liveness/readiness endpoint; it
+          # logs "attached; detaching on exit" on success and exits
+          # non-zero on attach failure. Kubernetes' default Always
+          # restart policy therefore captures the "hook detached"
+          # failure mode correctly.
