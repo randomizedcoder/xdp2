@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 #
-# 4-way flow dissector performance comparison matrix.
+# 5-way flow dissector performance comparison matrix.
 #
 # Runs both the userspace benchmark (benchmark) and the BPF benchmark
 # (benchmark_bpf) and formats the results into a comparison matrix.
@@ -9,7 +9,16 @@
 # The BPF benchmark requires root / CAP_BPF.
 #
 # Usage:
-#   sudo ./benchmark_matrix.sh [-n <repeat>] [-b <bpf_obj>] <pcap_file>
+#   sudo ./benchmark_matrix.sh [-n <repeat>] [-b <bpf_obj>] \
+#                              [-f <fast_bpf_obj>] <pcap_file>
+#
+# Ways:
+#   1. Userspace: Kernel flowdis port (flowdis.c)
+#   2. Userspace: XDP2 parser (full write-metadata path)
+#   3. Userspace: XDP2 parse-only (no-metadata baseline)
+#   4. BPF:       Upstream kernel selftest (bpf_flow.kern.o)
+#   5. BPF:       XDP2 compiler-generated (flow_dissector.bpf.o)
+#   6. BPF:       xdp2-flow-ebpf fast-path (fast_bpf/fast_flow.bpf.o)  [A3]
 #
 
 set -euo pipefail
@@ -17,23 +26,28 @@ set -euo pipefail
 REPEAT=100
 BPF_OBJ="bpf_flow.kern.o"
 XDP2_BPF_OBJ="flow_dissector.bpf.o"
+# xdp2-flow-ebpf fast-path (Track D output). Default relative to
+# SCRIPT_DIR, mirroring the other BPF_OBJ defaults.
+FAST_BPF_OBJ="fast_bpf/fast_flow.bpf.o"
 BPF_REPEAT=1000
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-    echo "Usage: $0 [-n <userspace_repeat>] [-N <bpf_repeat>] [-b <bpf_obj>] <pcap_file>"
+    echo "Usage: $0 [-n <userspace_repeat>] [-N <bpf_repeat>] [-b <bpf_obj>] [-f <fast_bpf_obj>] <pcap_file>"
     echo ""
     echo "  -n  Userspace benchmark iterations (default: $REPEAT)"
     echo "  -N  BPF_PROG_TEST_RUN repeat count (default: $BPF_REPEAT)"
     echo "  -b  Path to BPF flow dissector .o file (default: $BPF_OBJ)"
+    echo "  -f  Path to xdp2-flow-ebpf fast-path .o (default: $FAST_BPF_OBJ)"
     exit 1
 }
 
-while getopts "n:N:b:h" opt; do
+while getopts "n:N:b:f:h" opt; do
     case $opt in
         n) REPEAT="$OPTARG" ;;
         N) BPF_REPEAT="$OPTARG" ;;
         b) BPF_OBJ="$OPTARG" ;;
+        f) FAST_BPF_OBJ="$OPTARG" ;;
         h) usage ;;
         *) usage ;;
     esac
@@ -69,7 +83,7 @@ extract_mpps() {
     echo "${match:-N/A}"
 }
 
-echo "=== 4-Way Flow Dissector Performance Matrix ==="
+echo "=== 6-Way Flow Dissector Performance Matrix ==="
 echo "PCAP: $PCAP"
 echo "Userspace iterations: $REPEAT"
 echo "BPF repeat count: $BPF_REPEAT"
@@ -157,16 +171,47 @@ else
     echo ""
 fi
 
+# ─── Run xdp2-flow-ebpf fast-path BPF benchmark (needs root) ───
+FAST_BPF_NSPKT="N/A"
+FAST_BPF_MPPS="N/A"
+
+if [[ -f "$SCRIPT_DIR/$FAST_BPF_OBJ" ]] || [[ -f "$FAST_BPF_OBJ" ]]; then
+    # Resolve fast-path BPF object path
+    if [[ -f "$SCRIPT_DIR/$FAST_BPF_OBJ" ]]; then
+        FAST_BPF_PATH="$SCRIPT_DIR/$FAST_BPF_OBJ"
+    else
+        FAST_BPF_PATH="$FAST_BPF_OBJ"
+    fi
+
+    echo "--- Running xdp2-flow-ebpf fast-path BPF benchmark ---"
+    if FAST_BPF_OUT=$("$SCRIPT_DIR/benchmark_bpf" -p -n "$BPF_REPEAT" -l "xdp2-flow-ebpf fast" -b "$FAST_BPF_PATH" "$PCAP" 2>&1); then
+        echo "$FAST_BPF_OUT"
+        echo ""
+
+        FAST_BPF_LINE=$(echo "$FAST_BPF_OUT" | grep "^xdp2-flow-ebpf fast:" || true)
+        FAST_BPF_NSPKT=$(extract_nspkt "$FAST_BPF_LINE")
+        FAST_BPF_MPPS=$(extract_mpps "$FAST_BPF_LINE")
+    else
+        echo "Warning: xdp2-flow-ebpf fast-path benchmark failed"
+        echo "$FAST_BPF_OUT"
+        echo ""
+    fi
+else
+    echo "--- Skipping xdp2-flow-ebpf fast-path benchmark (no $FAST_BPF_OBJ found) ---"
+    echo ""
+fi
+
 # ─── Format matrix table ───
 echo "================================================================="
-echo "              4-Way Performance Comparison Matrix"
+echo "              6-Way Performance Comparison Matrix"
 echo "================================================================="
 echo ""
-printf "%-20s | %-24s | %-24s\n" "" "Non-BPF (userspace)" "BPF (in-kernel)"
-printf "%-20s-+-%-24s-+-%-24s\n" "--------------------" "------------------------" "------------------------"
-printf "%-20s | %-24s | %-24s\n" "Kernel flowdis" "$FLOWDIS_NSPKT, $FLOWDIS_MPPS" "$BPF_NSPKT, $BPF_MPPS"
-printf "%-20s | %-24s | %-24s\n" "XDP2 parser" "$XDP2_NSPKT, $XDP2_MPPS" "$XDP2_BPF_NSPKT, $XDP2_BPF_MPPS"
-printf "%-20s | %-24s | %-24s\n" "XDP2 parse-only" "$XDP2_PO_NSPKT, $XDP2_PO_MPPS" ""
+printf "%-24s | %-24s | %-24s\n" "" "Non-BPF (userspace)" "BPF (in-kernel)"
+printf "%-24s-+-%-24s-+-%-24s\n" "------------------------" "------------------------" "------------------------"
+printf "%-24s | %-24s | %-24s\n" "Kernel flowdis" "$FLOWDIS_NSPKT, $FLOWDIS_MPPS" "$BPF_NSPKT, $BPF_MPPS"
+printf "%-24s | %-24s | %-24s\n" "XDP2 parser" "$XDP2_NSPKT, $XDP2_MPPS" "$XDP2_BPF_NSPKT, $XDP2_BPF_MPPS"
+printf "%-24s | %-24s | %-24s\n" "XDP2 parse-only" "$XDP2_PO_NSPKT, $XDP2_PO_MPPS" ""
+printf "%-24s | %-24s | %-24s\n" "xdp2-flow-ebpf fast" "" "$FAST_BPF_NSPKT, $FAST_BPF_MPPS"
 echo ""
 echo "Notes:"
 echo "  - Non-BPF: clock_gettime(CLOCK_MONOTONIC_RAW) around userspace loops"
