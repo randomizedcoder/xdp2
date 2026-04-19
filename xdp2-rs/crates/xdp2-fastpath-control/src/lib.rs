@@ -38,15 +38,17 @@ use std::mem;
 
 pub mod bpf;
 pub mod controller;
+pub mod hysteresis;
 pub mod proc_net;
 
 pub use controller::{
     ControllerError, TemplateController, CHAIN_DYNAMIC, FIRST_DYNAMIC_SLOT,
 };
+pub use hysteresis::{Hysteresis, ListenerKey, DEFAULT_RETIRE_GRACE};
 pub use proc_net::{enumerate_procfs, enumerate_procfs_all};
 
 /// Protocol family (IPv4 vs IPv6) for an enumerated listener.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Family {
     V4,
     V6,
@@ -62,7 +64,7 @@ impl Family {
 }
 
 /// Transport protocol for an enumerated listener.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Proto {
     Tcp,
     Udp,
