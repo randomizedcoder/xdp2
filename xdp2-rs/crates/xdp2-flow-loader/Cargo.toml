@@ -1,0 +1,19 @@
+[package]
+name = "xdp2-flow-loader"
+description = "Userspace loader for the xdp2-flow-ebpf fast-path flow dissector"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "xdp2_flow_loader"
+path = "src/lib.rs"
+
+[[bin]]
+name = "xdp2-flow-loader"
+path = "src/bin/xdp2-flow-loader.rs"
+
+[dependencies]
+# Kept minimal on purpose: this is the D7a skeleton. D7b will add
+# libbpf-sys / libbpf-rs (the exact choice is recorded in
+# samples/flow_dissector/docs/super-flow-dissector-implementation.md).
