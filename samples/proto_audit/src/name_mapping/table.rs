@@ -510,6 +510,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── CAN XL ──
         PN::new("CAN_XL", 12)
             .xdp2("xdp2_parse_canxl")
+            .kernel("canxl_frame", "linux/can.h")
             .scapy("CANXL")
             .tshark("can")
             .etherparse("CAN_XLHeader", "src/proto_audit/can_xl.rs")
@@ -524,6 +525,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("trill_header", "pcap/proto_audit/trill.h"),
         PN::new("BATMAN", 10)
             .xdp2("xdp2_parse_batman")
+            .kernel("batadv_ogm_packet", "linux/batadv_packet.h")
             .scapy("BATMAN_OGM")
             .tshark("batadv")
             .etherparse("BATMANHeader", "src/proto_audit/batman.rs")
@@ -542,6 +544,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("edsa_header", "pcap/proto_audit/edsa.h"),
         PN::new("CFM", 4)
             .xdp2("xdp2_parse_cfm")
+            .kernel("br_cfm_common_hdr", "linux/cfm_bridge.h")
             .scapy("CFM")
             .tshark("cfm")
             .ieee(&["802.1ag-2007"])
@@ -653,7 +656,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("SM_HdrHeader", "src/proto_audit/bt_smp.rs")
             .libpcap("bt_smp_header", "pcap/proto_audit/bt_smp.h"),
         PN::new("BT_RFCOMM", 4)
-            .xdp2("xdp2_parse_bt_rfcomm").scapy("RFCOMM_Hdr").tshark("btrfcomm").variable()
+            .xdp2("xdp2_parse_bt_rfcomm").kernel("rfcomm_hdr", "net/bluetooth/rfcomm.h").scapy("RFCOMM_Hdr").tshark("btrfcomm").variable()
             .etherparse("BT_RFCOMMHeader", "src/proto_audit/bt_rfcomm.rs")
             .libpcap("bt_rfcomm_header", "pcap/proto_audit/bt_rfcomm.h"),
         PN::new("BT_BNEP", 3)
@@ -1029,7 +1032,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("GUEHeader", "src/proto_audit/gue.rs")
             .libpcap("gue_header", "pcap/proto_audit/gue.h"),
         PN::new("VXLAN_GPE", 8)
-            .xdp2("xdp2_parse_vxlan_gpe").scapy("VXLAN_GPE").tshark("vxlan")
+            .xdp2("xdp2_parse_vxlan_gpe").kernel("vxlanhdr_gpe", "net/vxlan.h").scapy("VXLAN_GPE").tshark("vxlan")
             .etherparse("VxlanGpeHeader", "src/proto_audit/vxlan_gpe.rs")
             .libpcap("vxlan_gpe_header", "pcap/proto_audit/vxlan_gpe.h")
             .dpdk("rte_vxlan_gpe_hdr", "rte_vxlan.h"),
@@ -1075,7 +1078,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("NBNSHeader", "src/proto_audit/nbns.rs")
             .libpcap("nbns_header", "pcap/proto_audit/nbns.h"),
         PN::new("PPPoED", 6)
-            .xdp2("xdp2_parse_ppoed").scapy("PPPoED").tshark("pppoed").variable()
+            .xdp2("xdp2_parse_ppoed").kernel("pppoe_hdr", "linux/if_pppox.h").scapy("PPPoED").tshark("pppoed").variable()
             .rfcs(&[2516])
             .etherparse("PPPoEDHeader", "src/proto_audit/pppoed.rs")
             .libpcap("pppoed_header", "pcap/proto_audit/pppoed.h"),
@@ -1861,7 +1864,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("MGCPNCSHeader", "src/proto_audit/mgcp_ncs.rs")
             .libpcap("mgcp_ncs_header", "pcap/proto_audit/mgcp_ncs.h"),
         PN::new("SCTP_Init", 20)
-            .xdp2("xdp2_parse_sctp_init").tshark("sctp").variable()
+            .xdp2("xdp2_parse_sctp_init").kernel("sctp_initmsg", "linux/sctp.h").tshark("sctp").variable()
             .etherparse("SCTPInitHeader", "src/proto_audit/sctp_init.rs")
             .libpcap("sctp_init_header", "pcap/proto_audit/sctp_init.h"),
         // ── More Industrial / SCADA ──
@@ -1990,7 +1993,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_ipv6_hopbyhop").tshark("ipv6.hop_opt").variable()
             .rfcs(&[8200]),
         PN::new("IPv6_MobileIP", 6)
-            .xdp2("xdp2_parse_ipv6_mobileip").tshark("mip6").variable()
+            .xdp2("xdp2_parse_ipv6_mobileip").kernel("ipv6_destopt_hao", "linux/ipv6.h").tshark("mip6").variable()
             .rfcs(&[6275]),
         PN::new("MLD_Report_v1", 20)
             .xdp2("xdp2_parse_mld_report_v1").tshark("icmpv6").variable()
@@ -2004,7 +2007,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[9260]),
         // ── GRE variants ──
         PN::new("GRE_Cisco", 8)
-            .xdp2("xdp2_parse_gre_cisco").tshark("gre").variable(),
+            .xdp2("xdp2_parse_gre_cisco").kernel("gre_full_hdr", "net/gre.h").tshark("gre").variable(),
         PN::new("GRE_WCCPv2", 8)
             .xdp2("xdp2_parse_gre_wccpv2").tshark("wccp").variable()
             .rfcs(&[7001]),
@@ -2020,7 +2023,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_l2tp_avp").tshark("l2tp").variable()
             .rfcs(&[2661]),
         PN::new("GENEVE_OPT", 4)
-            .xdp2("xdp2_parse_geneve_opt").tshark("geneve").variable()
+            .xdp2("xdp2_parse_geneve_opt").kernel("geneve_opt", "net/geneve.h").tshark("geneve").variable()
             .rfcs(&[8926]),
         // ── PPP variants ──
         PN::new("PPP_LCP", 4)
@@ -2196,9 +2199,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("TZSP_V2", 4)
             .xdp2("xdp2_parse_tzsp_v2").tshark("tzsp").variable(),
         PN::new("ERSPAN_V3", 12)
-            .xdp2("xdp2_parse_erspan_v3").tshark("erspan").variable(),
+            .xdp2("xdp2_parse_erspan_v3").kernel("erspan_md2", "linux/erspan.h").tshark("erspan").variable(),
         PN::new("VXLAN_GBP", 8)
-            .xdp2("xdp2_parse_vxlan_gbp").tshark("vxlan").variable(),
+            .xdp2("xdp2_parse_vxlan_gbp").kernel("vxlanhdr_gbp", "net/vxlan.h").tshark("vxlan").variable(),
 
         // ── Trading Protocols (OMI) ──
         // Open Markets Initiative auto-generated packed C struct headers.
