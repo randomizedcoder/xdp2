@@ -204,6 +204,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("l2tp")
             .etherparse("L2tpHeader", "src/proto_audit/l2tp.rs")
             .libpcap("l2tp_header", "pcap/proto_audit/l2tp.h")
+            .dpdk("rte_l2tpv2_common_hdr", "rte_l2tpv2.h")
             .variable()
             .rfcs(&[3931, 2661]),
         PN::new("ERSPAN", 8)
@@ -368,7 +369,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("IB_BTH")
             .tshark("infiniband.bth")
             .etherparse("IB_BTHHeader", "src/proto_audit/ib_bth.rs")
-            .libpcap("ib_bth_header", "pcap/proto_audit/ib_bth.h"),
+            .libpcap("ib_bth_header", "pcap/proto_audit/ib_bth.h")
+            .dpdk("rte_ib_bth", "rte_ib.h"),
         // ── Netlink ──
         PN::new("Netlink", 16)
             .xdp2("xdp2_parse_netlink")
@@ -2022,22 +2024,22 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[8926]),
         // ── PPP variants ──
         PN::new("PPP_LCP", 4)
-            .xdp2("xdp2_parse_ppp_lcp").tshark("lcp").variable()
+            .xdp2("xdp2_parse_ppp_lcp").tshark("lcp").pppd("LCP").variable()
             .rfcs(&[1661]),
         PN::new("PPP_IPCP", 4)
-            .xdp2("xdp2_parse_ppp_ipcp").tshark("ipcp").variable()
+            .xdp2("xdp2_parse_ppp_ipcp").tshark("ipcp").pppd("IPCP").variable()
             .rfcs(&[1332]),
         PN::new("PPP_IPv6CP", 4)
-            .xdp2("xdp2_parse_ppp_ipv6cp").tshark("ipv6cp").variable()
+            .xdp2("xdp2_parse_ppp_ipv6cp").tshark("ipv6cp").pppd("IPv6CP").variable()
             .rfcs(&[5072]),
         PN::new("PPP_CCP", 4)
-            .xdp2("xdp2_parse_ppp_ccp").tshark("ccp").variable()
+            .xdp2("xdp2_parse_ppp_ccp").tshark("ccp").pppd("CCP").variable()
             .rfcs(&[1962]),
         PN::new("PPP_CHAP", 4)
-            .xdp2("xdp2_parse_ppp_chap").tshark("chap").variable()
+            .xdp2("xdp2_parse_ppp_chap").tshark("chap").pppd("CHAP").variable()
             .rfcs(&[1994]),
         PN::new("PPP_PAP", 4)
-            .xdp2("xdp2_parse_ppp_pap").tshark("pap").variable()
+            .xdp2("xdp2_parse_ppp_pap").tshark("pap").pppd("PAP").variable()
             .rfcs(&[1334]),
         // ── Multicast ──
         PN::new("PIM_BSR", 8)
@@ -2344,5 +2346,15 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
                 "Eurex/Eobi.T7.v3.0/Heartbeat.pcap",
                 "eurex.derivatives.eobi.t7.v3.0.heartbeat",
             ),
+        // ── DPDK-only protocols ──
+        PN::new("eCPRI", 4)
+            .dpdk("rte_ecpri_common_hdr", "rte_ecpri.h")
+            .tshark("ecpri"),
+        PN::new("HiGig2", 16)
+            .dpdk("rte_higig2_hdr", "rte_higig.h")
+            .tshark("hihig2"),
+        PN::new("PDCP", 2)
+            .dpdk("rte_pdcp_up_data_pdu_sn_12_hdr", "rte_pdcp_hdr.h")
+            .tshark("pdcp-lte"),
     ]
 }
