@@ -40,9 +40,16 @@ struct vlan_hdr {
 
 /* ─── Fast-path chain IDs ──────────────────────────────────────────────
  *
- * Keep in sync with super-flow-dissector-plan.md §5 ("Core design").
- * Slot 7 (CHAIN_DYNAMIC) is reserved for §5a listening-socket-driven
- * templates installed at runtime by xdp2-flow-loader.
+ * Keep in sync with super-flow-dissector-plan.md §5 ("Core design")
+ * AND with xdp2_flow_loader::CHAIN_DYNAMIC in
+ * xdp2-rs/crates/xdp2-flow-loader/src/lib.rs.
+ *
+ * Slot 7 (CHAIN_DYNAMIC) is populated at runtime by xdp2-flow-loader.
+ * As of D7d it holds the slow-path dissector (from --slow-path). When
+ * §5a lands, NUM_FAST_CHAINS will grow and §5a listening-socket-
+ * driven templates will occupy slots ≥8; the slow-path stays at
+ * slot 7 so "miss → slot 7" remains a stable contract for the entry
+ * program.
  */
 #define CHAIN_ETH_IPV4_TCP      0
 #define CHAIN_ETH_IPV4_UDP      1
@@ -51,7 +58,7 @@ struct vlan_hdr {
 #define CHAIN_ETH_VLAN_IPV4_TCP 4
 #define CHAIN_ETH_VLAN_IPV4_UDP 5
 #define CHAIN_ETH_IPV4_ICMP     6
-#define CHAIN_DYNAMIC           7  /* TODO §5a */
+#define CHAIN_DYNAMIC           7  /* slow-path (D7d); §5a templates at ≥8 */
 #define NUM_FAST_CHAINS         8
 
 /* Mirror of net/ipv4/ip.h — the IPv4 frag_off field's M/F and offset
