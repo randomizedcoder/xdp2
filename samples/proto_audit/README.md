@@ -4,7 +4,7 @@ Extracts protocol header definitions from twelve independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**431 curated protocols** across every network layer (including trading protocols from OMI), code generation in 3 languages + PCAP wire output, 332 per-protocol overlay patches each for etherparse and libpcap, 196 PCAP templates for round-trip validation, 442 unit tests.
+**431 curated protocols** across every network layer (including trading protocols from OMI), code generation in 3 languages + PCAP wire output, 332 per-protocol overlay patches each for etherparse and libpcap, 196 PCAP templates for round-trip validation, 450 unit tests.
 
 ## Highlights
 
@@ -21,7 +21,7 @@ compares to find layout disagreements, coverage gaps, and type differences.
 - Nix-reproducible builds with pinned external sources and cached report derivation
 - Cross-generator round-trip verification (generate code → re-extract → compare to IR)
 - Corpus cross-source parsing (same PCAP through tshark + Scapy, value-level comparison)
-- 442 unit tests, JSON output on every command
+- 450 unit tests, JSON output on every command
 
 ## Vision
 
@@ -50,7 +50,7 @@ nix build .#proto-audit-report && cat result/matrix.txt      # cached report
 | Source | What It Provides | Access Method | Coverage |
 |---|---|---|---|
 | `xdp2` | Proto_def metadata (struct refs, no fields) | Local repo C header parse | 259 proto_defs (incl. 16 trading) |
-| `kernel` | Linux 6.12 UAPI + internal net struct definitions | Nix-pinned source (include/ + drivers/net/ + net/), regex C parse | 84 protocols (173 in registry) |
+| `kernel` | Linux 6.12 UAPI + internal net struct definitions | Nix-pinned source (include/ + drivers/net/ + net/), regex C parse with nested struct/union resolution | 92 protocols (173 in registry) |
 | `dpdk` | DPDK packed protocol header structs | Nix-pinned `pkgs.dpdk.src`, lib/net/*.h, preprocessed to kernel conventions | 24 protocols (eCPRI, L2TPv2, MACsec, PDCP, TLS/DTLS, HiGig, PPP, IB, etc.) |
 | `ndpi` | nDPI deep packet inspection wire structs | Nix-pinned `pkgs.ndpi.src`, ndpi_typedefs.h, preprocessed to kernel conventions | 13 protocols (IP, TCP, UDP, ARP, DNS, DHCP, etc.) |
 | `pppd` | PPP daemon protocol headers and constants | Nix-pinned `pkgs.ppp.src`, ppp_defs.h `#define` constants | 7 protocols (PPP, LCP, IPCP, IPv6CP, CCP, CHAP, PAP) |
@@ -168,7 +168,7 @@ documents these granularity differences as findings rather than patching them.
 ```bash
 nix build .#proto-audit          # wrapped with all source paths
 nix build .#proto-audit-bin      # raw binary (no env var defaults)
-nix develop --command cargo test  # 442 unit tests
+nix develop --command cargo test  # 450 unit tests
 ```
 
 The Nix wrapper sets all `PROTO_AUDIT_*` variables automatically.

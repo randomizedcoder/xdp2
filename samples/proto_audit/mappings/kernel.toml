@@ -39,6 +39,16 @@ u64 = 64
 icmp6hdr = 64       # 8 bytes: type(1) + code(1) + cksum(2) + dataun(4)
 in6_addr = 128      # 16 bytes: IPv6 address
 in_addr = 32        # 4 bytes: IPv4 address
+gre_base_hdr = 32   # 4 bytes: flags(16) + protocol(16)
+scsi_lun = 64       # 8 bytes: u8[8]
+port_identity = 80  # 10 bytes: clock_identity[8] + port_number(16)
+mac_addr = 48       # 6 bytes: u8[ETH_ALEN]
+
+[union_sizes]
+# Embedded union name → bit width (max of all variants).
+# Used when a kernel struct contains fields like `union ib_gid sgid;`
+ib_gid = 128        # 16 bytes: raw[16]
+nvme_data_ptr = 128 # 16 bytes: largest alternative
 
 [type_endian]
 # Keys use "prefix:" for starts-with matching, "exact:" for exact matching.

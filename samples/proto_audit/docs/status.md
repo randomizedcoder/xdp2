@@ -1,9 +1,9 @@
 # proto-audit Status
 
-## Current State (2026-04-18)
+## Current State (2026-04-19)
 
 431 curated protocols audited across 12 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
-442 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, and exhaustive TOML coverage validation.
+450 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, and exhaustive TOML coverage validation.
 206 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
 196 PCAP templates with valid protocol content for round-trip validation.
 Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
@@ -18,7 +18,7 @@ Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
 | Libpcap overlays | 332 overlay patches |
 | Scapy classes | 5,798 (109 curated) |
 | tshark filters | 3,753 (3,155 protocols) |
-| Kernel structs | 84 (173 in registry) |
+| Kernel structs | 92 (173 in registry, nested struct/union resolution) |
 | DPDK headers | 24 protocols (rte_*_hdr structs from lib/net/) |
 | nDPI headers | 13 protocols (ndpi_* structs from ndpi_typedefs.h) |
 | pppd headers | 7 protocols (PPP control protocol structs) |
@@ -42,6 +42,21 @@ Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tsh
 See `docs/pipeline-coverage.md` for the full list of 8/8 and 7/8 protocols.
 
 ### Recent Changes
+
+#### Nested Struct/Union Expansion in Kernel Parser (2026-04-19)
+
+The kernel C struct parser now handles nested types that were previously skipped:
+
+- **Named union fields**: `union ib_gid sgid;` — resolved via content lookup or TOML `[union_sizes]` table. Previously skipped entirely (`if c_type == "union" { continue; }`).
+- **Named struct fields**: `struct gre_base_hdr gre_hd;` — resolved from definition in same file content, falling back to TOML `[struct_sizes]`. Previously produced 0-bit fields that were silently dropped.
+- **Anonymous inline unions**: `union { struct { ... } echo; __be32 gateway; } un;` — parsed inline with recursive field extraction, size computed as max of variants. Used by `icmphdr` and `icmp6hdr`.
+- **Typedef support**: `typedef struct lacpdu { ... }` pattern now matched by `parse_kernel_struct()`.
+- **Brace-aware parsing**: `parse_kernel_struct()` uses brace-counting instead of non-greedy regex (handles nested braces). Statement accumulator tracks brace depth so semicolons inside anonymous bodies don't split outer statements.
+- **Content-aware resolution**: `resolve_nested_size()` recursively finds struct/union definitions in file content. `to_field_defs_with_content()` used by kernel, DPDK, and nDPI extractors. Max depth=4 prevents infinite recursion.
+- **3 new kernel mappings**: IB_GRH (`ib_grh` with `union ib_gid`), PPTP (`pptp_gre_header` with nested `struct gre_base_hdr`), LACP (`lacpdu` via typedef with nested `struct mac_addr`). Kernel total: 84→92.
+- **TOML expansion**: 4 new `[struct_sizes]` entries (gre_base_hdr, scsi_lun, port_identity, mac_addr) and new `[union_sizes]` section (ib_gid, nvme_data_ptr).
+- **8 new tests**: nested struct resolution, nested union resolution, anonymous inline union, TOML fallback, recursion depth limit, unknown type skipping, typedef parsing, union via TOML.
+- **Improved extraction for 5 existing protocols**: GRE_Cisco (+gre_hd 32 bits), iSCSI (+lun 64 bits), PTP (+source_port_id 80 bits), ICMPv4 (+un 32 bits), ICMPv6 (+icmp6_dataun 32 bits).
 
 #### DPDK, nDPI, pppd Extractors + Kernel Expansion (2026-04-18)
 
@@ -141,6 +156,7 @@ Added missing imports for GTP, HomePlug_AV, HTTP2, and TLS record layer — enab
 
 | Iter | Key Change | Protocols | Tests |
 |------|------------|-----------|-------|
+| 29 | Nested struct/union expansion, 3 new kernel mappings (IB_GRH, PPTP, LACP), typedef support | 431 | 450 |
 | 28 | DPDK/nDPI/pppd extractors, 12 new kernel mappings, 3 DPDK-only protos | 431 | 442 |
 | 27 | Bucket 3 sub-protocols, Bucket 5 mapping fixes, STP variants, pipeline 42.2% | 428 | 420 |
 | 26 | Batch 2 embedded_proto defs, tshark alias hints, 182 templates | 428 | 420 |

@@ -73,7 +73,7 @@ pub fn extract_protocol(
     };
 
     let mappings = load_ndpi_mappings()?;
-    let fields = kernel::to_field_defs_with(&ks, &mappings);
+    let fields = kernel::to_field_defs_with_content(&ks, &mappings, &preprocessed);
     let total_bits: u32 = fields
         .iter()
         .map(|f| f.offset_bits + f.size_bits)

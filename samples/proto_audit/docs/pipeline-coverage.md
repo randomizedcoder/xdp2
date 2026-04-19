@@ -1,6 +1,6 @@
 # Pipeline Coverage Tracker
 
-**Last updated:** 2026-04-18  
+**Last updated:** 2026-04-19  
 **Baseline commit:** `85d57a5` (fix comparator + IPv4/IPv6 fixups)
 
 ## Summary

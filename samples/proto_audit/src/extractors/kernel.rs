@@ -23,6 +23,17 @@ use regex::Regex;
 use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef, SourceInfo};
 use crate::type_mapping::{self, KernelMappings};
 
+/// Body of an anonymous inline union or struct.
+#[derive(Debug, Clone)]
+pub struct AnonymousBody {
+    /// "union" or "struct"
+    pub kind: String,
+    /// Raw body text (for debugging)
+    pub body: String,
+    /// Parsed sub-fields
+    pub fields: Vec<KernelField>,
+}
+
 /// A raw field parsed from a kernel struct.
 #[derive(Debug, Clone)]
 pub struct KernelField {
@@ -34,6 +45,8 @@ pub struct KernelField {
     pub bitfield_width: Option<u32>,
     /// Array size (None for non-arrays)
     pub array_size: Option<u32>,
+    /// Anonymous inline union/struct body (None for regular fields)
+    pub anon_body: Option<AnonymousBody>,
 }
 
 /// Metadata for a parsed kernel struct.
@@ -102,15 +115,55 @@ fn infer_field_type(c_type: &str, name: &str, bits: u32, mappings: &KernelMappin
 /// - Endian-conditional bitfields: `#if defined(__BIG_ENDIAN_BITFIELD)`
 /// - Arrays: `__u8 h_dest[ETH_ALEN];`
 pub fn parse_kernel_struct(content: &str, struct_name: &str) -> Result<Option<KernelStruct>> {
-    // Find the struct definition (handle __attribute__ and __packed before semicolon)
-    let struct_pattern = format!(
-        r"(?s)struct\s+{}\s*\{{(.*?)\}}\s*[^;]*;",
-        regex::escape(struct_name)
-    );
-    let struct_re = Regex::new(&struct_pattern)?;
+    let escaped = regex::escape(struct_name);
 
-    let body = match struct_re.captures(content) {
-        Some(cap) => cap[1].to_string(),
+    // Find the start of a struct definition using regex, then extract body
+    // with brace counting (to handle nested structs/unions).
+    let start_patterns = [
+        format!(r"struct\s+{}\s*\{{", escaped),          // struct X {
+        format!(r"typedef\s+struct\s+{}\s*\{{", escaped), // typedef struct X {
+        format!(r"typedef\s+struct\s*\{{"),                // typedef struct { ... } X;
+    ];
+
+    let mut body = None;
+    for (i, pat) in start_patterns.iter().enumerate() {
+        let re = Regex::new(pat)?;
+        if let Some(m) = re.find(content) {
+            // For anonymous typedef, verify the name appears after closing brace
+            let after_open = m.end();
+            // Count braces to find matching close
+            let mut depth = 1i32;
+            let mut close_pos = None;
+            for (j, ch) in content[after_open..].char_indices() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            close_pos = Some(after_open + j);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(close) = close_pos {
+                // For anonymous typedef pattern, verify the name follows
+                if i == 2 {
+                    let after_close = content[close + 1..].trim_start();
+                    let name_re = Regex::new(&format!(r"^{}\s*;", escaped))?;
+                    if !name_re.is_match(after_close) {
+                        continue; // Not the right typedef
+                    }
+                }
+                body = Some(content[after_open..close].to_string());
+                break;
+            }
+        }
+    }
+
+    let body = match body {
+        Some(b) => b,
         None => return Ok(None),
     };
 
@@ -251,14 +304,35 @@ fn strip_inline_comments(line: &str) -> String {
 fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
     let mut fields = Vec::new();
 
-    // Step 0: Unwrap __struct_group() macros
+    // Step 0a: Unwrap __struct_group() macros
     let body = unwrap_struct_group(body);
 
-    // Step 1: Filter out preprocessor directives and comments, join continuation lines
-    // Also track #if 0 / #endif blocks to skip dead-code fields
+    // Step 0b: Normalize inline bodies — if the body is a single line (common
+    // when parsing anonymous inline union/struct bodies), insert newlines
+    // after semicolons at brace depth 0 so the statement accumulator can split.
+    let body = {
+        let mut result = String::with_capacity(body.len());
+        let mut depth = 0i32;
+        for ch in body.chars() {
+            result.push(ch);
+            match ch {
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                ';' if depth <= 0 => result.push('\n'),
+                _ => {}
+            }
+        }
+        result
+    };
+
+    // Step 1: Filter out preprocessor directives and comments, join continuation lines.
+    // Track brace depth so that semicolons inside anonymous inline unions/structs
+    // don't split them into separate statements.
+    // Also track #if 0 / #endif blocks to skip dead-code fields.
     let mut statements = Vec::new();
     let mut current = String::new();
     let mut if0_depth: u32 = 0;
+    let mut brace_depth: i32 = 0;
 
     for line in body.lines() {
         let trimmed = line.trim();
@@ -293,15 +367,26 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
             continue;
         }
 
+        // Track brace depth for anonymous inline unions/structs
+        for ch in cleaned.chars() {
+            match ch {
+                '{' => brace_depth += 1,
+                '}' => brace_depth -= 1,
+                _ => {}
+            }
+        }
+
         current.push(' ');
         current.push_str(cleaned);
 
-        // If line ends with `;`, it's a complete statement
-        if cleaned.ends_with(';') {
+        // A statement is complete when we see `;` at brace depth 0
+        // (semicolons inside anonymous union/struct bodies don't end the outer statement)
+        if cleaned.ends_with(';') && brace_depth <= 0 {
             statements.push(current.trim().to_string());
             current.clear();
+            brace_depth = 0; // reset for safety
         }
-        // Otherwise it's a continuation (e.g., multi-line bitfield: `__u8 version:4,`)
+        // Otherwise it's a continuation (multi-line bitfield, or inside anon union/struct)
     }
 
     let bitfield_re = Regex::new(r"(\w+)\s*:\s*(\d+)")?;
@@ -342,20 +427,70 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
         if c_type.is_empty() || rest.is_empty() {
             continue;
         }
-        // Skip unions (too complex to infer size)
-        if c_type == "union" {
-            continue;
-        }
-        // Handle embedded struct fields: `struct icmp6hdr mld_hdr;`
-        // Treat the struct name as the type for size lookup via struct_sizes
-        let (c_type, rest) = if c_type == "struct" {
-            let mut parts = rest.splitn(2, |c: char| c.is_whitespace());
-            let struct_name = parts.next().unwrap_or("").to_string();
-            let field_rest = parts.next().unwrap_or("").trim().to_string();
-            if struct_name.is_empty() || field_rest.is_empty() {
+        // Handle struct/union fields (named types and anonymous inline)
+        let (c_type, rest) = if c_type == "struct" || c_type == "union" {
+            let kind = c_type.clone();
+            let rest_trimmed = rest.trim_start();
+            if rest_trimmed.starts_with('{') {
+                // Anonymous inline: `union { __be16 id; __be32 gateway; } un;`
+                // Find matching close brace (handle nested braces)
+                let mut depth = 0i32;
+                let mut body_end = None;
+                for (i, ch) in rest_trimmed.char_indices() {
+                    match ch {
+                        '{' => depth += 1,
+                        '}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                body_end = Some(i);
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                let body_end = match body_end {
+                    Some(i) => i,
+                    None => continue,
+                };
+                let body = &rest_trimmed[1..body_end];
+                let after_close = rest_trimmed[body_end + 1..].trim().trim_end_matches(';').trim();
+                if after_close.is_empty() {
+                    continue;
+                }
+                let field_name = after_close.to_string();
+                // Parse the inner body recursively to get sub-fields
+                if let Ok(inner_fields) = parse_struct_fields(body) {
+                    // Compute size: union → max, struct → sum
+                    // We can't fully resolve here (no mappings), so store as
+                    // a special __anon type with the inner fields encoded.
+                    // The size will be resolved in to_field_defs_with_content().
+                    // For now, store the kind and body so we can resolve later.
+                    let synthetic_type = format!("__anon_{}_{}", kind, field_name);
+                    // Store body in the field for later resolution
+                    fields.push(KernelField {
+                        c_type: synthetic_type,
+                        name: field_name,
+                        bitfield_width: None,
+                        array_size: None,
+                        anon_body: Some(AnonymousBody {
+                            kind: kind.to_string(),
+                            body: body.to_string(),
+                            fields: inner_fields,
+                        }),
+                    });
+                }
                 continue;
+            } else {
+                // Named type: `struct icmp6hdr mld_hdr;` or `union ib_gid sgid;`
+                let mut parts = rest.splitn(2, |c: char| c.is_whitespace());
+                let type_name = parts.next().unwrap_or("").to_string();
+                let field_rest = parts.next().unwrap_or("").trim().to_string();
+                if type_name.is_empty() || field_rest.is_empty() {
+                    continue;
+                }
+                (type_name, field_rest)
             }
-            (struct_name, field_rest)
         } else {
             (c_type, rest)
         };
@@ -373,6 +508,7 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
                     name: bf_cap[1].to_string(),
                     bitfield_width: Some(bf_cap[2].parse()?),
                     array_size: None,
+                    anon_body: None,
                 });
             } else if let Some(arr_cap) = array_re.captures(part) {
                 let size_str = &arr_cap[2];
@@ -388,6 +524,7 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
                     name: arr_cap[1].to_string(),
                     bitfield_width: None,
                     array_size: Some(size),
+                    anon_body: None,
                 });
             } else {
                 // Plain field name
@@ -398,6 +535,7 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
                         name: name.to_string(),
                         bitfield_width: None,
                         array_size: None,
+                        anon_body: None,
                     });
                 }
             }
@@ -405,6 +543,134 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
     }
 
     Ok(fields)
+}
+
+/// Resolve the bit size of a KernelField, handling anonymous bodies and
+/// nested types via content lookup.
+fn resolve_field_bits(
+    kf: &KernelField,
+    mappings: &KernelMappings,
+    content: Option<&str>,
+    depth: u32,
+) -> u32 {
+    if let Some(bw) = kf.bitfield_width {
+        return bw;
+    }
+    if let Some(arr) = kf.array_size {
+        return resolve_type_bits(&kf.c_type, mappings, content, depth).unwrap_or(8) * arr;
+    }
+    if let Some(ref anon) = kf.anon_body {
+        return resolve_anonymous_body_size(anon, mappings, content, depth);
+    }
+    resolve_type_bits(&kf.c_type, mappings, content, depth).unwrap_or(0)
+}
+
+/// Resolve bit size for a C type name — TOML first, then content search.
+fn resolve_type_bits(
+    c_type: &str,
+    mappings: &KernelMappings,
+    content: Option<&str>,
+    depth: u32,
+) -> Option<u32> {
+    // Try TOML tables (type_bits, struct_sizes, union_sizes)
+    if let Some(bits) = mappings.type_bits(c_type) {
+        return Some(bits);
+    }
+    // Try resolving from content (find struct/union definition)
+    if let Some(content) = content {
+        if let Some(bits) = resolve_nested_size(content, c_type, "struct", mappings, depth) {
+            return Some(bits);
+        }
+        if let Some(bits) = resolve_nested_size(content, c_type, "union", mappings, depth) {
+            return Some(bits);
+        }
+    }
+    None
+}
+
+/// Find a named struct/union definition in `content` and compute its size.
+///
+/// For structs: sum of field sizes. For unions: max of field sizes.
+/// Max recursion depth = 4 to prevent infinite loops.
+fn resolve_nested_size(
+    content: &str,
+    type_name: &str,
+    kind: &str,
+    mappings: &KernelMappings,
+    depth: u32,
+) -> Option<u32> {
+    if depth >= 4 {
+        return None;
+    }
+    // Find the definition: `struct type_name { ... }` or `union type_name { ... }`
+    // Use brace counting instead of non-greedy regex (handles nested braces).
+    let start_pattern = format!(
+        r"{}\s+{}\s*\{{",
+        regex::escape(kind),
+        regex::escape(type_name)
+    );
+    let re = Regex::new(&start_pattern).ok()?;
+    let m = re.find(content)?;
+    let after_open = m.end();
+    let mut brace_depth = 1i32;
+    let mut close_pos = None;
+    for (j, ch) in content[after_open..].char_indices() {
+        match ch {
+            '{' => brace_depth += 1,
+            '}' => {
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    close_pos = Some(after_open + j);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let body = &content[after_open..close_pos?];
+    let inner_fields = parse_struct_fields(body).ok()?;
+
+    let sizes: Vec<u32> = inner_fields
+        .iter()
+        .map(|f| resolve_field_bits(f, mappings, Some(content), depth + 1))
+        .collect();
+
+    if sizes.is_empty() {
+        return None;
+    }
+
+    if kind == "union" {
+        sizes.into_iter().max()
+    } else {
+        Some(sizes.into_iter().sum())
+    }
+}
+
+/// Compute the size of an anonymous inline union/struct body.
+fn resolve_anonymous_body_size(
+    anon: &AnonymousBody,
+    mappings: &KernelMappings,
+    content: Option<&str>,
+    depth: u32,
+) -> u32 {
+    if depth >= 4 {
+        return 0;
+    }
+    let sizes: Vec<u32> = anon
+        .fields
+        .iter()
+        .map(|f| resolve_field_bits(f, mappings, content, depth + 1))
+        .collect();
+
+    if sizes.is_empty() {
+        return 0;
+    }
+
+    if anon.kind == "union" {
+        sizes.into_iter().max().unwrap_or(0)
+    } else {
+        sizes.into_iter().sum()
+    }
 }
 
 /// Convert a KernelStruct to field-level IR definitions.
@@ -417,19 +683,31 @@ pub fn to_field_defs(ks: &KernelStruct) -> Vec<FieldDef> {
     to_field_defs_with(ks, &mappings)
 }
 
-/// Convert using explicit mappings.
+/// Convert using explicit mappings (no content-aware resolution).
 pub fn to_field_defs_with(ks: &KernelStruct, mappings: &KernelMappings) -> Vec<FieldDef> {
+    build_field_defs(ks, mappings, None)
+}
+
+/// Convert using explicit mappings + file content for nested type resolution.
+pub fn to_field_defs_with_content(
+    ks: &KernelStruct,
+    mappings: &KernelMappings,
+    content: &str,
+) -> Vec<FieldDef> {
+    build_field_defs(ks, mappings, Some(content))
+}
+
+/// Core field definition builder (shared by with/without content variants).
+fn build_field_defs(
+    ks: &KernelStruct,
+    mappings: &KernelMappings,
+    content: Option<&str>,
+) -> Vec<FieldDef> {
     let mut fields = Vec::new();
     let mut offset_bits: u32 = 0;
 
     for kf in &ks.fields {
-        let bits = if let Some(bw) = kf.bitfield_width {
-            bw
-        } else if let Some(arr) = kf.array_size {
-            c_type_bits(&kf.c_type, mappings).unwrap_or(8) * arr
-        } else {
-            c_type_bits(&kf.c_type, mappings).unwrap_or(0)
-        };
+        let bits = resolve_field_bits(kf, mappings, content, 0);
 
         if bits == 0 {
             continue; // Unknown type, skip
@@ -442,6 +720,9 @@ pub fn to_field_defs_with(ks: &KernelStruct, mappings: &KernelMappings) -> Vec<F
             mappings
                 .array_endian_override(&kf.c_type, arr)
                 .unwrap_or_else(|| c_type_endian(&kf.c_type, mappings))
+        } else if kf.anon_body.is_some() {
+            // Anonymous inline union/struct — treat as opaque, no endian
+            Endian::Na
         } else {
             c_type_endian(&kf.c_type, mappings)
         };
@@ -466,12 +747,14 @@ pub fn extract_protocol(
     struct_name: &str,
     file_path: &str,
 ) -> Result<Option<ProtocolDef>> {
+    let mappings = type_mapping::load_kernel_mappings(None)
+        .expect("embedded kernel mappings should always parse");
     let ks = match parse_kernel_struct(content, struct_name)? {
         Some(ks) => ks,
         None => return Ok(None),
     };
 
-    let fields = to_field_defs(&ks);
+    let fields = to_field_defs_with_content(&ks, &mappings, content);
     let total_bits: u32 = fields.iter().map(|f| f.offset_bits + f.size_bits).max().unwrap_or(0);
     let field_count = fields.len() as u32;
 
@@ -842,5 +1125,194 @@ struct mld_msg {
         // in6_addr = 128 bits (from struct_sizes)
         assert_eq!(fields[1].size_bits, 128);
         assert_eq!(fields[1].offset_bits, 64);
+    }
+
+    #[test]
+    fn test_nested_struct_resolution_from_content() {
+        // gre_base_hdr is defined in the same content — resolve via content lookup
+        let content = r#"
+struct gre_base_hdr {
+    __be16 flags;
+    __be16 protocol;
+};
+
+struct gre_full_hdr {
+    struct gre_base_hdr gre_hd;
+    __be16 key_high;
+    __be16 key_low;
+};
+"#;
+        let ks = parse_kernel_struct(content, "gre_full_hdr").unwrap().unwrap();
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        let fields = to_field_defs_with_content(&ks, &mappings, content);
+
+        assert_eq!(fields.len(), 3);
+        // gre_hd resolved from content: flags(16) + protocol(16) = 32 bits
+        assert_eq!(fields[0].name, "gre_hd");
+        assert_eq!(fields[0].size_bits, 32);
+        assert_eq!(fields[0].offset_bits, 0);
+        // key_high at offset 32
+        assert_eq!(fields[1].name, "key_high");
+        assert_eq!(fields[1].offset_bits, 32);
+    }
+
+    #[test]
+    fn test_nested_union_resolution_from_content() {
+        // union ib_gid is defined in the same content
+        let content = r#"
+union ib_gid {
+    __u8 raw[16];
+};
+
+struct ib_grh {
+    __be32 version_tclass_flow;
+    __be16 paylen;
+    __u8   nxthdr;
+    __u8   hoplmt;
+    union ib_gid sgid;
+    union ib_gid dgid;
+};
+"#;
+        let ks = parse_kernel_struct(content, "ib_grh").unwrap().unwrap();
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        let fields = to_field_defs_with_content(&ks, &mappings, content);
+
+        // version_tclass_flow(32) + paylen(16) + nxthdr(8) + hoplmt(8) + sgid(128) + dgid(128)
+        assert_eq!(fields.len(), 6);
+        let sgid = fields.iter().find(|f| f.name == "sgid").unwrap();
+        assert_eq!(sgid.size_bits, 128);
+        assert_eq!(sgid.offset_bits, 64);
+        let dgid = fields.iter().find(|f| f.name == "dgid").unwrap();
+        assert_eq!(dgid.size_bits, 128);
+        assert_eq!(dgid.offset_bits, 192);
+    }
+
+    #[test]
+    fn test_anonymous_inline_union() {
+        // icmphdr-style: anonymous inline union
+        let content = r#"
+struct icmphdr {
+    __u8    type;
+    __u8    code;
+    __sum16 checksum;
+    union {
+        struct {
+            __be16  id;
+            __be16  sequence;
+        } echo;
+        __be32  gateway;
+        __u8    reserved[4];
+    } un;
+};
+"#;
+        let ks = parse_kernel_struct(content, "icmphdr").unwrap().unwrap();
+        assert!(ks.fields.iter().any(|f| f.name == "un"), "un field missing from parsed fields");
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        let fields = to_field_defs_with_content(&ks, &mappings, content);
+
+        // type(8) + code(8) + checksum(16) + un(32) = 64 bits
+        assert_eq!(fields.len(), 4, "fields: {:?}", fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+        let un = fields.iter().find(|f| f.name == "un").unwrap();
+        assert_eq!(un.size_bits, 32); // max(echo=32, gateway=32, reserved=32) = 32
+        assert_eq!(un.offset_bits, 32);
+    }
+
+    #[test]
+    fn test_toml_fallback_for_nested_struct() {
+        // in6_addr is not defined in content, falls back to TOML struct_sizes
+        let content = r#"
+struct ipv6hdr {
+    __be32 vtf;
+    __be16 payload_len;
+    __u8   nexthdr;
+    __u8   hop_limit;
+    struct in6_addr saddr;
+    struct in6_addr daddr;
+};
+"#;
+        let ks = parse_kernel_struct(content, "ipv6hdr").unwrap().unwrap();
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        let fields = to_field_defs_with_content(&ks, &mappings, content);
+
+        let saddr = fields.iter().find(|f| f.name == "saddr").unwrap();
+        assert_eq!(saddr.size_bits, 128); // From TOML: in6_addr = 128
+        let daddr = fields.iter().find(|f| f.name == "daddr").unwrap();
+        assert_eq!(daddr.size_bits, 128);
+    }
+
+    #[test]
+    fn test_recursion_depth_limit() {
+        // Circular reference: struct A contains struct B, struct B contains struct A
+        let content = r#"
+struct circular_a {
+    struct circular_b inner;
+};
+
+struct circular_b {
+    struct circular_a inner;
+};
+"#;
+        let ks = parse_kernel_struct(content, "circular_a").unwrap().unwrap();
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        // Should not panic — just skip unresolvable fields
+        let fields = to_field_defs_with_content(&ks, &mappings, content);
+        assert_eq!(fields.len(), 0); // inner is unresolvable, skipped
+    }
+
+    #[test]
+    fn test_unknown_nested_skipped() {
+        // Unknown type that's not in content or TOML
+        let content = r#"
+struct foo {
+    __u8 tag;
+    struct completely_unknown_type payload;
+    __u16 trailer;
+};
+"#;
+        let ks = parse_kernel_struct(content, "foo").unwrap().unwrap();
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        let fields = to_field_defs_with_content(&ks, &mappings, content);
+
+        assert_eq!(fields.len(), 2); // tag + trailer (payload skipped)
+        assert_eq!(fields[0].name, "tag");
+        assert_eq!(fields[1].name, "trailer");
+        // trailer offset: tag(8) + payload(skipped) = 8
+        assert_eq!(fields[1].offset_bits, 8);
+    }
+
+    #[test]
+    fn test_typedef_struct_parsing() {
+        let content = r#"
+typedef struct lacpdu {
+    __u8    subtype;
+    __u8    version_number;
+    __u8    tlv_type_actor;
+    __u8    actor_info_len;
+} __packed lacpdu_t;
+"#;
+        let ks = parse_kernel_struct(content, "lacpdu").unwrap().unwrap();
+        assert_eq!(ks.fields.len(), 4);
+        assert_eq!(ks.fields[0].name, "subtype");
+    }
+
+    #[test]
+    fn test_union_named_type_via_toml() {
+        // union ib_gid resolved via TOML union_sizes (not content)
+        let content = r#"
+struct ib_grh {
+    __be32 version_tclass_flow;
+    union ib_gid sgid;
+    union ib_gid dgid;
+};
+"#;
+        let ks = parse_kernel_struct(content, "ib_grh").unwrap().unwrap();
+        assert_eq!(ks.fields.len(), 3);
+        assert_eq!(ks.fields[1].name, "sgid");
+        assert_eq!(ks.fields[1].c_type, "ib_gid");
+        // Resolve via TOML union_sizes
+        let mappings = type_mapping::load_kernel_mappings(None).unwrap();
+        let fields = to_field_defs_with(&ks, &mappings);
+        let sgid = fields.iter().find(|f| f.name == "sgid").unwrap();
+        assert_eq!(sgid.size_bits, 128);
     }
 }

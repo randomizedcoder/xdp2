@@ -363,7 +363,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("IB_GRH")
             .tshark("infiniband.grh")
             .etherparse("IB_GRHHeader", "src/proto_audit/ib_grh.rs")
-            .libpcap("ib_grh_header", "pcap/proto_audit/ib_grh.h"),
+            .libpcap("ib_grh_header", "pcap/proto_audit/ib_grh.h")
+            .kernel("ib_grh", "rdma/ib_verbs.h"),
         PN::new("IB_BTH", 12)
             .xdp2("xdp2_parse_ib_bth")
             .scapy("IB_BTH")
@@ -913,7 +914,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_lacp").scapy("SlowProtocol").tshark("slow")
             .libpcap("lacp_header", "pcap/proto_audit/lacp.h")
             .ieee(&["802.1AX-2020"])
-            .etherparse("LACPHeader", "src/proto_audit/lacp.rs"),
+            .etherparse("LACPHeader", "src/proto_audit/lacp.rs")
+            .kernel("lacpdu", "net/bond_3ad.h"),
         PN::new("QinQ", 8)
             .xdp2("xdp2_parse_qinq")
             .kernel("vlan_hdr", "linux/if_vlan.h")
@@ -1397,7 +1399,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("PPTP").tshark("pptp").variable()
             .rfcs(&[2637])
             .etherparse("PPTPHeader", "src/proto_audit/pptp.rs")
-            .libpcap("pptp_header", "pcap/proto_audit/pptp.h"),
+            .libpcap("pptp_header", "pcap/proto_audit/pptp.h")
+            .kernel("pptp_gre_header", "net/pptp.h"),
         PN::new("RIPng", 4)
             .xdp2("xdp2_parse_ripng")
             .tshark("ripng").variable()
