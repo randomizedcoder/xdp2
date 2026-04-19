@@ -13,7 +13,7 @@
 | **A. Harness integration** | Extend `samples/flow_dissector/` to compare all five implementations | 🔵 in progress (A4 ✅) | Add slot skeletons to `benchmark.c`, `benchmark_bpf.c`, `benchmark_matrix.sh` |
 | **B. BPF selftest patches** | 3 new patches on top of existing 5 from `kernel-patches.md` | 🟡 not started | Patch 8 (unified port load) — lowest risk, lands first |
 | **C. Kernel C patch series** | `net/core/flow_dissector.c` — 7 patches | 🟡 not started | Patch 2 (unified L4 port load) prototype |
-| **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D4 ✅, D5 partial) | D5: VLAN + ICMP slots; D6: slow-path fallback |
+| **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D4 ✅, D5 partial, D6a ✅) | D5: ICMP slot; D6: full slow-path tail call |
 | **E. Production AF_XDP (`xdp2-flow-afxdp`)** | Rust crate + CLI + XDP classifier + shared control plane | 🟡 not started | Crate skeleton under `xdp2-rs/crates/xdp2-af-xdp/` |
 | **§5a. Shared control plane (`xdp2-fastpath-control`)** | Listen-socket enumeration + PROG_ARRAY update API | 🟡 not started | `sock_diag` netlink enumerator (read-only spike) |
 
@@ -57,11 +57,12 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
   - [x] IPv4/UDP ✅ 2026-04-18
   - [x] IPv6/TCP ✅ 2026-04-18 (entry gate rejects packets with IPv6 extension headers — ext-hdr walk stays in the slow path)
   - [x] IPv6/UDP ✅ 2026-04-18
-  - [ ] VLAN/IPv4/TCP
-  - [ ] VLAN/IPv4/UDP
+  - [x] VLAN/IPv4/TCP ✅ 2026-04-18 (entry gate rejects QinQ; extractor rewrites `nhoff`/`n_proto` to match oracle's post-unwrap state)
+  - [x] VLAN/IPv4/UDP ✅ 2026-04-18
   - [ ] IPv4/ICMP
   - [ ] dynamic (§5a)
 - [ ] **D6.** Slow-path fallback via `xdp2-compiler` from existing `parser_xdp.c`.
+  - [x] **D6a** (intermediate): slow-path fall-through returns `BPF_FLOW_DISSECTOR_CONTINUE` instead of `BPF_DROP`, so non-fast-path packets are handed back to the kernel's software dissector. Full D6 (tail call into an xdp2-compiler-generated slow path) still pending. ✅ 2026-04-18
 - [ ] **D7.** Userspace loader `xdp2-flow-loader` (Rust).
 - [ ] **D8.** `nix build .#xdp2-flow-ebpf` output (kernel `.o` + loader + man pages + systemd unit).
 - [ ] **D9.** CO-RE via `BPF_CORE_READ` for kernel-version portability.
@@ -104,6 +105,7 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 - **D4 landed** (`b8b316c`): [`fast_bpf/parity_test.c`](../fast_bpf/parity_test.c) — standalone harness loading fast + oracle `.o`, running both via `BPF_PROG_TEST_RUN` on every PCAP packet, diffing `bpf_flow_keys` on fast-path hits. Exits non-zero on any mismatch so CI can gate on it. Oracle is the vendored upstream `bpf_flow.kern.o` until D6; swap in the xdp2-compiler slow-path object once that lands.
 - **D5 partial landed** (`ed78526`): IPv4/UDP, IPv6/TCP, IPv6/UDP extractors added to [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c); entry program now gates pure IPv6 (no extension headers) and dispatches to the four non-VLAN slots. `llvm-objdump` confirms all 5 programs present (`_dissect` + 4 specialised). Parity test extended to diff `ipv6_src`/`ipv6_dst`/`flow_label`. VLAN, ICMP, and §5a dynamic slots still TODO.
 - **A4 landed**: [`nix/tests/super-flow-dissector.nix`](../../../nix/tests/super-flow-dissector.nix) wired into `nix/tests/default.nix` and `flake.nix` (exposed as both `tests.super-flow-dissector` and `super-flow-dissector-test`). Runs 9 build checks non-root (all pass) and adds a runtime parity assertion when root+BPF are available. Output on this host: `Passed: 9  Failed: 0` (runtime check skipped — non-root).
+- **D5 VLAN + D6a landed**: `flow_dissector_eth_vlan_ipv4_tcp` and `flow_dissector_eth_vlan_ipv4_udp` added to [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c); entry program gains an `ETH_P_8021Q` arm that rejects QinQ (encapsulated ethertype must be IPv4) and dispatches single-tagged VLAN/IPv4 TCP/UDP. Both extractors rewrite `keys->nhoff` and `keys->n_proto` to match the oracle's post-unwrap state (upstream `bpf_flow.kern.o` removes the tag in-place before calling the IPv4 handler). `struct vlan_hdr` is declared inline — `<linux/if_vlan.h>` isn't available to BPF builds. Slow-path fall-through now returns `BPF_FLOW_DISSECTOR_CONTINUE` instead of `BPF_DROP` (D6a): non-fast-path packets go to the kernel's software dissector instead of being silently dropped — required for production correctness ahead of full D6. Nix test expanded to check 7 program symbols (up from 5). Output: `Passed: 11  Failed: 0`.
 
 ---
 
@@ -115,6 +117,8 @@ Record any deviation from [`super-flow-dissector-plan.md`](super-flow-dissector-
 |---|---|---|---|
 | 2026-04-18 | D / A | Plan §7 anticipated a new `-M fast-bpf` flag in `benchmark_bpf.c`; the existing `-b <bpf_obj>` flag already accepts arbitrary `.o` paths, so no CLI change is needed for the D1–D3 skeleton. Defer CLI work until Track A (§A2) lands the 3-way `-M` selector holistically. | Avoids churn in `benchmark_bpf.c` for a flag that would be immediately superseded. |
 | 2026-04-18 | D | D4 oracle is upstream `bpf_flow.kern.o` instead of the plan's "slow-path fallback" — the latter (D6) isn't built yet. Parity test header documents the swap once D6 lands. | Keeps D4 actionable before D6; both oracles are behaviourally equivalent for ETH/IPv4/TCP traffic the fast-path accepts today. |
+| 2026-04-18 | D | Added D6a as an intermediate step before D6. D6a changes only the slow-path return value (`BPF_DROP` → `BPF_FLOW_DISSECTOR_CONTINUE`); full D6 still needs a loader-driven tail call into the xdp2-compiler-generated slow path. | D6a is a one-line production-correctness fix that unblocks real-world load-tests before D6's larger loader work lands. Until D6a, a packet that missed the fast path was dropped rather than dissected. |
+| 2026-04-18 | D | `struct vlan_hdr` declared inline in `fast_flow.bpf.c` rather than imported from `<linux/if_vlan.h>`. | `<linux/if_vlan.h>` is kernel-internal and doesn't export the struct to BPF-target builds (clang errored on forward declaration). The wire-format struct is 4 bytes and stable — inlining is simpler than vendoring the header. |
 
 ---
 

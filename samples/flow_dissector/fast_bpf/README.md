@@ -15,19 +15,23 @@ The design is:
 - Packets that don't hit the fast path fall through to a slow-path
   dissector that preserves full protocol coverage.
 
-## Current status (D1–D4 + partial D5)
+## Current status (D1–D4 + partial D5 + D6a)
 
 Tracked in [`../docs/super-flow-dissector-implementation.md`](../docs/super-flow-dissector-implementation.md).
 
 - **D1** — directory + Makefile target ✅
-- **D2** — entry program with signature match ✅ (IPv4 + pure IPv6 gates;
-  VLAN gate still TODO)
+- **D2** — entry program with signature match ✅ (IPv4, pure IPv6, and
+  single-tagged VLAN over IPv4 gates; QinQ and VLAN-over-IPv6 go to slow
+  path)
 - **D3** — ETH/IPv4/TCP specialised extractor ✅
 - **D4** — coverage-parity harness `parity_test` ✅ (oracle =
   `bpf_flow.kern.o` until D6 lands)
-- **D5** — fast-path slots: IPv4/TCP, IPv4/UDP, IPv6/TCP, IPv6/UDP ✅;
-  VLAN×2, ICMP, dynamic still TODO
-- **D6** — slow-path fallback ⏳ (currently drops non-fast-path packets)
+- **D5** — fast-path slots: IPv4/TCP, IPv4/UDP, IPv6/TCP, IPv6/UDP,
+  VLAN/IPv4/TCP, VLAN/IPv4/UDP ✅; ICMP and dynamic still TODO
+- **D6a** — slow-path fall-through returns `BPF_FLOW_DISSECTOR_CONTINUE`
+  ✅ (fast-path misses go back to the kernel's software dissector, no
+  drops)
+- **D6** — full slow-path tail call ⏳ (loader work pending)
 
 ## Build
 

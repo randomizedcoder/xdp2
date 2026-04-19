@@ -6,11 +6,15 @@
 //
 // See samples/flow_dissector/docs/super-flow-dissector-plan.md §5.
 //
-// Status: D1-D3 + partial D5. Entry program gates IPv4 (IHL=5, no
-// fragmentation) and pure IPv6 (no extension headers), dispatching into
-// four specialised programs: ETH/IPv4/TCP, ETH/IPv4/UDP, ETH/IPv6/TCP,
-// ETH/IPv6/UDP. VLAN and ICMP slots (D5), slow-path fallback (D6), and
-// dynamic socket-driven slot (§5a) are TODO.
+// Status: D1-D4 + partial D5 + D6a. Entry program gates IPv4 (IHL=5, no
+// fragmentation), pure IPv6 (no extension headers), and single-tagged
+// 802.1Q VLAN over IPv4 (IHL=5, no fragmentation). Dispatches into six
+// specialised programs: ETH/IPv4/TCP, ETH/IPv4/UDP, ETH/IPv6/TCP,
+// ETH/IPv6/UDP, ETH/VLAN/IPv4/TCP, ETH/VLAN/IPv4/UDP. ICMP slot (D5),
+// full slow-path tail call (D6), and dynamic socket-driven slot (§5a)
+// are TODO. Slow-path fall-through returns BPF_FLOW_DISSECTOR_CONTINUE
+// so the kernel's software dissector takes over — no packet drops on
+// fast-path misses (D6a).
 //
 
 #include <stddef.h>
@@ -25,6 +29,14 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
+/* <linux/if_vlan.h> is kernel-internal; struct vlan_hdr isn't exported
+ * to BPF builds. Declare the wire format inline — TCI + inner ethertype.
+ */
+struct vlan_hdr {
+	__be16 h_vlan_TCI;
+	__be16 h_vlan_encapsulated_proto;
+};
+
 /* ─── Fast-path chain IDs ──────────────────────────────────────────────
  *
  * Keep in sync with super-flow-dissector-plan.md §5 ("Core design").
@@ -35,8 +47,8 @@
 #define CHAIN_ETH_IPV4_UDP      1
 #define CHAIN_ETH_IPV6_TCP      2
 #define CHAIN_ETH_IPV6_UDP      3
-#define CHAIN_ETH_VLAN_IPV4_TCP 4  /* TODO D5 */
-#define CHAIN_ETH_VLAN_IPV4_UDP 5  /* TODO D5 */
+#define CHAIN_ETH_VLAN_IPV4_TCP 4
+#define CHAIN_ETH_VLAN_IPV4_UDP 5
 #define CHAIN_ETH_IPV4_ICMP     6  /* TODO D5 */
 #define CHAIN_DYNAMIC           7  /* TODO §5a */
 #define NUM_FAST_CHAINS         8
@@ -116,17 +128,46 @@ int _dissect(struct __sk_buff *skb)
 		default:
 			goto slowpath;
 		}
+	} else if (keys->n_proto == bpf_htons(ETH_P_8021Q)) {
+		/* Single-tagged 802.1Q over IPv4. QinQ and VLAN-over-IPv6
+		 * are left for the slow path — the fast-path templates want
+		 * a fixed L2 stride. */
+		struct vlan_hdr *vlan = data + nhoff;
+		struct iphdr *iph = data + nhoff + sizeof(*vlan);
+
+		if ((void *)(vlan + 1) > data_end)
+			goto slowpath;
+		if (vlan->h_vlan_encapsulated_proto != bpf_htons(ETH_P_IP))
+			goto slowpath;
+
+		if ((void *)(iph + 1) > data_end)
+			goto slowpath;
+		if (iph->ihl != 5)
+			goto slowpath;
+		if (iph->frag_off & bpf_htons(IP_MF | IP_OFFSET))
+			goto slowpath;
+
+		switch (iph->protocol) {
+		case IPPROTO_TCP:
+			bpf_tail_call_static(skb, &jmp_table,
+					     CHAIN_ETH_VLAN_IPV4_TCP);
+			break;
+		case IPPROTO_UDP:
+			bpf_tail_call_static(skb, &jmp_table,
+					     CHAIN_ETH_VLAN_IPV4_UDP);
+			break;
+		default:
+			goto slowpath;
+		}
 	}
-	/* TODO D5: VLAN fast-path gate (unwrap 802.1Q then re-dispatch). */
 
 slowpath:
-	/* TODO D6: tail-call into the slow-path dissector.
-	 *
-	 * For the D1-D3 skeleton we return BPF_DROP so the benchmark
-	 * makes the fast-path coverage gap visible (non-IPv4-TCP packets
-	 * will be reported as unparsed). This is replaced by a slow-path
-	 * tail call once D6 lands. */
-	return BPF_DROP;
+	/* D6a: hand the packet back to the kernel's software dissector.
+	 * BPF_FLOW_DISSECTOR_CONTINUE preserves upstream coverage — no
+	 * packet drops on fast-path misses. D6 will replace this with a
+	 * direct tail call into an xdp2-compiler-generated slow path for
+	 * reduced per-packet overhead. */
+	return BPF_FLOW_DISSECTOR_CONTINUE;
 }
 
 /* ─── Specialised: ETH / IPv4 / TCP ────────────────────────────────────
@@ -267,6 +308,84 @@ int flow_dissector_eth_ipv6_udp(struct __sk_buff *skb)
 	keys->dport = ports[1];
 	keys->thoff = thoff;
 	keys->flow_label = bpf_ntohl(*(__be32 *)ip6h) & 0x000FFFFF;
+	keys->is_frag = 0;
+	keys->is_first_frag = 0;
+
+	return BPF_OK;
+}
+
+/* ─── Specialised: ETH / VLAN / IPv4 / TCP ─────────────────────────────
+ *
+ * Preconditions from the entry gate: 802.1Q tag (single, not QinQ),
+ * encapsulated ethertype = IPv4, IHL=5, not fragmented, proto=TCP.
+ * Fixed L2 stride: vlan_hdr (4B) after the original ETH, so L3 starts
+ * at nhoff + 4 and L4 at nhoff + 4 + 20.
+ *
+ * Upstream bpf_flow.kern.o unwraps the VLAN tag in-place: nhoff is
+ * advanced past the tag and n_proto is rewritten to the inner ethertype
+ * before the IPv4 handler runs. We mirror that so the oracle and fast
+ * path produce identical bpf_flow_keys.
+ */
+SEC("flow_dissector")
+int flow_dissector_eth_vlan_ipv4_tcp(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	__u32 nhoff = keys->nhoff + sizeof(struct vlan_hdr);
+	__u32 thoff = nhoff + 20;
+	struct iphdr *iph = data + nhoff;
+	__be16 *ports = data + thoff;
+
+	if ((void *)(iph + 1) > data_end)
+		return BPF_DROP;
+	if ((void *)(ports + 2) > data_end)
+		return BPF_DROP;
+
+	keys->nhoff = nhoff;
+	keys->n_proto = bpf_htons(ETH_P_IP);
+	keys->addr_proto = ETH_P_IP;
+	keys->ipv4_src = iph->saddr;
+	keys->ipv4_dst = iph->daddr;
+	keys->ip_proto = IPPROTO_TCP;
+	keys->sport = ports[0];
+	keys->dport = ports[1];
+	keys->thoff = thoff;
+	keys->is_frag = 0;
+	keys->is_first_frag = 0;
+
+	return BPF_OK;
+}
+
+/* ─── Specialised: ETH / VLAN / IPv4 / UDP ─────────────────────────────
+ *
+ * Mirror of VLAN/IPv4/TCP with ip_proto = UDP.
+ */
+SEC("flow_dissector")
+int flow_dissector_eth_vlan_ipv4_udp(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	__u32 nhoff = keys->nhoff + sizeof(struct vlan_hdr);
+	__u32 thoff = nhoff + 20;
+	struct iphdr *iph = data + nhoff;
+	__be16 *ports = data + thoff;
+
+	if ((void *)(iph + 1) > data_end)
+		return BPF_DROP;
+	if ((void *)(ports + 2) > data_end)
+		return BPF_DROP;
+
+	keys->nhoff = nhoff;
+	keys->n_proto = bpf_htons(ETH_P_IP);
+	keys->addr_proto = ETH_P_IP;
+	keys->ipv4_src = iph->saddr;
+	keys->ipv4_dst = iph->daddr;
+	keys->ip_proto = IPPROTO_UDP;
+	keys->sport = ports[0];
+	keys->dport = ports[1];
+	keys->thoff = thoff;
 	keys->is_frag = 0;
 	keys->is_first_frag = 0;
 
