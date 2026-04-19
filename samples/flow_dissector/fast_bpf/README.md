@@ -15,7 +15,7 @@ The design is:
 - Packets that don't hit the fast path fall through to a slow-path
   dissector that preserves full protocol coverage.
 
-## Current status (D1–D4 + partial D5 + D6a)
+## Current status (D1–D4 + D5 minus §5a + D6a)
 
 Tracked in [`../docs/super-flow-dissector-implementation.md`](../docs/super-flow-dissector-implementation.md).
 
@@ -27,7 +27,7 @@ Tracked in [`../docs/super-flow-dissector-implementation.md`](../docs/super-flow
 - **D4** — coverage-parity harness `parity_test` ✅ (oracle =
   `bpf_flow.kern.o` until D6 lands)
 - **D5** — fast-path slots: IPv4/TCP, IPv4/UDP, IPv6/TCP, IPv6/UDP,
-  VLAN/IPv4/TCP, VLAN/IPv4/UDP ✅; ICMP and dynamic still TODO
+  VLAN/IPv4/TCP, VLAN/IPv4/UDP, IPv4/ICMP ✅; §5a dynamic slot still TODO
 - **D6a** — slow-path fall-through returns `BPF_FLOW_DISSECTOR_CONTINUE`
   ✅ (fast-path misses go back to the kernel's software dissector, no
   drops)

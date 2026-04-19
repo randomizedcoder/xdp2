@@ -6,15 +6,15 @@
 //
 // See samples/flow_dissector/docs/super-flow-dissector-plan.md §5.
 //
-// Status: D1-D4 + partial D5 + D6a. Entry program gates IPv4 (IHL=5, no
-// fragmentation), pure IPv6 (no extension headers), and single-tagged
-// 802.1Q VLAN over IPv4 (IHL=5, no fragmentation). Dispatches into six
-// specialised programs: ETH/IPv4/TCP, ETH/IPv4/UDP, ETH/IPv6/TCP,
-// ETH/IPv6/UDP, ETH/VLAN/IPv4/TCP, ETH/VLAN/IPv4/UDP. ICMP slot (D5),
-// full slow-path tail call (D6), and dynamic socket-driven slot (§5a)
-// are TODO. Slow-path fall-through returns BPF_FLOW_DISSECTOR_CONTINUE
-// so the kernel's software dissector takes over — no packet drops on
-// fast-path misses (D6a).
+// Status: D1-D4 + D5 (minus §5a dynamic) + D6a. Entry program gates
+// IPv4 (IHL=5, no fragmentation), pure IPv6 (no extension headers), and
+// single-tagged 802.1Q VLAN over IPv4 (IHL=5, no fragmentation).
+// Dispatches into seven specialised programs: ETH/IPv4/{TCP,UDP,ICMP},
+// ETH/IPv6/{TCP,UDP}, ETH/VLAN/IPv4/{TCP,UDP}. Full slow-path tail call
+// (D6) and dynamic socket-driven slot (§5a) are TODO. Slow-path
+// fall-through returns BPF_FLOW_DISSECTOR_CONTINUE so the kernel's
+// software dissector takes over — no packet drops on fast-path misses
+// (D6a).
 //
 
 #include <stddef.h>
@@ -25,6 +25,7 @@
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/icmp.h>
 
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
@@ -49,7 +50,7 @@ struct vlan_hdr {
 #define CHAIN_ETH_IPV6_UDP      3
 #define CHAIN_ETH_VLAN_IPV4_TCP 4
 #define CHAIN_ETH_VLAN_IPV4_UDP 5
-#define CHAIN_ETH_IPV4_ICMP     6  /* TODO D5 */
+#define CHAIN_ETH_IPV4_ICMP     6
 #define CHAIN_DYNAMIC           7  /* TODO §5a */
 #define NUM_FAST_CHAINS         8
 
@@ -103,7 +104,10 @@ int _dissect(struct __sk_buff *skb)
 			bpf_tail_call_static(skb, &jmp_table,
 					     CHAIN_ETH_IPV4_UDP);
 			break;
-		/* TODO D5: ICMP. */
+		case IPPROTO_ICMP:
+			bpf_tail_call_static(skb, &jmp_table,
+					     CHAIN_ETH_IPV4_ICMP);
+			break;
 		default:
 			goto slowpath;
 		}
@@ -385,6 +389,40 @@ int flow_dissector_eth_vlan_ipv4_udp(struct __sk_buff *skb)
 	keys->ip_proto = IPPROTO_UDP;
 	keys->sport = ports[0];
 	keys->dport = ports[1];
+	keys->thoff = thoff;
+	keys->is_frag = 0;
+	keys->is_first_frag = 0;
+
+	return BPF_OK;
+}
+
+/* ─── Specialised: ETH / IPv4 / ICMP ───────────────────────────────────
+ *
+ * ICMP has no L4 port pair, so sport/dport stay at their zero default.
+ * Upstream bpf_flow.kern.o validates sizeof(icmphdr) is present at thoff
+ * and otherwise emits just the IP-level fields — this extractor mirrors
+ * that exactly.
+ */
+SEC("flow_dissector")
+int flow_dissector_eth_ipv4_icmp(struct __sk_buff *skb)
+{
+	struct bpf_flow_keys *keys = skb->flow_keys;
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	__u32 nhoff = keys->nhoff;
+	__u32 thoff = nhoff + 20;
+	struct iphdr *iph = data + nhoff;
+	struct icmphdr *icmp = data + thoff;
+
+	if ((void *)(iph + 1) > data_end)
+		return BPF_DROP;
+	if ((void *)(icmp + 1) > data_end)
+		return BPF_DROP;
+
+	keys->addr_proto = ETH_P_IP;
+	keys->ipv4_src = iph->saddr;
+	keys->ipv4_dst = iph->daddr;
+	keys->ip_proto = IPPROTO_ICMP;
 	keys->thoff = thoff;
 	keys->is_frag = 0;
 	keys->is_first_frag = 0;

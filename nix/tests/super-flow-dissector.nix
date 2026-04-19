@@ -95,7 +95,8 @@ pkgs.writeShellApplication {
     SYMS=$(${pkgs.binutils-unwrapped}/bin/nm fast_bpf/fast_flow.bpf.o 2>/dev/null || true)
     for sym in _dissect flow_dissector_eth_ipv4_tcp flow_dissector_eth_ipv4_udp \
                flow_dissector_eth_ipv6_tcp flow_dissector_eth_ipv6_udp \
-               flow_dissector_eth_vlan_ipv4_tcp flow_dissector_eth_vlan_ipv4_udp; do
+               flow_dissector_eth_vlan_ipv4_tcp flow_dissector_eth_vlan_ipv4_udp \
+               flow_dissector_eth_ipv4_icmp; do
       if echo "$SYMS" | grep -qw "$sym"; then
         pass "program '$sym' present in .o"
       else
