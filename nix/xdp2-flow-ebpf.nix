@@ -42,7 +42,7 @@ let
   bpfSrc  = ../samples/flow_dissector/fast_bpf;
 
   # Mirror nix/xdp2-rs.nix commonArgs — keep these in sync if bumping.
-  cargoHash = "sha256-cp073AxdVTUH1PseWsG+RNStIrk5WnXrBaiHyVPxf+A=";
+  cargoHash = "sha256-2v9lLCpU1NPWL5xnTbK4G48BbcE9BXffx3q8ku5Bb0M=";
 
   # ── Userspace loader binary ─────────────────────────────────────
   #

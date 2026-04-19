@@ -1,0 +1,17 @@
+[package]
+name = "xdp2-fastpath-control"
+description = "Shared control plane for xdp2 fast-path flow dissector: listening-socket enumeration, template lifecycle, PROG_ARRAY update API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "xdp2_fastpath_control"
+path = "src/lib.rs"
+
+[dependencies]
+# libc covers AF_NETLINK + sock_diag constants and raw syscalls. The
+# crate is deliberately dep-free beyond libc so it builds offline and
+# stays portable across the Track D (eBPF loader) and Track E (AF_XDP
+# loader) consumers.
+libc = "0.2"

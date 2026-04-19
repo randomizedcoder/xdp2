@@ -15,7 +15,7 @@
 | **C. Kernel C patch series** | `net/core/flow_dissector.c` — 7 patches | 🟡 not started | Patch 2 (unified L4 port load) prototype |
 | **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D5 ✅ minus §5a, D6a ✅, D7 ✅, D8 ✅, D9 ✅ re-scoped, D10 ✅) | D6 (full slow-path) awaits xdp2-compiler `.o`; D11 (license) needs user input; D12 (integration PRs) next |
 | **E. Production AF_XDP (`xdp2-flow-afxdp`)** | Rust crate + CLI + XDP classifier + shared control plane | 🟡 not started | Crate skeleton under `xdp2-rs/crates/xdp2-af-xdp/` |
-| **§5a. Shared control plane (`xdp2-fastpath-control`)** | Listen-socket enumeration + PROG_ARRAY update API | 🟡 not started | `sock_diag` netlink enumerator (read-only spike) |
+| **§5a. Shared control plane (`xdp2-fastpath-control`)** | Listen-socket enumeration + PROG_ARRAY update API | 🔵 in progress (S1 ✅, S2 ✅) | S3 `BPF_CGROUP_INETx_BIND` ringbuf next (or S6 PROG_ARRAY update API for integration with Track D) |
 
 Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked · 🔴 superseded
 
@@ -88,8 +88,8 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 
 ### §5a — shared control plane `xdp2-fastpath-control`
 
-- [ ] **S1.** Crate skeleton `xdp2-rs/crates/xdp2-fastpath-control/`.
-- [ ] **S2.** `sock_diag` netlink enumerator (read-only spike): list current `TCP_LISTEN` and unconnected `UDP` sockets.
+- [x] **S1.** Crate skeleton [`xdp2-rs/crates/xdp2-fastpath-control/`](../../../xdp2-rs/crates/xdp2-fastpath-control/). Registered in workspace; depends only on `libc` (stays offline-buildable, matches `xdp2-flow-loader` pattern). ✅ 2026-04-19
+- [x] **S2.** `sock_diag` netlink enumerator: read-only `enumerate(family, proto)` + `enumerate_all()` returning `Vec<ListenSocket { family, proto, port }>`. Hand-rolled `nlmsghdr`/`inet_diag_req_v2`/`inet_diag_msg` structs (`#[repr(C)]`, layout-checked by test), `SOCK_DIAG_BY_FAMILY` dump request, state-mask `1 << TCP_LISTEN` for TCP / `1 << TCP_CLOSE` for unconnected UDP. `cargo test -p xdp2-fastpath-control`: 6/6 pass. Live smoke test (`XDP2_FASTPATH_CONTROL_LIVE=1`) against the dev host kernel returned 19 IPv4/TCP listeners. ✅ 2026-04-19
 - [ ] **S3.** `BPF_CGROUP_INET4_BIND`/`INET6_BIND` ringbuf producer program + consumer.
 - [ ] **S4.** `inet_diag` multicast subscriber (system-wide, no cgroup).
 - [ ] **S5.** `/proc/net/{tcp,tcp6,udp,udp6}` polling fallback.
@@ -100,6 +100,9 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 ---
 
 ## Progress log (chronological)
+
+### 2026-04-19
+- **§5a S1+S2 landed**: new crate [`xdp2-rs/crates/xdp2-fastpath-control/`](../../../xdp2-rs/crates/xdp2-fastpath-control/) — the shared control plane that Tracks D and E will both consume. Deliberately dep-free beyond `libc` so it stays offline-buildable and portable across consumers. S2 implements the read-only `sock_diag` netlink enumerator: `enumerate(Family, Proto) -> Vec<ListenSocket>` opens `AF_NETLINK`+`NETLINK_SOCK_DIAG`, ships a single `SOCK_DIAG_BY_FAMILY` dump request with `idiag_states = 1<<TCP_LISTEN` (TCP) or `1<<TCP_CLOSE` (unconnected UDP), drains the reply stream, and normalises the BE port to host order. Hand-rolled `#[repr(C)]` uapi structs (`nlmsghdr`, `inet_diag_req_v2`, `inet_diag_msg`) with size-regression tests (48/56/16) so a future refactor can't silently misparse wire data. Live smoke: `XDP2_FASTPATH_CONTROL_LIVE=1 cargo test ... enumerate_smoke` found 19 IPv4/TCP listeners on the dev host. Also fixed a latent issue in [`nix/xdp2-rs.nix`](../../../nix/xdp2-rs.nix): the commonArgs `buildInputs` was empty, but since D7a added `xdp2-flow-loader` (which `#[link(name = "bpf")]`s the hand-rolled libbpf FFI) to the workspace, workspace-wide cargo builds in the Nix sandbox needed `libbpf` + `elfutils` + `zlib` to link. `nix build .#xdp2-rs` and `.#xdp2-flow-ebpf` both succeed. cargoHash bumped in both nix files.
 
 ### 2026-04-18
 - Plan approved and committed as `1a76bcc`: [`super-flow-dissector-plan.md`](super-flow-dissector-plan.md).
