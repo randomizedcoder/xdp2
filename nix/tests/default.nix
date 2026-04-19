@@ -62,6 +62,10 @@ let
     prebuiltSample = if usePrebuilt then prebuiltSamples.flow-dissector-benchmark else null;
   };
 
+  superFlowDissector = import ./super-flow-dissector.nix {
+    inherit pkgs xdp2;
+  };
+
 in {
   # Parser sample tests (userspace, no root required)
   simple-parser = simpleParser;
@@ -76,6 +80,9 @@ in {
 
   # Flow dissector benchmark (xdp2 vs kernel flowdis)
   flow-dissector-benchmark = flowDissectorBenchmark;
+
+  # xdp2-flow-ebpf fast-path coverage-parity (plan A4)
+  super-flow-dissector = superFlowDissector;
 
   # XDP build verification (compile-only, no runtime test)
   xdp-build = import ./xdp-build.nix { inherit pkgs xdp2; };

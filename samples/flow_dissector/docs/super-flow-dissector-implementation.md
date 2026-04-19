@@ -10,7 +10,7 @@
 
 | Track | Scope | Status | Next milestone |
 |---|---|---|---|
-| **A. Harness integration** | Extend `samples/flow_dissector/` to compare all five implementations | 🟡 not started | Add slot skeletons to `benchmark.c`, `benchmark_bpf.c`, `benchmark_matrix.sh` |
+| **A. Harness integration** | Extend `samples/flow_dissector/` to compare all five implementations | 🔵 in progress (A4 ✅) | Add slot skeletons to `benchmark.c`, `benchmark_bpf.c`, `benchmark_matrix.sh` |
 | **B. BPF selftest patches** | 3 new patches on top of existing 5 from `kernel-patches.md` | 🟡 not started | Patch 8 (unified port load) — lowest risk, lands first |
 | **C. Kernel C patch series** | `net/core/flow_dissector.c` — 7 patches | 🟡 not started | Patch 2 (unified L4 port load) prototype |
 | **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D4 ✅, D5 partial) | D5: VLAN + ICMP slots; D6: slow-path fallback |
@@ -28,7 +28,7 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 - [ ] **A1.** Add `-I <impl>` selector to `benchmark.c` (userspace comparison) with `flowdis`, `xdp2-optimized`, `xdp2-nextgen` values.
 - [ ] **A2.** Add `-M <mode>` selector to `benchmark_bpf.c` with `upstream-bpf`, `fast-bpf`, `xdp2-bpf` values.
 - [ ] **A3.** Extend `benchmark_matrix.sh` from 4-way to 5-way (add patched-kernel column) and eventually to 6-way (add AF_XDP column).
-- [ ] **A4.** Add Nix test `nix build .#tests.super-flow-dissector` that runs the full matrix on the combinatorial PCAP and asserts zero mismatches between fast-path and slow-path.
+- [x] **A4.** `nix build .#tests.super-flow-dissector` / `nix build .#super-flow-dissector-test` — [`nix/tests/super-flow-dissector.nix`](../../../nix/tests/super-flow-dissector.nix). Builds `fast_flow.bpf.o` + `bpf_flow.kern.o` + `parity_test`, verifies all 5 BPF program symbols are present, generates the combinatorial PCAP via `gen_test_pcap.py`, and — when run as root — invokes `parity_test` on it asserting zero mismatches and ≥1 fast-path hit. Non-root runs stop after the build checks. ✅ 2026-04-18
 
 ### Track B — BPF selftest patches (target: `tools/testing/selftests/bpf/progs/bpf_flow.c`)
 
@@ -102,7 +102,8 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 - All tracks at 🟡 not started.
 - **D1–D3 landed** (`c14935d`): [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c) with `_dissect` entry (IPv4/TCP signature-match gate) and `flow_dissector_eth_ipv4_tcp` specialized extractor. Makefile target `fast_bpf/fast_flow.bpf.o` builds cleanly via `nix develop --command make -C samples/flow_dissector fast_bpf/fast_flow.bpf.o`. `llvm-objdump` confirms both programs present.
 - **D4 landed** (`b8b316c`): [`fast_bpf/parity_test.c`](../fast_bpf/parity_test.c) — standalone harness loading fast + oracle `.o`, running both via `BPF_PROG_TEST_RUN` on every PCAP packet, diffing `bpf_flow_keys` on fast-path hits. Exits non-zero on any mismatch so CI can gate on it. Oracle is the vendored upstream `bpf_flow.kern.o` until D6; swap in the xdp2-compiler slow-path object once that lands.
-- **D5 partial landed**: IPv4/UDP, IPv6/TCP, IPv6/UDP extractors added to [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c); entry program now gates pure IPv6 (no extension headers) and dispatches to the four non-VLAN slots. `llvm-objdump` confirms all 5 programs present (`_dissect` + 4 specialised). Parity test extended to diff `ipv6_src`/`ipv6_dst`/`flow_label`. VLAN, ICMP, and §5a dynamic slots still TODO.
+- **D5 partial landed** (`ed78526`): IPv4/UDP, IPv6/TCP, IPv6/UDP extractors added to [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c); entry program now gates pure IPv6 (no extension headers) and dispatches to the four non-VLAN slots. `llvm-objdump` confirms all 5 programs present (`_dissect` + 4 specialised). Parity test extended to diff `ipv6_src`/`ipv6_dst`/`flow_label`. VLAN, ICMP, and §5a dynamic slots still TODO.
+- **A4 landed**: [`nix/tests/super-flow-dissector.nix`](../../../nix/tests/super-flow-dissector.nix) wired into `nix/tests/default.nix` and `flake.nix` (exposed as both `tests.super-flow-dissector` and `super-flow-dissector-test`). Runs 9 build checks non-root (all pass) and adds a runtime parity assertion when root+BPF are available. Output on this host: `Passed: 9  Failed: 0` (runtime check skipped — non-root).
 
 ---
 

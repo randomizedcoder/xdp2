@@ -402,6 +402,7 @@
           ports-parser-test = tests.ports-parser;
           flow-tracker-combo-test = tests.flow-tracker-combo;
           flow-dissector-benchmark-test = tests.flow-dissector-benchmark;
+          super-flow-dissector-test = tests.super-flow-dissector;
           xdp-build-test = tests.xdp-build;
 
           # Proto-audit: multi-source protocol definition audit tool
