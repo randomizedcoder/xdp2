@@ -660,7 +660,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("BT_RFCOMMHeader", "src/proto_audit/bt_rfcomm.rs")
             .libpcap("bt_rfcomm_header", "pcap/proto_audit/bt_rfcomm.h"),
         PN::new("BT_BNEP", 3)
-            .xdp2("xdp2_parse_bt_bnep").scapy("BNEP").tshark("btbnep").variable()
+            .xdp2("xdp2_parse_bt_bnep")
+            .kernel("bnep_control_rsp", "net/bluetooth/bnep/bnep.h")
+            .scapy("BNEP").tshark("btbnep").variable()
             .etherparse("BT_BNEPHeader", "src/proto_audit/bt_bnep.rs")
             .libpcap("bt_bnep_header", "pcap/proto_audit/bt_bnep.h"),
         PN::new("BT_SDP", 3)
@@ -1723,7 +1725,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("asterix_header", "pcap/proto_audit/asterix.h"),
         // ── TSN / Automotive Ethernet ──
         PN::new("MRP", 3)
-            .xdp2("xdp2_parse_mrp").tshark("mrp").variable()
+            .xdp2("xdp2_parse_mrp")
+            .kernel("br_mrp_ring_test_hdr", "net/bridge/br_private_mrp.h")
+            .tshark("mrp").variable()
             .ieee(&["802.1Q-2022"])
             .etherparse("MRPHeader", "src/proto_audit/mrp.rs")
             .libpcap("mrp_header", "pcap/proto_audit/mrp.h"),
@@ -1995,6 +1999,12 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("IPv6_MobileIP", 6)
             .xdp2("xdp2_parse_ipv6_mobileip").kernel("ipv6_destopt_hao", "linux/ipv6.h").tshark("mip6").variable()
             .rfcs(&[6275]),
+        PN::new("IPv6_RPL", 4)
+            .kernel("ipv6_rpl_sr_hdr", "linux/rpl.h").tshark("ipv6.routing").variable()
+            .rfcs(&[6554]),
+        PN::new("IOAM6", 4)
+            .kernel("ioam6_hdr", "linux/ioam6.h").tshark("ipv6.opt.ioam").variable()
+            .rfcs(&[9197]),
         PN::new("MLD_Report_v1", 20)
             .xdp2("xdp2_parse_mld_report_v1").tshark("icmpv6").variable()
             .rfcs(&[2710]),

@@ -40,12 +40,13 @@ fn try_extract(
             let names = name_mapping::find_by_canonical(proto)?;
             let struct_name = names.kernel_struct?;
             let header = names.kernel_header?;
-            // Try kernel source tree layout first, then glibc-dev layout
+            // Try kernel source tree layout, then glibc-dev, then root (for net/, drivers/)
             let header_path = src.join(format!("include/uapi/{}", header));
             let header_path = if header_path.exists() {
                 header_path
             } else {
-                src.join(format!("include/{}", header))
+                let p = src.join(format!("include/{}", header));
+                if p.exists() { p } else { src.join(header) }
             };
             let content = std::fs::read_to_string(&header_path).ok()?;
             let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
@@ -291,7 +292,8 @@ fn try_extract_discovered(
             let header_path = if header_path.exists() {
                 header_path
             } else {
-                src.join(format!("include/{}", header))
+                let p = src.join(format!("include/{}", header));
+                if p.exists() { p } else { src.join(header) }
             };
             let content = std::fs::read_to_string(&header_path).ok()?;
             let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)

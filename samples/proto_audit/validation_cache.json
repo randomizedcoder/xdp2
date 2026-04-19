@@ -1098,6 +1098,13 @@
     "fields_mismatch": 0,
     "timestamp": "1776011121"
   },
+  "IOAM6": {
+    "validation_tier": "Bronze",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1776622782"
+  },
   "IPComp": {
     "validation_tier": "Unvalidated",
     "fields_agree": 0,
@@ -1181,6 +1188,13 @@
     "total_fields": 5,
     "fields_mismatch": 0,
     "timestamp": "1776011195"
+  },
+  "IPv6_RPL": {
+    "validation_tier": "Bronze",
+    "fields_agree": 8,
+    "total_fields": 8,
+    "fields_mismatch": 0,
+    "timestamp": "1776622782"
   },
   "IPv6_Routing": {
     "validation_tier": "Gold",
@@ -1526,11 +1540,11 @@
     "timestamp": "1776011474"
   },
   "MRP": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
     "fields_mismatch": 0,
-    "timestamp": "1776011479"
+    "timestamp": "1776622782"
   },
   "MSDP": {
     "validation_tier": "Unvalidated",

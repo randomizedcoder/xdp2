@@ -378,6 +378,9 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
                 let size_str = &arr_cap[2];
                 let size = match size_str {
                     "ETH_ALEN" => 6,
+                    "MRP_DOMAIN_UUID_LENGTH" => 16,
+                    "MRP_OUI_LENGTH" => 3,
+                    "MRP_MANUFACTURE_DATA_LENGTH" => 2,
                     _ => size_str.parse().unwrap_or(1),
                 };
                 fields.push(KernelField {
