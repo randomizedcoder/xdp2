@@ -40,6 +40,7 @@ pub mod bpf;
 pub mod controller;
 pub mod hysteresis;
 pub mod proc_net;
+pub mod reconciler;
 pub mod security;
 
 pub use controller::{
@@ -47,6 +48,7 @@ pub use controller::{
 };
 pub use hysteresis::{Hysteresis, ListenerKey, DEFAULT_RETIRE_GRACE};
 pub use proc_net::{enumerate_procfs, enumerate_procfs_all};
+pub use reconciler::{Backend, ReconcileError, Reconciler, SlotAssigner, TickStats};
 pub use security::{filter as apply_security_policy, SecurityPolicy};
 
 /// Protocol family (IPv4 vs IPv6) for an enumerated listener.
