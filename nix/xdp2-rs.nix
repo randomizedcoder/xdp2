@@ -32,6 +32,12 @@ let
     version = "0.1.0";
     inherit src cargoHash;
     nativeBuildInputs = [ pkgs.pkg-config ];
+    # xdp2-flow-loader links against system libbpf via
+    # `#[link(name = "bpf")]` in its hand-rolled FFI module — building
+    # any workspace-wide cargo target therefore needs libbpf +
+    # elfutils + zlib on the library path, matching what
+    # nix/xdp2-flow-ebpf.nix does for its narrower build.
+    buildInputs = [ pkgs.libbpf pkgs.elfutils pkgs.zlib ];
     RUSTFLAGS = "-C target-cpu=native";
     meta = {
       description = "Rust reimplementation of the XDP2 packet parsing framework";

@@ -36,6 +36,13 @@
 use std::io;
 use std::mem;
 
+pub mod bpf;
+pub mod controller;
+
+pub use controller::{
+    ControllerError, TemplateController, CHAIN_DYNAMIC, FIRST_DYNAMIC_SLOT,
+};
+
 /// Protocol family (IPv4 vs IPv6) for an enumerated listener.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {

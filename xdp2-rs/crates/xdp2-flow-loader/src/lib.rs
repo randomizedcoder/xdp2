@@ -97,6 +97,12 @@ pub struct Loader {
     /// Some. Owned; freed in `Drop`.
     slow_obj: *mut lb::bpf_object,
     entry_fd: i32,
+    /// `jmp_table` PROG_ARRAY fd. `-1` if the object has no
+    /// `jmp_table` map (legacy dissectors). Lives as long as `obj`
+    /// — closed transitively by `bpf_object__close` in `Drop`, so the
+    /// fd is safe to hand out via `jmp_table_fd()` for the Loader's
+    /// lifetime.
+    jmp_table_fd: i32,
     slot_count: usize,
     /// Whether `CHAIN_DYNAMIC` was populated from `slow_obj`. Separate
     /// from `slot_count` because `slot_count` tracks the sequential
@@ -145,6 +151,7 @@ impl Loader {
             obj,
             slow_obj: ptr::null_mut(),
             entry_fd: -1,
+            jmp_table_fd: -1,
             slot_count: 0,
             slow_path_installed: false,
             netns_fd: None,
@@ -195,6 +202,7 @@ impl Loader {
             }
             fd
         };
+        loader.jmp_table_fd = map_fd;
 
         if map_fd >= 0 {
             let mut slot: u32 = 0;
@@ -271,6 +279,19 @@ impl Loader {
     /// Number of `jmp_table` slots populated at load time.
     pub fn slot_count(&self) -> usize {
         self.slot_count
+    }
+
+    /// File descriptor of the `jmp_table` PROG_ARRAY. `-1` when the
+    /// loaded object has no such map (legacy dissectors). The fd is
+    /// owned by the underlying `bpf_object` and lives as long as this
+    /// `Loader`; callers must not `close()` it themselves, and must
+    /// not use it after the `Loader` is dropped.
+    ///
+    /// Intended consumer: `xdp2_fastpath_control::TemplateController`,
+    /// which needs this fd to install §5a dynamic per-port template
+    /// programs at runtime (S6).
+    pub fn jmp_table_fd(&self) -> i32 {
+        self.jmp_table_fd
     }
 
     /// Attach the entry program to the flow_dissector hook in the
