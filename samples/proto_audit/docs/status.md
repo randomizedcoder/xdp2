@@ -1,11 +1,12 @@
 # proto-audit Status
 
-## Current State (2026-04-13)
+## Current State (2026-04-18)
 
-428 curated protocols audited across 9 sources (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
-420 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, and exhaustive TOML coverage validation.
-212+ protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
-62 PCAP templates with valid protocol content for round-trip validation.
+431 curated protocols audited across 12 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
+442 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, and exhaustive TOML coverage validation.
+206 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
+196 PCAP templates with valid protocol content for round-trip validation.
+Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
 332 libpcap + 332 etherparse per-protocol overlay patches (incl. 27 trading `trading_*.patch` each).
 
 ### Source Coverage Summary
@@ -17,7 +18,10 @@
 | Libpcap overlays | 332 overlay patches |
 | Scapy classes | 5,798 (109 curated) |
 | tshark filters | 3,753 (3,155 protocols) |
-| Kernel structs | 74 (173 in registry) |
+| Kernel structs | 84 (173 in registry) |
+| DPDK headers | 24 protocols (rte_*_hdr structs from lib/net/) |
+| nDPI headers | 13 protocols (ndpi_* structs from ndpi_typedefs.h) |
+| pppd headers | 7 protocols (PPP control protocol structs) |
 | Kaitai Struct | ~20 protocols (12 curated) |
 | Suricata parsers | ~15 protocols (20 curated) |
 | OMI trading msgs | ~27 (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
@@ -26,29 +30,41 @@
 
 | Tier | Count | Meaning |
 |------|-------|---------|
-| Gold | 112 | Round-trip validated (IR → PCAP → tshark → IR matches) |
+| Gold | 206 | Round-trip validated (IR → PCAP → tshark → IR matches) |
 | Silver | 36 | 2+ independent sources agree on field layout |
 | Bronze | 27 | Single source, self-consistent |
 | Unvalidated | 13 + ~8,100 discovered | Discovered but not yet verified |
 
-### Gold-Validated Protocols (112)
+### Gold-Validated Protocols (206)
 
-Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tshark, extracted back to IR, field-by-field comparison passes:
+Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tshark, extracted back to IR, field-by-field comparison passes.
 
-AH, ARP, AoE, BACnet, BFD, BGP, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DHCP,
-DHCPv6, DNS, DTLS, Diameter, EAPOL, EIGRP, ERSPAN, ESP, Ethernet, GRE,
-GRE_PPTP, GTP_C, GTP_U, Geneve, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO,
-HCI_SCO, HSR, HTTP, HomePlug_AV, ICMPv4, ICMPv6, IEC_MMS, IEEE802154,
-IGMP, IGMPv3_Query, IGMPv3_Report, IKEv2, IMAP, IPFIX, IP_in_IP, IPv4,
-IPv6, IPv6_DestOpts, IPv6_EH, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS,
-Kafka, Kerberos, L2TP, LACP, LDAP, LDP, LLC, LLMNR, MAC_Control, MLD,
-MLDv2_Query, MODBUS_TCP, MPLS, MQTT, Memcache, NBNS, NTP, NetFlow_v5,
-NetFlow_v9, ONC_RPC, OPC_UA, OSPF, PIM, PPP, PPPoE, PPPoED, QUIC, QinQ,
-RADIUS, RARP, RIP, RSVP, RTCP, RTSP, Redis, SCTP, SIP, SLL, SLL2, SNAP,
-SNMP, SSH, STP, STUN, Skinny, Slow_Protocols, Syslog, TCP, TFTP, TLS,
-UDP, UDPLite, VLAN, VRRP, VXLAN, VXLAN_GPE, WireGuard, iSCSI, mDNS
+See `docs/pipeline-coverage.md` for the full list of 8/8 and 7/8 protocols.
 
 ### Recent Changes
+
+#### DPDK, nDPI, pppd Extractors + Kernel Expansion (2026-04-18)
+
+Three new authoritative sources added as first-class extractors:
+
+- **DPDK extractor** (`src/extractors/dpdk.rs`): Parses `rte_*_hdr` packed structs from DPDK `lib/net/` headers. Preprocessor normalizes `__rte_packed_begin/end`, `__rte_aligned(N)`, `__extension__`, and anonymous union/struct wrappers (drops aggregate members, keeps bitfield decompositions). 24 protocols mapped with `.dpdk(struct, file)` builder. Type mappings in `mappings/dpdk.toml`.
+- **nDPI extractor** (`src/extractors/ndpi.rs`): Parses `ndpi_*` packed structs from `ndpi_typedefs.h`. Preprocessor normalizes `PACK_ON/OFF`, `__attribute__((packed))`, and BSD-style endian macros. 13 protocols mapped with `.ndpi(struct, file)` builder. Type mappings in `mappings/ndpi.toml`.
+- **pppd extractor** (`src/extractors/pppd.rs`): Parses PPP control protocol structs from pppd source (LCP, IPCP, IPv6CP, CCP, CHAP, PAP). 7 protocols mapped with `.pppd(struct, file)` builder.
+- **Kernel expansion**: 12 new kernel struct mappings added from Linux 6.12 source: CAN_XL, BATMAN, CFM, PPPoED, VXLAN_GPE, VXLAN_GBP, ERSPAN_V3, GENEVE_OPT, GRE_Cisco, BT_RFCOMM, IPv6_MobileIP, SCTP_Init. Kernel total: 74→84.
+- **3 new DPDK-only protocols**: eCPRI, HiGig2, PDCP (protocols only defined in DPDK headers, not other sources).
+
+Memory policy: prefer authoritative sources (kernel, DPDK, nDPI, pppd) over hand-written `embedded_proto` definitions.
+
+#### Pipeline Expansion (2026-04-15 → 2026-04-18)
+
+Pipeline coverage grew from 711/3424 (20.8%) to 1456/3448 (42.2%):
+- Parallel matrix execution (rayon, `--workers N`)
+- Auto-generate PCAP templates (65→196 templates)
+- Hand-written embedded IR for 52 Bucket 1 protocols
+- Bucket 3 sub-protocols (HCI, PPP, IB, CAN, BT variants)
+- Bucket 5 tshark mapping fixes (TACACS, sFlow, SOCKS)
+- STP variants (RSTP, PVST, MSTP)
+- pdml_name_alias refactor for tshark dissector name normalization
 
 #### Trading Protocol Expansion (3 Workstreams, 2026-04-13)
 
@@ -125,6 +141,12 @@ Added missing imports for GTP, HomePlug_AV, HTTP2, and TLS record layer — enab
 
 | Iter | Key Change | Protocols | Tests |
 |------|------------|-----------|-------|
+| 28 | DPDK/nDPI/pppd extractors, 12 new kernel mappings, 3 DPDK-only protos | 431 | 442 |
+| 27 | Bucket 3 sub-protocols, Bucket 5 mapping fixes, STP variants, pipeline 42.2% | 428 | 420 |
+| 26 | Batch 2 embedded_proto defs, tshark alias hints, 182 templates | 428 | 420 |
+| 25 | Hand-written IR Batch 1 (26 protocols), embedded_proto fallback | 428 | 420 |
+| 24 | Parallel matrix (rayon), auto-generate 65 templates, ICMPv4 fixed | 428 | 420 |
+| 23 | Pipeline-matrix + comparator, IPv4/IPv6 fixups, Gold 112→206 | 428 | 420 |
 | 22 | Cross-generator round-trip + corpus cross-parse commands | 206 | 400 |
 | 21 | Kaitai & Suricata curated integration (8 sources) | 206 | 400 |
 | 20 | Gold promotion campaign (Gold 85→112), 62 PCAP templates | 206 | 400 |

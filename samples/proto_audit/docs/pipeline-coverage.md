@@ -7,14 +7,14 @@
 
 | Metric | Value |
 |--------|-------|
-| Total cells (protocol x target) | 3424 |
-| PASS | 1432 (41.8%) |
+| Total cells (protocol x target) | 3448 |
+| PASS | 1456 (42.2%) |
 | FAIL | 78 (2.3%) |
-| ERR (no PCAP template / extractor gap) | 1914 (55.9%) |
+| ERR (no PCAP template / extractor gap) | 1914 (55.5%) |
 | Protocols at 8/8 | 131 |
 | Protocols at 7/8 | 54 |
 | Protocols at 6/8 | 1 |
-| Protocols at 0/8 | 242 |
+| Protocols at 0/8 | 245 |
 
 ## Per-Target Totals
 
@@ -35,7 +35,7 @@
 8/8:  131 protocols  (perfect round-trip across all 8 generators)
 7/8:   54 protocols  (all but suricata in most cases)
 6/8:    1 protocol   (IEEE802.11 — scapy + suricata ERR)
-0/8:  242 protocols  (no PCAP template or all-ERR)
+0/8:  245 protocols  (no PCAP template or all-ERR)
 ```
 
 ## Protocols at 8/8 (131)
@@ -99,6 +99,7 @@ still produce no IR fields or have no tshark dissector path.
 | 2026-04-17 | 1283 | 3424 | 37.5% | Hand-written IR for 26 Bucket 1 protocols, embedded_proto fallback in build_rich_ir, decode-as improvements |
 | 2026-04-17 | 1321 | 3424 | 38.6% | +40 embedded_proto defs (Batch 1+2), tshark alias hints (AVTP, EtherCAT, OWAMP, MPLS_Echo, IPv6_HopByHop), 182 templates |
 | 2026-04-18 | 1432 | 3424 | 41.8% | Bucket 3 sub-protocols (HCI, PPP, IB, CAN, BT), Bucket 5 mapping fixes (TACACS, sFlow, SOCKS), STP variants (RSTP, PVST, MSTP), pdml_name_alias refactor |
+| 2026-04-18 | 1456 | 3448 | 42.2% | DPDK/nDPI/pppd extractors (3 new sources), 12 new kernel struct mappings, 3 DPDK-only protocols (eCPRI, HiGig2, PDCP), 431 total protocols |
 
 ## Next Steps (priority order)
 
