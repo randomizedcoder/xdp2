@@ -13,7 +13,7 @@
 | **A. Harness integration** | Extend `samples/flow_dissector/` to compare all five implementations | 🟡 not started | Add slot skeletons to `benchmark.c`, `benchmark_bpf.c`, `benchmark_matrix.sh` |
 | **B. BPF selftest patches** | 3 new patches on top of existing 5 from `kernel-patches.md` | 🟡 not started | Patch 8 (unified port load) — lowest risk, lands first |
 | **C. Kernel C patch series** | `net/core/flow_dissector.c` — 7 patches | 🟡 not started | Patch 2 (unified L4 port load) prototype |
-| **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D3 ✅) | D4: coverage parity test vs slow-path |
+| **D. Production eBPF (`xdp2-flow-ebpf`)** | Fast-path + tail-call array + slow-path fallback + loader + Nix packaging | 🔵 in progress (D1–D3 ✅, D4 🔵) | D4: wire into Nix test harness; D5: next fast-path slot |
 | **E. Production AF_XDP (`xdp2-flow-afxdp`)** | Rust crate + CLI + XDP classifier + shared control plane | 🟡 not started | Crate skeleton under `xdp2-rs/crates/xdp2-af-xdp/` |
 | **§5a. Shared control plane (`xdp2-fastpath-control`)** | Listen-socket enumeration + PROG_ARRAY update API | 🟡 not started | `sock_diag` netlink enumerator (read-only spike) |
 
@@ -52,7 +52,7 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 - [x] **D1.** `samples/flow_dissector/fast_bpf/` directory scaffolding + Makefile target. ✅ 2026-04-18
 - [x] **D2.** Entry program: 16-byte signature match + `bpf_tail_call` skeleton. ✅ 2026-04-18 (IPv4/TCP gate only; IPv6/VLAN gates are D5)
 - [x] **D3.** First specialized program: ETH/IPv4/TCP fast extractor (no loops, no switch). ✅ 2026-04-18
-- [ ] **D4.** Coverage-parity test: fast-path hit must produce identical `bpf_flow_keys` as slow-path fallback on matching packets.
+- [x] **D4.** Coverage-parity test binary: [`fast_bpf/parity_test.c`](../fast_bpf/parity_test.c). Runs fast + oracle via `BPF_PROG_TEST_RUN`, asserts `bpf_flow_keys` parity on fast-path hits. Oracle is upstream `bpf_flow.kern.o` until D6 lands the slow-path fallback. Nix-test wiring is Track A (A4). ✅ 2026-04-18
 - [ ] **D5.** Fill out remaining 7 fast-path slots (IPv4/UDP, IPv6/TCP, IPv6/UDP, VLAN/IPv4/TCP, VLAN/IPv4/UDP, IPv4/ICMP, dynamic).
 - [ ] **D6.** Slow-path fallback via `xdp2-compiler` from existing `parser_xdp.c`.
 - [ ] **D7.** Userspace loader `xdp2-flow-loader` (Rust).
@@ -93,7 +93,8 @@ Legend: 🟡 not started · 🔵 in progress · ✅ complete · ⚠️ blocked �
 - Plan approved and committed as `1a76bcc`: [`super-flow-dissector-plan.md`](super-flow-dissector-plan.md).
 - Implementation log (this file) created.
 - All tracks at 🟡 not started.
-- **D1–D3 landed**: [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c) with `_dissect` entry (IPv4/TCP signature-match gate) and `flow_dissector_eth_ipv4_tcp` specialized extractor. Makefile target `fast_bpf/fast_flow.bpf.o` builds cleanly via `nix develop --command make -C samples/flow_dissector fast_bpf/fast_flow.bpf.o`. `llvm-objdump` confirms both programs present.
+- **D1–D3 landed** (`c14935d`): [`fast_bpf/fast_flow.bpf.c`](../fast_bpf/fast_flow.bpf.c) with `_dissect` entry (IPv4/TCP signature-match gate) and `flow_dissector_eth_ipv4_tcp` specialized extractor. Makefile target `fast_bpf/fast_flow.bpf.o` builds cleanly via `nix develop --command make -C samples/flow_dissector fast_bpf/fast_flow.bpf.o`. `llvm-objdump` confirms both programs present.
+- **D4 landed**: [`fast_bpf/parity_test.c`](../fast_bpf/parity_test.c) — standalone harness loading fast + oracle `.o`, running both via `BPF_PROG_TEST_RUN` on every PCAP packet, diffing `bpf_flow_keys` on fast-path hits. Exits non-zero on any mismatch so CI can gate on it. Oracle is the vendored upstream `bpf_flow.kern.o` until D6; swap in the xdp2-compiler slow-path object once that lands.
 
 ---
 
@@ -104,6 +105,7 @@ Record any deviation from [`super-flow-dissector-plan.md`](super-flow-dissector-
 | Date | Track | Variation | Reason |
 |---|---|---|---|
 | 2026-04-18 | D / A | Plan §7 anticipated a new `-M fast-bpf` flag in `benchmark_bpf.c`; the existing `-b <bpf_obj>` flag already accepts arbitrary `.o` paths, so no CLI change is needed for the D1–D3 skeleton. Defer CLI work until Track A (§A2) lands the 3-way `-M` selector holistically. | Avoids churn in `benchmark_bpf.c` for a flag that would be immediately superseded. |
+| 2026-04-18 | D | D4 oracle is upstream `bpf_flow.kern.o` instead of the plan's "slow-path fallback" — the latter (D6) isn't built yet. Parity test header documents the swap once D6 lands. | Keeps D4 actionable before D6; both oracles are behaviourally equivalent for ETH/IPv4/TCP traffic the fast-path accepts today. |
 
 ---
 

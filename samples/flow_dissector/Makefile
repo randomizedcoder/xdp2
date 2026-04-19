@@ -32,9 +32,10 @@ CFLAGS+= -std=gnu11 -g -O2
 LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR)
 
 TARGETS= flow_dissector.bpf.o benchmark
-BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf
+BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf \
+	     fast_bpf/parity_test
 TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.o parser_xdp.o \
-	  fast_bpf/fast_flow.bpf.o
+	  fast_bpf/fast_flow.bpf.o fast_bpf/parity_test
 
 # Header fragments included by parser.c (must trigger rebuild on change)
 PARSER_HDRS= flow_dissector_metadata.h flow_dissector_proto_defs.h \
@@ -86,6 +87,12 @@ fast_bpf/fast_flow.bpf.o: fast_bpf/fast_flow.bpf.c
 
 # BPF benchmark binary (requires libbpf, needs root to run)
 benchmark_bpf: benchmark_bpf.c pcap_loader.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash -lbpf -lelf -lz
+
+# D4 coverage-parity test: fast-path hits must match an oracle
+# (upstream bpf_flow.kern.o today; slow-path fallback once D6 lands).
+# Needs the same BPF runtime deps as benchmark_bpf.
+fast_bpf/parity_test: fast_bpf/parity_test.c pcap_loader.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lpcap -lxdp2 -lcli -lsiphash -lbpf -lelf -lz
 
 .PHONY: clean
