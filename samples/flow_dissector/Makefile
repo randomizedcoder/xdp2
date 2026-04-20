@@ -58,9 +58,16 @@ parser.xdp.h: parser_xdp.c parser.c $(PARSER_HDRS) parser_xdp.o
 parser.p.c: parser.c $(PARSER_HDRS) parser.o
 	$(BINDIR)/xdp2-compiler -I$(INCDIR) -i $< -o $@
 
-# BPF flow dissector object
+# BPF flow dissector object (xdp2-compiler-generated slow path).
+# Needs the same NIX_HARDENING_ENABLE= + -D__x86_64__ workaround as
+# the bpf_flow.kern.o / fast_flow.bpf.o recipes below, otherwise Nix's
+# cc-wrapper injects -fzero-call-used-regs (unsupported for -target bpf)
+# and glibc pulls in 32-bit stubs (gnu/stubs-32.h missing).
 flow_dissector.bpf.o: flow_dissector.bpf.c parser.xdp.h common.h
-	$(XCC) -x c -target bpf -I$(INCDIR) $(XCFLAGS) $(XLDFLAGS) -c -o $@ $<
+	NIX_HARDENING_ENABLE= $(XCC) -x c -target bpf \
+		-D__TARGET_ARCH_$(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/') \
+		-D__x86_64__ -Wno-unused-command-line-argument \
+		$(XCFLAGS) $(XLDFLAGS) -c -o $@ $<
 
 # Userspace benchmark: links xdp2 parser + kernel flowdis
 benchmark: benchmark.c parser.p.c common.h pcap_loader.h

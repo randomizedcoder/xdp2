@@ -29,7 +29,12 @@
 
 /* SCTP protocol definitions (RFC 9260) */
 
-#include <linux/sctp.h>
+/* We deliberately don't include <linux/sctp.h> here: it pulls in SCTP
+ * socket-API UAPI definitions that (linux-headers ≥6.18) use
+ * `struct sockaddr_storage` by value, which requires <sys/socket.h>.
+ * BPF translation units can't use libc, so the include breaks the BPF
+ * build. XDP2 only needs struct sctphdr, which it defines below.
+ */
 
 #include "xdp2/parser.h"
 

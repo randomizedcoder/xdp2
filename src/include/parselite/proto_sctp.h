@@ -27,7 +27,12 @@
 #ifndef __PROTO_SCTP_H__
 #define __PROTO_SCTP_H__
 
-#include <linux/sctp.h>
+/* Intentionally do not include <linux/sctp.h>: see
+ * xdp2/proto_defs/transport/proto_sctp.h for the rationale — its UAPI
+ * uses struct sockaddr_storage by value (linux-headers ≥6.18) which
+ * needs <sys/socket.h>, unavailable in BPF TUs. parselite only uses
+ * the sctphdr defined below.
+ */
 
 /* Section 3.1.  SCTP Common Header Format */
 struct sctphdr {

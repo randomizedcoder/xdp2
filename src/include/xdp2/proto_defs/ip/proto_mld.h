@@ -29,8 +29,18 @@
 
 /* MLD protocol definitions (RFC 2710, RFC 3810) */
 
+#ifdef __bpf__
+/* BPF: icmp6hdr comes from xdp2/proto_defs/ip/proto_icmp.h (minimal
+ * definition). <linux/icmpv6.h> would redefine it. <linux/in6.h> is
+ * safe — <linux/ipv6.h> already pulls it and its struct in6_addr
+ * definition matches what we need.
+ */
+#include "xdp2/proto_defs/ip/proto_icmp.h"
+#include <linux/in6.h>
+#else
 #include <linux/icmpv6.h>
 #include <linux/in6.h>
+#endif
 
 #include "xdp2/parser.h"
 

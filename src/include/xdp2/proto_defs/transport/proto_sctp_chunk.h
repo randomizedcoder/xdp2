@@ -29,7 +29,11 @@
 
 /* SCTP chunk definitions (RFC 9260, Section 3.2) */
 
-#include <linux/sctp.h>
+/* See proto_sctp.h for why <linux/sctp.h> is not included: its UAPI
+ * struct definitions use `struct sockaddr_storage` by value, which
+ * needs <sys/socket.h> — unavailable in BPF TUs. Everything this file
+ * requires (sctphdr, sctp_chunkhdr, SCTP_CID_*) is defined below.
+ */
 
 #include "xdp2/parser.h"
 
