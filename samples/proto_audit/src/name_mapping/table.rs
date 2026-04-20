@@ -456,6 +456,94 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .scapy("NLAttr")
             .etherparse("NLAttrHeader", "src/proto_audit/nlattr.rs")
             .libpcap("nlattr_header", "pcap/proto_audit/nlattr.h"),
+        // ── Netlink Route Messages ──
+        PN::new("NL_Route", 12)
+            .kernel("rtmsg", "linux/rtnetlink.h")
+            .tshark("netlink-route")
+            .etherparse("NLRouteHeader", "src/proto_audit/nl_route.rs")
+            .libpcap("nl_route_header", "pcap/proto_audit/nl_route.h"),
+        PN::new("NL_Link", 16)
+            .kernel("ifinfomsg", "linux/rtnetlink.h")
+            .tshark("netlink-route")
+            .etherparse("NLLinkHeader", "src/proto_audit/nl_link.rs")
+            .libpcap("nl_link_header", "pcap/proto_audit/nl_link.h"),
+        PN::new("NL_Addr", 8)
+            .kernel("ifaddrmsg", "linux/if_addr.h")
+            .tshark("netlink-route")
+            .etherparse("NLAddrHeader", "src/proto_audit/nl_addr.rs")
+            .libpcap("nl_addr_header", "pcap/proto_audit/nl_addr.h"),
+        PN::new("NL_Neigh", 12)
+            .kernel("ndmsg", "linux/neighbour.h")
+            .tshark("netlink-route")
+            .etherparse("NLNeighHeader", "src/proto_audit/nl_neigh.rs")
+            .libpcap("nl_neigh_header", "pcap/proto_audit/nl_neigh.h"),
+        PN::new("NL_TC", 20)
+            .kernel("tcmsg", "linux/rtnetlink.h")
+            .tshark("netlink-route")
+            .etherparse("NLTCHeader", "src/proto_audit/nl_tc.rs")
+            .libpcap("nl_tc_header", "pcap/proto_audit/nl_tc.h"),
+        PN::new("NL_Rule", 12)
+            .kernel("fib_rule_hdr", "linux/fib_rules.h")
+            .tshark("netlink-route")
+            .etherparse("NLRuleHeader", "src/proto_audit/nl_rule.rs")
+            .libpcap("nl_rule_header", "pcap/proto_audit/nl_rule.h"),
+        PN::new("NL_Nexthop", 8)
+            .kernel("nhmsg", "linux/nexthop.h")
+            .tshark("netlink-route")
+            .etherparse("NLNexthopHeader", "src/proto_audit/nl_nexthop.rs")
+            .libpcap("nl_nexthop_header", "pcap/proto_audit/nl_nexthop.h"),
+        PN::new("NL_Prefix", 12)
+            .kernel("prefixmsg", "linux/rtnetlink.h")
+            .tshark("netlink-route")
+            .etherparse("NLPrefixHeader", "src/proto_audit/nl_prefix.rs")
+            .libpcap("nl_prefix_header", "pcap/proto_audit/nl_prefix.h"),
+        // ── Netlink Netfilter ──
+        PN::new("NL_Netfilter", 4)
+            .kernel("nfgenmsg", "linux/netfilter/nfnetlink.h")
+            .tshark("netlink-netfilter")
+            .etherparse("NLNetfilterHeader", "src/proto_audit/nl_netfilter.rs")
+            .libpcap("nl_netfilter_header", "pcap/proto_audit/nl_netfilter.h"),
+        // ── Netlink Diagnostics ──
+        PN::new("NL_Diag_Netlink", 28)
+            .kernel("netlink_diag_msg", "linux/netlink_diag.h")
+            .tshark("netlink-sock_diag")
+            .etherparse("NLDiagNetlinkHeader", "src/proto_audit/nl_diag_netlink.rs")
+            .libpcap("nl_diag_netlink_header", "pcap/proto_audit/nl_diag_netlink.h"),
+        PN::new("NL_Diag_Unix", 16)
+            .kernel("unix_diag_msg", "linux/unix_diag.h")
+            .tshark("netlink-sock_diag")
+            .etherparse("NLDiagUnixHeader", "src/proto_audit/nl_diag_unix.rs")
+            .libpcap("nl_diag_unix_header", "pcap/proto_audit/nl_diag_unix.h"),
+        PN::new("NL_Diag_Inet", 64)
+            .kernel("inet_diag_msg", "linux/inet_diag.h")
+            .tshark("netlink-sock_diag")
+            .etherparse("NLDiagInetHeader", "src/proto_audit/nl_diag_inet.rs")
+            .libpcap("nl_diag_inet_header", "pcap/proto_audit/nl_diag_inet.h"),
+        // ── Netlink Bridge / DCB / Stats ──
+        PN::new("NL_Bridge_Port", 5)
+            .kernel("br_port_msg", "linux/if_bridge.h")
+            .tshark("netlink-route")
+            .etherparse("NLBridgePortHeader", "src/proto_audit/nl_bridge_port.rs")
+            .libpcap("nl_bridge_port_header", "pcap/proto_audit/nl_bridge_port.h"),
+        PN::new("NL_DCB", 4)
+            .kernel("dcbmsg", "linux/dcbnl.h")
+            .tshark("netlink-route")
+            .etherparse("NLDCBHeader", "src/proto_audit/nl_dcb.rs")
+            .libpcap("nl_dcb_header", "pcap/proto_audit/nl_dcb.h"),
+        PN::new("NL_IfStats", 12)
+            .kernel("if_stats_msg", "linux/if_link.h")
+            .tshark("netlink-route")
+            .etherparse("NLIfStatsHeader", "src/proto_audit/nl_ifstats.rs")
+            .libpcap("nl_ifstats_header", "pcap/proto_audit/nl_ifstats.h"),
+        // ── Netlink XFRM (IPsec) ──
+        PN::new("NL_XFRM_SA", 217)
+            .kernel("xfrm_usersa_info", "linux/xfrm.h")
+            .etherparse("NLXfrmSAHeader", "src/proto_audit/nl_xfrm_sa.rs")
+            .libpcap("nl_xfrm_sa_header", "pcap/proto_audit/nl_xfrm_sa.h"),
+        PN::new("NL_XFRM_Policy", 164)
+            .kernel("xfrm_userpolicy_info", "linux/xfrm.h")
+            .etherparse("NLXfrmPolicyHeader", "src/proto_audit/nl_xfrm_policy.rs")
+            .libpcap("nl_xfrm_policy_header", "pcap/proto_audit/nl_xfrm_policy.h"),
         // ── TIPC ──
         PN::new("TIPC", 16)
             .xdp2("xdp2_parse_tipc")

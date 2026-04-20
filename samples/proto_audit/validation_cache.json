@@ -721,11 +721,11 @@
     "timestamp": "1776010803"
   },
   "GRE_Cisco": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Bronze",
+    "fields_agree": 5,
+    "total_fields": 5,
     "fields_mismatch": 0,
-    "timestamp": "1776010808"
+    "timestamp": "1776698878"
   },
   "GRE_PPTP": {
     "validation_tier": "Gold",
@@ -945,11 +945,11 @@
     "timestamp": "1776010992"
   },
   "IB_GRH": {
-    "validation_tier": "Unvalidated",
-    "fields_agree": 0,
-    "total_fields": 0,
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
     "fields_mismatch": 0,
-    "timestamp": "1776011000"
+    "timestamp": "1776698878"
   },
   "IB_ImmDt": {
     "validation_tier": "Unvalidated",
@@ -1671,6 +1671,125 @@
     "total_fields": 2,
     "fields_mismatch": 0,
     "timestamp": "1775618979"
+  },
+  "NL_Addr": {
+    "validation_tier": "Bronze",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Bridge_Port": {
+    "validation_tier": "Bronze",
+    "fields_agree": 2,
+    "total_fields": 2,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_DCB": {
+    "validation_tier": "Bronze",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Diag_Inet": {
+    "validation_tier": "Bronze",
+    "fields_agree": 10,
+    "total_fields": 10,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Diag_Netlink": {
+    "validation_tier": "Bronze",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Diag_Unix": {
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_IfStats": {
+    "validation_tier": "Bronze",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Link": {
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Neigh": {
+    "validation_tier": "Bronze",
+    "fields_agree": 7,
+    "total_fields": 7,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Netfilter": {
+    "validation_tier": "Bronze",
+    "fields_agree": 3,
+    "total_fields": 3,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Nexthop": {
+    "validation_tier": "Bronze",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Prefix": {
+    "validation_tier": "Bronze",
+    "fields_agree": 8,
+    "total_fields": 8,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Route": {
+    "validation_tier": "Bronze",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_Rule": {
+    "validation_tier": "Bronze",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_TC": {
+    "validation_tier": "Bronze",
+    "fields_agree": 7,
+    "total_fields": 7,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_XFRM_Policy": {
+    "validation_tier": "Bronze",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
+  },
+  "NL_XFRM_SA": {
+    "validation_tier": "Bronze",
+    "fields_agree": 12,
+    "total_fields": 12,
+    "fields_mismatch": 0,
+    "timestamp": "1776698775"
   },
   "NNTP": {
     "validation_tier": "Unvalidated",

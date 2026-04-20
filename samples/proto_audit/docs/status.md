@@ -1,9 +1,9 @@
 # proto-audit Status
 
-## Current State (2026-04-19)
+## Current State (2026-04-20)
 
-431 curated protocols audited across 12 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
-450 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, and exhaustive TOML coverage validation.
+450 curated protocols audited across 12 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
+452 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, and exhaustive TOML coverage validation.
 206 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
 196 PCAP templates with valid protocol content for round-trip validation.
 Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
@@ -18,7 +18,7 @@ Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
 | Libpcap overlays | 332 overlay patches |
 | Scapy classes | 5,798 (109 curated) |
 | tshark filters | 3,753 (3,155 protocols) |
-| Kernel structs | 92 (173 in registry, nested struct/union resolution) |
+| Kernel structs | 109 (190 in registry, nested struct/union resolution, 17 netlink subsystem messages) |
 | DPDK headers | 24 protocols (rte_*_hdr structs from lib/net/) |
 | nDPI headers | 13 protocols (ndpi_* structs from ndpi_typedefs.h) |
 | pppd headers | 7 protocols (PPP control protocol structs) |
@@ -42,6 +42,21 @@ Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tsh
 See `docs/pipeline-coverage.md` for the full list of 8/8 and 7/8 protocols.
 
 ### Recent Changes
+
+#### Netlink Message Coverage + Parser Fix (2026-04-20)
+
+17 netlink message header structs mapped as curated protocols across 5 subsystems:
+
+- **Route netlink** (8 protocols): NL_Route (rtmsg), NL_Link (ifinfomsg), NL_Addr (ifaddrmsg), NL_Neigh (ndmsg), NL_TC (tcmsg), NL_Rule (fib_rule_hdr), NL_Nexthop (nhmsg), NL_Prefix (prefixmsg)
+- **Netfilter** (1): NL_Netfilter (nfgenmsg)
+- **Diagnostics** (3): NL_Diag_Netlink, NL_Diag_Unix, NL_Diag_Inet (with nested inet_diag_sockid)
+- **Bridge/DCB/Stats** (3): NL_Bridge_Port, NL_DCB, NL_IfStats
+- **XFRM/IPsec** (2): NL_XFRM_SA (xfrm_usersa_info, 12 fields, 217 bytes with 6 nested structs/unions), NL_XFRM_Policy (xfrm_userpolicy_info, 9 fields, 164 bytes)
+- **TOML expansion**: 7 new `[struct_sizes]` entries (xfrm_selector, xfrm_lifetime_cfg, xfrm_lifetime_cur, xfrm_stats, xfrm_id, inet_diag_sockid, ifla_bridge_id) + 1 new `[union_sizes]` entry (xfrm_address_t)
+- **C type coverage**: Added `unsigned`, `unsigned int`, `int`, `unsigned short`, `short` to kernel.toml `[type_bits]`
+- **Parser bug fix**: Step 0b comment-semicolon bug — semicolons inside `/* ... */` comments were triggering newline insertion in the body normalizer, splitting comment text into orphan lines that were parsed as fields. Fixed by tracking comment state in Step 0b. This affected all kernel structs with comments containing semicolons (e.g., `/* Routing protocol; see below */`).
+- **2 new tests**: `test_strip_inline_comments_with_semicolon`, `test_rtmsg_all_fields_parsed` (9-field struct with inline comments containing semicolons)
+- Kernel total: 92→109 structs, 450 curated protocols
 
 #### Nested Struct/Union Expansion in Kernel Parser (2026-04-19)
 
@@ -156,6 +171,7 @@ Added missing imports for GTP, HomePlug_AV, HTTP2, and TLS record layer — enab
 
 | Iter | Key Change | Protocols | Tests |
 |------|------------|-----------|-------|
+| 30 | 17 netlink message structs (5 subsystems), comment-semicolon parser fix, C type coverage expansion | 450 | 452 |
 | 29 | Nested struct/union expansion, 3 new kernel mappings (IB_GRH, PPTP, LACP), typedef support | 431 | 450 |
 | 28 | DPDK/nDPI/pppd extractors, 12 new kernel mappings, 3 DPDK-only protos | 431 | 442 |
 | 27 | Bucket 3 sub-protocols, Bucket 5 mapping fixes, STP variants, pipeline 42.2% | 428 | 420 |

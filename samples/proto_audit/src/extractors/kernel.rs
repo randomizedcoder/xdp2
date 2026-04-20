@@ -310,16 +310,30 @@ fn parse_struct_fields(body: &str) -> Result<Vec<KernelField>> {
     // Step 0b: Normalize inline bodies — if the body is a single line (common
     // when parsing anonymous inline union/struct bodies), insert newlines
     // after semicolons at brace depth 0 so the statement accumulator can split.
+    // Must skip semicolons inside /* ... */ comments.
     let body = {
         let mut result = String::with_capacity(body.len());
         let mut depth = 0i32;
-        for ch in body.chars() {
+        let mut in_comment = false;
+        let mut chars = body.chars().peekable();
+        while let Some(ch) = chars.next() {
             result.push(ch);
-            match ch {
-                '{' => depth += 1,
-                '}' => depth -= 1,
-                ';' if depth <= 0 => result.push('\n'),
-                _ => {}
+            if in_comment {
+                if ch == '*' && chars.peek() == Some(&'/') {
+                    result.push(chars.next().unwrap()); // consume '/'
+                    in_comment = false;
+                }
+            } else {
+                match ch {
+                    '/' if chars.peek() == Some(&'*') => {
+                        result.push(chars.next().unwrap()); // consume '*'
+                        in_comment = true;
+                    }
+                    '{' => depth += 1,
+                    '}' => depth -= 1,
+                    ';' if depth <= 0 => result.push('\n'),
+                    _ => {}
+                }
             }
         }
         result
@@ -1314,5 +1328,49 @@ struct ib_grh {
         let fields = to_field_defs_with(&ks, &mappings);
         let sgid = fields.iter().find(|f| f.name == "sgid").unwrap();
         assert_eq!(sgid.size_bits, 128);
+    }
+
+    #[test]
+    fn test_strip_inline_comments_with_semicolon() {
+        let line = "unsigned char\t\trtm_protocol;\t/* Routing protocol; see below\t*/";
+        let stripped = strip_inline_comments(line);
+        assert!(
+            !stripped.contains("below"),
+            "comment not fully stripped: {:?}",
+            stripped
+        );
+        assert!(
+            stripped.contains("rtm_protocol"),
+            "field name lost: {:?}",
+            stripped
+        );
+    }
+
+    #[test]
+    fn test_rtmsg_all_fields_parsed() {
+        // Use concat! to avoid string continuation confusion
+        let content = concat!(
+            "struct rtmsg {\n",
+            "\tunsigned char\t\trtm_family;\n",
+            "\tunsigned char\t\trtm_dst_len;\n",
+            "\tunsigned char\t\trtm_src_len;\n",
+            "\tunsigned char\t\trtm_tos;\n",
+            "\n",
+            "\tunsigned char\t\trtm_table;\t/* Routing table id */\n",
+            "\tunsigned char\t\trtm_protocol;\t/* Routing protocol; see below\t*/\n",
+            "\tunsigned char\t\trtm_scope;\t/* See below */\t\n",
+            "\tunsigned char\t\trtm_type;\t/* See below\t*/\n",
+            "\n",
+            "\tunsigned\t\trtm_flags;\n",
+            "};\n",
+        );
+        let ks = parse_kernel_struct(content, "rtmsg").unwrap().unwrap();
+        let field_names: Vec<&str> = ks.fields.iter().map(|f| f.name.as_str()).collect();
+        assert!(
+            field_names.contains(&"rtm_scope"),
+            "rtm_scope missing from parsed fields: {:?}",
+            field_names
+        );
+        assert_eq!(ks.fields.len(), 9, "expected 9 fields, got {:?}", field_names);
     }
 }
