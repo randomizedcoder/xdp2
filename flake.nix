@@ -157,6 +157,14 @@
           xdp2-flow-ebpf = xdp2FlowEbpf;
         };
 
+        # 6-way flow dissector performance matrix — shellcheck-validated
+        # wrapper packaged via writeShellApplication, hermetic artifact
+        # paths. See nix/flow-dissector-matrix.nix.
+        flowDissectorMatrix = import ./nix/flow-dissector-matrix.nix {
+          inherit pkgs llvmPackages;
+          xdp2 = xdp2-debug;
+        };
+
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
         # See nix/compiler-verify.nix for all available targets
         compilerVerify = import ./nix/compiler-verify.nix {
@@ -455,6 +463,15 @@
           # Load:  docker load < result
           # ===================================================================
           xdp2-flow-ebpf-image = xdp2FlowEbpfImage;
+
+          # ===================================================================
+          # flow-dissector-matrix — 6-way performance comparison
+          # Build:  nix build .#flow-dissector-matrix
+          # Run:    sudo ./result/bin/xdp2-flow-dissector-matrix PCAP
+          # Inputs: also exposes .#flow-dissector-matrix-artifacts (bins + .o)
+          # ===================================================================
+          flow-dissector-matrix = flowDissectorMatrix.matrix;
+          flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
 
           xdp2-rs = xdp2Rs.build;
           xdp2-rs-test = xdp2Rs.test;

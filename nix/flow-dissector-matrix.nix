@@ -272,6 +272,12 @@ let
         echo ""
       }
 
+      # Initialize targets of indirect assignment so shellcheck (SC2153)
+      # can trace them. run_bpf uses `printf -v "$name" ...` to set these.
+      BPF_NSPKT="N/A";      BPF_MPPS="N/A"
+      XDP2_BPF_NSPKT="N/A"; XDP2_BPF_MPPS="N/A"
+      FAST_BPF_NSPKT="N/A"; FAST_BPF_MPPS="N/A"
+
       run_bpf "Kernel BPF flowdis"  "$BPF_OBJ"       BPF_NSPKT       BPF_MPPS
       run_bpf "XDP2 BPF parser"     "$XDP2_BPF_OBJ"  XDP2_BPF_NSPKT  XDP2_BPF_MPPS
       run_bpf "xdp2-flow-ebpf fast" "$FAST_BPF_OBJ"  FAST_BPF_NSPKT  FAST_BPF_MPPS
