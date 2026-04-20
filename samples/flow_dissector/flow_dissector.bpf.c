@@ -240,10 +240,25 @@ int _dissect(struct __sk_buff *skb)
 	parser_ctx->ctx.metadata = parser_ctx->frame;
 	parser_ctx->ctx.parser = xdp2_parser_flow_dissector;
 
-	/* Start parsing at L3 (thoff points past Ethernet/VLAN) */
+	/* Bound thoff so the verifier can prove data + thoff is in-range.
+	 * 128 covers realistic L2+VLAN stacks; anything larger hands off
+	 * to the kernel dissector instead of dropping.
+	 */
+	if (keys->thoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	/* Start parsing at L3 (thoff points past Ethernet/VLAN). Use the
+	 * `hdr + N > data_end` idiom (not `hdr >= data_end`) so the verifier
+	 * widens R(hdr).range to N readable bytes — required because the
+	 * generated parser dereferences hdr after a stack spill that
+	 * otherwise loses the post-comparison range narrowing.
+	 *
+	 * 20 = sizeof(struct iphdr); IPv6 headers are larger but the parser
+	 * does its own per-protocol check_pkt_len() once it knows version.
+	 */
 	hdr = data + keys->thoff;
-	if (hdr >= data_end)
-		return BPF_DROP;
+	if (hdr + sizeof(struct iphdr) > data_end)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
 
 	/* Invoke the xdp2 parser on raw packet data */
 	rc = XDP2_PARSE_XDP(xdp2_parser_flow_dissector, &parser_ctx->ctx,
