@@ -23,6 +23,7 @@
 #include <bpf/bpf_endian.h>
 
 #include "xdp2/bpf.h"
+#include "xdp2/bpf_maps.h"
 #include "xdp2/parser_metadata.h"
 
 /* Generated parser from xdp2-compiler */
@@ -34,13 +35,12 @@ struct flow_dissector_ctx {
 	struct xdp2_metadata_all frame[1];
 };
 
-struct bpf_elf_map SEC("maps") ctx_map = {
-	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-	.size_key = sizeof(__u32),
-	.size_value = sizeof(struct flow_dissector_ctx),
-	.max_elem = 2,
-	.pinning = PIN_GLOBAL_NS,
-};
+/* BTF-described map (libbpf >= 1.0). The legacy bpf_elf_map/SEC("maps")
+ * form was rejected by libbpf 1.x. PIN_GLOBAL_NS pinning under
+ * /sys/fs/bpf/tc/globals isn't used by the BPF_PROG_TEST_RUN loader;
+ * if a future integration path needs pinning, use libbpf's pin_path
+ * API in the loader rather than reinstating the legacy section. */
+XDP2_MAP_PERCPU_ARRAY(ctx_map, __u32, struct flow_dissector_ctx, 2);
 
 static __always_inline struct flow_dissector_ctx *get_ctx(void)
 {

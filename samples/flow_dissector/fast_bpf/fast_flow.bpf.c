@@ -108,6 +108,14 @@ int _dissect(struct __sk_buff *skb)
 	void *data_end = (void *)(long)skb->data_end;
 	__u32 nhoff = keys->nhoff;
 
+	/* Bound nhoff so the verifier can prove data + nhoff + sizeof(hdr)
+	 * stays in-bounds after the (hdr+1) > data_end checks below. keys->nhoff
+	 * arrives with var_off=(0x0; 0xffff); without this, the verifier can't
+	 * shrink that range across the pointer add. 128 covers realistic
+	 * L2+VLAN stacks. Beyond that, hand back to the kernel's dissector. */
+	if (nhoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
 	if (keys->n_proto == bpf_htons(ETH_P_IP)) {
 		struct iphdr *iph = data + nhoff;
 
@@ -214,7 +222,15 @@ int flow_dissector_eth_ipv4_tcp(struct __sk_buff *skb)
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
 	__u32 nhoff = keys->nhoff;
-	__u32 thoff = nhoff + 20;  /* IHL=5 guaranteed by entry gate */
+	__u32 thoff;
+
+	/* Tail-called programs don't inherit verifier state from the caller;
+	 * reassert the nhoff ceiling so data + nhoff + sizeof(hdr) can be
+	 * proved in-bounds. */
+	if (nhoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	thoff = nhoff + 20;  /* IHL=5 guaranteed by entry gate */
 	struct iphdr *iph = data + nhoff;
 	__be16 *ports = data + thoff;
 
@@ -248,8 +264,14 @@ int flow_dissector_eth_ipv4_udp(struct __sk_buff *skb)
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
 	__u32 nhoff = keys->nhoff;
-	__u32 thoff = nhoff + 20;
-	struct iphdr *iph = data + nhoff;
+	__u32 thoff;
+	struct iphdr *iph;
+
+	if (nhoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	thoff = nhoff + 20;
+	iph = data + nhoff;
 	__be16 *ports = data + thoff;
 
 	if ((void *)(iph + 1) > data_end)
@@ -286,8 +308,14 @@ int flow_dissector_eth_ipv6_tcp(struct __sk_buff *skb)
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
 	__u32 nhoff = keys->nhoff;
-	__u32 thoff = nhoff + sizeof(struct ipv6hdr);
-	struct ipv6hdr *ip6h = data + nhoff;
+	__u32 thoff;
+	struct ipv6hdr *ip6h;
+
+	if (nhoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	thoff = nhoff + sizeof(struct ipv6hdr);
+	ip6h = data + nhoff;
 	__be16 *ports = data + thoff;
 
 	if ((void *)(ip6h + 1) > data_end)
@@ -320,8 +348,14 @@ int flow_dissector_eth_ipv6_udp(struct __sk_buff *skb)
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
 	__u32 nhoff = keys->nhoff;
-	__u32 thoff = nhoff + sizeof(struct ipv6hdr);
-	struct ipv6hdr *ip6h = data + nhoff;
+	__u32 thoff;
+	struct ipv6hdr *ip6h;
+
+	if (nhoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	thoff = nhoff + sizeof(struct ipv6hdr);
+	ip6h = data + nhoff;
 	__be16 *ports = data + thoff;
 
 	if ((void *)(ip6h + 1) > data_end)
@@ -361,9 +395,16 @@ int flow_dissector_eth_vlan_ipv4_tcp(struct __sk_buff *skb)
 	struct bpf_flow_keys *keys = skb->flow_keys;
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
-	__u32 nhoff = keys->nhoff + sizeof(struct vlan_hdr);
-	__u32 thoff = nhoff + 20;
-	struct iphdr *iph = data + nhoff;
+	__u32 base = keys->nhoff;
+	__u32 nhoff, thoff;
+	struct iphdr *iph;
+
+	if (base > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	nhoff = base + sizeof(struct vlan_hdr);
+	thoff = nhoff + 20;
+	iph = data + nhoff;
 	__be16 *ports = data + thoff;
 
 	if ((void *)(iph + 1) > data_end)
@@ -396,9 +437,16 @@ int flow_dissector_eth_vlan_ipv4_udp(struct __sk_buff *skb)
 	struct bpf_flow_keys *keys = skb->flow_keys;
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
-	__u32 nhoff = keys->nhoff + sizeof(struct vlan_hdr);
-	__u32 thoff = nhoff + 20;
-	struct iphdr *iph = data + nhoff;
+	__u32 base = keys->nhoff;
+	__u32 nhoff, thoff;
+	struct iphdr *iph;
+
+	if (base > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	nhoff = base + sizeof(struct vlan_hdr);
+	thoff = nhoff + 20;
+	iph = data + nhoff;
 	__be16 *ports = data + thoff;
 
 	if ((void *)(iph + 1) > data_end)
@@ -435,9 +483,16 @@ int flow_dissector_eth_ipv4_icmp(struct __sk_buff *skb)
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
 	__u32 nhoff = keys->nhoff;
-	__u32 thoff = nhoff + 20;
-	struct iphdr *iph = data + nhoff;
-	struct icmphdr *icmp = data + thoff;
+	__u32 thoff;
+	struct iphdr *iph;
+	struct icmphdr *icmp;
+
+	if (nhoff > 128)
+		return BPF_FLOW_DISSECTOR_CONTINUE;
+
+	thoff = nhoff + 20;
+	iph = data + nhoff;
+	icmp = data + thoff;
 
 	if ((void *)(iph + 1) > data_end)
 		return BPF_DROP;
