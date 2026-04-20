@@ -193,3 +193,71 @@ skipped with `SKIP:` status instead of `FAIL:` + `exit 1`. Added a `skip()`
 function and `TESTS_SKIPPED` counter to the test harness. The fast path is a
 library optimization for simple graphs — the optimized parser (`-O`) is the
 true fast path and remains fully functional.
+
+### 15. BPF Verifier Rejects xdp2-Generated Parser on IPv6 Extension Headers (Way 5, partial)
+
+**Status:** Known limitation as of 2026-04-20. Way 5 of the 6-way matrix
+(XDP2 declarative parser compiled to `flow_dissector.bpf.o` and loaded as
+`BPF_PROG_TYPE_FLOW_DISSECTOR`) loads and dissects IPv4 packets correctly,
+but rejects packets containing IPv6 extension headers (HopByHop, DstOpt,
+Routing, Fragment). The other 5 matrix ways are fully green.
+
+**Symptom:** When packets with `n_proto == ETH_P_IPV6` and at least one EH
+reach the program, the verifier rejects load with:
+
+```
+math between pkt pointer and register with unbounded min value
+```
+
+The rejection point shifts depending on which caller-side bound is in
+place; representative depths are insn ~9230 (LOOP_COUNT=4) and ~25,800
+(LOOP_COUNT=8) inside the unrolled `ipv6_eh_node → ipv6_eh_node` chain.
+
+**Root cause:** Two distinct unbounded-scalar patterns in the
+xdp2-generated/runtime code:
+
+1. `size_t len = (uintptr_t)(hdr_end - hdr)` in the generated
+   `check_pkt_len` (template
+   [`src/templates/xdp2/xdp_def.template.c:53-76`](../../../src/templates/xdp2/xdp_def.template.c)).
+   The verifier treats `len` as having no upper bound; subsequent
+   `hdr + len` arithmetic during EH chain unrolling fails the
+   pkt-pointer + scalar check.
+2. `return hdr - ctrl->pkt.start` in
+   [`xdp2_parse_hdr_offset` at `src/include/xdp2/parser.h:353-356`](../../../src/include/xdp2/parser.h),
+   called from the IPv4 metadata extractor. `ctrl->pkt.start` is loaded
+   from a stack spill as an unbounded scalar, so the offset write fails
+   the same check.
+
+**Workaround in the sample:** Caller-side bounds in
+[`flow_dissector.bpf.c`](../flow_dissector.bpf.c)
+(`if (keys->thoff > 128) return BPF_FLOW_DISSECTOR_CONTINUE;` and
+`hdr + sizeof(struct iphdr) > data_end`) get the IPv4 path under the
+verifier (~150 insns). For IPv6-EH packets the program returns
+`BPF_FLOW_DISSECTOR_CONTINUE` early and the kernel's in-tree dissector
+handles them — semantically correct, just not "xdp2 dissects everything."
+
+**What was tried and rejected:** capping the unrolled dispatch with
+`#define XDP2_LOOP_COUNT {3,4}` and a Makefile sed post-process to clamp
+`len ≤ 0xFFFF` in the generated `check_pkt_len`. The LOOP_COUNT cap
+shifts but doesn't eliminate the rejection; the sed clamp fixes pattern
+#1 but immediately exposes pattern #2 by regressing the IPv4 path. All
+experiments reverted; only the caller-side IPv4 bounds remain.
+
+**Path to a real fix (deferred as S9g in
+[`super-flow-dissector-implementation.md`](super-flow-dissector-implementation.md)):**
+clamp at the *source* of each unbounded scalar — a verifier-friendly
+variant of `xdp2_parse_hdr_offset` for BPF builds, and an `if (len > N)
+len = N;` clamp inside the `check_pkt_len` template (mirrored across
+both the C++/Pyrate compiler in `src/templates/` and the Rust/Tera
+compiler in `xdp2-rs/crates/xdp2-compiler/src/codegen.rs`). This
+requires xdp2-compiler rebuild and golden-file regression review across
+all 14 samples that consume `xdp2/bpf.h`, so it's tracked as a dedicated
+follow-up rather than bundled with the matrix-completion work.
+
+**Practical impact:** Way 5 BPF appears as `N/A` in the matrix
+scoreboard for the IPv6-EH portion of the workload. Real-world
+flow-dissector deployments with IPv6-EH traffic should use Way 6
+(`xdp2-flow-ebpf` fast path, 46 ns/pkt) — that path uses a hand-written
+fast-path kernel that doesn't hit either pattern. Way 5's purpose is to
+demonstrate that the *declarative* parser can compile to BPF; the
+declarative-to-fully-verifier-clean pipeline is S9g's scope.
