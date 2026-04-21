@@ -120,51 +120,97 @@ mod linux {
             let mut counters: Vec<Option<Counter>> = Vec::new();
             match pass {
                 PerfPass::Basic => {
-                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Hardware::INSTRUCTIONS).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Hardware::BRANCH_INSTRUCTIONS).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Hardware::BRANCH_MISSES).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Hardware::CACHE_REFERENCES).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Hardware::CACHE_MISSES).build())?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::CPU_CYCLES).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::INSTRUCTIONS).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::BRANCH_INSTRUCTIONS).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::BRANCH_MISSES).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::CACHE_REFERENCES).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::CACHE_MISSES).build()
+                    })?);
                 }
                 PerfPass::Stalls => {
-                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Hardware::STALLED_CYCLES_FRONTEND).build())?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::CPU_CYCLES).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Hardware::STALLED_CYCLES_FRONTEND)
+                            .build()
+                    })?);
                     // STALLED_CYCLES_BACKEND is missing on AMD Zen — try_build
                     // will return None and we'll report 0 for backend stalls.
-                    counters.push(try_build(|| Builder::new().kind(Hardware::STALLED_CYCLES_BACKEND).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Cache {
-                        which: WhichCache::DTLB,
-                        operation: CacheOp::READ,
-                        result: CacheResult::MISS,
-                    }).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Cache {
-                        which: WhichCache::ITLB,
-                        operation: CacheOp::READ,
-                        result: CacheResult::MISS,
-                    }).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Cache {
-                        which: WhichCache::L1D,
-                        operation: CacheOp::READ,
-                        result: CacheResult::MISS,
-                    }).build())?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Hardware::STALLED_CYCLES_BACKEND)
+                            .build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Cache {
+                                which: WhichCache::DTLB,
+                                operation: CacheOp::READ,
+                                result: CacheResult::MISS,
+                            })
+                            .build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Cache {
+                                which: WhichCache::ITLB,
+                                operation: CacheOp::READ,
+                                result: CacheResult::MISS,
+                            })
+                            .build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Cache {
+                                which: WhichCache::L1D,
+                                operation: CacheOp::READ,
+                                result: CacheResult::MISS,
+                            })
+                            .build()
+                    })?);
                 }
                 PerfPass::Detail => {
-                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Cache {
-                        which: WhichCache::L1I,
-                        operation: CacheOp::READ,
-                        result: CacheResult::MISS,
-                    }).build())?);
-                    counters.push(try_build(|| Builder::new().kind(Cache {
-                        which: WhichCache::LL,
-                        operation: CacheOp::READ,
-                        result: CacheResult::MISS,
-                    }).build())?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::CPU_CYCLES).build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Cache {
+                                which: WhichCache::L1I,
+                                operation: CacheOp::READ,
+                                result: CacheResult::MISS,
+                            })
+                            .build()
+                    })?);
+                    counters.push(try_build(|| {
+                        Builder::new()
+                            .kind(Cache {
+                                which: WhichCache::LL,
+                                operation: CacheOp::READ,
+                                result: CacheResult::MISS,
+                            })
+                            .build()
+                    })?);
                 }
                 PerfPass::Zen => {
                     // AMD Zen 2/3/4 raw PMU events.
-                    counters.push(try_build(|| Builder::new().kind(Hardware::CPU_CYCLES).build())?);
+                    counters.push(try_build(|| {
+                        Builder::new().kind(Hardware::CPU_CYCLES).build()
+                    })?);
                     // Op Cache Hit (event 0x028A, umask 0x07): micro-op cache hits
                     counters.push(try_build(|| build_raw(0x0728))?);
                     // Retired Micro-Ops (event 0x00C1): true work done
@@ -475,13 +521,22 @@ mod linux {
                 } else {
                     0.0
                 };
-                println!("  retired-uops/pkt:    {:>8.1}   (UPC {:.2})",
-                    per(self.retired_uops), upc);
+                println!(
+                    "  retired-uops/pkt:    {:>8.1}   (UPC {:.2})",
+                    per(self.retired_uops),
+                    upc
+                );
                 println!("  op-cache-hits/pkt:   {:>8.1}", per(self.op_cache_hits));
-                println!("  dispatch-stalls/pkt: {:>8.1}   ({:.1}% of cycles)",
-                    per(self.dispatch_stalls), dispatch_stall_pct);
-                println!("  mab-stalls/pkt:      {:>8.1}   ({:.1}% of cycles)",
-                    per(self.mab_stalls), mab_stall_pct);
+                println!(
+                    "  dispatch-stalls/pkt: {:>8.1}   ({:.1}% of cycles)",
+                    per(self.dispatch_stalls),
+                    dispatch_stall_pct
+                );
+                println!(
+                    "  mab-stalls/pkt:      {:>8.1}   ({:.1}% of cycles)",
+                    per(self.mab_stalls),
+                    mab_stall_pct
+                );
             }
 
             // --- TMA Level 1 summary (when basic + stalls passes available) ---
@@ -563,8 +618,10 @@ mod linux {
                     0.0
                 };
                 if self.l1d_misses > 0 || self.ll_misses > 0 {
-                    println!("    -> Memory Bound: L1D misses={}, LL misses={}, DTLB misses={}",
-                        self.l1d_misses, self.ll_misses, self.dtlb_misses);
+                    println!(
+                        "    -> Memory Bound: L1D misses={}, LL misses={}, DTLB misses={}",
+                        self.l1d_misses, self.ll_misses, self.dtlb_misses
+                    );
                 }
                 if dtlb_rate > 0.01 {
                     println!("    -> High DTLB miss rate — consider huge pages");
@@ -572,8 +629,10 @@ mod linux {
             }
             if fe_bound > be_bound && fe_bound > retiring {
                 if self.l1i_misses > 0 {
-                    println!("    -> Instruction cache pressure: L1I misses={}, ITLB misses={}",
-                        self.l1i_misses, self.itlb_misses);
+                    println!(
+                        "    -> Instruction cache pressure: L1I misses={}, ITLB misses={}",
+                        self.l1i_misses, self.itlb_misses
+                    );
                 }
             }
         }

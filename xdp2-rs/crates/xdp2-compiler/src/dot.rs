@@ -23,7 +23,11 @@ pub fn to_dot(pg: &ParseGraph) -> String {
     let mut out = String::new();
     writeln!(out, "digraph parse_graph {{").unwrap();
     writeln!(out, "    rankdir=LR;").unwrap();
-    writeln!(out, "    node [shape=box, style=filled, fillcolor=lightyellow];").unwrap();
+    writeln!(
+        out,
+        "    node [shape=box, style=filled, fillcolor=lightyellow];"
+    )
+    .unwrap();
     writeln!(out).unwrap();
 
     // Nodes
@@ -75,7 +79,8 @@ mod tests {
 
     #[test]
     fn dot_output() {
-        let ir = ParserIr::from_json(r#"{
+        let ir = ParserIr::from_json(
+            r#"{
             "parse-nodes": [
                 {"name": "eth", "min-hdr-length": 14, "next-proto": {
                     "field-off": 12, "field-len": 2,
@@ -83,7 +88,8 @@ mod tests {
                 }},
                 {"name": "ipv4", "min-hdr-length": 20}
             ]
-        }"#)
+        }"#,
+        )
         .unwrap();
         let g = ParseGraph::from_ir(&ir);
         let dot = to_dot(&g);

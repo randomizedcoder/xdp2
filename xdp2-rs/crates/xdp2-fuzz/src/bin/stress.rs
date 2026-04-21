@@ -16,8 +16,11 @@ use xdp2_bench::{graph, graph_compiled, graph_mono, template};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let hours: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(12.0);
-    let threads: usize = args.get(2).and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4));
+    let threads: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+    });
 
     let duration = Duration::from_secs_f64(hours * 3600.0);
     let stop = Arc::new(AtomicBool::new(false));
@@ -56,7 +59,9 @@ fn main() {
         let mut last_count = 0u64;
         loop {
             std::thread::sleep(Duration::from_secs(30));
-            if stop_reporter.load(Ordering::Relaxed) { break; }
+            if stop_reporter.load(Ordering::Relaxed) {
+                break;
+            }
 
             let count = pkts_reporter.load(Ordering::Relaxed);
             let elapsed = start.elapsed().as_secs_f64();
@@ -95,15 +100,24 @@ fn main() {
     eprintln!("Total packets:     {}", count);
     eprintln!("Divergences:       {}", divs);
     eprintln!("Panics:            {}", pans);
-    eprintln!("Duration:          {:.1} hours", duration.as_secs_f64() / 3600.0);
-    eprintln!("Rate:              {:.0} packets/sec", count as f64 / duration.as_secs_f64());
+    eprintln!(
+        "Duration:          {:.1} hours",
+        duration.as_secs_f64() / 3600.0
+    );
+    eprintln!(
+        "Rate:              {:.0} packets/sec",
+        count as f64 / duration.as_secs_f64()
+    );
 
     if pans > 0 {
         eprintln!("\n*** PANICS DETECTED — SEE OUTPUT ABOVE ***");
         std::process::exit(1);
     }
     if divs > 0 {
-        eprintln!("\nNote: {} cross-mode divergences detected (known issue, see oracle tests)", divs);
+        eprintln!(
+            "\nNote: {} cross-mode divergences detected (known issue, see oracle tests)",
+            divs
+        );
     }
 }
 
@@ -139,9 +153,7 @@ fn worker(
             };
 
             // Run all modes — catch_unwind to detect panics
-            let g_ok = run_safe(|| {
-                graph::parse_packet(&parser, pkt).is_ok()
-            });
+            let g_ok = run_safe(|| graph::parse_packet(&parser, pkt).is_ok());
             let m_ok = run_safe(|| {
                 let mut meta = FlowMeta::default();
                 graph_mono::parse_packet_mono(pkt, &mut meta).is_ok()
@@ -165,8 +177,13 @@ fn worker(
                 (Some(_), Some(_), Some(_)) => {}
                 _ => {
                     total_panics.fetch_add(1, Ordering::Relaxed);
-                    eprintln!("PANIC on {}-byte packet: graph={:?} mono={:?} compiled={:?}",
-                        pkt.len(), g_ok, m_ok, c_ok);
+                    eprintln!(
+                        "PANIC on {}-byte packet: graph={:?} mono={:?} compiled={:?}",
+                        pkt.len(),
+                        g_ok,
+                        m_ok,
+                        c_ok
+                    );
                 }
             }
 
@@ -190,9 +207,13 @@ fn gen_structured_packet(rng: &mut SimpleRng) -> Vec<u8> {
     let mut pkt = Vec::with_capacity(256);
 
     // Ethernet header
-    for _ in 0..12 { pkt.push(rng.next() as u8); } // random MACs
-    let ethertypes = [0x0800u16, 0x86DD, 0x0806, 0x8100, 0x88A8, 0x8847,
-                      0x88CC, 0x888E, 0x88E5, 0x8864, 0x0000, 0xFFFF];
+    for _ in 0..12 {
+        pkt.push(rng.next() as u8);
+    } // random MACs
+    let ethertypes = [
+        0x0800u16, 0x86DD, 0x0806, 0x8100, 0x88A8, 0x8847, 0x88CC, 0x888E, 0x88E5, 0x8864, 0x0000,
+        0xFFFF,
+    ];
     let et = ethertypes[(rng.next() as usize) % ethertypes.len()];
     pkt.extend_from_slice(&et.to_be_bytes());
 
@@ -201,14 +222,20 @@ fn gen_structured_packet(rng: &mut SimpleRng) -> Vec<u8> {
         let ihl = (rng.next() % 16) as u8;
         pkt.push(0x40 | ihl);
         // Fill rest of IPv4 header with random
-        for _ in 0..19 { pkt.push(rng.next() as u8); }
+        for _ in 0..19 {
+            pkt.push(rng.next() as u8);
+        }
         // Random payload
         let payload_len = (rng.next() % 200) as usize;
-        for _ in 0..payload_len { pkt.push(rng.next() as u8); }
+        for _ in 0..payload_len {
+            pkt.push(rng.next() as u8);
+        }
     } else {
         // Random payload for other ethertypes
         let payload_len = (rng.next() % 300) as usize;
-        for _ in 0..payload_len { pkt.push(rng.next() as u8); }
+        for _ in 0..payload_len {
+            pkt.push(rng.next() as u8);
+        }
     }
 
     pkt
@@ -218,7 +245,9 @@ fn gen_structured_packet(rng: &mut SimpleRng) -> Vec<u8> {
 struct SimpleRng(u64);
 
 impl SimpleRng {
-    fn new(seed: u64) -> Self { Self(seed.wrapping_add(1)) }
+    fn new(seed: u64) -> Self {
+        Self(seed.wrapping_add(1))
+    }
     fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;

@@ -19,7 +19,9 @@ impl ProtocolOps for OncRpcOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "ONC RPC";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// NFS header (4 bytes). Reimplements: `struct nfs_hdr` in `proto_nfs.h`
@@ -33,7 +35,9 @@ impl ProtocolOps for NfsOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "NFS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// LDAP header (2 bytes). Reimplements: `struct ldap_hdr` in `proto_ldap.h`
@@ -48,7 +52,9 @@ impl ProtocolOps for LdapOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "LDAP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// SMB header (4 bytes). Reimplements: `struct smb_hdr` in `proto_smb.h`
@@ -62,7 +68,9 @@ impl ProtocolOps for SmbOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "SMB";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// SMB2 header (4 bytes). Reimplements: `struct smb2_hdr` in `proto_smb2.h`
@@ -76,7 +84,9 @@ impl ProtocolOps for Smb2Ops {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "SMB2";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -85,6 +95,9 @@ mod tests {
 
     #[test]
     fn onc_rpc_is_leaf() {
-        assert!(matches!(OncRpcOps.next_proto(&[0u8; 24]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            OncRpcOps.next_proto(&[0u8; 24]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

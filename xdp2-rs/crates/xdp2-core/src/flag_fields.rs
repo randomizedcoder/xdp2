@@ -53,7 +53,11 @@ impl FlagFields {
         let mut offset = 0;
         for i in 0..targ_idx {
             let field = &self.fields[i];
-            let mask = if field.mask != 0 { field.mask } else { field.flag };
+            let mask = if field.mask != 0 {
+                field.mask
+            } else {
+                field.flag
+            };
             if (flags & mask) == field.flag {
                 offset += field.size;
             }
@@ -80,7 +84,11 @@ impl FlagFields {
             return None;
         }
         let field = &self.fields[targ_idx];
-        let mask = if field.mask != 0 { field.mask } else { field.flag };
+        let mask = if field.mask != 0 {
+            field.mask
+        } else {
+            field.flag
+        };
         if (flags & mask) != field.flag {
             return None; // Flag not set
         }
@@ -109,10 +117,10 @@ pub struct FlagFieldsOps {
 ///
 /// Reimplements: `struct xdp2_parse_flag_field_node_ops` in `flag_fields.h:180-186`
 pub struct ParseFlagFieldNodeOps<M: 'static> {
-    pub extract_metadata:
-        Option<fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData)>,
-    pub handler:
-        Option<fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError>>,
+    pub extract_metadata: Option<fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData)>,
+    pub handler: Option<
+        fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError>,
+    >,
 }
 
 /// A parse node for a single flag-field.
@@ -173,11 +181,21 @@ pub struct ParseFlagFieldsNode<M: 'static> {
 }
 
 impl<M: 'static> ParseNodeDyn<M> for ParseFlagFieldsNode<M> {
-    fn min_len(&self) -> usize { self.inner.min_len() }
-    fn name(&self) -> &'static str { self.inner.name() }
-    fn node_type(&self) -> NodeType { NodeType::FlagFields }
-    fn is_encap(&self) -> bool { self.inner.is_encap() }
-    fn is_overlay(&self) -> bool { self.inner.is_overlay() }
+    fn min_len(&self) -> usize {
+        self.inner.min_len()
+    }
+    fn name(&self) -> &'static str {
+        self.inner.name()
+    }
+    fn node_type(&self) -> NodeType {
+        NodeType::FlagFields
+    }
+    fn is_encap(&self) -> bool {
+        self.inner.is_encap()
+    }
+    fn is_overlay(&self) -> bool {
+        self.inner.is_overlay()
+    }
 
     fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         self.inner.header_len(hdr, maxlen)
@@ -188,23 +206,55 @@ impl<M: 'static> ParseNodeDyn<M> for ParseFlagFieldsNode<M> {
     fn extract_metadata(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) {
         self.inner.extract_metadata(hdr, hdr_len, metadata, ctrl);
     }
-    fn handler(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+    fn handler(
+        &self,
+        hdr: &[u8],
+        hdr_len: usize,
+        metadata: &mut M,
+        ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
         self.inner.handler(hdr, hdr_len, metadata, ctrl)
     }
-    fn post_handler(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+    fn post_handler(
+        &self,
+        hdr: &[u8],
+        hdr_len: usize,
+        metadata: &mut M,
+        ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
         self.inner.post_handler(hdr, hdr_len, metadata, ctrl)
     }
 
     /// Dispatch flag-fields sub-parsing.
     ///
     /// Reimplements: `case XDP2_NODE_TYPE_FLAG_FIELDS:` in `parser.c:546-559`
-    fn sub_parse(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
-        parse_flag_fields(hdr, hdr_len, self.flag_fields, self.ff_ops, self.ff_proto_table, metadata, ctrl)
+    fn sub_parse(
+        &self,
+        hdr: &[u8],
+        hdr_len: usize,
+        metadata: &mut M,
+        ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
+        parse_flag_fields(
+            hdr,
+            hdr_len,
+            self.flag_fields,
+            self.ff_ops,
+            self.ff_proto_table,
+            metadata,
+            ctrl,
+        )
     }
 
-    fn proto_table(&self) -> Option<&'static ProtoTable<M>> { self.inner.proto_table() }
-    fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>> { self.inner.wildcard_node() }
-    fn unknown_ret(&self) -> ParseError { self.inner.unknown_ret() }
+    fn proto_table(&self) -> Option<&'static ProtoTable<M>> {
+        self.inner.proto_table()
+    }
+    fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>> {
+        self.inner.wildcard_node()
+    }
+    fn unknown_ret(&self) -> ParseError {
+        self.inner.unknown_ret()
+    }
 }
 
 // SAFETY: ParseFlagFieldsNode delegates all state to &'static references which are inherently Send+Sync
@@ -274,9 +324,21 @@ mod tests {
     // Bit 12 (0x1000): Sequence present (4 bytes)
     static GRE_FLAGS: FlagFields = FlagFields {
         fields: &[
-            FlagField { flag: 0x8000, mask: 0, size: 4 }, // checksum
-            FlagField { flag: 0x2000, mask: 0, size: 4 }, // key
-            FlagField { flag: 0x1000, mask: 0, size: 4 }, // sequence
+            FlagField {
+                flag: 0x8000,
+                mask: 0,
+                size: 4,
+            }, // checksum
+            FlagField {
+                flag: 0x2000,
+                mask: 0,
+                size: 4,
+            }, // key
+            FlagField {
+                flag: 0x1000,
+                mask: 0,
+                size: 4,
+            }, // sequence
         ],
     };
 
@@ -336,7 +398,10 @@ mod tests {
 
         static FF_TABLE: FlagFieldsTable<Vec<u32>> = FlagFieldsTable {
             entries: &[
-                FlagFieldsTableEntry { index: 1, node: &KEY_NODE }, // key is index 1
+                FlagFieldsTableEntry {
+                    index: 1,
+                    node: &KEY_NODE,
+                }, // key is index 1
             ],
         };
 
@@ -355,8 +420,16 @@ mod tests {
         let mut metadata = Vec::new();
         let ctrl = CtrlData::default();
 
-        parse_flag_fields(&hdr, hdr.len(), &GRE_FLAGS, &FF_OPS, &FF_TABLE, &mut metadata, &ctrl)
-            .unwrap();
+        parse_flag_fields(
+            &hdr,
+            hdr.len(),
+            &GRE_FLAGS,
+            &FF_OPS,
+            &FF_TABLE,
+            &mut metadata,
+            &ctrl,
+        )
+        .unwrap();
 
         assert_eq!(metadata, vec![0xDEADBEEF]);
     }

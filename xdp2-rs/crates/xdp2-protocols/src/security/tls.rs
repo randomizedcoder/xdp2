@@ -53,14 +53,17 @@ mod tests {
     #[test]
     fn tls_is_leaf() {
         let ops = TlsOps;
-        assert!(matches!(ops.next_proto(&[0u8; 5]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 5]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn tls_header_fields() {
         let mut hdr = [0u8; 5];
         hdr[0] = 23; // application data
-        hdr[1] = 3;  // TLS 1.2
+        hdr[1] = 3; // TLS 1.2
         hdr[2] = 3;
         hdr[3..5].copy_from_slice(&1024u16.to_be_bytes());
         let tls = TlsHeader::ref_from_prefix(&hdr).unwrap().0;

@@ -24,11 +24,11 @@
 
 use crate::flow_meta::{AddrType, FlowMeta};
 
-pub(crate) use crate::template_plain::*;
-pub(crate) use crate::template_vlan::*;
-pub(crate) use crate::template_qinq::*;
 pub(crate) use crate::template_gre::*;
 pub(crate) use crate::template_ipip::*;
+pub(crate) use crate::template_plain::*;
+pub(crate) use crate::template_qinq::*;
+pub(crate) use crate::template_vlan::*;
 
 // ── Inline helpers ─────────────────────────────────────────────
 //
@@ -55,21 +55,18 @@ pub(crate) fn extract_ipv4(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     }
     meta.addr_type = AddrType::Ipv4;
     meta.ip_proto = pkt[off + 9];
-    meta.addrs.v4_src = u32::from_be_bytes([
-        pkt[off + 12], pkt[off + 13], pkt[off + 14], pkt[off + 15],
-    ]);
-    meta.addrs.v4_dst = u32::from_be_bytes([
-        pkt[off + 16], pkt[off + 17], pkt[off + 18], pkt[off + 19],
-    ]);
+    meta.addrs.v4_src =
+        u32::from_be_bytes([pkt[off + 12], pkt[off + 13], pkt[off + 14], pkt[off + 15]]);
+    meta.addrs.v4_dst =
+        u32::from_be_bytes([pkt[off + 16], pkt[off + 17], pkt[off + 18], pkt[off + 19]]);
 }
 
 #[inline(always)]
 pub(crate) fn extract_ipv6(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
     meta.addr_type = AddrType::Ipv6;
     meta.ip_proto = pkt[off + 6];
-    meta.flow_label = ((pkt[off + 1] as u32 & 0x0F) << 16)
-        | ((pkt[off + 2] as u32) << 8)
-        | (pkt[off + 3] as u32);
+    meta.flow_label =
+        ((pkt[off + 1] as u32 & 0x0F) << 16) | ((pkt[off + 2] as u32) << 8) | (pkt[off + 3] as u32);
     meta.addrs.v6_src.copy_from_slice(&pkt[off + 8..off + 24]);
     meta.addrs.v6_dst.copy_from_slice(&pkt[off + 24..off + 40]);
 }
@@ -116,34 +113,78 @@ pub(crate) fn extract_arp(pkt: &[u8], off: usize, meta: &mut FlowMeta) {
 #[derive(Clone, Copy, Debug)]
 pub enum TemplateId {
     // ── Plain (no encapsulation) ──
-    EthIpv4Tcp, EthIpv4Udp, EthIpv4Icmp, EthIpv4Sctp, EthIpv4Other,
-    EthIpv6Tcp, EthIpv6Udp, EthIpv6Icmpv6, EthIpv6Sctp, EthIpv6Other,
+    EthIpv4Tcp,
+    EthIpv4Udp,
+    EthIpv4Icmp,
+    EthIpv4Sctp,
+    EthIpv4Other,
+    EthIpv6Tcp,
+    EthIpv6Udp,
+    EthIpv6Icmpv6,
+    EthIpv6Sctp,
+    EthIpv6Other,
     EthArp,
     // ── Single VLAN (802.1Q) ──
-    EthVlanIpv4Tcp, EthVlanIpv4Udp, EthVlanIpv4Icmp, EthVlanIpv4Sctp, EthVlanIpv4Other,
-    EthVlanIpv6Tcp, EthVlanIpv6Udp, EthVlanIpv6Icmpv6, EthVlanIpv6Sctp, EthVlanIpv6Other,
+    EthVlanIpv4Tcp,
+    EthVlanIpv4Udp,
+    EthVlanIpv4Icmp,
+    EthVlanIpv4Sctp,
+    EthVlanIpv4Other,
+    EthVlanIpv6Tcp,
+    EthVlanIpv6Udp,
+    EthVlanIpv6Icmpv6,
+    EthVlanIpv6Sctp,
+    EthVlanIpv6Other,
     EthVlanArp,
     // ── QinQ (802.1ad + 802.1Q) ──
-    EthQinQIpv4Tcp, EthQinQIpv4Udp, EthQinQIpv4Icmp, EthQinQIpv4Sctp, EthQinQIpv4Other,
-    EthQinQIpv6Tcp, EthQinQIpv6Udp, EthQinQIpv6Icmpv6, EthQinQIpv6Sctp, EthQinQIpv6Other,
+    EthQinQIpv4Tcp,
+    EthQinQIpv4Udp,
+    EthQinQIpv4Icmp,
+    EthQinQIpv4Sctp,
+    EthQinQIpv4Other,
+    EthQinQIpv6Tcp,
+    EthQinQIpv6Udp,
+    EthQinQIpv6Icmpv6,
+    EthQinQIpv6Sctp,
+    EthQinQIpv6Other,
     EthQinQArp,
     // ── GRE (basic, no optional fields) ──
-    EthIpv4GreIpv4Tcp, EthIpv4GreIpv4Udp, EthIpv4GreIpv4Icmp,
-    EthIpv4GreIpv6Tcp, EthIpv4GreIpv6Udp, EthIpv4GreIpv6Icmpv6,
+    EthIpv4GreIpv4Tcp,
+    EthIpv4GreIpv4Udp,
+    EthIpv4GreIpv4Icmp,
+    EthIpv4GreIpv6Tcp,
+    EthIpv4GreIpv6Udp,
+    EthIpv4GreIpv6Icmpv6,
     // ── Double GRE ──
-    EthIpv4GreIpv4GreIpv4Tcp, EthIpv4GreIpv4GreIpv4Udp, EthIpv4GreIpv4GreIpv4Icmp,
+    EthIpv4GreIpv4GreIpv4Tcp,
+    EthIpv4GreIpv4GreIpv4Udp,
+    EthIpv4GreIpv4GreIpv4Icmp,
     // ── VLAN + GRE ──
-    EthVlanIpv4GreIpv4Tcp, EthVlanIpv4GreIpv4Udp, EthVlanIpv4GreIpv4Icmp,
-    EthVlanIpv4GreIpv6Tcp, EthVlanIpv4GreIpv6Udp, EthVlanIpv4GreIpv6Icmpv6,
+    EthVlanIpv4GreIpv4Tcp,
+    EthVlanIpv4GreIpv4Udp,
+    EthVlanIpv4GreIpv4Icmp,
+    EthVlanIpv4GreIpv6Tcp,
+    EthVlanIpv4GreIpv6Udp,
+    EthVlanIpv4GreIpv6Icmpv6,
     // ── QinQ + GRE ──
-    EthQinQIpv4GreIpv4Tcp, EthQinQIpv4GreIpv4Udp, EthQinQIpv4GreIpv4Icmp,
-    EthQinQIpv4GreIpv6Tcp, EthQinQIpv4GreIpv6Udp, EthQinQIpv4GreIpv6Icmpv6,
+    EthQinQIpv4GreIpv4Tcp,
+    EthQinQIpv4GreIpv4Udp,
+    EthQinQIpv4GreIpv4Icmp,
+    EthQinQIpv4GreIpv6Tcp,
+    EthQinQIpv4GreIpv6Udp,
+    EthQinQIpv4GreIpv6Icmpv6,
     // ── IP-in-IP (proto 4) ──
-    EthIpv4Ipv4Tcp, EthIpv4Ipv4Udp, EthIpv4Ipv4Icmp,
+    EthIpv4Ipv4Tcp,
+    EthIpv4Ipv4Udp,
+    EthIpv4Ipv4Icmp,
     // ── VLAN + IP-in-IP ──
-    EthVlanIpv4Ipv4Tcp, EthVlanIpv4Ipv4Udp, EthVlanIpv4Ipv4Icmp,
+    EthVlanIpv4Ipv4Tcp,
+    EthVlanIpv4Ipv4Udp,
+    EthVlanIpv4Ipv4Icmp,
     // ── QinQ + IP-in-IP ──
-    EthQinQIpv4Ipv4Tcp, EthQinQIpv4Ipv4Udp, EthQinQIpv4Ipv4Icmp,
+    EthQinQIpv4Ipv4Tcp,
+    EthQinQIpv4Ipv4Udp,
+    EthQinQIpv4Ipv4Icmp,
 }
 
 /// Dispatch to the specialized extractor for a pre-selected template.
@@ -152,77 +193,77 @@ pub fn extract_by_id(pkt: &[u8], id: TemplateId, meta: &mut FlowMeta) -> Result<
     use TemplateId::*;
     match id {
         // Plain
-        EthIpv4Tcp       => extract_eth_ipv4_tcp(pkt, meta),
-        EthIpv4Udp       => extract_eth_ipv4_udp(pkt, meta),
-        EthIpv4Icmp      => extract_eth_ipv4_icmp(pkt, meta),
-        EthIpv4Sctp      => extract_eth_ipv4_sctp(pkt, meta),
-        EthIpv4Other     => extract_eth_ipv4_other(pkt, meta),
-        EthIpv6Tcp       => extract_eth_ipv6_tcp(pkt, meta),
-        EthIpv6Udp       => extract_eth_ipv6_udp(pkt, meta),
-        EthIpv6Icmpv6    => extract_eth_ipv6_icmpv6(pkt, meta),
-        EthIpv6Sctp      => extract_eth_ipv6_sctp(pkt, meta),
-        EthIpv6Other     => extract_eth_ipv6_other(pkt, meta),
-        EthArp           => extract_eth_arp(pkt, meta),
+        EthIpv4Tcp => extract_eth_ipv4_tcp(pkt, meta),
+        EthIpv4Udp => extract_eth_ipv4_udp(pkt, meta),
+        EthIpv4Icmp => extract_eth_ipv4_icmp(pkt, meta),
+        EthIpv4Sctp => extract_eth_ipv4_sctp(pkt, meta),
+        EthIpv4Other => extract_eth_ipv4_other(pkt, meta),
+        EthIpv6Tcp => extract_eth_ipv6_tcp(pkt, meta),
+        EthIpv6Udp => extract_eth_ipv6_udp(pkt, meta),
+        EthIpv6Icmpv6 => extract_eth_ipv6_icmpv6(pkt, meta),
+        EthIpv6Sctp => extract_eth_ipv6_sctp(pkt, meta),
+        EthIpv6Other => extract_eth_ipv6_other(pkt, meta),
+        EthArp => extract_eth_arp(pkt, meta),
         // VLAN
-        EthVlanIpv4Tcp    => extract_vlan_ipv4_tcp(pkt, meta),
-        EthVlanIpv4Udp    => extract_vlan_ipv4_udp(pkt, meta),
-        EthVlanIpv4Icmp   => extract_vlan_ipv4_icmp(pkt, meta),
-        EthVlanIpv4Sctp   => extract_vlan_ipv4_sctp(pkt, meta),
-        EthVlanIpv4Other  => extract_vlan_ipv4_other(pkt, meta),
-        EthVlanIpv6Tcp    => extract_vlan_ipv6_tcp(pkt, meta),
-        EthVlanIpv6Udp    => extract_vlan_ipv6_udp(pkt, meta),
+        EthVlanIpv4Tcp => extract_vlan_ipv4_tcp(pkt, meta),
+        EthVlanIpv4Udp => extract_vlan_ipv4_udp(pkt, meta),
+        EthVlanIpv4Icmp => extract_vlan_ipv4_icmp(pkt, meta),
+        EthVlanIpv4Sctp => extract_vlan_ipv4_sctp(pkt, meta),
+        EthVlanIpv4Other => extract_vlan_ipv4_other(pkt, meta),
+        EthVlanIpv6Tcp => extract_vlan_ipv6_tcp(pkt, meta),
+        EthVlanIpv6Udp => extract_vlan_ipv6_udp(pkt, meta),
         EthVlanIpv6Icmpv6 => extract_vlan_ipv6_icmpv6(pkt, meta),
-        EthVlanIpv6Sctp   => extract_vlan_ipv6_sctp(pkt, meta),
-        EthVlanIpv6Other  => extract_vlan_ipv6_other(pkt, meta),
-        EthVlanArp        => extract_vlan_arp(pkt, meta),
+        EthVlanIpv6Sctp => extract_vlan_ipv6_sctp(pkt, meta),
+        EthVlanIpv6Other => extract_vlan_ipv6_other(pkt, meta),
+        EthVlanArp => extract_vlan_arp(pkt, meta),
         // QinQ
-        EthQinQIpv4Tcp    => extract_qinq_ipv4_tcp(pkt, meta),
-        EthQinQIpv4Udp    => extract_qinq_ipv4_udp(pkt, meta),
-        EthQinQIpv4Icmp   => extract_qinq_ipv4_icmp(pkt, meta),
-        EthQinQIpv4Sctp   => extract_qinq_ipv4_sctp(pkt, meta),
-        EthQinQIpv4Other  => extract_qinq_ipv4_other(pkt, meta),
-        EthQinQIpv6Tcp    => extract_qinq_ipv6_tcp(pkt, meta),
-        EthQinQIpv6Udp    => extract_qinq_ipv6_udp(pkt, meta),
+        EthQinQIpv4Tcp => extract_qinq_ipv4_tcp(pkt, meta),
+        EthQinQIpv4Udp => extract_qinq_ipv4_udp(pkt, meta),
+        EthQinQIpv4Icmp => extract_qinq_ipv4_icmp(pkt, meta),
+        EthQinQIpv4Sctp => extract_qinq_ipv4_sctp(pkt, meta),
+        EthQinQIpv4Other => extract_qinq_ipv4_other(pkt, meta),
+        EthQinQIpv6Tcp => extract_qinq_ipv6_tcp(pkt, meta),
+        EthQinQIpv6Udp => extract_qinq_ipv6_udp(pkt, meta),
         EthQinQIpv6Icmpv6 => extract_qinq_ipv6_icmpv6(pkt, meta),
-        EthQinQIpv6Sctp   => extract_qinq_ipv6_sctp(pkt, meta),
-        EthQinQIpv6Other  => extract_qinq_ipv6_other(pkt, meta),
-        EthQinQArp        => extract_qinq_arp(pkt, meta),
+        EthQinQIpv6Sctp => extract_qinq_ipv6_sctp(pkt, meta),
+        EthQinQIpv6Other => extract_qinq_ipv6_other(pkt, meta),
+        EthQinQArp => extract_qinq_arp(pkt, meta),
         // GRE (plain)
-        EthIpv4GreIpv4Tcp     => extract_gre_ipv4_tcp(pkt, meta),
-        EthIpv4GreIpv4Udp     => extract_gre_ipv4_udp(pkt, meta),
-        EthIpv4GreIpv4Icmp    => extract_gre_ipv4_icmp(pkt, meta),
-        EthIpv4GreIpv6Tcp     => extract_gre_ipv6_tcp(pkt, meta),
-        EthIpv4GreIpv6Udp     => extract_gre_ipv6_udp(pkt, meta),
-        EthIpv4GreIpv6Icmpv6  => extract_gre_ipv6_icmpv6(pkt, meta),
+        EthIpv4GreIpv4Tcp => extract_gre_ipv4_tcp(pkt, meta),
+        EthIpv4GreIpv4Udp => extract_gre_ipv4_udp(pkt, meta),
+        EthIpv4GreIpv4Icmp => extract_gre_ipv4_icmp(pkt, meta),
+        EthIpv4GreIpv6Tcp => extract_gre_ipv6_tcp(pkt, meta),
+        EthIpv4GreIpv6Udp => extract_gre_ipv6_udp(pkt, meta),
+        EthIpv4GreIpv6Icmpv6 => extract_gre_ipv6_icmpv6(pkt, meta),
         // Double GRE
-        EthIpv4GreIpv4GreIpv4Tcp  => extract_gre2_ipv4_tcp(pkt, meta),
-        EthIpv4GreIpv4GreIpv4Udp  => extract_gre2_ipv4_udp(pkt, meta),
+        EthIpv4GreIpv4GreIpv4Tcp => extract_gre2_ipv4_tcp(pkt, meta),
+        EthIpv4GreIpv4GreIpv4Udp => extract_gre2_ipv4_udp(pkt, meta),
         EthIpv4GreIpv4GreIpv4Icmp => extract_gre2_ipv4_icmp(pkt, meta),
         // VLAN+GRE
-        EthVlanIpv4GreIpv4Tcp     => extract_vlan_gre_ipv4_tcp(pkt, meta),
-        EthVlanIpv4GreIpv4Udp     => extract_vlan_gre_ipv4_udp(pkt, meta),
-        EthVlanIpv4GreIpv4Icmp    => extract_vlan_gre_ipv4_icmp(pkt, meta),
-        EthVlanIpv4GreIpv6Tcp     => extract_vlan_gre_ipv6_tcp(pkt, meta),
-        EthVlanIpv4GreIpv6Udp     => extract_vlan_gre_ipv6_udp(pkt, meta),
-        EthVlanIpv4GreIpv6Icmpv6  => extract_vlan_gre_ipv6_icmpv6(pkt, meta),
+        EthVlanIpv4GreIpv4Tcp => extract_vlan_gre_ipv4_tcp(pkt, meta),
+        EthVlanIpv4GreIpv4Udp => extract_vlan_gre_ipv4_udp(pkt, meta),
+        EthVlanIpv4GreIpv4Icmp => extract_vlan_gre_ipv4_icmp(pkt, meta),
+        EthVlanIpv4GreIpv6Tcp => extract_vlan_gre_ipv6_tcp(pkt, meta),
+        EthVlanIpv4GreIpv6Udp => extract_vlan_gre_ipv6_udp(pkt, meta),
+        EthVlanIpv4GreIpv6Icmpv6 => extract_vlan_gre_ipv6_icmpv6(pkt, meta),
         // QinQ+GRE
-        EthQinQIpv4GreIpv4Tcp     => extract_qinq_gre_ipv4_tcp(pkt, meta),
-        EthQinQIpv4GreIpv4Udp     => extract_qinq_gre_ipv4_udp(pkt, meta),
-        EthQinQIpv4GreIpv4Icmp    => extract_qinq_gre_ipv4_icmp(pkt, meta),
-        EthQinQIpv4GreIpv6Tcp     => extract_qinq_gre_ipv6_tcp(pkt, meta),
-        EthQinQIpv4GreIpv6Udp     => extract_qinq_gre_ipv6_udp(pkt, meta),
-        EthQinQIpv4GreIpv6Icmpv6  => extract_qinq_gre_ipv6_icmpv6(pkt, meta),
+        EthQinQIpv4GreIpv4Tcp => extract_qinq_gre_ipv4_tcp(pkt, meta),
+        EthQinQIpv4GreIpv4Udp => extract_qinq_gre_ipv4_udp(pkt, meta),
+        EthQinQIpv4GreIpv4Icmp => extract_qinq_gre_ipv4_icmp(pkt, meta),
+        EthQinQIpv4GreIpv6Tcp => extract_qinq_gre_ipv6_tcp(pkt, meta),
+        EthQinQIpv4GreIpv6Udp => extract_qinq_gre_ipv6_udp(pkt, meta),
+        EthQinQIpv4GreIpv6Icmpv6 => extract_qinq_gre_ipv6_icmpv6(pkt, meta),
         // IP-in-IP (plain)
-        EthIpv4Ipv4Tcp  => extract_ipip_tcp(pkt, meta),
-        EthIpv4Ipv4Udp  => extract_ipip_udp(pkt, meta),
+        EthIpv4Ipv4Tcp => extract_ipip_tcp(pkt, meta),
+        EthIpv4Ipv4Udp => extract_ipip_udp(pkt, meta),
         EthIpv4Ipv4Icmp => extract_ipip_icmp(pkt, meta),
         // VLAN+IP-in-IP
-        EthVlanIpv4Ipv4Tcp  => extract_vlan_ipip_tcp(pkt, meta),
-        EthVlanIpv4Ipv4Udp  => extract_vlan_ipip_udp(pkt, meta),
+        EthVlanIpv4Ipv4Tcp => extract_vlan_ipip_tcp(pkt, meta),
+        EthVlanIpv4Ipv4Udp => extract_vlan_ipip_udp(pkt, meta),
         EthVlanIpv4Ipv4Icmp => extract_vlan_ipip_icmp(pkt, meta),
         // QinQ+IP-in-IP
-        EthQinQIpv4Ipv4Tcp  => extract_qinq_ipip_tcp(pkt, meta),
-        EthQinQIpv4Ipv4Udp  => extract_qinq_ipip_udp(pkt, meta),
+        EthQinQIpv4Ipv4Tcp => extract_qinq_ipip_tcp(pkt, meta),
+        EthQinQIpv4Ipv4Udp => extract_qinq_ipip_udp(pkt, meta),
         EthQinQIpv4Ipv4Icmp => extract_qinq_ipip_icmp(pkt, meta),
     }
 }
@@ -265,7 +306,11 @@ pub fn select_template_id(pkt: &[u8]) -> Option<TemplateId> {
 
 /// L2 encapsulation variant for classifier dispatch.
 #[derive(Clone, Copy)]
-enum L2Kind { Plain, Vlan, QinQ }
+enum L2Kind {
+    Plain,
+    Vlan,
+    QinQ,
+}
 
 fn classify_vlan(pkt: &[u8]) -> Option<TemplateId> {
     if pkt.len() < VLAN_L3 + 2 {
@@ -303,8 +348,8 @@ fn classify_arp(pkt: &[u8], l3_off: usize, kind: L2Kind) -> Option<TemplateId> {
     }
     Some(match kind {
         L2Kind::Plain => TemplateId::EthArp,
-        L2Kind::Vlan  => TemplateId::EthVlanArp,
-        L2Kind::QinQ  => TemplateId::EthQinQArp,
+        L2Kind::Vlan => TemplateId::EthVlanArp,
+        L2Kind::QinQ => TemplateId::EthQinQArp,
     })
 }
 
@@ -319,30 +364,30 @@ fn classify_ipv4(pkt: &[u8], l3_off: usize, kind: L2Kind) -> Option<TemplateId> 
     match proto {
         6 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Tcp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Tcp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Tcp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Tcp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Tcp,
         }),
         17 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Udp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Udp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Udp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Udp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Udp,
         }),
         1 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Icmp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Icmp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Icmp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Icmp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Icmp,
         }),
         132 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Sctp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Sctp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Sctp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Sctp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Sctp,
         }),
         47 => classify_gre(pkt, l3_off + 20, kind),
         4 => classify_ipip(pkt, l3_off + 20, kind),
         _ => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Other,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Other,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Other,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Other,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Other,
         }),
     }
 }
@@ -355,30 +400,30 @@ fn classify_ipv6(pkt: &[u8], l3_off: usize, kind: L2Kind) -> Option<TemplateId> 
     match next_hdr {
         6 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv6Tcp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv6Tcp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv6Tcp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv6Tcp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv6Tcp,
         }),
         17 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv6Udp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv6Udp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv6Udp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv6Udp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv6Udp,
         }),
         58 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv6Icmpv6,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv6Icmpv6,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv6Icmpv6,
+            L2Kind::Vlan => TemplateId::EthVlanIpv6Icmpv6,
+            L2Kind::QinQ => TemplateId::EthQinQIpv6Icmpv6,
         }),
         132 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv6Sctp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv6Sctp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv6Sctp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv6Sctp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv6Sctp,
         }),
         // IPv6 extension headers (0,43,44,51,50,60,135) have variable length — fall back.
         0 | 43 | 44 | 50 | 51 | 60 | 135 => None,
         _ => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv6Other,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv6Other,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv6Other,
+            L2Kind::Vlan => TemplateId::EthVlanIpv6Other,
+            L2Kind::QinQ => TemplateId::EthQinQIpv6Other,
         }),
     }
 }
@@ -404,18 +449,18 @@ fn classify_gre(pkt: &[u8], gre_off: usize, kind: L2Kind) -> Option<TemplateId> 
             match inner_proto {
                 6 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv4Tcp,
-                    L2Kind::Vlan  => TemplateId::EthVlanIpv4GreIpv4Tcp,
-                    L2Kind::QinQ  => TemplateId::EthQinQIpv4GreIpv4Tcp,
+                    L2Kind::Vlan => TemplateId::EthVlanIpv4GreIpv4Tcp,
+                    L2Kind::QinQ => TemplateId::EthQinQIpv4GreIpv4Tcp,
                 }),
                 17 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv4Udp,
-                    L2Kind::Vlan  => TemplateId::EthVlanIpv4GreIpv4Udp,
-                    L2Kind::QinQ  => TemplateId::EthQinQIpv4GreIpv4Udp,
+                    L2Kind::Vlan => TemplateId::EthVlanIpv4GreIpv4Udp,
+                    L2Kind::QinQ => TemplateId::EthQinQIpv4GreIpv4Udp,
                 }),
                 1 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv4Icmp,
-                    L2Kind::Vlan  => TemplateId::EthVlanIpv4GreIpv4Icmp,
-                    L2Kind::QinQ  => TemplateId::EthQinQIpv4GreIpv4Icmp,
+                    L2Kind::Vlan => TemplateId::EthVlanIpv4GreIpv4Icmp,
+                    L2Kind::QinQ => TemplateId::EthQinQIpv4GreIpv4Icmp,
                 }),
                 // Double GRE only for plain (no VLAN/QinQ double-GRE)
                 47 if matches!(kind, L2Kind::Plain) => classify_gre2(pkt, inner + 20),
@@ -430,18 +475,18 @@ fn classify_gre(pkt: &[u8], gre_off: usize, kind: L2Kind) -> Option<TemplateId> 
             match next_hdr {
                 6 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv6Tcp,
-                    L2Kind::Vlan  => TemplateId::EthVlanIpv4GreIpv6Tcp,
-                    L2Kind::QinQ  => TemplateId::EthQinQIpv4GreIpv6Tcp,
+                    L2Kind::Vlan => TemplateId::EthVlanIpv4GreIpv6Tcp,
+                    L2Kind::QinQ => TemplateId::EthQinQIpv4GreIpv6Tcp,
                 }),
                 17 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv6Udp,
-                    L2Kind::Vlan  => TemplateId::EthVlanIpv4GreIpv6Udp,
-                    L2Kind::QinQ  => TemplateId::EthQinQIpv4GreIpv6Udp,
+                    L2Kind::Vlan => TemplateId::EthVlanIpv4GreIpv6Udp,
+                    L2Kind::QinQ => TemplateId::EthQinQIpv4GreIpv6Udp,
                 }),
                 58 => Some(match kind {
                     L2Kind::Plain => TemplateId::EthIpv4GreIpv6Icmpv6,
-                    L2Kind::Vlan  => TemplateId::EthVlanIpv4GreIpv6Icmpv6,
-                    L2Kind::QinQ  => TemplateId::EthQinQIpv4GreIpv6Icmpv6,
+                    L2Kind::Vlan => TemplateId::EthVlanIpv4GreIpv6Icmpv6,
+                    L2Kind::QinQ => TemplateId::EthQinQIpv4GreIpv6Icmpv6,
                 }),
                 _ => None,
             }
@@ -469,10 +514,10 @@ fn classify_gre2(pkt: &[u8], gre_off: usize) -> Option<TemplateId> {
         return None;
     }
     match pkt[inner + 9] {
-        6  => Some(TemplateId::EthIpv4GreIpv4GreIpv4Tcp),
+        6 => Some(TemplateId::EthIpv4GreIpv4GreIpv4Tcp),
         17 => Some(TemplateId::EthIpv4GreIpv4GreIpv4Udp),
-        1  => Some(TemplateId::EthIpv4GreIpv4GreIpv4Icmp),
-        _  => None,
+        1 => Some(TemplateId::EthIpv4GreIpv4GreIpv4Icmp),
+        _ => None,
     }
 }
 
@@ -486,18 +531,18 @@ fn classify_ipip(pkt: &[u8], inner_off: usize, kind: L2Kind) -> Option<TemplateI
     match pkt[inner_off + 9] {
         6 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Ipv4Tcp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Ipv4Tcp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Ipv4Tcp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Ipv4Tcp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Ipv4Tcp,
         }),
         17 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Ipv4Udp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Ipv4Udp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Ipv4Udp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Ipv4Udp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Ipv4Udp,
         }),
         1 => Some(match kind {
             L2Kind::Plain => TemplateId::EthIpv4Ipv4Icmp,
-            L2Kind::Vlan  => TemplateId::EthVlanIpv4Ipv4Icmp,
-            L2Kind::QinQ  => TemplateId::EthQinQIpv4Ipv4Icmp,
+            L2Kind::Vlan => TemplateId::EthVlanIpv4Ipv4Icmp,
+            L2Kind::QinQ => TemplateId::EthQinQIpv4Ipv4Icmp,
         }),
         _ => None,
     }
@@ -516,7 +561,7 @@ mod tests {
         pkt[6..12].copy_from_slice(&[0xBB; 6]);
         pkt[12..14].copy_from_slice(&0x0800u16.to_be_bytes());
         pkt[14] = 0x45; // IPv4, IHL=5
-        pkt[23] = 6;    // TCP
+        pkt[23] = 6; // TCP
         pkt[26..30].copy_from_slice(&[10, 0, 0, 1]);
         pkt[30..34].copy_from_slice(&[10, 0, 0, 2]);
         pkt[34..36].copy_from_slice(&80u16.to_be_bytes());
@@ -529,21 +574,30 @@ mod tests {
     #[test]
     fn classify_eth_ipv4_tcp() {
         let pkt = make_eth_ipv4_tcp();
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Tcp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthIpv4Tcp)
+        ));
     }
 
     #[test]
     fn classify_eth_ipv4_udp() {
         let mut pkt = make_eth_ipv4_tcp();
         pkt[23] = 17;
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Udp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthIpv4Udp)
+        ));
     }
 
     #[test]
     fn classify_eth_ipv4_icmp() {
         let mut pkt = make_eth_ipv4_tcp();
         pkt[23] = 1;
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Icmp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthIpv4Icmp)
+        ));
     }
 
     #[test]
@@ -552,7 +606,10 @@ mod tests {
         pkt[12..14].copy_from_slice(&0x0800u16.to_be_bytes());
         pkt[14] = 0x45;
         pkt[23] = 132;
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv4Sctp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthIpv4Sctp)
+        ));
     }
 
     #[test]
@@ -561,7 +618,10 @@ mod tests {
         pkt[12..14].copy_from_slice(&0x86DDu16.to_be_bytes());
         pkt[14] = 0x60;
         pkt[20] = 6;
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthIpv6Tcp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthIpv6Tcp)
+        ));
     }
 
     #[test]
@@ -578,7 +638,10 @@ mod tests {
         pkt[16..18].copy_from_slice(&0x0800u16.to_be_bytes());
         pkt[18] = 0x45;
         pkt[27] = 6;
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthVlanIpv4Tcp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthVlanIpv4Tcp)
+        ));
     }
 
     #[test]
@@ -589,7 +652,10 @@ mod tests {
         pkt[20..22].copy_from_slice(&0x0800u16.to_be_bytes());
         pkt[22] = 0x45;
         pkt[31] = 6;
-        assert!(matches!(select_template_id(&pkt), Some(TemplateId::EthQinQIpv4Tcp)));
+        assert!(matches!(
+            select_template_id(&pkt),
+            Some(TemplateId::EthQinQIpv4Tcp)
+        ));
     }
 
     #[test]

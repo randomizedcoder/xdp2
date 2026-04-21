@@ -43,9 +43,7 @@ pub mod proc_net;
 pub mod reconciler;
 pub mod security;
 
-pub use controller::{
-    ControllerError, TemplateController, CHAIN_DYNAMIC, FIRST_DYNAMIC_SLOT,
-};
+pub use controller::{ControllerError, TemplateController, CHAIN_DYNAMIC, FIRST_DYNAMIC_SLOT};
 pub use hysteresis::{Hysteresis, ListenerKey, DEFAULT_RETIRE_GRACE};
 pub use proc_net::{enumerate_procfs, enumerate_procfs_all};
 pub use reconciler::{Backend, ReconcileError, Reconciler, SlotAssigner, TickStats};
@@ -254,8 +252,8 @@ pub fn enumerate(family: Family, proto: Proto) -> Result<Vec<ListenSocket>, Enum
         }
     }
     {
-        let body_ptr = unsafe { req.as_mut_ptr().add(mem::size_of::<Nlmsghdr>()) }
-            as *mut InetDiagReqV2;
+        let body_ptr =
+            unsafe { req.as_mut_ptr().add(mem::size_of::<Nlmsghdr>()) } as *mut InetDiagReqV2;
         // SAFETY: same bounds argument as above; body is inside `req`.
         unsafe {
             std::ptr::write_unaligned(
@@ -318,9 +316,8 @@ pub fn enumerate(family: Family, proto: Proto) -> Result<Vec<ListenSocket>, Enum
         let n_usize = n as usize;
 
         while offset + mem::size_of::<Nlmsghdr>() <= n_usize {
-            let hdr = unsafe {
-                std::ptr::read_unaligned(buf.as_ptr().add(offset) as *const Nlmsghdr)
-            };
+            let hdr =
+                unsafe { std::ptr::read_unaligned(buf.as_ptr().add(offset) as *const Nlmsghdr) };
             let msg_len = hdr.nlmsg_len as usize;
             if msg_len < mem::size_of::<Nlmsghdr>() || offset + msg_len > n_usize {
                 return Err(EnumerateError::Truncated);
@@ -350,9 +347,7 @@ pub fn enumerate(family: Family, proto: Proto) -> Result<Vec<ListenSocket>, Enum
                         return Err(EnumerateError::Truncated);
                     }
                     let msg = unsafe {
-                        std::ptr::read_unaligned(
-                            buf.as_ptr().add(body_off) as *const InetDiagMsg,
-                        )
+                        std::ptr::read_unaligned(buf.as_ptr().add(body_off) as *const InetDiagMsg)
                     };
                     out.push(ListenSocket {
                         family,
@@ -386,7 +381,11 @@ pub fn enumerate_all() -> Result<Vec<ListenSocket>, EnumerateError> {
                 // Per-combo failure should not mask the other three;
                 // caller likely wants best-effort behaviour (they can
                 // filter by `family`/`proto` if they need strict).
-                Err(EnumerateError::Socket(_)) => return Err(EnumerateError::Socket(io::Error::from(io::ErrorKind::PermissionDenied))),
+                Err(EnumerateError::Socket(_)) => {
+                    return Err(EnumerateError::Socket(io::Error::from(
+                        io::ErrorKind::PermissionDenied,
+                    )))
+                }
                 Err(e) => return Err(e),
             }
         }

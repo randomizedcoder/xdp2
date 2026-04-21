@@ -54,7 +54,10 @@ mod tests {
     #[test]
     fn esp_is_leaf() {
         let ops = EspOps;
-        assert!(matches!(ops.next_proto(&[0u8; 8]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 8]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

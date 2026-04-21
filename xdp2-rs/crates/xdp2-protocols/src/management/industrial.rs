@@ -17,7 +17,9 @@ impl ProtocolOps for ModbusOps {
     const MIN_LEN: usize = 7;
     const NAME: &'static str = "Modbus";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Profinet header (2 bytes). Reimplements: `struct profinet_hdr` in `proto_profinet.h`
@@ -31,7 +33,9 @@ impl ProtocolOps for ProfinetOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "Profinet";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// CoAP header (4 bytes). Reimplements: `struct coap_hdr` in `proto_coap.h`
@@ -47,7 +51,9 @@ impl ProtocolOps for CoapOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CoAP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// DNP3 header (10 bytes). Reimplements: `struct dnp3_hdr` in `proto_dnp3.h`
@@ -66,7 +72,9 @@ impl ProtocolOps for Dnp3Ops {
     const MIN_LEN: usize = 10;
     const NAME: &'static str = "DNP3";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// BACnet header (4 bytes). Reimplements: `struct bacnet_hdr` in `proto_bacnet.h`
@@ -82,7 +90,9 @@ impl ProtocolOps for BacnetOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "BACnet";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// CIP header (2 bytes). Reimplements: `struct cip_hdr` in `proto_cip.h`
@@ -97,7 +107,9 @@ impl ProtocolOps for CipOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "CIP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// IEC GOOSE header (8 bytes). Reimplements: `struct iec_goose_hdr` in `proto_iec_goose.h`
@@ -114,7 +126,9 @@ impl ProtocolOps for IecGooseOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IEC GOOSE";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// IEC SV header (8 bytes). Reimplements: `struct iec_sv_hdr` in `proto_iec_sv.h`
@@ -131,7 +145,9 @@ impl ProtocolOps for IecSvOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IEC SV";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// IEC MMS header (2 bytes). Reimplements: `struct iec_mms_hdr` in `proto_iec_mms.h`
@@ -146,7 +162,9 @@ impl ProtocolOps for IecMmsOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "IEC MMS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// EtherNet/IP header (24 bytes). Reimplements: `struct enip_hdr` in `proto_enip.h`
@@ -165,7 +183,9 @@ impl ProtocolOps for EnipOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "EtherNet/IP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -174,6 +194,9 @@ mod tests {
 
     #[test]
     fn modbus_is_leaf() {
-        assert!(matches!(ModbusOps.next_proto(&[0u8; 7]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ModbusOps.next_proto(&[0u8; 7]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

@@ -142,26 +142,41 @@ mod tests {
 
     #[test]
     fn hci_cmd_is_leaf() {
-        assert!(matches!(HciCommandOps.next_proto(&[0u8; 3]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            HciCommandOps.next_proto(&[0u8; 3]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn hci_event_is_leaf() {
-        assert!(matches!(HciEventOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            HciEventOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn hci_acl_is_leaf() {
-        assert!(matches!(HciAclOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            HciAclOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn hci_sco_is_leaf() {
-        assert!(matches!(HciScoOps.next_proto(&[0u8; 3]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            HciScoOps.next_proto(&[0u8; 3]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn hci_iso_is_leaf() {
-        assert!(matches!(HciIsoOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            HciIsoOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

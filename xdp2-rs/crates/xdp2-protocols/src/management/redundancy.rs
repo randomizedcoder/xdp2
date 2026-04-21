@@ -20,7 +20,9 @@ impl ProtocolOps for VrrpOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "VRRP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// HSRP header (20 bytes). Reimplements: `struct hsrphdr` in `proto_hsrp.h`
@@ -43,7 +45,9 @@ impl ProtocolOps for HsrpOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "HSRP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// GLBP header (4 bytes). Reimplements: `struct glbp_hdr` in `proto_glbp.h`
@@ -59,7 +63,9 @@ impl ProtocolOps for GlbpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "GLBP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// CARP header (4 bytes). Reimplements: `struct carp_hdr` in `proto_carp.h`
@@ -76,7 +82,9 @@ impl ProtocolOps for CarpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CARP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -85,6 +93,9 @@ mod tests {
 
     #[test]
     fn vrrp_is_leaf() {
-        assert!(matches!(VrrpOps.next_proto(&[0u8; 8]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            VrrpOps.next_proto(&[0u8; 8]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

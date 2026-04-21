@@ -56,7 +56,12 @@ pub fn run_oracle(parser: &Parser<FlowMeta>, pkt: &[u8]) -> OracleResult {
     // Check consistency
     let consistent = check_consistency(&graph, &mono, &compiled);
 
-    OracleResult { graph, mono, compiled, consistent }
+    OracleResult {
+        graph,
+        mono,
+        compiled,
+        consistent,
+    }
 }
 
 /// Check whether all 3 results agree.
@@ -92,9 +97,21 @@ pub fn assert_oracle(parser: &Parser<FlowMeta>, pkt: &[u8]) {
              Mono:     {:?}\n\
              Compiled: {:?}",
             pkt.len(),
-            result.graph.as_ref().map(|_| "Ok(...)").unwrap_or("Err(...)"),
-            result.mono.as_ref().map(|_| "Ok(...)").unwrap_or("Err(...)"),
-            result.compiled.as_ref().map(|_| "Ok(...)").unwrap_or("Err(...)"),
+            result
+                .graph
+                .as_ref()
+                .map(|_| "Ok(...)")
+                .unwrap_or("Err(...)"),
+            result
+                .mono
+                .as_ref()
+                .map(|_| "Ok(...)")
+                .unwrap_or("Err(...)"),
+            result
+                .compiled
+                .as_ref()
+                .map(|_| "Ok(...)")
+                .unwrap_or("Err(...)"),
         );
     }
 }
@@ -139,7 +156,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00,
         ];
         let result = run_oracle(&parser(), &pkt);
-        assert!(result.consistent, "Oracle divergence on valid IPv4/TCP packet");
+        assert!(
+            result.consistent,
+            "Oracle divergence on valid IPv4/TCP packet"
+        );
         assert!(result.graph.is_ok());
     }
 
@@ -147,9 +167,7 @@ mod tests {
     fn oracle_truncated_packet() {
         // Valid Ethernet header but truncated IPv4
         let pkt = [
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-            0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB,
-            0x08, 0x00,
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0x08, 0x00,
             0x45, 0x00, // only 2 bytes of IPv4
         ];
         let result = run_oracle(&parser(), &pkt);
@@ -175,7 +193,11 @@ mod tests {
         for b in 0..=255u8 {
             let pkt = [b];
             let result = run_oracle(&parser(), &[b]);
-            assert!(result.consistent, "Oracle divergence on single byte {:#04x}", b);
+            assert!(
+                result.consistent,
+                "Oracle divergence on single byte {:#04x}",
+                b
+            );
             assert!(result.graph.is_err());
             let _ = pkt;
         }

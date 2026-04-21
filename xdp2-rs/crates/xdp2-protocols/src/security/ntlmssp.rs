@@ -52,7 +52,10 @@ mod tests {
     #[test]
     fn ntlmssp_is_leaf() {
         let ops = NtlmsspOps;
-        assert!(matches!(ops.next_proto(&[0u8; 12]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 12]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

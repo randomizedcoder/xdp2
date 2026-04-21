@@ -44,6 +44,9 @@ mod tests {
     #[test]
     fn ocsp_is_leaf() {
         let ops = OcspOps;
-        assert!(matches!(ops.next_proto(&[0u8; 1]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 1]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

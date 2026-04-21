@@ -6,8 +6,8 @@
 //! `N: NodeOps<M>`. At each dispatch point the compiler emits a direct
 //! `match` on the concrete enum instead of a vtable indirect call.
 
-use crate::enum_dispatch::node::NodeOps;
 use crate::engine::ParseOutput;
+use crate::enum_dispatch::node::NodeOps;
 use crate::parser::ParserConfig;
 use crate::types::{CtrlData, CtrlKeyData, ParseError, ParseResult};
 
@@ -77,9 +77,8 @@ pub fn parse_enum<M: Default + 'static, N: NodeOps<M>>(
                             offset += hdr_len;
                         }
                         node = wild;
-                        nodes_remaining = nodes_remaining
-                            .checked_sub(1)
-                            .ok_or(ParseError::MaxNodes)?;
+                        nodes_remaining =
+                            nodes_remaining.checked_sub(1).ok_or(ParseError::MaxNodes)?;
                         ctrl.var.node_cnt += 1;
                         continue;
                     }
@@ -111,9 +110,7 @@ pub fn parse_enum<M: Default + 'static, N: NodeOps<M>>(
             offset += hdr_len;
         }
 
-        nodes_remaining = nodes_remaining
-            .checked_sub(1)
-            .ok_or(ParseError::MaxNodes)?;
+        nodes_remaining = nodes_remaining.checked_sub(1).ok_or(ParseError::MaxNodes)?;
         ctrl.var.node_cnt += 1;
         node = next_node;
     };

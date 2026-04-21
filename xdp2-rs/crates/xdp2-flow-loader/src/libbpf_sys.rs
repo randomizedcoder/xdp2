@@ -66,9 +66,5 @@ unsafe extern "C" {
         flags: c_uint,
     ) -> c_int;
 
-    pub fn bpf_prog_detach2(
-        prog_fd: c_int,
-        target_fd: c_int,
-        attach_type: c_uint,
-    ) -> c_int;
+    pub fn bpf_prog_detach2(prog_fd: c_int, target_fd: c_int, attach_type: c_uint) -> c_int;
 }

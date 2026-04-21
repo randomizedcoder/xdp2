@@ -3,47 +3,46 @@
 // All static ParseNode, ProtoTable, ParseFlagFieldNode, and
 // ParseFlagFieldsNode declarations for the benchmark parse graph.
 
-use xdp2_core::{
-    ParseError, ParseNode, ParseNodeOps, ProtocolOps, ProtoTable,
-    proto_table,
-};
 use xdp2_core::flag_fields::{
-    FlagFieldsTable, FlagFieldsTableEntry,
-    ParseFlagFieldNode, ParseFlagFieldNodeOps, ParseFlagFieldsNode,
+    FlagFieldsTable, FlagFieldsTableEntry, ParseFlagFieldNode, ParseFlagFieldNodeOps,
+    ParseFlagFieldsNode,
 };
+use xdp2_core::{proto_table, ParseError, ParseNode, ParseNodeOps, ProtoTable, ProtocolOps};
 use xdp2_protocols::ethernet::llc::{LlcOps, LlcSnapOps};
 
 use xdp2_protocols::ip::arp::ArpOps;
+use xdp2_protocols::ip::icmp::{IcmpV4Ops, IcmpV6Ops};
 use xdp2_protocols::ip::ipv4::Ipv4Ops;
 use xdp2_protocols::ip::ipv6::Ipv6Ops;
 use xdp2_protocols::ip::ipv6_eh::{Ipv6EhOps, Ipv6FragOps};
-use xdp2_protocols::ip::icmp::{IcmpV4Ops, IcmpV6Ops};
-use xdp2_protocols::transport::tcp::TcpOps;
-use xdp2_protocols::transport::sctp::SctpOps;
 use xdp2_protocols::transport::dccp::DccpOps;
+use xdp2_protocols::transport::sctp::SctpOps;
+use xdp2_protocols::transport::tcp::TcpOps;
 use xdp2_protocols::transport::udplite::UdpLiteOps;
 // IpInIpOps removed — IP-in-IP tunnels dispatch through IP_CHECK_NODE directly.
-use xdp2_protocols::tunnel::mpls::MplsOps;
-use xdp2_protocols::ip::igmp::IgmpOps;
-use xdp2_protocols::security::{EspOps, EapolOps, MacsecOps};
-use xdp2_protocols::tunnel::vxlan::VxlanOps;
-use xdp2_protocols::tunnel::geneve::GeneveV0Ops;
-use xdp2_protocols::tunnel::gre::{GreBaseOps, GreV0Ops, GRE_V0_FLAG_FIELDS, GRE_FF_OPS};
-use xdp2_protocols::ip::ip_overlay::IpOverlayOps;
-use xdp2_protocols::security::ah::AhOps;
+use xdp2_protocols::ethernet::pbb::PbbOps;
 use xdp2_protocols::ip::arp::RarpOps;
-use xdp2_protocols::transport::tipc::TipcOps;
-use xdp2_protocols::management::{LldpOps, SlowOps, MacControlOps, PtpOps, MvrpOps, CfmOps, FipOps};
+use xdp2_protocols::ip::igmp::IgmpOps;
+use xdp2_protocols::ip::ip_overlay::IpOverlayOps;
+use xdp2_protocols::legacy::BatmanOps;
 use xdp2_protocols::management::trill::TrillOps;
+use xdp2_protocols::management::{
+    CfmOps, FipOps, LldpOps, MacControlOps, MvrpOps, PtpOps, SlowOps,
+};
+use xdp2_protocols::security::ah::AhOps;
+use xdp2_protocols::security::{EapolOps, EspOps, MacsecOps};
 use xdp2_protocols::storage::fc::FcoeOps;
 use xdp2_protocols::storage::misc::EthercatOps;
-use xdp2_protocols::legacy::BatmanOps;
-use xdp2_protocols::ethernet::pbb::PbbOps;
-use xdp2_protocols::tunnel::{PppoeOps, HsrOps};
+use xdp2_protocols::transport::tipc::TipcOps;
+use xdp2_protocols::tunnel::geneve::GeneveV0Ops;
+use xdp2_protocols::tunnel::gre::{GreBaseOps, GreV0Ops, GRE_FF_OPS, GRE_V0_FLAG_FIELDS};
+use xdp2_protocols::tunnel::mpls::MplsOps;
 use xdp2_protocols::tunnel::nsh::NshOps;
+use xdp2_protocols::tunnel::vxlan::VxlanOps;
+use xdp2_protocols::tunnel::{HsrOps, PppoeOps};
 
-use crate::flow_meta::FlowMeta;
 use crate::extractors::*;
+use crate::flow_meta::FlowMeta;
 
 // ── Local Ops types (bench-specific behavior) ────────────────────
 
@@ -81,7 +80,11 @@ const ETH_P_802_2: i32 = 0x0004;
 /// Convert raw ethertype to LLC-aware value: ≤ 1500 becomes ETH_P_802_2.
 #[inline]
 fn etype_or_llc(raw: u16) -> i32 {
-    if raw <= 1500 { ETH_P_802_2 } else { raw as i32 }
+    if raw <= 1500 {
+        ETH_P_802_2
+    } else {
+        raw as i32
+    }
 }
 
 /// Ethernet with LLC detection (14 bytes).
@@ -143,7 +146,11 @@ impl ProtocolOps for LlcDispatchOps {
 
 static TCP_NODE: ParseNode<FlowMeta, TcpOps> = ParseNode {
     proto: TcpOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ports_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ports_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -174,7 +181,11 @@ impl ProtocolOps for StopLeafOps {
 /// Stop-leaf node instance for wildcard fallback.
 static STOP_LEAF_NODE: ParseNode<FlowMeta, StopLeafOps> = ParseNode {
     proto: StopLeafOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -184,8 +195,8 @@ static STOP_LEAF_NODE: ParseNode<FlowMeta, StopLeafOps> = ParseNode {
 /// UDP tunnel dispatch table — known tunnel destination ports.
 /// Matches C's `udp_tunnel_table` in flow_dissector_tables.h.
 static UDP_TUNNEL_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (4789, &VXLAN_NODE),   // VXLAN
-    (6081, &GENEVE_NODE),  // Geneve
+    (4789, &VXLAN_NODE),  // VXLAN
+    (6081, &GENEVE_NODE), // Geneve
 ];
 
 /// UDP node with dport-based tunnel dispatch.
@@ -197,7 +208,11 @@ static UDP_TUNNEL_TABLE: ProtoTable<FlowMeta> = proto_table![
 /// Matches C's `udp_node` in flow_dissector_nodes.h.
 static UDP_NODE: ParseNode<FlowMeta, UdpDportOps> = ParseNode {
     proto: UdpDportOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ports_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ports_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&UDP_TUNNEL_TABLE),
     wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
@@ -206,7 +221,11 @@ static UDP_NODE: ParseNode<FlowMeta, UdpDportOps> = ParseNode {
 
 static ICMPV4_NODE: ParseNode<FlowMeta, IcmpV4Ops> = ParseNode {
     proto: IcmpV4Ops,
-    ops: ParseNodeOps { extract_metadata: Some(extract_icmp_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_icmp_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -215,7 +234,11 @@ static ICMPV4_NODE: ParseNode<FlowMeta, IcmpV4Ops> = ParseNode {
 
 static ICMPV6_NODE: ParseNode<FlowMeta, IcmpV6Ops> = ParseNode {
     proto: IcmpV6Ops,
-    ops: ParseNodeOps { extract_metadata: Some(extract_icmp_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_icmp_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -224,7 +247,11 @@ static ICMPV6_NODE: ParseNode<FlowMeta, IcmpV6Ops> = ParseNode {
 
 static SCTP_NODE: ParseNode<FlowMeta, SctpOps> = ParseNode {
     proto: SctpOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ports_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ports_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -233,7 +260,11 @@ static SCTP_NODE: ParseNode<FlowMeta, SctpOps> = ParseNode {
 
 static ARP_NODE: ParseNode<FlowMeta, ArpOps> = ParseNode {
     proto: ArpOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_arp_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_arp_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -244,7 +275,11 @@ static ARP_NODE: ParseNode<FlowMeta, ArpOps> = ParseNode {
 
 static IGMP_NODE: ParseNode<FlowMeta, IgmpOps> = ParseNode {
     proto: IgmpOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -253,7 +288,11 @@ static IGMP_NODE: ParseNode<FlowMeta, IgmpOps> = ParseNode {
 
 static ESP_NODE: ParseNode<FlowMeta, EspOps> = ParseNode {
     proto: EspOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_esp_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_esp_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -262,7 +301,11 @@ static ESP_NODE: ParseNode<FlowMeta, EspOps> = ParseNode {
 
 static DCCP_NODE: ParseNode<FlowMeta, DccpOps> = ParseNode {
     proto: DccpOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ports_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ports_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -271,7 +314,11 @@ static DCCP_NODE: ParseNode<FlowMeta, DccpOps> = ParseNode {
 
 static UDPLITE_NODE: ParseNode<FlowMeta, UdpLiteOps> = ParseNode {
     proto: UdpLiteOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ports_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ports_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -280,7 +327,11 @@ static UDPLITE_NODE: ParseNode<FlowMeta, UdpLiteOps> = ParseNode {
 
 static MPLS_NODE: ParseNode<FlowMeta, MplsOps> = ParseNode {
     proto: MplsOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_mpls_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_mpls_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -305,7 +356,11 @@ impl ProtocolOps for L2tpV3Ops {
 
 static L2TP_NODE: ParseNode<FlowMeta, L2tpV3Ops> = ParseNode {
     proto: L2tpV3Ops,
-    ops: ParseNodeOps { extract_metadata: Some(extract_l2tp_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_l2tp_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -316,7 +371,11 @@ static L2TP_NODE: ParseNode<FlowMeta, L2tpV3Ops> = ParseNode {
 
 static RARP_NODE: ParseNode<FlowMeta, RarpOps> = ParseNode {
     proto: RarpOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_arp_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_arp_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -325,7 +384,11 @@ static RARP_NODE: ParseNode<FlowMeta, RarpOps> = ParseNode {
 
 static TIPC_NODE: ParseNode<FlowMeta, TipcOps> = ParseNode {
     proto: TipcOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_tipc_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_tipc_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -334,7 +397,11 @@ static TIPC_NODE: ParseNode<FlowMeta, TipcOps> = ParseNode {
 
 static LLDP_NODE: ParseNode<FlowMeta, LldpOps> = ParseNode {
     proto: LldpOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -343,7 +410,11 @@ static LLDP_NODE: ParseNode<FlowMeta, LldpOps> = ParseNode {
 
 static SLOW_NODE: ParseNode<FlowMeta, SlowOps> = ParseNode {
     proto: SlowOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -352,7 +423,11 @@ static SLOW_NODE: ParseNode<FlowMeta, SlowOps> = ParseNode {
 
 static MAC_CONTROL_NODE: ParseNode<FlowMeta, MacControlOps> = ParseNode {
     proto: MacControlOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -361,7 +436,11 @@ static MAC_CONTROL_NODE: ParseNode<FlowMeta, MacControlOps> = ParseNode {
 
 static EAPOL_NODE: ParseNode<FlowMeta, EapolOps> = ParseNode {
     proto: EapolOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -370,7 +449,11 @@ static EAPOL_NODE: ParseNode<FlowMeta, EapolOps> = ParseNode {
 
 static PTP_NODE: ParseNode<FlowMeta, PtpOps> = ParseNode {
     proto: PtpOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -379,7 +462,11 @@ static PTP_NODE: ParseNode<FlowMeta, PtpOps> = ParseNode {
 
 static MVRP_NODE: ParseNode<FlowMeta, MvrpOps> = ParseNode {
     proto: MvrpOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -388,7 +475,11 @@ static MVRP_NODE: ParseNode<FlowMeta, MvrpOps> = ParseNode {
 
 static CFM_NODE: ParseNode<FlowMeta, CfmOps> = ParseNode {
     proto: CfmOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -397,7 +488,11 @@ static CFM_NODE: ParseNode<FlowMeta, CfmOps> = ParseNode {
 
 static FIP_NODE: ParseNode<FlowMeta, FipOps> = ParseNode {
     proto: FipOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -406,7 +501,11 @@ static FIP_NODE: ParseNode<FlowMeta, FipOps> = ParseNode {
 
 static MACSEC_NODE: ParseNode<FlowMeta, MacsecOps> = ParseNode {
     proto: MacsecOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -415,7 +514,11 @@ static MACSEC_NODE: ParseNode<FlowMeta, MacsecOps> = ParseNode {
 
 static ETHERCAT_NODE: ParseNode<FlowMeta, EthercatOps> = ParseNode {
     proto: EthercatOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -424,7 +527,11 @@ static ETHERCAT_NODE: ParseNode<FlowMeta, EthercatOps> = ParseNode {
 
 static FCOE_NODE: ParseNode<FlowMeta, FcoeOps> = ParseNode {
     proto: FcoeOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -436,13 +543,17 @@ static FCOE_NODE: ParseNode<FlowMeta, FcoeOps> = ParseNode {
 /// PPP protocol dispatch table.
 /// PppoeOps returns the PPP protocol number.
 static PPP_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0x0021, &IP_CHECK_NODE),  // PPP_IP → IPv4
-    (0x0057, &IP_CHECK_NODE),  // PPP_IPV6 → IPv6
+    (0x0021, &IP_CHECK_NODE), // PPP_IP → IPv4
+    (0x0057, &IP_CHECK_NODE), // PPP_IPV6 → IPv6
 ];
 
 static PPPOE_NODE: ParseNode<FlowMeta, PppoeOps> = ParseNode {
     proto: PppoeOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&PPP_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -453,7 +564,11 @@ static PPPOE_NODE: ParseNode<FlowMeta, PppoeOps> = ParseNode {
 
 static HSR_NODE: ParseNode<FlowMeta, HsrOps> = ParseNode {
     proto: HsrOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -464,7 +579,11 @@ static HSR_NODE: ParseNode<FlowMeta, HsrOps> = ParseNode {
 
 static BATMAN_NODE: ParseNode<FlowMeta, BatmanOps> = ParseNode {
     proto: BatmanOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -475,7 +594,11 @@ static BATMAN_NODE: ParseNode<FlowMeta, BatmanOps> = ParseNode {
 
 static PBB_NODE: ParseNode<FlowMeta, PbbOps> = ParseNode {
     proto: PbbOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -486,7 +609,11 @@ static PBB_NODE: ParseNode<FlowMeta, PbbOps> = ParseNode {
 
 static TRILL_NODE: ParseNode<FlowMeta, TrillOps> = ParseNode {
     proto: TrillOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -497,15 +624,19 @@ static TRILL_NODE: ParseNode<FlowMeta, TrillOps> = ParseNode {
 
 /// NSH inner protocol table — NshOps returns mapped EtherType values.
 static NSH_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0x0800, &IP_CHECK_NODE),      // ETH_P_IP
-    (0x86DD, &IP_CHECK_NODE),      // ETH_P_IPV6
-    (0x6558, &ETHER_INNER_NODE),   // ETH_P_TEB
-    (0x8847, &MPLS_NODE),          // ETH_P_MPLS_UC
+    (0x0800, &IP_CHECK_NODE),    // ETH_P_IP
+    (0x86DD, &IP_CHECK_NODE),    // ETH_P_IPV6
+    (0x6558, &ETHER_INNER_NODE), // ETH_P_TEB
+    (0x8847, &MPLS_NODE),        // ETH_P_MPLS_UC
 ];
 
 static NSH_NODE: ParseNode<FlowMeta, NshOps> = ParseNode {
     proto: NshOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&NSH_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -515,25 +646,29 @@ static NSH_NODE: ParseNode<FlowMeta, NshOps> = ParseNode {
 // ── IPv4 dispatch ─────────────────────────────────────────────────
 
 static IPV4_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (6, &TCP_NODE),           // IPPROTO_TCP
-    (17, &UDP_NODE),          // IPPROTO_UDP
-    (1, &ICMPV4_NODE),        // IPPROTO_ICMP
-    (2, &IGMP_NODE),          // IPPROTO_IGMP
-    (4, &IP_CHECK_NODE),      // IPPROTO_IPIP (IPv4-in-IPv4)
-    (33, &DCCP_NODE),         // IPPROTO_DCCP
-    (41, &IP_CHECK_NODE),     // IPPROTO_IPV6 (IPv6-in-IPv4)
-    (47, &GRE_BASE_NODE),     // IPPROTO_GRE
-    (50, &ESP_NODE),          // IPPROTO_ESP
-    (51, &AH_V4_NODE),        // IPPROTO_AH
-    (132, &SCTP_NODE),        // IPPROTO_SCTP
-    (115, &L2TP_NODE),        // IPPROTO_L2TP
-    (136, &UDPLITE_NODE),     // IPPROTO_UDPLITE
-    (137, &MPLS_NODE),        // IPPROTO_MPLS
+    (6, &TCP_NODE),       // IPPROTO_TCP
+    (17, &UDP_NODE),      // IPPROTO_UDP
+    (1, &ICMPV4_NODE),    // IPPROTO_ICMP
+    (2, &IGMP_NODE),      // IPPROTO_IGMP
+    (4, &IP_CHECK_NODE),  // IPPROTO_IPIP (IPv4-in-IPv4)
+    (33, &DCCP_NODE),     // IPPROTO_DCCP
+    (41, &IP_CHECK_NODE), // IPPROTO_IPV6 (IPv6-in-IPv4)
+    (47, &GRE_BASE_NODE), // IPPROTO_GRE
+    (50, &ESP_NODE),      // IPPROTO_ESP
+    (51, &AH_V4_NODE),    // IPPROTO_AH
+    (132, &SCTP_NODE),    // IPPROTO_SCTP
+    (115, &L2TP_NODE),    // IPPROTO_L2TP
+    (136, &UDPLITE_NODE), // IPPROTO_UDPLITE
+    (137, &MPLS_NODE),    // IPPROTO_MPLS
 ];
 
 static IPV4_NODE: ParseNode<FlowMeta, Ipv4Ops> = ParseNode {
     proto: Ipv4Ops,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ipv4_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ipv4_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV4_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -549,7 +684,11 @@ static IPV4_NODE: ParseNode<FlowMeta, Ipv4Ops> = ParseNode {
 
 static AH_V4_NODE: ParseNode<FlowMeta, AhOps> = ParseNode {
     proto: AhOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ah_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ah_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV4_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -558,7 +697,11 @@ static AH_V4_NODE: ParseNode<FlowMeta, AhOps> = ParseNode {
 
 static AH_V6_NODE: ParseNode<FlowMeta, AhOps> = ParseNode {
     proto: AhOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ah_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ah_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV6_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -609,9 +752,18 @@ static GRE_FLAG_SEQ_NODE: ParseFlagFieldNode<FlowMeta> = ParseFlagFieldNode {
 
 static GRE_V0_FF_TABLE: FlagFieldsTable<FlowMeta> = FlagFieldsTable {
     entries: &[
-        FlagFieldsTableEntry { index: 0, node: &GRE_FLAG_CSUM_NODE },  // checksum
-        FlagFieldsTableEntry { index: 1, node: &GRE_FLAG_KEY_NODE },   // key
-        FlagFieldsTableEntry { index: 2, node: &GRE_FLAG_SEQ_NODE },   // sequence
+        FlagFieldsTableEntry {
+            index: 0,
+            node: &GRE_FLAG_CSUM_NODE,
+        }, // checksum
+        FlagFieldsTableEntry {
+            index: 1,
+            node: &GRE_FLAG_KEY_NODE,
+        }, // key
+        FlagFieldsTableEntry {
+            index: 2,
+            node: &GRE_FLAG_SEQ_NODE,
+        }, // sequence
     ],
 };
 
@@ -620,9 +772,9 @@ static GRE_V0_FF_TABLE: FlagFieldsTable<FlowMeta> = FlagFieldsTable {
 /// GRE v0 inner protocol table — dispatches on encapsulated EtherType.
 /// Matches C's `gre_v0_table` in flow_dissector_tables.h.
 static GRE_V0_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0x0800, &IP_CHECK_NODE),      // ETH_P_IP
-    (0x86DD, &IP_CHECK_NODE),      // ETH_P_IPV6
-    (0x6558, &ETHER_INNER_NODE),   // ETH_P_TEB (Ethernet bridging)
+    (0x0800, &IP_CHECK_NODE),    // ETH_P_IP
+    (0x86DD, &IP_CHECK_NODE),    // ETH_P_IPV6
+    (0x6558, &ETHER_INNER_NODE), // ETH_P_TEB (Ethernet bridging)
 ];
 
 /// GRE v0 inner parse node — provides header_len, next_proto, extract_metadata.
@@ -663,8 +815,8 @@ static GRE_V0_NODE: ParseFlagFieldsNode<FlowMeta> = ParseFlagFieldsNode {
 /// GRE base version dispatch table.
 /// Matches C's `gre_base_table` in flow_dissector_tables.h.
 static GRE_BASE_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0, &GRE_V0_NODE),       // GRE v0
-    (1, &STOP_LEAF_NODE),    // GRE v1/PPTP — simplified (rare in practice)
+    (0, &GRE_V0_NODE),    // GRE v0
+    (1, &STOP_LEAF_NODE), // GRE v1/PPTP — simplified (rare in practice)
 ];
 
 /// GRE base overlay node — reads version nibble and dispatches.
@@ -675,7 +827,11 @@ static GRE_BASE_TABLE: ProtoTable<FlowMeta> = proto_table![
 /// Matches C's `gre_base_node` in flow_dissector_nodes.h.
 static GRE_BASE_NODE: ParseNode<FlowMeta, GreBaseOps> = ParseNode {
     proto: GreBaseOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&GRE_BASE_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -686,27 +842,31 @@ static GRE_BASE_NODE: ParseNode<FlowMeta, GreBaseOps> = ParseNode {
 
 static IPV6_TABLE: ProtoTable<FlowMeta> = proto_table![
     (0, &IPV6_HBH_NODE),      // IPPROTO_HOPOPTS
-    (4, &IP_CHECK_NODE),       // IPPROTO_IPIP (IPv4-in-IPv6)
-    (6, &TCP_NODE),            // IPPROTO_TCP
-    (17, &UDP_NODE),           // IPPROTO_UDP
-    (33, &DCCP_NODE),          // IPPROTO_DCCP
-    (41, &IP_CHECK_NODE),      // IPPROTO_IPV6 (IPv6-in-IPv6)
-    (43, &IPV6_ROUTING_NODE),  // IPPROTO_ROUTING
-    (44, &IPV6_FRAG_NODE),     // IPPROTO_FRAGMENT
-    (47, &GRE_BASE_NODE),      // IPPROTO_GRE
-    (50, &ESP_NODE),           // IPPROTO_ESP
-    (51, &AH_V6_NODE),         // IPPROTO_AH
-    (58, &ICMPV6_NODE),        // IPPROTO_ICMPV6
-    (60, &IPV6_DST_NODE),      // IPPROTO_DSTOPTS
-    (115, &L2TP_NODE),         // IPPROTO_L2TP
-    (132, &SCTP_NODE),         // IPPROTO_SCTP
-    (136, &UDPLITE_NODE),      // IPPROTO_UDPLITE
-    (137, &MPLS_NODE),         // IPPROTO_MPLS
+    (4, &IP_CHECK_NODE),      // IPPROTO_IPIP (IPv4-in-IPv6)
+    (6, &TCP_NODE),           // IPPROTO_TCP
+    (17, &UDP_NODE),          // IPPROTO_UDP
+    (33, &DCCP_NODE),         // IPPROTO_DCCP
+    (41, &IP_CHECK_NODE),     // IPPROTO_IPV6 (IPv6-in-IPv6)
+    (43, &IPV6_ROUTING_NODE), // IPPROTO_ROUTING
+    (44, &IPV6_FRAG_NODE),    // IPPROTO_FRAGMENT
+    (47, &GRE_BASE_NODE),     // IPPROTO_GRE
+    (50, &ESP_NODE),          // IPPROTO_ESP
+    (51, &AH_V6_NODE),        // IPPROTO_AH
+    (58, &ICMPV6_NODE),       // IPPROTO_ICMPV6
+    (60, &IPV6_DST_NODE),     // IPPROTO_DSTOPTS
+    (115, &L2TP_NODE),        // IPPROTO_L2TP
+    (132, &SCTP_NODE),        // IPPROTO_SCTP
+    (136, &UDPLITE_NODE),     // IPPROTO_UDPLITE
+    (137, &MPLS_NODE),        // IPPROTO_MPLS
 ];
 
 static IPV6_NODE: ParseNode<FlowMeta, Ipv6Ops> = ParseNode {
     proto: Ipv6Ops,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ipv6_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ipv6_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV6_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -717,7 +877,11 @@ static IPV6_NODE: ParseNode<FlowMeta, Ipv6Ops> = ParseNode {
 
 static IPV6_HBH_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
     proto: Ipv6EhOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ipv6_eh_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ipv6_eh_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV6_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -726,7 +890,11 @@ static IPV6_HBH_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
 
 static IPV6_DST_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
     proto: Ipv6EhOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ipv6_eh_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ipv6_eh_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV6_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -735,7 +903,11 @@ static IPV6_DST_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
 
 static IPV6_ROUTING_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
     proto: Ipv6EhOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ipv6_eh_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ipv6_eh_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV6_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -744,7 +916,11 @@ static IPV6_ROUTING_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
 
 static IPV6_FRAG_NODE: ParseNode<FlowMeta, Ipv6FragOps> = ParseNode {
     proto: Ipv6FragOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ipv6_frag_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ipv6_frag_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IPV6_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -755,8 +931,8 @@ static IPV6_FRAG_NODE: ParseNode<FlowMeta, Ipv6FragOps> = ParseNode {
 
 /// IP version dispatch table: version nibble → IPv4 or IPv6.
 static IP_CHECK_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (4, &IPV4_NODE),   // IP version 4
-    (6, &IPV6_NODE),   // IP version 6
+    (4, &IPV4_NODE), // IP version 4
+    (6, &IPV6_NODE), // IP version 6
 ];
 
 /// IP version check overlay node.
@@ -767,7 +943,11 @@ static IP_CHECK_TABLE: ProtoTable<FlowMeta> = proto_table![
 /// Matches C's `ip_check_node` in flow_dissector_nodes.h.
 static IP_CHECK_NODE: ParseNode<FlowMeta, IpOverlayOps> = ParseNode {
     proto: IpOverlayOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&IP_CHECK_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -778,7 +958,7 @@ static IP_CHECK_NODE: ParseNode<FlowMeta, IpOverlayOps> = ParseNode {
 
 /// VXLAN inner dispatch — always ETH_P_TEB → inner Ethernet.
 static VXLAN_INNER_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0x6558, &ETHER_INNER_NODE),  // ETH_P_TEB
+    (0x6558, &ETHER_INNER_NODE), // ETH_P_TEB
 ];
 
 /// VXLAN encapsulation node (8 bytes, always wraps Ethernet).
@@ -786,7 +966,11 @@ static VXLAN_INNER_TABLE: ProtoTable<FlowMeta> = proto_table![
 /// Matches C's `vxlan_node` in flow_dissector_nodes.h.
 static VXLAN_NODE: ParseNode<FlowMeta, VxlanOps> = ParseNode {
     proto: VxlanOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_vxlan_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_vxlan_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&VXLAN_INNER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -797,9 +981,9 @@ static VXLAN_NODE: ParseNode<FlowMeta, VxlanOps> = ParseNode {
 ///
 /// Matches C's `geneve_inner_table` in flow_dissector_tables.h.
 static GENEVE_INNER_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0x6558, &ETHER_INNER_NODE),  // ETH_P_TEB (Ethernet inside)
-    (0x0800, &IP_CHECK_NODE),     // ETH_P_IP (raw IPv4 inside)
-    (0x86DD, &IP_CHECK_NODE),     // ETH_P_IPV6 (raw IPv6 inside)
+    (0x6558, &ETHER_INNER_NODE), // ETH_P_TEB (Ethernet inside)
+    (0x0800, &IP_CHECK_NODE),    // ETH_P_IP (raw IPv4 inside)
+    (0x86DD, &IP_CHECK_NODE),    // ETH_P_IPV6 (raw IPv6 inside)
 ];
 
 /// Geneve encapsulation node (variable-length, dispatches on protocol field).
@@ -808,7 +992,11 @@ static GENEVE_INNER_TABLE: ProtoTable<FlowMeta> = proto_table![
 /// `geneve_simple_def` in flow_dissector_proto_defs.h.
 static GENEVE_NODE: ParseNode<FlowMeta, GeneveV0Ops> = ParseNode {
     proto: GeneveV0Ops,
-    ops: ParseNodeOps { extract_metadata: Some(extract_geneve_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_geneve_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&GENEVE_INNER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -820,7 +1008,11 @@ static GENEVE_NODE: ParseNode<FlowMeta, GeneveV0Ops> = ParseNode {
 /// Matches C's `ether_inner_node` in flow_dissector_nodes.h.
 static ETHER_INNER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
     proto: EtherLlcOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ether_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ether_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -835,7 +1027,11 @@ static ETHER_INNER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
 
 static STP_NODE: ParseNode<FlowMeta, LlcOps> = ParseNode {
     proto: LlcOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: None,
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -844,7 +1040,11 @@ static STP_NODE: ParseNode<FlowMeta, LlcOps> = ParseNode {
 
 static SNAP_NODE: ParseNode<FlowMeta, LlcSnapOps> = ParseNode {
     proto: LlcSnapOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE), // re-dispatch encapsulated ethertype
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -853,13 +1053,17 @@ static SNAP_NODE: ParseNode<FlowMeta, LlcSnapOps> = ParseNode {
 
 /// LLC dispatch table — routes DSAP to SNAP or STP.
 static LLC_TABLE: ProtoTable<FlowMeta> = proto_table![
-    (0xAA, &SNAP_NODE),   // LLC_SAP_SNAP → LLC/SNAP encapsulation
-    (0x42, &STP_NODE),    // LLC_SAP_STP → STP BPDU (leaf)
+    (0xAA, &SNAP_NODE), // LLC_SAP_SNAP → LLC/SNAP encapsulation
+    (0x42, &STP_NODE),  // LLC_SAP_STP → STP BPDU (leaf)
 ];
 
 static LLC_NODE: ParseNode<FlowMeta, LlcDispatchOps> = ParseNode {
     proto: LlcDispatchOps,
-    ops: ParseNodeOps { extract_metadata: None, handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&LLC_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -870,45 +1074,49 @@ static LLC_NODE: ParseNode<FlowMeta, LlcDispatchOps> = ParseNode {
 
 static ETHER_TABLE: ProtoTable<FlowMeta> = proto_table![
     // Core L3
-    (0x0800, &IP_CHECK_NODE),      // ETH_P_IP → ip version check → IPv4/IPv6
-    (0x86DD, &IP_CHECK_NODE),      // ETH_P_IPV6 → ip version check
-    (0x0806, &ARP_NODE),           // ETH_P_ARP
-    (0x8035, &RARP_NODE),          // ETH_P_RARP
+    (0x0800, &IP_CHECK_NODE), // ETH_P_IP → ip version check → IPv4/IPv6
+    (0x86DD, &IP_CHECK_NODE), // ETH_P_IPV6 → ip version check
+    (0x0806, &ARP_NODE),      // ETH_P_ARP
+    (0x8035, &RARP_NODE),     // ETH_P_RARP
     // VLAN
-    (0x8100, &VLAN_NODE),          // ETH_P_8021Q
-    (0x88A8, &QINQ_NODE),         // ETH_P_8021AD
+    (0x8100, &VLAN_NODE), // ETH_P_8021Q
+    (0x88A8, &QINQ_NODE), // ETH_P_8021AD
     // MPLS
-    (0x8847, &MPLS_NODE),          // ETH_P_MPLS_UC
-    (0x8848, &MPLS_NODE),          // ETH_P_MPLS_MC
+    (0x8847, &MPLS_NODE), // ETH_P_MPLS_UC
+    (0x8848, &MPLS_NODE), // ETH_P_MPLS_MC
     // Tunnels / encapsulation
-    (0x8864, &PPPOE_NODE),         // ETH_P_PPP_SES
-    (0x4305, &BATMAN_NODE),        // ETH_P_BATMAN
-    (0x88E7, &PBB_NODE),           // ETH_P_8021AH (PBB)
-    (0x22F3, &TRILL_NODE),         // ETH_P_TRILL
-    (0x892F, &HSR_NODE),           // ETH_P_HSR
-    (0x88FB, &HSR_NODE),           // ETH_P_PRP (same handler as HSR)
-    (0x894F, &NSH_NODE),           // ETH_P_NSH
+    (0x8864, &PPPOE_NODE),  // ETH_P_PPP_SES
+    (0x4305, &BATMAN_NODE), // ETH_P_BATMAN
+    (0x88E7, &PBB_NODE),    // ETH_P_8021AH (PBB)
+    (0x22F3, &TRILL_NODE),  // ETH_P_TRILL
+    (0x892F, &HSR_NODE),    // ETH_P_HSR
+    (0x88FB, &HSR_NODE),    // ETH_P_PRP (same handler as HSR)
+    (0x894F, &NSH_NODE),    // ETH_P_NSH
     // Management / L2 leaves
-    (0x88CC, &LLDP_NODE),          // ETH_P_LLDP
-    (0x8809, &SLOW_NODE),          // ETH_P_SLOW (LACP/STP)
-    (0x8808, &MAC_CONTROL_NODE),   // ETH_P_PAUSE (MAC control)
-    (0x888E, &EAPOL_NODE),         // ETH_P_PAE (802.1X)
-    (0x88F7, &PTP_NODE),           // ETH_P_1588 (PTP)
-    (0x88F5, &MVRP_NODE),          // ETH_P_MVRP
-    (0x8902, &CFM_NODE),           // ETH_P_CFM
-    (0x8914, &FIP_NODE),           // ETH_P_FIP
-    (0x88E5, &MACSEC_NODE),        // ETH_P_MACSEC
-    (0x88A4, &ETHERCAT_NODE),      // ETH_P_ETHERCAT
-    (0x88CA, &TIPC_NODE),          // ETH_P_TIPC
+    (0x88CC, &LLDP_NODE),        // ETH_P_LLDP
+    (0x8809, &SLOW_NODE),        // ETH_P_SLOW (LACP/STP)
+    (0x8808, &MAC_CONTROL_NODE), // ETH_P_PAUSE (MAC control)
+    (0x888E, &EAPOL_NODE),       // ETH_P_PAE (802.1X)
+    (0x88F7, &PTP_NODE),         // ETH_P_1588 (PTP)
+    (0x88F5, &MVRP_NODE),        // ETH_P_MVRP
+    (0x8902, &CFM_NODE),         // ETH_P_CFM
+    (0x8914, &FIP_NODE),         // ETH_P_FIP
+    (0x88E5, &MACSEC_NODE),      // ETH_P_MACSEC
+    (0x88A4, &ETHERCAT_NODE),    // ETH_P_ETHERCAT
+    (0x88CA, &TIPC_NODE),        // ETH_P_TIPC
     // Storage
-    (0x8906, &FCOE_NODE),          // ETH_P_FCOE
+    (0x8906, &FCOE_NODE), // ETH_P_FCOE
     // LLC
-    (ETH_P_802_2, &LLC_NODE),     // IEEE 802.2 LLC (ethertype ≤ 1500)
+    (ETH_P_802_2, &LLC_NODE), // IEEE 802.2 LLC (ethertype ≤ 1500)
 ];
 
 pub(crate) static ETHER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
     proto: EtherLlcOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_ether_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ether_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -917,7 +1125,11 @@ pub(crate) static ETHER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
 
 static VLAN_NODE: ParseNode<FlowMeta, VlanLlcOps> = ParseNode {
     proto: VlanLlcOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_vlan_8021q_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_vlan_8021q_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
@@ -926,7 +1138,11 @@ static VLAN_NODE: ParseNode<FlowMeta, VlanLlcOps> = ParseNode {
 
 static QINQ_NODE: ParseNode<FlowMeta, QinQLlcOps> = ParseNode {
     proto: QinQLlcOps,
-    ops: ParseNodeOps { extract_metadata: Some(extract_vlan_8021ad_metadata), handler: None, post_handler: None },
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_vlan_8021ad_metadata),
+        handler: None,
+        post_handler: None,
+    },
     proto_table: Some(&ETHER_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,

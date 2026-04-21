@@ -147,7 +147,7 @@ mod tests {
         hdr[4] = ETH_ALEN; // ar_hln
         hdr[5] = 4; // ar_pln
         hdr[6..8].copy_from_slice(&ARPOP_REQUEST.to_be_bytes()); // ar_op
-        // Leave addresses as zeros
+                                                                 // Leave addresses as zeros
         hdr
     }
 

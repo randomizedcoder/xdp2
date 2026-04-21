@@ -48,11 +48,17 @@ mod tests {
 
     #[test]
     fn ieee80211_data_is_leaf() {
-        assert!(matches!(Ieee80211DataOps.next_proto(&[]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            Ieee80211DataOps.next_proto(&[]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ieee80211_mgmt_is_leaf() {
-        assert!(matches!(Ieee80211MgmtOps.next_proto(&[]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            Ieee80211MgmtOps.next_proto(&[]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

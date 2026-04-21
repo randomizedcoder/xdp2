@@ -51,6 +51,9 @@ mod tests {
 
     #[test]
     fn l2cap_is_leaf() {
-        assert!(matches!(L2capOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            L2capOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

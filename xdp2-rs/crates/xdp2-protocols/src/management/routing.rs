@@ -16,7 +16,9 @@ impl ProtocolOps for BgpOps {
     const MIN_LEN: usize = 19;
     const NAME: &'static str = "BGP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// OSPF header (16 bytes). Reimplements: `struct ospfhdr` in `proto_ospf.h`
@@ -36,7 +38,9 @@ impl ProtocolOps for OspfOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "OSPF";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// IS-IS header (8 bytes). Reimplements: `struct isis_hdr` in `proto_isis.h`
@@ -57,7 +61,9 @@ impl ProtocolOps for IsisOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "IS-IS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// EIGRP header (4 bytes). Reimplements: `struct eigrp_hdr` in `proto_eigrp.h`
@@ -73,7 +79,9 @@ impl ProtocolOps for EigrpOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "EIGRP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// RIP header (4 bytes). Reimplements: `struct rip_hdr` in `proto_rip.h`
@@ -89,7 +97,9 @@ impl ProtocolOps for RipOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "RIP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -98,6 +108,9 @@ mod tests {
 
     #[test]
     fn bgp_is_leaf() {
-        assert!(matches!(BgpOps.next_proto(&[0u8; 19]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            BgpOps.next_proto(&[0u8; 19]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

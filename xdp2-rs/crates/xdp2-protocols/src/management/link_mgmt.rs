@@ -14,7 +14,9 @@ impl ProtocolOps for LldpOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "LLDP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// STP BPDU header (35 bytes). Reimplements: `struct stp_bpdu` in `proto_stp.h`
@@ -39,7 +41,9 @@ impl ProtocolOps for StpOps {
     const MIN_LEN: usize = 35;
     const NAME: &'static str = "STP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// MAC Control header (2 bytes). Reimplements: `struct mac_control_hdr` in `proto_mac_control.h`
@@ -53,7 +57,9 @@ impl ProtocolOps for MacControlOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "MAC Control";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// LACP header (1 byte). Reimplements: `struct lacpdu_hdr` in `proto_lacp.h`
@@ -67,7 +73,9 @@ impl ProtocolOps for LacpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "LACP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Slow Protocol header (1 byte). Reimplements: `struct slow_proto_hdr` in `proto_slow.h`
@@ -81,7 +89,9 @@ impl ProtocolOps for SlowOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Slow";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// MRP/MVRP header (1 byte). Reimplements: `struct mrp_hdr` in `proto_mvrp.h`
@@ -95,7 +105,9 @@ impl ProtocolOps for MvrpOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "MVRP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -104,11 +116,17 @@ mod tests {
 
     #[test]
     fn lldp_is_leaf() {
-        assert!(matches!(LldpOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            LldpOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn stp_is_leaf() {
-        assert!(matches!(StpOps.next_proto(&[0u8; 35]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            StpOps.next_proto(&[0u8; 35]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

@@ -29,9 +29,7 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use crate::{
-    Hysteresis, ListenSocket, ListenerKey, SecurityPolicy, TemplateController,
-};
+use crate::{Hysteresis, ListenSocket, ListenerKey, SecurityPolicy, TemplateController};
 
 /// Type alias for a listener-enumeration function. The reconciler
 /// calls this on every tick. Typical choices:
@@ -215,7 +213,8 @@ mod tests {
     #[test]
     fn tick_sums_all_observed_through_active() {
         let mut r = new_hermetic_reconciler();
-        let backend: Box<Backend> = Box::new(|| Ok(vec![sock(Proto::Tcp, 443), sock(Proto::Tcp, 80)]));
+        let backend: Box<Backend> =
+            Box::new(|| Ok(vec![sock(Proto::Tcp, 443), sock(Proto::Tcp, 80)]));
         let assigner = empty_assigner();
         let stats = r.tick(&*backend, &*assigner, Instant::now()).unwrap();
         assert_eq!(stats.observed, 2);
@@ -261,7 +260,9 @@ mod tests {
 
         // Tick 2, 10s later: nothing observed, but grace is 30s → still active.
         let b2: Box<Backend> = Box::new(|| Ok(vec![]));
-        let s2 = r.tick(&*b2, &*assigner, now + Duration::from_secs(10)).unwrap();
+        let s2 = r
+            .tick(&*b2, &*assigner, now + Duration::from_secs(10))
+            .unwrap();
         assert_eq!(s2.observed, 0);
         assert_eq!(s2.active, 1);
         assert_eq!(s2.evicted, 0);
@@ -278,7 +279,9 @@ mod tests {
 
         // 31s later, outside 30s grace, :443 gone from backend.
         let b2: Box<Backend> = Box::new(|| Ok(vec![]));
-        let s = r.tick(&*b2, &*assigner, now + Duration::from_secs(31)).unwrap();
+        let s = r
+            .tick(&*b2, &*assigner, now + Duration::from_secs(31))
+            .unwrap();
         assert_eq!(s.active, 0);
         assert_eq!(s.evicted, 1);
         assert_eq!(r.tracked(), 0);
@@ -297,7 +300,9 @@ mod tests {
         assert_eq!(r.tracked(), 1);
 
         let b_err: Box<Backend> = Box::new(|| Err(ReconcileError::Backend("boom".into())));
-        let err = r.tick(&*b_err, &*assigner, now + Duration::from_secs(1)).unwrap_err();
+        let err = r
+            .tick(&*b_err, &*assigner, now + Duration::from_secs(1))
+            .unwrap_err();
         assert!(matches!(err, ReconcileError::Backend(_)));
         // State preserved.
         assert_eq!(r.tracked(), 1);

@@ -273,13 +273,12 @@ mod tests {
     #[test]
     fn parse_error_c_code_roundtrip() {
         let codes = [
-            -12, -13, -14, -15, -16, -17, -18, -19, -20, -21, -22, -23, -24,
-            -25, -26, -27, -28, -29, -30, -31, -32, -33, -34,
+            -12, -13, -14, -15, -16, -17, -18, -19, -20, -21, -22, -23, -24, -25, -26, -27, -28,
+            -29, -30, -31, -32, -33, -34,
         ];
         for code in codes {
-            let err = ParseError::from_c_code(code).unwrap_or_else(|| {
-                panic!("Failed to parse error code {code}")
-            });
+            let err = ParseError::from_c_code(code)
+                .unwrap_or_else(|| panic!("Failed to parse error code {code}"));
             assert_eq!(err.to_c_code(), code, "Roundtrip failed for {code}");
         }
     }
@@ -302,9 +301,6 @@ mod tests {
     #[test]
     fn classify_negative_errors() {
         assert!(classify_return_code(-13).is_err());
-        assert_eq!(
-            classify_return_code(-13).unwrap_err(),
-            ParseError::Length
-        );
+        assert_eq!(classify_return_code(-13).unwrap_err(), ParseError::Length);
     }
 }

@@ -72,9 +72,21 @@ impl GreHeader {
 /// - Sequence (0x1000): 4 bytes
 pub static GRE_V0_FLAG_FIELDS: FlagFields = FlagFields {
     fields: &[
-        FlagField { flag: GRE_CSUM as u32, mask: 0, size: 4 },
-        FlagField { flag: GRE_KEY as u32, mask: 0, size: 4 },
-        FlagField { flag: GRE_SEQ as u32, mask: 0, size: 4 },
+        FlagField {
+            flag: GRE_CSUM as u32,
+            mask: 0,
+            size: 4,
+        },
+        FlagField {
+            flag: GRE_KEY as u32,
+            mask: 0,
+            size: 4,
+        },
+        FlagField {
+            flag: GRE_SEQ as u32,
+            mask: 0,
+            size: 4,
+        },
     ],
 };
 

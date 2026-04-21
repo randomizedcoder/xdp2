@@ -25,7 +25,9 @@ impl ProtocolOps for PtpOps {
     const MIN_LEN: usize = 34;
     const NAME: &'static str = "PTP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Netflow v5 header (24 bytes). Reimplements: `struct netflow_v5_hdr` in `proto_netflow_v5.h`
@@ -47,7 +49,9 @@ impl ProtocolOps for NetflowV5Ops {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "Netflow v5";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Netflow v9 header (20 bytes). Reimplements: `struct netflow_v9_hdr` in `proto_netflow_v9.h`
@@ -66,7 +70,9 @@ impl ProtocolOps for NetflowV9Ops {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "Netflow v9";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// IPFIX header (16 bytes). Reimplements: `struct ipfix_hdr` in `proto_ipfix.h`
@@ -84,7 +90,9 @@ impl ProtocolOps for IpfixOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "IPFIX";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -93,6 +101,9 @@ mod tests {
 
     #[test]
     fn ptp_is_leaf() {
-        assert!(matches!(PtpOps.next_proto(&[0u8; 34]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            PtpOps.next_proto(&[0u8; 34]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

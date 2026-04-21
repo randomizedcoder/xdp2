@@ -66,7 +66,10 @@ mod tests {
     #[test]
     fn tacacs_is_leaf() {
         let ops = TacacsOps;
-        assert!(matches!(ops.next_proto(&[0u8; 12]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 12]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

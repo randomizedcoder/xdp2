@@ -84,24 +84,36 @@ mod tests {
     #[test]
     fn ieee80211_mgmt() {
         let ops = Ieee80211Ops;
-        assert_eq!(ops.next_proto(&make_80211(0x0000)).unwrap(), IEEE80211_FTYPE_MGMT);
+        assert_eq!(
+            ops.next_proto(&make_80211(0x0000)).unwrap(),
+            IEEE80211_FTYPE_MGMT
+        );
     }
 
     #[test]
     fn ieee80211_data() {
         let ops = Ieee80211Ops;
-        assert_eq!(ops.next_proto(&make_80211(0x0008)).unwrap(), IEEE80211_FTYPE_DATA);
+        assert_eq!(
+            ops.next_proto(&make_80211(0x0008)).unwrap(),
+            IEEE80211_FTYPE_DATA
+        );
     }
 
     #[test]
     fn ieee80211_ctl() {
         let ops = Ieee80211Ops;
-        assert_eq!(ops.next_proto(&make_80211(0x0004)).unwrap(), IEEE80211_FTYPE_CTL);
+        assert_eq!(
+            ops.next_proto(&make_80211(0x0004)).unwrap(),
+            IEEE80211_FTYPE_CTL
+        );
     }
 
     #[test]
     fn ieee80211_ext() {
         let ops = Ieee80211Ops;
-        assert_eq!(ops.next_proto(&make_80211(0x000C)).unwrap(), IEEE80211_FTYPE_EXT);
+        assert_eq!(
+            ops.next_proto(&make_80211(0x000C)).unwrap(),
+            IEEE80211_FTYPE_EXT
+        );
     }
 }

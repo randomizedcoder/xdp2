@@ -61,7 +61,10 @@ mod tests {
     #[test]
     fn macsec_is_leaf() {
         let ops = MacsecOps;
-        assert!(matches!(ops.next_proto(&[0u8; 6]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 6]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

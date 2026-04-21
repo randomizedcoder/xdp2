@@ -136,7 +136,7 @@ mod tests {
         hdr[0] = LLC_SAP_SNAP; // dsap
         hdr[1] = LLC_SAP_SNAP; // ssap
         hdr[2] = 0x03; // ctrl (UI)
-        // OUI = 0x000000
+                       // OUI = 0x000000
         hdr[6] = 0x08; // ethertype = 0x0800
         hdr[7] = 0x00;
         let ops = LlcSnapOps;

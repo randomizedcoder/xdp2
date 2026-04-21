@@ -11,10 +11,7 @@ use crate::template::{self, TemplateId};
 /// Process a batch of pre-classified packets with prefetching.
 /// Populates a FlowMeta per packet (same work as scalar template).
 /// Returns the count of successfully extracted packets.
-pub fn extract_batch(
-    packets: &[&StoredPacket],
-    template_ids: &[Option<TemplateId>],
-) -> u64 {
+pub fn extract_batch(packets: &[&StoredPacket], template_ids: &[Option<TemplateId>]) -> u64 {
     debug_assert_eq!(packets.len(), template_ids.len());
 
     let mut acc: u64 = 0;

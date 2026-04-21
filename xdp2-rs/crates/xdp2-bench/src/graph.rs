@@ -28,8 +28,8 @@
 
 pub(crate) use crate::flow_meta::*;
 
-use xdp2_core::{parse, ParseError, ParseOutput, Parser, ParserConfig, ParserType};
 use crate::nodes::ETHER_NODE;
+use xdp2_core::{parse, ParseError, ParseOutput, Parser, ParserConfig, ParserType};
 
 // ── Parser entry point ────────────────────────────────────────────
 
@@ -45,7 +45,10 @@ pub fn make_parser() -> Parser<FlowMeta> {
 
 /// Parse a single packet, returning Ok or Err.
 #[inline]
-pub fn parse_packet(parser: &Parser<FlowMeta>, pkt: &[u8]) -> Result<ParseOutput<FlowMeta>, ParseError> {
+pub fn parse_packet(
+    parser: &Parser<FlowMeta>,
+    pkt: &[u8],
+) -> Result<ParseOutput<FlowMeta>, ParseError> {
     parse(parser, pkt)
 }
 
@@ -57,24 +60,24 @@ mod tests {
     /// Ethernet + IPv4 + TCP (54 bytes minimum).
     fn make_eth_ipv4_tcp() -> Vec<u8> {
         let mut pkt = Vec::new();
-        pkt.extend_from_slice(&[0u8; 12]);            // MACs
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // EtherType: IPv4
-        pkt.push((4 << 4) | 5);                       // IPv4 ver=4, IHL=5
-        pkt.push(0);                                   // TOS
-        pkt.extend_from_slice(&40u16.to_be_bytes());   // total length
-        pkt.extend_from_slice(&[0; 4]);                // ID + frag
-        pkt.push(64);                                  // TTL
-        pkt.push(6);                                   // protocol = TCP
-        pkt.extend_from_slice(&[0; 2]);                // checksum
-        pkt.extend_from_slice(&[10, 0, 0, 1]);        // src IP
-        pkt.extend_from_slice(&[10, 0, 0, 2]);        // dst IP
-        // TCP header (20 bytes)
-        pkt.extend_from_slice(&80u16.to_be_bytes());   // src port
-        pkt.extend_from_slice(&443u16.to_be_bytes());  // dst port
-        pkt.extend_from_slice(&[0; 8]);                // seq + ack
-        pkt.push(5 << 4);                              // data offset=5
-        pkt.push(0x02);                                // SYN
-        pkt.extend_from_slice(&[0; 6]);                // window + cksum + urg
+        pkt.push((4 << 4) | 5); // IPv4 ver=4, IHL=5
+        pkt.push(0); // TOS
+        pkt.extend_from_slice(&40u16.to_be_bytes()); // total length
+        pkt.extend_from_slice(&[0; 4]); // ID + frag
+        pkt.push(64); // TTL
+        pkt.push(6); // protocol = TCP
+        pkt.extend_from_slice(&[0; 2]); // checksum
+        pkt.extend_from_slice(&[10, 0, 0, 1]); // src IP
+        pkt.extend_from_slice(&[10, 0, 0, 2]); // dst IP
+                                               // TCP header (20 bytes)
+        pkt.extend_from_slice(&80u16.to_be_bytes()); // src port
+        pkt.extend_from_slice(&443u16.to_be_bytes()); // dst port
+        pkt.extend_from_slice(&[0; 8]); // seq + ack
+        pkt.push(5 << 4); // data offset=5
+        pkt.push(0x02); // SYN
+        pkt.extend_from_slice(&[0; 6]); // window + cksum + urg
         pkt
     }
 
@@ -91,22 +94,22 @@ mod tests {
         // Regular UDP (non-tunnel port) should still parse via wildcard.
         let parser = make_parser();
         let mut pkt = Vec::new();
-        pkt.extend_from_slice(&[0u8; 12]);              // MACs
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // IPv4
-        pkt.push((4 << 4) | 5);                         // ver=4, IHL=5
+        pkt.push((4 << 4) | 5); // ver=4, IHL=5
         pkt.push(0);
-        pkt.extend_from_slice(&28u16.to_be_bytes());    // total length
-        pkt.extend_from_slice(&[0; 4]);                  // ID + frag
-        pkt.push(64);                                    // TTL
-        pkt.push(17);                                    // protocol = UDP
-        pkt.extend_from_slice(&[0; 2]);                  // checksum
-        pkt.extend_from_slice(&[10, 0, 0, 1]);          // src IP
-        pkt.extend_from_slice(&[10, 0, 0, 2]);          // dst IP
-        // UDP header (8 bytes) — non-tunnel dport
-        pkt.extend_from_slice(&1234u16.to_be_bytes());   // src port
-        pkt.extend_from_slice(&5678u16.to_be_bytes());   // dst port (not a tunnel)
-        pkt.extend_from_slice(&8u16.to_be_bytes());      // length
-        pkt.extend_from_slice(&[0; 2]);                  // checksum
+        pkt.extend_from_slice(&28u16.to_be_bytes()); // total length
+        pkt.extend_from_slice(&[0; 4]); // ID + frag
+        pkt.push(64); // TTL
+        pkt.push(17); // protocol = UDP
+        pkt.extend_from_slice(&[0; 2]); // checksum
+        pkt.extend_from_slice(&[10, 0, 0, 1]); // src IP
+        pkt.extend_from_slice(&[10, 0, 0, 2]); // dst IP
+                                               // UDP header (8 bytes) — non-tunnel dport
+        pkt.extend_from_slice(&1234u16.to_be_bytes()); // src port
+        pkt.extend_from_slice(&5678u16.to_be_bytes()); // dst port (not a tunnel)
+        pkt.extend_from_slice(&8u16.to_be_bytes()); // length
+        pkt.extend_from_slice(&[0; 2]); // checksum
         let result = parse_packet(&parser, &pkt).unwrap();
         // Wildcard UDP_LEAF_NODE is hit, parse succeeds.
         assert_eq!(result.result, ParseResult::Okay);
@@ -118,36 +121,36 @@ mod tests {
         let parser = make_parser();
         let mut pkt = Vec::new();
         // Outer Ethernet
-        pkt.extend_from_slice(&[0u8; 12]);              // MACs
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // IPv4
-        // Outer IPv4
+                                                         // Outer IPv4
         pkt.push((4 << 4) | 5);
         pkt.push(0);
-        pkt.extend_from_slice(&100u16.to_be_bytes());   // total length (unused by parser)
+        pkt.extend_from_slice(&100u16.to_be_bytes()); // total length (unused by parser)
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(17);                                    // UDP
+        pkt.push(17); // UDP
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[10, 0, 0, 1]);
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         // Outer UDP → VXLAN port
         pkt.extend_from_slice(&12345u16.to_be_bytes()); // src port
-        pkt.extend_from_slice(&4789u16.to_be_bytes());  // dst port = VXLAN
-        pkt.extend_from_slice(&80u16.to_be_bytes());    // length
-        pkt.extend_from_slice(&[0; 2]);                  // checksum
-        // VXLAN header (8 bytes)
-        pkt.extend_from_slice(&[0x08, 0, 0, 0]);       // flags (I bit set)
+        pkt.extend_from_slice(&4789u16.to_be_bytes()); // dst port = VXLAN
+        pkt.extend_from_slice(&80u16.to_be_bytes()); // length
+        pkt.extend_from_slice(&[0; 2]); // checksum
+                                        // VXLAN header (8 bytes)
+        pkt.extend_from_slice(&[0x08, 0, 0, 0]); // flags (I bit set)
         pkt.extend_from_slice(&[0x12, 0x34, 0x56, 0]); // VNI
-        // Inner Ethernet
-        pkt.extend_from_slice(&[0u8; 12]);              // MACs
+                                                       // Inner Ethernet
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // IPv4
-        // Inner IPv4
+                                                         // Inner IPv4
         pkt.push((4 << 4) | 5);
         pkt.push(0);
         pkt.extend_from_slice(&40u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(6);                                     // TCP
+        pkt.push(6); // TCP
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[192, 168, 1, 1]);
         pkt.extend_from_slice(&[192, 168, 1, 2]);
@@ -177,21 +180,21 @@ mod tests {
         pkt.extend_from_slice(&100u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(17);                                    // UDP
+        pkt.push(17); // UDP
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[10, 0, 0, 1]);
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         // Outer UDP → Geneve port
         pkt.extend_from_slice(&12345u16.to_be_bytes());
-        pkt.extend_from_slice(&6081u16.to_be_bytes());  // dst port = Geneve
+        pkt.extend_from_slice(&6081u16.to_be_bytes()); // dst port = Geneve
         pkt.extend_from_slice(&80u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 2]);
         // Geneve header (8 bytes, no options)
-        pkt.push(0x00);                                  // ver=0, optlen=0
-        pkt.push(0x00);                                  // flags
+        pkt.push(0x00); // ver=0, optlen=0
+        pkt.push(0x00); // flags
         pkt.extend_from_slice(&0x6558u16.to_be_bytes()); // protocol = ETH_P_TEB
-        pkt.extend_from_slice(&[0x12, 0x34, 0x56, 0]);  // VNI
-        // Inner Ethernet
+        pkt.extend_from_slice(&[0x12, 0x34, 0x56, 0]); // VNI
+                                                       // Inner Ethernet
         pkt.extend_from_slice(&[0u8; 12]);
         pkt.extend_from_slice(&0x0800u16.to_be_bytes());
         // Inner IPv4
@@ -200,7 +203,7 @@ mod tests {
         pkt.extend_from_slice(&40u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(6);                                     // TCP
+        pkt.push(6); // TCP
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[192, 168, 1, 1]);
         pkt.extend_from_slice(&[192, 168, 1, 2]);
@@ -220,32 +223,38 @@ mod tests {
     fn make_gre_v0_ipv4_tcp(gre_flags: u16) -> Vec<u8> {
         let mut pkt = Vec::new();
         // Outer Ethernet
-        pkt.extend_from_slice(&[0u8; 12]);              // MACs
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // IPv4
-        // Outer IPv4 (protocol=47 GRE)
+                                                         // Outer IPv4 (protocol=47 GRE)
         pkt.push((4 << 4) | 5);
         pkt.push(0);
-        pkt.extend_from_slice(&100u16.to_be_bytes());   // total length
+        pkt.extend_from_slice(&100u16.to_be_bytes()); // total length
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(47);                                    // IPPROTO_GRE
+        pkt.push(47); // IPPROTO_GRE
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[10, 0, 0, 1]);
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         // GRE header: flags + protocol
         pkt.extend_from_slice(&gre_flags.to_be_bytes());
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // inner IPv4
-        // Optional flag fields
-        if gre_flags & 0x8000 != 0 { pkt.extend_from_slice(&[0xAA, 0xBB, 0, 0]); } // csum+reserved
-        if gre_flags & 0x2000 != 0 { pkt.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF]); } // key
-        if gre_flags & 0x1000 != 0 { pkt.extend_from_slice(&[0x00, 0x00, 0x00, 0x42]); } // seq
-        // Inner IPv4 + TCP
+                                                         // Optional flag fields
+        if gre_flags & 0x8000 != 0 {
+            pkt.extend_from_slice(&[0xAA, 0xBB, 0, 0]);
+        } // csum+reserved
+        if gre_flags & 0x2000 != 0 {
+            pkt.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF]);
+        } // key
+        if gre_flags & 0x1000 != 0 {
+            pkt.extend_from_slice(&[0x00, 0x00, 0x00, 0x42]);
+        } // seq
+          // Inner IPv4 + TCP
         pkt.push((4 << 4) | 5);
         pkt.push(0);
         pkt.extend_from_slice(&40u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(6);                                     // TCP
+        pkt.push(6); // TCP
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[192, 168, 1, 1]);
         pkt.extend_from_slice(&[192, 168, 1, 2]);
@@ -320,7 +329,7 @@ mod tests {
         pkt.extend_from_slice(&0x2000u16.to_be_bytes());
         pkt.extend_from_slice(&0x6558u16.to_be_bytes());
         pkt.extend_from_slice(&[0x00, 0x01, 0x00, 0x00]); // key
-        // Inner Ethernet + IPv4 + TCP
+                                                          // Inner Ethernet + IPv4 + TCP
         pkt.extend_from_slice(&[0u8; 12]);
         pkt.extend_from_slice(&0x0800u16.to_be_bytes());
         pkt.push((4 << 4) | 5);
@@ -371,9 +380,9 @@ mod tests {
         pkt.extend_from_slice(&[0xAA; 6]); // dst MAC
         pkt.extend_from_slice(&[0xBB; 6]); // src MAC
         pkt.extend_from_slice(&0x8100u16.to_be_bytes()); // VLAN
-        pkt.extend_from_slice(&100u16.to_be_bytes());    // TCI = 100
+        pkt.extend_from_slice(&100u16.to_be_bytes()); // TCI = 100
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // inner: IPv4
-        // IPv4 + TCP (just enough)
+                                                         // IPv4 + TCP (just enough)
         pkt.push((4 << 4) | 5);
         pkt.push(0);
         pkt.extend_from_slice(&40u16.to_be_bytes());
@@ -401,23 +410,23 @@ mod tests {
         // ICMPv4 echo request → type, code, id extracted.
         let parser = make_parser();
         let mut pkt = Vec::new();
-        pkt.extend_from_slice(&[0u8; 12]);              // MACs
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // IPv4
         pkt.push((4 << 4) | 5);
         pkt.push(0);
         pkt.extend_from_slice(&28u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 4]);
         pkt.push(64);
-        pkt.push(1);                                    // ICMP
+        pkt.push(1); // ICMP
         pkt.extend_from_slice(&[0; 2]);
         pkt.extend_from_slice(&[10, 0, 0, 1]);
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         // ICMP echo request
-        pkt.push(8);                                    // type = echo request
-        pkt.push(0);                                    // code
-        pkt.extend_from_slice(&[0; 2]);                  // checksum
+        pkt.push(8); // type = echo request
+        pkt.push(0); // code
+        pkt.extend_from_slice(&[0; 2]); // checksum
         pkt.extend_from_slice(&0x1234u16.to_be_bytes()); // id
-        pkt.extend_from_slice(&[0; 2]);                  // sequence
+        pkt.extend_from_slice(&[0; 2]); // sequence
 
         let result = parse_packet(&parser, &pkt).unwrap();
         assert_eq!(result.metadata.icmp.icmp_type, 8);
@@ -431,9 +440,9 @@ mod tests {
         let mut pkt = Vec::new();
         pkt.extend_from_slice(&[0u8; 12]);
         pkt.extend_from_slice(&0x8100u16.to_be_bytes()); // VLAN
-        pkt.extend_from_slice(&100u16.to_be_bytes());    // TCI
+        pkt.extend_from_slice(&100u16.to_be_bytes()); // TCI
         pkt.extend_from_slice(&0x0800u16.to_be_bytes()); // inner: IPv4
-        // IPv4 + TCP
+                                                         // IPv4 + TCP
         pkt.push((4 << 4) | 5);
         pkt.push(0);
         pkt.extend_from_slice(&40u16.to_be_bytes());
@@ -459,7 +468,7 @@ mod tests {
     /// Helper: build Eth frame with given ethertype + payload bytes.
     fn make_eth_l2(ethertype: u16, payload: &[u8]) -> Vec<u8> {
         let mut pkt = Vec::new();
-        pkt.extend_from_slice(&[0u8; 12]);                  // MACs
+        pkt.extend_from_slice(&[0u8; 12]); // MACs
         pkt.extend_from_slice(&ethertype.to_be_bytes());
         pkt.extend_from_slice(payload);
         pkt
@@ -521,11 +530,11 @@ mod tests {
         // Note: ArpOps only accepts op=1/2; RarpOps delegates to it.
         // Use op=1 to pass validation (xdp2-protocols bug: RARP ops 3/4 rejected).
         let mut payload = [0u8; 28];
-        payload[0..2].copy_from_slice(&1u16.to_be_bytes());      // ar_hrd = ARPHRD_ETHER
+        payload[0..2].copy_from_slice(&1u16.to_be_bytes()); // ar_hrd = ARPHRD_ETHER
         payload[2..4].copy_from_slice(&0x0800u16.to_be_bytes()); // ar_pro = IPv4
-        payload[4] = 6;                                            // ar_hln = ETH_ALEN
-        payload[5] = 4;                                            // ar_pln = 4
-        payload[6..8].copy_from_slice(&1u16.to_be_bytes());      // ar_op = REQUEST (workaround)
+        payload[4] = 6; // ar_hln = ETH_ALEN
+        payload[5] = 4; // ar_pln = 4
+        payload[6..8].copy_from_slice(&1u16.to_be_bytes()); // ar_op = REQUEST (workaround)
         let pkt = make_eth_l2(0x8035, &payload);
         let result = parse_packet(&parser, &pkt).unwrap();
         assert_eq!(result.result, ParseResult::Okay);
@@ -552,13 +561,13 @@ mod tests {
         // Ethernet
         pkt.extend_from_slice(&[0u8; 12]);
         pkt.extend_from_slice(&0x8864u16.to_be_bytes()); // ETH_P_PPP_SES
-        // PPPoE header (8 bytes): ver=1, type=1, code=0, session_id, length, ppp_proto
-        pkt.push(0x11);              // ver=1, type=1
-        pkt.push(0x00);              // code=0 (session data)
+                                                         // PPPoE header (8 bytes): ver=1, type=1, code=0, session_id, length, ppp_proto
+        pkt.push(0x11); // ver=1, type=1
+        pkt.push(0x00); // code=0 (session data)
         pkt.extend_from_slice(&[0x00, 0x01]); // session ID
         pkt.extend_from_slice(&44u16.to_be_bytes()); // length
         pkt.extend_from_slice(&0x0021u16.to_be_bytes()); // PPP protocol = IPv4
-        // IPv4 + TCP
+                                                         // IPv4 + TCP
         pkt.push((4 << 4) | 5);
         pkt.push(0);
         pkt.extend_from_slice(&40u16.to_be_bytes());

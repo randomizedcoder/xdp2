@@ -94,15 +94,10 @@ static ICMPV4: BenchNode = BenchNode::IcmpV4;
 
 // ── Protocol tables ──────────────────────────────────────────────────────
 
-static ETHER_TABLE: ProtoTableEnum<FlowMeta, BenchNode> = proto_table_enum![
-    (0x0800, &IPV4),
-];
+static ETHER_TABLE: ProtoTableEnum<FlowMeta, BenchNode> = proto_table_enum![(0x0800, &IPV4),];
 
-static IPV4_TABLE: ProtoTableEnum<FlowMeta, BenchNode> = proto_table_enum![
-    (6, &TCP),
-    (17, &UDP),
-    (1, &ICMPV4),
-];
+static IPV4_TABLE: ProtoTableEnum<FlowMeta, BenchNode> =
+    proto_table_enum![(6, &TCP), (17, &UDP), (1, &ICMPV4),];
 
 // ── NodeOps impl — the match-dispatch core ───────────────────────────────
 
@@ -270,7 +265,10 @@ mod tests {
         let pkt = make_eth_ipv4_tcp();
         let cfg = make_config();
         let out = parse_packet(&cfg, &pkt).expect("parse should succeed");
-        assert!(matches!(out.result, ParseResult::Okay | ParseResult::StopOkay));
+        assert!(matches!(
+            out.result,
+            ParseResult::Okay | ParseResult::StopOkay
+        ));
         assert_eq!(out.metadata.eth_proto, 0x0800);
         assert_eq!(out.metadata.ip_proto, 6);
     }
@@ -289,8 +287,9 @@ mod tests {
         //   2. <CARGO_MANIFEST_DIR>/../../../data/pcaps/tcp_ipv4.pcap  (repo checkout)
         let pcap_path = match std::env::var_os("XDP2_TEST_PCAPS") {
             Some(dir) => PathBuf::from(dir).join("tcp_ipv4.pcap"),
-            None => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../data/pcaps/tcp_ipv4.pcap"),
+            None => {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data/pcaps/tcp_ipv4.pcap")
+            }
         };
         if !pcap_path.exists() {
             eprintln!(

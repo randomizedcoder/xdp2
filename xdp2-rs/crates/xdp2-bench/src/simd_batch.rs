@@ -91,13 +91,17 @@ fn extract_fast_path_meta(ptr: *const u8, len: usize, protocol: u8, meta: &mut F
         }
         meta.addr_type = AddrType::Ipv4;
         meta.ip_proto = *ip.add(9);
-        meta.addrs.v4_src = u32::from_be_bytes([*ip.add(12), *ip.add(13), *ip.add(14), *ip.add(15)]);
-        meta.addrs.v4_dst = u32::from_be_bytes([*ip.add(16), *ip.add(17), *ip.add(18), *ip.add(19)]);
+        meta.addrs.v4_src =
+            u32::from_be_bytes([*ip.add(12), *ip.add(13), *ip.add(14), *ip.add(15)]);
+        meta.addrs.v4_dst =
+            u32::from_be_bytes([*ip.add(16), *ip.add(17), *ip.add(18), *ip.add(19)]);
     }
 
     // Transport leaf metadata (bytes 34+)
     let l4_off = 34usize; // 14 (Eth) + 20 (IPv4 IHL=5)
-    if l4_off >= len { return; }
+    if l4_off >= len {
+        return;
+    }
     unsafe {
         let l4 = ptr.add(l4_off);
         match protocol {

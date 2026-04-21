@@ -99,7 +99,7 @@ pub struct FlowMeta {
     pub is_fragment: bool,
     pub first_frag: bool,
     pub vlan_count: u8,
-    pub eth_addrs: [u8; 12],       // dst[6] + src[6] MACs
+    pub eth_addrs: [u8; 12], // dst[6] + src[6] MACs
     pub mpls: MplsMeta,
     pub arp: ArpMeta,
     pub gre: GreMeta,

@@ -49,6 +49,9 @@ mod tests {
 
     #[test]
     fn ib_mad_is_leaf() {
-        assert!(matches!(IbMadOps.next_proto(&[0u8; 24]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbMadOps.next_proto(&[0u8; 24]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

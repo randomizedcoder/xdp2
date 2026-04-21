@@ -160,7 +160,10 @@ mod tests {
         let mut opt = [0u8; 8];
         opt[0] = ND_OPT_TARGET_LL_ADDR;
         opt[1] = 1;
-        assert_eq!(Icmpv6NdTlvOps::tlv_type(&opt).unwrap(), ND_OPT_TARGET_LL_ADDR);
+        assert_eq!(
+            Icmpv6NdTlvOps::tlv_type(&opt).unwrap(),
+            ND_OPT_TARGET_LL_ADDR
+        );
         assert_eq!(Icmpv6NdTlvOps::tlv_len(&opt).unwrap(), 8);
     }
 

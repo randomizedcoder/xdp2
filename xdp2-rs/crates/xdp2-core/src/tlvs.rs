@@ -38,10 +38,10 @@ pub struct TlvOps {
 ///
 /// Reimplements: `struct xdp2_parse_tlv_node_ops` in `tlvs.h:83-89`
 pub struct ParseTlvNodeOps<M: 'static> {
-    pub extract_metadata:
-        Option<fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData)>,
-    pub handler:
-        Option<fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError>>,
+    pub extract_metadata: Option<fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData)>,
+    pub handler: Option<
+        fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError>,
+    >,
 }
 
 /// Parse node for a single TLV type.
@@ -129,11 +129,21 @@ pub struct ParseTlvsNode<M: 'static> {
 }
 
 impl<M: 'static> ParseNodeDyn<M> for ParseTlvsNode<M> {
-    fn min_len(&self) -> usize { self.inner.min_len() }
-    fn name(&self) -> &'static str { self.inner.name() }
-    fn node_type(&self) -> NodeType { NodeType::Tlvs }
-    fn is_encap(&self) -> bool { self.inner.is_encap() }
-    fn is_overlay(&self) -> bool { self.inner.is_overlay() }
+    fn min_len(&self) -> usize {
+        self.inner.min_len()
+    }
+    fn name(&self) -> &'static str {
+        self.inner.name()
+    }
+    fn node_type(&self) -> NodeType {
+        NodeType::Tlvs
+    }
+    fn is_encap(&self) -> bool {
+        self.inner.is_encap()
+    }
+    fn is_overlay(&self) -> bool {
+        self.inner.is_overlay()
+    }
 
     fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
         self.inner.header_len(hdr, maxlen)
@@ -144,23 +154,55 @@ impl<M: 'static> ParseNodeDyn<M> for ParseTlvsNode<M> {
     fn extract_metadata(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) {
         self.inner.extract_metadata(hdr, hdr_len, metadata, ctrl);
     }
-    fn handler(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+    fn handler(
+        &self,
+        hdr: &[u8],
+        hdr_len: usize,
+        metadata: &mut M,
+        ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
         self.inner.handler(hdr, hdr_len, metadata, ctrl)
     }
-    fn post_handler(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
+    fn post_handler(
+        &self,
+        hdr: &[u8],
+        hdr_len: usize,
+        metadata: &mut M,
+        ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
         self.inner.post_handler(hdr, hdr_len, metadata, ctrl)
     }
 
     /// Dispatch TLV sub-parsing.
     ///
     /// Reimplements: `case XDP2_NODE_TYPE_TLVS:` in `parser.c:532-544`
-    fn sub_parse(&self, hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData) -> Result<(), ParseError> {
-        parse_tlvs(hdr, hdr_len, self.tlv_ops, &self.tlv_proto_table, self.max_tlvs, metadata, ctrl)
+    fn sub_parse(
+        &self,
+        hdr: &[u8],
+        hdr_len: usize,
+        metadata: &mut M,
+        ctrl: &CtrlData,
+    ) -> Result<(), ParseError> {
+        parse_tlvs(
+            hdr,
+            hdr_len,
+            self.tlv_ops,
+            &self.tlv_proto_table,
+            self.max_tlvs,
+            metadata,
+            ctrl,
+        )
     }
 
-    fn proto_table(&self) -> Option<&'static ProtoTable<M>> { self.inner.proto_table() }
-    fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>> { self.inner.wildcard_node() }
-    fn unknown_ret(&self) -> ParseError { self.inner.unknown_ret() }
+    fn proto_table(&self) -> Option<&'static ProtoTable<M>> {
+        self.inner.proto_table()
+    }
+    fn wildcard_node(&self) -> Option<&'static dyn ParseNodeDyn<M>> {
+        self.inner.wildcard_node()
+    }
+    fn unknown_ret(&self) -> ParseError {
+        self.inner.unknown_ret()
+    }
 }
 
 // SAFETY: ParseTlvsNode delegates all state to &'static references which are inherently Send+Sync
@@ -263,8 +305,14 @@ mod tests {
 
     static TEST_TLV_TABLE: TlvTable<TestMeta> = TlvTable {
         entries: &[
-            TlvTableEntry { tlv_type: 1, node: &TEST_TLV_NODE_A },
-            TlvTableEntry { tlv_type: 2, node: &TEST_TLV_NODE_B },
+            TlvTableEntry {
+                tlv_type: 1,
+                node: &TEST_TLV_NODE_A,
+            },
+            TlvTableEntry {
+                tlv_type: 2,
+                node: &TEST_TLV_NODE_B,
+            },
         ],
     };
 
@@ -272,7 +320,9 @@ mod tests {
     // length includes the type+length bytes themselves
     static TEST_TLV_OPS: TlvOps = TlvOps {
         len: |hdr, maxlen| {
-            if maxlen < 2 { return Err(ParseError::TlvLength); }
+            if maxlen < 2 {
+                return Err(ParseError::TlvLength);
+            }
             Ok(hdr[1] as usize)
         },
         type_fn: |hdr| Ok(hdr[0] as i32),
@@ -297,7 +347,15 @@ mod tests {
         let mut meta = TestMeta::default();
         let ctrl = CtrlData::default();
 
-        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        let result = parse_tlvs(
+            &hdr,
+            hdr.len(),
+            &TEST_TLV_OPS,
+            &TEST_TLV_TABLE,
+            10,
+            &mut meta,
+            &ctrl,
+        );
         assert!(result.is_ok());
         assert_eq!(meta.types, vec![1, 2]);
     }
@@ -308,7 +366,15 @@ mod tests {
         let mut meta = TestMeta::default();
         let ctrl = CtrlData::default();
 
-        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 1, &mut meta, &ctrl);
+        let result = parse_tlvs(
+            &hdr,
+            hdr.len(),
+            &TEST_TLV_OPS,
+            &TEST_TLV_TABLE,
+            1,
+            &mut meta,
+            &ctrl,
+        );
         assert!(result.is_ok());
         assert_eq!(meta.types, vec![1]); // stopped after 1
     }
@@ -320,7 +386,15 @@ mod tests {
         let mut meta = TestMeta::default();
         let ctrl = CtrlData::default();
 
-        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        let result = parse_tlvs(
+            &hdr,
+            hdr.len(),
+            &TEST_TLV_OPS,
+            &TEST_TLV_TABLE,
+            10,
+            &mut meta,
+            &ctrl,
+        );
         assert!(result.is_err());
     }
 
@@ -331,7 +405,15 @@ mod tests {
         let mut meta = TestMeta::default();
         let ctrl = CtrlData::default();
 
-        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        let result = parse_tlvs(
+            &hdr,
+            hdr.len(),
+            &TEST_TLV_OPS,
+            &TEST_TLV_TABLE,
+            10,
+            &mut meta,
+            &ctrl,
+        );
         assert!(result.is_err());
     }
 
@@ -342,7 +424,15 @@ mod tests {
         let mut meta = TestMeta::default();
         let ctrl = CtrlData::default();
 
-        let result = parse_tlvs(&hdr, hdr.len(), &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        let result = parse_tlvs(
+            &hdr,
+            hdr.len(),
+            &TEST_TLV_OPS,
+            &TEST_TLV_TABLE,
+            10,
+            &mut meta,
+            &ctrl,
+        );
         assert!(result.is_ok());
         assert_eq!(meta.types, vec![1]);
     }
@@ -353,7 +443,15 @@ mod tests {
         let mut meta = TestMeta::default();
         let ctrl = CtrlData::default();
 
-        let result = parse_tlvs(&hdr, 0, &TEST_TLV_OPS, &TEST_TLV_TABLE, 10, &mut meta, &ctrl);
+        let result = parse_tlvs(
+            &hdr,
+            0,
+            &TEST_TLV_OPS,
+            &TEST_TLV_TABLE,
+            10,
+            &mut meta,
+            &ctrl,
+        );
         assert!(result.is_ok());
         assert!(meta.types.is_empty());
     }

@@ -71,10 +71,7 @@ pub struct ParseOutput<M> {
 /// 4. Sub-structure parsing (TLVs, flag-fields, arrays) — not yet implemented
 /// 5. post_handler
 /// 6. next_proto → table lookup
-pub fn parse<M: Default>(
-    parser: &Parser<M>,
-    packet: &[u8],
-) -> Result<ParseOutput<M>, ParseError> {
+pub fn parse<M: Default>(parser: &Parser<M>, packet: &[u8]) -> Result<ParseOutput<M>, ParseError> {
     let mut metadata = M::default();
     let mut ctrl = CtrlData {
         key: CtrlKeyData {
@@ -155,9 +152,8 @@ pub fn parse<M: Default>(
                                 offset += hdr_len;
                             }
                             node = wild;
-                            nodes_remaining = nodes_remaining
-                                .checked_sub(1)
-                                .ok_or(ParseError::MaxNodes)?;
+                            nodes_remaining =
+                                nodes_remaining.checked_sub(1).ok_or(ParseError::MaxNodes)?;
                             ctrl.var.node_cnt += 1;
                             continue;
                         }
@@ -194,9 +190,7 @@ pub fn parse<M: Default>(
         }
 
         // Check node count limit
-        nodes_remaining = nodes_remaining
-            .checked_sub(1)
-            .ok_or(ParseError::MaxNodes)?;
+        nodes_remaining = nodes_remaining.checked_sub(1).ok_or(ParseError::MaxNodes)?;
         ctrl.var.node_cnt += 1;
         node = next_node;
     };

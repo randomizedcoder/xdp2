@@ -17,7 +17,9 @@ impl ProtocolOps for CfmOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "CFM";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -26,6 +28,9 @@ mod tests {
 
     #[test]
     fn cfm_is_leaf() {
-        assert!(matches!(CfmOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            CfmOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

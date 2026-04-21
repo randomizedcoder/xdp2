@@ -161,17 +161,26 @@ mod tests {
 
     #[test]
     fn erf_is_leaf() {
-        assert!(matches!(ErfOps.next_proto(&[0u8; 16]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ErfOps.next_proto(&[0u8; 16]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn mpeg_ts_is_leaf() {
-        assert!(matches!(MpegTsOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            MpegTsOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn srt_is_leaf() {
-        assert!(matches!(SrtOps.next_proto(&[0u8; 12]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            SrtOps.next_proto(&[0u8; 12]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

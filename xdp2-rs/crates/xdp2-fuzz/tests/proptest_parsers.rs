@@ -26,11 +26,10 @@ fn arb_packet() -> impl Strategy<Value = Vec<u8>> {
 
 fn arb_eth_frame() -> impl Strategy<Value = Vec<u8>> {
     (
-        any::<[u8; 12]>(),  // MACs
+        any::<[u8; 12]>(), // MACs
         prop::sample::select(vec![
-            0x0800u16, 0x86DD, 0x0806, 0x8035, 0x8100, 0x88A8,
-            0x8847, 0x88CC, 0x888E, 0x88E5, 0x88F7, 0x8864,
-            0x0000, 0x05DC, 0xFFFF,
+            0x0800u16, 0x86DD, 0x0806, 0x8035, 0x8100, 0x88A8, 0x8847, 0x88CC, 0x888E, 0x88E5,
+            0x88F7, 0x8864, 0x0000, 0x05DC, 0xFFFF,
         ]),
         prop::collection::vec(any::<u8>(), 0..500),
     )
@@ -47,14 +46,15 @@ fn arb_eth_frame() -> impl Strategy<Value = Vec<u8>> {
 
 fn arb_eth_ipv4() -> impl Strategy<Value = Vec<u8>> {
     (
-        0u8..=15u8,   // IHL (0-15, valid is 5-15)
-        any::<u8>(),  // IP protocol
+        0u8..=15u8,  // IHL (0-15, valid is 5-15)
+        any::<u8>(), // IP protocol
         prop::collection::vec(any::<u8>(), 0..200),
     )
         .prop_map(|(ihl, proto, payload)| {
             let mut pkt = vec![0u8; 14]; // Ethernet
-            pkt[12] = 0x08; pkt[13] = 0x00; // ethertype = IPv4
-            // IPv4 header (20 bytes minimum)
+            pkt[12] = 0x08;
+            pkt[13] = 0x00; // ethertype = IPv4
+                            // IPv4 header (20 bytes minimum)
             let ver_ihl = 0x40 | (ihl & 0x0F);
             let total_len = (20 + payload.len().min(480)) as u16;
             pkt.push(ver_ihl);
@@ -75,7 +75,7 @@ fn arb_eth_ipv4() -> impl Strategy<Value = Vec<u8>> {
 
 fn arb_eth_ipv4_tcp() -> impl Strategy<Value = Vec<u8>> {
     (
-        0u8..=15u8,   // TCP data_offset (valid: 5-15, adversarial: 0-4)
+        0u8..=15u8, // TCP data_offset (valid: 5-15, adversarial: 0-4)
         prop::collection::vec(any::<u8>(), 0..100),
     )
         .prop_map(|(doff, payload)| {
@@ -84,7 +84,8 @@ fn arb_eth_ipv4_tcp() -> impl Strategy<Value = Vec<u8>> {
             let ip_payload_len = tcp_hdr_len + tcp_payload.len();
 
             let mut pkt = vec![0u8; 14]; // Ethernet
-            pkt[12] = 0x08; pkt[13] = 0x00;
+            pkt[12] = 0x08;
+            pkt[13] = 0x00;
             // IPv4
             pkt.push(0x45); // ver=4, ihl=5
             pkt.push(0x00);

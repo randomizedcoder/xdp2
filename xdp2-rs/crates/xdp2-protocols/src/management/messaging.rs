@@ -15,7 +15,9 @@ impl ProtocolOps for MqttOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "MQTT";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// AMQP header (8 bytes). Reimplements: `struct amqp_hdr` in `proto_amqp.h`
@@ -33,7 +35,9 @@ impl ProtocolOps for AmqpOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "AMQP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Kafka header (12 bytes). Reimplements: `struct kafka_hdr` in `proto_kafka.h`
@@ -50,19 +54,25 @@ impl ProtocolOps for KafkaOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "Kafka";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Redis header (1 byte marker). Reimplements: `struct redis_hdr` in `proto_redis.h`
 #[derive(FromBytes, KnownLayout, Immutable, Debug)]
 #[repr(C, packed)]
-pub struct RedisHeader { pub marker: u8 }
+pub struct RedisHeader {
+    pub marker: u8,
+}
 pub struct RedisOps;
 impl ProtocolOps for RedisOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "Redis";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Memcache header (24 bytes). Reimplements: `struct memcache_hdr` in `proto_memcache.h`
@@ -84,19 +94,25 @@ impl ProtocolOps for MemcacheOps {
     const MIN_LEN: usize = 24;
     const NAME: &'static str = "Memcache";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// ZeroMQ header (1 byte marker). Reimplements: `struct zeromq_hdr` in `proto_zeromq.h`
 #[derive(FromBytes, KnownLayout, Immutable, Debug)]
 #[repr(C, packed)]
-pub struct ZeromqHeader { pub marker: u8 }
+pub struct ZeromqHeader {
+    pub marker: u8,
+}
 pub struct ZeromqOps;
 impl ProtocolOps for ZeromqOps {
     const MIN_LEN: usize = 1;
     const NAME: &'static str = "ZeroMQ";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -105,11 +121,17 @@ mod tests {
 
     #[test]
     fn mqtt_is_leaf() {
-        assert!(matches!(MqttOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            MqttOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn kafka_is_leaf() {
-        assert!(matches!(KafkaOps.next_proto(&[0u8; 12]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            KafkaOps.next_proto(&[0u8; 12]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

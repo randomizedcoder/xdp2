@@ -52,7 +52,10 @@ mod tests {
     #[test]
     fn eap_is_leaf() {
         let ops = EapOps;
-        assert!(matches!(ops.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

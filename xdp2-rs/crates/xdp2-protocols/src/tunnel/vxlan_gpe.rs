@@ -85,19 +85,28 @@ mod tests {
     #[test]
     fn vxlan_gpe_ipv4() {
         let ops = VxlanGpeOps;
-        assert_eq!(ops.next_proto(&make_vxlan_gpe(VXLAN_GPE_NP_IPV4)).unwrap(), ETH_P_IP);
+        assert_eq!(
+            ops.next_proto(&make_vxlan_gpe(VXLAN_GPE_NP_IPV4)).unwrap(),
+            ETH_P_IP
+        );
     }
 
     #[test]
     fn vxlan_gpe_ipv6() {
         let ops = VxlanGpeOps;
-        assert_eq!(ops.next_proto(&make_vxlan_gpe(VXLAN_GPE_NP_IPV6)).unwrap(), ETH_P_IPV6);
+        assert_eq!(
+            ops.next_proto(&make_vxlan_gpe(VXLAN_GPE_NP_IPV6)).unwrap(),
+            ETH_P_IPV6
+        );
     }
 
     #[test]
     fn vxlan_gpe_eth() {
         let ops = VxlanGpeOps;
-        assert_eq!(ops.next_proto(&make_vxlan_gpe(VXLAN_GPE_NP_ETH)).unwrap(), ETH_P_TEB);
+        assert_eq!(
+            ops.next_proto(&make_vxlan_gpe(VXLAN_GPE_NP_ETH)).unwrap(),
+            ETH_P_TEB
+        );
     }
 
     #[test]

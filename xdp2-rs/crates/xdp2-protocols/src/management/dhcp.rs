@@ -27,7 +27,9 @@ impl ProtocolOps for DhcpOps {
     const MIN_LEN: usize = 236;
     const NAME: &'static str = "DHCP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// DHCPv6 header (4 bytes). Reimplements: `struct dhcpv6_hdr` in `proto_dhcpv6.h`
@@ -42,7 +44,9 @@ impl ProtocolOps for Dhcpv6Ops {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "DHCPv6";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// NTP header (48 bytes). Reimplements: `struct ntphdr` in `proto_ntp.h`
@@ -66,7 +70,9 @@ impl ProtocolOps for NtpOps {
     const MIN_LEN: usize = 48;
     const NAME: &'static str = "NTP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -75,11 +81,17 @@ mod tests {
 
     #[test]
     fn dhcp_is_leaf() {
-        assert!(matches!(DhcpOps.next_proto(&[0u8; 236]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            DhcpOps.next_proto(&[0u8; 236]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ntp_is_leaf() {
-        assert!(matches!(NtpOps.next_proto(&[0u8; 48]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            NtpOps.next_proto(&[0u8; 48]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

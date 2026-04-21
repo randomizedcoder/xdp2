@@ -23,7 +23,12 @@ pub fn parse_packet(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 
 // ── Ethernet dispatch (28 ethertypes + LLC) ─────────────────────────
 
-fn dispatch_ether(next: i64, rest: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
+fn dispatch_ether(
+    next: i64,
+    rest: &[u8],
+    depth: u32,
+    meta: &mut FlowMeta,
+) -> Result<(), ParseError> {
     // LLC detection: ethertype ≤ 1500 means IEEE 802.3 length field
     if next > 0 && next <= 1500 {
         return parse_llc(rest, meta);
@@ -46,30 +51,37 @@ fn dispatch_ether(next: i64, rest: &[u8], depth: u32, meta: &mut FlowMeta) -> Re
         0x892F | 0x88FB => parse_hsr(rest, depth + 1, meta), // HSR + PRP
         0x894F => parse_nsh(rest, depth + 1, meta),
         // Management / L2 leaves
-        0x88CC => leaf(rest, 2),   // LLDP
-        0x8809 => leaf(rest, 1),   // SLOW
-        0x8808 => leaf(rest, 2),   // MAC_CONTROL
-        0x888E => leaf(rest, 4),   // EAPOL
-        0x88F7 => leaf(rest, 34),  // PTP
-        0x88F5 => leaf(rest, 1),   // MVRP
-        0x8902 => leaf(rest, 4),   // CFM
-        0x8914 => leaf(rest, 8),   // FIP
-        0x88E5 => leaf(rest, 6),   // MACsec
-        0x88A4 => leaf(rest, 2),   // EtherCAT
-        0x88CA => {                // TIPC
-            if rest.len() < 16 { return Err(ParseError::Length); }
+        0x88CC => leaf(rest, 2),  // LLDP
+        0x8809 => leaf(rest, 1),  // SLOW
+        0x8808 => leaf(rest, 2),  // MAC_CONTROL
+        0x888E => leaf(rest, 4),  // EAPOL
+        0x88F7 => leaf(rest, 34), // PTP
+        0x88F5 => leaf(rest, 1),  // MVRP
+        0x8902 => leaf(rest, 4),  // CFM
+        0x8914 => leaf(rest, 8),  // FIP
+        0x88E5 => leaf(rest, 6),  // MACsec
+        0x88A4 => leaf(rest, 2),  // EtherCAT
+        0x88CA => {
+            // TIPC
+            if rest.len() < 16 {
+                return Err(ParseError::Length);
+            }
             meta.addr_type = AddrType::Tipc;
             meta.addrs.tipc_key = u32::from_be_bytes([rest[8], rest[9], rest[10], rest[11]]);
             Ok(())
         }
-        0x8906 => leaf(rest, 38),  // FCoE
+        0x8906 => leaf(rest, 38), // FCoE
         _ => Err(ParseError::UnknownProto),
     }
 }
 
 fn parse_ethernet(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 14 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 14 {
+        return Err(ParseError::Length);
+    }
     // Extract Ethernet metadata
     meta.eth_addrs[..12].copy_from_slice(&pkt[0..12]);
     meta.eth_proto = u16::from_be_bytes([pkt[12], pkt[13]]);
@@ -78,11 +90,21 @@ fn parse_ethernet(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), Par
 }
 
 fn parse_vlan(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 4 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 4 {
+        return Err(ParseError::Length);
+    }
     // Extract VLAN metadata (802.1Q)
-    let idx = if meta.vlan_count < 2 { meta.vlan_count as usize } else { 1 };
-    if meta.vlan_count < 2 { meta.vlan_count += 1; }
+    let idx = if meta.vlan_count < 2 {
+        meta.vlan_count as usize
+    } else {
+        1
+    };
+    if meta.vlan_count < 2 {
+        meta.vlan_count += 1;
+    }
     meta.vlan[idx].tci = u16::from_be_bytes([pkt[0], pkt[1]]);
     meta.vlan[idx].tpid = 0x8100;
     let next = u16::from_be_bytes([pkt[2], pkt[3]]) as i64;
@@ -90,11 +112,21 @@ fn parse_vlan(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
 }
 
 fn parse_qinq(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 4 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 4 {
+        return Err(ParseError::Length);
+    }
     // Extract VLAN metadata (802.1AD / QinQ)
-    let idx = if meta.vlan_count < 2 { meta.vlan_count as usize } else { 1 };
-    if meta.vlan_count < 2 { meta.vlan_count += 1; }
+    let idx = if meta.vlan_count < 2 {
+        meta.vlan_count as usize
+    } else {
+        1
+    };
+    if meta.vlan_count < 2 {
+        meta.vlan_count += 1;
+    }
     meta.vlan[idx].tci = u16::from_be_bytes([pkt[0], pkt[1]]);
     meta.vlan[idx].tpid = 0x88A8;
     let next = u16::from_be_bytes([pkt[2], pkt[3]]) as i64;
@@ -110,7 +142,9 @@ fn parse_qinq(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
 // arm's ethertype/proto-value lets the version check be elided too.
 #[inline(always)]
 fn parse_ip_check(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.is_empty() { return Err(ParseError::Length); }
+    if pkt.is_empty() {
+        return Err(ParseError::Length);
+    }
     match pkt[0] >> 4 {
         4 => parse_ipv4(pkt, depth, meta),
         6 => parse_ipv6(pkt, depth, meta),
@@ -121,10 +155,16 @@ fn parse_ip_check(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), Par
 // ── IPv4 dispatch (13 protocols) ─────────────────────────────────────
 
 fn parse_ipv4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 20 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 20 {
+        return Err(ParseError::Length);
+    }
     let hlen = (pkt[0] as usize & 15) * 4;
-    if hlen < 20 || hlen > pkt.len() { return Err(ParseError::Length); }
+    if hlen < 20 || hlen > pkt.len() {
+        return Err(ParseError::Length);
+    }
     // Extract IPv4 metadata
     let frag_off = u16::from_be_bytes([pkt[6], pkt[7]]);
     if (frag_off & 0x3FFF) != 0 {
@@ -140,17 +180,28 @@ fn parse_ipv4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
     dispatch_ipv4(next, rest, depth, meta)
 }
 
-fn dispatch_ipv4(next: i64, rest: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
+fn dispatch_ipv4(
+    next: i64,
+    rest: &[u8],
+    depth: u32,
+    meta: &mut FlowMeta,
+) -> Result<(), ParseError> {
     match next {
-        6 => {                                 // TCP
-            if rest.len() < 20 { return Err(ParseError::Length); }
+        6 => {
+            // TCP
+            if rest.len() < 20 {
+                return Err(ParseError::Length);
+            }
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
             Ok(())
         }
-        17 => parse_udp_tunnel(rest, meta),    // UDP with tunnel dispatch
-        1 => {                                 // ICMPv4
-            if rest.len() < 8 { return Err(ParseError::Length); }
+        17 => parse_udp_tunnel(rest, meta), // UDP with tunnel dispatch
+        1 => {
+            // ICMPv4
+            if rest.len() < 8 {
+                return Err(ParseError::Length);
+            }
             meta.icmp.icmp_type = rest[0];
             meta.icmp.code = rest[1];
             let t = rest[0];
@@ -159,39 +210,54 @@ fn dispatch_ipv4(next: i64, rest: &[u8], depth: u32, meta: &mut FlowMeta) -> Res
             }
             Ok(())
         }
-        2 => leaf(rest, 8),                    // IGMP
+        2 => leaf(rest, 8),                              // IGMP
         4 | 41 => parse_ip_check(rest, depth + 1, meta), // IP-in-IP
-        33 => {                                // DCCP
-            if rest.len() < 12 { return Err(ParseError::Length); }
+        33 => {
+            // DCCP
+            if rest.len() < 12 {
+                return Err(ParseError::Length);
+            }
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
             Ok(())
         }
         47 => parse_gre(rest, depth + 1, meta), // GRE
-        50 => {                                // ESP
-            if rest.len() < 8 { return Err(ParseError::Length); }
+        50 => {
+            // ESP
+            if rest.len() < 8 {
+                return Err(ParseError::Length);
+            }
             meta.esp_spi = u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]);
             Ok(())
         }
         51 => parse_ah_v4(rest, depth + 1, meta), // AH → IPv4 table
-        115 => {                               // L2TPv3
-            if rest.len() < 4 { return Err(ParseError::Length); }
+        115 => {
+            // L2TPv3
+            if rest.len() < 4 {
+                return Err(ParseError::Length);
+            }
             meta.l2tp_session_id = u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]);
             Ok(())
         }
-        132 => {                               // SCTP
-            if rest.len() < 12 { return Err(ParseError::Length); }
+        132 => {
+            // SCTP
+            if rest.len() < 12 {
+                return Err(ParseError::Length);
+            }
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
             Ok(())
         }
-        136 => {                               // UDPLite
-            if rest.len() < 8 { return Err(ParseError::Length); }
+        136 => {
+            // UDPLite
+            if rest.len() < 8 {
+                return Err(ParseError::Length);
+            }
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
             Ok(())
         }
-        137 => parse_mpls(rest, meta),         // MPLS
+        137 => parse_mpls(rest, meta), // MPLS
         _ => Err(ParseError::UnknownProto),
     }
 }
@@ -199,8 +265,12 @@ fn dispatch_ipv4(next: i64, rest: &[u8], depth: u32, meta: &mut FlowMeta) -> Res
 // ── IPv6 dispatch (16 protocols) ─────────────────────────────────────
 
 fn parse_ipv6(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 40 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 40 {
+        return Err(ParseError::Length);
+    }
     // Extract IPv6 metadata
     meta.addr_type = AddrType::Ipv6;
     meta.ip_proto = pkt[6];
@@ -211,18 +281,29 @@ fn parse_ipv6(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
     dispatch_ipv6(next, &pkt[40..], depth, meta)
 }
 
-fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
+fn dispatch_ipv6(
+    mut next: i64,
+    mut rest: &[u8],
+    mut depth: u32,
+    meta: &mut FlowMeta,
+) -> Result<(), ParseError> {
     loop {
         match next {
-            6 => {                             // TCP
-                if rest.len() < 20 { return Err(ParseError::Length); }
+            6 => {
+                // TCP
+                if rest.len() < 20 {
+                    return Err(ParseError::Length);
+                }
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
                 return Ok(());
             }
             17 => return parse_udp_tunnel(rest, meta), // UDP
-            58 => {                            // ICMPv6
-                if rest.len() < 8 { return Err(ParseError::Length); }
+            58 => {
+                // ICMPv6
+                if rest.len() < 8 {
+                    return Err(ParseError::Length);
+                }
                 meta.icmp.icmp_type = rest[0];
                 meta.icmp.code = rest[1];
                 let t = rest[0];
@@ -231,20 +312,29 @@ fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32, meta: &mut Flow
                 }
                 return Ok(());
             }
-            132 => {                           // SCTP
-                if rest.len() < 12 { return Err(ParseError::Length); }
+            132 => {
+                // SCTP
+                if rest.len() < 12 {
+                    return Err(ParseError::Length);
+                }
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
                 return Ok(());
             }
-            33 => {                            // DCCP
-                if rest.len() < 12 { return Err(ParseError::Length); }
+            33 => {
+                // DCCP
+                if rest.len() < 12 {
+                    return Err(ParseError::Length);
+                }
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
                 return Ok(());
             }
-            136 => {                           // UDPLite
-                if rest.len() < 8 { return Err(ParseError::Length); }
+            136 => {
+                // UDPLite
+                if rest.len() < 8 {
+                    return Err(ParseError::Length);
+                }
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
                 return Ok(());
@@ -252,22 +342,34 @@ fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32, meta: &mut Flow
             137 => return parse_mpls(rest, meta), // MPLS
             4 | 41 => return parse_ip_check(rest, depth + 1, meta), // IP-in-IP
             47 => return parse_gre(rest, depth + 1, meta), // GRE
-            50 => {                            // ESP
-                if rest.len() < 8 { return Err(ParseError::Length); }
+            50 => {
+                // ESP
+                if rest.len() < 8 {
+                    return Err(ParseError::Length);
+                }
                 meta.esp_spi = u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]);
                 return Ok(());
             }
-            115 => {                           // L2TPv3
-                if rest.len() < 4 { return Err(ParseError::Length); }
+            115 => {
+                // L2TPv3
+                if rest.len() < 4 {
+                    return Err(ParseError::Length);
+                }
                 meta.l2tp_session_id = u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]);
                 return Ok(());
             }
             0 | 60 | 43 => {
                 // HBH / DST / Routing extension headers
-                if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-                if rest.len() < 2 { return Err(ParseError::Length); }
+                if depth >= MAX_DEPTH {
+                    return Err(ParseError::MaxNodes);
+                }
+                if rest.len() < 2 {
+                    return Err(ParseError::Length);
+                }
                 let hlen = rest[1] as usize * 8 + 8;
-                if hlen < 2 || hlen > rest.len() { return Err(ParseError::Length); }
+                if hlen < 2 || hlen > rest.len() {
+                    return Err(ParseError::Length);
+                }
                 // Update ip_proto for extension header chaining
                 meta.ip_proto = rest[0];
                 next = rest[0] as i64;
@@ -276,8 +378,12 @@ fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32, meta: &mut Flow
             }
             44 => {
                 // Fragment extension header
-                if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-                if rest.len() < 8 { return Err(ParseError::Length); }
+                if depth >= MAX_DEPTH {
+                    return Err(ParseError::MaxNodes);
+                }
+                if rest.len() < 8 {
+                    return Err(ParseError::Length);
+                }
                 meta.ip_proto = rest[0];
                 let frag_off = u16::from_be_bytes([rest[2], rest[3]]);
                 meta.is_fragment = true;
@@ -288,10 +394,16 @@ fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32, meta: &mut Flow
             }
             51 => {
                 // AH → chains back to IPv6 table
-                if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-                if rest.len() < 12 { return Err(ParseError::Length); }
+                if depth >= MAX_DEPTH {
+                    return Err(ParseError::MaxNodes);
+                }
+                if rest.len() < 12 {
+                    return Err(ParseError::Length);
+                }
                 let hlen = rest[1] as usize * 4 + 8;
-                if hlen < 12 || hlen > rest.len() { return Err(ParseError::Length); }
+                if hlen < 12 || hlen > rest.len() {
+                    return Err(ParseError::Length);
+                }
                 // Extract AH metadata
                 meta.ah_spi = u32::from_be_bytes([rest[4], rest[5], rest[6], rest[7]]);
                 meta.ip_proto = rest[0];
@@ -307,10 +419,16 @@ fn dispatch_ipv6(mut next: i64, mut rest: &[u8], mut depth: u32, meta: &mut Flow
 // ── AH (chains to IPv4 table) ───────────────────────────────────────
 
 fn parse_ah_v4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 12 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 12 {
+        return Err(ParseError::Length);
+    }
     let hlen = pkt[1] as usize * 4 + 8;
-    if hlen < 12 || hlen > pkt.len() { return Err(ParseError::Length); }
+    if hlen < 12 || hlen > pkt.len() {
+        return Err(ParseError::Length);
+    }
     // Extract AH metadata
     meta.ah_spi = u32::from_be_bytes([pkt[4], pkt[5], pkt[6], pkt[7]]);
     let next = pkt[0] as i64;
@@ -322,7 +440,9 @@ fn parse_ah_v4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseE
 // ── UDP with tunnel dispatch ─────────────────────────────────────────
 
 fn parse_udp_tunnel(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     // Extract ports metadata
     meta.ports.src_port = u16::from_be_bytes([pkt[0], pkt[1]]);
     meta.ports.dst_port = u16::from_be_bytes([pkt[2], pkt[3]]);
@@ -338,7 +458,9 @@ fn parse_udp_tunnel(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 // ── Tunnel nodes ─────────────────────────────────────────────────────
 
 fn parse_vxlan(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     // Extract VNI
     meta.keyid = ((pkt[4] as u32) << 16) | ((pkt[5] as u32) << 8) | (pkt[6] as u32);
     // VXLAN always wraps Ethernet (ETH_P_TEB)
@@ -346,10 +468,14 @@ fn parse_vxlan(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 }
 
 fn parse_geneve(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     let opt_len = (pkt[0] & 0x3F) as usize;
     let hlen = 8 + opt_len * 4;
-    if hlen > pkt.len() { return Err(ParseError::Length); }
+    if hlen > pkt.len() {
+        return Err(ParseError::Length);
+    }
     // Extract VNI
     meta.keyid = ((pkt[4] as u32) << 16) | ((pkt[5] as u32) << 8) | (pkt[6] as u32);
     let next = u16::from_be_bytes([pkt[2], pkt[3]]) as i64;
@@ -364,8 +490,12 @@ fn parse_geneve(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 // ── GRE ──────────────────────────────────────────────────────────────
 
 fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 4 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 4 {
+        return Err(ParseError::Length);
+    }
     let flags = u16::from_be_bytes([pkt[0], pkt[1]]);
     let version = flags & 0x07;
     // Extract GRE flags metadata
@@ -373,30 +503,42 @@ fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
     match version {
         0 => {
             // GRE v0: check for routing flag (deprecated)
-            if flags & 0x4000 != 0 { return Err(ParseError::Fail); }
+            if flags & 0x4000 != 0 {
+                return Err(ParseError::Fail);
+            }
             // Variable header length based on C/K/S flags
             let mut hlen: usize = 4;
             if flags & 0x8000 != 0 {
                 // Checksum+reserved present
-                if pkt.len() < hlen + 4 { return Err(ParseError::Length); }
+                if pkt.len() < hlen + 4 {
+                    return Err(ParseError::Length);
+                }
                 meta.gre.csum = u16::from_ne_bytes([pkt[hlen], pkt[hlen + 1]]);
                 hlen += 4;
             }
             if flags & 0x2000 != 0 {
                 // Key present
-                if pkt.len() < hlen + 4 { return Err(ParseError::Length); }
-                let v = u32::from_ne_bytes([pkt[hlen], pkt[hlen + 1], pkt[hlen + 2], pkt[hlen + 3]]);
+                if pkt.len() < hlen + 4 {
+                    return Err(ParseError::Length);
+                }
+                let v =
+                    u32::from_ne_bytes([pkt[hlen], pkt[hlen + 1], pkt[hlen + 2], pkt[hlen + 3]]);
                 meta.gre.keyid = v;
                 meta.keyid = v;
                 hlen += 4;
             }
             if flags & 0x1000 != 0 {
                 // Sequence present
-                if pkt.len() < hlen + 4 { return Err(ParseError::Length); }
-                meta.gre.seq = u32::from_ne_bytes([pkt[hlen], pkt[hlen + 1], pkt[hlen + 2], pkt[hlen + 3]]);
+                if pkt.len() < hlen + 4 {
+                    return Err(ParseError::Length);
+                }
+                meta.gre.seq =
+                    u32::from_ne_bytes([pkt[hlen], pkt[hlen + 1], pkt[hlen + 2], pkt[hlen + 3]]);
                 hlen += 4;
             }
-            if hlen > pkt.len() { return Err(ParseError::Length); }
+            if hlen > pkt.len() {
+                return Err(ParseError::Length);
+            }
             let next = u16::from_be_bytes([pkt[2], pkt[3]]) as i64;
             let rest = &pkt[hlen..];
             match next {
@@ -412,8 +554,12 @@ fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
 // ── PPPoE → PPP → IP ────────────────────────────────────────────────
 
 fn parse_pppoe(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     // PPP protocol at bytes 6-7
     let ppp_proto = u16::from_be_bytes([pkt[6], pkt[7]]);
     let rest = &pkt[8..];
@@ -426,8 +572,12 @@ fn parse_pppoe(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseE
 // ── HSR/PRP → Ether dispatch ────────────────────────────────────────
 
 fn parse_hsr(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 6 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 6 {
+        return Err(ParseError::Length);
+    }
     // Encapsulated protocol at bytes 4-5
     let next = u16::from_be_bytes([pkt[4], pkt[5]]) as i64;
     dispatch_ether(next, &pkt[6..], depth, meta)
@@ -436,14 +586,18 @@ fn parse_hsr(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
 // ── NSH → inner protocol dispatch ────────────────────────────────────
 
 fn parse_nsh(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if depth >= MAX_DEPTH { return Err(ParseError::MaxNodes); }
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     // Map next_protocol field (byte 3) to ethertype
     let next: i64 = match pkt[3] {
-        1 => 0x0800,  // IPv4
-        2 => 0x86DD,  // IPv6
-        3 => 0x6558,  // Ethernet
-        5 => 0x8847,  // MPLS
+        1 => 0x0800, // IPv4
+        2 => 0x86DD, // IPv6
+        3 => 0x6558, // Ethernet
+        5 => 0x8847, // MPLS
         _ => 0,
     };
     let rest = &pkt[8..];
@@ -459,15 +613,24 @@ fn parse_nsh(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
 // BATMAN/PBB/TRILL are complex encapsulation protocols with validation.
 // In the compiled parser, we treat them as successful leaf nodes.
 
-fn parse_batman(pkt: &[u8]) -> Result<(), ParseError> { leaf(pkt, 24) }
-fn parse_pbb(pkt: &[u8]) -> Result<(), ParseError> { leaf(pkt, 18) }
-fn parse_trill(pkt: &[u8]) -> Result<(), ParseError> { leaf(pkt, 20) }
+fn parse_batman(pkt: &[u8]) -> Result<(), ParseError> {
+    leaf(pkt, 24)
+}
+fn parse_pbb(pkt: &[u8]) -> Result<(), ParseError> {
+    leaf(pkt, 18)
+}
+fn parse_trill(pkt: &[u8]) -> Result<(), ParseError> {
+    leaf(pkt, 20)
+}
 
 // ── LLC/SNAP dispatch ────────────────────────────────────────────
 
 fn parse_llc(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 3 { return Err(ParseError::Length); }
-    match pkt[0] { // DSAP
+    if pkt.len() < 3 {
+        return Err(ParseError::Length);
+    }
+    match pkt[0] {
+        // DSAP
         0xAA => parse_snap(pkt, meta),
         0x42 => Ok(()), // STP leaf
         _ => Err(ParseError::UnknownProto),
@@ -475,7 +638,9 @@ fn parse_llc(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 }
 
 fn parse_snap(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     let next = u16::from_be_bytes([pkt[6], pkt[7]]) as i64;
     dispatch_ether(next, &pkt[8..], 0, meta)
 }
@@ -484,20 +649,22 @@ fn parse_snap(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 
 #[inline]
 fn leaf(pkt: &[u8], min_len: usize) -> Result<(), ParseError> {
-    if pkt.len() < min_len { return Err(ParseError::Length); }
+    if pkt.len() < min_len {
+        return Err(ParseError::Length);
+    }
     Ok(())
 }
 
 #[inline]
 fn parse_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     // ARP validation: hw_type=1, proto=0x0800, hw_len=6, proto_len=4, op=1|2
-    if pkt.len() < 28 { return Err(ParseError::Length); }
+    if pkt.len() < 28 {
+        return Err(ParseError::Length);
+    }
     let hw_type = u16::from_be_bytes([pkt[0], pkt[1]]);
     let proto_type = u16::from_be_bytes([pkt[2], pkt[3]]);
     let op = u16::from_be_bytes([pkt[6], pkt[7]]);
-    if hw_type != 1 || proto_type != 0x0800 || pkt[4] != 6 || pkt[5] != 4
-        || (op != 1 && op != 2)
-    {
+    if hw_type != 1 || proto_type != 0x0800 || pkt[4] != 6 || pkt[5] != 4 || (op != 1 && op != 2) {
         return Err(ParseError::Fail);
     }
     // Extract ARP metadata
@@ -511,7 +678,9 @@ fn parse_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 
 #[inline]
 fn parse_mpls(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 8 { return Err(ParseError::Length); }
+    if pkt.len() < 8 {
+        return Err(ParseError::Length);
+    }
     // Extract MPLS metadata from first label entry
     let w = u32::from_be_bytes([pkt[0], pkt[1], pkt[2], pkt[3]]);
     meta.mpls.label = w >> 12;

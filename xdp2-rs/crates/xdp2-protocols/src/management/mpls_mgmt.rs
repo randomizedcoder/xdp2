@@ -17,7 +17,9 @@ impl ProtocolOps for LdpOps {
     const MIN_LEN: usize = 10;
     const NAME: &'static str = "LDP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// MPLS OAM header (4 bytes). Reimplements: `struct mpls_oam_hdr` in `proto_mpls_oam.h`
@@ -34,7 +36,9 @@ impl ProtocolOps for MplsOamOps {
     const MIN_LEN: usize = 4;
     const NAME: &'static str = "MPLS OAM";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -43,6 +47,9 @@ mod tests {
 
     #[test]
     fn ldp_is_leaf() {
-        assert!(matches!(LdpOps.next_proto(&[0u8; 10]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            LdpOps.next_proto(&[0u8; 10]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

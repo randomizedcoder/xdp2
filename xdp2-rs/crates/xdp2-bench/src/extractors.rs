@@ -4,19 +4,29 @@
 // parser_metadata.h. The engine calls these with `hdr` pointing
 // to the current protocol header (not the full packet).
 
-use xdp2_core::CtrlData;
 use crate::flow_meta::{AddrType, FlowMeta};
+use xdp2_core::CtrlData;
 
 /// Ethernet: extract MACs and ethertype.
 /// Matches C's `XDP2_METADATA_TEMP_ether`.
-pub(crate) fn extract_ether_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ether_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.eth_addrs[..12].copy_from_slice(&hdr[0..12]);
     meta.eth_proto = u16::from_be_bytes([hdr[12], hdr[13]]);
 }
 
 /// IPv4: fragment info, addresses, protocol.
 /// Matches C's `XDP2_METADATA_TEMP_ipv4`.
-pub(crate) fn extract_ipv4_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ipv4_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     let frag_off = u16::from_be_bytes([hdr[6], hdr[7]]);
     const IP_MF: u16 = 0x2000;
     const IP_OFFSET: u16 = 0x1FFF;
@@ -32,7 +42,12 @@ pub(crate) fn extract_ipv4_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut Flow
 
 /// IPv6: addresses, next header, flow label.
 /// Matches C's `XDP2_METADATA_TEMP_ipv6`.
-pub(crate) fn extract_ipv6_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ipv6_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.addr_type = AddrType::Ipv6;
     meta.ip_proto = hdr[6]; // next header
     meta.flow_label = ((hdr[1] as u32 & 0x0F) << 16) | ((hdr[2] as u32) << 8) | (hdr[3] as u32);
@@ -42,13 +57,23 @@ pub(crate) fn extract_ipv6_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut Flow
 
 /// IPv6 extension header: update ip_proto with next header.
 /// Matches C's `XDP2_METADATA_TEMP_ipv6_eh`.
-pub(crate) fn extract_ipv6_eh_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ipv6_eh_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.ip_proto = hdr[0];
 }
 
 /// IPv6 fragment header: fragment info + next header.
 /// Matches C's `XDP2_METADATA_TEMP_ipv6_frag`.
-pub(crate) fn extract_ipv6_frag_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ipv6_frag_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.ip_proto = hdr[0];
     let frag_off = u16::from_be_bytes([hdr[2], hdr[3]]);
     const IP6_OFFSET: u16 = 0xFFF8;
@@ -58,14 +83,24 @@ pub(crate) fn extract_ipv6_frag_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut
 
 /// Transport ports (TCP, UDP, SCTP, DCCP, UDPLite).
 /// Matches C's `XDP2_METADATA_TEMP_ports`.
-pub(crate) fn extract_ports_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ports_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.ports.src_port = u16::from_be_bytes([hdr[0], hdr[1]]);
     meta.ports.dst_port = u16::from_be_bytes([hdr[2], hdr[3]]);
 }
 
 /// ICMP (v4 and v6): type, code, echo ID.
 /// Matches C's `XDP2_METADATA_TEMP_icmp`.
-pub(crate) fn extract_icmp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_icmp_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.icmp.icmp_type = hdr[0];
     meta.icmp.code = hdr[1];
     // Echo request/reply: v4 type 0/8, v6 type 128/129
@@ -77,25 +112,52 @@ pub(crate) fn extract_icmp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut Flow
 
 /// VLAN 802.1Q tag.
 /// Matches C's `XDP2_METADATA_TEMP_vlan_8021Q`.
-pub(crate) fn extract_vlan_8021q_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
-    let idx = if meta.vlan_count < 2 { meta.vlan_count as usize } else { 1 };
-    if meta.vlan_count < 2 { meta.vlan_count += 1; }
+pub(crate) fn extract_vlan_8021q_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
+    let idx = if meta.vlan_count < 2 {
+        meta.vlan_count as usize
+    } else {
+        1
+    };
+    if meta.vlan_count < 2 {
+        meta.vlan_count += 1;
+    }
     meta.vlan[idx].tci = u16::from_be_bytes([hdr[0], hdr[1]]);
     meta.vlan[idx].tpid = 0x8100;
 }
 
 /// VLAN 802.1AD (QinQ) tag.
 /// Matches C's `XDP2_METADATA_TEMP_vlan_8021AD`.
-pub(crate) fn extract_vlan_8021ad_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
-    let idx = if meta.vlan_count < 2 { meta.vlan_count as usize } else { 1 };
-    if meta.vlan_count < 2 { meta.vlan_count += 1; }
+pub(crate) fn extract_vlan_8021ad_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
+    let idx = if meta.vlan_count < 2 {
+        meta.vlan_count as usize
+    } else {
+        1
+    };
+    if meta.vlan_count < 2 {
+        meta.vlan_count += 1;
+    }
     meta.vlan[idx].tci = u16::from_be_bytes([hdr[0], hdr[1]]);
     meta.vlan[idx].tpid = 0x88A8;
 }
 
 /// ARP/RARP: opcode, sender/target HW+IP addresses.
 /// Matches C's `XDP2_METADATA_TEMP_arp_rarp`.
-pub(crate) fn extract_arp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_arp_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.arp.op = (u16::from_be_bytes([hdr[6], hdr[7]]) & 0xFF) as u8;
     meta.arp.sha.copy_from_slice(&hdr[8..14]);
     meta.arp.spa = u32::from_be_bytes([hdr[14], hdr[15], hdr[16], hdr[17]]);
@@ -105,7 +167,12 @@ pub(crate) fn extract_arp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowM
 
 /// MPLS label: label, TC, BoS, TTL from first 4-byte label entry.
 /// Matches C's `XDP2_METADATA_TEMP_mpls`.
-pub(crate) fn extract_mpls_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_mpls_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     let w = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]);
     meta.mpls.label = w >> 12;
     meta.mpls.tc = ((w >> 9) & 0x7) as u8;
@@ -115,56 +182,101 @@ pub(crate) fn extract_mpls_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut Flow
 
 /// ESP: extract SPI.
 /// Matches C's `XDP2_METADATA_TEMP_esp`.
-pub(crate) fn extract_esp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_esp_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.esp_spi = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]);
 }
 
 /// AH: extract SPI (Security Parameters Index).
 /// Matches C's `XDP2_METADATA_TEMP_ah`.
-pub(crate) fn extract_ah_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_ah_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.ah_spi = u32::from_be_bytes([hdr[4], hdr[5], hdr[6], hdr[7]]);
 }
 
 /// TIPC: extract addr_type and originating node.
 /// Matches C's `XDP2_METADATA_TEMP_tipc`.
-pub(crate) fn extract_tipc_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_tipc_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.addr_type = AddrType::Tipc;
     meta.addrs.tipc_key = u32::from_be_bytes([hdr[8], hdr[9], hdr[10], hdr[11]]);
 }
 
 /// L2TPv3 (over IP, proto 115): extract session ID.
 /// Matches C's `XDP2_METADATA_TEMP_l2tp`.
-pub(crate) fn extract_l2tp_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_l2tp_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.l2tp_session_id = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]);
 }
 
 /// VXLAN: extract VNI into keyid.
-pub(crate) fn extract_vxlan_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_vxlan_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     // VNI is in bytes 4-6 (24-bit), byte 7 is reserved.
     meta.keyid = ((hdr[4] as u32) << 16) | ((hdr[5] as u32) << 8) | (hdr[6] as u32);
 }
 
 /// Geneve: extract VNI into keyid.
-pub(crate) fn extract_geneve_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_geneve_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     // VNI is in bytes 4-6 (24-bit), byte 7 is reserved.
     meta.keyid = ((hdr[4] as u32) << 16) | ((hdr[5] as u32) << 8) | (hdr[6] as u32);
 }
 
 /// Extract GRE base flags into FlowMeta.gre.flags.
 /// Matches C's `XDP2_METADATA_TEMP_gre` in parser_metadata.h.
-pub(crate) fn extract_gre_metadata(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_gre_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.gre.flags = u16::from_be_bytes([hdr[0], hdr[1]]) as u32;
 }
 
 /// Extract GRE checksum field (4-byte flag-field: checksum + reserved).
 /// Matches C's `XDP2_METADATA_TEMP_gre_checksum` in parser_metadata.h.
-pub(crate) fn extract_gre_checksum(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_gre_checksum(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     meta.gre.csum = u16::from_ne_bytes([hdr[0], hdr[1]]);
 }
 
 /// Extract GRE key/ID field (4-byte flag-field).
 /// Matches C's `XDP2_METADATA_TEMP_gre_keyid` — stores in both gre.keyid and keyid.
-pub(crate) fn extract_gre_keyid(hdr: &[u8], _hdr_len: usize, meta: &mut FlowMeta, _ctrl: &CtrlData) {
+pub(crate) fn extract_gre_keyid(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
     let v = u32::from_ne_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]);
     meta.gre.keyid = v;
     meta.keyid = v;
@@ -183,16 +295,16 @@ mod tests {
     use super::*;
     use xdp2_core::CtrlData;
 
-    fn ctrl() -> CtrlData { CtrlData::default() }
+    fn ctrl() -> CtrlData {
+        CtrlData::default()
+    }
 
     #[test]
     fn ether_extracts_macs_and_ethertype() {
         let mut meta = FlowMeta::default();
         // dst=AA:BB:CC:DD:EE:FF src=11:22:33:44:55:66 ethertype=0x0800 (IPv4)
         let hdr = [
-            0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
-            0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
-            0x08, 0x00,
+            0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x08, 0x00,
         ];
         extract_ether_metadata(&hdr, hdr.len(), &mut meta, &ctrl());
         assert_eq!(&meta.eth_addrs[..12], &hdr[..12]);
@@ -245,8 +357,8 @@ mod tests {
         hdr[1] = 0x0A; // traffic class + flow label high nibble = 0xA
         hdr[2] = 0xBC; // flow label mid
         hdr[3] = 0xDE; // flow label low
-        hdr[6] = 17;   // next header = UDP
-        hdr[8..24].copy_from_slice(&[1; 16]);  // src
+        hdr[6] = 17; // next header = UDP
+        hdr[8..24].copy_from_slice(&[1; 16]); // src
         hdr[24..40].copy_from_slice(&[2; 16]); // dst
         extract_ipv6_metadata(&hdr, hdr.len(), &mut meta, &ctrl());
         assert_eq!(meta.addr_type, AddrType::Ipv6);
@@ -318,10 +430,10 @@ mod tests {
         let mut meta = FlowMeta::default();
         let mut hdr = [0u8; 28];
         hdr[6..8].copy_from_slice(&1u16.to_be_bytes()); // op=1 (request)
-        hdr[8..14].copy_from_slice(&[0xAA; 6]);          // sha
-        hdr[14..18].copy_from_slice(&[192, 168, 1, 1]);  // spa
-        hdr[18..24].copy_from_slice(&[0xBB; 6]);          // tha
-        hdr[24..28].copy_from_slice(&[192, 168, 1, 2]);  // tpa
+        hdr[8..14].copy_from_slice(&[0xAA; 6]); // sha
+        hdr[14..18].copy_from_slice(&[192, 168, 1, 1]); // spa
+        hdr[18..24].copy_from_slice(&[0xBB; 6]); // tha
+        hdr[24..28].copy_from_slice(&[192, 168, 1, 2]); // tpa
         extract_arp_metadata(&hdr, hdr.len(), &mut meta, &ctrl());
         assert_eq!(meta.arp.op, 1);
         assert_eq!(meta.arp.sha, [0xAA; 6]);

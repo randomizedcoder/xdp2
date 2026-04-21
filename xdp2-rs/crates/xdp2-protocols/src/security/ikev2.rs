@@ -66,7 +66,10 @@ mod tests {
     #[test]
     fn ikev2_is_leaf() {
         let ops = Ikev2Ops;
-        assert!(matches!(ops.next_proto(&[0u8; 28]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 28]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

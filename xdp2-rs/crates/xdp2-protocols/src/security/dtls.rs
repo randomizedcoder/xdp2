@@ -58,7 +58,10 @@ mod tests {
     #[test]
     fn dtls_is_leaf() {
         let ops = DtlsOps;
-        assert!(matches!(ops.next_proto(&[0u8; 13]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 13]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

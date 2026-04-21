@@ -1,7 +1,7 @@
 //! CLI types and benchmark result struct.
 
-use clap::{Parser, ValueEnum};
 use crate::perf;
+use clap::{Parser, ValueEnum};
 
 /// Which parser implementation to exercise.
 #[derive(Clone, Copy, Debug, ValueEnum)]

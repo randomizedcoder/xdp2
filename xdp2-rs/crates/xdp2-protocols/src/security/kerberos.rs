@@ -44,6 +44,9 @@ mod tests {
     #[test]
     fn kerberos_is_leaf() {
         let ops = KerberosOps;
-        assert!(matches!(ops.next_proto(&[0u8; 1]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 1]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

@@ -27,8 +27,7 @@ use crate::types::{CtrlData, NodeType, ParseError};
 /// - `hdr_len`: Actual header length (from `ProtocolOps::header_len`)
 /// - `metadata`: User-defined metadata structure
 /// - `ctrl`: Control data for the parse operation
-pub type ExtractMetadataFn<M> =
-    fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData);
+pub type ExtractMetadataFn<M> = fn(hdr: &[u8], hdr_len: usize, metadata: &mut M, ctrl: &CtrlData);
 
 /// Callback for per-protocol handling (arbitrary processing).
 ///

@@ -39,7 +39,10 @@ struct Args {
 
 fn parse_args() -> Args {
     let argv: Vec<String> = env::args().collect();
-    let prog = argv.first().cloned().unwrap_or_else(|| "xdp2-flow-loader".into());
+    let prog = argv
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "xdp2-flow-loader".into());
 
     let mut bpf_object: Option<PathBuf> = None;
     let mut slow_path_object: Option<PathBuf> = None;
@@ -54,13 +57,11 @@ fn parse_args() -> Args {
             }
             "--slow-path" | "-s" => {
                 i += 1;
-                slow_path_object =
-                    Some(PathBuf::from(argv.get(i).unwrap_or_else(|| usage(&prog))));
+                slow_path_object = Some(PathBuf::from(argv.get(i).unwrap_or_else(|| usage(&prog))));
             }
             "--netns" | "-n" => {
                 i += 1;
-                attach_netns =
-                    Some(PathBuf::from(argv.get(i).unwrap_or_else(|| usage(&prog))));
+                attach_netns = Some(PathBuf::from(argv.get(i).unwrap_or_else(|| usage(&prog))));
             }
             "-h" | "--help" => usage(&prog),
             other => {
@@ -71,8 +72,14 @@ fn parse_args() -> Args {
         i += 1;
     }
 
-    let Some(bpf_object) = bpf_object else { usage(&prog) };
-    Args { bpf_object, slow_path_object, attach_netns }
+    let Some(bpf_object) = bpf_object else {
+        usage(&prog)
+    };
+    Args {
+        bpf_object,
+        slow_path_object,
+        attach_netns,
+    }
 }
 
 fn main() -> ExitCode {

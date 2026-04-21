@@ -95,11 +95,17 @@ mod tests {
 
     #[test]
     fn can_is_leaf() {
-        assert!(matches!(CanOps.next_proto(&[0u8; 16]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            CanOps.next_proto(&[0u8; 16]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn canfd_is_leaf() {
-        assert!(matches!(CanFdOps.next_proto(&[0u8; 72]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            CanFdOps.next_proto(&[0u8; 72]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

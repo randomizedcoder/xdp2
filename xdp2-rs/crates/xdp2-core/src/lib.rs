@@ -38,12 +38,12 @@ pub mod types;
 pub mod enum_dispatch;
 
 // Re-export key types at crate root for convenience
-pub use arrays::{ParseArrayNode, parse_array};
+pub use arrays::{parse_array, ParseArrayNode};
 pub use engine::{parse, ParseOutput};
-pub use flag_fields::{ParseFlagFieldsNode, parse_flag_fields};
+pub use flag_fields::{parse_flag_fields, ParseFlagFieldsNode};
 pub use parse_node::{ParseNode, ParseNodeDyn, ParseNodeOps};
 pub use parser::{Parser, ParserConfig};
 pub use proto_def::ProtocolOps;
 pub use proto_table::ProtoTable;
-pub use tlvs::{ParseTlvsNode, parse_tlvs};
+pub use tlvs::{parse_tlvs, ParseTlvsNode};
 pub use types::{CtrlData, NodeType, ParseError, ParseResult, ParserType};

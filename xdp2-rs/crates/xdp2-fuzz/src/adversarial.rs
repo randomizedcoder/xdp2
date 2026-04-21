@@ -6,13 +6,13 @@
 
 #[cfg(test)]
 mod tests {
+    use crate::oracle;
+    use crate::seed_corpus::*;
     use xdp2_bench::flow_meta::FlowMeta;
     use xdp2_bench::graph;
     use xdp2_bench::graph_compiled;
     use xdp2_bench::graph_mono;
     use xdp2_core::Parser;
-    use crate::oracle;
-    use crate::seed_corpus::*;
 
     fn parser() -> Parser<FlowMeta> {
         graph::make_parser()
@@ -224,9 +224,10 @@ mod tests {
     fn every_ethertype_value() {
         // Test a sampling of ethertype values including boundaries
         let payload = &[0u8; 64];
-        for ethertype in [0x0000, 0x0001, 0x05DC, 0x05DD, 0x0600, 0x0800, 0x0806,
-                          0x8100, 0x86DD, 0x8847, 0x88A8, 0x88CC, 0x88E5, 0x8864,
-                          0x8906, 0xFFFF] {
+        for ethertype in [
+            0x0000, 0x0001, 0x05DC, 0x05DD, 0x0600, 0x0800, 0x0806, 0x8100, 0x86DD, 0x8847, 0x88A8,
+            0x88CC, 0x88E5, 0x8864, 0x8906, 0xFFFF,
+        ] {
             assert_safe(&eth_frame(ethertype, payload));
         }
     }

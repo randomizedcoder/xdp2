@@ -327,8 +327,7 @@ fn main() {
                 .map(|pkt| template::select_template_id(&pkt.data))
                 .collect();
             let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let batch_acc =
-                    template_simd::extract_batch(&packets, &template_ids);
+                let batch_acc = template_simd::extract_batch(&packets, &template_ids);
                 let mut meta = graph::FlowMeta::default();
                 let mut fallback_acc: u64 = 0;
                 for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
@@ -364,7 +363,13 @@ fn main() {
                 }
                 acc
             });
-            results.push(BenchResult::new("graph-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "graph-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
 
         if run_mono {
@@ -381,14 +386,26 @@ fn main() {
                 std::hint::black_box(&meta);
                 acc
             });
-            results.push(BenchResult::new("mono-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "mono-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
 
         if run_monox4 {
             let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
                 bench_mono_x4(slice)
             });
-            results.push(BenchResult::new("mono-x4-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "mono-x4-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
 
         if run_compiled {
@@ -405,7 +422,13 @@ fn main() {
                 std::hint::black_box(&meta);
                 acc
             });
-            results.push(BenchResult::new("compiled-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "compiled-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
 
         if run_simd && simd_batch::is_available() {
@@ -415,7 +438,13 @@ fn main() {
                 std::hint::black_box(&meta);
                 r
             });
-            results.push(BenchResult::new("simd-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "simd-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
 
         if run_template {
@@ -438,7 +467,13 @@ fn main() {
                 std::hint::black_box(&meta);
                 acc
             });
-            results.push(BenchResult::new("template-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "template-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
 
         if run_template_simd && template_simd::is_available() {
@@ -461,7 +496,13 @@ fn main() {
                 std::hint::black_box(&meta);
                 batch_acc + fallback_acc
             });
-            results.push(BenchResult::new("template-simd-mt", ns, total_pkts, cli.threads, None));
+            results.push(BenchResult::new(
+                "template-simd-mt",
+                ns,
+                total_pkts,
+                cli.threads,
+                None,
+            ));
         }
     }
 
@@ -573,16 +614,16 @@ fn run_af_xdp(cli: &Cli) {
                 }
                 if per_queue.len() > 1 {
                     let agg = af_xdp::aggregate_stats(&per_queue);
-                    println!("\nAF_XDP Aggregate ({} queues, parser={parser_label}):", per_queue.len());
+                    println!(
+                        "\nAF_XDP Aggregate ({} queues, parser={parser_label}):",
+                        per_queue.len()
+                    );
                     println!("  Packets:  {}", agg.total_pkts);
                     println!("  Duration: {:.2}s", agg.elapsed.as_secs_f64());
                     if agg.total_pkts > 0 {
                         println!("  {} ns/pkt,  {:.1} Mpps", agg.ns_pkt(), agg.mpps());
                     }
-                    println!(
-                        "  {:.1} MB received",
-                        agg.total_bytes as f64 / 1_000_000.0
-                    );
+                    println!("  {:.1} MB received", agg.total_bytes as f64 / 1_000_000.0);
                 }
             }
             Err(e) => af_xdp_error(&e),

@@ -169,21 +169,12 @@ pub(crate) fn run(packets: &[&StoredPacket], top_n: usize) {
     }
 
     println!();
-    let top1_pct = entries.first().map(|(_, c)| 100.0 * (*c as f64) / parsed_f).unwrap_or(0.0);
-    let top5_pct = entries
-        .iter()
-        .take(5)
-        .map(|(_, c)| *c)
-        .sum::<u64>() as f64
-        * 100.0
-        / parsed_f;
-    let top10_pct = entries
-        .iter()
-        .take(10)
-        .map(|(_, c)| *c)
-        .sum::<u64>() as f64
-        * 100.0
-        / parsed_f;
+    let top1_pct = entries
+        .first()
+        .map(|(_, c)| 100.0 * (*c as f64) / parsed_f)
+        .unwrap_or(0.0);
+    let top5_pct = entries.iter().take(5).map(|(_, c)| *c).sum::<u64>() as f64 * 100.0 / parsed_f;
+    let top10_pct = entries.iter().take(10).map(|(_, c)| *c).sum::<u64>() as f64 * 100.0 / parsed_f;
     println!(
         "Summary: top-1 = {:.1}%, top-5 = {:.1}%, top-10 = {:.1}% of {} packets ({} total, {} parse failures)",
         top1_pct, top5_pct, top10_pct, parsed, total_seen, failed

@@ -215,31 +215,49 @@ mod tests {
 
     #[test]
     fn scsi_is_leaf() {
-        assert!(matches!(ScsiOps.next_proto(&[0u8; 32]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ScsiOps.next_proto(&[0u8; 32]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn iscsi_is_leaf() {
-        assert!(matches!(IscsiOps.next_proto(&[0u8; 48]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IscsiOps.next_proto(&[0u8; 48]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn iser_is_leaf() {
-        assert!(matches!(IserOps.next_proto(&[0u8; 28]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IserOps.next_proto(&[0u8; 28]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn aoe_is_leaf() {
-        assert!(matches!(AoeOps.next_proto(&[0u8; 10]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            AoeOps.next_proto(&[0u8; 10]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ethercat_is_leaf() {
-        assert!(matches!(EthercatOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            EthercatOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn nvme_is_leaf() {
-        assert!(matches!(NvmeOps.next_proto(&[0u8; 64]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            NvmeOps.next_proto(&[0u8; 64]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

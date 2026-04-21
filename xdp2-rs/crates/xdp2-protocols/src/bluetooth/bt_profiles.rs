@@ -141,26 +141,41 @@ mod tests {
 
     #[test]
     fn bt_rfcomm_is_leaf() {
-        assert!(matches!(BtRfcommOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            BtRfcommOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn bt_sdp_is_leaf() {
-        assert!(matches!(BtSdpOps.next_proto(&[0u8; 5]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            BtSdpOps.next_proto(&[0u8; 5]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn bt_att_is_leaf() {
-        assert!(matches!(BtAttOps.next_proto(&[0u8; 1]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            BtAttOps.next_proto(&[0u8; 1]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn bt_smp_is_leaf() {
-        assert!(matches!(BtSmpOps.next_proto(&[0u8; 1]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            BtSmpOps.next_proto(&[0u8; 1]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn bt_avdtp_is_leaf() {
-        assert!(matches!(BtAvdtpOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            BtAvdtpOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

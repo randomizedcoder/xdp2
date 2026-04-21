@@ -15,7 +15,9 @@ impl ProtocolOps for SnmpOps {
     const MIN_LEN: usize = 2;
     const NAME: &'static str = "SNMP";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// RADIUS header (20 bytes). Reimplements: `struct radiushdr` in `proto_radius.h`
@@ -32,7 +34,9 @@ impl ProtocolOps for RadiusOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "RADIUS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// Diameter header (20 bytes). Reimplements: `struct diameter_hdr` in `proto_diameter.h`
@@ -52,7 +56,9 @@ impl ProtocolOps for DiameterOps {
     const MIN_LEN: usize = 20;
     const NAME: &'static str = "Diameter";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -61,6 +67,9 @@ mod tests {
 
     #[test]
     fn snmp_is_leaf() {
-        assert!(matches!(SnmpOps.next_proto(&[0u8; 2]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            SnmpOps.next_proto(&[0u8; 2]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

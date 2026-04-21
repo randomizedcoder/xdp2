@@ -46,9 +46,7 @@ pub struct NshHeader {
 impl NshHeader {
     /// Service Path Identifier (24 bits).
     pub fn spi(&self) -> u32 {
-        ((self.spi_si[0] as u32) << 16)
-            | ((self.spi_si[1] as u32) << 8)
-            | (self.spi_si[2] as u32)
+        ((self.spi_si[0] as u32) << 16) | ((self.spi_si[1] as u32) << 8) | (self.spi_si[2] as u32)
     }
 
     /// Service Index.

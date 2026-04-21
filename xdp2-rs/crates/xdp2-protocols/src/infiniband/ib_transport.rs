@@ -218,36 +218,57 @@ mod tests {
 
     #[test]
     fn ib_grh_is_leaf() {
-        assert!(matches!(IbGrhOps.next_proto(&[0u8; 40]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbGrhOps.next_proto(&[0u8; 40]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ib_bth_is_leaf() {
-        assert!(matches!(IbBthOps.next_proto(&[0u8; 12]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbBthOps.next_proto(&[0u8; 12]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ib_reth_is_leaf() {
-        assert!(matches!(IbRethOps.next_proto(&[0u8; 16]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbRethOps.next_proto(&[0u8; 16]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ib_aeth_is_leaf() {
-        assert!(matches!(IbAethOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbAethOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ib_deth_is_leaf() {
-        assert!(matches!(IbDethOps.next_proto(&[0u8; 8]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbDethOps.next_proto(&[0u8; 8]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ib_immdt_is_leaf() {
-        assert!(matches!(IbImmdtOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbImmdtOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn ib_atomiceth_is_leaf() {
-        assert!(matches!(IbAtomicethOps.next_proto(&[0u8; 28]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            IbAtomicethOps.next_proto(&[0u8; 28]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

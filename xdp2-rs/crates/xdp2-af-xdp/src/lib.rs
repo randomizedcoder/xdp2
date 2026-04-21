@@ -35,14 +35,14 @@
 #[cfg(not(target_os = "linux"))]
 compile_error!("xdp2-af-xdp requires Linux (AF_XDP is a Linux-only API)");
 
+mod rx;
+mod socket;
 pub mod sys;
 mod umem;
-mod socket;
-mod rx;
 
+pub use socket::XskSocket;
 pub use sys::XdpDesc;
 pub use umem::{Umem, UmemConfig};
-pub use socket::XskSocket;
 
 use umem::UmemConfig as UmemCfg;
 

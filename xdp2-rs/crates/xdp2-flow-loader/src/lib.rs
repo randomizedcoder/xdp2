@@ -327,9 +327,8 @@ impl Loader {
             });
         }
 
-        let rc = unsafe {
-            lb::bpf_prog_attach(self.entry_fd, fd, lb::BPF_FLOW_DISSECTOR_ATTACH, 0)
-        };
+        let rc =
+            unsafe { lb::bpf_prog_attach(self.entry_fd, fd, lb::BPF_FLOW_DISSECTOR_ATTACH, 0) };
         if rc < 0 {
             let err = io::Error::last_os_error();
             // SAFETY: fd was just opened and is owned by us.
@@ -354,11 +353,7 @@ impl Drop for Loader {
         if let Some(fd) = self.netns_fd.take() {
             if self.entry_fd >= 0 {
                 unsafe {
-                    lb::bpf_prog_detach2(
-                        self.entry_fd,
-                        fd,
-                        lb::BPF_FLOW_DISSECTOR_ATTACH,
-                    );
+                    lb::bpf_prog_detach2(self.entry_fd, fd, lb::BPF_FLOW_DISSECTOR_ATTACH);
                 }
             }
             // SAFETY: fd was produced by our own open() call.
@@ -388,10 +383,7 @@ pub enum LoaderError {
     BadPath(NulError),
 
     /// `bpf_object__open` returned NULL.
-    Open {
-        path: PathBuf,
-        source: io::Error,
-    },
+    Open { path: PathBuf, source: io::Error },
 
     /// `bpf_object__load` returned < 0.
     Load { source: io::Error },
@@ -406,26 +398,17 @@ pub enum LoaderError {
     JmpTableUpdate { slot: u32, source: io::Error },
 
     /// `open()` on the target netns path failed.
-    OpenNetns {
-        path: PathBuf,
-        source: io::Error,
-    },
+    OpenNetns { path: PathBuf, source: io::Error },
 
     /// `bpf_prog_attach(BPF_FLOW_DISSECTOR)` failed.
-    Attach {
-        netns: PathBuf,
-        source: io::Error,
-    },
+    Attach { netns: PathBuf, source: io::Error },
 
     /// `Loader::attach` called while the loader already has an active
     /// attachment.
     AlreadyAttached,
 
     /// `bpf_object__open` on the slow-path object returned NULL.
-    SlowPathOpen {
-        path: PathBuf,
-        source: io::Error,
-    },
+    SlowPathOpen { path: PathBuf, source: io::Error },
 
     /// `bpf_object__load` on the slow-path object returned < 0.
     SlowPathLoad { source: io::Error },
@@ -523,10 +506,7 @@ fn path_to_cstring(p: &Path) -> Result<CString, NulError> {
 /// Any error leaves `loader.slow_obj` untouched (null) — the caller's
 /// overall `Loader::load` failure unwinds through `Drop` which is a
 /// no-op for the slow path in that case.
-fn open_and_load_slow_path(
-    loader: &mut Loader,
-    path: &Path,
-) -> Result<i32, LoaderError> {
+fn open_and_load_slow_path(loader: &mut Loader, path: &Path) -> Result<i32, LoaderError> {
     let c_path = path_to_cstring(path)?;
     // SAFETY: c_path is a valid NUL-terminated string; libbpf copies.
     let sobj = unsafe { lb::bpf_object__open(c_path.as_ptr()) };
@@ -558,8 +538,7 @@ fn open_and_load_slow_path(
     }
 
     let entry_name = CString::new("_dissect").expect("static ASCII");
-    let prog =
-        unsafe { lb::bpf_object__find_program_by_name(sobj, entry_name.as_ptr()) };
+    let prog = unsafe { lb::bpf_object__find_program_by_name(sobj, entry_name.as_ptr()) };
     if prog.is_null() {
         unsafe { lb::bpf_object__close(sobj) };
         return Err(LoaderError::SlowPathMissingEntry);

@@ -4,9 +4,8 @@
 //! protocols from xdp2-protocols, matching the behavior of the C parse engine.
 
 use xdp2_core::{
-    parse, ParseError, ParseNode, ParseNodeOps, ParseResult,
-    Parser, ParserConfig, ParserType, ProtoTable,
-    proto_table,
+    parse, proto_table, ParseError, ParseNode, ParseNodeOps, ParseResult, Parser, ParserConfig,
+    ParserType, ProtoTable,
 };
 use xdp2_protocols::ethernet::ether::EthernetOps;
 use xdp2_protocols::ethernet::vlan::VlanOps;
@@ -57,8 +56,8 @@ static UDP_NODE: ParseNode<TestMeta, UdpOps> = ParseNode {
 };
 
 static IPV4_TABLE: ProtoTable<TestMeta> = proto_table![
-    (6, &TCP_NODE),   // IPPROTO_TCP
-    (17, &UDP_NODE),  // IPPROTO_UDP
+    (6, &TCP_NODE),  // IPPROTO_TCP
+    (17, &UDP_NODE), // IPPROTO_UDP
 ];
 
 static IPV4_NODE: ParseNode<TestMeta, Ipv4Ops> = ParseNode {
@@ -77,8 +76,8 @@ static IPV4_NODE: ParseNode<TestMeta, Ipv4Ops> = ParseNode {
 };
 
 static IPV6_TABLE: ProtoTable<TestMeta> = proto_table![
-    (6, &TCP_NODE),   // IPPROTO_TCP
-    (17, &UDP_NODE),  // IPPROTO_UDP
+    (6, &TCP_NODE),  // IPPROTO_TCP
+    (17, &UDP_NODE), // IPPROTO_UDP
 ];
 
 static IPV6_NODE: ParseNode<TestMeta, Ipv6Ops> = ParseNode {
@@ -97,8 +96,8 @@ static IPV6_NODE: ParseNode<TestMeta, Ipv6Ops> = ParseNode {
 };
 
 static ETHER_TABLE: ProtoTable<TestMeta> = proto_table![
-    (0x0800, &IPV4_NODE),  // ETH_P_IP
-    (0x86DD, &IPV6_NODE),  // ETH_P_IPV6
+    (0x0800, &IPV4_NODE), // ETH_P_IP
+    (0x86DD, &IPV6_NODE), // ETH_P_IPV6
 ];
 
 static ETHER_NODE: ParseNode<TestMeta, EthernetOps> = ParseNode {
@@ -315,8 +314,8 @@ fn parse_node_count_tracking() {
 // --- VLAN tests ---
 
 static VLAN_TABLE: ProtoTable<TestMeta> = proto_table![
-    (0x0800, &IPV4_NODE),   // ETH_P_IP
-    (0x86DD, &IPV6_NODE),   // ETH_P_IPV6
+    (0x0800, &IPV4_NODE), // ETH_P_IP
+    (0x86DD, &IPV6_NODE), // ETH_P_IPV6
 ];
 
 static VLAN_NODE: ParseNode<TestMeta, VlanOps> = ParseNode {
@@ -335,9 +334,9 @@ static VLAN_NODE: ParseNode<TestMeta, VlanOps> = ParseNode {
 };
 
 static ETHER_WITH_VLAN_TABLE: ProtoTable<TestMeta> = proto_table![
-    (0x0800, &IPV4_NODE),   // ETH_P_IP
-    (0x86DD, &IPV6_NODE),   // ETH_P_IPV6
-    (0x8100, &VLAN_NODE),   // ETH_P_8021Q
+    (0x0800, &IPV4_NODE), // ETH_P_IP
+    (0x86DD, &IPV6_NODE), // ETH_P_IPV6
+    (0x8100, &VLAN_NODE), // ETH_P_8021Q
 ];
 
 static ETHER_VLAN_NODE: ParseNode<TestMeta, EthernetOps> = ParseNode {

@@ -45,7 +45,10 @@ mod tests {
     #[test]
     fn wireguard_is_leaf() {
         let ops = WireguardOps;
-        assert!(matches!(ops.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

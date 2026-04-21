@@ -32,9 +32,7 @@ pub struct VxlanHeader {
 impl VxlanHeader {
     /// VXLAN Network Identifier (24-bit VNI in upper 3 bytes).
     pub fn vni(&self) -> u32 {
-        ((self.vx_vni[0] as u32) << 16)
-            | ((self.vx_vni[1] as u32) << 8)
-            | (self.vx_vni[2] as u32)
+        ((self.vx_vni[0] as u32) << 16) | ((self.vx_vni[1] as u32) << 8) | (self.vx_vni[2] as u32)
     }
 }
 

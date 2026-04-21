@@ -230,7 +230,8 @@ mod tests {
     use super::*;
 
     fn sample_ir() -> ParserIr {
-        ParserIr::from_json(r#"{
+        ParserIr::from_json(
+            r#"{
             "parsers": [{"name": "test", "root-node": "eth"}],
             "parse-nodes": [
                 {"name": "eth", "min-hdr-length": 14, "next-proto": {
@@ -248,7 +249,9 @@ mod tests {
                 {"name": "tcp", "min-hdr-length": 20},
                 {"name": "udp", "min-hdr-length": 8}
             ]
-        }"#).unwrap()
+        }"#,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -309,7 +312,8 @@ mod tests {
 
     #[test]
     fn cycle_detection() {
-        let ir = ParserIr::from_json(r#"{
+        let ir = ParserIr::from_json(
+            r#"{
             "parse-nodes": [
                 {"name": "a", "min-hdr-length": 1, "next-proto": {
                     "field-off": 0, "field-len": 1, "ents": [{"key": 1, "node": "b"}]
@@ -318,7 +322,9 @@ mod tests {
                     "field-off": 0, "field-len": 1, "ents": [{"key": 1, "node": "a"}]
                 }}
             ]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         let g = ParseGraph::from_ir(&ir);
         assert!(g.has_cycles());
     }

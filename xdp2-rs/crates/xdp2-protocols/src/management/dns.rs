@@ -19,7 +19,9 @@ impl ProtocolOps for DnsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "DNS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// mDNS header. Reimplements: `struct mdns_hdr` in `proto_mdns.h`
@@ -29,7 +31,9 @@ impl ProtocolOps for MdnsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "mDNS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// NBNS header. Reimplements: `struct nbns_hdr` in `proto_nbns.h`
@@ -39,7 +43,9 @@ impl ProtocolOps for NbnsOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "NBNS";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 /// LLMNR header. Reimplements: `struct llmnr_hdr` in `proto_llmnr.h`
@@ -49,7 +55,9 @@ impl ProtocolOps for LlmnrOps {
     const MIN_LEN: usize = 12;
     const NAME: &'static str = "LLMNR";
     #[inline]
-    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> { Err(ParseError::UnknownProto) }
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
 }
 
 #[cfg(test)]
@@ -58,6 +66,9 @@ mod tests {
 
     #[test]
     fn dns_is_leaf() {
-        assert!(matches!(DnsOps.next_proto(&[0u8; 12]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            DnsOps.next_proto(&[0u8; 12]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

@@ -462,7 +462,7 @@ mod tests {
         let ir = ParserIr::from_json(SAMPLE_IR).unwrap();
         let ipv4 = ir.find_node("ipv4_node").unwrap();
         let np = ipv4.next_proto.as_ref().unwrap();
-        assert_eq!(np.ents[0].key_value(), Some(6));  // TCP
+        assert_eq!(np.ents[0].key_value(), Some(6)); // TCP
         assert_eq!(np.ents[1].key_value(), Some(17)); // UDP
     }
 
@@ -495,9 +495,12 @@ mod tests {
 
     #[test]
     fn defaults() {
-        let ir: ParserIr = serde_json::from_str(r#"{
+        let ir: ParserIr = serde_json::from_str(
+            r#"{
             "parsers": [{"name": "p", "root-node": "r"}]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         assert_eq!(ir.parsers[0].max_nodes, 255);
         assert_eq!(ir.parsers[0].max_encaps, 4);
         assert_eq!(ir.parsers[0].max_frames, 4);

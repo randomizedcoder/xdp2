@@ -85,11 +85,17 @@ mod tests {
 
     #[test]
     fn genetlink_is_leaf() {
-        assert!(matches!(GenlmsghdrOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            GenlmsghdrOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn nlattr_is_leaf() {
-        assert!(matches!(NlattrOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            NlattrOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }

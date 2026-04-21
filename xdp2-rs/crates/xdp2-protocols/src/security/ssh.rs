@@ -51,7 +51,10 @@ mod tests {
     #[test]
     fn ssh_is_leaf() {
         let ops = SshOps;
-        assert!(matches!(ops.next_proto(&[0u8; 5]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ops.next_proto(&[0u8; 5]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]

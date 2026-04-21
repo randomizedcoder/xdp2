@@ -298,7 +298,6 @@ fn rename_field(value: &mut Value, old_name: &str, new_name: &str) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

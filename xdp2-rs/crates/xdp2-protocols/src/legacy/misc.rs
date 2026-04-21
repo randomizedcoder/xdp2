@@ -235,41 +235,65 @@ mod tests {
 
     #[test]
     fn ieee802154_is_leaf() {
-        assert!(matches!(Ieee802154Ops.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            Ieee802154Ops.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn mctp_is_leaf() {
-        assert!(matches!(MctpOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            MctpOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn atm_is_leaf() {
-        assert!(matches!(AtmOps.next_proto(&[0u8; 5]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            AtmOps.next_proto(&[0u8; 5]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn phonet_is_leaf() {
-        assert!(matches!(PhonetOps.next_proto(&[0u8; 7]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            PhonetOps.next_proto(&[0u8; 7]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn appletalk_is_leaf() {
-        assert!(matches!(AppletalkOps.next_proto(&[0u8; 13]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            AppletalkOps.next_proto(&[0u8; 13]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn protobuf_is_leaf() {
-        assert!(matches!(ProtobufOps.next_proto(&[0u8; 1]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            ProtobufOps.next_proto(&[0u8; 1]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn dsa_is_leaf() {
-        assert!(matches!(DsaOps.next_proto(&[0u8; 4]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            DsaOps.next_proto(&[0u8; 4]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 
     #[test]
     fn x25_is_leaf() {
-        assert!(matches!(X25Ops.next_proto(&[0u8; 3]), Err(ParseError::UnknownProto)));
+        assert!(matches!(
+            X25Ops.next_proto(&[0u8; 3]),
+            Err(ParseError::UnknownProto)
+        ));
     }
 }
