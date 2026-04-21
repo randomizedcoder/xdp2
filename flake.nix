@@ -481,6 +481,15 @@
           flow-dissector-matrix = flowDissectorMatrix.matrix;
           flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
 
+          # Build-time execution smoke — runs the matrix against an
+          # in-tree PCAP and captures results to $out/matrix.txt. Ways
+          # 4–6 degrade to N/A in the sandbox (no CAP_BPF); ways 1–3
+          # must produce ns/pkt timings or the build fails.
+          flow-dissector-matrix-smoke = import ./nix/flow-dissector-matrix-smoke.nix {
+            inherit pkgs;
+            matrix = flowDissectorMatrix.matrix;
+          };
+
           xdp2-rs = xdp2Rs.build;
           xdp2-rs-test = xdp2Rs.test;
           xdp2-rs-test-graph-enum = xdp2Rs.test-graph-enum;

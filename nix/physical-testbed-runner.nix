@@ -115,9 +115,20 @@ pkgs.writeShellApplication {
       local host_failed=0
 
       echo "[$host] rsync -> $sshto:~/$remote_path/" >&2
-      if ! rsync -az --delete \
+      # NOTE: .git/ is intentionally NOT excluded. Nix flakes use
+      # git-tracked-path semantics to decide which files feed the source
+      # derivation hash; without .git/ the remote Nix falls back to
+      # hashing the whole directory (including gitignored cruft),
+      # producing derivation hashes that differ from the local build and
+      # breaking binary-cache sharing. See 2026-04-20 flow-dissector
+      # matrix smoke diagnosis.
+      # --no-owner/--no-group: we SSH in as root but the source tree is
+      # owned by the dev-box user; preserving ownership makes libgit2
+      # reject the repo (safe.directory check, "repository path is not
+      # owned by current user"). Landing everything as root-on-remote
+      # sidesteps that and matches what a native `git clone` would do.
+      if ! rsync -az --delete --no-owner --no-group \
             -e "$SSH_CMD" \
-            --exclude=".git/" \
             --exclude="result" \
             --exclude="result-*" \
             --exclude="perf-results/" \
