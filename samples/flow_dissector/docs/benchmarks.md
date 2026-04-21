@@ -110,7 +110,45 @@ Key findings:
   `parser.xdp.h` which compiles to a 988KB BPF object file. Runtime
   benchmarking requires root (for `BPF_PROG_TEST_RUN`).
 
-## Physical-Testbed 6-Way Matrix (2026-04-20)
+## Physical-Testbed 6-Way Matrix — Tuned (2026-04-21)
+
+Re-run after wiring the `xdp2.nixosModules.physical-testbed` module
+into both `hp2` and `hp5` (rebuild + reboot). Tuning applied: isolcpus
+2-7, `nohz_full`, `rcu_nocbs`, `mitigations=off`, governor pinned to
+performance, transparent hugepages off, lldpd / grafana / prometheus /
+docker / oomd / fstrim disabled. `hp5` additionally has `lowJitter =
+true` (turbo boost off, `nowatchdog`, `nmi_watchdog=0`,
+`numa_balancing=0`, mgmt-IRQ pinning). Both runs `taskset -c 2` onto
+an isolated core.
+
+|                     | hp2 (userspace) | hp2 (BPF)         | hp5 (userspace) | hp5 (BPF)         |
+|---------------------|-----------------|-------------------|-----------------|-------------------|
+| Kernel flowdis      | 32 ns · 31 Mpps | 74 ns · 13 Mpps   | 26 ns · 38 Mpps | 79 ns · 12 Mpps   |
+| XDP2 parser         | 70 ns · 14 Mpps | **N/A** (way 5)   | 59 ns · 16 Mpps | **N/A** (way 5)   |
+| XDP2 parse-only     | 50 ns · 20 Mpps | —                 | 42 ns · 23 Mpps | —                 |
+| xdp2-flow-ebpf fast | —               | 22 ns · 45 Mpps   | —               | 23 ns · 43 Mpps   |
+
+**Speedup vs the untuned 2026-04-20 baseline** (ratio of new ÷ old):
+Way 1: 1.97×–2.04×, Way 2: 2.17×–2.30×, Way 3: 2.12×–2.38×,
+Way 4: 2.29×–2.80×, Way 6: **6.26×–7.23×**. The jump is biggest in
+the BPF rows — `BPF_PROG_TEST_RUN` runs `repeat=1000` in a tight
+kernel loop where every per-call cycle saved by `mitigations=off` +
+isolcpus + nohz_full compounds. The previous "performance" floor was
+almost entirely overhead, not parser cost; the new numbers track much
+closer to the actual algorithmic work.
+
+**Cross-host consistency** (hp5 vs hp2 row-by-row, "+" = hp5 faster):
+untuned was uniformly +6 % to +21 % (hp5 always faster, mean +13 %);
+tuned spread is **−7 % to +19 %** with hp5 only marginally ahead on
+the userspace rows and hp2 slightly faster on the two heavy-BPF rows.
+The hosts now behave as expected for matched hardware: noise-floor
+cross-talk rather than a deterministic hp5 advantage.
+
+Way 5 still doesn't load on either host — same kernel-7.0.0 verifier
+regression documented in [challenge #15](challenges.md#15-bpf-verifier-rejects-xdp2-generated-parser-on-ipv6-extension-headers-way-5-partial).
+Tuning the host doesn't fix codegen. Track that separately.
+
+## Physical-Testbed 6-Way Matrix — Untuned baseline (2026-04-20)
 
 First live run of the 6-way matrix on the xdp2 physical testbed
 (`hp2`/`hp5`, Ryzen 5 PRO 2400G, kernel 7.0.0 NixOS, Intel X710 10GbE,
