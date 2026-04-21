@@ -202,6 +202,24 @@ true fast path and remains fully functional.
 but rejects packets containing IPv6 extension headers (HopByHop, DstOpt,
 Routing, Fragment). The other 5 matrix ways are fully green.
 
+**2026-04-20 physical-testbed update — kernel 7.0.0 regression:** On
+the hp2/hp5 testbed (NixOS kernel 7.0.0), way 5 no longer loads at all,
+even for pure-IPv4 PCAPs that worked on earlier kernels. The rejection
+still prints `math between pkt pointer and register with unbounded min
+value` but now fires at program-load time (~1832 insns) before any
+packet reaches the program, so the caller-side IPv4 bounds in
+`flow_dissector.bpf.c` (`keys->thoff > 128 → CONTINUE`, etc.) that
+previously rescued the IPv4 path no longer run. The verifier has
+tightened its unbounded-scalar check between whatever kernel the
+earlier IPv4-only workaround was validated against and 7.0.0. Both the
+root-cause unboundedness patterns (`check_pkt_len`'s
+`hdr_end - hdr` and `xdp2_parse_hdr_offset`'s `ctrl->pkt.start` spill)
+are presumably still present; the fix path remains the source-side
+clamp tracked as S9g in
+[`super-flow-dissector-implementation.md`](super-flow-dissector-implementation.md).
+See also
+[`benchmarks.md`](benchmarks.md#physical-testbed-6-way-matrix-2026-04-20).
+
 **Symptom:** When packets with `n_proto == ETH_P_IPV6` and at least one EH
 reach the program, the verifier rejects load with:
 

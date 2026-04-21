@@ -110,6 +110,67 @@ Key findings:
   `parser.xdp.h` which compiles to a 988KB BPF object file. Runtime
   benchmarking requires root (for `BPF_PROG_TEST_RUN`).
 
+## Physical-Testbed 6-Way Matrix (2026-04-20)
+
+First live run of the 6-way matrix on the xdp2 physical testbed
+(`hp2`/`hp5`, Ryzen 5 PRO 2400G, kernel 7.0.0 NixOS, Intel X710 10GbE,
+see [`docs/physical-testbed.md`](../../../docs/physical-testbed.md)).
+Invocation:
+
+```bash
+nix run .#run-on-host -- hp2 hp5 -- flow-dissector-matrix-smoke   # sandboxed (ways 1–3)
+ssh root@hp5 'cd /root/xdp2 && nix run .#flow-dissector-matrix -- data/pcaps/tcp_ipv4.pcap'
+```
+
+Measured against the in-tree `data/pcaps/tcp_ipv4.pcap` (11 IPv4/TCP
+packets, ×10 userspace iterations, ×1000 BPF_PROG_TEST_RUN repeats):
+
+|                     | hp2 (userspace)     | hp2 (BPF)           | hp5 (userspace)     | hp5 (BPF)           |
+|---------------------|---------------------|---------------------|---------------------|---------------------|
+| Kernel flowdis      | 63 ns/pkt · 15 Mpps | 207 ns/pkt · 4 Mpps | 53 ns/pkt · 18 Mpps | 181 ns/pkt · 5 Mpps |
+| XDP2 parser         | 161 ns/pkt · 6 Mpps | **N/A** (way 5)     | 128 ns/pkt · 7 Mpps | **N/A** (way 5)     |
+| XDP2 parse-only     | 106 ns/pkt · 9 Mpps | —                   | 100 ns/pkt · 10 Mpps| —                   |
+| xdp2-flow-ebpf fast | —                   | 159 ns/pkt · 6 Mpps | —                   | 144 ns/pkt · 6 Mpps |
+
+Known issues surfaced by this run:
+
+- **Way 5 (`XDP2 BPF parser`) fails to load on kernel 7.0.0 even for
+  pure-IPv4 PCAPs.** This is a regression beyond the IPv6-EH-only
+  scope documented in [challenge #15](challenges.md#15-bpf-verifier-rejects-xdp2-generated-parser-on-ipv6-extension-headers-way-5-partial).
+  The verifier rejects at program load with
+  `math between pkt pointer and register with unbounded min value`
+  after processing ~1832 insns — before any packet flows, so the
+  caller-side IPv4 bounds in `flow_dissector.bpf.c` no longer mask the
+  problem. On-disk object still compiles cleanly via `clang -target bpf`
+  (matrix build passes); only load fails.
+- **Way-1–4 + Way 6 all load and produce timings.** No unexpected
+  failures in the userspace or hand-written-fastpath rows.
+
+Host-vs-host delta (**~15–25 % hp5 faster** across every row that
+loads) is **not a host-class difference**:
+
+- CPUs are identical (same Ryzen 5 PRO 2400G).
+- DIMM channel topology is identical (dual-channel, fully populated).
+- hp5 is actually clocked *slower* (1866 vs 2133 MT/s) — memory
+  bandwidth can't explain a *speedup* on hp5.
+- The micro-benchmark (11 pkts × 10 iters) is dominated by cache
+  state, branch-predictor warm-up, and turbo-boost variance at the
+  moment of measurement.
+
+Treat as run-to-run noise until re-measured on a larger corpus. The
+500k-combo PCAP numbers in the "Final Performance Results" table above
+(from earlier dev-box runs) remain the load-bearing comparison. This
+physical-testbed section is a smoke record, not a performance claim.
+
+### Reproducibility
+
+Both hosts land on identical derivation hashes for the matrix
+artifacts (`x21yziwfpsyzqfvivz7i50hyjp6n3daw-xdp2-flow-dissector-matrix-artifacts-0.1.0`)
+and for the smoke derivation (`2811asdpdqds0nkac4bnz007c95vx2ig-xdp2-flow-dissector-matrix-smoke-0.1.0.drv`).
+This required one fix in the physical-testbed-runner wrapper: the
+rsync step must ship `.git/` so Nix's flake input uses git-tracked-path
+semantics rather than plain-directory hashing — see commit `e5abff4`.
+
 ### Measurement Methodology
 
 - **Non-BPF column**: `clock_gettime(CLOCK_MONOTONIC_RAW)` around userspace loops.

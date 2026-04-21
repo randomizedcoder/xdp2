@@ -104,11 +104,33 @@ exercised by the upstream kernel BPF flow-dissector selftests.
 
 ### Asymmetric RAM — convention
 
-`hp5` (61 GB) is the *throughput target*: anything that benefits from large
-generated PCAP corpora or in-memory result aggregation runs there. `hp2`
-(30 GB) is the *control / reference* host: deterministic latency
-measurements, parser correctness checks, lighter sweeps. Both hosts can run
-any test; this is a workload-routing convention, not a constraint.
+Both hosts have DDR4 with all four DIMM slots populated (dual-channel,
+fully stuffed). The difference is **capacity and clock**, not channel
+count:
+
+| Host | DIMMs | Configured speed |
+|---|---|---|
+| hp2 | 4× 8 GiB  (32 GiB installed) | 2133 MT/s |
+| hp5 | 4× 16 GiB (64 GiB installed) | 1866 MT/s |
+
+For packet-processing benchmarks at the working-set sizes we exercise
+(PCAPs in MiBs, metadata structs in hundreds of bytes), **RAM capacity
+is irrelevant** — nothing spills to swap, page cache fits easily on
+either host. Memory *bandwidth* is the axis that could matter, and
+hp2's faster clock gives it the edge there.
+
+As a workload-routing convention: use `hp5` when you want large
+generated PCAP corpora or in-memory result aggregation to fit
+comfortably, use `hp2` when you want the fastest memory clock. Both
+hosts can run any test; this is not a capability constraint.
+
+*Earlier docs labeled hp5 the "throughput target" on the basis of RAM
+size. That framing turned out to be baseless — a 2026-04-20 matrix
+run showed hp5 ~20 % faster across all 5 usable ways, but hp5 is also
+the host with the slower RAM clock, so the delta is run-to-run noise
+at the 11-packet × 10-iteration micro-benchmark scale, not a host-class
+difference. See [`samples/flow_dissector/docs/benchmarks.md`](../samples/flow_dissector/docs/benchmarks.md)
+§ "Physical-Testbed 6-Way Matrix (2026-04-20)".*
 
 ---
 
@@ -412,7 +434,7 @@ remote execution. They group as follows. Privilege column means the
 | B | flow-dissector matrix ways 1–3 | `flow-dissector-matrix` (userspace ways) | none | no | either | stdout table | ~2 min |
 | C | flow-dissector matrix ways 4–6 | `flow-dissector-matrix` (BPF ways via `BPF_PROG_TEST_RUN`) | root + `CAP_BPF` | no | either | stdout table | ~10 min |
 | D | proto-audit | `proto-audit-report`, `proto-audit-c-check`, `proto-audit-validate-all` | none | no | either | `result/*.{txt,json}` | ~15 min |
-| E | perf sweeps | `perf-sweep-tcp`, `perf-sweep-mixed`, `perf-sweep-combo`, `perf-flamegraph`, `perf-annotate`, `perf-graph-enum-compare`, `chain-histogram-all`, `chain-histogram-workloads`, `sweep-workloads-all`, `perf-analysis-all` | `perf_event_paranoid≤2` | no | hp5 (throughput target) | `result/perf-results/…` | 30–60 min |
+| E | perf sweeps | `perf-sweep-tcp`, `perf-sweep-mixed`, `perf-sweep-combo`, `perf-flamegraph`, `perf-annotate`, `perf-graph-enum-compare`, `chain-histogram-all`, `chain-histogram-workloads`, `sweep-workloads-all`, `perf-analysis-all` | `perf_event_paranoid≤2` | no | either (hp5 for larger result corpora) | `result/perf-results/…` | 30–60 min |
 | F | XDP samples (load) | `xdp-samples` plus loader-side smoke tests | root + `CAP_NET_ADMIN` | **yes** | hp5 receives | future work | 5 min ea. |
 | G | AF_XDP throughput | `xdp2-flow-ebpf` loader against real traffic | root | **yes** | hp5 receives | future work | varies |
 | H | Hardware ntuple offload | (no Nix target yet — see §13) | root + `CAP_NET_ADMIN` | **yes** | hp5 receives | future work | varies |
@@ -660,8 +682,11 @@ and lean on the testbed once they land.
    benchmark hosts run no untrusted code. Do not set this on a
    multi-tenant or internet-facing host.
 
-8. **Asymmetric RAM** (hp2 30 GB / hp5 61 GB). Categories E/F/G that
-   produce or consume large in-memory PCAP corpora should run on hp5.
+8. **Asymmetric RAM** (hp2 4×8 GiB @ 2133 MT/s / hp5 4×16 GiB @ 1866 MT/s).
+   Both dual-channel fully populated. hp5 has more headroom for large
+   in-memory PCAP corpora; hp2 has the faster memory clock. For the
+   workload sizes the matrix currently exercises (MiBs, not GiBs),
+   neither difference is load-bearing — see § 2 "Asymmetric RAM".
 
 ---
 
