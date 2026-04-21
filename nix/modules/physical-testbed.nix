@@ -77,13 +77,27 @@ let
       # Flow control off — no PAUSE frames on a back-to-back link.
       ethtool -A "$ifc" rx off tx off autoneg off || true
 
-      # Flow director: enable, hash on the 5-tuple. ntuple-rule
-      # programming is left to per-test scripts.
+      # Flow director: enable, hash on the 5-tuple. Per-rule ntuple
+      # steering is programmed below from cfg.flowDirectorRules.
       ethtool -K "$ifc" ntuple on || true
       ethtool -N "$ifc" rx-flow-hash tcp4 sdfn || true
       ethtool -N "$ifc" rx-flow-hash udp4 sdfn || true
       ethtool -N "$ifc" rx-flow-hash tcp6 sdfn || true
       ethtool -N "$ifc" rx-flow-hash udp6 sdfn || true
+
+      # Per-rule Flow Director steering. Each rule in
+      # cfg.flowDirectorRules matching this interface gets installed
+      # with its own location (so re-applying at boot is idempotent —
+      # the same location slot is overwritten rather than duplicated).
+      # On i40e (X710) the max rule count is 8K; we fit well inside.
+      ${lib.concatStringsSep "\n" (lib.imap0 (i: rule:
+        lib.optionalString (rule.interface == ifname) ''
+          # Rule ${toString i}: ${rule.flowType} dst-port ${toString rule.destPort} -> queue ${toString rule.queue}
+          ethtool -N "$ifc" delete ${toString i} 2>/dev/null || true
+          ethtool -N "$ifc" flow-type ${rule.flowType} dst-port ${toString rule.destPort} action ${toString rule.queue} loc ${toString i} || \
+            echo "xdp2-nic-tune: failed to install FD rule ${toString i} on $ifc" >&2
+        ''
+      ) cfg.flowDirectorRules)}
 
       ${lib.optionalString cfg.jumbo ''
         ip link set "$ifc" mtu 9000 || true
@@ -276,6 +290,82 @@ in
         on other hardware.
       '';
     };
+
+    flowDirectorRules = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          interface = lib.mkOption {
+            type = lib.types.str;
+            example = "enp1s0f0np0";
+            description = "Peer interface name to install this ntuple rule on.";
+          };
+          flowType = lib.mkOption {
+            type = lib.types.enum [ "tcp4" "udp4" "tcp6" "udp6" "sctp4" "sctp6" ];
+            default = "tcp4";
+            description = "ethtool flow-type for this rule.";
+          };
+          destPort = lib.mkOption {
+            type = lib.types.int;
+            example = 443;
+            description = "L4 destination port to match.";
+          };
+          queue = lib.mkOption {
+            type = lib.types.int;
+            example = 2;
+            description = ''
+              RX queue ID the matching packets are steered to. Pair with
+              AF_XDP zerocopy on that queue to consume packets with no
+              software classification path.
+            '';
+          };
+        };
+      });
+      default = [ ];
+      example = lib.literalExpression ''
+        [
+          { interface = "enp1s0f0np0"; flowType = "tcp4"; destPort = 22;  queue = 1; }
+          { interface = "enp1s0f0np0"; flowType = "tcp4"; destPort = 443; queue = 2; }
+        ]
+      '';
+      description = ''
+        Intel Flow Director (i40e) ntuple steering rules, installed via
+        `ethtool -N <ifc> flow-type <t> dst-port <p> action <q> loc <i>`
+        inside the xdp2-nic-tune-<ifname>.service unit at boot. Each
+        rule's list-index is its ethtool location slot, so re-applying
+        on service restart overwrites rather than duplicates. Verify
+        with `ethtool -n <ifname>`. Rules are NIC state and survive
+        interface up/down but NOT driver reload — the boot-time service
+        re-applies, which is sufficient for a benchmark host.
+
+        On X710 / i40e the hardware maximum is 8K rules; we fit well
+        inside. See docs/ntuple-template-bench.md for the rationale
+        (NIC classification -> per-queue AF_XDP -> fixed template
+        extract, no software select_template_id cost).
+      '';
+    };
+
+    realServicesBench = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        If true, re-enable a minimal set of userspace services used
+        as traffic sources for the live ntuple + template benchmark:
+          - nginx on :443 with a snake-oil cert and a 1-byte index.html
+          - wrk2 and h2load available in PATH for driving load
+
+        nginx is force-constrained to the housekeeping CPUs (0, 1) via
+        systemd CPUAffinity so it never competes with parser threads on
+        the isolated cores. Note that when a Flow Director rule steers
+        TCP/443 to an AF_XDP-bound queue the bulk data segments bypass
+        nginx entirely — nginx is there to complete handshakes and
+        serve as the listener, not to actually see the request body.
+        See docs/ntuple-template-bench.md for the full discussion.
+
+        This option overrides disableNonEssentialServices for nginx
+        specifically (via lib.mkForce), leaving grafana/prometheus/
+        lldpd/etc. disabled as before.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -351,7 +441,36 @@ in
         (ifname: lib.nameValuePair "xdp2-nic-affinity-${ifname}"
           (mkNicAffinityService ifname))
         cfg.peerInterfaces))
-    ] ++ lib.optional cfg.lowJitter {
+    ] ++ lib.optional cfg.realServicesBench {
+      # Snake-oil cert for nginx-bench. Idempotent via ConditionPathExists —
+      # skips on re-runs once both files already exist.
+      xdp2-testbed-nginx-cert = {
+        description = "xdp2 testbed: generate snake-oil TLS cert for nginx-bench";
+        wantedBy = [ "nginx.service" ];
+        before = [ "nginx.service" ];
+        unitConfig.ConditionPathExists = "!/var/lib/nginx-bench/fullchain.pem";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        path = [ pkgs.openssl pkgs.coreutils ];
+        script = ''
+          set -eu
+          install -d -m 0755 -o nginx -g nginx /var/lib/nginx-bench
+          cd /var/lib/nginx-bench
+          openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+            -subj "/CN=xdp2-testbed" \
+            -keyout key.pem -out fullchain.pem
+          chown nginx:nginx key.pem fullchain.pem
+          chmod 0640 key.pem fullchain.pem
+        '';
+      };
+      # Pin nginx to housekeeping CPUs (0, 1) so it never competes with
+      # parser threads on the isolated cores.
+      nginx = {
+        serviceConfig.CPUAffinity = lib.mkForce "0 1";
+      };
+    } ++ lib.optional cfg.lowJitter {
       # Disable CPU turbo boost. Not exposed as a sysctl; has to be
       # poked via /sys. Runs early so the first benchmark after boot
       # sees steady-state frequency. Works for AMD (cpufreq/boost) and
@@ -408,7 +527,13 @@ in
     services.grafana.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
     services.prometheus.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
     services.prometheus.exporters.node.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
-    services.nginx.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    # nginx: disabled with the other non-essentials UNLESS
+    # realServicesBench is set, in which case it's pinned to the
+    # housekeeping CPUs and used as the traffic listener for the live
+    # ntuple + template benchmark.
+    services.nginx.enable =
+      if cfg.realServicesBench then (lib.mkForce true)
+      else lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
     services.avahi.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
     # lldpd is the worst offender: sends LLDP frames on ALL interfaces
     # (including peer NICs) every 30s, landing inside measurement windows.
@@ -424,11 +549,42 @@ in
     nix.gc.automatic = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
 
     # ---- Tools ----
-    environment.systemPackages = lib.optionals cfg.installEthtool [
-      pkgs.ethtool
-      pkgs.bpftools
-      config.boot.kernelPackages.perf
-    ];
+    environment.systemPackages =
+      lib.optionals cfg.installEthtool [
+        pkgs.ethtool
+        pkgs.bpftools
+        config.boot.kernelPackages.perf
+      ]
+      # Traffic-generation tools for the live ntuple+template bench;
+      # only installed under realServicesBench so the minimum-footprint
+      # profile stays clean.
+      ++ lib.optionals cfg.realServicesBench [
+        pkgs.wrk2
+        pkgs.h2load
+      ];
+
+    # ---- Real-services bench: nginx vhost for traffic listener ----
+    # Only populated when cfg.realServicesBench is true. The nginx
+    # enable toggle itself is handled above via services.nginx.enable
+    # (overrides the disableNonEssentialServices force-disable).
+    services.nginx.virtualHosts."_" = lib.mkIf cfg.realServicesBench {
+      default = true;
+      addSSL = true;
+      enableACME = false;
+      # Snake-oil self-signed cert — this is a benchmark listener on
+      # an isolated lab link, not a public service.
+      sslCertificate = "/var/lib/nginx-bench/fullchain.pem";
+      sslCertificateKey = "/var/lib/nginx-bench/key.pem";
+      locations."/" = {
+        # 1-byte body: minimises server-side payload overhead so the
+        # interesting cost is in the ntuple/AF_XDP/template path, not
+        # in disk/sendfile.
+        return = ''200 "x"'';
+        extraConfig = ''
+          default_type text/plain;
+        '';
+      };
+    };
 
     # ---- Sanity assertions ----
     assertions = [
