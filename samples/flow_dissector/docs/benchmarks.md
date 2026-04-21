@@ -110,6 +110,49 @@ Key findings:
   `parser.xdp.h` which compiles to a 988KB BPF object file. Runtime
   benchmarking requires root (for `BPF_PROG_TEST_RUN`).
 
+## Unified xdp2-rs vs C-Matrix (same filtered pcap)
+
+Historically the C matrix (6-way: kernel flowdis, XDP2 parser, XDP2
+parse-only, kernel BPF, XDP2 BPF, xdp2-flow-ebpf fast) and the xdp2-rs
+benchmark suite (`xdp2-bench` with modes `graph` / `mono` / `compiled` /
+`template`) lived in different harnesses with different pcaps and
+different iteration semantics, so their numbers couldn't be laid
+side-by-side. The xdp2-rs docs report `graph 158 ns/pkt`,
+`compiled 36 ns/pkt`, `template 2 ns/pkt @ 493 Mpps` on their own pcaps;
+the C matrix reports 26-32 ns/pkt userspace flowdis / 22-23 ns/pkt
+xdp2-flow-ebpf-fast on the physical testbed (see the Tuned section
+below). Those are not comparable until the packet set is identical.
+
+The unified harness `flake.nix:flow-dissector-matrix-unified` (wrapper
+in `nix/xdp2-rs-matrix.nix`, portable shell in
+`samples/flow_dissector/xdp2_rs_matrix.sh`) fixes that:
+
+1. Runs `xdp2-bench --pcap INPUT --output-pcap FILTERED --iterations 1`
+   so only packets the Rust graph handles survive.
+2. Runs the C matrix (ways 1-6) against `FILTERED`.
+3. Runs `xdp2-bench` modes `graph` / `mono` / `compiled` / `template`
+   against `FILTERED`.
+4. Emits one table with all ten rows.
+
+Invocation:
+
+```bash
+# default = cached workload-pcap-https-web (20k packets)
+sudo "$(nix build --no-link --print-out-paths .#flow-dissector-matrix-unified)"/bin/xdp2-flow-dissector-matrix-unified
+
+# or against any pcap on disk
+sudo .../xdp2-flow-dissector-matrix-unified -n 500 -c 2 /path/to.pcap
+```
+
+The `template` row here still pays `select_template_id` per packet; the
+hardware-classified version (NIC ntuple rule → queue → AF_XDP → fixed
+template) is `--mode af-xdp-template`, covered separately in
+`docs/ntuple-template-bench.md` and in the "Live Ntuple + Template"
+section below (once hardware runs produce numbers).
+
+Baseline results from this harness will be pasted here as the first
+runs land on `hp5` / `hp2`.
+
 ## Physical-Testbed 6-Way Matrix — Tuned (2026-04-21)
 
 Re-run after wiring the `xdp2.nixosModules.physical-testbed` module

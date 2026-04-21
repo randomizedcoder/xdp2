@@ -165,6 +165,15 @@
           xdp2 = xdp2-debug;
         };
 
+        # Unified xdp2-rs vs C-matrix harness — runs the 6-way C matrix
+        # AND xdp2-bench (graph/mono/compiled/template) against the same
+        # filtered pcap. See nix/xdp2-rs-matrix.nix and
+        # samples/flow_dissector/docs/benchmarks.md "Unified" section.
+        flowDissectorMatrixUnified = import ./nix/xdp2-rs-matrix.nix {
+          inherit pkgs xdp2Rs flowDissectorMatrix;
+          workloadPcapHttpsWeb = perfAnalysis.workload-pcap-https-web;
+        };
+
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
         # See nix/compiler-verify.nix for all available targets
         compilerVerify = import ./nix/compiler-verify.nix {
@@ -480,6 +489,14 @@
           # ===================================================================
           flow-dissector-matrix = flowDissectorMatrix.matrix;
           flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
+
+          # ===================================================================
+          # flow-dissector-matrix-unified — C matrix + xdp2-bench,
+          # same filtered pcap, one unified comparison table.
+          # Build:  nix build .#flow-dissector-matrix-unified
+          # Run:    sudo ./result/bin/xdp2-flow-dissector-matrix-unified [pcap]
+          # ===================================================================
+          flow-dissector-matrix-unified = flowDissectorMatrixUnified;
 
           # Build-time execution smoke — runs the matrix against an
           # in-tree PCAP and captures results to $out/matrix.txt. Ways
