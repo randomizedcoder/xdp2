@@ -227,6 +227,55 @@ in
         no untrusted code.
       '';
     };
+
+    disableNonEssentialServices = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        If true (default), force-disable services that don't belong on a
+        dedicated benchmark host because they introduce scheduler noise,
+        periodic wakeups, or packet traffic on peer NICs. Disables:
+        grafana, prometheus, prometheus-exporter-node, nginx, avahi,
+        lldpd (the sneakiest — sends LLDP frames on ALL interfaces
+        including the peer NICs every 30s, polluting the measurement
+        window), docker, systemd-oomd, and the fstrim / logrotate /
+        systemd-tmpfiles-clean / nix-gc timers. Set false if you genuinely
+        want any of these (e.g. a dashboard on a shared host).
+      '';
+    };
+
+    lowJitter = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Opt-in aggressive jitter reduction for ns-precision latency
+        measurements. When true:
+          - disables CPU turbo boost at boot (AMD/Intel: writes 0 to
+            /sys/devices/system/cpu/cpufreq/boost or intel_pstate/no_turbo)
+          - adds nowatchdog + cpufreq.default_governor=performance to
+            kernel params (complements the sysctl + governor settings
+            applied later in boot)
+          - sets kernel.nmi_watchdog=0 (removes 1 Hz per-CPU NMI)
+          - sets kernel.numa_balancing=0 (single-NUMA Ryzen has no work
+            to do anyway, but the scanner thread still wakes up)
+          - pins management-interface IRQs to housekeeping CPUs (0, 1)
+            so they never touch the isolated cores
+
+        COST: ~8% peak single-thread throughput (no turbo). Worth it for
+        ns-precision latency tails; turn off for Mpps-ceiling runs.
+      '';
+    };
+
+    managementInterface = lib.mkOption {
+      type = lib.types.str;
+      default = "eno1";
+      description = ''
+        Name of the management / admin interface. Its IRQs are pinned
+        off the isolated cores when lowJitter = true. Default "eno1"
+        matches hp2/hp5 (Realtek onboard 1GbE); override to e.g. "eth0"
+        on other hardware.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -245,6 +294,14 @@ in
       "isolcpus=${cpuList}"
       "nohz_full=${cpuList}"
       "rcu_nocbs=${cpuList}"
+    ]
+    ++ lib.optionals cfg.lowJitter [
+      # Suppress per-CPU NMI watchdog timer (1 Hz on each CPU — a
+      # persistent jitter floor for ns-precision tails).
+      "nowatchdog"
+      # Lock the governor at boot so early userspace doesn't briefly
+      # run at "ondemand" before the sysctl takes over.
+      "cpufreq.default_governor=performance"
     ];
 
     # ---- sysctls ----
@@ -256,6 +313,12 @@ in
       "net.core.busy_poll" = lib.mkDefault 50;
       "net.core.busy_read" = lib.mkDefault 50;
       "net.core.netdev_max_backlog" = lib.mkDefault 50000;
+    } // lib.optionalAttrs cfg.lowJitter {
+      # Complements the nowatchdog kernel param at runtime.
+      "kernel.nmi_watchdog" = lib.mkDefault 0;
+      # Single-NUMA Ryzen: no pages to migrate, but the scanner thread
+      # still periodically walks every process's mm.
+      "kernel.numa_balancing" = lib.mkDefault 0;
     };
 
     # ---- Power & scheduler ----
@@ -279,7 +342,7 @@ in
     networking.dhcpcd.denyInterfaces = cfg.peerInterfaces;
 
     # ---- Per-NIC tuning + affinity services ----
-    systemd.services = lib.mkMerge [
+    systemd.services = lib.mkMerge ([
       (lib.listToAttrs (map
         (ifname: lib.nameValuePair "xdp2-nic-tune-${ifname}"
           (mkNicTuneService ifname))
@@ -288,7 +351,77 @@ in
         (ifname: lib.nameValuePair "xdp2-nic-affinity-${ifname}"
           (mkNicAffinityService ifname))
         cfg.peerInterfaces))
-    ];
+    ] ++ lib.optional cfg.lowJitter {
+      # Disable CPU turbo boost. Not exposed as a sysctl; has to be
+      # poked via /sys. Runs early so the first benchmark after boot
+      # sees steady-state frequency. Works for AMD (cpufreq/boost) and
+      # Intel (intel_pstate/no_turbo) paths — tries both, ignores
+      # failure on the path that isn't present.
+      xdp2-testbed-disable-boost = {
+        description = "xdp2 testbed: disable CPU turbo for jitter reduction";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "sysinit.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          if [ -w /sys/devices/system/cpu/cpufreq/boost ]; then
+            echo 0 > /sys/devices/system/cpu/cpufreq/boost || true
+          fi
+          if [ -w /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
+            echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo || true
+          fi
+        '';
+      };
+
+      # Pin management-interface IRQs to the housekeeping CPUs (0 and 1
+      # — mask 0x3) so ssh / prometheus-scrape / etc. never steal cycles
+      # from the isolated cores.
+      xdp2-testbed-mgmt-affinity = {
+        description = "xdp2 testbed: pin ${cfg.managementInterface} IRQs to CPUs 0,1";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        path = [ pkgs.gawk pkgs.coreutils ];
+        script = ''
+          set -u
+          ifc=${cfg.managementInterface}
+          # Match either "ifc" or "ifc-..." at end of /proc/interrupts line.
+          while read -r line; do
+            irq=$(echo "$line" | awk -F: '{gsub(/ /,"",$1); print $1}')
+            echo 3 > /proc/irq/$irq/smp_affinity 2>/dev/null || true
+          done < <(grep -E "($ifc|$ifc-)" /proc/interrupts || true)
+        '';
+      };
+    });
+
+    # ---- Disable noisy / non-essential services ----
+    # Each of these shows up in perf top / ftrace as a periodic wakeup
+    # or as packet traffic on the peer NICs. All can be re-enabled by
+    # setting xdp2.testbed.disableNonEssentialServices = false; or by
+    # using lib.mkForce in the importing configuration.
+    services.grafana.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    services.prometheus.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    services.prometheus.exporters.node.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    services.nginx.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    services.avahi.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    # lldpd is the worst offender: sends LLDP frames on ALL interfaces
+    # (including peer NICs) every 30s, landing inside measurement windows.
+    services.lldpd.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    virtualisation.docker.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    systemd.oomd.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+
+    # Periodic timers — each fires a wakeup on some CPU. Negligible in
+    # aggregate, visible in ns-precision tails. Disable the services
+    # that own these timers; NixOS then never generates the .timer unit.
+    services.fstrim.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    services.logrotate.enable = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
+    nix.gc.automatic = lib.mkIf cfg.disableNonEssentialServices (lib.mkForce false);
 
     # ---- Tools ----
     environment.systemPackages = lib.optionals cfg.installEthtool [
