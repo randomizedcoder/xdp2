@@ -197,6 +197,14 @@
           inherit pkgs xdp2Rs test-pcap;
         };
 
+        # Physical-testbed automation wrapper
+        # Drives nix targets on hp2/hp5 (or any SSH-reachable host) via
+        # rsync + ssh + nix build/run. See docs/physical-testbed.md §9.
+        # Usage: nix run .#run-on-host -- HOST [HOST...] -- TARGET [TARGET...]
+        run-on-host = import ./nix/physical-testbed-runner.nix {
+          inherit pkgs;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -573,6 +581,11 @@
           # Run all sample tests in one go
           # Usage: nix run .#run-sample-tests
           inherit run-sample-tests;
+
+          # Physical-testbed runner: drive nix targets on hp2/hp5 via
+          # rsync+ssh. See docs/physical-testbed.md §9.
+          # Usage: nix run .#run-on-host -- hp5 -- xdp2-rs-test
+          inherit run-on-host;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
