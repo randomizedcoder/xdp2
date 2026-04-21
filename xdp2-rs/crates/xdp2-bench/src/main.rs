@@ -31,6 +31,8 @@
 //! | `pcap::load_pcap()` | `pcap_loader.h:load_pcap()` | PCAP file loading |
 
 mod af_xdp;
+#[cfg(target_os = "linux")]
+mod af_xdp_template;
 mod chain_histogram;
 mod cli;
 mod extractors;
@@ -74,6 +76,18 @@ fn main() {
     if matches!(cli.mode, ParserMode::AfXdp) {
         run_af_xdp(&cli);
         return;
+    }
+
+    // AF_XDP per-queue hardware-classified template mode (Linux only).
+    #[cfg(target_os = "linux")]
+    if matches!(cli.mode, ParserMode::AfXdpTemplateHw) {
+        run_af_xdp_per_queue_template(&cli);
+        return;
+    }
+    #[cfg(not(target_os = "linux"))]
+    if matches!(cli.mode, ParserMode::AfXdpTemplateHw) {
+        eprintln!("error: --mode af-xdp-template requires Linux");
+        process::exit(1);
     }
 
     // All other modes require a PCAP file.
@@ -530,6 +544,94 @@ fn main() {
             "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}, template ok={}/{}",
             graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts, template_ok, npkts
         );
+    }
+}
+
+/// AF_XDP per-queue hardware-classified template benchmark.
+///
+/// Parses `--queue-template` flags into `PerQueueTemplate` bindings,
+/// binds one AF_XDP socket per queue, and times template extraction
+/// with no software classification. Emits a per-queue table to stdout.
+#[cfg(target_os = "linux")]
+fn run_af_xdp_per_queue_template(cli: &Cli) {
+    let iface = match &cli.interface {
+        Some(s) => s.as_str(),
+        None => {
+            eprintln!("error: --interface is required for --mode af-xdp-template");
+            process::exit(1);
+        }
+    };
+    if cli.queue_templates.is_empty() {
+        eprintln!(
+            "error: --mode af-xdp-template requires at least one \
+             --queue-template <QID>=<NAME>"
+        );
+        process::exit(1);
+    }
+
+    let queues: Vec<af_xdp_template::PerQueueTemplate> = cli
+        .queue_templates
+        .iter()
+        .map(|s| af_xdp_template::parse_queue_template(s))
+        .collect::<Result<_, _>>()
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            process::exit(1);
+        });
+
+    let mut bind_flags: u16 = 0;
+    if cli.zero_copy {
+        bind_flags |= xdp2_af_xdp::sys::XDP_ZEROCOPY;
+    }
+    let run_cfg = af_xdp::RunConfig {
+        huge_pages: cli.huge_pages,
+        busy_poll_us: cli.busy_poll,
+        batch_size: cli.batch_size,
+        bind_flags,
+        need_wakeup: cli.need_wakeup,
+    };
+
+    match af_xdp_template::run_af_xdp_template(
+        iface,
+        &queues,
+        cli.duration,
+        &run_cfg,
+        cli.core_pin,
+    ) {
+        Ok(reports) => {
+            println!(
+                "--- AF_XDP per-queue template on {iface} ({}s) ---",
+                cli.duration
+            );
+            println!(
+                "{:<8} | {:<34} | {:>14} | {:>14} | {:>10} | {:>8}",
+                "queue", "template", "packets", "bytes", "ns/pkt", "Mpps"
+            );
+            println!("{}", "-".repeat(103));
+            for r in &reports {
+                println!(
+                    "{:<8} | {:<34} | {:>14} | {:>14} | {:>10} | {:>8.2}",
+                    r.queue_id,
+                    format!("{:?}", r.template_id),
+                    r.packets,
+                    r.bytes,
+                    r.ns_per_pkt,
+                    r.mpps
+                );
+            }
+            let total: u64 = reports.iter().map(|r| r.packets).sum();
+            if total == 0 {
+                eprintln!(
+                    "warning: 0 packets across all queues. Check Flow \
+                     Director rules (ethtool -n {iface}) and that \
+                     traffic is actually arriving."
+                );
+            }
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            process::exit(1);
+        }
     }
 }
 

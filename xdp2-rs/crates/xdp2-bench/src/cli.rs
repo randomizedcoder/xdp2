@@ -31,6 +31,14 @@ pub(crate) enum ParserMode {
     /// AF_XDP live capture: receive packets from a NIC via zero-copy kernel
     /// bypass and parse with the compiled parser. Requires --interface.
     AfXdp,
+    /// Per-queue hardware-classified template extraction. Pair with
+    /// Flow Director ntuple rules that steer known packet shapes to
+    /// known RX queues; each queue's AF_XDP socket then calls the
+    /// pre-mapped fixed-offset extractor directly, no software
+    /// classification. Requires --interface and one or more
+    /// --queue-template <QID>=<NAME>. See docs/ntuple-template-bench.md.
+    #[value(name = "af-xdp-template")]
+    AfXdpTemplateHw,
 }
 
 /// Template selection for AF_XDP template extraction mode.
@@ -128,6 +136,14 @@ pub(crate) struct Cli {
     /// each queue uses fixed-offset extraction. "auto" classifies per-packet.
     #[arg(long, value_enum)]
     pub af_xdp_template: Option<AfXdpTemplate>,
+
+    /// Per-queue template mapping for `--mode af-xdp-template`.
+    /// Format: `<QID>=<NAME>`. Repeat once per queue. NAME is a
+    /// hyphen-case TemplateId (e.g. `eth-ipv4-tcp`, `eth-vlan-ipv6-udp`).
+    /// See `src/af_xdp_template.rs::template_id_from_str` for the full
+    /// set of 63 accepted names.
+    #[arg(long = "queue-template", value_name = "QID=NAME")]
+    pub queue_templates: Vec<String>,
 
     /// Request zero-copy mode for AF_XDP (NIC driver must support it).
     /// Falls back to copy mode if the driver doesn't support zero-copy.
