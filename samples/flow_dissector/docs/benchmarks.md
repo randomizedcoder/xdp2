@@ -153,6 +153,44 @@ section below (once hardware runs produce numbers).
 Baseline results from this harness will be pasted here as the first
 runs land on `hp5` / `hp2`.
 
+## Live Ntuple + Template (X710 hardware classification)
+
+This is the testbed's headline differentiator: parsing a stream the
+NIC has already classified in hardware. The X710 Flow Director steers
+TCP/22 to queue 1 and TCP/443 to queue 2 (programmed via the testbed
+module's `flowDirectorRules` option); one AF_XDP socket per queue
+calls a pre-mapped `template::extract_by_id` directly — no software
+classification step on the hot path.
+
+Run from the dev box (both hosts must have the testbed module plus
+`realServicesBench = true` on the target):
+
+```bash
+nix run .#flow-dissector-ntuple-template-bench -- hp5 hp2
+```
+
+The orchestrator (`samples/flow_dissector/run_ntuple_template_bench.sh`)
+pre-flights the FD rules + nginx, spins up `wrk2` + `ssh -N` on the
+peer, runs `xdp2-bench --mode af-xdp-template` on the target, and
+saves artifacts under `perf-results/<target>/ntuple-template-bench-<ts>/`.
+
+The expected comparison, once a run lands, is:
+
+| Mode                                             | Classification                 | Dispatch         |
+| ------------------------------------------------ | ------------------------------ | ---------------- |
+| `xdp2-bench --mode template` (filtered pcap)     | software: `select_template_id` | `extract_by_id`  |
+| `xdp2-bench --mode af-xdp-template` (q=2)        | hardware: Flow Director rule   | `extract_by_id`  |
+
+Both call the *same* `extract_by_id`. The delta between the two rows
+is the amortised cost of software classification, which is what the
+hardware path eliminates.
+
+Design doc and caveats (particularly: wrk's bulk data bypasses nginx
+entirely — nginx only completes the handshake) in
+[`docs/ntuple-template-bench.md`](../../../docs/ntuple-template-bench.md).
+
+Numbers from the first live run will be pasted into this section.
+
 ## Physical-Testbed 6-Way Matrix — Tuned (2026-04-21)
 
 Re-run after wiring the `xdp2.nixosModules.physical-testbed` module

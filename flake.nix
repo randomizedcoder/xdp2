@@ -174,6 +174,15 @@
           workloadPcapHttpsWeb = perfAnalysis.workload-pcap-https-web;
         };
 
+        # Live X710 ntuple + AF_XDP + template bench orchestrator —
+        # drives a two-host run (target + peer) over SSH. Requires the
+        # target to have xdp2.testbed.flowDirectorRules and
+        # realServicesBench = true via the physical-testbed module.
+        # See docs/ntuple-template-bench.md.
+        flowDissectorNtupleTemplateBench = import ./nix/ntuple-template-bench.nix {
+          inherit pkgs;
+        };
+
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
         # See nix/compiler-verify.nix for all available targets
         compilerVerify = import ./nix/compiler-verify.nix {
@@ -497,6 +506,16 @@
           # Run:    sudo ./result/bin/xdp2-flow-dissector-matrix-unified [pcap]
           # ===================================================================
           flow-dissector-matrix-unified = flowDissectorMatrixUnified;
+
+          # ===================================================================
+          # flow-dissector-ntuple-template-bench — live X710 Flow Director
+          # + AF_XDP + template extraction. Two-host orchestration; the
+          # target must have the xdp2.testbed physical-testbed module with
+          # flowDirectorRules + realServicesBench configured.
+          # Run:  nix run .#flow-dissector-ntuple-template-bench -- hp5 hp2
+          # See:  docs/ntuple-template-bench.md
+          # ===================================================================
+          flow-dissector-ntuple-template-bench = flowDissectorNtupleTemplateBench;
 
           # Build-time execution smoke — runs the matrix against an
           # in-tree PCAP and captures results to $out/matrix.txt. Ways

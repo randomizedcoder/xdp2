@@ -304,6 +304,38 @@ Then in `~/nixos/hp/hp5/configuration.nix`:
 
 `hp2` is identical except its `addresses.*.local` fields end in `.2/30`.
 
+### Opt-in options for the live ntuple + template bench
+
+Two options wire the hardware-classification path documented in
+[`docs/ntuple-template-bench.md`](ntuple-template-bench.md):
+
+```nix
+xdp2.testbed = {
+  # …standard tuning above…
+
+  # Program Intel i40e Flow Director rules at boot so the NIC steers
+  # matching 5-tuples to dedicated RX queues. Each list-index is the
+  # ethtool location slot (idempotent on re-apply). Up to 8K rules on
+  # X710. Verify with: ssh root@hp5 'ethtool -n enp1s0f0np0'.
+  flowDirectorRules = [
+    { interface = "enp1s0f0np0"; flowType = "tcp4"; destPort = 22;  queue = 1; }
+    { interface = "enp1s0f0np0"; flowType = "tcp4"; destPort = 443; queue = 2; }
+  ];
+
+  # Re-enable nginx (:443, snake-oil cert, 1-byte index) + add
+  # wrk2/h2load to systemPackages. Nginx is force-pinned to CPUs 0,1
+  # via systemd CPUAffinity so it never competes with parser threads
+  # on isolated cores. Overrides disableNonEssentialServices for
+  # nginx specifically; grafana/prometheus/lldpd remain off.
+  realServicesBench = true;
+};
+```
+
+Both options default to "disabled" (`[]` and `false`), so existing
+hp2/hp5 configs that don't opt in keep behaving exactly as before.
+The ntuple+template bench in category I (§9) won't work until both
+are set.
+
 ### What this module deliberately does *not* do
 
 - It does **not** disable services like `docker` or `kubernetes`. Those are
@@ -437,7 +469,8 @@ remote execution. They group as follows. Privilege column means the
 | E | perf sweeps | `perf-sweep-tcp`, `perf-sweep-mixed`, `perf-sweep-combo`, `perf-flamegraph`, `perf-annotate`, `perf-graph-enum-compare`, `chain-histogram-all`, `chain-histogram-workloads`, `sweep-workloads-all`, `perf-analysis-all` | `perf_event_paranoid≤2` | no | either (hp5 for larger result corpora) | `result/perf-results/…` | 30–60 min |
 | F | XDP samples (load) | `xdp-samples` plus loader-side smoke tests | root + `CAP_NET_ADMIN` | **yes** | hp5 receives | future work | 5 min ea. |
 | G | AF_XDP throughput | `xdp2-flow-ebpf` loader against real traffic | root | **yes** | hp5 receives | future work | varies |
-| H | Hardware ntuple offload | (no Nix target yet — see §13) | root + `CAP_NET_ADMIN` | **yes** | hp5 receives | future work | varies |
+| H | Hardware ntuple offload | `flow-dissector-ntuple-template-bench` | root + `CAP_NET_ADMIN` | **yes** | hp5 receives | `perf-results/${host}/ntuple-template-bench-*/` | ~2 min |
+| I | Unified xdp2-rs vs C matrix | `flow-dissector-matrix-unified` | none (usp) / root (BPF ways 4–6) | no | either | stdout 10-row table | ~2 min |
 
 ### Manual recipes
 
@@ -464,8 +497,17 @@ collection automatically.
 
 ### Categories F–H (real-NIC tests)
 
-Real-NIC tests are not yet wrapped as Nix targets. The required pieces
-are mostly in place:
+Category H (hardware ntuple offload) landed as the
+`flow-dissector-ntuple-template-bench` Nix target — see
+[`docs/ntuple-template-bench.md`](ntuple-template-bench.md) for the
+design rationale and
+[`samples/flow_dissector/docs/benchmarks.md`](../samples/flow_dissector/docs/benchmarks.md)
+for the "Live Ntuple + Template" section where results are recorded.
+Prerequisite: target host sets `xdp2.testbed.flowDirectorRules` and
+`xdp2.testbed.realServicesBench = true` (see §6 above).
+
+Categories F (XDP samples) and G (AF_XDP throughput) remain future
+work; the pieces are in place:
 
 - The X710 NIC supports XDP native mode and AF_XDP zero-copy with the
   i40e driver in 6.18.21.
@@ -474,8 +516,15 @@ are mostly in place:
 - `iperf3` / `pktgen` / a custom traffic generator on the peer host
   drives load across the fibre.
 
-Tracked as future work in §13 — the testbed is the precondition; the
-test wrappers come next.
+### Category I (unified xdp2-rs vs C matrix)
+
+`flow-dissector-matrix-unified` runs the 6-way C matrix AND the four
+xdp2-rs modes (graph / mono / compiled / template) against the same
+filtered pcap and emits one 10-row comparison table. Default pcap is
+the cached `workload-pcap-https-web` derivation (20k packets). See
+the "Unified xdp2-rs vs C-Matrix" section of
+[`samples/flow_dissector/docs/benchmarks.md`](../samples/flow_dissector/docs/benchmarks.md)
+for the measurement model; no host-side configuration is required.
 
 ---
 
