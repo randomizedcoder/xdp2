@@ -560,7 +560,8 @@ in
       # profile stays clean.
       ++ lib.optionals cfg.realServicesBench [
         pkgs.wrk2
-        pkgs.h2load
+        # h2load ships inside the nghttp2 package (no top-level h2load attr).
+        pkgs.nghttp2
       ];
 
     # ---- Real-services bench: nginx vhost for traffic listener ----
