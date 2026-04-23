@@ -737,6 +737,93 @@ and lean on the testbed once they land.
    workload sizes the matrix currently exercises (MiBs, not GiBs),
    neither difference is load-bearing — see § 2 "Asymmetric RAM".
 
+9. **Lab L3 unicast broken as of 2026-04-22 — cables verified OK via LLDP**
+   (tracking; blocks live-traffic benches). Symptoms and diagnosis:
+
+   - `ping 10.10.0.5` from hp2 → 100% loss. Same for `10.10.1.5`, and
+     the reverse direction. TCP/443 and TCP/22 time out similarly.
+   - L1 healthy: `ethtool enp1s0f{0,1}np*` reports `Speed: 10000Mb/s`,
+     `Link detected: yes` on all four ports.
+   - L2 healthy: `arping -I enp1s0f0np0 10.10.0.5` from hp2 returns
+     ~0.6 ms reply. LLDP frames cross both cables in both directions.
+   - L3 blocked specifically for IPv4 unicast: hp2's
+     `ethtool -S enp1s0f0np0` shows `tx_unicast: 2` and
+     `tx_multicast: 130` after the test run — the kernel increments
+     the ping "transmitted" counter but `tcpdump -i enp1s0f0np0 icmp`
+     captures zero ICMP on either the sender's own NIC or the
+     receiver's NIC. ARP and LLDP multicast frames from the same NIC
+     are captured fine on both sides.
+   - Not the firewall: `nft list ruleset` empty on both, iptables
+     also empty, `networking.firewall.enable = false` in firewall.nix.
+   - Not the ntuple rules: toggling `ethtool -K enp1s0f0np0 ntuple off`
+     on both hosts does not restore connectivity.
+   - Not stale BPF: `bpftool net show` reports no xdp / tc /
+     flow_dissector / netfilter hooks on either host.
+   - Not a link glitch: `ip link set enp1s0f0np0 down && up` on both
+     sides does not restore connectivity either.
+
+   **LLDP recipe for cable-topology verification** (proves which
+   physical port connects to which peer port — useful whenever this
+   class of issue reappears):
+
+   ```bash
+   # lldpd binary ships with the testbed hosts but its systemd unit is
+   # stripped by disableNonEssentialServices. Create the privsep
+   # user+group and start the daemon restricted to the lab interfaces;
+   # stop it afterwards so the perf-noise profile is preserved.
+
+   for H in hp2 hp5; do
+     ssh root@$H 'getent group _lldpd >/dev/null || groupadd -r _lldpd
+       id _lldpd           >/dev/null 2>&1 || useradd -r -g _lldpd \
+                                                -s /usr/sbin/nologin _lldpd
+       lldpd -I enp1s0f0np0,enp1s0f1np1'
+   done
+
+   sleep 10   # one LLDP TX interval
+
+   for H in hp2 hp5; do
+     echo "=== $H ==="
+     ssh root@$H 'lldpcli show neighbors summary'
+   done
+
+   # When done, stop the daemon on both hosts:
+   for H in hp2 hp5; do ssh root@$H 'pkill -TERM lldpd'; done
+   ```
+
+   On a correctly cabled back-to-back testbed you should see:
+   ```
+   Interface: enp1s0f0np0 ... SysName: <peer host>, PortDescr: enp1s0f0np0
+   Interface: enp1s0f1np1 ... SysName: <peer host>, PortDescr: enp1s0f1np1
+   ```
+   On 2026-04-22 this check confirmed the cables are correct end-to-end
+   (hp2:f0 ↔ hp5:f0, hp2:f1 ↔ hp5:f1). The i40e firmware ALSO emits its
+   own LLDP frames (OUI 00:80:C2, 802.1 port-extender sub-TLVs); these
+   can be silenced with
+   `ethtool --set-priv-flags <ifc> disable-fw-lldp on` but are
+   harmless for topology verification.
+
+   **Implication for live-traffic benches.** Until the L3 unicast
+   drop is diagnosed and fixed, every test that needs real packets on
+   the lab link — `flow-dissector-ntuple-template-bench`,
+   `flow-dissector-matrix` live runs against iperf/wrk2, and anything
+   that depends on reachability between 10.10.0.2 ↔ 10.10.0.5 — will
+   report zero packets. The xdp2-rs-side work (AF_XDP binding, FD
+   rules applied, bench orchestrator wiring, per-queue template
+   extraction) has been verified to work end-to-end; it just needs
+   packets to count. PCAP-replay-style tests that don't need L3 work
+   fine.
+
+   **Suggested next diagnostic steps** when someone returns to this:
+   - `ethtool --set-priv-flags enp1s0f0np0 disable-fw-lldp on` on both
+     sides then bounce the link — the X710 firmware LLDP agent is
+     known to interact oddly with FD/ntuple on some driver revs.
+   - Boot an older kernel (`linuxPackages_6_12`) to rule out an i40e
+     regression in the 6.18 line.
+   - Swap DACs/SFPs between f0/f1 ports to rule out transceiver
+     asymmetry.
+   - `ethtool -S enp1s0f0np0 | grep -iE "discard|drop|crc|error"` on
+     both ends during sustained ping to look for any non-zero counter.
+
 ---
 
 ## Appendix B — One-line cheatsheet
