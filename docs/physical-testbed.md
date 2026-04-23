@@ -168,10 +168,12 @@ difference. See [`samples/flow_dissector/docs/benchmarks.md`](../samples/flow_di
 - MTU is **1500 by default** for parser correctness comparability with
   upstream kernel selftests. Jumbo (9000) is opt-in via
   `xdp2.testbed.jumbo = true;` for pure-throughput perf runs.
-- Static addressing recommended: `10.10.0.{2,5}/30` on `f0`,
-  `10.10.1.{2,5}/30` on `f1`. Today the hosts fall back to link-local
-  `169.254.x.x` because no static config is in place — the new module
-  fixes this.
+- Static addressing recommended: `10.10.0.{2,5}/29` on `f0`,
+  `10.10.1.{2,5}/29` on `f1`. **`/29`, not `/30`** — `.2` and `.5` fall in
+  different `/30` subnets (`.0/30` = `.0–.3`, `.4/30` = `.4–.7`), so under
+  a `/30` mask the reply path falls through to the default route and
+  leaves via the management NIC (see Appendix A §10 for the diagnosis).
+  `/29` covers `.0–.7` so both `.2` and `.5` are directly reachable.
 
 ### Interface naming
 
@@ -287,8 +289,8 @@ Then in `~/nixos/hp/hp5/configuration.nix`:
     peerInterfaces = [ "enp1s0f0np0" "enp1s0f1np1" ];
 
     addresses = {
-      enp1s0f0np0 = { local = "10.10.0.5/30"; peer = "10.10.0.2"; };
-      enp1s0f1np1 = { local = "10.10.1.5/30"; peer = "10.10.1.2"; };
+      enp1s0f0np0 = { local = "10.10.0.5/29"; peer = "10.10.0.2"; };
+      enp1s0f1np1 = { local = "10.10.1.5/29"; peer = "10.10.1.2"; };
     };
 
     # Pin CPUs 2..7 for benchmarks; leave 0,1 for housekeeping (kernel
@@ -302,7 +304,7 @@ Then in `~/nixos/hp/hp5/configuration.nix`:
 }
 ```
 
-`hp2` is identical except its `addresses.*.local` fields end in `.2/30`.
+`hp2` is identical except its `addresses.*.local` fields end in `.2/29`.
 
 ### Opt-in options for the live ntuple + template bench
 
@@ -737,8 +739,10 @@ and lean on the testbed once they land.
    workload sizes the matrix currently exercises (MiBs, not GiBs),
    neither difference is load-bearing — see § 2 "Asymmetric RAM".
 
-9. **Lab L3 unicast broken as of 2026-04-22 — cables verified OK via LLDP**
-   (tracking; blocks live-traffic benches). Symptoms and diagnosis:
+9. **Lab L3 unicast was broken 2026-04-22 — resolved same day (root cause:
+   `/30` mask too tight for `.2`/`.5` address pair; fixed by switching to
+   `/29`).** Kept here because the diagnostic trail is a useful reference
+   for any future "L2 works, L3 doesn't" class of failure on the testbed:
 
    - `ping 10.10.0.5` from hp2 → 100% loss. Same for `10.10.1.5`, and
      the reverse direction. TCP/443 and TCP/22 time out similarly.
@@ -813,16 +817,44 @@ and lean on the testbed once they land.
    packets to count. PCAP-replay-style tests that don't need L3 work
    fine.
 
-   **Suggested next diagnostic steps** when someone returns to this:
-   - `ethtool --set-priv-flags enp1s0f0np0 disable-fw-lldp on` on both
-     sides then bounce the link — the X710 firmware LLDP agent is
-     known to interact oddly with FD/ntuple on some driver revs.
-   - Boot an older kernel (`linuxPackages_6_12`) to rule out an i40e
-     regression in the 6.18 line.
-   - Swap DACs/SFPs between f0/f1 ports to rule out transceiver
-     asymmetry.
-   - `ethtool -S enp1s0f0np0 | grep -iE "discard|drop|crc|error"` on
-     both ends during sustained ping to look for any non-zero counter.
+   **Root cause (resolved 2026-04-22).** It was **not** the cables, the
+   NICs, the kernel, the firewall, ntuple, or any BPF hook. It was
+   plain IP subnet arithmetic: `/30` is too tight for the addresses
+   we picked.
+
+   - `/30` allocates 4 addresses. Network `10.10.0.0/30` covers
+     `.0, .1, .2, .3` (with `.0` = network, `.3` = broadcast,
+     usable = `.1, .2`). Network `10.10.0.4/30` covers `.4, .5, .6, .7`
+     (usable = `.5, .6`).
+   - `hp2 = 10.10.0.2/30` lands in `10.10.0.0/30`. `hp5 = 10.10.0.5/30`
+     lands in `10.10.0.4/30`. They are **not in the same subnet** — a
+     routing-table impossibility the kernel exposes via
+     `ip route get 10.10.0.2` on hp5: the lookup falls through to the
+     default route and returns `via 172.16.40.1 dev eno1`.
+   - L2 worked because ARP is a broadcast protocol that ignores IP
+     subnets. Cable-forced ping (`ping -I enp1s0f0np0 10.10.0.5`)
+     also worked on the *request* path because `-I` bypasses route
+     lookup. hp5's reply path did an unconstrained route lookup and
+     sent the ICMP echo reply out `eno1` toward the management
+     gateway, which silently black-holed it.
+   - Identical bug on the `f1` cable (`10.10.1.2/30` vs
+     `10.10.1.5/30`). The bug was symmetric: hp2→hp5 lost replies
+     exactly the same way hp5→hp2 did.
+
+   **Fix:** change the mask from `/30` to `/29` on both hosts, both
+   interfaces. `/29` covers `.0–.7`, so `.2` and `.5` share a subnet
+   and the reply path stays on the lab NIC. The example config in
+   §5 and the `addresses.local` option default in the NixOS module
+   now specify `/29`. Live verification after the change:
+   `ping -c 3 10.10.0.5` from hp2 returned 3/3, 0.12 ms RTT.
+
+   **Why this wasn't caught earlier.** Prior matrix runs against
+   pre-captured PCAPs don't exercise the lab-link path — the parser
+   reads packets from disk. Only the live-traffic benches
+   (`flow-dissector-ntuple-template-bench` and any future iperf/wrk2
+   drivers) hit this. Lesson: include a bidirectional-ping smoke test
+   as a pre-flight in the live-traffic harness. Small follow-up to
+   `samples/flow_dissector/run_ntuple_template_bench.sh`.
 
 ---
 

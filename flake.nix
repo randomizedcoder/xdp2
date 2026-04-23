@@ -912,8 +912,8 @@
         #     enable = true;
         #     peerInterfaces = [ "enp1s0f0np0" "enp1s0f1np1" ];
         #     addresses = {
-        #       enp1s0f0np0 = { local = "10.10.0.5/30"; peer = "10.10.0.2"; };
-        #       enp1s0f1np1 = { local = "10.10.1.5/30"; peer = "10.10.1.2"; };
+        #       enp1s0f0np0 = { local = "10.10.0.5/29"; peer = "10.10.0.2"; };
+        #       enp1s0f1np1 = { local = "10.10.1.5/29"; peer = "10.10.1.2"; };
         #     };
         #     isolatedCpus = [ 2 3 4 5 6 7 ];
         #     hugepages2M = 512;
