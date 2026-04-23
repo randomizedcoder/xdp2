@@ -104,7 +104,7 @@ let
   } ''
     mkdir -p $out
     tar xf $src --strip-components=1 -C $out \
-      --wildcards '*/include/*' '*/drivers/net/*' '*/net/*'
+      --wildcards '*/include/*' '*/drivers/net/*' '*/drivers/infiniband/*' '*/net/*'
   '';
 
   # ── Userland protocol sources (packed C struct libraries) ──

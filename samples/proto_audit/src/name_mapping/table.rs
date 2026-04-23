@@ -368,6 +368,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rdma("ibv_grh", "infiniband/verbs.h"),
         PN::new("IB_BTH", 12)
             .xdp2("xdp2_parse_ib_bth")
+            .kernel("rxe_bth", "drivers/infiniband/sw/rxe/rxe_hdr.h")
             .scapy("IB_BTH")
             .tshark("infiniband.bth")
             .etherparse("IB_BTHHeader", "src/proto_audit/ib_bth.rs")
@@ -797,7 +798,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("bt_avdtp_header", "pcap/proto_audit/bt_avdtp.h"),
         // ── InfiniBand (extended transport headers) ──
         PN::new("IB_DETH", 8)
-            .xdp2("xdp2_parse_ib_deth").scapy("IB_DETH").tshark("infiniband.deth")
+            .xdp2("xdp2_parse_ib_deth")
+            .kernel("rxe_deth", "drivers/infiniband/sw/rxe/rxe_hdr.h")
+            .scapy("IB_DETH").tshark("infiniband.deth")
             .etherparse("IB_DETHHeader", "src/proto_audit/ib_deth.rs")
             .libpcap("ib_deth_header", "pcap/proto_audit/ib_deth.h"),
         PN::new("IB_RETH", 16)
@@ -807,11 +810,15 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("IB_RETHHeader", "src/proto_audit/ib_reth.rs")
             .libpcap("ib_reth_header", "pcap/proto_audit/ib_reth.h"),
         PN::new("IB_AETH", 4)
-            .xdp2("xdp2_parse_ib_aeth").scapy("IB_AETH").tshark("infiniband.aeth")
+            .xdp2("xdp2_parse_ib_aeth")
+            .kernel("rxe_aeth", "drivers/infiniband/sw/rxe/rxe_hdr.h")
+            .scapy("IB_AETH").tshark("infiniband.aeth")
             .etherparse("IB_AETHHeader", "src/proto_audit/ib_aeth.rs")
             .libpcap("ib_aeth_header", "pcap/proto_audit/ib_aeth.h"),
         PN::new("IB_RDETH", 4)
-            .xdp2("xdp2_parse_ib_rdeth").scapy("IB_RDETH").tshark("infiniband.rdeth")
+            .xdp2("xdp2_parse_ib_rdeth")
+            .kernel("rxe_rdeth", "drivers/infiniband/sw/rxe/rxe_hdr.h")
+            .scapy("IB_RDETH").tshark("infiniband.rdeth")
             .etherparse("IB_RDETHHeader", "src/proto_audit/ib_rdeth.rs")
             .libpcap("ib_rdeth_header", "pcap/proto_audit/ib_rdeth.h"),
         PN::new("IB_AtomicETH", 28)
@@ -821,7 +828,9 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("IB_AtomicETHHeader", "src/proto_audit/ib_atomiceth.rs")
             .libpcap("ib_atomiceth_header", "pcap/proto_audit/ib_atomiceth.h"),
         PN::new("IB_ImmDt", 4)
-            .xdp2("xdp2_parse_ib_immdt").scapy("IB_ImmDt").tshark("infiniband.immdt")
+            .xdp2("xdp2_parse_ib_immdt")
+            .kernel("rxe_immdt", "drivers/infiniband/sw/rxe/rxe_hdr.h")
+            .scapy("IB_ImmDt").tshark("infiniband.immdt")
             .etherparse("IB_ImmDtHeader", "src/proto_audit/ib_immdt.rs")
             .libpcap("ib_immdt_header", "pcap/proto_audit/ib_immdt.h"),
         PN::new("IB_MAD", 24)
