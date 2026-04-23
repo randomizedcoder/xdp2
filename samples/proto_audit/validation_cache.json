@@ -1693,12 +1693,33 @@
     "fields_mismatch": 0,
     "timestamp": "1776698775"
   },
+  "NL_Diag_BBRInfo": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1776796636"
+  },
+  "NL_Diag_DCTCPInfo": {
+    "validation_tier": "Gold",
+    "fields_agree": 5,
+    "total_fields": 5,
+    "fields_mismatch": 0,
+    "timestamp": "1776796635"
+  },
   "NL_Diag_Inet": {
     "validation_tier": "Bronze",
     "fields_agree": 10,
     "total_fields": 10,
     "fields_mismatch": 0,
-    "timestamp": "1776698775"
+    "timestamp": "1776711068"
+  },
+  "NL_Diag_MemInfo": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1776796633"
   },
   "NL_Diag_Netlink": {
     "validation_tier": "Bronze",
@@ -1707,12 +1728,54 @@
     "fields_mismatch": 0,
     "timestamp": "1776698775"
   },
+  "NL_Diag_PragueInfo": {
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1776796375"
+  },
+  "NL_Diag_ReqV2": {
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1776711068"
+  },
+  "NL_Diag_SkMemInfo": {
+    "validation_tier": "Gold",
+    "fields_agree": 9,
+    "total_fields": 9,
+    "fields_mismatch": 0,
+    "timestamp": "1776796635"
+  },
+  "NL_Diag_SockID": {
+    "validation_tier": "Bronze",
+    "fields_agree": 6,
+    "total_fields": 6,
+    "fields_mismatch": 0,
+    "timestamp": "1776711068"
+  },
+  "NL_Diag_TCPInfo": {
+    "validation_tier": "Gold",
+    "fields_agree": 72,
+    "total_fields": 72,
+    "fields_mismatch": 0,
+    "timestamp": "1776796634"
+  },
   "NL_Diag_Unix": {
     "validation_tier": "Bronze",
     "fields_agree": 6,
     "total_fields": 6,
     "fields_mismatch": 0,
     "timestamp": "1776698775"
+  },
+  "NL_Diag_VegasInfo": {
+    "validation_tier": "Gold",
+    "fields_agree": 4,
+    "total_fields": 4,
+    "fields_mismatch": 0,
+    "timestamp": "1776796634"
   },
   "NL_IfStats": {
     "validation_tier": "Bronze",

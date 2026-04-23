@@ -364,7 +364,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("infiniband.grh")
             .etherparse("IB_GRHHeader", "src/proto_audit/ib_grh.rs")
             .libpcap("ib_grh_header", "pcap/proto_audit/ib_grh.h")
-            .kernel("ib_grh", "rdma/ib_verbs.h"),
+            .kernel("ib_grh", "rdma/ib_verbs.h")
+            .rdma("ibv_grh", "infiniband/verbs.h"),
         PN::new("IB_BTH", 12)
             .xdp2("xdp2_parse_ib_bth")
             .scapy("IB_BTH")
@@ -378,6 +379,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("nlmsghdr", "linux/netlink.h")
             .scapy("NetlinkHeader")
             .tshark("netlink")
+            .xtcp2("NlMsgHdr")
             .variable()
             .rfcs(&[3549])
             .etherparse("NetlinkHeader", "src/proto_audit/netlink.rs")
@@ -514,9 +516,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .tshark("netlink-sock_diag")
             .etherparse("NLDiagUnixHeader", "src/proto_audit/nl_diag_unix.rs")
             .libpcap("nl_diag_unix_header", "pcap/proto_audit/nl_diag_unix.h"),
-        PN::new("NL_Diag_Inet", 64)
+        PN::new("NL_Diag_Inet", 72)
             .kernel("inet_diag_msg", "linux/inet_diag.h")
             .tshark("netlink-sock_diag")
+            .xtcp2("InetDiagMsg")
             .etherparse("NLDiagInetHeader", "src/proto_audit/nl_diag_inet.rs")
             .libpcap("nl_diag_inet_header", "pcap/proto_audit/nl_diag_inet.h"),
         // ── Netlink Bridge / DCB / Stats ──
@@ -544,6 +547,33 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("xfrm_userpolicy_info", "linux/xfrm.h")
             .etherparse("NLXfrmPolicyHeader", "src/proto_audit/nl_xfrm_policy.rs")
             .libpcap("nl_xfrm_policy_header", "pcap/proto_audit/nl_xfrm_policy.h"),
+        // ── Netlink inet_diag Attributes (xtcp2 source) ──
+        PN::new("NL_Diag_TCPInfo", 248)
+            .kernel("tcp_info", "linux/tcp.h")
+            .xtcp2("TCPInfo6_10_3")
+            .variable(),
+        PN::new("NL_Diag_BBRInfo", 20)
+            .kernel("tcp_bbr_info", "linux/inet_diag.h")
+            .xtcp2("BBRInfo"),
+        PN::new("NL_Diag_MemInfo", 16)
+            .kernel("inet_diag_meminfo", "linux/inet_diag.h")
+            .xtcp2("MemInfo"),
+        PN::new("NL_Diag_SkMemInfo", 36)
+            .xtcp2("SkMemInfo"),
+        PN::new("NL_Diag_VegasInfo", 16)
+            .kernel("tcpvegas_info", "linux/inet_diag.h")
+            .xtcp2("VegasInfo"),
+        PN::new("NL_Diag_DCTCPInfo", 16)
+            .kernel("tcp_dctcp_info", "linux/inet_diag.h")
+            .xtcp2("DCTCPInfo"),
+        PN::new("NL_Diag_PragueInfo", 36)
+            .xtcp2("PragueInfo"),
+        PN::new("NL_Diag_SockID", 48)
+            .kernel("inet_diag_sockid", "linux/inet_diag.h")
+            .xtcp2("InetDiagSockID"),
+        PN::new("NL_Diag_ReqV2", 56)
+            .kernel("inet_diag_req_v2", "linux/inet_diag.h")
+            .xtcp2("InetDiagReqV2"),
         // ── TIPC ──
         PN::new("TIPC", 16)
             .xdp2("xdp2_parse_tipc")
@@ -799,7 +829,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("ib_mad_hdr", "rdma/ib_mad.h")
             .scapy("IB_MAD").tshark("infiniband.mad").variable()
             .etherparse("IB_MADHeader", "src/proto_audit/ib_mad.rs")
-            .libpcap("ib_mad_header", "pcap/proto_audit/ib_mad.h"),
+            .libpcap("ib_mad_header", "pcap/proto_audit/ib_mad.h")
+            .rdma("umad_hdr", "infiniband/umad_types.h"),
         // ── Multicast ──
         PN::new("IGMPv3_Query", 12)
             .xdp2("xdp2_parse_igmpv3_query")

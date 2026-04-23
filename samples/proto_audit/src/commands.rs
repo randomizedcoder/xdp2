@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use crate::{
     comparator,
     discovery::{self, DiscoveredProtocol, DiscoveryState, Tier, TierFilter},
-    extractors, generator, ir, name_mapping, report, type_mapping, SourcePaths,
+    extractors, generator, ir, name_mapping, netlink, report, type_mapping, SourcePaths,
 };
 
 /// Try to extract a protocol from a single source. Returns None on failure
@@ -36,26 +36,31 @@ fn try_extract(
             Some(extractors::xdp2::to_protocol_def(matching))
         }
         "kernel" => {
-            let src = paths.kernel_src.as_ref()?;
-            let names = name_mapping::find_by_canonical(proto)?;
-            let struct_name = names.kernel_struct?;
-            let header = names.kernel_header?;
-            // Try kernel source tree layout, then glibc-dev, then root (for net/, drivers/)
-            let header_path = src.join(format!("include/uapi/{}", header));
-            let header_path = if header_path.exists() {
-                header_path
-            } else {
-                let p = src.join(format!("include/{}", header));
-                if p.exists() { p } else { src.join(header) }
-            };
-            let content = std::fs::read_to_string(&header_path).ok()?;
-            let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
-                .ok()
-                .flatten()?;
-            // Use canonical name, not kernel struct name
-            def.name = names.canonical.to_string();
-            def.is_variable_length = names.variable_length;
-            Some(def)
+            let names = name_mapping::find_by_canonical(proto);
+            // Try struct-based extraction from kernel headers
+            let struct_result = (|| -> Option<ir::ProtocolDef> {
+                let src = paths.kernel_src.as_ref()?;
+                let names = names.as_ref()?;
+                let struct_name = names.kernel_struct?;
+                let header = names.kernel_header?;
+                let header_path = src.join(format!("include/uapi/{}", header));
+                let header_path = if header_path.exists() {
+                    header_path
+                } else {
+                    let p = src.join(format!("include/{}", header));
+                    if p.exists() { p } else { src.join(header) }
+                };
+                let content = std::fs::read_to_string(&header_path).ok()?;
+                let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
+                    .ok()
+                    .flatten()?;
+                def.name = names.canonical.to_string();
+                def.is_variable_length = names.variable_length;
+                Some(def)
+            })();
+            // Fall back to embedded_proto for kernel-defined protocols without C structs
+            // (e.g. SK_MEMINFO which is an array indexed by enum constants)
+            struct_result.or_else(|| crate::generator::pcap::embedded_proto(proto))
         }
         "scapy" => {
             let helper = paths
@@ -248,6 +253,32 @@ fn try_extract(
             def.is_variable_length = names.variable_length;
             Some(def)
         }
+        "rdma" => {
+            let src = paths.rdma_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.rdma_struct?;
+            let header = names.rdma_header?;
+            let header_path = src.join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::rdma::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "xtcp2" => {
+            let src = paths.xtcp2_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.xtcp2_struct?;
+            let mappings = type_mapping::load_xtcp2_mappings(None).ok()?;
+            let mut def = extractors::xtcp2::extract_protocol(src, proto, struct_name, &mappings)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         _ => None,
     }
 }
@@ -354,7 +385,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi", "dpdk", "ndpi", "pppd"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi", "dpdk", "ndpi", "pppd", "rdma", "xtcp2"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {
@@ -435,22 +466,20 @@ pub(crate) fn cmd_audit(
         source_list.join(", ")
     );
 
-    let results = run_audit(protos, sources, tier, &discovery_state, paths);
+    let mut results = run_audit(protos, sources, tier, &discovery_state, paths);
 
-    // Persist Silver/Bronze results to the validation cache.
-    // Never downgrade an existing Gold (round-trip) to Silver/Bronze.
+    // Sync with validation cache: promote to Gold if cached, save Silver/Bronze otherwise.
     {
         let existing_cache = load_validation_cache();
-        for r in &results {
-            // Strip " [D]" tag from discovered protocols for cache key
+        for r in &mut results {
             let cache_key = r.protocol.trim_end_matches(" [D]").to_string();
             let existing_tier = existing_cache.get(&cache_key);
-            let is_gold = existing_tier == Some(&discovery::ValidationTier::Gold);
-            if !is_gold {
-                if let Some(ref vtier) = r.validation_tier {
-                    if *vtier != discovery::ValidationTier::Unvalidated {
-                        let _ = save_validation_result(&cache_key, r);
-                    }
+            if existing_tier == Some(&discovery::ValidationTier::Gold) {
+                // Promote to Gold from cache (wire-validated via validate-netlink)
+                r.validation_tier = Some(discovery::ValidationTier::Gold);
+            } else if let Some(ref vtier) = r.validation_tier {
+                if *vtier != discovery::ValidationTier::Unvalidated {
+                    let _ = save_validation_result(&cache_key, r);
                 }
             }
         }
@@ -643,8 +672,9 @@ pub(crate) fn cmd_generate(
         }
         "etherparse" => generator::generate_etherparse(&protocol_def),
         "scapy" => generator::generate_scapy(&protocol_def),
+        "wireshark" => generator::generate_wireshark_lua_single(&protocol_def),
         _ => anyhow::bail!(
-            "Unknown target '{}'. Valid targets: c, etherparse, scapy, pcap",
+            "Unknown target '{}'. Valid targets: c, etherparse, scapy, pcap, wireshark",
             target
         ),
     };
@@ -2632,7 +2662,7 @@ pub(crate) fn cmd_validate(
 /// Prefers kernel fields (most accurate struct layout), supplemented by scapy defaults.
 fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
     // Try each source in priority order
-    let source_priority = ["kernel", "omi", "scapy", "tshark", "etherparse"];
+    let source_priority = ["kernel", "xtcp2", "omi", "scapy", "tshark", "etherparse"];
     let mut best: Option<ir::ProtocolDef> = None;
 
     for source in &source_priority {
@@ -5489,6 +5519,294 @@ fn load_validation_cache() -> std::collections::BTreeMap<String, discovery::Vali
 }
 
 /// Simple ISO-8601 timestamp without pulling in chrono crate.
+// ── validate-netlink command ──
+
+/// Netlink protocols that map to inet_diag attribute types.
+const NETLINK_ATTR_PROTOS: &[(u16, &str)] = &[
+    (1, "NL_Diag_MemInfo"),
+    (2, "NL_Diag_TCPInfo"),
+    (3, "NL_Diag_VegasInfo"),
+    (7, "NL_Diag_SkMemInfo"),
+    (9, "NL_Diag_DCTCPInfo"),
+    (16, "NL_Diag_BBRInfo"),
+];
+
+/// Validate netlink inet_diag protocols against real xtcp2 PCAPs.
+///
+/// Two validation paths:
+/// 1. **Binary**: Parse PCAP → extract TLV attributes → deserialize against IR
+/// 2. **tshark+Lua**: Generate Lua dissector → run tshark → parse PDML → compare
+pub(crate) fn cmd_validate_netlink(
+    proto: &str,
+    keep_lua: Option<PathBuf>,
+    json_output: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    // Determine xtcp2 PCAP source
+    let pcaps_dir = paths
+        .xtcp2_pcaps
+        .as_ref()
+        .or_else(|| paths.xtcp2_src.as_ref())
+        .context("--xtcp2-pcaps or --xtcp2-src required for validate-netlink")?;
+
+    // Use xtcp2_src directly if xtcp2_pcaps wasn't set — find_xtcp2_pcaps
+    // looks for pkg/xtcpnl/testdata/ beneath the given path
+    let pcap_root = if paths.xtcp2_pcaps.is_some() {
+        // Already points at testdata dir — wrap it so find_xtcp2_pcaps can
+        // find the kernel-version subdirectories directly
+        pcaps_dir.clone()
+    } else {
+        pcaps_dir.clone()
+    };
+
+    let pcaps = netlink::find_xtcp2_pcaps(&pcap_root)?;
+    eprintln!(
+        "  Found {} xtcp2 PCAPs across {} kernel versions",
+        pcaps.len(),
+        {
+            let mut versions: Vec<&str> = pcaps.iter().map(|p| p.kernel_version.as_str()).collect();
+            versions.sort();
+            versions.dedup();
+            versions.len()
+        }
+    );
+
+    // Determine which protocols to validate
+    let target_protos: Vec<(u16, &str)> = if proto == "all" {
+        NETLINK_ATTR_PROTOS.to_vec()
+    } else {
+        NETLINK_ATTR_PROTOS
+            .iter()
+            .filter(|(_, name)| *name == proto)
+            .copied()
+            .collect()
+    };
+
+    if target_protos.is_empty() {
+        anyhow::bail!(
+            "Unknown netlink protocol '{}'. Valid: {}",
+            proto,
+            NETLINK_ATTR_PROTOS
+                .iter()
+                .map(|(_, n)| *n)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+
+    // Build IR for each target protocol
+    let mut proto_irs: Vec<(u16, String, ir::ProtocolDef)> = Vec::new();
+    for (attr_type, name) in &target_protos {
+        match build_rich_ir(name, paths) {
+            Ok(ir) => {
+                eprintln!("  Built IR for {} ({} fields)", name, ir.fields.len());
+                proto_irs.push((*attr_type, name.to_string(), ir));
+            }
+            Err(e) => {
+                eprintln!("  SKIP {}: {}", name, e);
+            }
+        }
+    }
+
+    if proto_irs.is_empty() {
+        anyhow::bail!("No IR definitions available for validation");
+    }
+
+    // Generate aggregate Lua dissector
+    let lua_protos: Vec<(u16, &str, &ir::ProtocolDef)> = proto_irs
+        .iter()
+        .map(|(at, name, ir)| (*at, name.as_str(), ir))
+        .collect();
+    let lua_script = generator::generate_wireshark_lua(&lua_protos);
+
+    // Save Lua dissector
+    let lua_path = if let Some(ref path) = keep_lua {
+        std::fs::write(path, &lua_script)
+            .with_context(|| format!("writing Lua to {}", path.display()))?;
+        eprintln!("  Saved Lua dissector to {}", path.display());
+        path.clone()
+    } else {
+        let tmp = std::env::temp_dir().join("proto-audit-inet-diag.lua");
+        std::fs::write(&tmp, &lua_script)
+            .with_context(|| format!("writing temp Lua to {}", tmp.display()))?;
+        tmp
+    };
+
+    eprintln!(
+        "  Generated Lua dissector ({} bytes, {} protocols)",
+        lua_script.len(),
+        lua_protos.len()
+    );
+
+    // ── Binary validation ──
+    // Parse each PCAP, extract attributes, deserialize against IR
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    for (attr_type, name, ir) in &proto_irs {
+        let mut total_records = 0u64;
+        let mut total_fields_extracted = 0u64;
+        let mut kernel_results: std::collections::BTreeMap<String, (u64, u64)> =
+            std::collections::BTreeMap::new();
+
+        for pcap_info in &pcaps {
+            let data = match std::fs::read(&pcap_info.path) {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            let records = match netlink::parse_netlink_pcap(&data) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+
+            for record in &records {
+                for attr in &record.attributes {
+                    if attr.attr_type == *attr_type {
+                        let values = netlink::deserialize_attribute(&attr.payload, ir);
+                        total_records += 1;
+                        total_fields_extracted += values.len() as u64;
+
+                        let entry = kernel_results
+                            .entry(pcap_info.kernel_version.clone())
+                            .or_insert((0, 0));
+                        entry.0 += 1;
+                        entry.1 += values.len() as u64;
+                    }
+                }
+            }
+        }
+
+        // ── tshark + Lua validation (try a PCAP that contains this attr) ──
+        let mut tshark_result = None;
+        if total_records > 0 {
+            // Find a PCAP that actually contains this attribute type.
+            // Prefer small PCAPs (single-packet replies) for faster tshark.
+            let matching_pcap = pcaps.iter().find(|p| {
+                let data = match std::fs::read(&p.path) {
+                    Ok(d) => d,
+                    Err(_) => return false,
+                };
+                let records = match netlink::parse_netlink_pcap(&data) {
+                    Ok(r) => r,
+                    Err(_) => return false,
+                };
+                records
+                    .iter()
+                    .any(|r| r.attributes.iter().any(|a| a.attr_type == *attr_type))
+            });
+
+            if let Some(pcap_info) = matching_pcap {
+                match extractors::tshark::run_tshark_with_lua(
+                    &pcap_info.path,
+                    &paths.tshark_bin,
+                    10,
+                    &lua_path,
+                ) {
+                    Ok(xml) => {
+                        // Look for our generated proto in PDML
+                        let snake = name.to_lowercase().replace('.', "_").replace('-', "_").replace(' ', "_");
+                        let dissector_name = format!("inet_diag_{}", snake);
+                        if let Ok(packets) = extractors::tshark::parse_pdml(&xml) {
+                            let found = packets.iter().any(|pkt| {
+                                pkt.iter()
+                                    .any(|p| p.name == dissector_name || p.name.contains(&snake))
+                            });
+                            tshark_result = Some(found);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("  tshark+Lua for {}: {}", name, e);
+                    }
+                }
+            }
+        }
+
+        let result = serde_json::json!({
+            "protocol": name,
+            "attr_type": attr_type,
+            "ir_fields": ir.fields.len(),
+            "binary_validation": {
+                "total_records": total_records,
+                "total_fields_extracted": total_fields_extracted,
+                "avg_fields_per_record": if total_records > 0 {
+                    total_fields_extracted as f64 / total_records as f64
+                } else {
+                    0.0
+                },
+                "kernel_versions": kernel_results.iter().map(|(k, (records, fields))| {
+                    serde_json::json!({
+                        "kernel": k,
+                        "records": records,
+                        "avg_fields": if *records > 0 { *fields as f64 / *records as f64 } else { 0.0 },
+                    })
+                }).collect::<Vec<_>>(),
+            },
+            "tshark_lua": tshark_result,
+            "status": if total_records > 0 { "PASS" } else { "NO_DATA" },
+        });
+
+        if !json_output {
+            println!(
+                "  {} (attr_type={}): {} records across {} kernel versions, \
+                 {:.0} avg fields/record (IR has {}){}\n",
+                name,
+                attr_type,
+                total_records,
+                kernel_results.len(),
+                if total_records > 0 {
+                    total_fields_extracted as f64 / total_records as f64
+                } else {
+                    0.0
+                },
+                ir.fields.len(),
+                match tshark_result {
+                    Some(true) => " ✓ tshark+Lua",
+                    Some(false) => " ✗ tshark+Lua (proto not found in PDML)",
+                    None => "",
+                }
+            );
+        }
+
+        results.push(result);
+
+        // ── Persist Gold tier if both binary and tshark+Lua pass ──
+        let is_gold = total_records > 0 && tshark_result == Some(true);
+        if is_gold {
+            // Build AuditResult and promote to Gold via validation cache
+            let refs: Vec<(&str, &ir::ProtocolDef)> = vec![
+                ("kernel", ir),
+                ("xtcp2", ir),
+            ];
+            let mut audit = comparator::audit_protocol(name, &refs);
+            audit.validation_tier = Some(discovery::ValidationTier::Gold);
+            let _ = save_validation_result(name, &audit);
+            if !json_output {
+                eprintln!("  {} → Gold (wire-validated across {} kernel versions)", name, kernel_results.len());
+            }
+        }
+    }
+
+    if json_output {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "command": "validate-netlink",
+                "pcap_count": pcaps.len(),
+                "lua_path": lua_path.display().to_string(),
+                "results": results,
+            }))?
+        );
+    } else {
+        println!("\n  Lua dissector: {}", lua_path.display());
+    }
+
+    if keep_lua.is_none() {
+        // Clean up temp Lua file
+        let _ = std::fs::remove_file(&lua_path);
+    }
+
+    Ok(())
+}
+
 fn chrono_timestamp() -> String {
     use std::time::SystemTime;
     let dur = SystemTime::now()

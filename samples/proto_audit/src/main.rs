@@ -10,6 +10,7 @@ mod extractors;
 mod generator;
 mod ir;
 mod name_mapping;
+mod netlink;
 mod report;
 mod type_mapping;
 
@@ -56,6 +57,10 @@ pub(crate) struct SourcePaths {
     #[arg(long, env = "PROTO_AUDIT_PPPD_SRC")]
     pub(crate) pppd_src: Option<PathBuf>,
 
+    /// Path to rdma-core headers (libibverbs/libibmad IB protocol structs)
+    #[arg(long, env = "PROTO_AUDIT_RDMA_SRC")]
+    pub(crate) rdma_src: Option<PathBuf>,
+
     /// Path to pcap file (for tshark)
     #[arg(long, env = "PROTO_AUDIT_PCAP")]
     pub(crate) pcap: Option<PathBuf>,
@@ -101,6 +106,14 @@ pub(crate) struct SourcePaths {
     /// Path to OMI sample PCAPs tree (root of `omi-data-packets` repo).
     #[arg(long, env = "PROTO_AUDIT_OMI_PCAPS_DIR")]
     pub(crate) omi_pcaps_dir: Option<PathBuf>,
+
+    /// Path to xtcp2 Go source tree (pkg/xtcpnl/*.go netlink parsers)
+    #[arg(long, env = "PROTO_AUDIT_XTCP2_SRC")]
+    pub(crate) xtcp2_src: Option<PathBuf>,
+
+    /// Path to xtcp2 PCAP testdata directory (pkg/xtcpnl/testdata)
+    #[arg(long, env = "PROTO_AUDIT_XTCP2_PCAPS")]
+    pub(crate) xtcp2_pcaps: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -631,6 +644,25 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Validate netlink protocols against real xtcp2 PCAPs using binary parsing + generated Lua dissectors
+    #[command(name = "validate-netlink")]
+    ValidateNetlink {
+        /// Protocol name (e.g., NL_Diag_BBRInfo) or "all" for all netlink protocols
+        #[arg(long, default_value = "all")]
+        proto: String,
+
+        /// Save generated Lua dissector to this path
+        #[arg(long)]
+        keep_lua: Option<PathBuf>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -784,5 +816,11 @@ fn main() -> Result<()> {
             paths,
             json,
         } => cmd_validate(&proto, &tier, keep_pcap, json, &paths),
+        Commands::ValidateNetlink {
+            proto,
+            keep_lua,
+            paths,
+            json,
+        } => cmd_validate_netlink(&proto, keep_lua, json, &paths),
     }
 }

@@ -2,8 +2,8 @@
 
 ## Current State (2026-04-20)
 
-450 curated protocols audited across 12 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI).
-452 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, and exhaustive TOML coverage validation.
+459 curated protocols audited across 13 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI, xtcp2).
+467 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, xtcp2 Go struct parser tests, and exhaustive TOML coverage validation.
 206 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
 196 PCAP templates with valid protocol content for round-trip validation.
 Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
@@ -25,6 +25,7 @@ Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
 | Kaitai Struct | ~20 protocols (12 curated) |
 | Suricata parsers | ~15 protocols (20 curated) |
 | OMI trading msgs | ~27 (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
+| xtcp2 Go structs | 11 protocols (TCPInfo 59 fields, BBRInfo, MemInfo, SkMemInfo, VegasInfo, DCTCPInfo, PragueInfo, SockID, ReqV2) |
 
 ### Validation Tier Breakdown
 
@@ -42,6 +43,18 @@ Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tsh
 See `docs/pipeline-coverage.md` for the full list of 8/8 and 7/8 protocols.
 
 ### Recent Changes
+
+#### xtcp2 Source Addition — Go Netlink Parser Structs (2026-04-20)
+
+Added xtcp2 (github.com/randomizedcoder/xtcp2) as 13th source — a Go-based netlink parser with rich struct definitions for `inet_diag` attributes (the data behind `ss --tcp --info`):
+
+- **Go struct extractor** (`src/extractors/xtcp2.rs`): Parses Go struct definitions with `// bytes:N [start:end]` and `// N = M` byte offset comments. Handles type aliases (`type TCPInfo TCPInfo6_10_3`), array types (`[16]byte`), size constants (`BBRInfoSizeCst = 20`). Walks `pkg/xtcpnl/*.go` files.
+- **9 new protocols**: NL_Diag_TCPInfo (59 fields, 248 bytes, versioned across 6 kernel variants), NL_Diag_BBRInfo (5 fields), NL_Diag_MemInfo (4 fields), NL_Diag_SkMemInfo (9 fields), NL_Diag_VegasInfo (4 fields), NL_Diag_DCTCPInfo (4 fields), NL_Diag_PragueInfo (9 fields), NL_Diag_SockID (6 fields), NL_Diag_ReqV2 (7 fields)
+- **2 existing protocols updated**: Netlink + NL_Diag_Inet get `.xtcp2()` cross-source mappings
+- **TOML mappings** (`mappings/xtcp2.toml`): Go type → bit size, endianness (all Little Endian), struct sizes
+- **Nix-pinned** to commit `a52e2f4` via `fetchFromGitHub`
+- **15 new tests**: struct parsing for all 9 protocol types, type alias resolution, size constant extraction, snake_case conversion, array type handling, endianness mapping
+- Curated protocols: 450→459, unit tests: 452→467, sources: 12→13
 
 #### Netlink Message Coverage + Parser Fix (2026-04-20)
 

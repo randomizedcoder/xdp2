@@ -65,6 +65,12 @@ pub struct ProtocolNames {
     pub ndpi_header: Option<&'static str>,
     /// pppd protocol name (e.g., "PPP", "LCP")
     pub pppd_proto: Option<&'static str>,
+    /// rdma-core struct name (e.g., "ibv_grh")
+    pub rdma_struct: Option<&'static str>,
+    /// rdma-core header file (e.g., "infiniband/verbs.h")
+    pub rdma_header: Option<&'static str>,
+    /// xtcp2 Go struct name (e.g., "TCPInfo6_10_3")
+    pub xtcp2_struct: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -106,6 +112,9 @@ impl ProtocolNames {
             ndpi_struct: None,
             ndpi_header: None,
             pppd_proto: None,
+            rdma_struct: None,
+            rdma_header: None,
+            xtcp2_struct: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -213,6 +222,19 @@ impl ProtocolNames {
     /// Set pppd protocol name.
     pub const fn pppd(mut self, proto: &'static str) -> Self {
         self.pppd_proto = Some(proto);
+        self
+    }
+
+    /// Set both rdma-core struct name and header file.
+    pub const fn rdma(mut self, struct_name: &'static str, header: &'static str) -> Self {
+        self.rdma_struct = Some(struct_name);
+        self.rdma_header = Some(header);
+        self
+    }
+
+    /// Set xtcp2 Go struct name.
+    pub const fn xtcp2(mut self, struct_name: &'static str) -> Self {
+        self.xtcp2_struct = Some(struct_name);
         self
     }
 
@@ -334,6 +356,13 @@ pub fn find_by_pppd_proto(name: &str) -> Option<ProtocolNames> {
         .find(|p| p.pppd_proto == Some(name))
 }
 
+/// Look up a protocol by its rdma-core struct name.
+pub fn find_by_rdma_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.rdma_struct == Some(name))
+}
+
 /// Build a HashMap from source-specific name → canonical name.
 ///
 /// `source` must be one of: "xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"
@@ -354,6 +383,7 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             "dpdk" => p.dpdk_struct.map(|s| s.to_string()),
             "ndpi" => p.ndpi_struct.map(|s| s.to_string()),
             "pppd" => p.pppd_proto.map(|s| s.to_string()),
+            "rdma" => p.rdma_struct.map(|s| s.to_string()),
             _ => None,
         };
         if let Some(n) = name {

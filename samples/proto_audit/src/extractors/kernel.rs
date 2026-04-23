@@ -719,6 +719,7 @@ fn build_field_defs(
 ) -> Vec<FieldDef> {
     let mut fields = Vec::new();
     let mut offset_bits: u32 = 0;
+    let mut prev_was_bitfield = false;
 
     for kf in &ks.fields {
         let bits = resolve_field_bits(kf, mappings, content, 0);
@@ -726,6 +727,22 @@ fn build_field_defs(
         if bits == 0 {
             continue; // Unknown type, skip
         }
+
+        let is_bitfield = kf.bitfield_width.is_some();
+
+        // C struct alignment: after a bitfield group, pad to byte boundary,
+        // then align the next non-bitfield to its natural alignment.
+        if !is_bitfield && prev_was_bitfield {
+            // Round up to next byte boundary (end of bitfield storage unit)
+            offset_bits = (offset_bits + 7) & !7;
+            // Natural alignment: field aligns to min(field_size, 64) bits
+            if bits >= 16 {
+                let align = std::cmp::min(bits, 64);
+                offset_bits = (offset_bits + align - 1) & !(align - 1);
+            }
+        }
+
+        prev_was_bitfield = is_bitfield;
 
         let endian = if kf.bitfield_width.is_some() || bits <= 8 {
             Endian::Na

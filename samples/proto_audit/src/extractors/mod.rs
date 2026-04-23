@@ -14,3 +14,5 @@ pub mod xdp2;
 pub mod dpdk;
 pub mod ndpi;
 pub mod pppd;
+pub mod rdma;
+pub mod xtcp2;

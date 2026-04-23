@@ -16,6 +16,7 @@ mod etherparse;
 mod libpcap;
 mod omi;
 mod scapy_gen;
+mod xtcp2;
 
 pub use kernel::*;
 pub use scapy::*;
@@ -24,6 +25,7 @@ pub use etherparse::*;
 pub use libpcap::*;
 pub use omi::*;
 pub use scapy_gen::*;
+pub use xtcp2::*;
 
 use std::path::Path;
 
@@ -44,6 +46,8 @@ const DEFAULT_LIBPCAP_TOML: &str = include_str!("../../mappings/libpcap.toml");
 const DEFAULT_OMI_TOML: &str = include_str!("../../mappings/omi.toml");
 const DEFAULT_DPDK_TOML: &str = include_str!("../../mappings/dpdk.toml");
 const DEFAULT_NDPI_TOML: &str = include_str!("../../mappings/ndpi.toml");
+const DEFAULT_RDMA_TOML: &str = include_str!("../../mappings/rdma.toml");
+const DEFAULT_XTCP2_TOML: &str = include_str!("../../mappings/xtcp2.toml");
 
 // ── Shared types ──
 
@@ -142,6 +146,16 @@ pub fn load_dpdk_mappings(dir: Option<&Path>) -> Result<KernelMappings> {
 /// Load nDPI type mappings (reuses KernelMappings schema with nDPI type names).
 pub fn load_ndpi_mappings(dir: Option<&Path>) -> Result<KernelMappings> {
     load_mappings(dir, "ndpi.toml", DEFAULT_NDPI_TOML)
+}
+
+/// Load rdma-core type mappings (reuses KernelMappings schema with rdma types).
+pub fn load_rdma_mappings(dir: Option<&Path>) -> Result<KernelMappings> {
+    load_mappings(dir, "rdma.toml", DEFAULT_RDMA_TOML)
+}
+
+/// Load xtcp2 Go type mappings.
+pub fn load_xtcp2_mappings(dir: Option<&Path>) -> Result<Xtcp2Mappings> {
+    load_mappings(dir, "xtcp2.toml", DEFAULT_XTCP2_TOML)
 }
 
 fn load_mappings<T: serde::de::DeserializeOwned>(

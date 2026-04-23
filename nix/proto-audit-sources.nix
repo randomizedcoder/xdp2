@@ -70,7 +70,7 @@
 let
   # ── Source Version Tracking (Phase 6.1) ──
   # Update these when bumping upstream sources.
-  kernelVersion = "6.12";
+  kernelVersion = "7.0";
   etherparseRev = "f87e17057d64cd8ba4f08e4f1a37d22e6df6d870";  # etherparse git rev
   libpcapRev = "ccc5817bd24fd4d6c477507b5f5a0b4194bb0058";  # libpcap git rev
   packetlifeRev = "4a77a47e71d48b40faafac6a84589fdcc496fab1";  # packetlife-backup git rev
@@ -79,6 +79,7 @@ let
   omiCStructsRev = "9d6db5270847c60cefefc2bd7e1238d828701545";  # Open-Markets-Initiative/c-structs git rev
   omiDataPacketsRev = "5e0dfb113c7c7160b685b6a6d52ce19917915c8f";  # Open-Markets-Initiative/omi-data-packets git rev
   omiWiresharkLuaRev = "ab009faf449b245a4d140d1b0d09fe9cc38ba65c";  # Open-Markets-Initiative/wireshark-lua git rev
+  xtcp2Rev = "a52e2f46e106f5c64e996b76c110d315a6ddacf7";  # randomizedcoder/xtcp2 git rev
 
   scapyPython = pkgs.python314.withPackages (ps: [ ps.scapy ]);
   tshark = pkgs.wireshark-cli;
@@ -99,7 +100,7 @@ let
   #   - net/ipv4/ip_gre.c, net/ipv6/ip6_gre.c
   #   - net/mpls/, net/nsh/, net/openvswitch/
   kernelSrc = pkgs.runCommand "linux-kernel-src-${kernelVersion}" {
-    src = pkgs.linuxKernel.kernels.linux_6_12.src;
+    src = pkgs.linuxKernel.kernels.linux_7_0.src;
   } ''
     mkdir -p $out
     tar xf $src --strip-components=1 -C $out \
@@ -149,6 +150,13 @@ let
     cp -r $src/pppd/* $out/
     cp -r $src/include/* $out/include/
   '';
+
+  # rdma-core headers: libibverbs and libibmad InfiniBand protocol structs.
+  # Provides ibv_grh (GRH wire format, 40 bytes) in infiniband/verbs.h
+  # and umad_hdr (MAD header, 24 bytes) in infiniband/umad_types.h.
+  # Uses standard C types (__be16, __be32, uint8_t) — parseable by the
+  # kernel C struct extractor with rdma-specific type mappings.
+  rdmaSrc = pkgs.rdma-core.dev;
 
   # PacketLife.net captures: ~100 single-protocol PCAPs (clean, one protocol each)
   packetlifePcaps = pkgs.fetchFromGitHub {
@@ -208,6 +216,18 @@ let
     hash = "sha256-ez8WqldfJKiqNAe9YKmxEQOQUNeZGFuyHZPDjst0yFs=";
   };
 
+  # xtcp2 Go netlink parsers: rich Go struct definitions for inet_diag
+  # attributes (tcp_info, bbr_info, meminfo, skmeminfo, vegasinfo, dctcpinfo,
+  # prague_info, inet_diag_msg, inet_diag_req_v2, inet_diag_sockid).
+  # Includes kernel-versioned TCPInfo variants (4.19 → 6.10) and tests
+  # against real PCAPs from multiple kernel versions.
+  xtcp2Src = pkgs.fetchFromGitHub {
+    owner = "randomizedcoder";
+    repo = "xtcp2";
+    rev = xtcp2Rev;
+    hash = "sha256-fXno6qclmovlsCcVJr/3fjsqTNAxt0ti7C9eW27X88I=";
+  };
+
   # Helper: collect all .patch files from a directory.
   patchesIn = dir:
     map (f: dir + "/${f}")
@@ -237,6 +257,9 @@ in
 
   # pppd source (PPP control protocol headers and constants)
   inherit pppdSrc;
+
+  # rdma-core headers (libibverbs/libibmad IB protocol structs)
+  inherit rdmaSrc;
 
   # Scapy Python package (for runtime introspection via helper)
   inherit scapyPython;
@@ -281,6 +304,9 @@ in
 
   # Open Markets Initiative Wireshark Lua dissectors (459 scripts)
   inherit omiWiresharkLua;
+
+  # xtcp2 Go netlink parsers (inet_diag attribute structs)
+  inherit xtcp2Src;
 
   # Suricata Rust app-layer parsers: independent protocol definitions
   # Covers ~40 protocols (DNS, HTTP, TLS, SSH, DHCP, NTP, MQTT, etc.)
@@ -431,5 +457,6 @@ in
     omiWiresharkLua = omiWiresharkLuaRev;
     tshark = tshark.version or "unknown";
     scapy = scapyPython.version or "unknown";
+    xtcp2 = xtcp2Rev;
   };
 }

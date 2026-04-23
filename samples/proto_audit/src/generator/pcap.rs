@@ -2751,6 +2751,23 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
 
         // ── UpperPDU (virtual, 0 bits, root DLT=252) ──
         "UpperPDU" => Some(ProtocolDef::new("UpperPDU", 0)),
+
+        // ── Netlink SkMemInfo (kernel SK_MEMINFO_* enum, __u32[9]) ──
+        "NL_Diag_SkMemInfo" => Some(
+            ProtocolDef::new("NL_Diag_SkMemInfo", 288)
+                .with_fields(vec![
+                    FieldDef::new("rmem_alloc", 0, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("rcv_buf", 32, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("wmem_alloc", 64, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("snd_buf", 96, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("fwd_alloc", 128, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("wmem_queued", 160, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("optmem", 192, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("backlog", 224, 32, FieldType::Uint).with_endian(Endian::Little),
+                    FieldDef::new("drops", 256, 32, FieldType::Uint).with_endian(Endian::Little),
+                ]),
+        ),
+
         _ => None,
     }
 }

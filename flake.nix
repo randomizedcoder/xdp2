@@ -119,6 +119,7 @@
             export PROTO_AUDIT_DPDK_SRC="''${PROTO_AUDIT_DPDK_SRC:-${protoAuditSources.dpdkSrc}}"
             export PROTO_AUDIT_NDPI_SRC="''${PROTO_AUDIT_NDPI_SRC:-${protoAuditSources.ndpiSrc}}"
             export PROTO_AUDIT_PPPD_SRC="''${PROTO_AUDIT_PPPD_SRC:-${protoAuditSources.pppdSrc}}"
+            export PROTO_AUDIT_RDMA_SRC="''${PROTO_AUDIT_RDMA_SRC:-${protoAuditSources.rdmaSrc}/include}"
             export PROTO_AUDIT_SCAPY_HELPER="''${PROTO_AUDIT_SCAPY_HELPER:-${proto-audit-bin}/share/proto-audit/scapy_dump.py}"
             export PROTO_AUDIT_PYTHON="''${PROTO_AUDIT_PYTHON:-${protoAuditSources.scapyPython}/bin/python3}"
             export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"
@@ -136,6 +137,8 @@
             export PROTO_AUDIT_OMI_CSTRUCTS_DIR="''${PROTO_AUDIT_OMI_CSTRUCTS_DIR:-${protoAuditSources.omiCStructs}}"
             export PROTO_AUDIT_OMI_LUA_DIR="''${PROTO_AUDIT_OMI_LUA_DIR:-${protoAuditSources.omiWiresharkLua}}"
             export PROTO_AUDIT_OMI_PCAPS_DIR="''${PROTO_AUDIT_OMI_PCAPS_DIR:-${protoAuditSources.omiDataPackets}}"
+            export PROTO_AUDIT_XTCP2_SRC="''${PROTO_AUDIT_XTCP2_SRC:-${protoAuditSources.xtcp2Src}}"
+            export PROTO_AUDIT_XTCP2_PCAPS="''${PROTO_AUDIT_XTCP2_PCAPS:-${protoAuditSources.xtcp2Src}/pkg/xtcpnl/testdata}"
             exec proto-audit "$@"
           '';
         };
