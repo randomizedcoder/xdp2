@@ -51,21 +51,32 @@
  */
 #define XDP2_XDP_MAKE_PARSER_PROGRAM(PARSER, STRUCT, FRAME_SIZE,	\
 				      PROCESS, PARSER_FAIL)		\
-struct bpf_elf_map SEC("maps") ctx_map = {				\
-	.type = BPF_MAP_TYPE_PERCPU_ARRAY,				\
-	.size_key = sizeof(__u32),					\
-	.size_value = sizeof(STRUCT),					\
-	.max_elem = 2,							\
-	.pinning = PIN_GLOBAL_NS,					\
-};									\
+int parser_prog(struct xdp_md *ctx);	/* fwd decl for prog-array init */ \
 									\
-struct bpf_elf_map SEC("maps") parsers = {				\
-	.type = BPF_MAP_TYPE_PROG_ARRAY,				\
-	.size_key = sizeof(__u32),					\
-	.size_value = sizeof(__u32),					\
-	.max_elem = 1,							\
-	.pinning = PIN_GLOBAL_NS,					\
-	.id = PROG_MAP_ID,						\
+/* Modern BTF-annotated map definitions (libbpf 1.0+ compatible).	\
+ * Legacy bpf_elf_map / SEC("maps") / PIN_GLOBAL_NS were dropped in	\
+ * libbpf 1.0. These maps are private to the XDP program and do NOT	\
+ * need to be pinned for correct operation -- ctx_map is per-CPU	\
+ * state, parsers is only read by bpf_tail_call. Samples that want	\
+ * userspace inspection pin them via their own .xdp.c file. */		\
+struct {								\
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);			\
+	__uint(max_entries, 2);						\
+	__type(key, __u32);						\
+	__type(value, STRUCT);						\
+} ctx_map SEC(".maps");							\
+									\
+/* Prog-array for tail-call to parser_prog. Modern libbpf auto-		\
+ * populates __array(values, …) entries at load time, replacing the	\
+ * iproute2-specific `.id = 0xcafe` auto-population mechanism. */	\
+struct {								\
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);				\
+	__uint(max_entries, 1);						\
+	__uint(key_size, sizeof(__u32));				\
+	/* __array MUST be last: it's a flexible array member. */	\
+	__array(values, int (struct xdp_md *));				\
+} parsers SEC(".maps") = {						\
+	.values = { [0] = (void *)&parser_prog },			\
 };									\
 									\
 static __always_inline STRUCT *xdp2_get_ctx(void)			\
@@ -78,8 +89,10 @@ static __always_inline STRUCT *xdp2_get_ctx(void)			\
 	return bpf_map_lookup_elem(&ctx_map, &key);			\
 }									\
 									\
-/* Entry point for the XDP program */					\
-SEC("prog")								\
+/* Entry point for the XDP program.					\
+ * Modern libbpf expects SEC("xdp"); the legacy iproute2 SEC("prog")	\
+ * convention is no longer recognized as an XDP program type. */	\
+SEC("xdp")								\
 int xdp_prog(struct xdp_md *ctx)					\
 {									\
 	STRUCT *parser_ctx = xdp2_get_ctx();				\
@@ -114,8 +127,15 @@ int xdp_prog(struct xdp_md *ctx)					\
 	return PROCESS(ctx, parser_ctx);				\
 }									\
 									\
-/* Tail call program. Continue parsing in a tail call */		\
-SEC("0xcafe/0")								\
+/* Tail call program. Continue parsing in a tail call.			\
+ * Modern libbpf only recognizes a handful of XDP sub-sections		\
+ * (xdp, xdp.frags, xdp/devmap, xdp/cpumap); arbitrary "xdp/foo" is	\
+ * rejected. Both progs share SEC("xdp") -- libbpf disambiguates by	\
+ * the C function name when building the object. The old		\
+ * SEC("0xcafe/0") was iproute2's auto-population convention		\
+ * (hex = PROG_MAP_ID), replaced by the __array(values, ...)		\
+ * initializer on the parsers map. */					\
+SEC("xdp")								\
 int parser_prog(struct xdp_md *ctx)					\
 {									\
 	STRUCT *parser_ctx = xdp2_get_ctx();				\
