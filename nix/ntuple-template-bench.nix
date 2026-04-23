@@ -15,7 +15,7 @@
 # See docs/ntuple-template-bench.md for the measurement model and
 # samples/flow_dissector/docs/benchmarks.md for where results land.
 
-{ pkgs }:
+{ pkgs, xdpSamples }:
 
 pkgs.writeShellApplication {
   name = "xdp2-flow-dissector-ntuple-template-bench";
@@ -26,9 +26,23 @@ pkgs.writeShellApplication {
     pkgs.gawk
     pkgs.gnugrep
   ];
+  # Target-host tools (bpftool, ethtool, ip) are declared in Nix at a
+  # different layer: nix/modules/physical-testbed.nix adds pkgs.bpftools,
+  # pkgs.ethtool and the kernel's perf to environment.systemPackages when
+  # installEthtool = true (default). That's why this wrapper only lists
+  # dev-box tools — all bpftool/ethtool/ip invocations in the script run
+  # via ssh on the target, resolving against the target's systemPackages.
 
   text = ''
     script="${../samples/flow_dissector/run_ntuple_template_bench.sh}"
+    # Point the orchestrator at the bundled BPF object. The script will
+    # scp it to the target and load it with `ip link set xdpgeneric`.
+    export XDP_OBJ="${xdpSamples}/lib/xdp/af_xdp_parser.xdp.o"
+    if [[ ! -f "$XDP_OBJ" ]]; then
+      echo "ERROR: af_xdp_parser.xdp.o not in xdp-samples output ($XDP_OBJ)" >&2
+      echo "  This is a Nix build bug — rebuild with: nix build .#xdp-samples" >&2
+      exit 7
+    fi
     exec bash "$script" "$@"
   '';
 }

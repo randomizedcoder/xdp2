@@ -30,22 +30,27 @@
  * Key = RX queue index, Value = XSK socket fd.
  * Populated by userspace via bpf_map_update_elem() after creating
  * the AF_XDP socket.
+ *
+ * Modern BTF-annotated map definition (libbpf 1.0+ compatible — the
+ * legacy bpf_elf_map/SEC("maps") format was dropped in libbpf 1.0).
+ * LIBBPF_PIN_BY_NAME pins at /sys/fs/bpf/xsks_map which is exactly
+ * where xdp2-bench's DEFAULT_XSKMAP_PATH looks.
  */
-struct bpf_elf_map SEC("maps") xsks_map = {
-	.type = BPF_MAP_TYPE_XSKMAP,
-	.size_key = sizeof(__u32),
-	.size_value = sizeof(__u32),
-	.max_elem = 64,
-	.pinning = PIN_GLOBAL_NS,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_XSKMAP);
+	__uint(max_entries, 64);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+} xsks_map SEC(".maps");
 
 /* Per-CPU statistics for monitoring redirect vs pass vs parse-fail. */
-struct bpf_elf_map SEC("maps") af_xdp_stats = {
-	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-	.size_key = sizeof(__u32),
-	.size_value = sizeof(__u64),
-	.max_elem = 3,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 3);
+	__type(key, __u32);
+	__type(value, __u64);
+} af_xdp_stats SEC(".maps");
 
 enum {
 	STAT_REDIRECT = 0,
@@ -94,7 +99,7 @@ static __always_inline int af_xdp_parse_fail(int rc, struct xdp_md *xdp_ctx,
  *   - ctx_map: per-CPU parser state
  *   - parsers: tail-call program array
  */
-XDP2_XDP_MAKE_PARSER_PROGRAM(xdp2_parser_af_xdp,
+XDP2_XDP_MAKE_PARSER_PROGRAM(xdp2_parser_simple_tuple,
 			     struct af_xdp_parser_ctx,
 			     sizeof(struct xdp2_metadata_all),
 			     af_xdp_redirect, af_xdp_parse_fail);

@@ -36,7 +36,12 @@ XDP2_MAKE_PROTO_TABLE(ipv4_table,
 	( IPPROTO_UDP, ports_node )
 );
 
-XDP2_PARSER(xdp2_parser_af_xdp, "XDP2 parser for AF_XDP redirect",
+/* Name fixed to xdp2_parser_simple_tuple by the tail-call path in
+ * XDP2_XDP_MAKE_PARSER_PROGRAM (src/include/xdp2/xdp_tmpl.h). Same
+ * parse tree as flow_tracker_tmpl — the samples differ only in the
+ * XDP action (redirect-to-XSKMAP here vs flow-table update there).
+ */
+XDP2_PARSER(xdp2_parser_simple_tuple, "XDP2 parser for AF_XDP redirect",
 	     ether_node,
 	     (.max_frames = 1,
 	      .metameta_size = 0,

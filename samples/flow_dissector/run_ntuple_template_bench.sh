@@ -36,6 +36,21 @@ WRK_THREADS=4
 WRK_CONNS=200
 CORE_PIN=""
 
+# Path to af_xdp_parser.xdp.o on the local dev box. The nix wrapper
+# (nix/ntuple-template-bench.nix) passes this in via XDP_OBJ. If unset,
+# we try a few well-known locations before bailing.
+XDP_OBJ="${XDP_OBJ:-}"
+# Remote scratch path where we drop the object on the target. bpffs
+# pin path the XDP program's xsks_map lands at after iproute2 loads
+# it (iproute2 uses /sys/fs/bpf/xdp/globals/<mapname> for PIN_GLOBAL_NS).
+XDP_OBJ_REMOTE="/tmp/xdp2-af-xdp-parser.xdp.o"
+# With modern LIBBPF_PIN_BY_NAME, the xsks_map pins at
+# /sys/fs/bpf/<mapname> — which is exactly xdp2-bench's
+# DEFAULT_XSKMAP_PATH. iproute2 may still drop it under
+# /sys/fs/bpf/xdp/globals/ for backwards compat; handle both.
+XSKS_MAP_EXPECTED="/sys/fs/bpf/xsks_map"
+XSKS_MAP_LEGACY="/sys/fs/bpf/xdp/globals/xsks_map"
+
 usage() {
     cat <<EOF
 Usage: $0 [OPTIONS] <target_host> <peer_host>
@@ -133,6 +148,78 @@ fi
 echo "xdp2-bench: $BENCH_PATH"
 echo ""
 
+# ─── Pre-flight: locate af_xdp_parser.xdp.o and stage it on target ───
+echo "--- Pre-flight: af_xdp_parser.xdp.o ---"
+if [[ -z "$XDP_OBJ" ]]; then
+    for candidate in \
+        "$(dirname "$0")/../../result/lib/xdp/af_xdp_parser.xdp.o" \
+        "./result/lib/xdp/af_xdp_parser.xdp.o"; do
+        if [[ -f "$candidate" ]]; then
+            XDP_OBJ="$(readlink -f "$candidate")"
+            break
+        fi
+    done
+fi
+if [[ -z "$XDP_OBJ" || ! -f "$XDP_OBJ" ]]; then
+    echo "ERROR: af_xdp_parser.xdp.o not found." >&2
+    echo "  Build with: nix build .#xdp-samples"  >&2
+    echo "  Or set XDP_OBJ=/path/to/af_xdp_parser.xdp.o" >&2
+    exit 6
+fi
+echo "Local XDP object: $XDP_OBJ"
+echo "Staging to $TARGET:$XDP_OBJ_REMOTE ..."
+scp -q -o StrictHostKeyChecking=no "$XDP_OBJ" "root@$TARGET:$XDP_OBJ_REMOTE"
+
+# Trap-driven cleanup: always detach + remove pins, even if the bench
+# or any later step fails. Without this, the interface stays in XDP
+# mode and the next run fails "device or resource busy".
+cleanup_xdp() {
+    ssh "root@$TARGET" "
+        ip link set dev '$INTERFACE' xdpgeneric off 2>/dev/null || true
+        ip link set dev '$INTERFACE' xdp off 2>/dev/null || true
+        rm -f '$XSKS_MAP_EXPECTED' 2>/dev/null || true
+        rm -f /sys/fs/bpf/xdp2-af-xdp/* 2>/dev/null || true
+        rmdir /sys/fs/bpf/xdp2-af-xdp 2>/dev/null || true
+        rm -rf /sys/fs/bpf/xdp/globals/ 2>/dev/null || true
+        rm -f '$XDP_OBJ_REMOTE' 2>/dev/null || true
+    " || true
+}
+trap cleanup_xdp EXIT
+
+echo "Loading XDP program on $TARGET:$INTERFACE ..."
+ssh "root@$TARGET" "
+    # Detach any stale XDP prog first (idempotent).
+    ip link set dev '$INTERFACE' xdpgeneric off 2>/dev/null || true
+    ip link set dev '$INTERFACE' xdp off 2>/dev/null || true
+    rm -f '$XSKS_MAP_EXPECTED' 2>/dev/null || true
+    rm -f '$XSKS_MAP_LEGACY' 2>/dev/null || true
+    rm -f /sys/fs/bpf/ctx_map /sys/fs/bpf/parsers /sys/fs/bpf/af_xdp_stats 2>/dev/null || true
+
+    # Load with bpftool 'loadall' because the object has TWO XDP
+    # programs (xdp_prog entry + parser_prog tail-call) both in
+    # SEC(\"xdp\"). 'ip link set xdpgeneric obj ... sec xdp' would only
+    # pick one and skip the other, causing maps referenced only by the
+    # skipped prog (xsks_map, referenced by xdp_prog) to never be
+    # created. bpftool loadall loads every program in the object.
+    #
+    # We don't specify 'pinmaps' -- the xsks_map has
+    # LIBBPF_PIN_BY_NAME in its struct definition, so libbpf auto-pins
+    # it at /sys/fs/bpf/xsks_map, which is DEFAULT_XSKMAP_PATH.
+    mkdir -p /sys/fs/bpf/xdp2-af-xdp
+    bpftool prog loadall '$XDP_OBJ_REMOTE' /sys/fs/bpf/xdp2-af-xdp type xdp
+
+    # Attach the main entry program to the interface.
+    ip link set dev '$INTERFACE' xdpgeneric pinned /sys/fs/bpf/xdp2-af-xdp/xdp_prog
+
+    if [[ ! -e '$XSKS_MAP_EXPECTED' ]]; then
+        echo 'ERROR: xsks_map not auto-pinned at $XSKS_MAP_EXPECTED' >&2
+        ls -la /sys/fs/bpf/ /sys/fs/bpf/xdp2-af-xdp/ >&2
+        exit 1
+    fi
+"
+echo "XDP program loaded; xsks_map pinned at $XSKS_MAP_EXPECTED."
+echo ""
+
 # Figure out target IPs on the peer link (ask the target).
 TARGET_IP=$(ssh "root@$TARGET" \
     "ip -4 -o addr show dev '$INTERFACE' | awk '{print \$4}' | cut -d/ -f1 | head -1")
@@ -179,6 +266,8 @@ echo "--- Cleaning up traffic on $PEER ---"
 ssh "root@$PEER" 'pkill -f "wrk2.*'"$TARGET_IP"'" 2>/dev/null || true; pkill -f "ssh -N root@'"$TARGET"'" 2>/dev/null || true'
 ssh "root@$PEER" "cat /tmp/wrk2.log" > "$WRK_LOG" 2>/dev/null || true
 ssh "root@$PEER" "cat /tmp/ssh-keepalive.log" > "$SSH_LOG" 2>/dev/null || true
+
+# XDP detach happens via the EXIT trap (cleanup_xdp).
 
 # ─── Summary ──────────────────────────────────────────────────
 echo ""

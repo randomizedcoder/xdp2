@@ -181,6 +181,9 @@
         # See docs/ntuple-template-bench.md.
         flowDissectorNtupleTemplateBench = import ./nix/ntuple-template-bench.nix {
           inherit pkgs;
+          # Bundled af_xdp_parser.xdp.o — wrapper exports XDP_OBJ so the
+          # orchestrator script can scp it onto the target before loading.
+          xdpSamples = xdp-samples;
         };
 
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler

@@ -93,10 +93,19 @@ pkgs.stdenv.mkDerivation {
     # Track what we've built
     mkdir -p $TMPDIR/built
 
-    for sample in flow_tracker_simple flow_tracker_combo flow_tracker_tlvs flow_tracker_tmpl; do
+    # Sample name -> XDP source file stem. flow_tracker_* all use
+    # flow_tracker.xdp.c; af_xdp_parser has its own entry file.
+    for entry in \
+        "flow_tracker_simple:flow_tracker" \
+        "flow_tracker_combo:flow_tracker" \
+        "flow_tracker_tlvs:flow_tracker" \
+        "flow_tracker_tmpl:flow_tracker" \
+        "af_xdp_parser:af_xdp_parser"; do
+      sample="''${entry%%:*}"
+      xdp_stem="''${entry##*:}"
       if [ -d "$sample" ]; then
         echo ""
-        echo "=== Building $sample ==="
+        echo "=== Building $sample (xdp stem: $xdp_stem) ==="
         cd "$sample"
 
         # Step 1: Compile parser.c to parser.o (to check for errors)
@@ -120,13 +129,14 @@ pkgs.stdenv.mkDerivation {
           continue
         fi
 
-        # Step 3: Compile flow_tracker.xdp.c to BPF bytecode
-        echo "Compiling flow_tracker.xdp.o (BPF)..."
-        if $BPF_CLANG -x c -target bpf $BPF_CFLAGS -g -O2 -c -o flow_tracker.xdp.o flow_tracker.xdp.c 2>&1; then
-          echo "  flow_tracker.xdp.o: OK"
-          cp flow_tracker.xdp.o $TMPDIR/built/''${sample}.xdp.o
+        # Step 3: Compile <xdp_stem>.xdp.c to BPF bytecode.
+        echo "Compiling ''${xdp_stem}.xdp.o (BPF)..."
+        if $BPF_CLANG -x c -target bpf $BPF_CFLAGS -g -O2 -c \
+            -o "''${xdp_stem}.xdp.o" "''${xdp_stem}.xdp.c" 2>&1; then
+          echo "  ''${xdp_stem}.xdp.o: OK"
+          cp "''${xdp_stem}.xdp.o" "$TMPDIR/built/''${sample}.xdp.o"
         else
-          echo "  flow_tracker.xdp.o: FAILED"
+          echo "  ''${xdp_stem}.xdp.o: FAILED"
         fi
 
         cd ..
@@ -155,7 +165,8 @@ pkgs.stdenv.mkDerivation {
     fi
 
     # Install source files for reference
-    for sample in flow_tracker_simple flow_tracker_combo flow_tracker_tlvs flow_tracker_tmpl; do
+    for sample in flow_tracker_simple flow_tracker_combo flow_tracker_tlvs \
+                  flow_tracker_tmpl af_xdp_parser; do
       if [ -d "$sample" ]; then
         mkdir -p $out/share/xdp-samples/$sample
         cp -r $sample/*.c $sample/*.h $out/share/xdp-samples/$sample/ 2>/dev/null || true
