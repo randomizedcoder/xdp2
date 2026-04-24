@@ -196,6 +196,18 @@
           pktgenDriver = flowDissectorPktgenNtupleTemplate;
         };
 
+        # Factory for one-shot testbed experiment wrappers. Each
+        # Deliverable-1/2/3 experiment (see docs/physical-testbed.md
+        # §9 Category H / §13 Future work) is a writeShellApplication
+        # built from this helper, so `nix flake show` surfaces every
+        # tunable knob by name, and each result lands in a stable
+        # perf-results/${target}/exp-${name}-${ts}/ directory with a
+        # summary.json for downstream tooling.
+        mkBenchExperiment = import ./nix/lib/mkBenchExperiment.nix {
+          inherit pkgs;
+          ntupleTemplateBench = flowDissectorNtupleTemplateBench;
+        };
+
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
         # See nix/compiler-verify.nix for all available targets
         compilerVerify = import ./nix/compiler-verify.nix {
