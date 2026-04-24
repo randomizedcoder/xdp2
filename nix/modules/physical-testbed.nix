@@ -366,6 +366,32 @@ in
         lldpd/etc. disabled as before.
       '';
     };
+
+    dpdkBenchHost = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        If true, prepare this host to run the DPDK pktgen alternative
+        generator (Deliverable 2 — see docs/physical-testbed.md §13).
+        Effects:
+
+          - reserves 1024 × 2 MiB hugepages at boot (2 GiB total;
+            overrides hugepages2M when larger);
+          - loads the vfio-pci module at boot so the DPDK pktgen
+            orchestrator can bind a NIC to userspace;
+          - adds iommu=pt intel_iommu=on to kernel cmdline (X710 requires
+            IOMMU in pass-through for vfio-pci).
+
+        The NIC is NOT auto-bound — each orchestrator run unbinds i40e,
+        binds vfio-pci for the duration, and restores i40e on cleanup
+        via trap. See nix/dpdk-ntuple-template-bench.nix for lifecycle.
+
+        INTENDED FOR THE SENDER ONLY (hp2). The receiver (hp5) stays on
+        kernel i40e so Flow Director rules continue to steer RX traffic
+        to the AF_XDP-bound queue — DPDK cannot coexist with FD rules
+        on the same NIC.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -377,9 +403,18 @@ in
       "audit=0"
       "default_hugepagesz=2M"
       "hugepagesz=2M"
-      "hugepages=${toString cfg.hugepages2M}"
+      # When dpdkBenchHost = true we need 1024 hugepages (2 GiB) for
+      # DPDK pktgen lcores + mbuf pools; take the max of the two so we
+      # never under-provision.
+      "hugepages=${toString (lib.max cfg.hugepages2M (if cfg.dpdkBenchHost then 1024 else 0))}"
     ]
     ++ lib.optional cfg.disableMitigations "mitigations=off"
+    ++ lib.optionals cfg.dpdkBenchHost [
+      # X710 + vfio-pci requires IOMMU in pass-through mode so the
+      # NIC's DMA windows map 1:1 into userspace.
+      "iommu=pt"
+      "intel_iommu=on"
+    ]
     ++ lib.optionals (cfg.isolatedCpus != [ ]) [
       "isolcpus=${cpuList}"
       "nohz_full=${cpuList}"
@@ -394,6 +429,10 @@ in
       "cpufreq.default_governor=performance"
     ];
 
+    # vfio-pci is loaded at boot so the DPDK pktgen orchestrator can
+    # bind a NIC to userspace without having to modprobe mid-run.
+    boot.kernelModules = lib.optionals cfg.dpdkBenchHost [ "vfio-pci" ];
+
     # ---- sysctls ----
     boot.kernel.sysctl = {
       "kernel.perf_event_paranoid" = lib.mkDefault 0;
@@ -403,6 +442,11 @@ in
       "net.core.busy_poll" = lib.mkDefault 50;
       "net.core.busy_read" = lib.mkDefault 50;
       "net.core.netdev_max_backlog" = lib.mkDefault 50000;
+      # netdev_budget bumped from 300 (kernel default) to 600 —
+      # Deliverable-3 hypothesis (4): higher NAPI weight reduces
+      # RX-side drops by letting each softirq invocation drain more
+      # descriptors before yielding. mkDefault so hosts can lower.
+      "net.core.netdev_budget" = lib.mkDefault 600;
     } // lib.optionalAttrs cfg.lowJitter {
       # Complements the nowatchdog kernel param at runtime.
       "kernel.nmi_watchdog" = lib.mkDefault 0;
