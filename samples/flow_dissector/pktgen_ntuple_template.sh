@@ -135,6 +135,39 @@ THREADS=2
 RATE=0
 IS_IPV6=false
 
+# ─── Env-overridable tunables (Deliverable 1 — pktgen TX-cap diagnosis)
+#
+# These default to "today's behaviour" — the baseline experiment run
+# sets no env and reproduces the existing ~1.37 Mpps RX ceiling. Every
+# other Deliverable-1 experiment flips exactly one of these and
+# records the resulting Mpps/ns-pkt in docs/physical-testbed.md §9
+# Category H. See also samples/flow_dissector/run_ntuple_template_bench.sh
+# which forwards these over ssh verbatim.
+#
+#   PKTGEN_BURST          N per-softirq-dispatch packet count. Kernel
+#                         default is 1; setting 32 amortises softirq
+#                         overhead if TX is softirq-bound.
+#   PKTGEN_CLONE_SKB      skb reuse factor. Default 100000 (today's
+#                         hardcoded value); set 0 to force a fresh
+#                         skb per packet — proves whether skb alloc
+#                         or descriptor recycling dominates.
+#   PKTGEN_QUEUE_MAP_MODE "none" (default) | "per-thread". per-thread
+#                         sets queue_map_min/max to the thread index
+#                         so threads fan out across distinct TX rings
+#                         instead of colliding on the default ring.
+#   PKTGEN_CPU_PIN_MODE   "none" (default) | "isolcpus-aligned". In
+#                         the isolcpus-aligned mode, kpktgend binding
+#                         starts at kpktgend_${PKTGEN_CPU_OFFSET:-2}
+#                         instead of kpktgend_0 — skips housekeeping
+#                         CPUs on hp2 where isolcpus=2-15.
+#   PKTGEN_CPU_OFFSET     kpktgend starting index when CPU_PIN_MODE=
+#                         isolcpus-aligned (default 2).
+PKTGEN_BURST="${PKTGEN_BURST:-1}"
+PKTGEN_CLONE_SKB="${PKTGEN_CLONE_SKB:-100000}"
+PKTGEN_QUEUE_MAP_MODE="${PKTGEN_QUEUE_MAP_MODE:-none}"
+PKTGEN_CPU_PIN_MODE="${PKTGEN_CPU_PIN_MODE:-none}"
+PKTGEN_CPU_OFFSET="${PKTGEN_CPU_OFFSET:-2}"
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dport)     DPORT="$2"; shift 2 ;;
@@ -169,21 +202,42 @@ echo "  dport:      $DPORT ($L3/UDP)"
 echo "  pkt_size:   $PKT_SIZE"
 echo "  threads:    $THREADS"
 echo "  rate:       ${RATE:-unlimited} pps (delay=${DELAY}ns)"
+echo "  burst:      $PKTGEN_BURST"
+echo "  clone_skb:  $PKTGEN_CLONE_SKB"
+echo "  queue_map:  $PKTGEN_QUEUE_MAP_MODE"
+echo "  cpu_pin:    $PKTGEN_CPU_PIN_MODE (offset=$PKTGEN_CPU_OFFSET)"
 echo ""
 
 # Bind N threads to the interface. Each thread handles a slice of
 # the flow-hash space so we get parallel TX with proper scaling.
+#
+# kpktgend_N is a per-CPU kernel thread that the scheduler
+# auto-pins to CPU N. PKTGEN_CPU_PIN_MODE=isolcpus-aligned shifts
+# the thread-index base by PKTGEN_CPU_OFFSET so we land on isolated
+# CPUs rather than housekeeping ones (hp2 has isolcpus=2-15).
+thread_base=0
+if [[ "$PKTGEN_CPU_PIN_MODE" == "isolcpus-aligned" ]]; then
+    thread_base="$PKTGEN_CPU_OFFSET"
+fi
+
 for ((i=0; i<THREADS; i++)); do
-    thread="kpktgend_$i"
+    thread_idx=$((thread_base + i))
+    thread="kpktgend_${thread_idx}"
     devname="${IFACE}@${i}"
     echo "binding thread $thread -> $devname"
     echo "add_device $devname" > "/proc/net/pktgen/$thread"
 
-    pg_dev "$devname" "count 0"           # 0 = run forever
-    pg_dev "$devname" "clone_skb 100000"  # reuse skb for speed
+    pg_dev "$devname" "count 0"                      # 0 = run forever
+    pg_dev "$devname" "clone_skb $PKTGEN_CLONE_SKB"  # 0 disables reuse
     pg_dev "$devname" "pkt_size $PKT_SIZE"
     pg_dev "$devname" "delay $DELAY"
     pg_dev "$devname" "dst_mac $DST_MAC"
+
+    # burst > 1 amortises softirq overhead; default 1 = today's
+    # behaviour (one packet per softirq wake).
+    if [[ "$PKTGEN_BURST" -gt 1 ]]; then
+        pg_dev "$devname" "burst $PKTGEN_BURST"
+    fi
 
     if $IS_IPV6; then
         pg_dev "$devname" "dst6 $DST_IP"
@@ -197,6 +251,14 @@ for ((i=0; i<THREADS; i++)); do
     pg_dev "$devname" "udp_src_max $((12345 + i))"
     pg_dev "$devname" "udp_dst_min $DPORT"
     pg_dev "$devname" "udp_dst_max $DPORT"
+
+    # per-thread TX queue pinning — without this, threads may
+    # collide on the NIC's default TX ring. With PKTGEN_QUEUE_MAP_MODE=
+    # per-thread, thread i writes to NIC TX queue i (0..THREADS-1).
+    if [[ "$PKTGEN_QUEUE_MAP_MODE" == "per-thread" ]]; then
+        pg_dev "$devname" "queue_map_min $i"
+        pg_dev "$devname" "queue_map_max $i"
+    fi
 
     # flag IPDST_RND would randomize dst IPs; we want a fixed dst
     # (the target NIC) so Flow Director rules match.

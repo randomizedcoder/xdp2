@@ -339,15 +339,32 @@ REMOTE_EOF
 echo ""
 echo "--- Launching kernel pktgen on $PEER ---"
 PKTGEN_LOG="$RESULT_DIR/pktgen-start.log"
-# Pass argv through the single-quoted heredoc: the remote bash sees
-# all dev-box values as positional params "$@" and execs a command
-# assembled from them. No client-side interpolation inside the heredoc.
+# Deliverable-1 env tunables for the peer-side pktgen driver. Each
+# defaults to "today's behaviour"; experiment wrappers
+# (nix/lib/mkBenchExperiment.nix) set exactly one at a time.
+# Forwarded to the peer inside the heredoc so the remote bash sees
+# them at the top of its environment before execing the pktgen
+# script. Client-side interpolation is intentional here — we need
+# the LOCAL env values to land on the REMOTE shell — so this is one
+# of the rare places we use an unquoted heredoc delimiter. `\$@` is
+# escaped to defer expansion to the remote bash.
+PKTGEN_BURST="${PKTGEN_BURST:-1}"
+PKTGEN_CLONE_SKB="${PKTGEN_CLONE_SKB:-100000}"
+PKTGEN_QUEUE_MAP_MODE="${PKTGEN_QUEUE_MAP_MODE:-none}"
+PKTGEN_CPU_PIN_MODE="${PKTGEN_CPU_PIN_MODE:-none}"
+PKTGEN_CPU_OFFSET="${PKTGEN_CPU_OFFSET:-2}"
+# shellcheck disable=SC2087
 ssh "root@$PEER" bash -s -- \
     "$PKTGEN_SCRIPT_REMOTE" start "$INTERFACE" "$TARGET_IP" "$TARGET_MAC" \
     --dport "$DPORT" --pkt-size "$PKTGEN_PKT_SIZE" \
     --threads "$PKTGEN_THREADS" --rate "$PKTGEN_RATE" \
-    <<'REMOTE_EOF' 2>&1 | tee "$PKTGEN_LOG"
-exec bash "$@"
+    <<REMOTE_EOF 2>&1 | tee "$PKTGEN_LOG"
+export PKTGEN_BURST="$PKTGEN_BURST"
+export PKTGEN_CLONE_SKB="$PKTGEN_CLONE_SKB"
+export PKTGEN_QUEUE_MAP_MODE="$PKTGEN_QUEUE_MAP_MODE"
+export PKTGEN_CPU_PIN_MODE="$PKTGEN_CPU_PIN_MODE"
+export PKTGEN_CPU_OFFSET="$PKTGEN_CPU_OFFSET"
+exec bash "\$@"
 REMOTE_EOF
 PKTGEN_STARTED=1
 
