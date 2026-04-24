@@ -1255,7 +1255,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("SkinnyHeader", "src/proto_audit/skinny.rs")
             .libpcap("skinny_header", "pcap/proto_audit/skinny.h"),
         PN::new("MGCP", 4)
-            .xdp2("xdp2_parse_mgcp").tshark("mgcp").variable()
+            .xdp2("xdp2_parse_mgcp").tshark("mgcp").scapy("MGCP").variable()
             .rfcs(&[3435])
             .etherparse("MGCPHeader", "src/proto_audit/mgcp.rs")
             .libpcap("mgcp_header", "pcap/proto_audit/mgcp.h"),
@@ -1364,7 +1364,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .libpcap("ipfix_header", "pcap/proto_audit/ipfix.h"),
         // ── Auth & Directory ──
         PN::new("LDAP", 1)
-            .xdp2("xdp2_parse_ldap").tshark("ldap").variable()
+            .xdp2("xdp2_parse_ldap").tshark("ldap").scapy("LDAP").variable()
             .suricata("ldap", "LdapHeader")
             .rfcs(&[4511, 4510])
             .etherparse("LDAPHeader", "src/proto_audit/ldap.rs")
@@ -1376,7 +1376,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("KerberosHeader", "src/proto_audit/kerberos.rs")
             .libpcap("kerberos_header", "pcap/proto_audit/kerberos.h"),
         PN::new("NTLMSSP", 12)
-            .xdp2("xdp2_parse_ntlmssp").tshark("ntlmssp").variable()
+            .xdp2("xdp2_parse_ntlmssp").tshark("ntlmssp").scapy("NTLM_Header").variable()
             .etherparse("NTLMSSPHeader", "src/proto_audit/ntlmssp.rs")
             .libpcap("ntlmssp_header", "pcap/proto_audit/ntlmssp.h"),
         PN::new("OCSP", 1)
@@ -2008,7 +2008,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("MGCPNCSHeader", "src/proto_audit/mgcp_ncs.rs")
             .libpcap("mgcp_ncs_header", "pcap/proto_audit/mgcp_ncs.h"),
         PN::new("SCTP_Init", 20)
-            .xdp2("xdp2_parse_sctp_init").kernel("sctp_initmsg", "linux/sctp.h").tshark("sctp").variable()
+            .xdp2("xdp2_parse_sctp_init").kernel("sctp_initmsg", "linux/sctp.h").tshark("sctp").scapy("SCTPChunkInit").variable()
             .etherparse("SCTPInitHeader", "src/proto_audit/sctp_init.rs")
             .libpcap("sctp_init_header", "pcap/proto_audit/sctp_init.h"),
         // ── More Industrial / SCADA ──
@@ -2100,7 +2100,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .etherparse("ZigbeeZDPHeader", "src/proto_audit/zigbee_zdp.rs")
             .libpcap("zigbee_zdp_header", "pcap/proto_audit/zigbee_zdp.h"),
         PN::new("BLE_LL", 2)
-            .xdp2("xdp2_parse_ble_ll").tshark("btle").variable()
+            .xdp2("xdp2_parse_ble_ll").tshark("btle").scapy("BTLE").variable()
             .etherparse("BLELLHeader", "src/proto_audit/ble_ll.rs")
             .libpcap("ble_ll_header", "pcap/proto_audit/ble_ll.h"),
         // ── More security / PKI ──
@@ -2134,10 +2134,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[9000]),
         // ── More IPv6 ──
         PN::new("IPv6_HopByHop", 2)
-            .xdp2("xdp2_parse_ipv6_hopbyhop").tshark("ipv6.hop_opt").variable()
+            .xdp2("xdp2_parse_ipv6_hopbyhop").tshark("ipv6.hop_opt").scapy("IPv6ExtHdrHopByHop").variable()
             .rfcs(&[8200]),
         PN::new("IPv6_MobileIP", 6)
-            .xdp2("xdp2_parse_ipv6_mobileip").kernel("ipv6_destopt_hao", "linux/ipv6.h").tshark("mip6").variable()
+            .xdp2("xdp2_parse_ipv6_mobileip").kernel("ipv6_destopt_hao", "linux/ipv6.h").tshark("mip6").scapy("MIP6MH_BU").variable()
             .rfcs(&[6275]),
         PN::new("IPv6_RPL", 4)
             .kernel("ipv6_rpl_sr_hdr", "linux/rpl.h").tshark("ipv6.routing").variable()
@@ -2146,14 +2146,14 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .kernel("ioam6_hdr", "linux/ioam6.h").tshark("ipv6.opt.ioam").variable()
             .rfcs(&[9197]),
         PN::new("MLD_Report_v1", 20)
-            .xdp2("xdp2_parse_mld_report_v1").tshark("icmpv6").variable()
+            .xdp2("xdp2_parse_mld_report_v1").tshark("icmpv6").scapy("ICMPv6MLReport").variable()
             .rfcs(&[2710]),
         // ── Additional SCTP ──
         PN::new("SCTP_Data", 16)
-            .xdp2("xdp2_parse_sctp_data").tshark("sctp").variable()
+            .xdp2("xdp2_parse_sctp_data").tshark("sctp").scapy("SCTPChunkData").variable()
             .rfcs(&[9260]),
         PN::new("SCTP_Sack", 16)
-            .xdp2("xdp2_parse_sctp_sack").tshark("sctp").variable()
+            .xdp2("xdp2_parse_sctp_sack").tshark("sctp").scapy("SCTPChunkSACK").variable()
             .rfcs(&[9260]),
         // ── GRE variants ──
         PN::new("GRE_Cisco", 8)
@@ -2177,10 +2177,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .rfcs(&[8926]),
         // ── PPP variants ──
         PN::new("PPP_LCP", 4)
-            .xdp2("xdp2_parse_ppp_lcp").tshark("lcp").pppd("LCP").variable()
+            .xdp2("xdp2_parse_ppp_lcp").tshark("lcp").scapy("PPP_LCP").pppd("LCP").variable()
             .rfcs(&[1661]),
         PN::new("PPP_IPCP", 4)
-            .xdp2("xdp2_parse_ppp_ipcp").tshark("ipcp").pppd("IPCP").variable()
+            .xdp2("xdp2_parse_ppp_ipcp").tshark("ipcp").scapy("PPP_IPCP").pppd("IPCP").variable()
             .rfcs(&[1332]),
         PN::new("PPP_IPv6CP", 4)
             .xdp2("xdp2_parse_ppp_ipv6cp").tshark("ipv6cp").pppd("IPv6CP").variable()
@@ -2189,10 +2189,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_ppp_ccp").tshark("ccp").pppd("CCP").variable()
             .rfcs(&[1962]),
         PN::new("PPP_CHAP", 4)
-            .xdp2("xdp2_parse_ppp_chap").tshark("chap").pppd("CHAP").variable()
+            .xdp2("xdp2_parse_ppp_chap").tshark("chap").scapy("PPP_CHAP").pppd("CHAP").variable()
             .rfcs(&[1994]),
         PN::new("PPP_PAP", 4)
-            .xdp2("xdp2_parse_ppp_pap").tshark("pap").pppd("PAP").variable()
+            .xdp2("xdp2_parse_ppp_pap").tshark("pap").scapy("PPP_PAP").pppd("PAP").variable()
             .rfcs(&[1334]),
         // ── Multicast ──
         PN::new("PIM_BSR", 8)
@@ -2215,7 +2215,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_pvst").tshark("stp").variable(),
         // ── VPN / IPsec ──
         PN::new("IKEv1", 28)
-            .xdp2("xdp2_parse_ikev1").tshark("isakmp").variable()
+            .xdp2("xdp2_parse_ikev1").tshark("isakmp").scapy("ISAKMP").variable()
             .rfcs(&[2409]),
         PN::new("ESP_NULL", 8)
             .xdp2("xdp2_parse_esp_null").tshark("esp").variable()
@@ -2232,13 +2232,13 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .ieee(&["802.1ag-2007"]),
         // ── Authentication ──
         PN::new("EAP_TLS", 6)
-            .xdp2("xdp2_parse_eap_tls").tshark("eap").variable()
+            .xdp2("xdp2_parse_eap_tls").tshark("eap").scapy("EAP_TLS").variable()
             .rfcs(&[5216]),
         PN::new("EAP_TTLS", 6)
-            .xdp2("xdp2_parse_eap_ttls").tshark("eap").variable()
+            .xdp2("xdp2_parse_eap_ttls").tshark("eap").scapy("EAP_TTLS").variable()
             .rfcs(&[5281]),
         PN::new("EAP_PEAP", 6)
-            .xdp2("xdp2_parse_eap_peap").tshark("eap").variable(),
+            .xdp2("xdp2_parse_eap_peap").tshark("eap").scapy("EAP_PEAP").variable(),
         PN::new("EAP_SIM", 8)
             .xdp2("xdp2_parse_eap_sim").tshark("eap-sim").variable()
             .rfcs(&[4186]),
@@ -2254,10 +2254,10 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .ieee(&["1588-2002"]),
         // ── DHCP variants ──
         PN::new("DHCP_Option", 2)
-            .xdp2("xdp2_parse_dhcp_option").tshark("dhcp").variable()
+            .xdp2("xdp2_parse_dhcp_option").tshark("dhcp").scapy("DHCP").variable()
             .rfcs(&[2132]),
         PN::new("DHCPv6_Option", 4)
-            .xdp2("xdp2_parse_dhcpv6_option").tshark("dhcpv6").variable()
+            .xdp2("xdp2_parse_dhcpv6_option").tshark("dhcpv6").scapy("DHCP6OptOptReq").variable()
             .rfcs(&[8415]),
         // ── Additional applications ──
         PN::new("SOCKS", 3)
@@ -2325,7 +2325,7 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
             .xdp2("xdp2_parse_snmpv3").tshark("snmp").variable()
             .rfcs(&[3412]),
         PN::new("SNMP_Trap", 1)
-            .xdp2("xdp2_parse_snmp_trap").tshark("snmp").variable()
+            .xdp2("xdp2_parse_snmp_trap").tshark("snmp").scapy("SNMPtrapv1").variable()
             .rfcs(&[3416]),
         // ── VLAN / Bridging ──
         PN::new("GVRP", 2)
