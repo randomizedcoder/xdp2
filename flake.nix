@@ -174,6 +174,12 @@
           workloadPcapHttpsWeb = perfAnalysis.workload-pcap-https-web;
         };
 
+        # Peer-side kernel pktgen driver, shellchecked + packaged as a
+        # standalone writeShellApplication. The orchestrator below scp's
+        # this to the peer at runtime.
+        flowDissectorPktgenNtupleTemplate =
+          import ./nix/pktgen-ntuple-template.nix { inherit pkgs; };
+
         # Live X710 ntuple + AF_XDP + template bench orchestrator —
         # drives a two-host run (target + peer) over SSH. Requires the
         # target to have xdp2.testbed.flowDirectorRules and
@@ -184,6 +190,10 @@
           # Bundled af_xdp_parser.xdp.o — wrapper exports XDP_OBJ so the
           # orchestrator script can scp it onto the target before loading.
           xdpSamples = xdp-samples;
+          # Peer-side pktgen driver — wrapper exports PKTGEN_SCRIPT so
+          # the orchestrator scp's a known-good store path, not a
+          # `dirname "$0"` guess.
+          pktgenDriver = flowDissectorPktgenNtupleTemplate;
         };
 
         # Compiler verification framework — compare C++ vs Rust xdp2-compiler
@@ -519,6 +529,13 @@
           # See:  docs/ntuple-template-bench.md
           # ===================================================================
           flow-dissector-ntuple-template-bench = flowDissectorNtupleTemplateBench;
+
+          # Standalone peer-side kernel pktgen driver (shellchecked).
+          # Build:  nix build .#flow-dissector-pktgen-ntuple-template
+          # Normally consumed by flow-dissector-ntuple-template-bench,
+          # but exposed here for inspection / direct deployment.
+          flow-dissector-pktgen-ntuple-template =
+            flowDissectorPktgenNtupleTemplate;
 
           # Build-time execution smoke — runs the matrix against an
           # in-tree PCAP and captures results to $out/matrix.txt. Ways

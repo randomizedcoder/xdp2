@@ -6,34 +6,38 @@
 # Orchestrates a two-host run from a dev box:
 #
 #   1. Verify the TARGET host has the expected Flow Director ntuple
-#      rules installed (ethtool -n), plus nginx active.
-#   2. On the PEER, spin up traffic generators (wrk2 against TCP/443,
-#      a long-lived ssh -N for TCP/22).
-#   3. On the TARGET, run `xdp2-bench --mode af-xdp-template` binding
-#      one AF_XDP socket per matched RX queue. Captures the per-queue
-#      ns/pkt + Mpps report.
-#   4. Collect the report back to the dev box under
+#      rule installed (ethtool -n): UDP/$DPORT -> queue $QUEUE.
+#   2. Load the XDP parser object on the TARGET and attach it so
+#      xsks_map auto-pins at /sys/fs/bpf/xsks_map.
+#   3. On the PEER, start kernel pktgen blasting open-loop UDP at
+#      the target's IP/MAC with dport=$DPORT. No TCP handshake, no
+#      ACKs -- pktgen drives the NIC directly from a kernel thread.
+#   4. On the TARGET, run `xdp2-bench --mode af-xdp-template` binding
+#      one AF_XDP socket per matched RX queue and dispatching through
+#      the matching template with zero software classification.
+#   5. Stop pktgen; collect the report back to the dev box under
 #      perf-results/${TARGET}/ntuple-template-bench-${ts}/.
 #
 # This measures the "pure parser" path: NIC classifies, AF_XDP delivers,
 # we call extract_by_id directly — no software select_template_id. See
-# docs/ntuple-template-bench.md for the full rationale and caveats
-# (wrk traffic lands on an AF_XDP-bound queue and therefore bypasses
-# nginx entirely; nginx is just the handshake listener).
+# docs/ntuple-template-bench.md for the full rationale and caveats.
 
 set -euo pipefail
 
 DURATION=30
 INTERFACE="enp1s0f0np0"
-DPORT_SSH=22
-DPORT_HTTPS=443
-QUEUE_SSH=1
-QUEUE_HTTPS=2
-TEMPLATE_SSH="eth-ipv4-tcp"
-TEMPLATE_HTTPS="eth-ipv4-tcp"
-WRK_RATE=200000
-WRK_THREADS=4
-WRK_CONNS=200
+# Single-queue / single-template bench (Option 1). FD rule on the target
+# steers UDP/443 to queue 1; xdp2-bench binds AF_XDP there and dispatches
+# through eth-ipv4-udp template with zero software classification.
+DPORT=443
+QUEUE=1
+TEMPLATE="eth-ipv4-udp"
+# pktgen (kernel) on the peer. Blasts open-loop UDP at ~line rate; no
+# ACKs needed (that's why we ditched wrk2 -- it stalled when bulk data
+# got redirected away from nginx).
+PKTGEN_PKT_SIZE=1400
+PKTGEN_THREADS=2
+PKTGEN_RATE=0   # 0 = unlimited (as fast as the thread can push)
 CORE_PIN=""
 
 # Path to af_xdp_parser.xdp.o on the local dev box. The nix wrapper
@@ -51,6 +55,13 @@ XDP_OBJ_REMOTE="/tmp/xdp2-af-xdp-parser.xdp.o"
 XSKS_MAP_EXPECTED="/sys/fs/bpf/xsks_map"
 XSKS_MAP_LEGACY="/sys/fs/bpf/xdp/globals/xsks_map"
 
+# Peer-side pktgen driver. Always set by the nix wrapper
+# (nix/ntuple-template-bench.nix exports PKTGEN_SCRIPT to the
+# writeShellApplication-packaged driver in the nix store). When
+# run outside of `nix run`, the caller must export it explicitly.
+PKTGEN_SCRIPT="${PKTGEN_SCRIPT:?PKTGEN_SCRIPT must be set; run via \`nix run .#flow-dissector-ntuple-template-bench\` or export it manually}"
+PKTGEN_SCRIPT_REMOTE="/tmp/xdp2-pktgen-ntuple-template.sh"
+
 usage() {
     cat <<EOF
 Usage: $0 [OPTIONS] <target_host> <peer_host>
@@ -58,40 +69,36 @@ Usage: $0 [OPTIONS] <target_host> <peer_host>
 Runs the live Flow Director + AF_XDP + template bench. Both hosts must
 be SSH-reachable as root. TARGET must have the xdp2-bench binary on
 PATH (or at ~/xdp2/xdp2-rs/target/release/xdp2-bench) and the
-xdp2.testbed module configured with flowDirectorRules and
-realServicesBench = true.
+xdp2.testbed module configured with flowDirectorRules steering
+UDP/$DPORT -> queue $QUEUE.
 
 Required positional args:
   <target_host>   Host binding AF_XDP / running xdp2-bench (e.g. hp5).
-  <peer_host>     Host driving traffic with wrk2 + ssh -N (e.g. hp2).
+  <peer_host>     Host running kernel pktgen as traffic source (e.g. hp2).
 
 Options:
-  -d <secs>       Bench duration                      (default: $DURATION)
-  -i <ifc>        NIC name on target                  (default: $INTERFACE)
-  -c <N>          Pin xdp2-bench to CPU starting at N (default: unset)
-  -r <rate>       wrk2 requests/sec                   (default: $WRK_RATE)
-  -t <N>          wrk2 threads                        (default: $WRK_THREADS)
-  -C <N>          wrk2 concurrent connections         (default: $WRK_CONNS)
+  -d <secs>       Bench duration                       (default: $DURATION)
+  -i <ifc>        NIC name on target + peer            (default: $INTERFACE)
+  -c <N>          Pin xdp2-bench to CPU starting at N  (default: unset)
+  -s <bytes>      pktgen pkt_size                      (default: $PKTGEN_PKT_SIZE)
+  -t <N>          pktgen TX threads                    (default: $PKTGEN_THREADS)
+  -r <pps>        pktgen rate limit (0 = unlimited)    (default: $PKTGEN_RATE)
   -h              This help.
 
-Queue / port / template mapping is wired from the testbed module's
-flowDirectorRules; the defaults here assume:
-   TCP/22 -> queue $QUEUE_SSH ($TEMPLATE_SSH)
-  TCP/443 -> queue $QUEUE_HTTPS ($TEMPLATE_HTTPS)
-Override with env vars QUEUE_SSH / QUEUE_HTTPS / TEMPLATE_SSH /
-TEMPLATE_HTTPS / DPORT_SSH / DPORT_HTTPS if your rule set differs.
+Defaults: UDP/$DPORT -> queue $QUEUE (template: $TEMPLATE).
+Override via env vars DPORT / QUEUE / TEMPLATE if your rule set differs.
 EOF
     exit 1
 }
 
-while getopts "d:i:c:r:t:C:h" opt; do
+while getopts "d:i:c:s:t:r:h" opt; do
     case $opt in
         d) DURATION="$OPTARG" ;;
         i) INTERFACE="$OPTARG" ;;
         c) CORE_PIN="$OPTARG" ;;
-        r) WRK_RATE="$OPTARG" ;;
-        t) WRK_THREADS="$OPTARG" ;;
-        C) WRK_CONNS="$OPTARG" ;;
+        s) PKTGEN_PKT_SIZE="$OPTARG" ;;
+        t) PKTGEN_THREADS="$OPTARG" ;;
+        r) PKTGEN_RATE="$OPTARG" ;;
         h|*) usage ;;
     esac
 done
@@ -107,33 +114,36 @@ mkdir -p "$RESULT_DIR"
 
 echo "=== Live Ntuple + AF_XDP + Template Bench ==="
 echo "Target:      $TARGET (runs xdp2-bench on $INTERFACE)"
-echo "Peer:        $PEER (runs wrk2 + ssh -N)"
+echo "Peer:        $PEER (runs kernel pktgen)"
 echo "Duration:    ${DURATION}s"
-echo "Rules:       TCP/$DPORT_SSH -> q$QUEUE_SSH ($TEMPLATE_SSH), TCP/$DPORT_HTTPS -> q$QUEUE_HTTPS ($TEMPLATE_HTTPS)"
+echo "Rule:        UDP/$DPORT -> q$QUEUE ($TEMPLATE)"
 echo "Result dir:  $RESULT_DIR"
 echo ""
 
 # ─── Pre-flight ────────────────────────────────────────────────
 echo "--- Pre-flight: Flow Director rules on $TARGET ---"
-NTUPLE_OUT=$(ssh -o StrictHostKeyChecking=no "root@$TARGET" "ethtool -n '$INTERFACE' 2>&1" || true)
+# Pass $INTERFACE as a separate argv to ssh so it's expanded on the
+# dev box (intentional) without embedding in a quoted command string
+# that would trip SC2029. ssh concatenates argv[2..] with spaces and
+# ships it as the remote command.
+NTUPLE_OUT=$(ssh -o StrictHostKeyChecking=no "root@$TARGET" \
+    ethtool -n "$INTERFACE" 2>&1 || true)
 echo "$NTUPLE_OUT" | tee "$RESULT_DIR/ntuple-rules.txt"
-for dp in "$DPORT_SSH" "$DPORT_HTTPS"; do
-    if ! echo "$NTUPLE_OUT" | grep -q "Dest port: $dp"; then
-        echo "ERROR: Flow Director rule for TCP/$dp not present on $TARGET:$INTERFACE." >&2
-        echo "       Ensure xdp2.testbed.flowDirectorRules includes this dport"  >&2
-        echo "       and run \`sudo nixos-rebuild switch\`."                      >&2
-        exit 2
-    fi
-done
-
-echo ""
-echo "--- Pre-flight: nginx on $TARGET ---"
-NGINX_STATUS=$(ssh "root@$TARGET" 'systemctl is-active nginx || true')
-echo "nginx: $NGINX_STATUS"
-if [[ "$NGINX_STATUS" != "active" ]]; then
-    echo "ERROR: nginx is not active on $TARGET."                         >&2
-    echo "       Set xdp2.testbed.realServicesBench = true and rebuild." >&2
-    exit 3
+# Walk the ethtool output filter-by-filter and check that there is a
+# UDP-over-IPv4 rule whose Dest port matches $DPORT. Grepping the
+# raw output for "Dest port: $DPORT" false-matches on any other
+# protocol's rule with the same port number.
+if ! awk -v dport="$DPORT" '
+    /^Filter:/        { rt=""; dp=""; next }
+    /Rule Type:/      { rt=$0; next }
+    /Dest port:/      { dp=$3; if (rt ~ /UDP over IPv4/ && dp == dport) { found=1; exit } }
+    END               { exit !found }
+  ' <<< "$NTUPLE_OUT"; then
+    echo "ERROR: No Flow Director rule on $TARGET:$INTERFACE steers UDP/$DPORT." >&2
+    echo "       Need: flow-type udp4 dst-port $DPORT action $QUEUE"             >&2
+    echo "       Add via \`ethtool -N $INTERFACE flow-type udp4 dst-port $DPORT action $QUEUE\`" >&2
+    echo "       or set xdp2.testbed.flowDirectorRules + nixos-rebuild."          >&2
+    exit 2
 fi
 
 echo ""
@@ -170,104 +180,173 @@ echo "Local XDP object: $XDP_OBJ"
 echo "Staging to $TARGET:$XDP_OBJ_REMOTE ..."
 scp -q -o StrictHostKeyChecking=no "$XDP_OBJ" "root@$TARGET:$XDP_OBJ_REMOTE"
 
-# Trap-driven cleanup: always detach + remove pins, even if the bench
-# or any later step fails. Without this, the interface stays in XDP
-# mode and the next run fails "device or resource busy".
-cleanup_xdp() {
-    ssh "root@$TARGET" "
-        ip link set dev '$INTERFACE' xdpgeneric off 2>/dev/null || true
-        ip link set dev '$INTERFACE' xdp off 2>/dev/null || true
-        rm -f '$XSKS_MAP_EXPECTED' 2>/dev/null || true
-        rm -f /sys/fs/bpf/xdp2-af-xdp/* 2>/dev/null || true
-        rmdir /sys/fs/bpf/xdp2-af-xdp 2>/dev/null || true
-        rm -rf /sys/fs/bpf/xdp/globals/ 2>/dev/null || true
-        rm -f '$XDP_OBJ_REMOTE' 2>/dev/null || true
-    " || true
+# Trap-driven cleanup: always detach + remove pins + stop pktgen,
+# even if the bench or any later step fails. Without this, the
+# interface stays in XDP mode and the next run fails "device or
+# resource busy", and pktgen keeps blasting the peer's NIC.
+#
+# Two separate functions composed under one trap so we don't have
+# to string-splice prior traps (which trips shellcheck SC2064).
+# cleanup_peer is safe to call before pktgen is staged; `|| true`
+# handles the not-yet-started case.
+PKTGEN_STARTED=0
+# All remote command blocks below use the same pattern:
+#   ssh host bash -s -- "$arg1" "$arg2" ... <<'REMOTE_EOF'
+#       ... remote script referencing "$1" "$2" ... ...
+#   REMOTE_EOF
+# The single-quoted heredoc prevents client-side interpolation (no
+# SC2029), and positional args carry the dev-box values we want the
+# remote shell to see. `bash -s` reads the heredoc from stdin.
+cleanup_peer() {
+    if [[ "$PKTGEN_STARTED" -eq 1 ]]; then
+        ssh "root@$PEER" bash -s -- "$PKTGEN_SCRIPT_REMOTE" <<'REMOTE_EOF' || true
+bash "$1" stop 2>/dev/null || true
+REMOTE_EOF
+    fi
 }
-trap cleanup_xdp EXIT
+cleanup_xdp() {
+    ssh "root@$TARGET" bash -s -- \
+        "$INTERFACE" "$XSKS_MAP_EXPECTED" "$XDP_OBJ_REMOTE" <<'REMOTE_EOF' || true
+iface=$1
+xsks=$2
+xdp_obj=$3
+ip link set dev "$iface" xdpgeneric off 2>/dev/null || true
+ip link set dev "$iface" xdp off 2>/dev/null || true
+rm -f "$xsks" 2>/dev/null || true
+rm -f /sys/fs/bpf/xdp2-af-xdp/* 2>/dev/null || true
+rmdir /sys/fs/bpf/xdp2-af-xdp 2>/dev/null || true
+rm -rf /sys/fs/bpf/xdp/globals/ 2>/dev/null || true
+rm -f "$xdp_obj" 2>/dev/null || true
+REMOTE_EOF
+}
+cleanup_all() {
+    cleanup_peer
+    cleanup_xdp
+}
+trap cleanup_all EXIT
 
 echo "Loading XDP program on $TARGET:$INTERFACE ..."
-ssh "root@$TARGET" "
-    # Detach any stale XDP prog first (idempotent).
-    ip link set dev '$INTERFACE' xdpgeneric off 2>/dev/null || true
-    ip link set dev '$INTERFACE' xdp off 2>/dev/null || true
-    rm -f '$XSKS_MAP_EXPECTED' 2>/dev/null || true
-    rm -f '$XSKS_MAP_LEGACY' 2>/dev/null || true
-    rm -f /sys/fs/bpf/ctx_map /sys/fs/bpf/parsers /sys/fs/bpf/af_xdp_stats 2>/dev/null || true
+# Note on comments inside the heredoc: they use backticks-free plain
+# text because the heredoc is single-quoted — no client-side expansion,
+# no SC2029. The remote shell's `bash -s` reads this verbatim.
+ssh "root@$TARGET" bash -s -- \
+    "$INTERFACE" "$XSKS_MAP_EXPECTED" "$XSKS_MAP_LEGACY" "$XDP_OBJ_REMOTE" <<'REMOTE_EOF'
+set -eu
+iface=$1
+xsks=$2
+xsks_legacy=$3
+xdp_obj=$4
 
-    # Load with bpftool 'loadall' because the object has TWO XDP
-    # programs (xdp_prog entry + parser_prog tail-call) both in
-    # SEC(\"xdp\"). 'ip link set xdpgeneric obj ... sec xdp' would only
-    # pick one and skip the other, causing maps referenced only by the
-    # skipped prog (xsks_map, referenced by xdp_prog) to never be
-    # created. bpftool loadall loads every program in the object.
-    #
-    # We don't specify 'pinmaps' -- the xsks_map has
-    # LIBBPF_PIN_BY_NAME in its struct definition, so libbpf auto-pins
-    # it at /sys/fs/bpf/xsks_map, which is DEFAULT_XSKMAP_PATH.
-    mkdir -p /sys/fs/bpf/xdp2-af-xdp
-    bpftool prog loadall '$XDP_OBJ_REMOTE' /sys/fs/bpf/xdp2-af-xdp type xdp
+# Detach any stale XDP prog first (idempotent).
+ip link set dev "$iface" xdpgeneric off 2>/dev/null || true
+ip link set dev "$iface" xdp off 2>/dev/null || true
+rm -f "$xsks" 2>/dev/null || true
+rm -f "$xsks_legacy" 2>/dev/null || true
+rm -f /sys/fs/bpf/ctx_map /sys/fs/bpf/parsers /sys/fs/bpf/af_xdp_stats 2>/dev/null || true
 
-    # Attach the main entry program to the interface.
-    ip link set dev '$INTERFACE' xdpgeneric pinned /sys/fs/bpf/xdp2-af-xdp/xdp_prog
+# Load with bpftool 'loadall' because the object has TWO XDP
+# programs (xdp_prog entry + parser_prog tail-call) both in
+# SEC("xdp"). 'ip link set xdpgeneric obj ... sec xdp' would only
+# pick one and skip the other, causing maps referenced only by the
+# skipped prog (xsks_map, referenced by xdp_prog) to never be
+# created. bpftool loadall loads every program in the object.
+#
+# We don't specify 'pinmaps' -- the xsks_map has
+# LIBBPF_PIN_BY_NAME in its struct definition, so libbpf auto-pins
+# it at /sys/fs/bpf/xsks_map, which is DEFAULT_XSKMAP_PATH.
+mkdir -p /sys/fs/bpf/xdp2-af-xdp
+bpftool prog loadall "$xdp_obj" /sys/fs/bpf/xdp2-af-xdp type xdp
 
-    if [[ ! -e '$XSKS_MAP_EXPECTED' ]]; then
-        echo 'ERROR: xsks_map not auto-pinned at $XSKS_MAP_EXPECTED' >&2
-        ls -la /sys/fs/bpf/ /sys/fs/bpf/xdp2-af-xdp/ >&2
-        exit 1
-    fi
-"
+# Attach the main entry program to the interface.
+ip link set dev "$iface" xdpgeneric pinned /sys/fs/bpf/xdp2-af-xdp/xdp_prog
+
+if [[ ! -e "$xsks" ]]; then
+    echo "ERROR: xsks_map not auto-pinned at $xsks" >&2
+    ls -la /sys/fs/bpf/ /sys/fs/bpf/xdp2-af-xdp/ >&2
+    exit 1
+fi
+REMOTE_EOF
 echo "XDP program loaded; xsks_map pinned at $XSKS_MAP_EXPECTED."
 echo ""
 
-# Figure out target IPs on the peer link (ask the target).
-TARGET_IP=$(ssh "root@$TARGET" \
-    "ip -4 -o addr show dev '$INTERFACE' | awk '{print \$4}' | cut -d/ -f1 | head -1")
+# Figure out target IP + MAC on the peer link (ask the target). pktgen
+# needs both: dst IP goes in the L3 header, dst MAC in L2 (pktgen
+# doesn't ARP — we feed it the MAC directly).
+TARGET_IP=$(ssh "root@$TARGET" bash -s -- "$INTERFACE" <<'REMOTE_EOF'
+ip -4 -o addr show dev "$1" | awk '{print $4}' | cut -d/ -f1 | head -1
+REMOTE_EOF
+)
 if [[ -z "$TARGET_IP" ]]; then
     echo "ERROR: no IPv4 on $TARGET:$INTERFACE" >&2
     exit 5
 fi
-echo "Target IP on $INTERFACE: $TARGET_IP"
+TARGET_MAC=$(ssh "root@$TARGET" bash -s -- "$INTERFACE" <<'REMOTE_EOF'
+cat /sys/class/net/"$1"/address
+REMOTE_EOF
+)
+if [[ -z "$TARGET_MAC" ]]; then
+    echo "ERROR: no MAC for $TARGET:$INTERFACE" >&2
+    exit 5
+fi
+echo "Target IP/MAC on $INTERFACE: $TARGET_IP / $TARGET_MAC"
 echo ""
 
-# ─── Launch traffic on peer (background) ──────────────────────
-echo "--- Launching traffic on $PEER ---"
-WRK_LOG="$RESULT_DIR/wrk2.log"
-SSH_LOG="$RESULT_DIR/ssh-keepalive.log"
+# ─── Stage pktgen driver on peer ──────────────────────────────
+echo "--- Staging pktgen driver on $PEER ---"
+if [[ ! -f "$PKTGEN_SCRIPT" ]]; then
+    echo "ERROR: pktgen driver not found at $PKTGEN_SCRIPT" >&2
+    exit 8
+fi
+scp -q -o StrictHostKeyChecking=no "$PKTGEN_SCRIPT" "root@$PEER:$PKTGEN_SCRIPT_REMOTE"
+ssh "root@$PEER" bash -s -- "$PKTGEN_SCRIPT_REMOTE" <<'REMOTE_EOF'
+chmod +x "$1"
+REMOTE_EOF
 
-# wrk2 against https. Insecure flag for the snake-oil cert.
-ssh "root@$PEER" \
-    "nohup wrk2 -t$WRK_THREADS -c$WRK_CONNS -d$((DURATION + 5))s -R$WRK_RATE https://$TARGET_IP/ \
-       >/tmp/wrk2.log 2>&1 &" </dev/null
-# A handful of SSH packets on TCP/22 to keep queue $QUEUE_SSH warm.
-# '-N' = no remote command; 'sleep' keeps the session alive.
-ssh "root@$PEER" \
-    "nohup ssh -o StrictHostKeyChecking=no -N root@$TARGET \
-       >/tmp/ssh-keepalive.log 2>&1 &
-     sleep 0.1; echo ssh-keepalive started" </dev/null
+# ─── Launch traffic on peer ───────────────────────────────────
+echo ""
+echo "--- Launching kernel pktgen on $PEER ---"
+PKTGEN_LOG="$RESULT_DIR/pktgen-start.log"
+# Pass argv through the single-quoted heredoc: the remote bash sees
+# all dev-box values as positional params "$@" and execs a command
+# assembled from them. No client-side interpolation inside the heredoc.
+ssh "root@$PEER" bash -s -- \
+    "$PKTGEN_SCRIPT_REMOTE" start "$INTERFACE" "$TARGET_IP" "$TARGET_MAC" \
+    --dport "$DPORT" --pkt-size "$PKTGEN_PKT_SIZE" \
+    --threads "$PKTGEN_THREADS" --rate "$PKTGEN_RATE" \
+    <<'REMOTE_EOF' 2>&1 | tee "$PKTGEN_LOG"
+exec bash "$@"
+REMOTE_EOF
+PKTGEN_STARTED=1
 
-echo "wrk2 + ssh keepalive started on $PEER; warming up 2s..."
+echo "pktgen running on $PEER; warming up 2s..."
 sleep 2
 
 # ─── Run xdp2-bench on target ─────────────────────────────────
 echo ""
 echo "--- Running xdp2-bench on $TARGET (${DURATION}s) ---"
-BENCH_ARGS="--mode af-xdp-template --interface $INTERFACE --duration $DURATION"
-BENCH_ARGS="$BENCH_ARGS --queue-template $QUEUE_SSH=$TEMPLATE_SSH"
-BENCH_ARGS="$BENCH_ARGS --queue-template $QUEUE_HTTPS=$TEMPLATE_HTTPS"
-[[ -n "$CORE_PIN" ]] && BENCH_ARGS="$BENCH_ARGS --core-pin $CORE_PIN"
+# Build as a bash array so the flags pass through to ssh as separate
+# argv items. No shell-command string means no SC2029 concern.
+BENCH_ARGS=(--mode af-xdp-template --interface "$INTERFACE" --duration "$DURATION")
+BENCH_ARGS+=(--queue-template "$QUEUE=$TEMPLATE")
+[[ -n "$CORE_PIN" ]] && BENCH_ARGS+=(--core-pin "$CORE_PIN")
 
 BENCH_OUT="$RESULT_DIR/xdp2-bench-af-xdp-template.txt"
-ssh "root@$TARGET" "$BENCH_PATH $BENCH_ARGS" 2>&1 | tee "$BENCH_OUT"
+# Ship BENCH_PATH + BENCH_ARGS through a single-quoted heredoc so the
+# remote shell re-executes argv verbatim — no client-side interpolation.
+ssh "root@$TARGET" bash -s -- "$BENCH_PATH" "${BENCH_ARGS[@]}" \
+    <<'REMOTE_EOF' 2>&1 | tee "$BENCH_OUT"
+exec "$@"
+REMOTE_EOF
 
-# ─── Clean up peer processes ──────────────────────────────────
+# ─── Capture final peer counters (stop + detach run via EXIT trap) ─
 echo ""
-echo "--- Cleaning up traffic on $PEER ---"
-ssh "root@$PEER" 'pkill -f "wrk2.*'"$TARGET_IP"'" 2>/dev/null || true; pkill -f "ssh -N root@'"$TARGET"'" 2>/dev/null || true'
-ssh "root@$PEER" "cat /tmp/wrk2.log" > "$WRK_LOG" 2>/dev/null || true
-ssh "root@$PEER" "cat /tmp/ssh-keepalive.log" > "$SSH_LOG" 2>/dev/null || true
+echo "--- Capturing pktgen final counters on $PEER ---"
+ssh "root@$PEER" bash -s -- "$PKTGEN_SCRIPT_REMOTE" <<'REMOTE_EOF' \
+    > "$RESULT_DIR/pktgen-final-status.log" 2>&1 || true
+bash "$1" status 2>/dev/null || true
+REMOTE_EOF
 
-# XDP detach happens via the EXIT trap (cleanup_xdp).
+# pktgen stop + XDP detach both happen in cleanup_all (EXIT trap).
 
 # ─── Summary ──────────────────────────────────────────────────
 echo ""
@@ -280,6 +359,7 @@ echo ""
 echo "Artifacts saved in $RESULT_DIR:"
 ls -1 "$RESULT_DIR"
 echo ""
-echo "Reminder: nginx handshakes on queue 0 (ephemeral ports); bulk"
-echo "TCP/443 data is redirected via AF_XDP and bypasses nginx entirely."
+echo "Reminder: pktgen is open-loop UDP — no handshakes, no ACKs. The"
+echo "Flow Director rule (UDP/$DPORT -> q$QUEUE) steers every pktgen"
+echo "packet to AF_XDP; nothing touches the kernel UDP stack."
 echo "See docs/ntuple-template-bench.md for the measurement model."
