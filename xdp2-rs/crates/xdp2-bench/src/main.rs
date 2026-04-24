@@ -589,6 +589,9 @@ fn run_af_xdp_per_queue_template(cli: &Cli) {
         batch_size: cli.batch_size,
         bind_flags,
         need_wakeup: cli.need_wakeup,
+        rx_ring_size: cli.rx_ring_size,
+        fill_ring_size: cli.fill_ring_size,
+        frame_count: cli.frame_count,
     };
 
     match af_xdp_template::run_af_xdp_template(
@@ -688,6 +691,9 @@ fn run_af_xdp(cli: &Cli) {
         batch_size: cli.batch_size,
         bind_flags,
         need_wakeup: cli.need_wakeup,
+        rx_ring_size: cli.rx_ring_size,
+        fill_ring_size: cli.fill_ring_size,
+        frame_count: cli.frame_count,
     };
 
     if cli.queues <= 1 {

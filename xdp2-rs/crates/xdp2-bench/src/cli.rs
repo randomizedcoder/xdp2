@@ -159,6 +159,24 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub need_wakeup: bool,
 
+    /// Override the AF_XDP RX ring size (power of 2; crate default 2048).
+    /// Used by Deliverable-3 RX-drop diagnostics — larger rings absorb
+    /// more in-flight descriptors before busy-poll drains.
+    #[arg(long)]
+    pub rx_ring_size: Option<u32>,
+
+    /// Override the AF_XDP fill ring size (power of 2; crate default 2048).
+    /// Tight fill rings at ≥1 Mpps with busy-poll stall recycling; bump
+    /// to 4096/8192 to test RX-drop hypotheses.
+    #[arg(long)]
+    pub fill_ring_size: Option<u32>,
+
+    /// Override the UMEM frame count (crate default 4096 = 16 MiB at
+    /// 4 KiB frames). Larger counts give the fill ring more headroom
+    /// for bursty arrivals and reduce drop rates under load.
+    #[arg(long)]
+    pub frame_count: Option<u32>,
+
     /// Emit machine-parseable JSON report to stdout instead of
     /// human-readable text. Suitable for automated collection.
     #[arg(long)]

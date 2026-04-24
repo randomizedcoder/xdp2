@@ -49,6 +49,12 @@ pub struct RunConfig {
     pub batch_size: usize,
     pub bind_flags: u16,
     pub need_wakeup: bool,
+    /// Override AF_XDP RX ring size. `None` = use xdp2-af-xdp default (2048).
+    pub rx_ring_size: Option<u32>,
+    /// Override AF_XDP fill ring size. `None` = use default (2048).
+    pub fill_ring_size: Option<u32>,
+    /// Override UMEM frame count. `None` = use default (4096, 16 MiB).
+    pub frame_count: Option<u32>,
 }
 
 impl Default for RunConfig {
@@ -59,6 +65,9 @@ impl Default for RunConfig {
             batch_size: 64,
             bind_flags: 0,
             need_wakeup: false,
+            rx_ring_size: None,
+            fill_ring_size: None,
+            frame_count: None,
         }
     }
 }
@@ -88,15 +97,28 @@ where
         bind_flags |= xdp2_af_xdp::sys::XDP_USE_NEED_WAKEUP;
     }
 
+    let mut umem_cfg = UmemConfig {
+        huge_pages: cfg.huge_pages,
+        ..UmemConfig::default()
+    };
+    if let Some(n) = cfg.frame_count {
+        umem_cfg.frame_count = n;
+    }
+
+    let mut socket_cfg = SocketConfig {
+        bind_flags,
+        ..SocketConfig::default()
+    };
+    if let Some(n) = cfg.rx_ring_size {
+        socket_cfg.rx_ring_size = n;
+    }
+    if let Some(n) = cfg.fill_ring_size {
+        socket_cfg.fill_ring_size = n;
+    }
+
     let config = Config {
-        umem: UmemConfig {
-            huge_pages: cfg.huge_pages,
-            ..UmemConfig::default()
-        },
-        socket: SocketConfig {
-            bind_flags,
-            ..SocketConfig::default()
-        },
+        umem: umem_cfg,
+        socket: socket_cfg,
     };
     let mut xsk = XskSocket::bind(ifname, queue_id, config)
         .map_err(|e| format!("AF_XDP bind failed: {e}"))?;
