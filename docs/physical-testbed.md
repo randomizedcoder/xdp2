@@ -508,11 +508,73 @@ for the "Live Ntuple + Template" section where results are recorded.
 Prerequisite: target host sets `xdp2.testbed.flowDirectorRules` and
 `xdp2.testbed.realServicesBench = true` (see §6 above).
 
+#### Category H live progress (2026-04-24, hp2 → hp5)
+
+The orchestrator graduated past "smoke test" this session. The
+end-to-end path is now: kernel pktgen on hp2 (peer) → 10 GbE fibre →
+X710 i40e Flow Director (UDP/443 → queue 1) on hp5 (target) →
+**native XDP** program (`xdpdrv`, not `xdpgeneric`) → **AF_XDP
+zero-copy** socket → `xdp2-bench --mode af-xdp-template` dispatching
+through `EthIpv4Udp` with no software classification.
+
+Wiring confirmations baked into the orchestrator (verified live):
+
+- `XDP_MODE=xdpdrv (native — i40e ndo_bpf path)` printed at attach
+  time; falls back to `xdpgeneric` only if native attach fails.
+- `ip link show enp1s0f0np0` reports `xdp` (native), not `xdpgeneric`.
+- `AF_XDP: busy-poll enabled (50us timeout)` printed at bind time
+  via the `--busy-poll` CLI flag.
+- `--zero-copy` and `--need-wakeup` are passed to `xdp2-bench` by
+  default; flip with `ZEROCOPY=0` / `NEED_WAKEUP=0` env vars to A/B.
+
+Measured throughput, sweep across packet size and pktgen thread count:
+
+| Run | Pkt size | pktgen threads | Sent (Mpkts/30s) | Received (Mpkts) | Mpps RX | ns/pkt | Bottleneck |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Baseline (`xdpgeneric` + copy mode) | 1400 B | 2 | 28.4 | 19.7 | 0.66 | 1524 | 10 GbE line rate |
+| `xdpdrv` + ZC + busy-poll | 1400 B | 2 | 28.0 | 19.5 | 0.65 | 1541 | 10 GbE line rate |
+| `xdpdrv` + ZC + busy-poll | 64 B | 4 | 44.4 | 41.2 | 1.37 | 727 | pktgen TX cap (~1.48 Mpps) |
+| `xdpdrv` + ZC + busy-poll | 64 B | 6 | 44.5 | 41.0 | 1.37 | 732 | pktgen TX cap, unchanged |
+
+Read this table carefully: the 1500-ns figure in the first two rows is
+**not a parser cost** — it is `1 / Mpps × 10⁹` while we are at 10 GbE
+line rate for 1418-byte frames (≈ 880 kpps theoretical max). The
+parser is finishing every packet inside that interval; we just
+cannot drive packets across the wire faster. Going to 64-byte
+frames lifts the bandwidth ceiling but immediately exposes the next
+ceiling: hp2's kernel pktgen tops out at ~1.48 Mpps total regardless
+of thread count, even with `clone_skb 100000` already configured.
+Per-thread output of ~250 kpps is well below what kernel pktgen
+should produce on a Xeon-class host, so this is its own bug to
+chase, not a parser limit. We have not measured the parser-only
+ceiling yet; doing so requires either fixing the pktgen TX cap on
+hp2 or driving load with DPDK / a userspace generator. See §13.
+
+Receiver behaviour at 1.37 Mpps RX showed ~7.8% drops (sent 44.5M,
+received 41.0M). That is **not** the line-rate ceiling — it is the
+receiver dropping packets that pktgen managed to actually emit. The
+RX-side drop is unwelcome and will be diagnosed in a follow-up: top
+suspects are RX ring depth, NAPI budget, or `XDP_USE_NEED_WAKEUP`
+handling under bursty arrival. We've documented it rather than
+hiding it because the diagnosis is the testbed's value-add.
+
+A run produces these artifacts under
+`perf-results/${host}/ntuple-template-bench-${ts}/`:
+
+- `ntuple-rules.txt` — `ethtool -n` snapshot proving the FD rule was
+  in place when the bench started.
+- `xdp2-bench-af-xdp-template.txt` — the per-queue Mpps / ns/pkt
+  table, including the "AF_XDP: busy-poll enabled" / "registered in
+  XSKMAP" wiring lines so future-you can confirm the fast path.
+- `pktgen-start.log` / `pktgen-final-status.log` — TX-side counters
+  per thread, the input to "is the receiver dropping or is pktgen
+  not even sending?" diagnosis.
+
 Categories F (XDP samples) and G (AF_XDP throughput) remain future
 work; the pieces are in place:
 
 - The X710 NIC supports XDP native mode and AF_XDP zero-copy with the
-  i40e driver in 6.18.21.
+  i40e driver in 6.18.21 — verified live above.
 - `xdp2-flow-loader` from the `xdp2-flow-ebpf` bundle attaches the BPF
   program to a named ifname (`-i enp1s0f0np0`) and reads RX queues.
 - `iperf3` / `pktgen` / a custom traffic generator on the peer host
@@ -687,6 +749,22 @@ and lean on the testbed once they land.
 - **AF_XDP throughput suite** (category G in §9). Wraps
   `xdp2-flow-loader` + `pktgen` (or a Rust traffic generator) into a
   Nix target that returns `{ pps, bps, drops }` JSON.
+- **Diagnose hp2 kernel pktgen TX cap** (~1.48 Mpps total regardless
+  of thread count, despite `clone_skb 100000`). Suspects: NIC TX
+  ring contention, IRQ pinning on hp2, or per-thread CPU governor
+  scaling. Required before category H can claim a parser ceiling
+  number rather than a generator ceiling number. See §9 Category H
+  live progress.
+- **DPDK / userspace traffic generator alternative.** Kernel pktgen
+  is a known soft cap; if the diagnosis above does not lift the
+  ~1.48 Mpps wall, swap the peer-side generator for DPDK pktgen or
+  a Rust-based AF_PACKET sender to expose the parser's real
+  ceiling. The orchestrator already isolates peer-side traffic
+  generation behind `PKTGEN_SCRIPT`, so the swap is local.
+- **Investigate the RX-side ~7.8% drop at 1.37 Mpps** observed in
+  the category H table. With native XDP + zerocopy + busy-poll
+  already wired, candidates are RX ring depth, NAPI budget,
+  `XDP_USE_NEED_WAKEUP` handling, or AF_XDP fill-ring sizing.
 - **Hardware ntuple offload tests** (category H). Verifies that
   `ethtool -N enp1s0f0np0 flow-type tcp4 …` rules survive, fire on the
   expected packets, and route to the correct RX queue.
@@ -738,6 +816,30 @@ and lean on the testbed once they land.
    in-memory PCAP corpora; hp2 has the faster memory clock. For the
    workload sizes the matrix currently exercises (MiBs, not GiBs),
    neither difference is load-bearing — see § 2 "Asymmetric RAM".
+
+9. **Kernel pktgen on hp2 caps at ~1.48 Mpps regardless of thread
+   count** (measured 2026-04-24, see §9 Category H live progress).
+   With 64-byte UDP packets, `clone_skb 100000`, and `delay 0`,
+   total TX is ~1.48 Mpps whether you set `THREADS=2`, `4`, or `6`.
+   Per-thread output of ~250 kpps is well below what kernel pktgen
+   should produce on this CPU class — likely NIC TX-ring contention
+   or kpktgend per-thread CPU pinning. Until this is fixed, category
+   H numbers reflect a *generator* ceiling, not a parser ceiling.
+   See §13 Future work for the diagnosis plan.
+
+10. **`xdpgeneric` vs `xdpdrv` attach mode is silent.** The
+    `ip link set dev <iface> xdp pinned ...` form picks whichever
+    mode the kernel can attach without telling you which it picked.
+    The category H orchestrator now explicitly tries
+    `xdpdrv` first, falls back to `xdpgeneric` only if native attach
+    fails, and prints `XDP_MODE=xdpdrv` (or `xdpgeneric (FALLBACK)`)
+    so the test log shows what actually happened. **Important
+    consequence:** AF_XDP `XDP_ZEROCOPY` only works under native
+    attach — if you set the flag while the program is in
+    `xdpgeneric` mode the kernel silently falls back to copy mode
+    and you measure copy-mode performance under what you think is
+    a zerocopy bind. Always verify post-attach via `ip link show
+    <iface>` (look for the `xdp/id` flag, *not* `xdpgeneric/id`).
 
 9. **Lab L3 unicast was broken 2026-04-22 — resolved same day (root cause:
    `/30` mask too tight for `.2`/`.5` address pair; fixed by switching to

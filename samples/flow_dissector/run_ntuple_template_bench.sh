@@ -39,6 +39,19 @@ PKTGEN_PKT_SIZE=1400
 PKTGEN_THREADS=2
 PKTGEN_RATE=0   # 0 = unlimited (as fast as the thread can push)
 CORE_PIN=""
+# AF_XDP fast-path tunables. Defaults assume native XDP attach succeeds
+# (i40e/X710 supports it). Override via env vars to A/B test.
+#   ZEROCOPY=1     — XDP_ZEROCOPY: kernel hands RX descs straight into
+#                    UMEM. No copy. Only works with native XDP attach;
+#                    if attach falls back to xdpgeneric this flag is
+#                    ignored by the kernel.
+#   NEED_WAKEUP=1  — XDP_USE_NEED_WAKEUP: app polls fill ring only when
+#                    kernel signals; cuts unconditional sendto() syscalls.
+#   BUSY_POLL_US=50 — kernel busy-poll timeout. Beats the default
+#                    poll(10ms) latency for low-rate streams.
+ZEROCOPY="${ZEROCOPY:-1}"
+NEED_WAKEUP="${NEED_WAKEUP:-1}"
+BUSY_POLL_US="${BUSY_POLL_US:-50}"
 
 # Path to af_xdp_parser.xdp.o on the local dev box. The nix wrapper
 # (nix/ntuple-template-bench.nix) passes this in via XDP_OBJ. If unset,
@@ -211,6 +224,7 @@ iface=$1
 xsks=$2
 xdp_obj=$3
 ip link set dev "$iface" xdpgeneric off 2>/dev/null || true
+ip link set dev "$iface" xdpdrv off 2>/dev/null || true
 ip link set dev "$iface" xdp off 2>/dev/null || true
 rm -f "$xsks" 2>/dev/null || true
 rm -f /sys/fs/bpf/xdp2-af-xdp/* 2>/dev/null || true
@@ -239,6 +253,7 @@ xdp_obj=$4
 
 # Detach any stale XDP prog first (idempotent).
 ip link set dev "$iface" xdpgeneric off 2>/dev/null || true
+ip link set dev "$iface" xdpdrv off 2>/dev/null || true
 ip link set dev "$iface" xdp off 2>/dev/null || true
 rm -f "$xsks" 2>/dev/null || true
 rm -f "$xsks_legacy" 2>/dev/null || true
@@ -257,8 +272,18 @@ rm -f /sys/fs/bpf/ctx_map /sys/fs/bpf/parsers /sys/fs/bpf/af_xdp_stats 2>/dev/nu
 mkdir -p /sys/fs/bpf/xdp2-af-xdp
 bpftool prog loadall "$xdp_obj" /sys/fs/bpf/xdp2-af-xdp type xdp
 
-# Attach the main entry program to the interface.
-ip link set dev "$iface" xdpgeneric pinned /sys/fs/bpf/xdp2-af-xdp/xdp_prog
+# Attach the main entry program. Try native (xdpdrv) first — on i40e/X710
+# this is the only path that can hit line-rate; xdpgeneric is the SKB-mode
+# fallback that copies every packet through the kernel softirq path and
+# costs ~1500 ns/pkt overhead. If native attach fails (driver doesn't
+# implement ndo_bpf, or kernel/firmware mismatch), fall back to xdpgeneric
+# so the bench still produces a number rather than aborting.
+if ip link set dev "$iface" xdpdrv pinned /sys/fs/bpf/xdp2-af-xdp/xdp_prog 2>/dev/null; then
+    echo "XDP_MODE=xdpdrv (native — i40e ndo_bpf path)"
+else
+    echo "XDP_MODE=xdpgeneric (FALLBACK — native attach failed)" >&2
+    ip link set dev "$iface" xdpgeneric pinned /sys/fs/bpf/xdp2-af-xdp/xdp_prog
+fi
 
 if [[ ! -e "$xsks" ]]; then
     echo "ERROR: xsks_map not auto-pinned at $xsks" >&2
@@ -267,6 +292,14 @@ if [[ ! -e "$xsks" ]]; then
 fi
 REMOTE_EOF
 echo "XDP program loaded; xsks_map pinned at $XSKS_MAP_EXPECTED."
+# Post-attach verification: print the live XDP mode flag from `ip link
+# show`. Native attach reports `xdp/id N` (no `generic` prefix);
+# xdpgeneric reports `xdpgeneric`. If we asked for native and got
+# generic, --zero-copy will silently fail at bind time.
+echo "--- Live XDP attach mode on $TARGET:$INTERFACE ---"
+ssh "root@$TARGET" bash -s -- "$INTERFACE" <<'REMOTE_EOF'
+ip link show "$1" | grep -oE 'xdp(generic|drv)?[^ ]*' | head -1 || echo "no xdp prog attached"
+REMOTE_EOF
 echo ""
 
 # Figure out target IP + MAC on the peer link (ask the target). pktgen
@@ -329,6 +362,12 @@ echo "--- Running xdp2-bench on $TARGET (${DURATION}s) ---"
 BENCH_ARGS=(--mode af-xdp-template --interface "$INTERFACE" --duration "$DURATION")
 BENCH_ARGS+=(--queue-template "$QUEUE=$TEMPLATE")
 [[ -n "$CORE_PIN" ]] && BENCH_ARGS+=(--core-pin "$CORE_PIN")
+# Without --zero-copy / --need-wakeup / --busy-poll the bench runs
+# pure interrupt + copy mode AF_XDP, which caps at <1 Mpps on this
+# NIC regardless of XDP attach mode (validated 2026-04-24).
+[[ "$ZEROCOPY"    -eq 1 ]] && BENCH_ARGS+=(--zero-copy)
+[[ "$NEED_WAKEUP" -eq 1 ]] && BENCH_ARGS+=(--need-wakeup)
+[[ "$BUSY_POLL_US" -gt 0 ]] && BENCH_ARGS+=(--busy-poll "$BUSY_POLL_US")
 
 BENCH_OUT="$RESULT_DIR/xdp2-bench-af-xdp-template.txt"
 # Ship BENCH_PATH + BENCH_ARGS through a single-quoted heredoc so the
