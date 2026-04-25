@@ -180,6 +180,14 @@
         flowDissectorPktgenNtupleTemplate =
           import ./nix/pktgen-ntuple-template.nix { inherit pkgs; };
 
+        # Peer-side DPDK-pktgen driver, Deliverable-2 alternative for the
+        # hp2 kernel pktgen ~1.37 Mpps TX cap. Same start/stop/status
+        # CLI as the kernel variant so run_ntuple_template_bench.sh
+        # orchestrates either by swapping PKTGEN_SCRIPT. See
+        # docs/physical-testbed.md §13 Future work.
+        flowDissectorPktgenDpdkNtupleTemplate =
+          import ./nix/pktgen-dpdk-ntuple-template.nix { inherit pkgs; };
+
         # Live X710 ntuple + AF_XDP + template bench orchestrator —
         # drives a two-host run (target + peer) over SSH. Requires the
         # target to have xdp2.testbed.flowDirectorRules and
@@ -194,6 +202,17 @@
           # the orchestrator scp's a known-good store path, not a
           # `dirname "$0"` guess.
           pktgenDriver = flowDissectorPktgenNtupleTemplate;
+        };
+
+        # DPDK-driven variant of the above. The target side is
+        # identical (XDP attach + FD rules + AF_XDP); only PKTGEN_SCRIPT
+        # points at the DPDK pktgen driver. Requires the PEER host to
+        # have xdp2.testbed.dpdkBenchHost = true so vfio-pci is loaded
+        # and 1024×2MB hugepages are reserved at boot.
+        flowDissectorDpdkNtupleTemplateBench = import ./nix/dpdk-ntuple-template-bench.nix {
+          inherit pkgs;
+          xdpSamples = xdp-samples;
+          pktgenDpdkDriver = flowDissectorPktgenDpdkNtupleTemplate;
         };
 
         # Factory for one-shot testbed experiment wrappers. Each
@@ -549,6 +568,18 @@
           flow-dissector-pktgen-ntuple-template =
             flowDissectorPktgenNtupleTemplate;
 
+          # Deliverable-2: DPDK-pktgen variants.
+          # flow-dissector-pktgen-dpdk-ntuple-template — peer-side DPDK
+          #   pktgen driver (same CLI as the kernel variant).
+          # flow-dissector-dpdk-ntuple-template-bench — dev-box
+          #   orchestrator wrapping the DPDK driver.
+          # Requires the peer to have xdp2.testbed.dpdkBenchHost = true.
+          # Run:  nix run .#flow-dissector-dpdk-ntuple-template-bench -- hp5 hp2
+          flow-dissector-pktgen-dpdk-ntuple-template =
+            flowDissectorPktgenDpdkNtupleTemplate;
+          flow-dissector-dpdk-ntuple-template-bench =
+            flowDissectorDpdkNtupleTemplateBench;
+
           # ===================================================================
           # Deliverable-1 pktgen TX-cap diagnostic experiments.
           # Each target twists one tunable vs baseline and lands a
@@ -696,6 +727,51 @@
             expectation = "Modest drop reduction if softirq budget is the bottleneck.";
             envVars = { };
             benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          # ===================================================================
+          # Deliverable-2 DPDK-pktgen experiments. These bypass the
+          # kernel pktgen TX cap by taking over the peer's NIC with
+          # vfio-pci + DPDK userspace TX. Target side is unchanged.
+          # Requires hp2 (peer) to have xdp2.testbed.dpdkBenchHost=true
+          # for vfio-pci + 1024×2MB hugepages at boot. See
+          # docs/physical-testbed.md §13 Future work / Deliverable 2.
+          # Run:  nix run .#xdp2-exp-dpdk-<variant> -- hp5 hp2
+          # ===================================================================
+          xdp2-exp-dpdk-baseline = mkBenchExperiment {
+            name = "xdp2-exp-dpdk-baseline";
+            description = ''
+              Hypothesis: kernel pktgen on hp2/i40e is capped at
+              ~1.37 Mpps regardless of tuning (validated across D1's
+              five experiments). DPDK userspace TX via vfio-pci should
+              exceed that ceiling because it bypasses the kernel
+              softirq path entirely. Default lcore layout (1 main + 2
+              worker) — just prove the pipeline works end-to-end.
+            '';
+            expectation = "TX ≥ 5 Mpps at 64B if i40e PMD supports it on this NIC.";
+            envVars = { };
+            benchArgs = "-d 30 -s 64 -t 2";
+            benchTool = flowDissectorDpdkNtupleTemplateBench;
+            benchBin = "xdp2-flow-dissector-dpdk-ntuple-template-bench";
+          };
+
+          xdp2-exp-dpdk-multi-lcore = mkBenchExperiment {
+            name = "xdp2-exp-dpdk-multi-lcore";
+            description = ''
+              Hypothesis: a single DPDK TX lcore is PCIe-descriptor-
+              bound on the X710 single TX ring. Fanning out to 4
+              worker lcores spread across TX rings should approach the
+              40 GbE line rate at 64B (~59 Mpps). The peer-side driver
+              maps lcores via the EAL -l flag and assigns 4 workers to
+              port 0 via the PKTGEN_DPDK_LCORES override.
+            '';
+            expectation = "TX approaches line rate if the single-lcore ceiling is descriptor-bound.";
+            envVars = {
+              PKTGEN_DPDK_LCORES = "0@0,1@1,2@2,3@3,4@4";
+            };
+            benchArgs = "-d 30 -s 64 -t 4";
+            benchTool = flowDissectorDpdkNtupleTemplateBench;
+            benchBin = "xdp2-flow-dissector-dpdk-ntuple-template-bench";
           };
 
           # Build-time execution smoke — runs the matrix against an

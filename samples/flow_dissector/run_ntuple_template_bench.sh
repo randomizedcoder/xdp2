@@ -363,6 +363,11 @@ PKTGEN_CLONE_SKB="${PKTGEN_CLONE_SKB:-100000}"
 PKTGEN_QUEUE_MAP_MODE="${PKTGEN_QUEUE_MAP_MODE:-none}"
 PKTGEN_CPU_PIN_MODE="${PKTGEN_CPU_PIN_MODE:-none}"
 PKTGEN_CPU_OFFSET="${PKTGEN_CPU_OFFSET:-2}"
+# Deliverable-2 DPDK-pktgen tunables. Only consulted when PKTGEN_SCRIPT
+# points at the DPDK driver; the kernel pktgen driver ignores them.
+# Forwarded verbatim so swapping orchestrators is a one-env-var change.
+PKTGEN_DPDK_LCORES="${PKTGEN_DPDK_LCORES:-0@0,1@1,2@2}"
+PKTGEN_DPDK_SOCKET_MEM="${PKTGEN_DPDK_SOCKET_MEM:-1024}"
 # shellcheck disable=SC2087
 ssh "root@$PEER" bash -s -- \
     "$PKTGEN_SCRIPT_REMOTE" start "$INTERFACE" "$TARGET_IP" "$TARGET_MAC" \
@@ -374,6 +379,8 @@ export PKTGEN_CLONE_SKB="$PKTGEN_CLONE_SKB"
 export PKTGEN_QUEUE_MAP_MODE="$PKTGEN_QUEUE_MAP_MODE"
 export PKTGEN_CPU_PIN_MODE="$PKTGEN_CPU_PIN_MODE"
 export PKTGEN_CPU_OFFSET="$PKTGEN_CPU_OFFSET"
+export PKTGEN_DPDK_LCORES="$PKTGEN_DPDK_LCORES"
+export PKTGEN_DPDK_SOCKET_MEM="$PKTGEN_DPDK_SOCKET_MEM"
 exec bash "\$@"
 REMOTE_EOF
 PKTGEN_STARTED=1

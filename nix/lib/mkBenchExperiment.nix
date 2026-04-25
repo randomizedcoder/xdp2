@@ -40,6 +40,14 @@
 , envVars ? { }
 , benchArgs ? ""
 , expectation ? ""
+  # Optional overrides for the Deliverable-2 DPDK orchestrator path.
+  # Default is today's kernel-pktgen orchestrator; D2 experiments set
+  # these to the DPDK orchestrator derivation + its binary name. The
+  # summary-scraping/parse logic is identical either way because
+  # run_ntuple_template_bench.sh is the single source of truth and
+  # only PKTGEN_SCRIPT differs between the two orchestrators.
+, benchTool ? ntupleTemplateBench
+, benchBin ? "xdp2-flow-dissector-ntuple-template-bench"
 }:
 
 let
@@ -58,7 +66,7 @@ pkgs.writeShellApplication {
   inherit name;
 
   runtimeInputs = [
-    ntupleTemplateBench
+    benchTool
     pkgs.coreutils
     pkgs.gawk
     pkgs.gnugrep
@@ -100,7 +108,7 @@ __BANNER__
     BENCH_LOG="$EXP_DIR/run.log"
     set +e
     # shellcheck disable=SC2086
-    xdp2-flow-dissector-ntuple-template-bench ${benchArgs} "$@" "$TARGET" "$PEER" \
+    ${benchBin} ${benchArgs} "$@" "$TARGET" "$PEER" \
         2>&1 | tee "$BENCH_LOG"
     rc=''${PIPESTATUS[0]}
     set -e
