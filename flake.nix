@@ -549,6 +549,84 @@
           flow-dissector-pktgen-ntuple-template =
             flowDissectorPktgenNtupleTemplate;
 
+          # ===================================================================
+          # Deliverable-1 pktgen TX-cap diagnostic experiments.
+          # Each target twists one tunable vs baseline and lands a
+          # summary.json in perf-results/<target>/exp-<name>-<ts>/.
+          # See docs/physical-testbed.md §9 Category H + §13.
+          # Run:  nix run .#xdp2-exp-pktgen-<variant> -- hp5 hp2
+          # ===================================================================
+          xdp2-exp-pktgen-baseline = mkBenchExperiment {
+            name = "xdp2-exp-pktgen-baseline";
+            description = ''
+              Regression check: today's defaults unchanged. Proves the
+              experiment wrapper doesn't itself perturb the measurement.
+            '';
+            expectation = "RX ~1.37 Mpps at 64B/6T (within run-to-run noise).";
+            envVars = { };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-pktgen-burst-32 = mkBenchExperiment {
+            name = "xdp2-exp-pktgen-burst-32";
+            description = ''
+              Hypothesis: kernel pktgen defaults to burst=1, so each
+              kpktgend wake sends exactly one packet. burst=32
+              amortises softirq overhead and should lift TX if the
+              ceiling is softirq-bound.
+            '';
+            expectation = "TX ≥ 3 Mpps if the softirq-per-packet cost dominates.";
+            envVars = { PKTGEN_BURST = "32"; };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-pktgen-queue-map = mkBenchExperiment {
+            name = "xdp2-exp-pktgen-queue-map";
+            description = ''
+              Hypothesis: without queue_map_min/max, multiple pktgen
+              threads collide on a single X710 TX ring. Pinning each
+              thread to its own TX queue should fan the load out
+              deterministically across the NIC's TX rings.
+            '';
+            expectation = "TX ≥ 6 Mpps if (burst=32)+(per-thread TX queues) clears the cap.";
+            envVars = {
+              PKTGEN_BURST = "32";
+              PKTGEN_QUEUE_MAP_MODE = "per-thread";
+            };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-pktgen-cpu-pin = mkBenchExperiment {
+            name = "xdp2-exp-pktgen-cpu-pin";
+            description = ''
+              Hypothesis: kpktgend_0..5 float on housekeeping CPUs 0/1
+              where sshd + nix-daemon live. Shifting to isolcpus-aligned
+              starts binding at kpktgend_''${PKTGEN_CPU_OFFSET:-2} so the
+              generator runs only on isolated cores.
+            '';
+            expectation = "Marginal Mpps gain (≤5%) or jitter reduction vs queue-map alone.";
+            envVars = {
+              PKTGEN_BURST = "32";
+              PKTGEN_QUEUE_MAP_MODE = "per-thread";
+              PKTGEN_CPU_PIN_MODE = "isolcpus-aligned";
+            };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-pktgen-cloneskb-zero = mkBenchExperiment {
+            name = "xdp2-exp-pktgen-cloneskb-zero";
+            description = ''
+              Diagnostic: does clone_skb 100000 actually help? clone_skb
+              reuses the skb buffer; if the bottleneck is TX descriptor
+              recycling on i40e rather than skb alloc, this is
+              irrelevant. clone_skb=0 forces a fresh skb per packet.
+              Regression vs baseline proves skb reuse matters.
+            '';
+            expectation = "TX drop vs baseline if skb reuse is load-bearing; flat if not.";
+            envVars = { PKTGEN_CLONE_SKB = "0"; };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
           # Build-time execution smoke — runs the matrix against an
           # in-tree PCAP and captures results to $out/matrix.txt. Ways
           # 4–6 degrade to N/A in the sandbox (no CAP_BPF); ways 1–3
