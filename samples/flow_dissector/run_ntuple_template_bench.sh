@@ -52,6 +52,16 @@ CORE_PIN=""
 ZEROCOPY="${ZEROCOPY:-1}"
 NEED_WAKEUP="${NEED_WAKEUP:-1}"
 BUSY_POLL_US="${BUSY_POLL_US:-50}"
+# Deliverable-3 AF_XDP ring/UMEM sizing overrides. Each defaults to
+# empty ("use xdp2-af-xdp crate defaults: rx=2048/fill=2048/frames=4096").
+# Set nonempty to pass --rx-ring-size / --fill-ring-size / --frame-count
+# through to xdp2-bench — the RX-drop diagnosis in docs/physical-testbed.md
+# §13 hypothesises that the default fill ring (2048) is too tight at
+# ≥1.37 Mpps + busy-poll to absorb momentary stalls. A paired experiment
+# sets RX_RING=4096 FILL_RING=4096 FRAME_COUNT=16384 to test it.
+RX_RING="${RX_RING:-}"
+FILL_RING="${FILL_RING:-}"
+FRAME_COUNT="${FRAME_COUNT:-}"
 
 # Path to af_xdp_parser.xdp.o on the local dev box. The nix wrapper
 # (nix/ntuple-template-bench.nix) passes this in via XDP_OBJ. If unset,
@@ -385,6 +395,13 @@ BENCH_ARGS+=(--queue-template "$QUEUE=$TEMPLATE")
 [[ "$ZEROCOPY"    -eq 1 ]] && BENCH_ARGS+=(--zero-copy)
 [[ "$NEED_WAKEUP" -eq 1 ]] && BENCH_ARGS+=(--need-wakeup)
 [[ "$BUSY_POLL_US" -gt 0 ]] && BENCH_ARGS+=(--busy-poll "$BUSY_POLL_US")
+# Deliverable-3 ring/frame overrides (only appended when caller set the
+# env var). Leaving them unset preserves today's behaviour — the bench
+# falls back to the xdp2-af-xdp crate defaults, so baseline experiments
+# stay comparable to pre-C6 runs.
+[[ -n "$RX_RING"     ]] && BENCH_ARGS+=(--rx-ring-size   "$RX_RING")
+[[ -n "$FILL_RING"   ]] && BENCH_ARGS+=(--fill-ring-size "$FILL_RING")
+[[ -n "$FRAME_COUNT" ]] && BENCH_ARGS+=(--frame-count    "$FRAME_COUNT")
 
 BENCH_OUT="$RESULT_DIR/xdp2-bench-af-xdp-template.txt"
 # Ship BENCH_PATH + BENCH_ARGS through a single-quoted heredoc so the

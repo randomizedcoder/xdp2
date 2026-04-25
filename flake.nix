@@ -627,6 +627,77 @@
             benchArgs = "-d 30 -s 64 -t 6";
           };
 
+          # ===================================================================
+          # Deliverable-3 AF_XDP RX-drop diagnostic experiments.
+          # The 7.8% RX drop at 1.37 Mpps + xdpdrv + ZC + busy-poll is
+          # currently unattributed — these four wrappers each flip one
+          # AF_XDP/kernel knob so the drop's root cause is bisectable.
+          # See docs/physical-testbed.md §13 Future-work + Appendix A #10.
+          # Run:  nix run .#xdp2-exp-afxdp-<variant> -- hp5 hp2
+          # ===================================================================
+          xdp2-exp-afxdp-rings-baseline = mkBenchExperiment {
+            name = "xdp2-exp-afxdp-rings-baseline";
+            description = ''
+              Regression check for the D3 series: crate defaults unchanged
+              (rx=2048, fill=2048, frames=4096). Produces the reference
+              drop% that every other D3 experiment is compared against.
+            '';
+            expectation = "Drop ≈ 7.8% at 1.37 Mpps (matches the §13 baseline).";
+            envVars = { };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-afxdp-rings-large = mkBenchExperiment {
+            name = "xdp2-exp-afxdp-rings-large";
+            description = ''
+              Hypothesis (ranked #1 in the plan): the default fill ring
+              (2048) + lazy refill at xdp2-bench/src/af_xdp.rs drains on
+              any stall at 1.37 Mpps + busy-poll latency. Doubling rx/
+              fill to 4096 and bumping frame_count to 16384 gives four
+              times the headroom. UMEM footprint rises 16 → 64 MiB —
+              negligible on hp5 (64 GiB RAM).
+            '';
+            expectation = "Drop approaches 0% if ring sizing is the bottleneck.";
+            envVars = {
+              RX_RING = "4096";
+              FILL_RING = "4096";
+              FRAME_COUNT = "16384";
+            };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-afxdp-busypoll-100 = mkBenchExperiment {
+            name = "xdp2-exp-afxdp-busypoll-100";
+            description = ''
+              Hypothesis #3: the 50µs busy-poll budget lets the kernel
+              fall back to NAPI-interrupt mode between bursts, adding
+              fill-ring refill latency. Doubling to 100µs keeps the
+              kernel in busy-poll longer. Independent of ring sizing —
+              leave RX/FILL/FRAME_COUNT at defaults so this isolates
+              the busy-poll knob.
+            '';
+            expectation = "Modest drop reduction if busy-poll gap is the bottleneck.";
+            envVars = { BUSY_POLL_US = "100"; };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
+          xdp2-exp-afxdp-netdev-budget = mkBenchExperiment {
+            name = "xdp2-exp-afxdp-netdev-budget";
+            description = ''
+              Hypothesis #4: softirq NAPI budget (default 300) caps how
+              many packets the kernel moves per softirq dispatch. This
+              experiment requires the hp5 host to already be running
+              the physical-testbed module with net.core.netdev_budget=600
+              (introduced in C4 as a mkDefault sysctl). The experiment
+              itself sets no env vars — it verifies the host-side bump
+              lands and the change is measurable. If hp5 still has 300,
+              the result will match the baseline; rebuild hp5 first.
+            '';
+            expectation = "Modest drop reduction if softirq budget is the bottleneck.";
+            envVars = { };
+            benchArgs = "-d 30 -s 64 -t 6";
+          };
+
           # Build-time execution smoke — runs the matrix against an
           # in-tree PCAP and captures results to $out/matrix.txt. Ways
           # 4–6 degrade to N/A in the sandbox (no CAP_BPF); ways 1–3
