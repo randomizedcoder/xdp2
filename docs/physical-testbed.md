@@ -615,6 +615,18 @@ load-bearing — every experiment ships with a hypothesis and a
 kill-criterion so a "did not lift the ceiling" outcome is itself a
 publishable result, not a build failure.
 
+##### Live results (2026-04-25, hp2 → hp5)
+
+| Target | ts | Sent | RX | Drop% | ns/pkt | Mpps | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `xdp2-exp-pktgen-baseline` | 20260425T131605 | 44.42 M | 41.15 M | 7.38% | 729 | 1.37 | Regression check passed: matches the 1.37 Mpps / 727 ns/pkt / 7.84% drop documented in the live-progress table within run-to-run noise. The `mkBenchExperiment` wrapper introduces no measurement perturbation. `summary.json` at `perf-results/hp5/exp-pktgen-baseline-20260425T131605/`. |
+| `xdp2-exp-pktgen-baseline` | 20260425T133523 | 44.48 M | 41.15 M | 7.48% | 729 | 1.37 | Re-run, identical config. Mpps + ns/pkt match prior run to two-decimal precision; drop% varied 0.10 pp. Confirms the baseline is reproducible — future experiment deltas are signal, not jitter. `summary.json` at `perf-results/hp5/exp-pktgen-baseline-20260425T133523/`. |
+
+Subsequent experiments will append rows to this table as they
+land. Each row's `summary.json` carries the hypothesis +
+expectation strings as provenance so later readers can attribute a
+number to the exact tunable difference that produced it.
+
 D1 kill-criterion: if all five D1 experiments leave TX ≤ 2 Mpps,
 hp2's kernel-pktgen-on-i40e is at a genuine kernel ceiling and the
 investigation pivots to D2. D2 kill-criterion: if DPDK pktgen also
