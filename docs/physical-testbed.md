@@ -624,6 +624,23 @@ publishable result, not a build failure.
 | `xdp2-exp-pktgen-burst-32` | 20260425T135212 | 133.79 M | 124.17 M | 7.19% | 241 | **4.14** | **Hypothesis (1) confirmed.** `PKTGEN_BURST=32` alone lifted RX 1.37 → 4.14 Mpps (3.02×) with a single env var; ns/pkt 729 → 241. The "1.48 Mpps pktgen TX cap" we documented in §9 Category H live progress was an artifact of pktgen's default `burst=1`, not a kernel-pktgen-on-i40e ceiling. Drop% stayed flat at ~7%, meaning the RX-side drop is proportional to TX rate (steady-state fill-ring/refill latency), not an absolute capacity wall — D3's `xdp2-exp-afxdp-rings-large` is the right next probe. `summary.json` at `perf-results/hp5/exp-pktgen-burst-32-20260425T135212/`. |
 | `xdp2-exp-pktgen-queue-map` | 20260425T140125 | 431.81 M | 220.20 M | 49.00% | 136 | **7.34** | **Hypothesis (2) confirmed; bottleneck has crossed the wire.** Adding per-thread `queue_map_min/max` (each kpktgend owns its own X710 TX ring) on top of `BURST=32` pushed pktgen TX to 431.8 M/30s = **14.39 Mpps — essentially 10 GbE line rate at 64-byte frames** (theoretical max 14.88 Mpps for 64B+24B preamble/IFG/FCS overhead). RX rose 4.14 → 7.34 Mpps (1.77×), ns/pkt 241 → 136. **D1 has answered its question:** kernel pktgen on hp2 is *not* the parser-measurement bottleneck once `burst` and `queue_map` are set. The new 49% drop is purely receiver-side (line rate arriving, half drained) and the right next probe is D3 `xdp2-exp-afxdp-rings-large` — fill-ring depth at line rate, exactly hypothesis (1) of D3. ns/pkt=136 is still inverted-rate, not parser cost; the parser is keeping up at this budget. `summary.json` at `perf-results/hp5/exp-pktgen-queue-map-20260425T140125/`. |
 | `xdp2-exp-pktgen-cpu-pin` | 20260425T161354 | 266.35 M | 149.69 M | 43.80% | 200 | 4.99 | **Hypothesis (3) refuted on this config.** Plan expected "marginal (≤5%) gain or jitter cut"; actual was a **−32% regression** vs queue-map (7.34 → 4.99 Mpps). Plausible cause: hp2's CPUs 2-7 are `isolcpus + nohz_full + rcu_nocbs`, and `nohz_full` disables the periodic tick on a CPU running only one task — kernel pktgen's softirq-driven TX path benefits from the tick, so pinning kpktgend onto the fully-isolated cores hurt rather than helped. The default kpktgend_0..5 placement on housekeeping CPUs 0-1 + isolated 2-5 happened to be the better mix. Real lab-notebook negative result: `cpu-pin` is not free when `isolcpus + nohz_full` overlap with where pktgen wants to live. **Also surfaced a driver bug:** switching `PKTGEN_CPU_PIN_MODE` between runs leaves stale device entries owned by the previous mode's thread set; the script's `rem_device_all` loop only walks the current mode's threads. Workaround: `modprobe -r pktgen && modprobe pktgen` on the peer between mode switches; permanent fix would be to walk *all* `/proc/net/pktgen/kpktgend_*` on cleanup. `summary.json` at `perf-results/hp5/exp-pktgen-cpu-pin-20260425T161354/`. |
+| `xdp2-exp-pktgen-cloneskb-zero` | 20260425T162513 | 40.92 M | 37.98 M | 7.20% | 789 | 1.27 | **Hypothesis (4) weakly confirmed.** With `CLONE_SKB=0` and otherwise-default tunables (no burst, no queue_map), RX dropped 1.37 → 1.27 Mpps (−7%) and ns/pkt rose 729 → 789. So skb reuse *does* help — but only marginally. With default `burst=1` the softirq-dispatch cost dominates, swamping any skb-alloc savings; clone_skb is load-bearing in a small way. Drop% essentially flat (7.20% vs 7.48%) confirms the receiver-side characteristic is steady-state at this rate regardless of skb reuse. `summary.json` at `perf-results/hp5/exp-pktgen-cloneskb-zero-20260425T162513/`. |
+
+**D1 finding (all five experiments complete):** kernel pktgen on hp2
+reaches **10 GbE line rate (~14.4 Mpps TX)** at 64-byte frames with
+`PKTGEN_BURST=32` + per-thread `queue_map_min/max` — burst-fix
+delivers most of the lift (3.02×), per-thread queues delivers the
+rest (1.77× on top). `cpu-pin` regressed because of an
+`isolcpus + nohz_full` interaction; `clone_skb` is a marginal
+nice-to-have. **Conclusion: kernel pktgen is no longer the
+parser-measurement bottleneck on hp2 once the right two env vars are
+set.** D2 (DPDK pktgen alternative) is therefore retained as a
+documented option, not the production path — the conditional plan
+outcome where "if `burst`+`queue_map` lifts kernel pktgen above the
+parser's ceiling, we don't need DPDK". The remaining bottleneck is
+receiver-side: AF_XDP currently drains 7.34 Mpps of the 14.4 Mpps
+arriving (49% drop), which is exactly the question D3 was written to
+answer.
 
 Subsequent experiments will append rows to this table as they
 land. Each row's `summary.json` carries the hypothesis +
