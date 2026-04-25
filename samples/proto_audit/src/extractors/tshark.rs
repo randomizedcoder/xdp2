@@ -229,6 +229,15 @@ pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
         "MMRP" => Some("mmrp"),
         "PVST" => Some("stp"),
         "RSTP" => Some("stp"),
+        // TWAMP/OWAMP: tshark uses dotted sub-dissector names
+        "TWAMP" => Some("twamp.test"),
+        "OWAMP" => Some("owamp.test"),
+        // MPLS Echo: tshark dissector name
+        "MPLS_Echo" => Some("mpls-echo"),
+        // PPP PAP: tshark uses "pap"
+        "PPP_PAP" => Some("pap"),
+        // MLD Report: tshark shows as icmpv6
+        "MLD_Report_v1" => Some("icmpv6"),
         _ => None,
     }
 }

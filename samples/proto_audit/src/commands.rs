@@ -2523,7 +2523,20 @@ pub(crate) fn cmd_validate(
 
     let tshark_proto = dissector
         .as_deref()
-        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d))
+        // Fallback: try dissector names from decode-as hints (e.g., TWAMP→twamp.test)
+        .or_else(|| {
+            hints.iter().find_map(|hint| {
+                hint.rsplit(',').next().and_then(|dname| {
+                    extractors::tshark::extract_protocol_from_pdml(&packets, dname)
+                })
+            })
+        })
+        // Fallback: try PDML name alias (for protocols where tshark layer name differs)
+        .or_else(|| {
+            extractors::tshark::pdml_name_alias(&effective_proto)
+                .and_then(|alias| extractors::tshark::extract_protocol_from_pdml(&packets, alias))
+        });
     let tshark_def = match tshark_proto {
         Some(pdml) => extractors::tshark::to_protocol_def(&pdml),
         None => {
