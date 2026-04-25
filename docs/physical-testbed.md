@@ -570,6 +570,74 @@ A run produces these artifacts under
   per thread, the input to "is the receiver dropping or is pktgen
   not even sending?" diagnosis.
 
+#### Per-experiment matrix (Deliverables 1, 2, 3)
+
+The two ceilings exposed in the table above (pktgen TX cap, RX-side
+drop) and the absence of a userspace generator alternative each have
+their own row of `xdp2-exp-*` Nix targets. Each target is a
+shellchecked `writeShellApplication` produced by the
+`mkBenchExperiment` factory at
+[`nix/lib/mkBenchExperiment.nix`](../nix/lib/mkBenchExperiment.nix).
+A run lands in
+`perf-results/${target}/exp-${shortname}-${ts}/` with `run.log`,
+`summary.json`, and `SUMMARY.md`. `summary.json` carries the
+hypothesis + expectation strings as provenance — the doc is the
+**lab notebook**, summary.json is the regression-friendly machine
+copy.
+
+Operator workflow:
+
+```bash
+# Re-run any single experiment
+nix run .#xdp2-exp-pktgen-baseline -- hp5 hp2
+
+# List every experiment exposed by the flake
+nix flake show 2>&1 | grep -E '^ +├── xdp2-exp-'
+```
+
+| Tier | Target | Tunable difference vs baseline | Expected |
+| --- | --- | --- | --- |
+| D1 (pktgen TX cap) | `xdp2-exp-pktgen-baseline` | none — regression check | Reproduces the 1.37 Mpps/64B baseline within noise |
+| D1 | `xdp2-exp-pktgen-burst-32` | `PKTGEN_BURST=32` | TX ≥ 3 Mpps if softirq-per-packet dominates |
+| D1 | `xdp2-exp-pktgen-queue-map` | + `PKTGEN_QUEUE_MAP_MODE=per-thread` | TX ≥ 6 Mpps if TX-ring contention dominates |
+| D1 | `xdp2-exp-pktgen-cpu-pin` | + `PKTGEN_CPU_PIN_MODE=isolcpus-aligned` | Marginal (≤5%) gain or jitter cut |
+| D1 | `xdp2-exp-pktgen-cloneskb-zero` | `PKTGEN_CLONE_SKB=0` | Regression vs baseline iff skb reuse is load-bearing |
+| D2 (DPDK alt) | `xdp2-exp-dpdk-baseline` | swap to DPDK pktgen on peer (vfio-pci) | TX ≥ 5 Mpps if i40e PMD supports it |
+| D2 | `xdp2-exp-dpdk-multi-lcore` | + `PKTGEN_DPDK_LCORES=0@0,1@1,2@2,3@3,4@4` | TX approaches 40 GbE line rate at 64B |
+| D3 (RX drop) | `xdp2-exp-afxdp-rings-baseline` | none — regression check | Reproduces the ~7.8% drop% baseline |
+| D3 | `xdp2-exp-afxdp-rings-large` | `RX_RING=4096 FILL_RING=4096 FRAME_COUNT=16384` | Drop → 0% if fill-ring depth is the limit |
+| D3 | `xdp2-exp-afxdp-busypoll-100` | `BUSY_POLL_US=100` | Modest drop reduction if NAPI gap is the limit |
+| D3 | `xdp2-exp-afxdp-netdev-budget` | host-side `net.core.netdev_budget=600` | Modest drop reduction if softirq budget is the limit |
+
+Result columns (Mpps / ns/pkt / drop%) are filled in from
+`summary.json` after each run. Today the **Expected** column is
+load-bearing — every experiment ships with a hypothesis and a
+kill-criterion so a "did not lift the ceiling" outcome is itself a
+publishable result, not a build failure.
+
+D1 kill-criterion: if all five D1 experiments leave TX ≤ 2 Mpps,
+hp2's kernel-pktgen-on-i40e is at a genuine kernel ceiling and the
+investigation pivots to D2. D2 kill-criterion: if DPDK pktgen also
+fails to exceed tuned kernel pktgen, write up the result — that is
+itself useful (PCIe / IOMMU / firmware ceiling). D3 kill-criterion:
+if all four leave drop ≥ 3%, the bottleneck is below
+instrumentation today (PCIe BW, IOMMU TLB, X710 firmware buffer
+caps).
+
+Pre-flight for D2: hp2 (peer) must be running NixOS with
+`xdp2.testbed.dpdkBenchHost = true` — the
+[`physical-testbed`](../nix/modules/physical-testbed.nix) module
+loads `vfio-pci`, sets `iommu=pt intel_iommu=on` on the kernel
+cmdline, and reserves 1024×2 MiB hugepages. The orchestrator's
+trap-driven cleanup restores the i40e driver after each run, but
+the kernel-cmdline / module bits must be in place before the first
+DPDK experiment can run.
+
+Pre-flight for D3 `netdev-budget`: hp5 (target) must already have
+been rebuilt against the C4 module change (new `mkDefault` sysctl
+`net.core.netdev_budget = 600`); without that the experiment sees
+the kernel default of 300 and reports a baseline-equivalent number.
+
 Categories F (XDP samples) and G (AF_XDP throughput) remain future
 work; the pieces are in place:
 
@@ -750,21 +818,29 @@ and lean on the testbed once they land.
   `xdp2-flow-loader` + `pktgen` (or a Rust traffic generator) into a
   Nix target that returns `{ pps, bps, drops }` JSON.
 - **Diagnose hp2 kernel pktgen TX cap** (~1.48 Mpps total regardless
-  of thread count, despite `clone_skb 100000`). Suspects: NIC TX
-  ring contention, IRQ pinning on hp2, or per-thread CPU governor
-  scaling. Required before category H can claim a parser ceiling
-  number rather than a generator ceiling number. See §9 Category H
-  live progress.
-- **DPDK / userspace traffic generator alternative.** Kernel pktgen
-  is a known soft cap; if the diagnosis above does not lift the
-  ~1.48 Mpps wall, swap the peer-side generator for DPDK pktgen or
-  a Rust-based AF_PACKET sender to expose the parser's real
-  ceiling. The orchestrator already isolates peer-side traffic
-  generation behind `PKTGEN_SCRIPT`, so the swap is local.
+  of thread count, despite `clone_skb 100000`). **Status: wired.**
+  Five Nix experiment targets `xdp2-exp-pktgen-{baseline,burst-32,
+  queue-map,cpu-pin,cloneskb-zero}` each twist one tunable
+  (`PKTGEN_BURST`, `PKTGEN_QUEUE_MAP_MODE`, `PKTGEN_CPU_PIN_MODE`,
+  `PKTGEN_CLONE_SKB`) and emit a comparable `summary.json`. See §9
+  Category H per-experiment matrix for hypotheses + kill-criterion;
+  required before category H can claim a parser ceiling number
+  rather than a generator ceiling number.
+- **DPDK / userspace traffic generator alternative.** **Status:
+  wired.** Two Nix experiment targets `xdp2-exp-dpdk-{baseline,
+  multi-lcore}` swap the peer-side generator for DPDK pktgen via
+  vfio-pci. The target side stays on i40e + Flow Director + AF_XDP
+  unchanged — only the peer's NIC is rebound. Pre-flight: hp2 must
+  have `xdp2.testbed.dpdkBenchHost = true`. See §9 Category H
+  per-experiment matrix.
 - **Investigate the RX-side ~7.8% drop at 1.37 Mpps** observed in
-  the category H table. With native XDP + zerocopy + busy-poll
-  already wired, candidates are RX ring depth, NAPI budget,
-  `XDP_USE_NEED_WAKEUP` handling, or AF_XDP fill-ring sizing.
+  the category H table. **Status: wired.** Four Nix experiment
+  targets `xdp2-exp-afxdp-{rings-baseline,rings-large,busypoll-100,
+  netdev-budget}` each isolate one candidate (fill-ring depth,
+  busy-poll budget, NAPI budget). The CLI overrides
+  `--rx-ring-size` / `--fill-ring-size` / `--frame-count` are
+  available on `xdp2-bench` for ad-hoc tuning outside the
+  experiment harness too.
 - **Hardware ntuple offload tests** (category H). Verifies that
   `ethtool -N enp1s0f0np0 flow-type tcp4 …` rules survive, fire on the
   expected packets, and route to the correct RX queue.
@@ -825,7 +901,9 @@ and lean on the testbed once they land.
    should produce on this CPU class — likely NIC TX-ring contention
    or kpktgend per-thread CPU pinning. Until this is fixed, category
    H numbers reflect a *generator* ceiling, not a parser ceiling.
-   See §13 Future work for the diagnosis plan.
+   Diagnosis is now wired as the D1 / D2 experiment scripts (see §9
+   Category H per-experiment matrix); §13 Future work flags those
+   `xdp2-exp-*` targets by name.
 
 10. **`xdpgeneric` vs `xdpdrv` attach mode is silent.** The
     `ip link set dev <iface> xdp pinned ...` form picks whichever
@@ -840,6 +918,11 @@ and lean on the testbed once they land.
     and you measure copy-mode performance under what you think is
     a zerocopy bind. Always verify post-attach via `ip link show
     <iface>` (look for the `xdp/id` flag, *not* `xdpgeneric/id`).
+    Related: the RX-side ~7.8% drop seen at 1.37 Mpps with native
+    XDP + ZC + busy-poll is being chased through the D3 experiment
+    matrix in §9 Category H — fill-ring depth, busy-poll budget,
+    and `net.core.netdev_budget` are each isolated by one
+    `xdp2-exp-afxdp-*` target.
 
 9. **Lab L3 unicast was broken 2026-04-22 — resolved same day (root cause:
    `/30` mask too tight for `.2`/`.5` address pair; fixed by switching to
