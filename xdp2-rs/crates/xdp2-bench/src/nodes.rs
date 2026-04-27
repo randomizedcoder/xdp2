@@ -216,7 +216,7 @@ static TCP_APP_TABLE: ProtoTable<FlowMeta> = proto_table![
 static TCP_NODE: ParseNode<FlowMeta, TcpDportOps> = ParseNode {
     proto: TcpDportOps,
     ops: ParseNodeOps {
-        extract_metadata: Some(extract_ports_metadata),
+        extract_metadata: Some(extract_tcp_metadata),
         handler: None,
         post_handler: None,
     },

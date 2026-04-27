@@ -35,6 +35,8 @@ pub(crate) fn extract_ipv4_metadata(
         meta.first_frag = (frag_off & IP_OFFSET) == 0;
     }
     meta.addr_type = AddrType::Ipv4;
+    meta.ip_tos = hdr[1];   // DSCP + ECN
+    meta.ip_ttl = hdr[8];   // TTL
     meta.ip_proto = hdr[9];
     meta.addrs.v4_src = u32::from_be_bytes([hdr[12], hdr[13], hdr[14], hdr[15]]);
     meta.addrs.v4_dst = u32::from_be_bytes([hdr[16], hdr[17], hdr[18], hdr[19]]);
@@ -49,6 +51,9 @@ pub(crate) fn extract_ipv6_metadata(
     _ctrl: &CtrlData,
 ) {
     meta.addr_type = AddrType::Ipv6;
+    // IPv6 traffic class = (byte0[3:0] << 4) | (byte1[7:4])
+    meta.ip_tos = ((hdr[0] & 0x0F) << 4) | (hdr[1] >> 4);
+    meta.ip_ttl = hdr[7]; // Hop Limit
     meta.ip_proto = hdr[6]; // next header
     meta.flow_label = ((hdr[1] as u32 & 0x0F) << 16) | ((hdr[2] as u32) << 8) | (hdr[3] as u32);
     meta.addrs.v6_src.copy_from_slice(&hdr[8..24]);
@@ -91,6 +96,21 @@ pub(crate) fn extract_ports_metadata(
 ) {
     meta.ports.src_port = u16::from_be_bytes([hdr[0], hdr[1]]);
     meta.ports.dst_port = u16::from_be_bytes([hdr[2], hdr[3]]);
+}
+
+/// TCP: ports + flags.
+/// Extends ports metadata with TCP flags byte (byte 13 of TCP header).
+pub(crate) fn extract_tcp_metadata(
+    hdr: &[u8],
+    _hdr_len: usize,
+    meta: &mut FlowMeta,
+    _ctrl: &CtrlData,
+) {
+    meta.ports.src_port = u16::from_be_bytes([hdr[0], hdr[1]]);
+    meta.ports.dst_port = u16::from_be_bytes([hdr[2], hdr[3]]);
+    if hdr.len() >= 14 {
+        meta.tcp_flags = hdr[13]; // SYN/ACK/FIN/RST/PSH/URG
+    }
 }
 
 /// ICMP (v4 and v6): type, code, echo ID.

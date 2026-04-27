@@ -109,6 +109,9 @@ pub struct FlowMeta {
     pub l4_off: u16,
     pub eth_proto: u16,
     pub ip_proto: u8,
+    pub ip_tos: u8,     // IPv4 TOS / IPv6 traffic class
+    pub ip_ttl: u8,     // IPv4 TTL / IPv6 hop limit
+    pub tcp_flags: u8,  // TCP flags byte (SYN/ACK/FIN/RST/PSH/URG)
     pub flow_label: u32,
     pub vlan: [VlanMeta; 2],
     pub keyid: u32,

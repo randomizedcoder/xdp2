@@ -283,6 +283,8 @@ fn parse_ipv4(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
         meta.first_frag = (frag_off & IP_OFFSET) == 0;
     }
     meta.addr_type = AddrType::Ipv4;
+    meta.ip_tos = pkt[1];   // DSCP + ECN
+    meta.ip_ttl = pkt[8];   // TTL
     meta.ip_proto = pkt[9];
     meta.addrs.v4_src = u32::from_be_bytes([pkt[12], pkt[13], pkt[14], pkt[15]]);
     meta.addrs.v4_dst = u32::from_be_bytes([pkt[16], pkt[17], pkt[18], pkt[19]]);
@@ -301,6 +303,7 @@ fn dispatch_ipv4(next: i32, rest: &[u8], meta: &mut FlowMeta) -> Result<(), Pars
             let _ = hdr_len(&TcpOps, rest)?;
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
+            meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
             Ok(())
         }
         17 => parse_udp_tunnel(rest, meta),
@@ -375,6 +378,8 @@ fn parse_ipv6(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     let hlen = hdr_len(&proto, pkt)?;
     // extract_ipv6_metadata
     meta.addr_type = AddrType::Ipv6;
+    meta.ip_tos = ((pkt[0] & 0x0F) << 4) | (pkt[1] >> 4); // traffic class
+    meta.ip_ttl = pkt[7]; // Hop Limit
     meta.ip_proto = pkt[6];
     meta.flow_label = ((pkt[1] as u32 & 0x0F) << 16) | ((pkt[2] as u32) << 8) | (pkt[3] as u32);
     meta.addrs.v6_src.copy_from_slice(&pkt[8..24]);
@@ -399,6 +404,7 @@ fn dispatch_ipv6(
                 let _ = hdr_len(&TcpOps, rest)?;
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
+                meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
                 return Ok(());
             }
             17 => return parse_udp_tunnel(rest, meta),

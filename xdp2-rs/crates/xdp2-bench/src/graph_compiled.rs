@@ -172,6 +172,8 @@ fn parse_ipv4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
         meta.first_frag = (frag_off & 0x1FFF) == 0;
     }
     meta.addr_type = AddrType::Ipv4;
+    meta.ip_tos = pkt[1];   // DSCP + ECN
+    meta.ip_ttl = pkt[8];   // TTL
     meta.ip_proto = pkt[9];
     meta.addrs.v4_src = u32::from_be_bytes([pkt[12], pkt[13], pkt[14], pkt[15]]);
     meta.addrs.v4_dst = u32::from_be_bytes([pkt[16], pkt[17], pkt[18], pkt[19]]);
@@ -194,9 +196,10 @@ fn dispatch_ipv4(
             }
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
+            meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
             Ok(())
         }
-        17 => parse_udp_tunnel(rest, meta), // UDP with tunnel dispatch
+        17 => parse_udp_tunnel(rest, depth, meta), // UDP with tunnel dispatch
         1 => {
             // ICMPv4
             if rest.len() < 8 {
@@ -273,6 +276,9 @@ fn parse_ipv6(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
     }
     // Extract IPv6 metadata
     meta.addr_type = AddrType::Ipv6;
+    // IPv6 traffic class = (byte0[3:0] << 4) | (byte1[7:4])
+    meta.ip_tos = ((pkt[0] & 0x0F) << 4) | (pkt[1] >> 4);
+    meta.ip_ttl = pkt[7]; // Hop Limit
     meta.ip_proto = pkt[6];
     meta.flow_label = ((pkt[1] as u32 & 0x0F) << 16) | ((pkt[2] as u32) << 8) | (pkt[3] as u32);
     meta.addrs.v6_src.copy_from_slice(&pkt[8..24]);
@@ -296,9 +302,10 @@ fn dispatch_ipv6(
                 }
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
+                meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
                 return Ok(());
             }
-            17 => return parse_udp_tunnel(rest, meta), // UDP
+            17 => return parse_udp_tunnel(rest, depth, meta), // UDP
             58 => {
                 // ICMPv6
                 if rest.len() < 8 {
@@ -439,7 +446,7 @@ fn parse_ah_v4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseE
 
 // ── UDP with tunnel dispatch ─────────────────────────────────────────
 
-fn parse_udp_tunnel(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
+fn parse_udp_tunnel(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
     if pkt.len() < 8 {
         return Err(ParseError::Length);
     }
@@ -449,25 +456,25 @@ fn parse_udp_tunnel(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     let dport = meta.ports.dst_port;
     let rest = &pkt[8..];
     match dport {
-        4789 => parse_vxlan(rest, meta),
-        6081 => parse_geneve(rest, meta),
+        4789 => parse_vxlan(rest, depth, meta),
+        6081 => parse_geneve(rest, depth, meta),
         _ => Ok(()), // stop-leaf: non-tunnel UDP succeeds
     }
 }
 
 // ── Tunnel nodes ─────────────────────────────────────────────────────
 
-fn parse_vxlan(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
+fn parse_vxlan(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
     if pkt.len() < 8 {
         return Err(ParseError::Length);
     }
     // Extract VNI
     meta.keyid = ((pkt[4] as u32) << 16) | ((pkt[5] as u32) << 8) | (pkt[6] as u32);
     // VXLAN always wraps Ethernet (ETH_P_TEB)
-    parse_ethernet(&pkt[8..], 0, meta)
+    parse_ethernet(&pkt[8..], depth + 1, meta)
 }
 
-fn parse_geneve(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
+fn parse_geneve(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
     if pkt.len() < 8 {
         return Err(ParseError::Length);
     }
@@ -481,8 +488,8 @@ fn parse_geneve(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     let next = u16::from_be_bytes([pkt[2], pkt[3]]) as i64;
     let rest = &pkt[hlen..];
     match next {
-        0x6558 => parse_ethernet(rest, 0, meta),
-        0x0800 | 0x86DD => parse_ip_check(rest, 0, meta),
+        0x6558 => parse_ethernet(rest, depth + 1, meta),
+        0x0800 | 0x86DD => parse_ip_check(rest, depth + 1, meta),
         _ => Err(ParseError::UnknownProto),
     }
 }
@@ -543,7 +550,7 @@ fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
             let rest = &pkt[hlen..];
             match next {
                 0x0800 | 0x86DD => parse_ip_check(rest, depth + 1, meta),
-                0x6558 => parse_ethernet(rest, 0, meta), // ETH_P_TEB
+                0x6558 => parse_ethernet(rest, depth + 1, meta), // ETH_P_TEB
                 _ => Err(ParseError::UnknownProto),
             }
         }
@@ -603,7 +610,7 @@ fn parse_nsh(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
     let rest = &pkt[8..];
     match next {
         0x0800 | 0x86DD => parse_ip_check(rest, depth + 1, meta),
-        0x6558 => parse_ethernet(rest, 0, meta),
+        0x6558 => parse_ethernet(rest, depth + 1, meta),
         0x8847 => parse_mpls(rest, meta),
         _ => Err(ParseError::UnknownProto),
     }
@@ -678,7 +685,7 @@ fn parse_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 
 #[inline]
 fn parse_mpls(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
-    if pkt.len() < 8 {
+    if pkt.len() < 4 {
         return Err(ParseError::Length);
     }
     // Extract MPLS metadata from first label entry
@@ -687,5 +694,18 @@ fn parse_mpls(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     meta.mpls.tc = ((w >> 9) & 0x7) as u8;
     meta.mpls.bos = ((w >> 8) & 0x1) != 0;
     meta.mpls.ttl = (w & 0xFF) as u8;
+    // Skip through entire label stack (4 bytes per label)
+    let mut off = 4;
+    while (w >> 8) & 0x1 == 0 {
+        // Not BOS — more labels follow; re-read current entry for BOS check
+        if off + 4 > pkt.len() {
+            return Err(ParseError::Length);
+        }
+        let w2 = u32::from_be_bytes([pkt[off], pkt[off + 1], pkt[off + 2], pkt[off + 3]]);
+        off += 4;
+        if (w2 >> 8) & 0x1 != 0 {
+            break; // Bottom of stack reached
+        }
+    }
     Ok(())
 }

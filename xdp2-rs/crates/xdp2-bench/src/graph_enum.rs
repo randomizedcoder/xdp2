@@ -36,6 +36,7 @@ use xdp2_protocols::transport::tcp::TcpOps;
 
 use crate::extractors::{
     extract_ether_metadata, extract_icmp_metadata, extract_ipv4_metadata, extract_ports_metadata,
+    extract_tcp_metadata,
 };
 use crate::flow_meta::FlowMeta;
 
@@ -172,7 +173,8 @@ impl NodeOps<FlowMeta> for BenchNode {
         match self {
             BenchNode::Ether => extract_ether_metadata(hdr, hdr_len, metadata, ctrl),
             BenchNode::Ipv4 => extract_ipv4_metadata(hdr, hdr_len, metadata, ctrl),
-            BenchNode::Tcp | BenchNode::Udp => extract_ports_metadata(hdr, hdr_len, metadata, ctrl),
+            BenchNode::Tcp => extract_tcp_metadata(hdr, hdr_len, metadata, ctrl),
+            BenchNode::Udp => extract_ports_metadata(hdr, hdr_len, metadata, ctrl),
             BenchNode::IcmpV4 => extract_icmp_metadata(hdr, hdr_len, metadata, ctrl),
         }
     }
