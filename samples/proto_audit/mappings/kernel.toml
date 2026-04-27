@@ -65,6 +65,26 @@ nvme_tcp_hdr = 64           # 8 bytes: type(1)+flags(1)+hlen(1)+pdo(1)+plen(4)
 xdp2_nvme_tcp_hdr = 64     # 8 bytes: same layout as nvme_tcp_hdr
 nvme_command = 512          # 64 bytes: NVMe command capsule
 nvme_completion = 128       # 16 bytes: NVMe completion queue entry
+# iSCSI nested structs
+iscsi_hdr = 384             # 48 bytes: iSCSI BHS
+# SRP nested structs
+srp_direct_buf = 128        # 16 bytes: va(64)+key(32)+len(32)
+# FC FCP nested structs
+fcp_resp = 96               # 12 bytes: rsvd(64)+retry_delay(16)+flags(8)+status(8)
+fcp_resp_ext = 96           # 12 bytes: resid(32)+sns_len(32)+rsp_len(32)
+# FC ELS nested structs
+fc_els_csp = 128            # 16 bytes: common service parameters
+fc_els_cssp = 128           # 16 bytes: class-specific service parameters
+fc_els_lesb = 192           # 24 bytes: link error status block
+fc_els_lsri_desc = 96       # 12 bytes: descriptor tag+len+req_w0
+# FC NS nested structs
+fc_ns_fid = 32              # 4 bytes: flags(8)+fid(24)
+fc_ns_fts = 256             # 32 bytes: FC-4 types bitmap
+# SAS nested structs
+dev_to_host_fis = 160       # 20 bytes: ATA D2H FIS
+host_to_dev_fis = 160       # 20 bytes: ATA H2D FIS
+discover_resp = 384         # 48 bytes: SMP discover response
+report_general_resp = 256   # 32 bytes: SMP report general response
 
 [union_sizes]
 # Embedded union name → bit width (max of all variants).

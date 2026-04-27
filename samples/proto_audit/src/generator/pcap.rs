@@ -131,6 +131,41 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("RSTP", "stp"),
     // ML/HPC networking
     ("PFC", "pfc"),
+    // SCSI/SAS/FC storage protocols
+    ("SRP_Login_Req", "scsi.srp"),
+    ("SRP_Login_Rsp", "scsi.srp"),
+    ("SRP_Login_Rej", "scsi.srp"),
+    ("SRP_Cmd", "scsi.srp"),
+    ("SRP_Rsp", "scsi.srp"),
+    ("SRP_TSK_Mgmt", "scsi.srp"),
+    ("SRP_I_Logout", "scsi.srp"),
+    ("SRP_T_Logout", "scsi.srp"),
+    ("SRP_Cred_Req", "scsi.srp"),
+    ("SRP_Cred_Rsp", "scsi.srp"),
+    ("FCP_CMND", "fcp"),
+    ("FCP_TXRDY", "fcp"),
+    ("FCP_RSP", "fcp"),
+    ("FCP_RSP_EXT", "fcp"),
+    ("FCP_SRR", "fcp"),
+    ("FC_ELS_FLOGI", "fc.els"),
+    ("FC_ELS_LOGO", "fc.els"),
+    ("FC_ELS_PRLI", "fc.els"),
+    ("FC_ELS_ADISC", "fc.els"),
+    ("FC_ELS_RSCN", "fc.els"),
+    ("FC_ELS_SCR", "fc.els"),
+    ("FC_ELS_LS_ACC", "fc.els"),
+    ("FC_ELS_LS_RJT", "fc.els"),
+    ("FC_CT_HDR", "fc.ct"),
+    ("FC_NS_GID_FT", "fc.ct"),
+    ("FC_NS_GPN_FT_Rsp", "fc.ct"),
+    ("SSP_Frame_Hdr", "sas"),
+    ("SSP_Command_IU", "sas"),
+    ("SSP_Response_IU", "sas"),
+    ("SSP_XFER_RDY", "sas"),
+    ("SSP_TMF_IU", "sas"),
+    ("ATA_H2D_FIS", "ata"),
+    ("ATA_D2H_FIS", "ata"),
+    ("SAS_Identify", "sas"),
 ];
 
 /// Output from PCAP generation.
@@ -619,6 +654,63 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     // ── RoCEv2 (UDP port 4791 → BTH) ──
     ("RoCEv2", "UDP", "dst_port", 4791),
     ("CNP", "RoCEv2", "opcode", 0x81),
+    // ── iSCSI PDU types (TCP port 3260, opcode dispatch) ──
+    ("iSCSI_SCSI_Cmd", "iSCSI", "opcode", 0x01),
+    ("iSCSI_SCSI_Rsp", "iSCSI", "opcode", 0x21),
+    ("iSCSI_TMF", "iSCSI", "opcode", 0x02),
+    ("iSCSI_TMF_Rsp", "iSCSI", "opcode", 0x22),
+    ("iSCSI_Data_Out", "iSCSI", "opcode", 0x05),
+    ("iSCSI_Data_In", "iSCSI", "opcode", 0x25),
+    ("iSCSI_R2T", "iSCSI", "opcode", 0x31),
+    ("iSCSI_NOP_Out", "iSCSI", "opcode", 0x00),
+    ("iSCSI_NOP_In", "iSCSI", "opcode", 0x20),
+    ("iSCSI_Login_Req", "iSCSI", "opcode", 0x03),
+    ("iSCSI_Login_Rsp", "iSCSI", "opcode", 0x23),
+    ("iSCSI_Text", "iSCSI", "opcode", 0x04),
+    ("iSCSI_Text_Rsp", "iSCSI", "opcode", 0x24),
+    ("iSCSI_Logout", "iSCSI", "opcode", 0x06),
+    ("iSCSI_Logout_Rsp", "iSCSI", "opcode", 0x26),
+    ("iSCSI_Async", "iSCSI", "opcode", 0x32),
+    ("iSCSI_Reject", "iSCSI", "opcode", 0x3f),
+    // ── SRP (SCSI RDMA Protocol, via UpperPDU) ──
+    ("SRP_Login_Req", "UpperPDU", "_always", 0),
+    ("SRP_Login_Rsp", "UpperPDU", "_always", 0),
+    ("SRP_Login_Rej", "UpperPDU", "_always", 0),
+    ("SRP_Cmd", "UpperPDU", "_always", 0),
+    ("SRP_Rsp", "UpperPDU", "_always", 0),
+    ("SRP_TSK_Mgmt", "UpperPDU", "_always", 0),
+    ("SRP_I_Logout", "UpperPDU", "_always", 0),
+    ("SRP_T_Logout", "UpperPDU", "_always", 0),
+    ("SRP_Cred_Req", "UpperPDU", "_always", 0),
+    ("SRP_Cred_Rsp", "UpperPDU", "_always", 0),
+    // ── FC FCP IUs (via UpperPDU / FC type=0x08) ──
+    ("FCP_CMND", "UpperPDU", "_always", 0),
+    ("FCP_TXRDY", "UpperPDU", "_always", 0),
+    ("FCP_RSP", "UpperPDU", "_always", 0),
+    ("FCP_RSP_EXT", "UpperPDU", "_always", 0),
+    ("FCP_SRR", "UpperPDU", "_always", 0),
+    // ── FC ELS (via UpperPDU / FC type=0x01) ──
+    ("FC_ELS_FLOGI", "UpperPDU", "_always", 0),
+    ("FC_ELS_LOGO", "UpperPDU", "_always", 0),
+    ("FC_ELS_PRLI", "UpperPDU", "_always", 0),
+    ("FC_ELS_ADISC", "UpperPDU", "_always", 0),
+    ("FC_ELS_RSCN", "UpperPDU", "_always", 0),
+    ("FC_ELS_SCR", "UpperPDU", "_always", 0),
+    ("FC_ELS_LS_ACC", "UpperPDU", "_always", 0),
+    ("FC_ELS_LS_RJT", "UpperPDU", "_always", 0),
+    // ── FC GS/NS (via UpperPDU / FC type=0x20) ──
+    ("FC_CT_HDR", "UpperPDU", "_always", 0),
+    ("FC_NS_GID_FT", "UpperPDU", "_always", 0),
+    ("FC_NS_GPN_FT_Rsp", "UpperPDU", "_always", 0),
+    // ── SAS SSP/SMP (point-to-point, via UpperPDU) ──
+    ("SSP_Frame_Hdr", "UpperPDU", "_always", 0),
+    ("SSP_Command_IU", "UpperPDU", "_always", 0),
+    ("SSP_Response_IU", "UpperPDU", "_always", 0),
+    ("SSP_XFER_RDY", "UpperPDU", "_always", 0),
+    ("SSP_TMF_IU", "UpperPDU", "_always", 0),
+    ("ATA_H2D_FIS", "UpperPDU", "_always", 0),
+    ("ATA_D2H_FIS", "UpperPDU", "_always", 0),
+    ("SAS_Identify", "UpperPDU", "_always", 0),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack
@@ -2804,6 +2896,21 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                 ]),
         ),
 
+        // ── iSCSI BHS (384 bits = 48 bytes, dispatch on opcode) ──
+        "iSCSI" => Some(
+            ProtocolDef::new("iSCSI", 384)
+                .with_fields(vec![
+                    FieldDef::new("opcode", 0, 8, FieldType::Enum).with_dispatch(),
+                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("rsvd2", 16, 16, FieldType::Pad),
+                    FieldDef::new("hlength", 32, 8, FieldType::Uint),
+                    FieldDef::new("dlength", 40, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("lun", 64, 64, FieldType::Bytes),
+                    FieldDef::new("itt", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("other", 160, 224, FieldType::Bytes),
+                ])
+                .with_dispatch_field("opcode"),
+        ),
         // ── RoCEv2: BTH over UDP:4791 (96 bits, dispatch on opcode) ──
         "RoCEv2" => Some(
             ProtocolDef::new("RoCEv2", 96)

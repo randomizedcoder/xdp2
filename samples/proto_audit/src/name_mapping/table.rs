@@ -2717,5 +2717,169 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── CNP (Congestion Notification Packet) ──
         // RoCEv2 CNP: BTH with opcode 0x81, followed by 16 bytes of reserved payload.
         PN::new("CNP", 16),
+        // ── iSCSI PDU types (RFC 7143, opcode-specific 48-byte BHS variants) ──
+        PN::new("iSCSI_SCSI_Cmd", 48)
+            .kernel("iscsi_scsi_req", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_scsi_req", "xdp2/proto_defs/storage/proto_iscsi_pdus.h")
+            .tshark("iscsi"),
+        PN::new("iSCSI_SCSI_Rsp", 48)
+            .kernel("iscsi_scsi_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_scsi_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_TMF", 48)
+            .kernel("iscsi_tm", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_tm", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_TMF_Rsp", 48)
+            .kernel("iscsi_tm_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_tm_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Data_Out", 48)
+            .kernel("iscsi_data", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_data", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Data_In", 48)
+            .kernel("iscsi_data_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_data_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_R2T", 48)
+            .kernel("iscsi_r2t_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_r2t_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_NOP_Out", 48)
+            .kernel("iscsi_nopout", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_nopout", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_NOP_In", 48)
+            .kernel("iscsi_nopin", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_nopin", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Login_Req", 48)
+            .kernel("iscsi_login_req", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_login_req", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Login_Rsp", 48)
+            .kernel("iscsi_login_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_login_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Text", 48)
+            .kernel("iscsi_text", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_text", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Text_Rsp", 48)
+            .kernel("iscsi_text_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_text_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Logout", 48)
+            .kernel("iscsi_logout", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_logout", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Logout_Rsp", 48)
+            .kernel("iscsi_logout_rsp", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_logout_rsp", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Async", 48)
+            .kernel("iscsi_async", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_async", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        PN::new("iSCSI_Reject", 48)
+            .kernel("iscsi_reject", "scsi/iscsi_proto.h")
+            .xdp2_hdr("xdp2_iscsi_reject", "xdp2/proto_defs/storage/proto_iscsi_pdus.h"),
+        // ── SRP (SCSI RDMA Protocol, T10) ──
+        PN::new("SRP_Login_Req", 64)
+            .kernel("srp_login_req", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_login_req", "xdp2/proto_defs/storage/proto_srp.h")
+            .tshark("scsi.srp"),
+        PN::new("SRP_Login_Rsp", 52)
+            .kernel("srp_login_rsp", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_login_rsp", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_Login_Rej", 32)
+            .kernel("srp_login_rej", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_login_rej", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_Cmd", 48)
+            .kernel("srp_cmd", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_cmd", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_Rsp", 36)
+            .kernel("srp_rsp", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_rsp", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_TSK_Mgmt", 48)
+            .kernel("srp_tsk_mgmt", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_tsk_mgmt", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_I_Logout", 16)
+            .kernel("srp_i_logout", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_i_logout", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_T_Logout", 16)
+            .kernel("srp_t_logout", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_t_logout", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_Cred_Req", 16)
+            .kernel("srp_cred_req", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_cred_req", "xdp2/proto_defs/storage/proto_srp.h"),
+        PN::new("SRP_Cred_Rsp", 16)
+            .kernel("srp_cred_rsp", "scsi/srp.h")
+            .xdp2_hdr("xdp2_srp_cred_rsp", "xdp2/proto_defs/storage/proto_srp.h"),
+        // ── FC FCP expanded (Fibre Channel Protocol for SCSI, T10 FCP-3) ──
+        PN::new("FCP_CMND", 32)
+            .kernel("fcp_cmnd", "scsi/fc/fc_fcp.h")
+            .xdp2_hdr("xdp2_fcp_cmnd", "xdp2/proto_defs/storage/proto_fcp.h")
+            .tshark("fcp"),
+        PN::new("FCP_TXRDY", 12)
+            .kernel("fcp_txrdy", "scsi/fc/fc_fcp.h")
+            .xdp2_hdr("xdp2_fcp_txrdy", "xdp2/proto_defs/storage/proto_fcp.h"),
+        PN::new("FCP_RSP", 12)
+            .kernel("fcp_resp", "scsi/fc/fc_fcp.h")
+            .xdp2_hdr("xdp2_fcp_resp", "xdp2/proto_defs/storage/proto_fcp.h"),
+        PN::new("FCP_RSP_EXT", 12)
+            .kernel("fcp_resp_ext", "scsi/fc/fc_fcp.h")
+            .xdp2_hdr("xdp2_fcp_resp_ext", "xdp2/proto_defs/storage/proto_fcp.h"),
+        PN::new("FCP_SRR", 16)
+            .kernel("fcp_srr", "scsi/fc/fc_fcp.h")
+            .xdp2_hdr("xdp2_fcp_srr", "xdp2/proto_defs/storage/proto_fcp.h"),
+        // ── FC ELS (Extended Link Services, FC-LS) ──
+        PN::new("FC_ELS_FLOGI", 116)
+            .kernel("fc_els_flogi", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_flogi", "xdp2/proto_defs/storage/proto_fc_els.h")
+            .tshark("fc.els"),
+        PN::new("FC_ELS_LOGO", 12)
+            .kernel("fc_els_logo", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_logo", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        PN::new("FC_ELS_PRLI", 4)
+            .kernel("fc_els_prli", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_prli", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        PN::new("FC_ELS_ADISC", 28)
+            .kernel("fc_els_adisc", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_adisc", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        PN::new("FC_ELS_RSCN", 4)
+            .kernel("fc_els_rscn", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_rscn", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        PN::new("FC_ELS_SCR", 8)
+            .kernel("fc_els_scr", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_scr", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        PN::new("FC_ELS_LS_ACC", 4)
+            .kernel("fc_els_ls_acc", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_ls_acc", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        PN::new("FC_ELS_LS_RJT", 8)
+            .kernel("fc_els_ls_rjt", "uapi/scsi/fc/fc_els.h")
+            .xdp2_hdr("xdp2_fc_els_ls_rjt", "xdp2/proto_defs/storage/proto_fc_els.h"),
+        // ── FC GS/NS (Generic Services / Name Server, FC-GS-2) ──
+        PN::new("FC_CT_HDR", 16)
+            .kernel("fc_ct_hdr", "uapi/scsi/fc/fc_gs.h")
+            .xdp2_hdr("xdp2_fc_ct_hdr", "xdp2/proto_defs/storage/proto_fc_gs.h")
+            .tshark("fc.ct"),
+        PN::new("FC_NS_GID_FT", 4)
+            .kernel("fc_ns_gid_ft", "uapi/scsi/fc/fc_ns.h")
+            .xdp2_hdr("xdp2_fc_ns_gid_ft", "xdp2/proto_defs/storage/proto_fc_gs.h"),
+        PN::new("FC_NS_GPN_FT_Rsp", 16)
+            .kernel("fc_gpn_ft_resp", "uapi/scsi/fc/fc_ns.h")
+            .xdp2_hdr("xdp2_fc_gpn_ft_resp", "xdp2/proto_defs/storage/proto_fc_gs.h"),
+        // ── SAS (Serial Attached SCSI) SSP/SMP frames ──
+        PN::new("SSP_Frame_Hdr", 24)
+            .kernel("ssp_frame_hdr", "scsi/sas.h")
+            .xdp2_hdr("xdp2_ssp_frame_hdr", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("SSP_Command_IU", 28)
+            .kernel("ssp_command_iu", "scsi/sas.h")
+            .xdp2_hdr("xdp2_ssp_command_iu", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("SSP_Response_IU", 24)
+            .kernel("ssp_response_iu", "scsi/sas.h")
+            .xdp2_hdr("xdp2_ssp_response_iu", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("SSP_XFER_RDY", 12)
+            .kernel("xfer_rdy_iu", "scsi/sas.h")
+            .xdp2_hdr("xdp2_xfer_rdy_iu", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("SSP_TMF_IU", 24)
+            .kernel("ssp_tmf_iu", "scsi/sas.h")
+            .xdp2_hdr("xdp2_ssp_tmf_iu", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("ATA_H2D_FIS", 20)
+            .kernel("host_to_dev_fis", "scsi/sas.h")
+            .xdp2_hdr("xdp2_host_to_dev_fis", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("ATA_D2H_FIS", 20)
+            .kernel("dev_to_host_fis", "scsi/sas.h")
+            .xdp2_hdr("xdp2_dev_to_host_fis", "xdp2/proto_defs/storage/proto_sas.h"),
+        PN::new("SAS_Identify", 32)
+            .kernel("sas_identify_frame", "scsi/sas.h")
+            .xdp2_hdr("xdp2_sas_identify_frame", "xdp2/proto_defs/storage/proto_sas.h"),
     ]
 }
