@@ -17,7 +17,6 @@ use xdp2_protocols::ip::ipv6::Ipv6Ops;
 use xdp2_protocols::ip::ipv6_eh::{Ipv6EhOps, Ipv6FragOps};
 use xdp2_protocols::transport::dccp::DccpOps;
 use xdp2_protocols::transport::sctp::SctpOps;
-use xdp2_protocols::transport::tcp::TcpOps;
 use xdp2_protocols::transport::udplite::UdpLiteOps;
 // IpInIpOps removed — IP-in-IP tunnels dispatch through IP_CHECK_NODE directly.
 use xdp2_protocols::ethernet::pbb::PbbOps;
@@ -642,6 +641,7 @@ static FC_TYPE_TABLE: ProtoTable<FlowMeta> = proto_table![
     (FC_TYPE_CT, &FC_CT_NODE),   // FC Common Transport (Name Server)
 ];
 
+#[allow(dead_code)] // Available for raw FC traffic (non-FCoE paths)
 static FC_NODE: ParseNode<FlowMeta, FcOps> = ParseNode {
     proto: FcOps,
     ops: ParseNodeOps {
