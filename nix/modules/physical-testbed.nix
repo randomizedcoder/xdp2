@@ -597,7 +597,7 @@ in
       lib.optionals cfg.installEthtool [
         pkgs.ethtool
         pkgs.bpftools
-        config.boot.kernelPackages.perf
+        pkgs.perf
       ]
       # Traffic-generation tools for the live ntuple+template bench;
       # only installed under realServicesBench so the minimum-footprint

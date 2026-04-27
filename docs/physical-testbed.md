@@ -24,7 +24,7 @@ It is written so that someone new to the project can:
 2. [Hardware summary](#2-hardware-summary)
 3. [Network topology](#3-network-topology)
 4. [Software baseline](#4-software-baseline)
-5. [Access (SSH)](#5-access-ssh)
+5. [Access (SSH)](#5-access-ssh) — includes [Updating a host's NixOS configuration](#updating-a-hosts-nixos-configuration)
 6. [The xdp2-shipped NixOS module](#6-the-xdp2-shipped-nixos-module)
 7. [Tuning applied by the module](#7-tuning-applied-by-the-module)
 8. [Manual one-time fixes](#8-manual-one-time-fixes)
@@ -84,6 +84,7 @@ the same NixOS profile (see §6).
 | NIC driver | `i40e` | `i40e` |
 | Link speed | 10 Gb/s, 10000baseSR/Full | 10 Gb/s, 10000baseSR/Full |
 | Onboard NIC | Realtek 1 GbE (`eno1`, mgmt) | Realtek 1 GbE (`eno1`, mgmt) |
+| Storage | Kioxia KBG40ZNV256G 256 GB NVMe | Samsung MZHPV512HDGL 512 GB M.2 SSD |
 
 **Live verification (run from your laptop, requires SSH access — see §5):**
 
@@ -92,6 +93,22 @@ ssh root@hp2 lscpu | grep 'Model name'
 ssh root@hp5 free -g
 ssh root@hp2 lspci | grep -i ethernet
 ```
+
+### Storage — hp5 upgrade (2026-04-26)
+
+hp5's storage was upgraded to a **Samsung MZHPV512HDGL 512 GB M.2 SSD**
+(partitioned as 1 GB EFI `/boot`, 408 GB ext4 `/`, 68 GB swap). With
+372 GB available on `/` (as of the fresh rebuild), hp5 can comfortably
+host full Nix store builds (fat LTO of xdp2-rs, proto-audit, etc.)
+without running out of space. This removes the earlier constraint of
+pre-building on the dev box and rsyncing binaries — `nix build` and
+`nix develop` can run directly on hp5.
+
+hp2 has a **Kioxia KBG40ZNV256G 256 GB NVMe** (512 MB EFI `/boot`,
+205 GB ext4 `/`, 33 GB swap). With 128 GB available (63 GB used by
+existing Nix store), hp2 is tighter — fat LTO builds of xdp2-rs may
+require periodic `nix-collect-garbage` to stay under budget. For
+build-heavy workflows, prefer hp5.
 
 ### Why X710 specifically
 
@@ -147,6 +164,7 @@ difference. See [`samples/flow_dissector/docs/benchmarks.md`](../samples/flow_di
                        │   hp2    │     │   hp5    │
                        │ Ryzen 5  │     │ Ryzen 5  │
                        │  30 GB   │     │  61 GB   │
+                       │ 256G NVMe│     │ 512G SSD │
                        └───┬──┬───┘     └───┬──┬───┘
               enp1s0f0np0  │  │ enp1s0f1np1 │  │  enp1s0f1np1
                            │  │             │  │
@@ -192,15 +210,16 @@ those legacy names is silent dead code today.** The new NixOS module
 | --- | --- | --- |
 | NixOS channel | `nixos-25.11` (stable) | `nixos-unstable` |
 | `system.stateVersion` | `24.05` | `24.11` |
-| Kernel | 6.18.21 (NixOS-built) | 6.18.21 (NixOS-built) |
+| NixOS version | 26.05.20260422 | 26.05.20260422 |
+| Kernel | 7.0.1 (NixOS-built) | 7.0.1 (NixOS-built) |
 | libbpf | 1.x (provided by nixpkgs) | 1.x |
 | Nix | flakes + `nix-command` enabled | same |
 
-**Recommendation**: pick one channel and converge both hosts on it.
-Diverging stable/unstable means the matrix can compare two slightly
-different libbpf or kernel point releases, which makes ns-scale results
-non-comparable. Stable is the safe default; unstable only if you need a
-specific upstream fix not yet backported.
+**Status (2026-04-26):** Both hosts now run the same NixOS version
+(26.05.20260418) and kernel (7.0.0). The earlier channel divergence
+(hp2 stable, hp5 unstable) has been resolved — both are on
+`nixos-unstable` after the storage upgrade and rebuild cycle. This
+makes ns-scale benchmark results directly comparable across hosts.
 
 ---
 
@@ -247,6 +266,51 @@ IRQ affinity changes, and `nix copy --to ssh-ng://…` all require
 combinations of `CAP_BPF`, `CAP_NET_ADMIN`, and `CAP_SYS_ADMIN`. A dedicated
 benchmark host has no other user accounts to worry about, so direct root
 keeps the wrapper simple (no `sudo -n` plumbing, no NOPASSWD policy).
+
+### Updating a host's NixOS configuration
+
+The NixOS configurations for both testbed hosts live on the developer
+workstation ("l") at:
+
+```
+~/nixos/hp/hp2/   — hp2's NixOS flake (configuration.nix, flake.nix, etc.)
+~/nixos/hp/hp5/   — hp5's NixOS flake
+```
+
+Each directory has a `Makefile` that drives the workflow. The full
+update cycle for a host (e.g. hp5) is:
+
+```bash
+# 1. Edit the config on the dev box
+cd ~/nixos/hp/hp5
+vim configuration.nix               # make your changes
+
+# 2. Sync the config to the target host
+make sync                            # rsync to hp5:~/nixos/hp/hp5/
+
+# 3. SSH into the target
+ssh hp5
+cd ~/nixos/hp/hp5
+
+# 4. (Optional) Update flake inputs — pulls latest nixpkgs + xdp2
+make update                          # runs: sudo nix flake update
+
+# 5. Rebuild and apply
+make                                 # runs: sudo nixos-rebuild switch --flake .
+```
+
+**Important:** If the rebuild reports a `switchInhibitors` failure (e.g.
+a `dbus-implementation` change), use `nixos-rebuild boot` instead and
+then reboot:
+
+```bash
+sudo nixos-rebuild boot --flake .
+sudo reboot
+```
+
+The `switch` path tries to live-migrate running services into the new
+configuration; changes to core system services (dbus, systemd, etc.)
+cannot be migrated safely and require a reboot.
 
 ---
 
@@ -408,7 +472,8 @@ boot.kernel.sysctl = {
 `environment.systemPackages` adds `ethtool`, `bpftools` (note: nixpkgs
 attribute is `bpftools`, plural — the binary it installs is `bpftool`),
 and
-`linuxPackages.perf` matched to the running kernel. **This fixes a real
+`perf` (top-level nixpkgs attr since 26.05; previously
+`config.boot.kernelPackages.perf`). **This fixes a real
 bug**: the existing `systemd.services.ethtool-enp3s0f{0,1}.nix` units on
 both hosts try to call `ethtool` but the binary is not in PATH, so they
 fail silently in addition to targeting wrong interface names.
