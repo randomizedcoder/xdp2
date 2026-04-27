@@ -15,4 +15,6 @@ pub mod dpdk;
 pub mod ndpi;
 pub mod pppd;
 pub mod rdma;
+pub mod ue_spec;
+pub mod xdp2_headers;
 pub mod xtcp2;

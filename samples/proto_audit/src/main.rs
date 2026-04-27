@@ -114,6 +114,10 @@ pub(crate) struct SourcePaths {
     /// Path to xtcp2 PCAP testdata directory (pkg/xtcpnl/testdata)
     #[arg(long, env = "PROTO_AUDIT_XTCP2_PCAPS")]
     pub(crate) xtcp2_pcaps: Option<PathBuf>,
+
+    /// Path to XDP2 native headers directory (src/include/ with uet/, sunh/, sue/)
+    #[arg(long, env = "PROTO_AUDIT_XDP2_HEADERS_DIR")]
+    pub(crate) xdp2_headers_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]

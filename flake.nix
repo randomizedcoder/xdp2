@@ -120,6 +120,7 @@
             export PROTO_AUDIT_NDPI_SRC="''${PROTO_AUDIT_NDPI_SRC:-${protoAuditSources.ndpiSrc}}"
             export PROTO_AUDIT_PPPD_SRC="''${PROTO_AUDIT_PPPD_SRC:-${protoAuditSources.pppdSrc}}"
             export PROTO_AUDIT_RDMA_SRC="''${PROTO_AUDIT_RDMA_SRC:-${protoAuditSources.rdmaSrc}/include}"
+            export PROTO_AUDIT_XDP2_HEADERS_DIR="''${PROTO_AUDIT_XDP2_HEADERS_DIR:-${./src/include}}"
             export PROTO_AUDIT_SCAPY_HELPER="''${PROTO_AUDIT_SCAPY_HELPER:-${proto-audit-bin}/share/proto-audit/scapy_dump.py}"
             export PROTO_AUDIT_PYTHON="''${PROTO_AUDIT_PYTHON:-${protoAuditSources.scapyPython}/bin/python3}"
             export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"

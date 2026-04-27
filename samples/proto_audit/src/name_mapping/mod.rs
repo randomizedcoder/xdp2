@@ -71,6 +71,12 @@ pub struct ProtocolNames {
     pub rdma_header: Option<&'static str>,
     /// xtcp2 Go struct name (e.g., "TCPInfo6_10_3")
     pub xtcp2_struct: Option<&'static str>,
+    /// XDP2 native C struct name (e.g., "sunh_hdr", "uet_pds_ack")
+    pub xdp2_hdr_struct: Option<&'static str>,
+    /// XDP2 native header file relative to src/include/ (e.g., "sunh/sunh.h")
+    pub xdp2_hdr_file: Option<&'static str>,
+    /// UE Specification table/header identifier (e.g., "pds_ack")
+    pub ue_spec_id: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -115,6 +121,9 @@ impl ProtocolNames {
             rdma_struct: None,
             rdma_header: None,
             xtcp2_struct: None,
+            xdp2_hdr_struct: None,
+            xdp2_hdr_file: None,
+            ue_spec_id: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -235,6 +244,19 @@ impl ProtocolNames {
     /// Set xtcp2 Go struct name.
     pub const fn xtcp2(mut self, struct_name: &'static str) -> Self {
         self.xtcp2_struct = Some(struct_name);
+        self
+    }
+
+    /// Set both XDP2 native C struct name and header file.
+    pub const fn xdp2_hdr(mut self, struct_name: &'static str, file: &'static str) -> Self {
+        self.xdp2_hdr_struct = Some(struct_name);
+        self.xdp2_hdr_file = Some(file);
+        self
+    }
+
+    /// Set UE Specification table/header identifier.
+    pub const fn ue_spec(mut self, id: &'static str) -> Self {
+        self.ue_spec_id = Some(id);
         self
     }
 
@@ -363,6 +385,20 @@ pub fn find_by_rdma_struct(name: &str) -> Option<ProtocolNames> {
         .find(|p| p.rdma_struct == Some(name))
 }
 
+/// Look up a protocol by its XDP2 native C struct name.
+pub fn find_by_xdp2_hdr_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.xdp2_hdr_struct == Some(name))
+}
+
+/// Look up a protocol by its UE Specification identifier.
+pub fn find_by_ue_spec_id(id: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.ue_spec_id == Some(id))
+}
+
 /// Build a HashMap from source-specific name → canonical name.
 ///
 /// `source` must be one of: "xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"
@@ -384,6 +420,8 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             "ndpi" => p.ndpi_struct.map(|s| s.to_string()),
             "pppd" => p.pppd_proto.map(|s| s.to_string()),
             "rdma" => p.rdma_struct.map(|s| s.to_string()),
+            "xdp2_headers" => p.xdp2_hdr_struct.map(|s| s.to_string()),
+            "ue_spec" => p.ue_spec_id.map(|s| s.to_string()),
             _ => None,
         };
         if let Some(n) = name {

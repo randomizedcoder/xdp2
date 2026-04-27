@@ -142,7 +142,7 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "SRT" => vec!["udp.port==1935,srt"],
         "HSRP" => vec!["udp.port==1985,hsrp"],
         "GLBP" => vec!["udp.port==3222,glbp"],
-        "CARP" => vec!["ip.proto==112,carp"],
+        "CARP" => vec!["ip.proto==112,vrrp"],
         "VRRP" => vec!["ip.proto==112,vrrp"],
         "Teredo" => vec!["udp.port==3544,teredo"],
         "MPLS_OAM" => vec!["udp.port==3503,mpls-echo"],
@@ -173,6 +173,37 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "CIP" => vec!["tcp.port==44818,enip"],
         "VXLAN_GBP" => vec!["udp.port==4789,vxlan"],
         "sFlow" => vec!["udp.port==6343,sflow"],
+        "BMP" => vec!["tcp.port==11019,bmp"],
+        "SNMP_Trap" => vec!["udp.port==162,snmp"],
+        "SOME_IP" => vec!["udp.port==30490,someip"],
+        "RPKI_RTR" => vec!["tcp.port==323,rpkirtr"],
+        "Collectd" => vec!["udp.port==25826,collectd"],
+        "POP3" => vec!["tcp.port==110,pop"],
+        "NNTP" => vec!["tcp.port==119,nntp"],
+        "Cassandra" => vec!["tcp.port==9042,cql"],
+        "XMPP" => vec!["tcp.port==5222,xmpp"],
+        "RTMP" => vec!["tcp.port==1935,rtmpt"],
+        "Babel" => vec!["udp.port==6696,babel"],
+        "COPS" => vec!["tcp.port==3288,cops"],
+        "MEGACO" => vec!["udp.port==2944,megaco"],
+        "PCEP" => vec!["tcp.port==4189,pcep"],
+        "MongoDB" => vec!["tcp.port==27017,mongo"],
+        "Elasticsearch" => vec!["tcp.port==9200,elasticsearch"],
+        "PostgreSQL" => vec!["tcp.port==5432,pgsql"],
+        "MySQL" => vec!["tcp.port==3306,mysql"],
+        "gRPC" => vec!["tcp.port==50051,http2"],
+        "gNMI" => vec!["tcp.port==9339,http2"],
+        "gNOI" => vec!["tcp.port==9340,http2"],
+        "H323" => vec!["tcp.port==1720,q931"],
+        "IEC_104" => vec!["tcp.port==2404,iec60870_104"],
+        "S7COMM" => vec!["tcp.port==102,cotp"],
+        "RTP_H264" | "RTP_H265" | "RTP_MPEG" | "RTP_OPUS" => vec!["udp.port==5004,rtp"],
+        "RTCP_SR" | "RTCP_RR" => vec!["udp.port==5005,rtcp"],
+        "Diameter_S6a" => vec!["tcp.port==3868,diameter"],
+        "EtherNet_IP" => vec!["tcp.port==44818,enip"],
+        "MSDP_SA" => vec!["tcp.port==639,msdp"],
+        "NTS" => vec!["udp.port==123,ntp"],
+        "LMP" => vec!["udp.port==701,lmp"],
         _ => vec![],
     }
 }
@@ -180,7 +211,21 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
 /// Return the PDML `<proto name="...">` that tshark uses for this protocol,
 /// when it differs from the canonical name or the name_mapping tshark field.
 /// This is NOT passed to tshark as a `-d` flag — it's only used for searching
-/// PDML output in `tshark_from_pcap_bytes`.
+/// PDML output in round-trip validation (`cmd_validate_single`).
+///
+/// Why this exists: tshark's PDML output uses `<proto name="X">` where X is
+/// the dissector's *filter name*, which often diverges from both the canonical
+/// protocol name and the `name_mapping::tshark` field.  Common divergence
+/// patterns:
+///
+///  1. Wrapper protocols: CARP → "vrrp" (shared IP proto 112), SRv6 →
+///     "ipv6.routing" (SRH is a routing-header sub-dissector).
+///  2. Abbreviated names: FCoE → "fcoe", EtherCAT → "ecatf", MongoDB →
+///     "mongo", PostgreSQL → "pgsql".
+///  3. Sub-protocols sharing a parent: SCTP_Chunk/SCTP_Init/SCTP_Sack all
+///     appear as "sctp"; LLDP_* variants appear as "lldp".
+///
+/// When adding entries, verify with: `tshark -r <pcap> -T pdml | grep 'proto name'`
 pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
     match proto {
         // Ethertype-based protocols where tshark layer name differs
@@ -205,7 +250,7 @@ pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
         "HCI_SCO" => Some("bthci_sco"),
         "HCI_Event" => Some("bthci_evt"),
         "HCI_ISO" => Some("bthci_iso"),
-        "LMP" => Some("btlmp"),
+        "LMP" => Some("lmp"),
         // PPP sub-protocols
         "PPP_LCP" => Some("lcp"),
         "PPP_IPCP" => Some("ipcp"),
@@ -226,7 +271,7 @@ pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
         "SOCKS" => Some("socks"),
         "IRC" => Some("irc"),
         "TACACS" => Some("tacplus"),
-        "MMRP" => Some("mmrp"),
+        "MMRP" => Some("mrp-mmrp"),
         "PVST" => Some("stp"),
         "RSTP" => Some("stp"),
         // TWAMP/OWAMP: tshark uses dotted sub-dissector names
@@ -234,10 +279,103 @@ pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
         "OWAMP" => Some("owamp.test"),
         // MPLS Echo: tshark dissector name
         "MPLS_Echo" => Some("mpls-echo"),
+        // More PDML name aliases for Bronze protocols
+        "MRP" => Some("pn_mrp"),
+        "RTMP" => Some("rtmpt"),
+        "EtherType_TSN" => Some("rtag"),
+        "PROFINET_DCP" => Some("pn_rt"),
+        "MARKER" => Some("marker"),
+        "POP3" => Some("pop"),
+        "CFLOW" => Some("cflow"),
+        "SFLOW_V5" => Some("sflow"),
+        "MongoDB" => Some("mongo"),
+        "Cassandra" => Some("cql"),
+        "PostgreSQL" => Some("pgsql"),
+        "FCoE_Init" => Some("fcoe"),
+        "IEC_104" => Some("iec60870_104"),
+        "DoT" => Some("tls"),
+        "RADIUS_ACCT" => Some("radius"),
+        "RADIUS_COA" => Some("radius"),
+        "ESP_NULL" => Some("esp"),
+        "MPLS_TP" => Some("mpls"),
+        "L2TP_AVP" => Some("l2tp"),
+        "SNMPv3" => Some("snmp"),
+        "MGCP_NCS" => Some("mgcp"),
+        "LLDP_CDP" => Some("cdp"),
+        "PTP_V1" => Some("ptp"),
+        "LISP_Control" => Some("lisp"),
+        "GTP_U_V1" => Some("gtp"),
+        "GTP_V0" => Some("gtp"),
+        "GTP_Prime" => Some("gtp_prime"),
+        "NFSv4" => Some("nfs"),
+        "CIFS" => Some("smb"),
+        "DCBX" => Some("lldp"),
+        "GRE_WCCPv2" => Some("wccp"),
+        "QUIC_Initial" => Some("quic"),
+        "QUIC_Retry" => Some("quic"),
+        "DTLS_13" => Some("dtls"),
+        "VXLAN_GPB" => Some("vxlan"),
+        "SNMP_Trap" => Some("snmp"),
+        "H323" => Some("q931"),
+        "gRPC" => Some("grpc"),
+        "gNMI" => Some("grpc"),
+        "gNOI" => Some("grpc"),
+        // RTP/RTCP sub-types share dissector names
+        "RTP_H264" | "RTP_H265" | "RTP_MPEG" | "RTP_OPUS" => Some("rtp"),
+        "RTCP_SR" | "RTCP_RR" => Some("rtcp"),
+        // Misc aliases
+        "NTS" => Some("ntp"),
+        "gPTP" => Some("ptp"),
+        "DHCP_Option" => Some("dhcp"),
+        "DHCPv6_Option" => Some("dhcpv6"),
+        "Diameter_S6a" => Some("diameter"),
+        "SCTP_Chunk" | "SCTP_Init" | "SCTP_Data" | "SCTP_Sack" => Some("sctp"),
+        "SixInFour" | "SixToFour" => Some("ipv6"),
+        "LLDP_802_1AB" | "LLDP_MED" | "LLDP_EXT_DOT1" | "LLDP_EXT_DOT3"
+            => Some("lldp"),
+        "MPLS_PW_ETH" => Some("pw_eth_cw"),
+        "GRE_Cisco" => Some("gre"),
+        "EtherNet_IP" => Some("enip"),
+        "OAM_LBM" | "OAM_LTM" | "Y1731" => Some("cfm"),
+        "MSDP_SA" => Some("msdp"),
+        "TZSP_V2" => Some("tzsp"),
+        "WPA_EAPOL_Key" => Some("eapol"),
+        "GOOSE" => Some("goose"),
+        "IEC_GOOSE" => Some("goose"),
         // PPP PAP: tshark uses "pap"
         "PPP_PAP" => Some("pap"),
         // MLD Report: tshark shows as icmpv6
         "MLD_Report_v1" => Some("icmpv6"),
+        // ── tshark PDML naming quirks ──
+        //
+        // These aliases exist because tshark's PDML `<proto name="...">` does
+        // NOT always match the dissector filter name in `tshark -G protocols`,
+        // or because tshark uses a parent/wrapper protocol name instead of the
+        // canonical sub-protocol name.  When adding new entries here, verify
+        // with:  tshark -r <pcap> -T pdml | grep '<proto name='
+        //
+        // CARP: tshark registers a "carp" dissector (IP proto 112) but it
+        // produces zero PDML fields and fails to parse standalone packets.
+        // The VRRPv3 dissector at the same protocol number works and exposes
+        // equivalent fields, so we map CARP → "vrrp" for round-trip
+        // validation.  The decode_as_hints() entry also uses "vrrp".
+        "CARP" => Some("vrrp"),
+        // SRv6: the SRH dissector is a sub-dissector of ipv6.routing (routing
+        // type 4).  tshark puts all SRH fields (ipv6.routing.srh.*) inside the
+        // `<proto name="ipv6.routing">` PDML element — there is no separate
+        // `<proto name="ipv6.routing.srh">` layer.
+        "SRv6" => Some("ipv6.routing"),
+        // AppleTalk: EtherType 0x809B triggers LLAP (LocalTalk bridging) which
+        // in turn contains the DDP layer.  The PDML proto is "ddp".
+        "AppleTalk" => Some("ddp"),
+        // NLAttr: part of the "netlink" PDML layer, not a separate proto.
+        "NLAttr" => Some("netlink"),
+        // Zigbee sub-layers (IEEE 802.15.4 → zbee_nwk → zbee_aps)
+        "Zigbee_NWK" => Some("zbee_nwk"),
+        "Zigbee_APS" => Some("zbee_aps"),
+        // NVMe over Fabrics/TCP: the tshark dissector is "nvme-tcp", not "nvme"
+        // (which is the NVMe command-set dissector used inside nvme-tcp/rdma).
+        "NVMe" => Some("nvme-tcp"),
         _ => None,
     }
 }

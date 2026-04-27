@@ -125,7 +125,7 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("MMRP", "mmrp"),
     ("TACACS", "tacacs"),
     ("sFlow", "sflow"),
-    ("LMP", "btlmp"),
+    ("LMP", "lmp"),
     ("ERSPAN", "erspan"),
     ("PVST", "stp"),
     ("RSTP", "stp"),
@@ -589,6 +589,8 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("PVST", "UpperPDU", "_always", 0),
     ("RSTP", "UpperPDU", "_always", 0),
     ("ERSPAN", "UpperPDU", "_always", 0),
+    // eCPRI (EtherType 0xAEFE)
+    ("eCPRI", "Ethernet", "ether_type", 0xAEFE),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack
@@ -618,12 +620,18 @@ pub fn generate_pcap_with_discovery(
     // (e.g., real DHCP Discover, NTP query, BGP OPEN) that tshark can dissect,
     // whereas synthetic generation produces zero-filled payloads that tshark
     // often can't identify as the target protocol.
-    // Skip templates for UpperPDU-routed protocols: their templates use TCP/UDP
-    // encapsulation which tshark can't dissect without proper TCP state.
-    let is_upper_pdu_routed = UPPER_PDU_DISSECTORS
+    // Skip templates only for protocols whose ONLY route is UpperPDU
+    // (no TCP/UDP/Ethernet alternative). Protocols with both UpperPDU and
+    // normal STACK_ROUTES benefit from templates since the normal route
+    // is preferred by build_protocol_stack.
+    let has_non_upper_pdu_route = STACK_ROUTES.iter().any(|(child, parent, _, _)| {
+        *child == target_proto.name && *parent != "UpperPDU"
+    });
+    let is_upper_pdu_only = UPPER_PDU_DISSECTORS
         .iter()
-        .any(|(proto, _)| *proto == target_proto.name);
-    if !is_upper_pdu_routed {
+        .any(|(proto, _)| *proto == target_proto.name)
+        && !has_non_upper_pdu_route;
+    if !is_upper_pdu_only {
         if let Some(tmpl) = load_pcap_template(&target_proto.name) {
             return Ok(PcapOutput {
                 pcap_bytes: tmpl.pcap_bytes,

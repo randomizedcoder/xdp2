@@ -279,6 +279,28 @@ fn try_extract(
             def.is_variable_length = names.variable_length;
             Some(def)
         }
+        "xdp2_headers" => {
+            let src = paths.xdp2_headers_dir.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.xdp2_hdr_struct?;
+            let header = names.xdp2_hdr_file?;
+            let header_path = src.join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::xdp2_headers::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "ue_spec" => {
+            let names = name_mapping::find_by_canonical(proto)?;
+            let ue_spec_id = names.ue_spec_id?;
+            let mut def = extractors::ue_spec::extract_protocol(ue_spec_id)?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         _ => None,
     }
 }
@@ -385,7 +407,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi", "dpdk", "ndpi", "pppd", "rdma", "xtcp2"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi", "dpdk", "ndpi", "pppd", "rdma", "xtcp2", "xdp2_headers", "ue_spec"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {
@@ -2675,7 +2697,7 @@ pub(crate) fn cmd_validate(
 /// Prefers kernel fields (most accurate struct layout), supplemented by scapy defaults.
 fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
     // Try each source in priority order
-    let source_priority = ["kernel", "xtcp2", "omi", "scapy", "tshark", "etherparse"];
+    let source_priority = ["kernel", "xdp2_headers", "ue_spec", "xtcp2", "omi", "scapy", "tshark", "etherparse"];
     let mut best: Option<ir::ProtocolDef> = None;
 
     for source in &source_priority {
@@ -5421,12 +5443,26 @@ fn cmd_validate_single(
 
     let packets = extractors::tshark::parse_pdml(&xml)?;
 
-    // Find dissector name
+    // Find dissector name — try name_mapping.tshark first, then pdml_name_alias
+    // fallback, then decode_as_hints dissector names (matches interactive validator).
     let dissector = name_mapping::find_by_canonical(proto)
         .and_then(|n| n.tshark.map(|s| s.to_string()));
     let tshark_found = dissector
         .as_deref()
-        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d))
+        // Fallback: try PDML name alias (for protocols where tshark layer name differs)
+        .or_else(|| {
+            extractors::tshark::pdml_name_alias(proto)
+                .and_then(|alias| extractors::tshark::extract_protocol_from_pdml(&packets, alias))
+        })
+        // Fallback: try decode_as_hints dissector names
+        .or_else(|| {
+            hints.iter().find_map(|hint| {
+                hint.rsplit(',').next().and_then(|dname| {
+                    extractors::tshark::extract_protocol_from_pdml(&packets, dname)
+                })
+            })
+        });
     let tshark_recognized = tshark_found.is_some();
 
     let tshark_def = match tshark_found {

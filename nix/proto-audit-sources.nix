@@ -378,6 +378,10 @@ in
     mkdir -p $out
     python3 ${../samples/proto_audit/helpers/gen_pcap_templates.py} \
       --output-dir $out
+    # Layer hand-crafted and bronze-generated templates on top
+    python3 ${../samples/proto_audit/helpers/gen_bronze_templates.py} \
+      --output-dir $out
+    cp ${../samples/proto_audit/pcap_templates}/*.pcap $out/ 2>/dev/null || true
   '';
 
   # ── Public PCAP collections for cross-source audit ──

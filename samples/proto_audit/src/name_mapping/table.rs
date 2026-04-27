@@ -2509,5 +2509,136 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("PDCP", 2)
             .dpdk("rte_pdcp_up_data_pdu_sn_12_hdr", "rte_pdcp_hdr.h")
             .tshark("pdcp-lte"),
+        // ── SUNH (Scale Up Network Header) ──
+        PN::new("SUNH", 8)
+            .xdp2("sunh_parse")
+            .xdp2_hdr("sunh_hdr", "sunh/sunh.h"),
+        // ── SUE (Scale Up Ethernet) ──
+        PN::new("SUE-Version-OV", 1)
+            .xdp2("sue_parse_version_ov")
+            .xdp2_hdr("sue_version_switch_header", "sue/sue.h"),
+        PN::new("SUE-Opcode-OV", 8)
+            .xdp2("sue_parse_opcode_ov")
+            .xdp2_hdr("sue_reliability_hdr", "sue/sue.h"),
+        PN::new("SUE-Reliability-Header", 8)
+            .xdp2("sue_parse_rh")
+            .xdp2_hdr("sue_reliability_hdr", "sue/sue.h"),
+        // ── UET PDS (Packet Delivery Subsystem) ──
+        PN::new("UET-Entropy", 4)
+            .xdp2_hdr("uet_entropy_hdr", "uet/pds.h")
+            .ue_spec("pds_entropy"),
+        PN::new("UET-PDS-Prologue", 2)
+            .xdp2("uet_pds_parse_packet_type_ov")
+            .xdp2_hdr("uet_pds_prologue", "uet/pds.h")
+            .ue_spec("pds_prologue"),
+        PN::new("UET-PDS-RUD-ROD-Request", 12)
+            .xdp2("uet_pds_parse_rud_rod_request")
+            .xdp2_hdr("uet_pds_rud_rod_request", "uet/pds.h")
+            .ue_spec("pds_rud_rod_request"),
+        PN::new("UET-PDS-RUD-ROD-Request-CC", 16)
+            .xdp2("uet_pds_parse_rud_rod_request_cc")
+            .xdp2_hdr("uet_pds_rud_rod_request_cc", "uet/pds.h")
+            .ue_spec("pds_rud_rod_request_cc"),
+        PN::new("UET-PDS-ACK", 12)
+            .xdp2("uet_pds_parse_ack")
+            .xdp2_hdr("uet_pds_ack", "uet/pds.h")
+            .ue_spec("pds_ack"),
+        PN::new("UET-PDS-ACK-CC-OV", 32)
+            .xdp2("uet_pds_parse_ack_cc_ov")
+            .xdp2_hdr("uet_pds_ack_cc", "uet/pds.h")
+            .ue_spec("pds_ack_cc"),
+        PN::new("UET-PDS-ACK-CC-NSCC", 32)
+            .xdp2("uet_pds_parse_ack_cc_nscc")
+            .xdp2_hdr("uet_pds_ack_cc", "uet/pds.h")
+            .ue_spec("pds_ack_cc"),
+        PN::new("UET-PDS-ACK-CC-Credit", 32)
+            .xdp2("uet_pds_parse_ack_cc_credit")
+            .xdp2_hdr("uet_pds_ack_cc", "uet/pds.h")
+            .ue_spec("pds_ack_cc"),
+        PN::new("UET-PDS-ACK-CCX", 32)
+            .xdp2("uet_pds_parse_ack_ccx")
+            .xdp2_hdr("uet_pds_ack_ccx", "uet/pds.h")
+            .ue_spec("pds_ack_ccx"),
+        PN::new("UET-PDS-Control-Packet", 16)
+            .xdp2("uet_pds_parse_control_pkt")
+            .xdp2_hdr("uet_pds_control_pkt", "uet/pds.h")
+            .ue_spec("pds_control_pkt"),
+        PN::new("UET-PDS-RUDI-Request-Response", 8)
+            .xdp2("uet_pds_parse_rudi_req_resp")
+            .xdp2_hdr("uet_pds_rudi_req_resp", "uet/pds.h")
+            .ue_spec("pds_rudi_req_resp"),
+        PN::new("UET-PDS-NACK", 16)
+            .xdp2("uet_pds_parse_nack")
+            .xdp2_hdr("uet_pds_nack", "uet/pds.h")
+            .ue_spec("pds_nack"),
+        PN::new("UET-PDS-NACK-CCX", 24)
+            .xdp2("uet_pds_parse_nack_ccx")
+            .xdp2_hdr("uet_pds_nack_ccx", "uet/pds.h")
+            .ue_spec("pds_nack_ccx"),
+        PN::new("UET-PDS-UUD-Request", 4)
+            .xdp2("uet_pds_parse_uud_req")
+            .xdp2_hdr("uet_pds_uud_req", "uet/pds.h")
+            .ue_spec("pds_uud_req"),
+        // ── UET SES (Semantic Sublayer) ──
+        PN::new("UET-SES-Base-Header", 3)
+            .xdp2("uet_ses_parse_common_hdr_ov")
+            .xdp2_hdr("uet_ses_base_hdr", "uet/ses.h")
+            .ue_spec("ses_base_hdr"),
+        PN::new("UET-SES-Common-Header", 12)
+            .xdp2_hdr("uet_ses_common_hdr", "uet/ses.h")
+            .ue_spec("ses_common_hdr"),
+        PN::new("UET-SES-Request-Standard", 44)
+            .xdp2("uet_ses_parse_request_std_hdr")
+            .xdp2_hdr("uet_ses_request_std_hdr", "uet/ses.h")
+            .ue_spec("ses_request_std"),
+        PN::new("UET-SES-Request-Small", 20)
+            .xdp2("uet_ses_parse_request_small_hdr")
+            .xdp2_hdr("uet_ses_request_small_hdr", "uet/ses.h")
+            .ue_spec("ses_request_small"),
+        PN::new("UET-SES-Request-Medium", 32)
+            .xdp2("uet_ses_parse_request_medium_hdr")
+            .xdp2_hdr("uet_ses_request_medium_hdr", "uet/ses.h")
+            .ue_spec("ses_request_medium"),
+        PN::new("UET-SES-Defer-Send", 44)
+            .xdp2("uet_ses_parse_defer_send_hdr")
+            .xdp2_hdr("uet_ses_defer_send_std_hdr", "uet/ses.h"),
+        PN::new("UET-SES-Ready-To-Restart", 48)
+            .xdp2("uet_ses_parse_ready_to_restart_req_hdr")
+            .xdp2_hdr("uet_ses_ready_to_restart_std_hdr", "uet/ses.h"),
+        PN::new("UET-SES-Rendezvous-Ext", 8)
+            .xdp2("uet_ses_parse_rendezvous_ext_hdr")
+            .xdp2_hdr("uet_ses_rendezvous_ext_hdr", "uet/ses.h")
+            .ue_spec("ses_rendezvous_ext"),
+        PN::new("UET-SES-Rendezvous-Send", 40)
+            .xdp2("uet_ses_parse_rendezvous_hdr")
+            .xdp2_hdr("uet_ses_rendezvous_std_hdr", "uet/ses.h"),
+        PN::new("UET-SES-Atomic-Op-Ext", 4)
+            .xdp2("uet_ses_parse_atomic_ext_hdr")
+            .xdp2_hdr("uet_ses_atomic_op_ext_hdr", "uet/ses.h")
+            .ue_spec("ses_atomic_op_ext"),
+        PN::new("UET-SES-Atomic-Op-OV", 4)
+            .xdp2("uet_ses_parse_atomic_op_ov")
+            .xdp2_hdr("uet_ses_atomic_op_ext_hdr", "uet/ses.h"),
+        PN::new("UET-SES-Atomic-CmpSwap-Ext", 36)
+            .xdp2("uet_ses_parse_atomic_cmp_and_swap_ext_hdr")
+            .xdp2_hdr("uet_ses_atomic_cmp_and_swap_ext_hdr", "uet/ses.h"),
+        PN::new("UET-SES-Common-Response", 8)
+            .xdp2_hdr("uet_ses_common_response_hdr", "uet/ses.h")
+            .ue_spec("ses_common_response"),
+        PN::new("UET-SES-NoData-Response", 12)
+            .xdp2("uet_ses_parse_uet_ses_nodata_response_hdr")
+            .xdp2_hdr("uet_ses_nodata_response_hdr", "uet/ses.h")
+            .ue_spec("ses_nodata_response"),
+        PN::new("UET-SES-WithData-Response", 20)
+            .xdp2("uet_ses_parse_uet_ses_with_data_response_hdr")
+            .xdp2_hdr("uet_ses_with_data_response_hdr", "uet/ses.h")
+            .ue_spec("ses_with_data_response"),
+        PN::new("UET-SES-SmallData-Response", 12)
+            .xdp2("uet_ses_parse_uet_ses_with_small_data_response_hdr")
+            .xdp2_hdr("uet_ses_with_small_data_response_hdr", "uet/ses.h")
+            .ue_spec("ses_with_small_data_response"),
+        PN::new("UET-SES-Std-SOM-OV", 44)
+            .xdp2("uet_ses_parse_std_message_som_base_hdr_ov")
+            .xdp2_hdr("uet_ses_request_std_hdr", "uet/ses.h"),
     ]
 }
