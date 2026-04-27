@@ -28,6 +28,7 @@ pub mod netlink;
 pub mod other;
 pub mod security;
 pub mod storage;
+pub mod trading;
 pub mod transport;
 pub mod tunnel;
 pub mod wireless;
