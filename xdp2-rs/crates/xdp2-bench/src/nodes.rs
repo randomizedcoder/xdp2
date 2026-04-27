@@ -31,8 +31,13 @@ use xdp2_protocols::management::{
 };
 use xdp2_protocols::security::ah::AhOps;
 use xdp2_protocols::security::{EapolOps, EspOps, MacsecOps};
-use xdp2_protocols::storage::fc::FcoeOps;
+use xdp2_protocols::storage::fc::{FcOps, FcoeOps, FC_TYPE_CT, FC_TYPE_ELS, FC_TYPE_FCP};
+use xdp2_protocols::storage::fc_els::FcElsLsAccOps;
+use xdp2_protocols::storage::fc_gs::FcCtOps;
+use xdp2_protocols::storage::fcp::FcpCmndOps;
+use xdp2_protocols::storage::iscsi_pdus::IscsiScsiReqOps;
 use xdp2_protocols::storage::misc::EthercatOps;
+use xdp2_protocols::storage::nvme_tcp::NvmeTcpOps;
 use xdp2_protocols::transport::tipc::TipcOps;
 use xdp2_protocols::tunnel::geneve::GeneveV0Ops;
 use xdp2_protocols::tunnel::gre::{GreBaseOps, GreV0Ops, GRE_FF_OPS, GRE_V0_FLAG_FIELDS};
@@ -142,17 +147,82 @@ impl ProtocolOps for LlcDispatchOps {
     }
 }
 
-// ── Leaf nodes (no proto_table, parsing stops here) ───────────────
+// ── TCP with destination-port dispatch for application protocols ──
 
-static TCP_NODE: ParseNode<FlowMeta, TcpOps> = ParseNode {
-    proto: TcpOps,
+/// TCP with destination-port dispatch for application protocol detection.
+///
+/// Similar to UdpDportOps, this returns the destination port for table
+/// lookup. Known application ports (iSCSI 3260, NVMe/TCP 4420) dispatch
+/// to their handler; all other ports fall back to the TCP_LEAF wildcard.
+pub struct TcpDportOps;
+
+impl ProtocolOps for TcpDportOps {
+    const MIN_LEN: usize = 20;
+    const NAME: &'static str = "TCP-dport";
+
+    #[inline]
+    fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
+        if hdr.len() < 20 {
+            return Err(ParseError::Length);
+        }
+        Ok(((hdr[12] >> 4) as usize) * 4)
+    }
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        if hdr.len() < 20 {
+            return Err(ParseError::Length);
+        }
+        // Return destination port (host-order) for app protocol table lookup.
+        Ok(u16::from_be_bytes([hdr[2], hdr[3]]) as i32)
+    }
+}
+
+// ── iSCSI and NVMe/TCP leaf nodes ──
+
+static ISCSI_NODE: ParseNode<FlowMeta, IscsiScsiReqOps> = ParseNode {
+    proto: IscsiScsiReqOps,
     ops: ParseNodeOps {
-        extract_metadata: Some(extract_ports_metadata),
+        extract_metadata: None,
         handler: None,
         post_handler: None,
     },
     proto_table: None,
     wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "iscsi",
+};
+
+static NVME_TCP_NODE: ParseNode<FlowMeta, NvmeTcpOps> = ParseNode {
+    proto: NvmeTcpOps,
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "nvme_tcp",
+};
+
+/// TCP application protocol dispatch table — known service ports.
+static TCP_APP_TABLE: ProtoTable<FlowMeta> = proto_table![
+    (3260, &ISCSI_NODE),    // iSCSI (RFC 7143)
+    (4420, &NVME_TCP_NODE), // NVMe/TCP (NVM Express TCP Transport)
+];
+
+// ── Leaf nodes (no proto_table, parsing stops here) ───────────────
+
+static TCP_NODE: ParseNode<FlowMeta, TcpDportOps> = ParseNode {
+    proto: TcpDportOps,
+    ops: ParseNodeOps {
+        extract_metadata: Some(extract_ports_metadata),
+        handler: None,
+        post_handler: None,
+    },
+    proto_table: Some(&TCP_APP_TABLE),
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "tcp",
 };
@@ -525,6 +595,66 @@ static ETHERCAT_NODE: ParseNode<FlowMeta, EthercatOps> = ParseNode {
     name: "ethercat",
 };
 
+// ── FC sub-type dispatch (ELS, FCP, CT) ──
+
+static FC_ELS_NODE: ParseNode<FlowMeta, FcElsLsAccOps> = ParseNode {
+    proto: FcElsLsAccOps,
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "fc_els",
+};
+
+static FC_FCP_NODE: ParseNode<FlowMeta, FcpCmndOps> = ParseNode {
+    proto: FcpCmndOps,
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "fcp",
+};
+
+static FC_CT_NODE: ParseNode<FlowMeta, FcCtOps> = ParseNode {
+    proto: FcCtOps,
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
+    proto_table: None,
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "fc_ct",
+};
+
+static FC_TYPE_TABLE: ProtoTable<FlowMeta> = proto_table![
+    (FC_TYPE_ELS, &FC_ELS_NODE), // FC Extended Link Services
+    (FC_TYPE_FCP, &FC_FCP_NODE), // FC Protocol for SCSI
+    (FC_TYPE_CT, &FC_CT_NODE),   // FC Common Transport (Name Server)
+];
+
+static FC_NODE: ParseNode<FlowMeta, FcOps> = ParseNode {
+    proto: FcOps,
+    ops: ParseNodeOps {
+        extract_metadata: None,
+        handler: None,
+        post_handler: None,
+    },
+    proto_table: Some(&FC_TYPE_TABLE),
+    wildcard_node: None,
+    unknown_ret: ParseError::UnknownProto,
+    name: "fc",
+};
+
 static FCOE_NODE: ParseNode<FlowMeta, FcoeOps> = ParseNode {
     proto: FcoeOps,
     ops: ParseNodeOps {
@@ -532,7 +662,7 @@ static FCOE_NODE: ParseNode<FlowMeta, FcoeOps> = ParseNode {
         handler: None,
         post_handler: None,
     },
-    proto_table: None,
+    proto_table: Some(&FC_TYPE_TABLE),
     wildcard_node: None,
     unknown_ret: ParseError::UnknownProto,
     name: "fcoe",
