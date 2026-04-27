@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_addordermpid.h
+@@ -0,0 +1,23 @@
++/*
++ * itch_v5_addordermpid.h — itch_v5_addordermpid_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_ADDORDERMPID_H
++#define PROTO_AUDIT_ITCH_V5_ADDORDERMPID_H
++
++#include <stdint.h>
++
++/* ITCH_v5_AddOrderMPID header — 34 bytes minimum */
++struct itch_v5_addordermpid_header {
++    uint16_t itch_v5_addordermpid_stocklocate;
++    uint16_t itch_v5_addordermpid_trackingnumber;
++    uint8_t  itch_v5_addordermpid_timestamp;
++    uint64_t itch_v5_addordermpid_orderreferencenumber;
++    uint8_t  itch_v5_addordermpid_buysellindicator;
++    uint32_t itch_v5_addordermpid_shares;
++    uint64_t itch_v5_addordermpid_stock;
++    uint32_t itch_v5_addordermpid_price;
++    uint32_t itch_v5_addordermpid_attribution;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_ADDORDERMPID_H */

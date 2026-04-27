@@ -1,0 +1,62 @@
+# rdma-core C Type → IR Type Mappings
+#
+# Maps rdma-core libibverbs / libibmad type annotations to bit widths
+# and byte order. Uses the same KernelMappings schema so the kernel
+# parser can be reused with rdma-specific type information.
+
+[type_bits]
+# Standard C integer types used by rdma-core
+uint8_t = 8
+uint16_t = 16
+uint32_t = 32
+uint64_t = 64
+int8_t = 8
+int16_t = 16
+int32_t = 32
+int64_t = 64
+
+# Kernel-style explicit-endian types (used in rdma headers)
+__be16 = 16
+__be32 = 32
+__be64 = 64
+__le16 = 16
+__le32 = 32
+__le64 = 64
+__u8 = 8
+__u16 = 16
+__u32 = 32
+__u64 = 64
+
+[union_sizes]
+# union ibv_gid: raw[16] or { subnet_prefix, interface_id } = 128 bits
+ibv_gid = 128
+ib_gid = 128
+
+[type_endian]
+# __be* → Big endian (network byte order)
+"prefix:__be" = "Big"
+# __le* → Little endian
+"prefix:__le" = "Little"
+# rdma-core uint*_t fields are generally network byte order in wire structs
+# but we leave them as Na (not annotated) — the field_type_overrides handle
+# semantic types
+
+[field_type_overrides]
+# Protocol dispatch fields
+[field_type_overrides.next_hdr]
+type = "Enum"
+reason = "GRH next header (IANA protocol-numbers)"
+
+[field_type_overrides.method]
+type = "Enum"
+reason = "MAD method type"
+
+[field_type_overrides.mgmt_class]
+type = "Enum"
+reason = "MAD management class"
+
+[array_endian_overrides]
+# GID arrays: 16-byte IB GIDs are network byte order
+[array_endian_overrides."uint8_t:16"]
+endian = "Big"
+reason = "IB GID — 128-bit network byte order"

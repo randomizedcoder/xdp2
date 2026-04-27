@@ -1,26 +1,27 @@
 # Proto-Audit Protocol Coverage Report
 
-> Updated 2026-04-06 | 206 curated protocols | 8 sources | 8,358 total tracked
+> Updated 2026-04-13 | 428 curated protocols | 9 sources (incl. OMI trading)
 >
 > Note: Parts of this document are generated from proto-audit report output.
 > Reproduce with `nix run .#proto-audit -- matrix` and `nix run .#proto-audit -- stats`.
 
 ## Overview
 
-The proto-audit tool cross-references protocol header definitions across eight independent sources to find discrepancies in field layout, byte ordering, type classification, and header size. This document captures the current coverage state: which protocols are tracked, which sources know about each one, and where the sources disagree.
+The proto-audit tool cross-references protocol header definitions across nine independent sources to find discrepancies in field layout, byte ordering, type classification, and header size. This document captures the current coverage state: which protocols are tracked, which sources know about each one, and where the sources disagree.
 
 ### Sources
 
 | Source | What it provides | Coverage |
 |--------|-----------------|----------|
-| **XDP2** | In-tree parser struct definitions (`xdp2_parse_*`) | 222 proto_defs (206 curated) |
+| **XDP2** | In-tree parser struct definitions (`xdp2_parse_*`) | 238 proto_defs (incl. 16 new trading) |
 | **Linux kernel** | UAPI struct definitions (`iphdr`, `tcphdr`, ...) | 74 protocols (173 in registry) |
 | **Scapy** | Python packet class field descriptors | 5,798 classes (109 curated) |
 | **tshark** | Wireshark dissector PDML field output | 3,155 protocols (305 from corpus) |
-| **etherparse** | Rust crate structs + overlay patches | 206/206 curated |
-| **libpcap** | BPF gencode + C struct overlay patches | 206/206 curated |
+| **etherparse** | Rust crate structs + overlay patches | 332 overlay patches |
+| **libpcap** | BPF gencode + C struct overlay patches | 332 overlay patches |
 | **Kaitai Struct** | Format specification files (.ksy) | ~20 protocols (12 curated) |
 | **Suricata** | Rust app-layer parser structs | ~15 protocols (20 curated) |
+| **OMI** | Exchange trading c-structs + Wireshark Lua dissectors | ~27 trading msgs (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
 
 ### Audit Summary
 

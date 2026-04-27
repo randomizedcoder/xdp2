@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/eobi_v3_heartbeat.h
+@@ -0,0 +1,16 @@
++/*
++ * eobi_v3_heartbeat.h — eobi_v3_heartbeat_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_EOBI_V3_HEARTBEAT_H
++#define PROTO_AUDIT_EOBI_V3_HEARTBEAT_H
++
++#include <stdint.h>
++
++/* EOBI_v3_Heartbeat header — 8 bytes minimum */
++struct eobi_v3_heartbeat_header {
++    uint32_t eobi_v3_heartbeat_lastmsgseqnumprocessed;
++    uint32_t eobi_v3_heartbeat_pad4;
++};
++
++#endif /* PROTO_AUDIT_EOBI_V3_HEARTBEAT_H */

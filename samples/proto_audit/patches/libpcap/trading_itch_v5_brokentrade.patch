@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_brokentrade.h
+@@ -0,0 +1,18 @@
++/*
++ * itch_v5_brokentrade.h — itch_v5_brokentrade_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_BROKENTRADE_H
++#define PROTO_AUDIT_ITCH_V5_BROKENTRADE_H
++
++#include <stdint.h>
++
++/* ITCH_v5_BrokenTrade header — 13 bytes minimum */
++struct itch_v5_brokentrade_header {
++    uint16_t itch_v5_brokentrade_stocklocate;
++    uint16_t itch_v5_brokentrade_trackingnumber;
++    uint8_t  itch_v5_brokentrade_timestamp;
++    uint64_t itch_v5_brokentrade_matchnumber;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_BROKENTRADE_H */

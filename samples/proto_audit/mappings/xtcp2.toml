@@ -1,0 +1,34 @@
+# xtcp2 Go type mappings
+#
+# Maps Go types from xtcp2 netlink parser structs to IR bit sizes.
+# The xtcp2 source uses standard Go integer types for all fields.
+# All structs are little-endian (binary.LittleEndian deserialization).
+
+[type_bits]
+uint8 = 8
+uint16 = 16
+uint32 = 32
+uint64 = 64
+int8 = 8
+int16 = 16
+int32 = 32
+int64 = 64
+bool = 8
+byte = 8
+
+# Endianness: all xtcp2 structs use binary.LittleEndian
+[type_endian]
+uint8 = "Na"
+uint16 = "Little"
+uint32 = "Little"
+uint64 = "Little"
+int8 = "Na"
+int16 = "Little"
+int32 = "Little"
+int64 = "Little"
+bool = "Na"
+byte = "Na"
+
+# Nested struct sizes (for fields like InetDiagSockID embedded in InetDiagMsg)
+[struct_sizes]
+InetDiagSockID = 384  # 48 bytes

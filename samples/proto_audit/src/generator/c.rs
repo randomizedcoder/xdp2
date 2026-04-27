@@ -189,9 +189,11 @@ pub fn generate_proto_def_synthetic(proto: &ProtocolDef) -> String {
     out.push_str("#include \"xdp2/parser.h\"\n\n");
 
     // Generate synthetic packed struct from IR fields
+    // Note: __attribute__((packed)) goes after the closing brace so that
+    // parse_kernel_struct() can find the struct with `struct name {` pattern.
     out.push_str(&format!(
         "/* Synthetic struct from proto-audit IR */\n\
-         struct {} __attribute__((packed)) {{\n",
+         struct {} {{\n",
         struct_name
     ));
 
@@ -216,7 +218,7 @@ pub fn generate_proto_def_synthetic(proto: &ProtocolDef) -> String {
         current_bit = field.offset_bits + field.size_bits;
     }
 
-    out.push_str("};\n\n");
+    out.push_str("} __attribute__((packed));\n\n");
 
     // Helper functions
     if has_next_proto {

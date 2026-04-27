@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::{
     comparator,
     discovery::{self, DiscoveredProtocol, DiscoveryState, Tier, TierFilter},
-    extractors, generator, ir, name_mapping, report, type_mapping, SourcePaths,
+    extractors, generator, ir, name_mapping, netlink, report, type_mapping, SourcePaths,
 };
 
 /// Try to extract a protocol from a single source. Returns None on failure
@@ -18,34 +18,49 @@ fn try_extract(
         "xdp2" => {
             let dir = paths.proto_defs_dir.as_ref()?;
             let all_defs = extractors::xdp2::scan_proto_defs_dir(dir).ok()?;
+            // Prefer exact var_name match from the name-mapping table when the
+            // protocol carries an `.xdp2(...)` slot — canonical names and
+            // display strings often diverge (e.g. "ITCH_v5_AddOrder" ↔
+            // "xdp2_parse_itch_v5_add_order"), so fuzzy substring matches miss.
+            let curated_var = name_mapping::find_by_canonical(proto)
+                .and_then(|n| n.xdp2);
             let matching = all_defs
                 .iter()
                 .find(|d| {
+                    if let Some(v) = curated_var {
+                        return d.var_name == v;
+                    }
                     d.display_name.to_lowercase() == proto.to_lowercase()
                         || d.var_name.to_lowercase().contains(&proto.to_lowercase())
                 })?;
             Some(extractors::xdp2::to_protocol_def(matching))
         }
         "kernel" => {
-            let src = paths.kernel_src.as_ref()?;
-            let names = name_mapping::find_by_canonical(proto)?;
-            let struct_name = names.kernel_struct?;
-            let header = names.kernel_header?;
-            // Try kernel source tree layout first, then glibc-dev layout
-            let header_path = src.join(format!("include/uapi/{}", header));
-            let header_path = if header_path.exists() {
-                header_path
-            } else {
-                src.join(format!("include/{}", header))
-            };
-            let content = std::fs::read_to_string(&header_path).ok()?;
-            let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
-                .ok()
-                .flatten()?;
-            // Use canonical name, not kernel struct name
-            def.name = names.canonical.to_string();
-            def.is_variable_length = names.variable_length;
-            Some(def)
+            let names = name_mapping::find_by_canonical(proto);
+            // Try struct-based extraction from kernel headers
+            let struct_result = (|| -> Option<ir::ProtocolDef> {
+                let src = paths.kernel_src.as_ref()?;
+                let names = names.as_ref()?;
+                let struct_name = names.kernel_struct?;
+                let header = names.kernel_header?;
+                let header_path = src.join(format!("include/uapi/{}", header));
+                let header_path = if header_path.exists() {
+                    header_path
+                } else {
+                    let p = src.join(format!("include/{}", header));
+                    if p.exists() { p } else { src.join(header) }
+                };
+                let content = std::fs::read_to_string(&header_path).ok()?;
+                let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
+                    .ok()
+                    .flatten()?;
+                def.name = names.canonical.to_string();
+                def.is_variable_length = names.variable_length;
+                Some(def)
+            })();
+            // Fall back to embedded_proto for kernel-defined protocols without C structs
+            // (e.g. SK_MEMINFO which is an array indexed by enum constants)
+            struct_result.or_else(|| crate::generator::pcap::embedded_proto(proto))
         }
         "scapy" => {
             let helper = paths
@@ -62,8 +77,38 @@ fn try_extract(
             Some(def)
         }
         "tshark" => {
-            let pcap_path = paths.pcap.as_ref()?;
             let names = name_mapping::find_by_canonical(proto);
+            // OMI Lua path: when the protocol has an OMI Lua dissector + sample
+            // PCAP, load the Lua dissector at tshark startup so the trading
+            // payload is decoded instead of showing up as opaque `data`.
+            if let (Some(lua_rel), Some(pcap_rel), Some(lua_dir), Some(pcaps_dir)) = (
+                names.as_ref().and_then(|n| n.omi_lua),
+                names.as_ref().and_then(|n| n.omi_pcap),
+                paths.omi_lua_dir.as_ref(),
+                paths.omi_pcaps_dir.as_ref(),
+            ) {
+                let outer_proto = names.as_ref().and_then(|n| n.tshark).unwrap_or("data");
+                let lua_path = lua_dir.join(lua_rel);
+                let pcap_path = pcaps_dir.join(pcap_rel);
+                let xml = extractors::tshark::run_tshark_with_lua(
+                    &pcap_path, &paths.tshark_bin, 1, &lua_path,
+                ).ok()?;
+                // If the entry names a per-message PDML field, descend into
+                // it so extraction yields only the wire layout of that specific
+                // message type (not the whole-packet superset).
+                let pdml = if let Some(msg_field) =
+                    names.as_ref().and_then(|n| n.omi_tshark_field)
+                {
+                    extractors::tshark::extract_field_as_proto(&xml, outer_proto, msg_field)?
+                } else {
+                    let packets = extractors::tshark::parse_pdml(&xml).ok()?;
+                    extractors::tshark::extract_protocol_from_pdml(&packets, outer_proto)?
+                };
+                let mut def = extractors::tshark::to_protocol_def(&pdml);
+                def.name = proto.to_string();
+                return Some(def);
+            }
+            let pcap_path = paths.pcap.as_ref()?;
             let dissector = names.as_ref().and_then(|n| n.tshark)?;
             let xml = extractors::tshark::run_tshark(pcap_path, &paths.tshark_bin, 10).ok()?;
             let packets = extractors::tshark::parse_pdml(&xml).ok()?;
@@ -128,6 +173,24 @@ fn try_extract(
             def.name = proto.to_string();
             Some(def)
         }
+        "omi" => {
+            let names = name_mapping::find_by_canonical(proto)?;
+            let omi_struct = names.omi_struct?;
+            let omi_file = names.omi_file?;
+            let mappings = type_mapping::load_omi_mappings(None).ok()?;
+            let mut def = extractors::omi::extract_protocol(
+                paths.omi_cstructs_dir.as_deref(),
+                proto,
+                omi_struct,
+                omi_file,
+                &mappings,
+            )
+            .ok()
+            .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
         "suricata" => {
             let suricata_dir = paths.suricata_dir.as_ref()?;
             // Prefer curated suricata_module from name mapping for targeted extraction
@@ -150,6 +213,93 @@ fn try_extract(
                 }
             }
             None
+        }
+        "dpdk" => {
+            let src = paths.dpdk_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.dpdk_struct?;
+            let header = names.dpdk_header?;
+            let header_path = src.join("lib").join("net").join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::dpdk::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "ndpi" => {
+            let src = paths.ndpi_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.ndpi_struct?;
+            let header = names.ndpi_header?;
+            let header_path = src.join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::ndpi::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "pppd" => {
+            let src = paths.pppd_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let pppd_proto = names.pppd_proto?;
+            let mut def = extractors::pppd::extract_protocol(src, pppd_proto)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "rdma" => {
+            let src = paths.rdma_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.rdma_struct?;
+            let header = names.rdma_header?;
+            let header_path = src.join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::rdma::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "xtcp2" => {
+            let src = paths.xtcp2_src.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.xtcp2_struct?;
+            let mappings = type_mapping::load_xtcp2_mappings(None).ok()?;
+            let mut def = extractors::xtcp2::extract_protocol(src, proto, struct_name, &mappings)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "xdp2_headers" => {
+            let src = paths.xdp2_headers_dir.as_ref()?;
+            let names = name_mapping::find_by_canonical(proto)?;
+            let struct_name = names.xdp2_hdr_struct?;
+            let header = names.xdp2_hdr_file?;
+            let header_path = src.join(header);
+            let content = std::fs::read_to_string(&header_path).ok()?;
+            let mut def = extractors::xdp2_headers::extract_protocol(&content, struct_name, header)
+                .ok()
+                .flatten()?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
+        }
+        "ue_spec" => {
+            let names = name_mapping::find_by_canonical(proto)?;
+            let ue_spec_id = names.ue_spec_id?;
+            let mut def = extractors::ue_spec::extract_protocol(ue_spec_id)?;
+            def.name = names.canonical.to_string();
+            def.is_variable_length = names.variable_length;
+            Some(def)
         }
         _ => None,
     }
@@ -195,7 +345,8 @@ fn try_extract_discovered(
             let header_path = if header_path.exists() {
                 header_path
             } else {
-                src.join(format!("include/{}", header))
+                let p = src.join(format!("include/{}", header));
+                if p.exists() { p } else { src.join(header) }
             };
             let content = std::fs::read_to_string(&header_path).ok()?;
             let mut def = extractors::kernel::extract_protocol(&content, struct_name, header)
@@ -256,7 +407,7 @@ pub(crate) fn cmd_extract(
     Ok(())
 }
 
-const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata"];
+const ALL_SOURCES: &[&str] = &["xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap", "kaitai", "suricata", "omi", "dpdk", "ndpi", "pppd", "rdma", "xtcp2", "xdp2_headers", "ue_spec"];
 
 fn parse_source_list(sources: Option<&str>) -> Vec<String> {
     match sources {
@@ -337,22 +488,20 @@ pub(crate) fn cmd_audit(
         source_list.join(", ")
     );
 
-    let results = run_audit(protos, sources, tier, &discovery_state, paths);
+    let mut results = run_audit(protos, sources, tier, &discovery_state, paths);
 
-    // Persist Silver/Bronze results to the validation cache.
-    // Never downgrade an existing Gold (round-trip) to Silver/Bronze.
+    // Sync with validation cache: promote to Gold if cached, save Silver/Bronze otherwise.
     {
         let existing_cache = load_validation_cache();
-        for r in &results {
-            // Strip " [D]" tag from discovered protocols for cache key
+        for r in &mut results {
             let cache_key = r.protocol.trim_end_matches(" [D]").to_string();
             let existing_tier = existing_cache.get(&cache_key);
-            let is_gold = existing_tier == Some(&discovery::ValidationTier::Gold);
-            if !is_gold {
-                if let Some(ref vtier) = r.validation_tier {
-                    if *vtier != discovery::ValidationTier::Unvalidated {
-                        let _ = save_validation_result(&cache_key, r);
-                    }
+            if existing_tier == Some(&discovery::ValidationTier::Gold) {
+                // Promote to Gold from cache (wire-validated via validate-netlink)
+                r.validation_tier = Some(discovery::ValidationTier::Gold);
+            } else if let Some(ref vtier) = r.validation_tier {
+                if *vtier != discovery::ValidationTier::Unvalidated {
+                    let _ = save_validation_result(&cache_key, r);
                 }
             }
         }
@@ -545,8 +694,9 @@ pub(crate) fn cmd_generate(
         }
         "etherparse" => generator::generate_etherparse(&protocol_def),
         "scapy" => generator::generate_scapy(&protocol_def),
+        "wireshark" => generator::generate_wireshark_lua_single(&protocol_def),
         _ => anyhow::bail!(
-            "Unknown target '{}'. Valid targets: c, etherparse, scapy, pcap",
+            "Unknown target '{}'. Valid targets: c, etherparse, scapy, pcap, wireshark",
             target
         ),
     };
@@ -885,11 +1035,10 @@ fn crossgen_one(
             }
         }
         "c" => {
-            let generated = generator::generate_proto_def(&ir);
-            // Re-extract: parse as a kernel struct
-            let struct_name = name_mapping::find_by_canonical(proto)
-                .and_then(|n| n.kernel_struct.map(|s| s.to_string()))
-                .unwrap_or_else(|| ir.name.to_lowercase());
+            // Use synthetic generator which embeds a parseable struct definition
+            let generated = generator::generate_proto_def_synthetic(&ir);
+            let snake = ir.name.to_lowercase().replace('.', "_").replace('-', "_").replace(' ', "_");
+            let struct_name = format!("proto_audit_{}_hdr", snake);
             let mappings = type_mapping::load_kernel_mappings(None).ok()?;
             let parsed = extractors::kernel::parse_kernel_struct(&generated, &struct_name);
             match parsed {
@@ -1109,8 +1258,1091 @@ fn crossgen_one(
                 }),
             }
         }
+        "kaitai" => {
+            // Kaitai round-trip: generate .ksy → write to temp → parse back → compare
+            let generated = generator::generate_kaitai_ksy(&ir);
+            let tmp = std::env::temp_dir().join(format!(
+                "crossgen_{}.ksy",
+                ir.name.to_lowercase()
+            ));
+            if std::fs::write(&tmp, &generated).is_err() {
+                return Some(CrossGenResult {
+                    target: "kaitai".to_string(),
+                    passed: false,
+                    original_fields: ir.fields.len(),
+                    roundtrip_fields: 0,
+                    fields_agree: 0,
+                    fields_mismatch: 0,
+                    error: Some("cannot write temp .ksy file".to_string()),
+                });
+            }
+            let result = extractors::kaitai::extract_from_ksy(&tmp);
+            let _ = std::fs::remove_file(&tmp);
+            match result {
+                Ok(Some(roundtrip_def)) => {
+                    let audit = comparator::audit_protocol(
+                        &ir.name,
+                        &[("original", &ir), ("roundtrip", &roundtrip_def)],
+                    );
+                    Some(CrossGenResult {
+                        target: "kaitai".to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    })
+                }
+                Ok(None) => Some(CrossGenResult {
+                    target: "kaitai".to_string(),
+                    passed: false,
+                    original_fields: ir.fields.len(),
+                    roundtrip_fields: 0,
+                    fields_agree: 0,
+                    fields_mismatch: 0,
+                    error: Some("kaitai re-extraction found no fields".to_string()),
+                }),
+                Err(e) => Some(CrossGenResult {
+                    target: "kaitai".to_string(),
+                    passed: false,
+                    original_fields: ir.fields.len(),
+                    roundtrip_fields: 0,
+                    fields_agree: 0,
+                    fields_mismatch: 0,
+                    error: Some(format!("kaitai re-extraction failed: {}", e)),
+                }),
+            }
+        }
         _ => None,
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Pipeline: full PCAP → IR → code → IR → PCAP → compare round-trip
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Result of the full pipeline for one (protocol, target) pair.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct PipelineResult {
+    pub protocol: String,
+    pub target: String,
+    pub pcap_pass: bool,
+    pub pcap_fields_total: usize,
+    pub pcap_fields_match: usize,
+    pub crossgen_pass: bool,
+    pub crossgen_fields_agree: u32,
+    pub crossgen_fields_mismatch: u32,
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pcap_diffs: Vec<comparator::PcapFieldDiff>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ir_stage1: Option<ir::AuditResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ir_stage2: Option<ir::AuditResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ir_stage3: Option<ir::AuditResult>,
+}
+
+/// Run crossgen on a provided IR (instead of building it internally).
+/// Returns (CrossGenResult, roundtrip_ir) so the pipeline can chain.
+fn crossgen_with_ir(
+    ir: &ir::ProtocolDef,
+    proto: &str,
+    target: &str,
+    paths: &SourcePaths,
+) -> (CrossGenResult, Option<ir::ProtocolDef>) {
+    if ir.fields.is_empty() {
+        return (CrossGenResult {
+            target: target.to_string(),
+            passed: false,
+            original_fields: 0,
+            roundtrip_fields: 0,
+            fields_agree: 0,
+            fields_mismatch: 0,
+            error: Some("IR has no fields".to_string()),
+        }, None);
+    }
+
+    match target {
+        "etherparse" => {
+            let generated = generator::generate_etherparse(ir);
+            let pascal = ir.name.replace('.', "").replace('-', "").replace(' ', "");
+            let struct_name = format!("{}Header", pascal);
+            let mappings = match type_mapping::load_etherparse_mappings(None) {
+                Ok(m) => m,
+                Err(e) => return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("mappings: {}", e)),
+                }, None),
+            };
+            match extractors::etherparse::parse_etherparse_struct(&generated, &struct_name) {
+                Ok(Some(es)) => {
+                    let roundtrip_fields = extractors::etherparse::to_field_defs_with(&es, &mappings);
+                    let mut roundtrip_def = ir::ProtocolDef::new(&ir.name, ir.min_header_bits)
+                        .with_fields(roundtrip_fields);
+                    roundtrip_def.name = ir.name.clone();
+                    let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                    (CrossGenResult {
+                        target: target.to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    }, Some(roundtrip_def))
+                }
+                Ok(None) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("re-extraction found no struct".to_string()),
+                }, None),
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("re-extraction failed: {}", e)),
+                }, None),
+            }
+        }
+        "c" => {
+            // Use synthetic generator which embeds a parseable struct definition.
+            // generate_proto_def() only references kernel structs by name without defining them.
+            let generated = generator::generate_proto_def_synthetic(ir);
+            let snake = ir.name.to_lowercase().replace('.', "_").replace('-', "_").replace(' ', "_");
+            let struct_name = format!("proto_audit_{}_hdr", snake);
+            let mappings = match type_mapping::load_kernel_mappings(None) {
+                Ok(m) => m,
+                Err(e) => return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("mappings: {}", e)),
+                }, None),
+            };
+            match extractors::kernel::parse_kernel_struct(&generated, &struct_name) {
+                Ok(Some(ks)) => {
+                    let roundtrip_fields = extractors::kernel::to_field_defs_with(&ks, &mappings);
+                    let mut roundtrip_def = ir::ProtocolDef::new(&ir.name, ir.min_header_bits)
+                        .with_fields(roundtrip_fields);
+                    roundtrip_def.name = ir.name.clone();
+                    let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                    (CrossGenResult {
+                        target: target.to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    }, Some(roundtrip_def))
+                }
+                Ok(None) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("re-extraction found no struct".to_string()),
+                }, None),
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("re-extraction failed: {}", e)),
+                }, None),
+            }
+        }
+        "scapy" => {
+            let generated = generator::generate_scapy(ir);
+            let helper = paths.scapy_helper.clone()
+                .unwrap_or_else(|| PathBuf::from("helpers/scapy_dump.py"));
+            if !helper.exists() {
+                return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("scapy helper not available".to_string()),
+                }, None);
+            }
+            let tmp_dir = std::env::temp_dir();
+            let tmp_file = tmp_dir.join(format!("pipeline_{}.py", ir.name.to_lowercase()));
+            if std::fs::write(&tmp_file, &generated).is_err() {
+                return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("cannot write temp file".to_string()),
+                }, None);
+            }
+            let result = std::process::Command::new(&paths.python)
+                .arg(&helper)
+                .arg("--extra")
+                .arg(&tmp_file)
+                .arg(&ir.name)
+                .output();
+            let _ = std::fs::remove_file(&tmp_file);
+            match result {
+                Ok(output) if output.status.success() => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    match extractors::scapy::parse_scapy_json(&stdout) {
+                        Ok(sp) => {
+                            let roundtrip_def = extractors::scapy::to_protocol_def(&sp);
+                            let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                            (CrossGenResult {
+                                target: target.to_string(),
+                                passed: audit.fields_mismatch == 0,
+                                original_fields: ir.fields.len(),
+                                roundtrip_fields: roundtrip_def.fields.len(),
+                                fields_agree: audit.fields_agree,
+                                fields_mismatch: audit.fields_mismatch,
+                                error: None,
+                            }, Some(roundtrip_def))
+                        }
+                        Err(e) => (CrossGenResult {
+                            target: target.to_string(), passed: false,
+                            original_fields: ir.fields.len(), roundtrip_fields: 0,
+                            fields_agree: 0, fields_mismatch: 0,
+                            error: Some(format!("scapy JSON parse failed: {}", e)),
+                        }, None),
+                    }
+                }
+                Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    (CrossGenResult {
+                        target: target.to_string(), passed: false,
+                        original_fields: ir.fields.len(), roundtrip_fields: 0,
+                        fields_agree: 0, fields_mismatch: 0,
+                        error: Some(format!("scapy helper failed: {}", stderr.trim())),
+                    }, None)
+                }
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("scapy round-trip failed: {}", e)),
+                }, None),
+            }
+        }
+        "kaitai" => {
+            let generated = generator::generate_kaitai_ksy(ir);
+            let tmp = std::env::temp_dir().join(format!("pipeline_{}.ksy", ir.name.to_lowercase()));
+            if std::fs::write(&tmp, &generated).is_err() {
+                return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("cannot write temp .ksy file".to_string()),
+                }, None);
+            }
+            let result = extractors::kaitai::extract_from_ksy(&tmp);
+            let _ = std::fs::remove_file(&tmp);
+            match result {
+                Ok(Some(roundtrip_def)) => {
+                    let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                    (CrossGenResult {
+                        target: target.to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    }, Some(roundtrip_def))
+                }
+                Ok(None) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("kaitai re-extraction found no fields".to_string()),
+                }, None),
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("kaitai re-extraction failed: {}", e)),
+                }, None),
+            }
+        }
+        "omi" => {
+            let generated = generator::generate_omi_struct(ir);
+            let struct_name = format!("{}T", ir.name.replace(' ', "").replace('-', ""));
+            let mappings = match type_mapping::load_omi_mappings(None) {
+                Ok(m) => m,
+                Err(e) => return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("omi mappings: {}", e)),
+                }, None),
+            };
+            match extractors::omi::parse_omi_struct(&generated, &struct_name) {
+                Ok(Some(os)) => {
+                    let struct_sizes = std::collections::HashMap::new();
+                    let big_count = ir.fields.iter().filter(|f| f.endian == ir::Endian::Big).count();
+                    let little_count = ir.fields.iter().filter(|f| f.endian == ir::Endian::Little).count();
+                    let proto_endian = if little_count > big_count { ir::Endian::Little } else { ir::Endian::Big };
+                    let roundtrip_fields = extractors::omi::struct_to_field_defs(&os, &mappings, &struct_sizes, proto_endian);
+                    let mut roundtrip_def = ir::ProtocolDef::new(&ir.name, ir.min_header_bits)
+                        .with_fields(roundtrip_fields);
+                    roundtrip_def.name = ir.name.clone();
+                    let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                    (CrossGenResult {
+                        target: target.to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    }, Some(roundtrip_def))
+                }
+                Ok(None) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("omi re-extraction found no struct".to_string()),
+                }, None),
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("omi re-extraction failed: {}", e)),
+                }, None),
+            }
+        }
+        "suricata" => {
+            let generated = generator::generate_suricata_struct(ir);
+            let tmp = std::env::temp_dir().join(format!("pipeline_{}.rs", ir.name.to_lowercase()));
+            if std::fs::write(&tmp, &generated).is_err() {
+                return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("cannot write temp .rs file".to_string()),
+                }, None);
+            }
+            let result = extractors::suricata::extract_from_file(&tmp, &ir.name.to_lowercase());
+            let _ = std::fs::remove_file(&tmp);
+            match result {
+                Ok(defs) if !defs.is_empty() => {
+                    let (_, roundtrip_def) = defs.into_iter().next().unwrap();
+                    let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                    (CrossGenResult {
+                        target: target.to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    }, Some(roundtrip_def))
+                }
+                Ok(_) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("suricata re-extraction found no struct".to_string()),
+                }, None),
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("suricata re-extraction failed: {}", e)),
+                }, None),
+            }
+        }
+        "libpcap" => {
+            let patch = match generator::generate_libpcap_patch(ir) {
+                Some(p) => p,
+                None => return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("libpcap patch generation produced nothing".to_string()),
+                }, None),
+            };
+            // Extract the C header body from the patch (strip patch metadata lines)
+            let header: String = patch.lines()
+                .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+                .map(|l| &l[1..])
+                .collect::<Vec<_>>()
+                .join("\n");
+            let snake = generator::canonical_to_snake(&ir.name);
+            let struct_name = format!("{}_header", snake);
+            let mappings = match type_mapping::load_kernel_mappings(None) {
+                Ok(m) => m,
+                Err(e) => return (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("mappings: {}", e)),
+                }, None),
+            };
+            match extractors::kernel::parse_kernel_struct(&header, &struct_name) {
+                Ok(Some(ks)) => {
+                    let roundtrip_fields = extractors::kernel::to_field_defs_with(&ks, &mappings);
+                    let mut roundtrip_def = ir::ProtocolDef::new(&ir.name, ir.min_header_bits)
+                        .with_fields(roundtrip_fields);
+                    roundtrip_def.name = ir.name.clone();
+                    let audit = comparator::audit_protocol(&ir.name, &[("original", ir), ("roundtrip", &roundtrip_def)]);
+                    (CrossGenResult {
+                        target: target.to_string(),
+                        passed: audit.fields_mismatch == 0,
+                        original_fields: ir.fields.len(),
+                        roundtrip_fields: roundtrip_def.fields.len(),
+                        fields_agree: audit.fields_agree,
+                        fields_mismatch: audit.fields_mismatch,
+                        error: None,
+                    }, Some(roundtrip_def))
+                }
+                Ok(None) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some("re-extraction found no struct".to_string()),
+                }, None),
+                Err(e) => (CrossGenResult {
+                    target: target.to_string(), passed: false,
+                    original_fields: ir.fields.len(), roundtrip_fields: 0,
+                    fields_agree: 0, fields_mismatch: 0,
+                    error: Some(format!("re-extraction failed: {}", e)),
+                }, None),
+            }
+        }
+        "pcap" => {
+            // For pcap target, the crossgen IS the pipeline — generate PCAP directly.
+            // Return the original IR as the "roundtrip" IR since PCAP gen doesn't
+            // produce an intermediate code form.
+            (CrossGenResult {
+                target: target.to_string(),
+                passed: true,
+                original_fields: ir.fields.len(),
+                roundtrip_fields: ir.fields.len(),
+                fields_agree: ir.fields.len() as u32,
+                fields_mismatch: 0,
+                error: None,
+            }, Some(ir.clone()))
+        }
+        _ => (CrossGenResult {
+            target: target.to_string(), passed: false,
+            original_fields: ir.fields.len(), roundtrip_fields: 0,
+            fields_agree: 0, fields_mismatch: 0,
+            error: Some(format!("unknown target: {}", target)),
+        }, None),
+    }
+}
+
+/// Generate PCAP bytes from an IR definition.
+/// Returns (pcap_bytes, tshark_pdml_of_input) for comparison.
+fn pcap_from_ir(
+    ir: &ir::ProtocolDef,
+    proto: &str,
+    paths: &SourcePaths,
+) -> Result<Vec<u8>> {
+    let discovery_state = DiscoveryState::load_from_env();
+    let proto_map = build_proto_map(proto, paths, &discovery_state);
+    let pcap_output = generator::generate_pcap_with_discovery(ir, &proto_map, &discovery_state)
+        .map_err(|e| anyhow::anyhow!("PCAP generation: {}", e))?;
+    Ok(pcap_output.pcap_bytes)
+}
+
+/// Run tshark on PCAP bytes and extract the PDML protocol layer.
+fn tshark_from_pcap_bytes(
+    pcap_bytes: &[u8],
+    proto: &str,
+    paths: &SourcePaths,
+) -> Result<extractors::tshark::PdmlProtocol> {
+    let pcap_path = std::env::temp_dir().join(format!(
+        "pipeline_{}_{}_{}.pcap",
+        proto.to_lowercase(),
+        std::process::id(),
+        format!("{:?}", std::thread::current().id()).replace(['(', ')'], ""),
+    ));
+    std::fs::write(&pcap_path, pcap_bytes)?;
+
+    let hints = extractors::tshark::decode_as_hints(proto);
+    let hint_refs: Vec<&str> = hints.iter().map(|s| *s).collect();
+    let xml = extractors::tshark::run_tshark_with_hints(&pcap_path, &paths.tshark_bin, 1, &hint_refs)?;
+    let _ = std::fs::remove_file(&pcap_path);
+
+    let packets = extractors::tshark::parse_pdml(&xml)?;
+    let dissector = name_mapping::find_by_canonical(proto)
+        .and_then(|n| n.tshark.map(|s| s.to_string()));
+
+    // Try primary dissector name first
+    let result = dissector
+        .as_deref()
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+    if result.is_some() {
+        return result.context("unreachable");
+    }
+
+    // Fallback: try dissector names from decode-as hints (e.g., CARP→vrrp, NVGRE→gre)
+    for hint in &hints {
+        if let Some(dname) = hint.rsplit(',').next() {
+            if let Some(found) = extractors::tshark::extract_protocol_from_pdml(&packets, dname) {
+                return Ok(found);
+            }
+        }
+    }
+
+    // Fallback: try PDML name alias (for protocols where tshark layer name differs)
+    if let Some(alias) = extractors::tshark::pdml_name_alias(proto) {
+        if let Some(found) = extractors::tshark::extract_protocol_from_pdml(&packets, alias) {
+            return Ok(found);
+        }
+    }
+
+    anyhow::bail!("tshark did not dissect protocol '{}'", proto)
+}
+
+/// Find a PCAP file for a given protocol from templates or corpus.
+fn find_pcap_for_protocol(proto: &str) -> Option<PathBuf> {
+    let lower = proto.to_lowercase();
+    // Candidate file-name spellings: exact lowercase, and with dots/dashes stripped.
+    let filenames = [
+        format!("{}.pcap", lower),
+        format!("{}.pcap", lower.replace('.', "").replace('-', "_")),
+        format!("{}.pcap", lower.replace('-', "_")),
+    ];
+
+    // Candidate directories, in priority order.
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if let Ok(d) = std::env::var("PROTO_AUDIT_PCAP_TEMPLATES") { dirs.push(PathBuf::from(d)); }
+    if let Ok(d) = std::env::var("PROTO_AUDIT_PCAP_CORPUS")    { dirs.push(PathBuf::from(d)); }
+    // Fallback locations (when running outside the nix wrapper).
+    dirs.push(PathBuf::from("pcap_templates"));
+    dirs.push(PathBuf::from("samples/proto_audit/pcap_templates"));
+    if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+        dirs.push(PathBuf::from(&manifest).join("pcap_templates"));
+    }
+
+    for dir in &dirs {
+        for fname in &filenames {
+            let path = dir.join(fname);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+/// Run the full pipeline for one (protocol, target) pair.
+///
+/// PCAP_in → tshark → IR → generator → re-extractor → IR → PCAP_out → compare PCAPs
+fn pipeline_one(
+    proto: &str,
+    target: &str,
+    input_pcap_path: Option<&Path>,
+    paths: &SourcePaths,
+) -> PipelineResult {
+    let fail = |error: String| -> PipelineResult {
+        PipelineResult {
+            protocol: proto.to_string(),
+            target: target.to_string(),
+            pcap_pass: false,
+            pcap_fields_total: 0,
+            pcap_fields_match: 0,
+            crossgen_pass: false,
+            crossgen_fields_agree: 0,
+            crossgen_fields_mismatch: 0,
+            error: Some(error),
+            pcap_diffs: vec![],
+            ir_stage1: None, ir_stage2: None, ir_stage3: None,
+        }
+    };
+
+    // Step 1: Get input PCAP. Either from --pcap, templates, or generate from IR.
+    let input_pcap_bytes = if let Some(pcap_path) = input_pcap_path {
+        match std::fs::read(pcap_path) {
+            Ok(b) => b,
+            Err(e) => return fail(format!("cannot read input PCAP: {}", e)),
+        }
+    } else {
+        // Try templates/corpus
+        if let Some(path) = find_pcap_for_protocol(proto) {
+            match std::fs::read(&path) {
+                Ok(b) => b,
+                Err(e) => return fail(format!("cannot read template PCAP: {}", e)),
+            }
+        } else {
+            // Generate from IR as fallback
+            let ir_baseline = match build_rich_ir(proto, paths) {
+                Ok(ir) => ir,
+                Err(e) => return fail(format!("cannot build IR: {}", e)),
+            };
+            match pcap_from_ir(&ir_baseline, proto, paths) {
+                Ok(b) => b,
+                Err(e) => return fail(format!("cannot generate input PCAP: {}", e)),
+            }
+        }
+    };
+
+    // Step 2: Parse input PCAP with tshark → get PDML + IR baseline
+    let input_pdml_raw = match tshark_from_pcap_bytes(&input_pcap_bytes, proto, paths) {
+        Ok(p) => p,
+        Err(e) => return fail(format!("tshark input parse: {}", e)),
+    };
+    let mut ir_baseline = extractors::tshark::to_protocol_def(&input_pdml_raw);
+    // Canonicalize the IR name: tshark uses dissector names (e.g. "ip") but
+    // generators and PCAP routes expect canonical names (e.g. "IPv4").
+    ir_baseline.name = proto.to_string();
+    if ir_baseline.fields.is_empty() {
+        return fail("IR baseline has no fields from input PCAP".to_string());
+    }
+
+    // Step 2b: Normalize the input PCAP by regenerating from the tshark-parsed
+    // IR. This ensures the comparison baseline and output both go through the
+    // same IR→PCAP path (byte-aligned fields, same pcap generator), so
+    // sub-byte precision loss is symmetric and doesn't cause false negatives.
+    let (input_pcap_bytes, input_pdml) = match pcap_from_ir(&ir_baseline, proto, paths) {
+        Ok(bytes) => match tshark_from_pcap_bytes(&bytes, proto, paths) {
+            Ok(pdml) => (bytes, pdml),
+            // If re-parse fails, fall back to the raw input.
+            Err(_) => (input_pcap_bytes, input_pdml_raw),
+        },
+        Err(_) => (input_pcap_bytes, input_pdml_raw),
+    };
+    let _ = input_pcap_bytes; // keep for future use / silence unused warning
+
+    // Step 3+4: Crossgen — generate code, re-extract to IR
+    let (crossgen_result, ir_roundtrip) = crossgen_with_ir(&ir_baseline, proto, target, paths);
+
+    let ir_roundtrip = match ir_roundtrip {
+        Some(rt) => rt,
+        None => return PipelineResult {
+            protocol: proto.to_string(),
+            target: target.to_string(),
+            pcap_pass: false,
+            pcap_fields_total: 0,
+            pcap_fields_match: 0,
+            crossgen_pass: crossgen_result.passed,
+            crossgen_fields_agree: crossgen_result.fields_agree,
+            crossgen_fields_mismatch: crossgen_result.fields_mismatch,
+            error: crossgen_result.error,
+            pcap_diffs: vec![],
+            ir_stage1: None, ir_stage2: None, ir_stage3: None,
+        },
+    };
+
+    // Step 5: Generate output PCAP from roundtrip IR
+    let output_pcap_bytes = match pcap_from_ir(&ir_roundtrip, proto, paths) {
+        Ok(b) => b,
+        Err(e) => return PipelineResult {
+            protocol: proto.to_string(),
+            target: target.to_string(),
+            pcap_pass: false,
+            pcap_fields_total: 0,
+            pcap_fields_match: 0,
+            crossgen_pass: crossgen_result.passed,
+            crossgen_fields_agree: crossgen_result.fields_agree,
+            crossgen_fields_mismatch: crossgen_result.fields_mismatch,
+            error: Some(format!("output PCAP generation: {}", e)),
+            pcap_diffs: vec![],
+            ir_stage1: None, ir_stage2: None, ir_stage3: None,
+        },
+    };
+
+    // Step 6: Parse output PCAP with tshark
+    let output_pdml = match tshark_from_pcap_bytes(&output_pcap_bytes, proto, paths) {
+        Ok(p) => p,
+        Err(e) => return PipelineResult {
+            protocol: proto.to_string(),
+            target: target.to_string(),
+            pcap_pass: false,
+            pcap_fields_total: 0,
+            pcap_fields_match: 0,
+            crossgen_pass: crossgen_result.passed,
+            crossgen_fields_agree: crossgen_result.fields_agree,
+            crossgen_fields_mismatch: crossgen_result.fields_mismatch,
+            error: Some(format!("tshark output parse: {}", e)),
+            pcap_diffs: vec![],
+            ir_stage1: None, ir_stage2: None, ir_stage3: None,
+        },
+    };
+
+    // Step 7: Compare PCAPs — the acid test
+    let pcap_result = comparator::compare_pdml_protocols(&input_pdml, &output_pdml, proto);
+
+    // Step 8: If PCAP comparison fails, compute IR diagnostics
+    let ir_from_output = extractors::tshark::to_protocol_def(&output_pdml);
+    let diagnostics = comparator::pipeline_diagnostics(
+        pcap_result,
+        &ir_baseline,
+        Some(&ir_roundtrip),
+        Some(&ir_from_output),
+    );
+
+    PipelineResult {
+        protocol: proto.to_string(),
+        target: target.to_string(),
+        pcap_pass: diagnostics.pcap_result.pass,
+        pcap_fields_total: diagnostics.pcap_result.fields_total,
+        pcap_fields_match: diagnostics.pcap_result.fields_match,
+        crossgen_pass: crossgen_result.passed,
+        crossgen_fields_agree: crossgen_result.fields_agree,
+        crossgen_fields_mismatch: crossgen_result.fields_mismatch,
+        error: None,
+        pcap_diffs: diagnostics.pcap_result.fields_differ,
+        ir_stage1: diagnostics.ir_stage1,
+        ir_stage2: diagnostics.ir_stage2,
+        ir_stage3: diagnostics.ir_stage3,
+    }
+}
+
+/// Pipeline command: full PCAP → IR → code → IR → PCAP → compare round-trip.
+pub(crate) fn cmd_pipeline(
+    proto: &str,
+    target: &str,
+    input_pcap: Option<&Path>,
+    json_output: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    let targets: Vec<&str> = if target == "all" {
+        vec!["etherparse", "c", "scapy", "kaitai", "pcap", "libpcap", "omi", "suricata"]
+    } else {
+        vec![target]
+    };
+
+    let mut results = Vec::new();
+    for t in &targets {
+        let result = pipeline_one(proto, t, input_pcap, paths);
+        results.push(result);
+    }
+
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&results)?);
+    } else {
+        println!("Pipeline: {} → IR → code → IR → PCAP → compare", proto);
+        println!("{}", "=".repeat(72));
+        for r in &results {
+            let pcap_icon = if r.pcap_pass { "PASS" } else { "FAIL" };
+            let cg_icon = if r.crossgen_pass { "pass" } else { "fail" };
+            print!(
+                "  {:<12} PCAP: {} ({}/{} fields)  crossgen: {} ({}/{})",
+                r.target, pcap_icon, r.pcap_fields_match, r.pcap_fields_total,
+                cg_icon, r.crossgen_fields_agree, r.crossgen_fields_agree + r.crossgen_fields_mismatch,
+            );
+            if let Some(ref e) = r.error {
+                print!("  [{}]", e);
+            }
+            println!();
+
+            // Show PCAP diffs if failed
+            if !r.pcap_pass && !r.pcap_diffs.is_empty() {
+                for diff in &r.pcap_diffs {
+                    println!(
+                        "    {} @ byte {}: input={} output={}",
+                        diff.field_name, diff.pos, diff.input_hex,
+                        if diff.output_hex.is_empty() { "(missing)" } else { &diff.output_hex }
+                    );
+                }
+            }
+
+            // Show IR stage diagnostics if PCAP failed
+            if !r.pcap_pass {
+                if let Some(ref s1) = r.ir_stage1 {
+                    if s1.fields_mismatch > 0 {
+                        println!("    IR stage 1 (generator): {}/{} fields agree",
+                            s1.fields_agree, s1.total_fields);
+                    }
+                }
+                if let Some(ref s2) = r.ir_stage2 {
+                    if s2.fields_mismatch > 0 {
+                        println!("    IR stage 2 (serialization): {}/{} fields agree",
+                            s2.fields_agree, s2.total_fields);
+                    }
+                }
+                if let Some(ref s3) = r.ir_stage3 {
+                    if s3.fields_mismatch > 0 {
+                        println!("    IR stage 3 (end-to-end): {}/{} fields agree",
+                            s3.fields_agree, s3.total_fields);
+                    }
+                }
+            }
+        }
+
+        let total_pass = results.iter().filter(|r| r.pcap_pass).count();
+        println!("\n{}/{} targets pass PCAP round-trip", total_pass, results.len());
+    }
+
+    Ok(())
+}
+
+/// Pipeline matrix: run pipeline across all curated protocols × all targets.
+pub(crate) fn cmd_pipeline_matrix(
+    protos_filter: Option<&str>,
+    targets_filter: Option<&str>,
+    json_output: bool,
+    workers: usize,
+    paths: &SourcePaths,
+) -> Result<()> {
+    use rayon::prelude::*;
+
+    let all_targets = vec!["etherparse", "c", "scapy", "kaitai", "pcap", "libpcap", "omi", "suricata"];
+    let targets: Vec<&str> = if let Some(tf) = targets_filter {
+        tf.split(',').map(|s| s.trim()).collect()
+    } else {
+        all_targets.clone()
+    };
+
+    let table = name_mapping::protocol_table();
+    let protos: Vec<&str> = if let Some(pf) = protos_filter {
+        pf.split(',').map(|s| s.trim()).collect()
+    } else {
+        table.iter().map(|p| p.canonical).collect()
+    };
+
+    #[derive(serde::Serialize)]
+    struct MatrixRow {
+        protocol: String,
+        results: Vec<PipelineResult>,
+        targets_pass: usize,
+        targets_total: usize,
+    }
+
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .expect("failed to build rayon thread pool");
+
+    let completed = std::sync::atomic::AtomicUsize::new(0);
+    let total = protos.len();
+    let num_targets = targets.len();
+
+    eprintln!("Running pipeline-matrix: {} protocols × {} targets = {} cells ({} workers)",
+              total, num_targets, total * num_targets, workers);
+
+    let rows: Vec<MatrixRow> = pool.install(|| {
+        protos.par_iter().map(|proto| {
+            let mut row_results = Vec::new();
+            let mut pass_count = 0;
+
+            for t in &targets {
+                let result = pipeline_one(proto, t, None, paths);
+                if result.pcap_pass { pass_count += 1; }
+                row_results.push(result);
+            }
+
+            let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            eprintln!("[{}/{}] {} {}/{}", done, total, proto, pass_count, num_targets);
+
+            MatrixRow {
+                protocol: proto.to_string(),
+                results: row_results,
+                targets_pass: pass_count,
+                targets_total: num_targets,
+            }
+        }).collect()
+    });
+
+    // Recompute totals from collected rows
+    let mut totals: Vec<usize> = vec![0; targets.len()];
+    for row in &rows {
+        for (ti, r) in row.results.iter().enumerate() {
+            if r.pcap_pass { totals[ti] += 1; }
+        }
+    }
+
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&rows)?);
+    } else {
+        // Print header
+        print!("{:<20}", "Protocol");
+        for t in &targets {
+            print!(" {:<12}", t);
+        }
+        println!(" Score");
+        println!("{}", "-".repeat(20 + targets.len() * 13 + 8));
+
+        for row in &rows {
+            print!("{:<20}", row.protocol);
+            for r in &row.results {
+                let icon = if r.pcap_pass { "PASS" }
+                    else if r.error.is_some() { "ERR" }
+                    else { "FAIL" };
+                print!(" {:<12}", icon);
+            }
+            println!(" {}/{}", row.targets_pass, row.targets_total);
+        }
+
+        // Print totals
+        println!("{}", "-".repeat(20 + targets.len() * 13 + 8));
+        print!("{:<20}", "Total PASS");
+        for t in &totals {
+            print!(" {:<12}", t);
+        }
+        println!(" {}/{}", totals.iter().sum::<usize>(), protos.len() * targets.len());
+    }
+
+    Ok(())
+}
+
+/// Auto-generate PCAP templates for protocols that lack them.
+///
+/// For each protocol without an existing template, attempts to generate a PCAP
+/// using the existing IR-to-PCAP machinery and validates it via tshark.
+pub(crate) fn cmd_generate_templates(
+    protos_filter: &str,
+    output_dir: &std::path::Path,
+    dry_run: bool,
+    workers: usize,
+    paths: &SourcePaths,
+) -> Result<()> {
+    use rayon::prelude::*;
+
+    let table = name_mapping::protocol_table();
+
+    let protos: Vec<&str> = if protos_filter == "missing" {
+        // Only protocols that don't already have a template
+        table.iter()
+            .map(|p| p.canonical)
+            .filter(|p| find_pcap_for_protocol(p).is_none())
+            .collect()
+    } else {
+        protos_filter.split(',').map(|s| s.trim()).collect()
+    };
+
+    eprintln!("Generating templates for {} protocols ({} workers)", protos.len(), workers);
+
+    if !dry_run {
+        std::fs::create_dir_all(output_dir)?;
+    }
+
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .expect("failed to build rayon thread pool");
+
+    let completed = std::sync::atomic::AtomicUsize::new(0);
+    let total = protos.len();
+
+    struct TemplateResult {
+        proto: String,
+        success: bool,
+        reason: String,
+    }
+
+    let results: Vec<TemplateResult> = pool.install(|| {
+        protos.par_iter().map(|proto| {
+            let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+
+            // Step 1: Build IR for this protocol
+            let ir = match build_rich_ir(proto, paths) {
+                Ok(ir) if !ir.fields.is_empty() => ir,
+                Ok(_) => {
+                    eprintln!("[{}/{}] {} SKIP (no fields in IR)", done, total, proto);
+                    return TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: "no fields in IR".into(),
+                    };
+                }
+                Err(e) => {
+                    eprintln!("[{}/{}] {} SKIP (no IR: {})", done, total, proto, e);
+                    return TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: format!("no IR: {}", e),
+                    };
+                }
+            };
+
+            // Step 2: Generate PCAP bytes from IR
+            let pcap_bytes = match pcap_from_ir(&ir, proto, paths) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    eprintln!("[{}/{}] {} SKIP (PCAP gen failed: {})", done, total, proto, e);
+                    return TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: format!("PCAP gen failed: {}", e),
+                    };
+                }
+            };
+
+            // Step 3: Validate — does tshark dissect this protocol from the generated PCAP?
+            match tshark_from_pcap_bytes(&pcap_bytes, proto, paths) {
+                Ok(pdml) if !pdml.fields.is_empty() => {
+                    // Success — tshark parsed it
+                    if dry_run {
+                        eprintln!("[{}/{}] {} OK (would write, {} fields, {} bytes)",
+                                  done, total, proto, pdml.fields.len(), pcap_bytes.len());
+                    } else {
+                        let fname = format!("{}.pcap", proto.to_lowercase()
+                            .replace(' ', "_").replace('-', "_").replace('/', "_"));
+                        let out_path = output_dir.join(&fname);
+                        if let Err(e) = std::fs::write(&out_path, &pcap_bytes) {
+                            eprintln!("[{}/{}] {} FAIL (write error: {})", done, total, proto, e);
+                            return TemplateResult {
+                                proto: proto.to_string(),
+                                success: false,
+                                reason: format!("write error: {}", e),
+                            };
+                        }
+                        eprintln!("[{}/{}] {} OK (wrote {}, {} fields)",
+                                  done, total, proto, fname, pdml.fields.len());
+                    }
+                    TemplateResult {
+                        proto: proto.to_string(),
+                        success: true,
+                        reason: format!("{} fields", pdml.fields.len()),
+                    }
+                }
+                Ok(_) => {
+                    eprintln!("[{}/{}] {} SKIP (tshark parsed 0 fields)", done, total, proto);
+                    TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: "tshark parsed 0 fields".into(),
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[{}/{}] {} SKIP (tshark: {})", done, total, proto, e);
+                    TemplateResult {
+                        proto: proto.to_string(),
+                        success: false,
+                        reason: format!("tshark: {}", e),
+                    }
+                }
+            }
+        }).collect()
+    });
+
+    // Summary
+    let succeeded: Vec<_> = results.iter().filter(|r| r.success).collect();
+    let failed: Vec<_> = results.iter().filter(|r| !r.success).collect();
+
+    println!("\n=== Template Generation Summary ===");
+    println!("Generated: {}/{}", succeeded.len(), results.len());
+    println!("Skipped:   {}/{}", failed.len(), results.len());
+
+    if !succeeded.is_empty() {
+        println!("\nGenerated templates:");
+        for r in &succeeded {
+            println!("  {} ({})", r.proto, r.reason);
+        }
+    }
+
+    if !failed.is_empty() {
+        println!("\nSkipped protocols:");
+        // Group by reason
+        let mut by_reason: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+        for r in &failed {
+            by_reason.entry(&r.reason).or_default().push(&r.proto);
+        }
+        for (reason, protos) in &by_reason {
+            println!("  {} ({}): {}", reason, protos.len(),
+                     if protos.len() <= 10 { protos.join(", ") }
+                     else { format!("{}, ... and {} more", protos[..5].join(", "), protos.len() - 5) });
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) fn cmd_crossgen(
@@ -1120,7 +2352,7 @@ pub(crate) fn cmd_crossgen(
     paths: &SourcePaths,
 ) -> Result<()> {
     let targets: Vec<&str> = if target == "all" {
-        vec!["etherparse", "c", "scapy", "pcap"]
+        vec!["etherparse", "c", "scapy", "kaitai", "pcap", "libpcap", "omi", "suricata"]
     } else {
         vec![target]
     };
@@ -1313,7 +2545,20 @@ pub(crate) fn cmd_validate(
 
     let tshark_proto = dissector
         .as_deref()
-        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d))
+        // Fallback: try dissector names from decode-as hints (e.g., TWAMP→twamp.test)
+        .or_else(|| {
+            hints.iter().find_map(|hint| {
+                hint.rsplit(',').next().and_then(|dname| {
+                    extractors::tshark::extract_protocol_from_pdml(&packets, dname)
+                })
+            })
+        })
+        // Fallback: try PDML name alias (for protocols where tshark layer name differs)
+        .or_else(|| {
+            extractors::tshark::pdml_name_alias(&effective_proto)
+                .and_then(|alias| extractors::tshark::extract_protocol_from_pdml(&packets, alias))
+        });
     let tshark_def = match tshark_proto {
         Some(pdml) => extractors::tshark::to_protocol_def(&pdml),
         None => {
@@ -1452,13 +2697,24 @@ pub(crate) fn cmd_validate(
 /// Prefers kernel fields (most accurate struct layout), supplemented by scapy defaults.
 fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::ProtocolDef> {
     // Try each source in priority order
-    let source_priority = ["kernel", "scapy", "tshark", "etherparse"];
+    let source_priority = ["kernel", "xdp2_headers", "ue_spec", "xtcp2", "omi", "scapy", "tshark", "etherparse"];
     let mut best: Option<ir::ProtocolDef> = None;
 
     for source in &source_priority {
         if let Some(def) = try_extract(source, proto, paths) {
             if best.as_ref().map_or(true, |b| def.fields.len() > b.fields.len()) {
                 best = Some(def);
+            }
+        }
+    }
+
+    // If no extractor produced fields, check embedded_proto definitions
+    if best.as_ref().map_or(true, |b| b.fields.is_empty()) {
+        if let Some(edef) = crate::generator::pcap::embedded_proto(proto) {
+            if !edef.fields.is_empty() {
+                let mut edef = edef;
+                edef.generation_source = Some("embedded".to_string());
+                best = Some(edef);
             }
         }
     }
@@ -2686,6 +3942,121 @@ pub(crate) fn cmd_generate_libpcap_patches(
         }
     }
 
+    Ok(())
+}
+
+/// Generate upstream patches directly from structured-source IR (no corpus).
+///
+/// Walks the name-mapping table, filters entries whose `<source>_struct` slot
+/// is populated, extracts each via the corresponding extractor, and pipes the
+/// resulting IR through `generate_libpcap_patch` / `generate_etherparse_patch`.
+/// Used to ship trading-protocol patches to upstreams without live PCAPs.
+pub(crate) fn cmd_gen_patches(
+    target: &str,
+    source: &str,
+    protos: Option<&str>,
+    out: Option<PathBuf>,
+    dry_run: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    if source != "omi" {
+        anyhow::bail!(
+            "gen-patches currently only supports --source omi (got '{}')",
+            source
+        );
+    }
+    let valid_targets = ["libpcap", "etherparse", "scapy", "kaitai"];
+    if !valid_targets.contains(&target) {
+        anyhow::bail!(
+            "gen-patches --target must be one of: {} (got '{}')",
+            valid_targets.join(", "),
+            target
+        );
+    }
+
+    let filter: Option<std::collections::HashSet<String>> = protos
+        .map(|p| p.split(',').map(|s| s.trim().to_string()).collect());
+
+    let default_dir = match target {
+        "libpcap" => PathBuf::from("samples/proto_audit/patches/libpcap"),
+        "etherparse" => PathBuf::from("samples/proto_audit/patches/etherparse"),
+        "scapy" => PathBuf::from("samples/proto_audit/patches/scapy"),
+        "kaitai" => PathBuf::from("samples/proto_audit/patches/kaitai"),
+        _ => unreachable!(),
+    };
+    let out_dir = out.unwrap_or(default_dir);
+
+    let mappings = type_mapping::load_omi_mappings(None)
+        .context("loading OMI type mappings")?;
+
+    let mut generated: u32 = 0;
+    let mut skipped_no_fields: u32 = 0;
+    let mut skipped_no_patch: u32 = 0;
+
+    for p in name_mapping::protocol_table() {
+        let (omi_struct, omi_file) = match (p.omi_struct, p.omi_file) {
+            (Some(s), Some(f)) => (s, f),
+            _ => continue,
+        };
+        if let Some(ref f) = filter {
+            if !f.contains(p.canonical) {
+                continue;
+            }
+        }
+
+        let mut def = match extractors::omi::extract_protocol(
+            paths.omi_cstructs_dir.as_deref(),
+            p.canonical,
+            omi_struct,
+            omi_file,
+            &mappings,
+        ) {
+            Ok(Some(d)) => d,
+            Ok(None) => {
+                skipped_no_fields += 1;
+                continue;
+            }
+            Err(e) => {
+                eprintln!("  skip {}: {}", p.canonical, e);
+                continue;
+            }
+        };
+        def.name = p.canonical.to_string();
+        def.is_variable_length = p.variable_length;
+
+        let patch = match target {
+            "libpcap" => generator::generate_libpcap_patch(&def),
+            "etherparse" => generator::generate_etherparse_patch(&def),
+            "scapy" => generator::generate_scapy_patch(&def),
+            "kaitai" => generator::generate_kaitai_patch(&def),
+            _ => unreachable!(),
+        };
+        let Some(patch) = patch else {
+            skipped_no_patch += 1;
+            continue;
+        };
+
+        let snake = generator::canonical_to_snake(&def.name);
+        let patch_name = format!("trading_{}.patch", snake);
+
+        if dry_run {
+            println!("=== {} ({} fields) → {} ===", def.name, def.fields.len(), patch_name);
+            println!("{}", patch);
+        } else {
+            std::fs::create_dir_all(&out_dir)
+                .with_context(|| format!("creating {}", out_dir.display()))?;
+            let patch_path = out_dir.join(&patch_name);
+            std::fs::write(&patch_path, &patch)
+                .with_context(|| format!("writing {}", patch_path.display()))?;
+            eprintln!("  Wrote {}", patch_path.display());
+        }
+        generated += 1;
+    }
+
+    eprintln!(
+        "\nGenerated {} {} patches (skipped: {} no-fields, {} no-patch)",
+        generated, target, skipped_no_fields, skipped_no_patch
+    );
     Ok(())
 }
 
@@ -4072,12 +5443,26 @@ fn cmd_validate_single(
 
     let packets = extractors::tshark::parse_pdml(&xml)?;
 
-    // Find dissector name
+    // Find dissector name — try name_mapping.tshark first, then pdml_name_alias
+    // fallback, then decode_as_hints dissector names (matches interactive validator).
     let dissector = name_mapping::find_by_canonical(proto)
         .and_then(|n| n.tshark.map(|s| s.to_string()));
     let tshark_found = dissector
         .as_deref()
-        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d));
+        .and_then(|d| extractors::tshark::extract_protocol_from_pdml(&packets, d))
+        // Fallback: try PDML name alias (for protocols where tshark layer name differs)
+        .or_else(|| {
+            extractors::tshark::pdml_name_alias(proto)
+                .and_then(|alias| extractors::tshark::extract_protocol_from_pdml(&packets, alias))
+        })
+        // Fallback: try decode_as_hints dissector names
+        .or_else(|| {
+            hints.iter().find_map(|hint| {
+                hint.rsplit(',').next().and_then(|dname| {
+                    extractors::tshark::extract_protocol_from_pdml(&packets, dname)
+                })
+            })
+        });
     let tshark_recognized = tshark_found.is_some();
 
     let tshark_def = match tshark_found {
@@ -4183,6 +5568,294 @@ fn load_validation_cache() -> std::collections::BTreeMap<String, discovery::Vali
 }
 
 /// Simple ISO-8601 timestamp without pulling in chrono crate.
+// ── validate-netlink command ──
+
+/// Netlink protocols that map to inet_diag attribute types.
+const NETLINK_ATTR_PROTOS: &[(u16, &str)] = &[
+    (1, "NL_Diag_MemInfo"),
+    (2, "NL_Diag_TCPInfo"),
+    (3, "NL_Diag_VegasInfo"),
+    (7, "NL_Diag_SkMemInfo"),
+    (9, "NL_Diag_DCTCPInfo"),
+    (16, "NL_Diag_BBRInfo"),
+];
+
+/// Validate netlink inet_diag protocols against real xtcp2 PCAPs.
+///
+/// Two validation paths:
+/// 1. **Binary**: Parse PCAP → extract TLV attributes → deserialize against IR
+/// 2. **tshark+Lua**: Generate Lua dissector → run tshark → parse PDML → compare
+pub(crate) fn cmd_validate_netlink(
+    proto: &str,
+    keep_lua: Option<PathBuf>,
+    json_output: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    // Determine xtcp2 PCAP source
+    let pcaps_dir = paths
+        .xtcp2_pcaps
+        .as_ref()
+        .or_else(|| paths.xtcp2_src.as_ref())
+        .context("--xtcp2-pcaps or --xtcp2-src required for validate-netlink")?;
+
+    // Use xtcp2_src directly if xtcp2_pcaps wasn't set — find_xtcp2_pcaps
+    // looks for pkg/xtcpnl/testdata/ beneath the given path
+    let pcap_root = if paths.xtcp2_pcaps.is_some() {
+        // Already points at testdata dir — wrap it so find_xtcp2_pcaps can
+        // find the kernel-version subdirectories directly
+        pcaps_dir.clone()
+    } else {
+        pcaps_dir.clone()
+    };
+
+    let pcaps = netlink::find_xtcp2_pcaps(&pcap_root)?;
+    eprintln!(
+        "  Found {} xtcp2 PCAPs across {} kernel versions",
+        pcaps.len(),
+        {
+            let mut versions: Vec<&str> = pcaps.iter().map(|p| p.kernel_version.as_str()).collect();
+            versions.sort();
+            versions.dedup();
+            versions.len()
+        }
+    );
+
+    // Determine which protocols to validate
+    let target_protos: Vec<(u16, &str)> = if proto == "all" {
+        NETLINK_ATTR_PROTOS.to_vec()
+    } else {
+        NETLINK_ATTR_PROTOS
+            .iter()
+            .filter(|(_, name)| *name == proto)
+            .copied()
+            .collect()
+    };
+
+    if target_protos.is_empty() {
+        anyhow::bail!(
+            "Unknown netlink protocol '{}'. Valid: {}",
+            proto,
+            NETLINK_ATTR_PROTOS
+                .iter()
+                .map(|(_, n)| *n)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+
+    // Build IR for each target protocol
+    let mut proto_irs: Vec<(u16, String, ir::ProtocolDef)> = Vec::new();
+    for (attr_type, name) in &target_protos {
+        match build_rich_ir(name, paths) {
+            Ok(ir) => {
+                eprintln!("  Built IR for {} ({} fields)", name, ir.fields.len());
+                proto_irs.push((*attr_type, name.to_string(), ir));
+            }
+            Err(e) => {
+                eprintln!("  SKIP {}: {}", name, e);
+            }
+        }
+    }
+
+    if proto_irs.is_empty() {
+        anyhow::bail!("No IR definitions available for validation");
+    }
+
+    // Generate aggregate Lua dissector
+    let lua_protos: Vec<(u16, &str, &ir::ProtocolDef)> = proto_irs
+        .iter()
+        .map(|(at, name, ir)| (*at, name.as_str(), ir))
+        .collect();
+    let lua_script = generator::generate_wireshark_lua(&lua_protos);
+
+    // Save Lua dissector
+    let lua_path = if let Some(ref path) = keep_lua {
+        std::fs::write(path, &lua_script)
+            .with_context(|| format!("writing Lua to {}", path.display()))?;
+        eprintln!("  Saved Lua dissector to {}", path.display());
+        path.clone()
+    } else {
+        let tmp = std::env::temp_dir().join("proto-audit-inet-diag.lua");
+        std::fs::write(&tmp, &lua_script)
+            .with_context(|| format!("writing temp Lua to {}", tmp.display()))?;
+        tmp
+    };
+
+    eprintln!(
+        "  Generated Lua dissector ({} bytes, {} protocols)",
+        lua_script.len(),
+        lua_protos.len()
+    );
+
+    // ── Binary validation ──
+    // Parse each PCAP, extract attributes, deserialize against IR
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    for (attr_type, name, ir) in &proto_irs {
+        let mut total_records = 0u64;
+        let mut total_fields_extracted = 0u64;
+        let mut kernel_results: std::collections::BTreeMap<String, (u64, u64)> =
+            std::collections::BTreeMap::new();
+
+        for pcap_info in &pcaps {
+            let data = match std::fs::read(&pcap_info.path) {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            let records = match netlink::parse_netlink_pcap(&data) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+
+            for record in &records {
+                for attr in &record.attributes {
+                    if attr.attr_type == *attr_type {
+                        let values = netlink::deserialize_attribute(&attr.payload, ir);
+                        total_records += 1;
+                        total_fields_extracted += values.len() as u64;
+
+                        let entry = kernel_results
+                            .entry(pcap_info.kernel_version.clone())
+                            .or_insert((0, 0));
+                        entry.0 += 1;
+                        entry.1 += values.len() as u64;
+                    }
+                }
+            }
+        }
+
+        // ── tshark + Lua validation (try a PCAP that contains this attr) ──
+        let mut tshark_result = None;
+        if total_records > 0 {
+            // Find a PCAP that actually contains this attribute type.
+            // Prefer small PCAPs (single-packet replies) for faster tshark.
+            let matching_pcap = pcaps.iter().find(|p| {
+                let data = match std::fs::read(&p.path) {
+                    Ok(d) => d,
+                    Err(_) => return false,
+                };
+                let records = match netlink::parse_netlink_pcap(&data) {
+                    Ok(r) => r,
+                    Err(_) => return false,
+                };
+                records
+                    .iter()
+                    .any(|r| r.attributes.iter().any(|a| a.attr_type == *attr_type))
+            });
+
+            if let Some(pcap_info) = matching_pcap {
+                match extractors::tshark::run_tshark_with_lua(
+                    &pcap_info.path,
+                    &paths.tshark_bin,
+                    10,
+                    &lua_path,
+                ) {
+                    Ok(xml) => {
+                        // Look for our generated proto in PDML
+                        let snake = name.to_lowercase().replace('.', "_").replace('-', "_").replace(' ', "_");
+                        let dissector_name = format!("inet_diag_{}", snake);
+                        if let Ok(packets) = extractors::tshark::parse_pdml(&xml) {
+                            let found = packets.iter().any(|pkt| {
+                                pkt.iter()
+                                    .any(|p| p.name == dissector_name || p.name.contains(&snake))
+                            });
+                            tshark_result = Some(found);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("  tshark+Lua for {}: {}", name, e);
+                    }
+                }
+            }
+        }
+
+        let result = serde_json::json!({
+            "protocol": name,
+            "attr_type": attr_type,
+            "ir_fields": ir.fields.len(),
+            "binary_validation": {
+                "total_records": total_records,
+                "total_fields_extracted": total_fields_extracted,
+                "avg_fields_per_record": if total_records > 0 {
+                    total_fields_extracted as f64 / total_records as f64
+                } else {
+                    0.0
+                },
+                "kernel_versions": kernel_results.iter().map(|(k, (records, fields))| {
+                    serde_json::json!({
+                        "kernel": k,
+                        "records": records,
+                        "avg_fields": if *records > 0 { *fields as f64 / *records as f64 } else { 0.0 },
+                    })
+                }).collect::<Vec<_>>(),
+            },
+            "tshark_lua": tshark_result,
+            "status": if total_records > 0 { "PASS" } else { "NO_DATA" },
+        });
+
+        if !json_output {
+            println!(
+                "  {} (attr_type={}): {} records across {} kernel versions, \
+                 {:.0} avg fields/record (IR has {}){}\n",
+                name,
+                attr_type,
+                total_records,
+                kernel_results.len(),
+                if total_records > 0 {
+                    total_fields_extracted as f64 / total_records as f64
+                } else {
+                    0.0
+                },
+                ir.fields.len(),
+                match tshark_result {
+                    Some(true) => " ✓ tshark+Lua",
+                    Some(false) => " ✗ tshark+Lua (proto not found in PDML)",
+                    None => "",
+                }
+            );
+        }
+
+        results.push(result);
+
+        // ── Persist Gold tier if both binary and tshark+Lua pass ──
+        let is_gold = total_records > 0 && tshark_result == Some(true);
+        if is_gold {
+            // Build AuditResult and promote to Gold via validation cache
+            let refs: Vec<(&str, &ir::ProtocolDef)> = vec![
+                ("kernel", ir),
+                ("xtcp2", ir),
+            ];
+            let mut audit = comparator::audit_protocol(name, &refs);
+            audit.validation_tier = Some(discovery::ValidationTier::Gold);
+            let _ = save_validation_result(name, &audit);
+            if !json_output {
+                eprintln!("  {} → Gold (wire-validated across {} kernel versions)", name, kernel_results.len());
+            }
+        }
+    }
+
+    if json_output {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "command": "validate-netlink",
+                "pcap_count": pcaps.len(),
+                "lua_path": lua_path.display().to_string(),
+                "results": results,
+            }))?
+        );
+    } else {
+        println!("\n  Lua dissector: {}", lua_path.display());
+    }
+
+    if keep_lua.is_none() {
+        // Clean up temp Lua file
+        let _ = std::fs::remove_file(&lua_path);
+    }
+
+    Ok(())
+}
+
 fn chrono_timestamp() -> String {
     use std::time::SystemTime;
     let dur = SystemTime::now()

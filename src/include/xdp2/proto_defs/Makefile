@@ -3,7 +3,8 @@ include ../../../config.mk
 INCDIR=$(INSTALLDIR)$(HDRDIR)/xdp2/proto_defs
 
 SUBDIRS = ethernet ip transport tunnel security management storage \
-          wireless bluetooth infiniband can netlink legacy other
+          wireless bluetooth infiniband can netlink legacy other \
+          trading
 
 .PHONY: all
 all:

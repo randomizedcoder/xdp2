@@ -8,13 +8,21 @@
 
 mod c;
 mod etherparse;
+pub mod kaitai;
+pub mod omi;
 pub mod pcap;
 mod scapy;
+pub mod suricata;
+pub mod wireshark;
 
 pub use c::{generate_proto_def, generate_proto_def_synthetic, generate_proto_def_with_names, generate_libpcap_patch, generate_libpcap_toml_entry};
 pub use etherparse::{generate_etherparse, generate_etherparse_patch, generate_etherparse_toml_entry};
+pub use kaitai::{generate_kaitai_ksy, generate_kaitai_patch};
+pub use omi::{generate_omi_struct, generate_omi_patch};
 pub use pcap::{generate_pcap, generate_pcap_with_discovery, is_root, load_pcap_template, stack_route_for, PcapOutput};
-pub use scapy::generate_scapy;
+pub use scapy::{generate_scapy, generate_scapy_patch};
+pub use suricata::{generate_suricata_struct, generate_suricata_patch};
+pub use wireshark::{generate_wireshark_lua, generate_wireshark_lua_single};
 
 // ── Shared helpers ──
 

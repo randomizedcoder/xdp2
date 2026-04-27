@@ -1,56 +1,127 @@
 # proto-audit Status
 
-## Current State (2026-04-06)
+## Current State (2026-04-20)
 
-206 curated protocols audited across 8 sources (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata).
-8,358 total protocols tracked (206 curated + 8,152 discovered from tshark/Scapy registries).
-400 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, and exhaustive TOML coverage validation.
-36 protocols with Silver-tier structural agreement (2+ independent sources agree on field layout).
-112 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
-205 protocols routable through PCAP generation (all except TPLINK_SMARTHOME).
-62 PCAP templates with valid protocol content for round-trip validation.
+459 curated protocols audited across 13 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI, xtcp2).
+467 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, xtcp2 Go struct parser tests, and exhaustive TOML coverage validation.
+206 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
+196 PCAP templates with valid protocol content for round-trip validation.
+Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
+332 libpcap + 332 etherparse per-protocol overlay patches (incl. 27 trading `trading_*.patch` each).
 
 ### Source Coverage Summary
 
 | Source | Coverage |
 |--------|----------|
-| XDP2 proto_defs | 222 (206 curated) |
-| Etherparse structs | 206/206 curated |
-| Libpcap overlays | 206/206 curated |
+| XDP2 proto_defs | 238 (incl. 16 new trading leaf proto_defs) |
+| Etherparse structs | 332 overlay patches |
+| Libpcap overlays | 332 overlay patches |
 | Scapy classes | 5,798 (109 curated) |
 | tshark filters | 3,753 (3,155 protocols) |
-| Kernel structs | 74 (173 in registry) |
+| Kernel structs | 109 (190 in registry, nested struct/union resolution, 17 netlink subsystem messages) |
+| DPDK headers | 24 protocols (rte_*_hdr structs from lib/net/) |
+| nDPI headers | 13 protocols (ndpi_* structs from ndpi_typedefs.h) |
+| pppd headers | 7 protocols (PPP control protocol structs) |
 | Kaitai Struct | ~20 protocols (12 curated) |
 | Suricata parsers | ~15 protocols (20 curated) |
-| Multi-source (2+) | 1,198 |
+| OMI trading msgs | ~27 (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
+| xtcp2 Go structs | 11 protocols (TCPInfo 59 fields, BBRInfo, MemInfo, SkMemInfo, VegasInfo, DCTCPInfo, PragueInfo, SockID, ReqV2) |
 
 ### Validation Tier Breakdown
 
 | Tier | Count | Meaning |
 |------|-------|---------|
-| Gold | 112 | Round-trip validated (IR → PCAP → tshark → IR matches) |
+| Gold | 206 | Round-trip validated (IR → PCAP → tshark → IR matches) |
 | Silver | 36 | 2+ independent sources agree on field layout |
 | Bronze | 27 | Single source, self-consistent |
 | Unvalidated | 13 + ~8,100 discovered | Discovered but not yet verified |
 
-### Gold-Validated Protocols (112)
+### Gold-Validated Protocols (206)
 
-Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tshark, extracted back to IR, field-by-field comparison passes:
+Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tshark, extracted back to IR, field-by-field comparison passes.
 
-AH, ARP, AoE, BACnet, BFD, BGP, CAN, CAN_FD, CAN_XL, CoAP, DCCP, DHCP,
-DHCPv6, DNS, DTLS, Diameter, EAPOL, EIGRP, ERSPAN, ESP, Ethernet, GRE,
-GRE_PPTP, GTP_C, GTP_U, Geneve, HCI_ACL, HCI_CMD, HCI_Event, HCI_ISO,
-HCI_SCO, HSR, HTTP, HomePlug_AV, ICMPv4, ICMPv6, IEC_MMS, IEEE802154,
-IGMP, IGMPv3_Query, IGMPv3_Report, IKEv2, IMAP, IPFIX, IP_in_IP, IPv4,
-IPv6, IPv6_DestOpts, IPv6_EH, IPv6_Fragment, IPv6_ND, IPv6_Routing, ISIS,
-Kafka, Kerberos, L2TP, LACP, LDAP, LDP, LLC, LLMNR, MAC_Control, MLD,
-MLDv2_Query, MODBUS_TCP, MPLS, MQTT, Memcache, NBNS, NTP, NetFlow_v5,
-NetFlow_v9, ONC_RPC, OPC_UA, OSPF, PIM, PPP, PPPoE, PPPoED, QUIC, QinQ,
-RADIUS, RARP, RIP, RSVP, RTCP, RTSP, Redis, SCTP, SIP, SLL, SLL2, SNAP,
-SNMP, SSH, STP, STUN, Skinny, Slow_Protocols, Syslog, TCP, TFTP, TLS,
-UDP, UDPLite, VLAN, VRRP, VXLAN, VXLAN_GPE, WireGuard, iSCSI, mDNS
+See `docs/pipeline-coverage.md` for the full list of 8/8 and 7/8 protocols.
 
 ### Recent Changes
+
+#### xtcp2 Source Addition — Go Netlink Parser Structs (2026-04-20)
+
+Added xtcp2 (github.com/randomizedcoder/xtcp2) as 13th source — a Go-based netlink parser with rich struct definitions for `inet_diag` attributes (the data behind `ss --tcp --info`):
+
+- **Go struct extractor** (`src/extractors/xtcp2.rs`): Parses Go struct definitions with `// bytes:N [start:end]` and `// N = M` byte offset comments. Handles type aliases (`type TCPInfo TCPInfo6_10_3`), array types (`[16]byte`), size constants (`BBRInfoSizeCst = 20`). Walks `pkg/xtcpnl/*.go` files.
+- **9 new protocols**: NL_Diag_TCPInfo (59 fields, 248 bytes, versioned across 6 kernel variants), NL_Diag_BBRInfo (5 fields), NL_Diag_MemInfo (4 fields), NL_Diag_SkMemInfo (9 fields), NL_Diag_VegasInfo (4 fields), NL_Diag_DCTCPInfo (4 fields), NL_Diag_PragueInfo (9 fields), NL_Diag_SockID (6 fields), NL_Diag_ReqV2 (7 fields)
+- **2 existing protocols updated**: Netlink + NL_Diag_Inet get `.xtcp2()` cross-source mappings
+- **TOML mappings** (`mappings/xtcp2.toml`): Go type → bit size, endianness (all Little Endian), struct sizes
+- **Nix-pinned** to commit `a52e2f4` via `fetchFromGitHub`
+- **15 new tests**: struct parsing for all 9 protocol types, type alias resolution, size constant extraction, snake_case conversion, array type handling, endianness mapping
+- Curated protocols: 450→459, unit tests: 452→467, sources: 12→13
+
+#### Netlink Message Coverage + Parser Fix (2026-04-20)
+
+17 netlink message header structs mapped as curated protocols across 5 subsystems:
+
+- **Route netlink** (8 protocols): NL_Route (rtmsg), NL_Link (ifinfomsg), NL_Addr (ifaddrmsg), NL_Neigh (ndmsg), NL_TC (tcmsg), NL_Rule (fib_rule_hdr), NL_Nexthop (nhmsg), NL_Prefix (prefixmsg)
+- **Netfilter** (1): NL_Netfilter (nfgenmsg)
+- **Diagnostics** (3): NL_Diag_Netlink, NL_Diag_Unix, NL_Diag_Inet (with nested inet_diag_sockid)
+- **Bridge/DCB/Stats** (3): NL_Bridge_Port, NL_DCB, NL_IfStats
+- **XFRM/IPsec** (2): NL_XFRM_SA (xfrm_usersa_info, 12 fields, 217 bytes with 6 nested structs/unions), NL_XFRM_Policy (xfrm_userpolicy_info, 9 fields, 164 bytes)
+- **TOML expansion**: 7 new `[struct_sizes]` entries (xfrm_selector, xfrm_lifetime_cfg, xfrm_lifetime_cur, xfrm_stats, xfrm_id, inet_diag_sockid, ifla_bridge_id) + 1 new `[union_sizes]` entry (xfrm_address_t)
+- **C type coverage**: Added `unsigned`, `unsigned int`, `int`, `unsigned short`, `short` to kernel.toml `[type_bits]`
+- **Parser bug fix**: Step 0b comment-semicolon bug — semicolons inside `/* ... */` comments were triggering newline insertion in the body normalizer, splitting comment text into orphan lines that were parsed as fields. Fixed by tracking comment state in Step 0b. This affected all kernel structs with comments containing semicolons (e.g., `/* Routing protocol; see below */`).
+- **2 new tests**: `test_strip_inline_comments_with_semicolon`, `test_rtmsg_all_fields_parsed` (9-field struct with inline comments containing semicolons)
+- Kernel total: 92→109 structs, 450 curated protocols
+
+#### Nested Struct/Union Expansion in Kernel Parser (2026-04-19)
+
+The kernel C struct parser now handles nested types that were previously skipped:
+
+- **Named union fields**: `union ib_gid sgid;` — resolved via content lookup or TOML `[union_sizes]` table. Previously skipped entirely (`if c_type == "union" { continue; }`).
+- **Named struct fields**: `struct gre_base_hdr gre_hd;` — resolved from definition in same file content, falling back to TOML `[struct_sizes]`. Previously produced 0-bit fields that were silently dropped.
+- **Anonymous inline unions**: `union { struct { ... } echo; __be32 gateway; } un;` — parsed inline with recursive field extraction, size computed as max of variants. Used by `icmphdr` and `icmp6hdr`.
+- **Typedef support**: `typedef struct lacpdu { ... }` pattern now matched by `parse_kernel_struct()`.
+- **Brace-aware parsing**: `parse_kernel_struct()` uses brace-counting instead of non-greedy regex (handles nested braces). Statement accumulator tracks brace depth so semicolons inside anonymous bodies don't split outer statements.
+- **Content-aware resolution**: `resolve_nested_size()` recursively finds struct/union definitions in file content. `to_field_defs_with_content()` used by kernel, DPDK, and nDPI extractors. Max depth=4 prevents infinite recursion.
+- **3 new kernel mappings**: IB_GRH (`ib_grh` with `union ib_gid`), PPTP (`pptp_gre_header` with nested `struct gre_base_hdr`), LACP (`lacpdu` via typedef with nested `struct mac_addr`). Kernel total: 84→92.
+- **TOML expansion**: 4 new `[struct_sizes]` entries (gre_base_hdr, scsi_lun, port_identity, mac_addr) and new `[union_sizes]` section (ib_gid, nvme_data_ptr).
+- **8 new tests**: nested struct resolution, nested union resolution, anonymous inline union, TOML fallback, recursion depth limit, unknown type skipping, typedef parsing, union via TOML.
+- **Improved extraction for 5 existing protocols**: GRE_Cisco (+gre_hd 32 bits), iSCSI (+lun 64 bits), PTP (+source_port_id 80 bits), ICMPv4 (+un 32 bits), ICMPv6 (+icmp6_dataun 32 bits).
+
+#### DPDK, nDPI, pppd Extractors + Kernel Expansion (2026-04-18)
+
+Three new authoritative sources added as first-class extractors:
+
+- **DPDK extractor** (`src/extractors/dpdk.rs`): Parses `rte_*_hdr` packed structs from DPDK `lib/net/` headers. Preprocessor normalizes `__rte_packed_begin/end`, `__rte_aligned(N)`, `__extension__`, and anonymous union/struct wrappers (drops aggregate members, keeps bitfield decompositions). 24 protocols mapped with `.dpdk(struct, file)` builder. Type mappings in `mappings/dpdk.toml`.
+- **nDPI extractor** (`src/extractors/ndpi.rs`): Parses `ndpi_*` packed structs from `ndpi_typedefs.h`. Preprocessor normalizes `PACK_ON/OFF`, `__attribute__((packed))`, and BSD-style endian macros. 13 protocols mapped with `.ndpi(struct, file)` builder. Type mappings in `mappings/ndpi.toml`.
+- **pppd extractor** (`src/extractors/pppd.rs`): Parses PPP control protocol structs from pppd source (LCP, IPCP, IPv6CP, CCP, CHAP, PAP). 7 protocols mapped with `.pppd(struct, file)` builder.
+- **Kernel expansion**: 12 new kernel struct mappings added from Linux 6.12 source: CAN_XL, BATMAN, CFM, PPPoED, VXLAN_GPE, VXLAN_GBP, ERSPAN_V3, GENEVE_OPT, GRE_Cisco, BT_RFCOMM, IPv6_MobileIP, SCTP_Init. Kernel total: 74→84.
+- **3 new DPDK-only protocols**: eCPRI, HiGig2, PDCP (protocols only defined in DPDK headers, not other sources).
+
+Memory policy: prefer authoritative sources (kernel, DPDK, nDPI, pppd) over hand-written `embedded_proto` definitions.
+
+#### Pipeline Expansion (2026-04-15 → 2026-04-18)
+
+Pipeline coverage grew from 711/3424 (20.8%) to 1456/3448 (42.2%):
+- Parallel matrix execution (rayon, `--workers N`)
+- Auto-generate PCAP templates (65→196 templates)
+- Hand-written embedded IR for 52 Bucket 1 protocols
+- Bucket 3 sub-protocols (HCI, PPP, IB, CAN, BT variants)
+- Bucket 5 tshark mapping fixes (TACACS, sFlow, SOCKS)
+- STP variants (RSTP, PVST, MSTP)
+- pdml_name_alias refactor for tshark dissector name normalization
+
+#### Trading Protocol Expansion (3 Workstreams, 2026-04-13)
+
+Three parallel expansions built on the OMI IR:
+
+- **W1: OMI tshark coverage** — 3 EOBI v3 entries (OrderAdd, SnapshotOrder, Heartbeat) wired with the full `.omi()` + `.tshark()` + `.omi_tshark(lua, pcap, field)` triangle; per-entry roundtrip tests verify all 7 slots. Remaining ITCH v5 / PITCH v2 messages are blocked on missing sample PCAPs in omi-data-packets.
+- **W2: IR → upstream patches** — New `gen-patches --target <libpcap|etherparse> --source omi` subcommand pipes OMI IR through the existing `generate_libpcap_patch` / `generate_etherparse_patch` generators. Produced 27 libpcap + 27 etherparse `trading_*.patch` files.
+- **W3: XDP2 trading parse-nodes** — 16 leaf `proto_def`s added under `src/include/xdp2/proto_defs/trading/` (13 ITCH v5 + 3 PITCH v2). `trading` added to proto_defs Makefile SUBDIRS. `xdp2` extractor now prefers the curated `.xdp2()` name-table var before falling back to fuzzy matching, so canonical names like `ITCH_v5_AddOrder` resolve. Field lists remain empty (Phase A); char-based dispatch DSL (Phase B) and OMI-sourced field layouts (Phase C) are deferred.
+
+#### OMI as 9th Source (earlier, 2026-04)
+
+- Added OMI extractor (`src/extractors/omi.rs`) consuming Open Markets Initiative c-structs and Wireshark Lua dissectors.
+- Name-table builders `.omi(struct, file)`, `.tshark(lua_file)`, `.omi_tshark(lua, pcap, field)`.
+- OMI PCAPs added to `pcapCorpus`; OMI Lua dissectors loaded into tshark for per-message field extraction.
 
 #### Kaitai & Suricata Curated Integration (8 Sources)
 
@@ -113,6 +184,14 @@ Added missing imports for GTP, HomePlug_AV, HTTP2, and TLS record layer — enab
 
 | Iter | Key Change | Protocols | Tests |
 |------|------------|-----------|-------|
+| 30 | 17 netlink message structs (5 subsystems), comment-semicolon parser fix, C type coverage expansion | 450 | 452 |
+| 29 | Nested struct/union expansion, 3 new kernel mappings (IB_GRH, PPTP, LACP), typedef support | 431 | 450 |
+| 28 | DPDK/nDPI/pppd extractors, 12 new kernel mappings, 3 DPDK-only protos | 431 | 442 |
+| 27 | Bucket 3 sub-protocols, Bucket 5 mapping fixes, STP variants, pipeline 42.2% | 428 | 420 |
+| 26 | Batch 2 embedded_proto defs, tshark alias hints, 182 templates | 428 | 420 |
+| 25 | Hand-written IR Batch 1 (26 protocols), embedded_proto fallback | 428 | 420 |
+| 24 | Parallel matrix (rayon), auto-generate 65 templates, ICMPv4 fixed | 428 | 420 |
+| 23 | Pipeline-matrix + comparator, IPv4/IPv6 fixups, Gold 112→206 | 428 | 420 |
 | 22 | Cross-generator round-trip + corpus cross-parse commands | 206 | 400 |
 | 21 | Kaitai & Suricata curated integration (8 sources) | 206 | 400 |
 | 20 | Gold promotion campaign (Gold 85→112), 62 PCAP templates | 206 | 400 |

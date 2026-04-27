@@ -1,0 +1,14 @@
+--- /dev/null
++++ b/src/proto_audit/pitch_v2_addorderlong.rs
+@@ -0,0 +1,11 @@
++//! PITCH_v2_AddOrderLong header — 31 bytes.
++
++/// PITCH_v2_AddOrderLong header — 31 bytes.
++pub struct PITCH_v2_AddOrderLongHeader {
++    pub timeoffset: u32,
++    pub orderid: u64,
++    pub sideindicator: u8,
++    pub quantity: u32,
++    pub symbol: u64,
++    pub price: u64,
++}

@@ -116,6 +116,11 @@
           text = ''
             export PROTO_AUDIT_PROTO_DEFS_DIR="''${PROTO_AUDIT_PROTO_DEFS_DIR:-${./src/include/xdp2/proto_defs}}"
             export PROTO_AUDIT_KERNEL_SRC="''${PROTO_AUDIT_KERNEL_SRC:-${protoAuditSources.kernelSrc}}"
+            export PROTO_AUDIT_DPDK_SRC="''${PROTO_AUDIT_DPDK_SRC:-${protoAuditSources.dpdkSrc}}"
+            export PROTO_AUDIT_NDPI_SRC="''${PROTO_AUDIT_NDPI_SRC:-${protoAuditSources.ndpiSrc}}"
+            export PROTO_AUDIT_PPPD_SRC="''${PROTO_AUDIT_PPPD_SRC:-${protoAuditSources.pppdSrc}}"
+            export PROTO_AUDIT_RDMA_SRC="''${PROTO_AUDIT_RDMA_SRC:-${protoAuditSources.rdmaSrc}/include}"
+            export PROTO_AUDIT_XDP2_HEADERS_DIR="''${PROTO_AUDIT_XDP2_HEADERS_DIR:-${./src/include}}"
             export PROTO_AUDIT_SCAPY_HELPER="''${PROTO_AUDIT_SCAPY_HELPER:-${proto-audit-bin}/share/proto-audit/scapy_dump.py}"
             export PROTO_AUDIT_PYTHON="''${PROTO_AUDIT_PYTHON:-${protoAuditSources.scapyPython}/bin/python3}"
             export PROTO_AUDIT_TSHARK_BIN="''${PROTO_AUDIT_TSHARK_BIN:-${protoAuditSources.tshark}/bin/tshark}"
@@ -130,6 +135,11 @@
             export PROTO_AUDIT_IANA_DIR="''${PROTO_AUDIT_IANA_DIR:-${protoAuditSources.ianaRegistries}}"
             export PROTO_AUDIT_KAITAI_DIR="''${PROTO_AUDIT_KAITAI_DIR:-${protoAuditSources.kaitaiFormats}}"
             export PROTO_AUDIT_SURICATA_DIR="''${PROTO_AUDIT_SURICATA_DIR:-${protoAuditSources.suricataSrc}}"
+            export PROTO_AUDIT_OMI_CSTRUCTS_DIR="''${PROTO_AUDIT_OMI_CSTRUCTS_DIR:-${protoAuditSources.omiCStructs}}"
+            export PROTO_AUDIT_OMI_LUA_DIR="''${PROTO_AUDIT_OMI_LUA_DIR:-${protoAuditSources.omiWiresharkLua}}"
+            export PROTO_AUDIT_OMI_PCAPS_DIR="''${PROTO_AUDIT_OMI_PCAPS_DIR:-${protoAuditSources.omiDataPackets}}"
+            export PROTO_AUDIT_XTCP2_SRC="''${PROTO_AUDIT_XTCP2_SRC:-${protoAuditSources.xtcp2Src}}"
+            export PROTO_AUDIT_XTCP2_PCAPS="''${PROTO_AUDIT_XTCP2_PCAPS:-${protoAuditSources.xtcp2Src}/pkg/xtcpnl/testdata}"
             exec proto-audit "$@"
           '';
         };
@@ -277,6 +287,9 @@
           "--pcap ${test-pcap}/combo.pcap"
           "--etherparse-src ${protoAuditSources.etherparseSrc}"
           "--libpcap-src ${protoAuditSources.libpcapSrc}"
+          "--omi-cstructs-dir ${protoAuditSources.omiCStructs}"
+          "--omi-lua-dir ${protoAuditSources.omiWiresharkLua}"
+          "--omi-pcaps-dir ${protoAuditSources.omiDataPackets}"
         ];
 
         # Full audit report (cached Nix derivation)

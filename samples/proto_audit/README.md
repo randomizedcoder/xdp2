@@ -1,18 +1,19 @@
 # proto-audit: Cross-Source Protocol Definition Audit
 
-Extracts protocol header definitions from eight independent sources, normalizes
+Extracts protocol header definitions from twelve independent sources, normalizes
 them to a common intermediate representation indexed by wire bit offset, and
 compares to find layout disagreements, coverage gaps, and type differences.
 
-**206 curated protocols** across every network layer, **8,358 total tracked**, code generation in 3 languages + PCAP wire output, 206 per-protocol overlay patches each for etherparse and libpcap, 62 PCAP templates for round-trip validation, 400 unit tests.
+**459 curated protocols** across every network layer (including trading protocols from OMI), code generation in 3 languages + PCAP wire output, 332 per-protocol overlay patches each for etherparse and libpcap, 196 PCAP templates for round-trip validation, 467 unit tests.
 
 ## Highlights
 
-- **8 independent sources** (XDP2, kernel, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata)
-- **206 curated protocols** with hand-verified cross-source mappings
-- **8,358 total protocols tracked** (curated + auto-discovered from tshark/Scapy registries)
-- **112 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
-- **62 PCAP templates** with valid protocol content for round-trip validation
+- **13 independent sources** (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI, xtcp2)
+- **459 curated protocols** with hand-verified cross-source mappings
+- **Trading protocol coverage** (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) sourced from Open Markets Initiative c-structs + Wireshark Lua dissectors
+- **206 Gold-validated** protocols (round-trip IR → PCAP → tshark → IR with split-aware comparison)
+- **196 PCAP templates** with valid protocol content for round-trip validation
+- **Pipeline coverage**: 1456/3448 cells PASS (42.2%) across 8 code generators
 - Field-level comparison by wire bit offset — not name — catches real layout disagreements
 - Code generation from IR to C headers, Rust structs, Scapy packet classes, and PCAP packets
 - 624-file PCAP corpus covering 305 unique dissectors
@@ -20,12 +21,12 @@ compares to find layout disagreements, coverage gaps, and type differences.
 - Nix-reproducible builds with pinned external sources and cached report derivation
 - Cross-generator round-trip verification (generate code → re-extract → compare to IR)
 - Corpus cross-source parsing (same PCAP through tshark + Scapy, value-level comparison)
-- 400 unit tests, JSON output on every command
+- 467 unit tests, JSON output on every command
 
 ## Vision
 
 The IETF has never specified a machine-readable format for protocol header
-definitions. proto-audit demonstrates that 8 independent implementations of
+definitions. proto-audit demonstrates that 12 independent implementations of
 the same RFCs diverge measurably — and that a common IR can reconcile them.
 See [IR as Standard](docs/ir-as-standard.md).
 
@@ -57,17 +58,24 @@ table and CI-gate usage of `proto-audit-c-check` and
 
 | Source | What It Provides | Access Method | Coverage |
 |---|---|---|---|
-| `xdp2` | Proto_def metadata (struct refs, no fields) | Local repo C header parse | 222 proto_defs (206 curated) |
-| `kernel` | Linux UAPI struct field definitions | Nix-pinned source, regex C parse | 74 protocols (173 in registry) |
-| `scapy` | Scapy `fields_desc` with dispatch/length | Python runtime introspection (JSON) | 5,798 classes (109 curated) |
-| `tshark` | Wireshark protocol dissection fields | `tshark -T pdml` subprocess (XML) | 3,155 protocols (3,753 with filters) |
-| `etherparse` | Rust packet parsing crate structs | Nix-pinned + 206 overlay patches | 206/206 curated |
-| `libpcap` | BPF gencode + C struct definitions | Nix-pinned + 206 overlay patches | 206/206 curated |
+| `xdp2` | Proto_def metadata (struct refs, no fields) | Local repo C header parse | 259 proto_defs (incl. 16 trading) |
+| `kernel` | Linux 6.12 UAPI + internal net struct definitions | Nix-pinned source (include/ + drivers/net/ + net/), regex C parse with nested struct/union resolution | 109 protocols (190 in registry, incl. 17 netlink subsystem messages) |
+| `dpdk` | DPDK packed protocol header structs | Nix-pinned `pkgs.dpdk.src`, lib/net/*.h, preprocessed to kernel conventions | 24 protocols (eCPRI, L2TPv2, MACsec, PDCP, TLS/DTLS, HiGig, PPP, IB, etc.) |
+| `ndpi` | nDPI deep packet inspection wire structs | Nix-pinned `pkgs.ndpi.src`, ndpi_typedefs.h, preprocessed to kernel conventions | 13 protocols (IP, TCP, UDP, ARP, DNS, DHCP, etc.) |
+| `pppd` | PPP daemon protocol headers and constants | Nix-pinned `pkgs.ppp.src`, ppp_defs.h `#define` constants | 7 protocols (PPP, LCP, IPCP, IPv6CP, CCP, CHAP, PAP) |
+| `scapy` | Scapy `fields_desc` with dispatch/length | Python runtime introspection (JSON) | 5,786 classes (109 curated) |
+| `tshark` | Wireshark protocol dissection fields | `tshark -T pdml` subprocess (XML) | 3,155 protocols (3,881 with filters) |
+| `etherparse` | Rust packet parsing crate structs | Nix-pinned + 331 overlay patches | 331/459 curated |
+| `libpcap` | BPF gencode + C struct definitions | Nix-pinned + 331 overlay patches | 331/459 curated |
 | `kaitai` | Kaitai Struct format specifications | Nix-pinned .ksy files | ~20 protocols (12 curated) |
 | `suricata` | Rust app-layer parser struct definitions | Nix-pinned source, regex Rust parse | ~15 protocols (20 curated) |
+| `omi` | Open Markets Initiative c-structs + Wireshark Lua dissectors | Nix-pinned c-structs + wireshark-lua trees | ~27 trading msgs (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
+| `xtcp2` | Go netlink parser structs (inet_diag attributes) | Nix-pinned Go source, regex Go struct parse | 11 protocols (TCPInfo 59 fields, BBRInfo, MemInfo, VegasInfo, etc.) |
 
-All external sources are Nix-pinned for reproducibility. etherparse and libpcap
-are extended with per-protocol overlay patches for cross-source comparison.
+All external sources are Nix-pinned for reproducibility via
+`nix/proto-audit-sources.nix`. See the comments in that file for the full
+guide on adding new sources. etherparse and libpcap are extended with
+per-protocol overlay patches for cross-source comparison.
 See [Source Patching](docs/patching.md) for details.
 
 ## How It Works
@@ -80,7 +88,7 @@ not by name, catching real layout disagreements.
 packet classes, and PCAP packets from the canonical IR.
 **Validation.** The `validate` command generates a PCAP from the IR, feeds it
 to tshark, extracts the result back to IR, and compares — a true round-trip
-through wire bytes. 112 protocols achieve Gold (zero field mismatches).
+through wire bytes. 206 protocols achieve Gold (zero field mismatches).
 **Cross-Generator Verification.** The `crossgen` command generates code from IR
 (C, Rust, Scapy), re-extracts from the generated code through the corresponding
 extractor, and compares to the original IR — closing the generate→extract loop.
@@ -91,7 +99,7 @@ both tshark and Scapy, comparing parsed field values at the value level.
 
 | Command | Description |
 |---|---|
-| `list` | List all 206 known protocols (`--json` for machine output) |
+| `list` | List all 450 curated protocols (`--json` for machine output) |
 | `extract --source S --proto P` | Extract one protocol from one source |
 | `compare --proto P` | Compare a protocol across all available sources |
 | `audit [--protos P1,P2]` | Audit all (or specific) protocols across all sources |
@@ -102,7 +110,7 @@ both tshark and Scapy, comparing parsed field values at the value level.
 | `validate --proto P` | Round-trip validation: IR → PCAP → tshark → IR → compare |
 | `stats` | System-wide statistics (protocols, sources, validation tiers) |
 | `coverage` | Per-source coverage matrix with gap analysis |
-| `search` | Keyword search across all 8,358 tracked protocols |
+| `search` | Keyword search across all 8,498 tracked protocols |
 | `standards` | RFC/IEEE/IANA standards references per protocol |
 | `auto-match` | Automated cross-source name matching |
 | `prioritize` | Protocol prioritization for coverage expansion |
@@ -110,6 +118,9 @@ both tshark and Scapy, comparing parsed field values at the value level.
 | `corpus-parse --pcap F` | Parse PCAP through tshark + Scapy, compare field values across parsers |
 | `corpus` | PCAP corpus coverage inspection |
 | `quality` | Validation quality analysis |
+| `generate-libpcap-patches` | Generate libpcap overlay patches from corpus PDML data |
+| `generate-etherparse-patches` | Generate etherparse Rust overlay patches from corpus PDML data |
+| `gen-patches --target T --source S` | Generate overlay patches from IR (targets: `libpcap`, `etherparse`; source: `omi`) |
 
 All commands accept `--json` for machine-readable output.
 Filtering: `--protos P1,P2` and `--sources S1,S2` narrow scope on audit/matrix/findings.
@@ -119,7 +130,7 @@ Filtering: `--protos P1,P2` and `--sources S1,S2` narrow scope on audit/matrix/f
 Type inference is driven by TOML mapping files in `mappings/`, embedded in the
 binary via `include_str!()`. Each file maps between source-native types and the
 canonical IR. To add a new C type or correct a field classification, edit the
-appropriate TOML — no Rust code changes needed. 7 mapping files cover all 8
+appropriate TOML — no Rust code changes needed. 7 mapping files cover all 9
 sources plus 2 generation targets.
 
 Override the embedded mappings at runtime with `PROTO_AUDIT_MAPPINGS_DIR`.
@@ -167,7 +178,7 @@ documents these granularity differences as findings rather than patching them.
 ```bash
 nix build .#proto-audit          # wrapped with all source paths
 nix build .#proto-audit-bin      # raw binary (no env var defaults)
-nix develop --command cargo test  # 400 unit tests
+nix develop --command cargo test  # 467 unit tests
 ```
 
 The Nix wrapper sets all `PROTO_AUDIT_*` variables automatically.
@@ -192,6 +203,7 @@ See [Nix Packaging](docs/nix-packaging.md) for flake outputs and source pinning.
 | [Mapping Pipeline](docs/mapping-pipeline.md) | Bidirectional extraction/generation pipeline, per-source fidelity |
 | [Inconsistency Analysis](docs/inconsistency-analysis.md) | Root causes of cross-source disagreements, worked examples |
 | [IR as Standard](docs/ir-as-standard.md) | Positioning the IR as a universal protocol header format |
+| [Upstream Contribution](docs/upstream-contribution.md) | Trading protocol contribution guide (Scapy, Kaitai, Wireshark targets) |
 
 ## Project Layout
 
@@ -200,22 +212,24 @@ samples/proto_audit/
   src/
     main.rs, commands.rs   CLI entry point + subcommands
     ir.rs, comparator.rs   IR types + cross-source field matching
-    name_mapping/          206-protocol canonical name table (8 sources)
-    type_mapping/          TOML loading + per-source type inference (7 modules)
+    name_mapping/          450-protocol canonical name table (13 sources)
+    type_mapping/          TOML loading + per-source type inference (9 modules)
     report/                Text/JSON output (matrix, findings)
     generator/             IR → C / Rust / Scapy / PCAP code generation
-    extractors/            8 source-specific parsers (kernel, scapy, tshark, etherparse, libpcap, xdp2, kaitai, suricata)
+    extractors/            13 source-specific parsers (kernel, dpdk, ndpi, pppd, scapy, tshark, etherparse, libpcap, xdp2, kaitai, suricata, omi, xtcp2)
     discovery/             Two-tier protocol discovery (curated + auto-discovered)
     crossgen_tests.rs      Cross-generator round-trip tests (9 tests)
   helpers/
     scapy_dump.py          Python helper for Scapy introspection + PCAP dissection
     gen_pcap_templates.py  Generate 62 PCAP templates with valid protocol content
-  mappings/                7 TOML files (5 extraction + 2 generation)
+  mappings/                9 TOML files (7 extraction + 2 generation)
   patches/
     gen_fine_grained.py    Generator script for overlay struct patches
-    etherparse/            206 per-protocol Rust overlay patches
-    libpcap/               206 per-protocol C header overlay patches
-  docs/                    15 reference documents (see Documentation)
+    etherparse/            332 per-protocol Rust overlay patches (incl. 27 trading_*.patch)
+    libpcap/               332 per-protocol C header overlay patches (incl. 27 trading_*.patch)
+    scapy/                 27 trading Scapy Packet class patches (gen-patches --target scapy)
+    kaitai/                27 trading Kaitai .ksy format patches (gen-patches --target kaitai)
+  docs/                    16 reference documents (see Documentation)
 ```
 
 ## Status

@@ -18,6 +18,8 @@ __be16 = 16
 __le16 = 16
 __sum16 = 16
 u16 = 16
+"unsigned short" = 16
+short = 16
 
 __u32 = 32
 __s32 = 32
@@ -25,6 +27,9 @@ __be32 = 32
 __le32 = 32
 __wsum = 32
 u32 = 32
+unsigned = 32
+"unsigned int" = 32
+int = 32
 
 __u64 = 64
 __s64 = 64
@@ -39,6 +44,54 @@ u64 = 64
 icmp6hdr = 64       # 8 bytes: type(1) + code(1) + cksum(2) + dataun(4)
 in6_addr = 128      # 16 bytes: IPv6 address
 in_addr = 32        # 4 bytes: IPv4 address
+gre_base_hdr = 32   # 4 bytes: flags(16) + protocol(16)
+scsi_lun = 64       # 8 bytes: u8[8]
+port_identity = 80  # 10 bytes: clock_identity[8] + port_number(16)
+mac_addr = 48       # 6 bytes: u8[ETH_ALEN]
+# XFRM nested structs (IPsec transform framework)
+xfrm_selector = 448   # 56 bytes: daddr(128)+saddr(128)+dport(16)+sport(16)+family(16)+prefixlen_d(8)+prefixlen_s(8)+proto(8)+pad(24)+ifindex(32)+user(32)
+xfrm_lifetime_cfg = 512 # 64 bytes: 8 x __u64 fields
+xfrm_lifetime_cur = 256 # 32 bytes: 4 x __u64 fields
+xfrm_stats = 96        # 12 bytes: 3 x __u32 fields
+xfrm_id = 192          # 24 bytes: daddr(128)+spi(32)+proto(8)+pad(24)
+# Netlink diagnostic nested structs
+inet_diag_sockid = 320  # 40 bytes: sport(16)+dport(16)+src(128)+dst(128)+if(32)+cookie(64)
+ifla_bridge_id = 64     # 8 bytes: prio(16) + addr(48)
+# Falcon Transport Protocol nested structs
+falcon_base_hdr = 192   # 24 bytes: version/rsvd(8)+dest_cid(24)+dest_func(24)+proto_type(3)+pkt_type(4)+ack_req(1)+psns(4x32)
+falcon_base_ack_pkt = 256 # 32 bytes: version/rsvd(8)+dest_cid(24)+rsvd(24)+pkt_type(4)+rsvd(4)+ack_psns(2x32)+timestamps(2x32)+ecn_rue(2x32)
+# NVMe/TCP nested structs
+nvme_tcp_hdr = 64           # 8 bytes: type(1)+flags(1)+hlen(1)+pdo(1)+plen(4)
+xdp2_nvme_tcp_hdr = 64     # 8 bytes: same layout as nvme_tcp_hdr
+nvme_command = 512          # 64 bytes: NVMe command capsule
+nvme_completion = 128       # 16 bytes: NVMe completion queue entry
+# iSCSI nested structs
+iscsi_hdr = 384             # 48 bytes: iSCSI BHS
+# SRP nested structs
+srp_direct_buf = 128        # 16 bytes: va(64)+key(32)+len(32)
+# FC FCP nested structs
+fcp_resp = 96               # 12 bytes: rsvd(64)+retry_delay(16)+flags(8)+status(8)
+fcp_resp_ext = 96           # 12 bytes: resid(32)+sns_len(32)+rsp_len(32)
+# FC ELS nested structs
+fc_els_csp = 128            # 16 bytes: common service parameters
+fc_els_cssp = 128           # 16 bytes: class-specific service parameters
+fc_els_lesb = 192           # 24 bytes: link error status block
+fc_els_lsri_desc = 96       # 12 bytes: descriptor tag+len+req_w0
+# FC NS nested structs
+fc_ns_fid = 32              # 4 bytes: flags(8)+fid(24)
+fc_ns_fts = 256             # 32 bytes: FC-4 types bitmap
+# SAS nested structs
+dev_to_host_fis = 160       # 20 bytes: ATA D2H FIS
+host_to_dev_fis = 160       # 20 bytes: ATA H2D FIS
+discover_resp = 384         # 48 bytes: SMP discover response
+report_general_resp = 256   # 32 bytes: SMP report general response
+
+[union_sizes]
+# Embedded union name → bit width (max of all variants).
+# Used when a kernel struct contains fields like `union ib_gid sgid;`
+ib_gid = 128        # 16 bytes: raw[16]
+nvme_data_ptr = 128 # 16 bytes: largest alternative
+xfrm_address_t = 128  # 16 bytes: max(a4[4], a6[128], in6_addr[128])
 
 [type_endian]
 # Keys use "prefix:" for starts-with matching, "exact:" for exact matching.

@@ -1,0 +1,25 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_addorder.h
+@@ -0,0 +1,22 @@
++/*
++ * itch_v5_addorder.h — itch_v5_addorder_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_ADDORDER_H
++#define PROTO_AUDIT_ITCH_V5_ADDORDER_H
++
++#include <stdint.h>
++
++/* ITCH_v5_AddOrder header — 30 bytes minimum */
++struct itch_v5_addorder_header {
++    uint16_t itch_v5_addorder_stocklocate;
++    uint16_t itch_v5_addorder_trackingnumber;
++    uint8_t  itch_v5_addorder_timestamp;
++    uint64_t itch_v5_addorder_orderreferencenumber;
++    uint8_t  itch_v5_addorder_buysellindicator;
++    uint32_t itch_v5_addorder_shares;
++    uint64_t itch_v5_addorder_stock;
++    uint32_t itch_v5_addorder_price;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_ADDORDER_H */

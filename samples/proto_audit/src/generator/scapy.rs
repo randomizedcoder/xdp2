@@ -1,7 +1,7 @@
 use crate::ir::{Endian, FieldType, ProtocolDef};
 use crate::type_mapping;
 
-use super::{canonical_to_pascal, format_value};
+use super::{canonical_to_pascal, canonical_to_snake, format_value};
 
 /// Generate a Python Scapy Packet class definition from a ProtocolDef.
 pub fn generate_scapy(proto: &ProtocolDef) -> String {
@@ -21,19 +21,49 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
 
     // Imports
     out.push_str("from scapy.packet import Packet, bind_layers\n");
-    out.push_str("from scapy.fields import *\n\n\n");
+    out.push_str("from scapy.fields import *\n");
+    out.push_str("from scapy.layers.inet import *\n");
+    out.push_str("from scapy.layers.inet6 import *\n\n\n");
 
     // Class definition
     out.push_str(&format!("class {}(Packet):\n", class_name));
     out.push_str(&format!("    name = \"{}\"\n", proto.name));
     out.push_str("    fields_desc = [\n");
 
+    let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     for field in &proto.fields {
-        let scapy_name = field
+        let raw_name = field
             .source_names
             .get("scapy")
             .map(|s| s.as_str())
             .unwrap_or(&field.name);
+        // Sanitize: strip protocol prefix (e.g. "ip.version" → "version"),
+        // replace dots/dashes/spaces with underscores for valid Python identifiers
+        let stripped = if raw_name.contains('.') {
+            raw_name.rsplit('.').next().unwrap_or(raw_name)
+        } else {
+            raw_name
+        };
+        let mut candidate = stripped
+            .replace('-', "_")
+            .replace(' ', "_")
+            .replace('/', "_");
+
+        // Escape Python reserved words and Scapy-reserved kwargs.
+        if is_python_reserved(&candidate) {
+            candidate.push('_');
+        }
+
+        // Deduplicate within this protocol — Scapy raises on duplicate field
+        // names (e.g. ARP has two "type" fields: hwtype + ptype after stripping).
+        let mut final_name = candidate.clone();
+        let mut suffix = 2u32;
+        while seen_names.contains(&final_name) {
+            final_name = format!("{}_{}", candidate, suffix);
+            suffix += 1;
+        }
+        seen_names.insert(final_name.clone());
+        let scapy_name = final_name.as_str();
 
         let field_class = determine_scapy_class(&field.field_type, field.size_bits,
                                                  scapy_name, &field.endian,
@@ -75,6 +105,44 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
     out
 }
 
+/// Generate a Scapy module as a new-file patch (--- /dev/null → +++ b/scapy/proto_audit/<name>.py).
+///
+/// Output is a self-contained Python module with imports, class, and fields_desc.
+/// Suitable for use with `gen-patches --target scapy`.
+pub fn generate_scapy_patch(proto: &ProtocolDef) -> Option<String> {
+    if proto.fields.is_empty() {
+        return None;
+    }
+    let snake = canonical_to_snake(&proto.name);
+    let body = generate_scapy(proto);
+    let num_lines = body.lines().count();
+
+    let mut out = String::new();
+    out.push_str("--- /dev/null\n");
+    out.push_str(&format!("+++ b/scapy/proto_audit/{}.py\n", snake));
+    out.push_str(&format!("@@ -0,0 +1,{} @@\n", num_lines));
+    for line in body.lines() {
+        out.push('+');
+        out.push_str(line);
+        out.push('\n');
+    }
+    Some(out)
+}
+
+/// Python reserved words and Scapy-reserved kwargs that can't be used as field names.
+fn is_python_reserved(name: &str) -> bool {
+    matches!(
+        name,
+        "False" | "None" | "True" | "and" | "as" | "assert" | "async" | "await"
+        | "break" | "class" | "continue" | "def" | "del" | "elif" | "else"
+        | "except" | "finally" | "for" | "from" | "global" | "if" | "import"
+        | "in" | "is" | "lambda" | "nonlocal" | "not" | "or" | "pass" | "raise"
+        | "return" | "try" | "while" | "with" | "yield" | "match" | "case"
+        // Scapy-specific reserved attribute names
+        | "name" | "fields_desc" | "payload" | "underlayer"
+    )
+}
+
 /// Determine the Scapy field class for a given IR field.
 fn determine_scapy_class(
     ft: &FieldType,
@@ -105,8 +173,8 @@ fn determine_scapy_class(
         })
         .to_string();
 
-    // 4. Apply LE prefix if little-endian
-    if *endian == Endian::Little {
+    // 4. Apply LE prefix if little-endian (skip for 1-byte fields — no endianness)
+    if *endian == Endian::Little && bits > 8 {
         if let Some(le) = mappings.le_variant(&base_class) {
             return le.to_string();
         }
@@ -133,6 +201,16 @@ fn format_scapy_field(
                 bits
             )
         }
+        c if c.ends_with("EnumField") => {
+            // EnumField types need an enum dict as 3rd arg; use empty dict
+            // if no dispatch values are available (common for OMI fields).
+            format!(
+                "{}(\"{}\", {}, {{}})",
+                c,
+                name,
+                default.as_deref().unwrap_or("0")
+            )
+        }
         "FlagsField" => {
             if let Some(ref names) = flag_names {
                 let names_str: Vec<String> = names.iter().map(|n| format!("\"{}\"", n)).collect();
@@ -144,13 +222,21 @@ fn format_scapy_field(
                     names_str.join(", ")
                 )
             } else {
+                // No flag names available — fall back to BitField which doesn't require names
                 format!(
-                    "FlagsField(\"{}\", {}, {})",
+                    "BitField(\"{}\", {}, {})",
                     name,
                     default.as_deref().unwrap_or("0"),
                     bits
                 )
             }
+        }
+        // SourceIPField(name) and DestIPField(name, default) in modern Scapy
+        "SourceIPField" => {
+            format!("SourceIPField(\"{}\")", name)
+        }
+        "DestIPField" => {
+            format!("DestIPField(\"{}\", \"127.0.0.1\")", name)
         }
         _ => {
             if let Some(ref d) = default {

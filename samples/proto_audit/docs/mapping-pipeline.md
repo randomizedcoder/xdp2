@@ -35,8 +35,8 @@ generation ("mapping out") converts the IR back into compilable source code.
                                                      2 generation TOMLs
 ```
 
-Left: eight sources feed through TOML-driven extractors into the IR (Kaitai and
-Suricata extractors use direct type mapping without TOML).
+Left: nine sources (incl. OMI) feed through TOML-driven extractors into the IR (Kaitai,
+Suricata, and OMI extractors use direct type mapping without TOML).
 Right: four generators read the IR and produce compilable output or wire bytes.
 Center: the comparator branches off the IR for cross-source analysis.
 The `crossgen` command closes the loop: generators feed back through extractors

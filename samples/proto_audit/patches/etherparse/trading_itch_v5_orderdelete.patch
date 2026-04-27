@@ -1,0 +1,12 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_orderdelete.rs
+@@ -0,0 +1,9 @@
++//! ITCH_v5_OrderDelete header — 13 bytes.
++
++/// ITCH_v5_OrderDelete header — 13 bytes.
++pub struct ITCH_v5_OrderDeleteHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub orderreferencenumber: u64,
++}

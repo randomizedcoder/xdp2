@@ -1,0 +1,73 @@
+# DPDK C Type → IR Type Mappings
+#
+# Maps DPDK's rte_* type annotations to bit widths and byte order.
+# Uses the same KernelMappings schema so the kernel parser can be
+# reused with DPDK-specific type information.
+
+[type_bits]
+# Standard C integer types used by DPDK
+uint8_t = 8
+uint16_t = 16
+uint32_t = 32
+uint64_t = 64
+int8_t = 8
+int16_t = 16
+int32_t = 32
+int64_t = 64
+"unsigned char" = 8
+
+# DPDK explicit-endian types
+rte_be16_t = 16
+rte_be32_t = 32
+rte_be64_t = 64
+rte_le16_t = 16
+rte_le32_t = 32
+rte_le64_t = 64
+
+[struct_sizes]
+# Embedded struct sizes for DPDK composite types
+rte_ether_addr = 48   # 6 bytes: MAC address
+
+[type_endian]
+# rte_be* → Big endian (network byte order)
+"prefix:rte_be" = "Big"
+# rte_le* → Little endian
+"prefix:rte_le" = "Little"
+# Plain uint*_t in DPDK are host-order (no endian annotation)
+# Single-byte types are always Na
+
+[field_type_overrides]
+# Protocol dispatch fields
+[field_type_overrides.ether_type]
+type = "Enum"
+reason = "EtherType (IEEE 802 registry)"
+
+[field_type_overrides.eth_proto]
+type = "Enum"
+reason = "VLAN-encapsulated EtherType"
+
+[field_type_overrides.next_proto_id]
+type = "Enum"
+reason = "IPv4 next protocol (IANA protocol-numbers)"
+
+[field_type_overrides.proto]
+type = "Enum"
+reason = "GRE/tunnel protocol (IANA)"
+
+[field_type_overrides.tcp_flags]
+type = "Flags"
+reason = "TCP flags byte"
+
+[field_type_overrides.vlan_tci]
+type = "Flags"
+reason = "VLAN TCI (PCP + DEI + VID packed)"
+
+[field_type_overrides.fragment_offset]
+type = "Flags"
+reason = "IPv4 flags + fragment offset packed"
+
+[array_endian_overrides]
+# MAC address arrays
+[array_endian_overrides."uint8_t:6"]
+endian = "Big"
+reason = "MAC address (RTE_ETHER_ADDR_LEN) — network byte order"

@@ -1,0 +1,9 @@
+--- /dev/null
++++ b/src/proto_audit/soupbintcp_loginrejected.rs
+@@ -0,0 +1,6 @@
++//! SoupBinTCP_LoginRejected header — 1 bytes.
++
++/// SoupBinTCP_LoginRejected header — 1 bytes.
++pub struct SoupBinTCP_LoginRejectedHeader {
++    pub rejectreasoncode: u8,
++}

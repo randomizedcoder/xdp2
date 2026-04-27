@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/src/proto_audit/itch_v5_orderexecutedwithprice.rs
+@@ -0,0 +1,13 @@
++//! ITCH_v5_OrderExecutedWithPrice header — 30 bytes.
++
++/// ITCH_v5_OrderExecutedWithPrice header — 30 bytes.
++pub struct ITCH_v5_OrderExecutedWithPriceHeader {
++    pub stocklocate: u16,
++    pub trackingnumber: u16,
++    pub timestamp: u8,
++    pub orderreferencenumber: u64,
++    pub executedshares: u32,
++    pub matchnumber: u64,
++    pub printable: u8,
++    pub executionprice: u32,
++}

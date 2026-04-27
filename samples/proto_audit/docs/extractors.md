@@ -1,17 +1,24 @@
 # Extractors
 
-Each source has a dedicated extractor that reads native definitions (C structs,
-Python field descriptors, Rust types, XML dissections, BPF gencode offsets) and
-normalizes them into the common IR (`ProtocolDef`). Every field is indexed by
+Each source has a dedicated extractor that reads native definitions
+(C structs, Python field descriptors, Rust types, XML dissections, BPF gencode
+offsets, OMI Lua dissectors) and normalizes them into the common IR (`ProtocolDef`). Every field is indexed by
 its wire bit offset and size. Type inference is driven by per-source TOML
 mapping files in `mappings/`.
+
+Currently 12 sources: XDP2, Linux kernel, DPDK, nDPI, pppd, Scapy, tshark,
+etherparse, libpcap, Kaitai Struct, Suricata, OMI.
 
 See [IR Format](ir-format.md) for the full schema, [Field Matching](field-matching.md)
 for how extracted fields are compared across sources.
 
 ## Kernel (`src/extractors/kernel.rs`)
 
-Parses C struct definitions from Linux UAPI headers. Handles:
+Parses C struct definitions from Linux kernel source. The kernel source tree
+includes `include/uapi/linux/` (primary UAPI headers), `include/linux/`
+(internal headers), `drivers/net/` (network driver protocol structs for
+VXLAN, Geneve, MACsec, bonding, PPP, CAN, etc.), and `net/` (protocol
+implementation structs for bridge STP, GRE, MPLS, NSH, etc.). Handles:
 - Regular fields, bitfields, arrays
 - `#if defined(__BIG_ENDIAN_BITFIELD)` conditional sections (picks network byte order)
 - `__struct_group()` macro unwrapping
@@ -182,3 +189,76 @@ Telnet, TFTP, mDNS, WebSocket. For non-curated protocols, the extractor
 uses a `PROTO_MAP` table for module→struct lookup.
 
 No TOML mapping file is needed — Rust types map directly to IR types.
+
+## OMI (`src/extractors/omi.rs`)
+
+The Open Markets Initiative ships (a) canonical C-struct definitions for
+exchange trading protocols and (b) Wireshark Lua dissectors for those same
+feeds. proto-audit treats these as two halves of a 9th independent source.
+
+- **C-struct half**: Parses packed `typedef struct ... T` definitions from
+  OMI feed headers (e.g., `nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h`,
+  `eurex/Eurex.Derivatives.Eobi.T7.v3.0.h`). Produces IR fields with wire
+  sizes sourced from the c-struct, pinned by Nix.
+- **Wireshark Lua half**: When a name table entry supplies an
+  `.omi_tshark(lua, pcap, field)` triple, the extractor runs the referenced
+  sample PCAP through tshark with the OMI Lua dissector preloaded, then
+  extracts only the per-message leaf fields (via
+  `extract_field_as_proto`) — avoiding the outer-packet superset that plain
+  tshark would return.
+
+Covers ~27 trading protocol messages across ITCH v5, PITCH v2, SBE MDP3,
+EOBI, and SoupBinTCP. Wired into the name table via builder methods
+`.omi(struct_name, header_file)`, `.omi_tshark(lua, pcap, field)`, and
+`.xdp2(parse_node_var)` when a matching XDP2 `trading/proto_*.h` leaf exists.
+
+See [Source Patching](patching.md) for the `gen-patches` pipeline that
+converts OMI IR into upstream libpcap / etherparse overlay patches.
+
+## DPDK (`src/extractors/dpdk.rs`) — *wired, extractor pending*
+
+DPDK (Data Plane Development Kit) provides high-quality packed C struct
+definitions for ~28 network protocol headers in `lib/net/rte_*.h`. These
+include standard protocols (Ethernet, IP, TCP, UDP, GRE, VXLAN, Geneve,
+MPLS, ESP, SCTP, ARP) plus protocols not well covered by other sources:
+eCPRI, L2TPv2, MACsec, PDCP, TLS/DTLS wire headers, HiGig, and PPP.
+
+DPDK structs use `__rte_packed` and standard `uint8_t`/`uint16_t`/`uint32_t`
+types with `#if RTE_BYTE_ORDER == RTE_BIG_ENDIAN` bitfield conditionals —
+structurally similar to Linux kernel UAPI headers. The kernel C struct
+parser can be reused with minor type mapping additions for DPDK-specific
+types.
+
+Source: `PROTO_AUDIT_DPDK_SRC` → Nix-pinned `pkgs.dpdk.src` (lib/net/ only).
+
+## nDPI (`src/extractors/ndpi.rs`) — *wired, extractor pending*
+
+nDPI (ntop Deep Packet Inspection) defines ~25 packed protocol wire format
+structs in `ndpi_typedefs.h`, using `PACK_ON`/`PACK_OFF` macros. Covers
+CHDLC, SLARP, CDP, DHCP, DNS, Radiotap, IEEE 802.11, LLC/SNAP, MPLS, IP,
+TCP, UDP, ICMP, ICMPv6, VXLAN, GRE, and ARP.
+
+Also provides 474 protocol ID constants in `ndpi_protocol_ids.h` useful for
+cross-referencing protocol numbering.
+
+nDPI uses `u_int8_t`/`u_int16_t`/`u_int32_t` types and
+`#if defined(__BIG_ENDIAN__)` bitfield conditionals — same pattern as the
+kernel headers. The kernel C struct parser handles these with minor
+preprocessing (strip PACK_ON/PACK_OFF, map `u_int*_t` → `uint*_t`).
+
+Source: `PROTO_AUDIT_NDPI_SRC` → Nix-pinned `pkgs.ndpi.src` (src/include/ only).
+
+## pppd (`src/extractors/pppd.rs`) — *wired, extractor pending*
+
+The PPP daemon source provides authoritative protocol headers for PPP
+control protocols: LCP (`lcp.h`), IPCP (`ipcp.h`), IPv6CP (`ipv6cp.h`),
+CCP (`ccp.h`), CHAP (`chap.h`), EAP (`eap.h`), ECP (`ecp.h`),
+PAP (`upap.h`), and PPPoE (`plugins/pppoe/pppoe.h`).
+
+Unlike kernel UAPI headers, pppd defines wire format via `#define`
+constants (`HEADERLEN=4`, `CONFREQ=1`, `CONFACK=2`, etc.) rather than
+packed C structs. An extractor would need to parse these constants rather
+than struct fields, providing field names and protocol constants for
+cross-verification against embedded_proto definitions and tshark extraction.
+
+Source: `PROTO_AUDIT_PPPD_SRC` → Nix-pinned `pkgs.ppp.src` (pppd/ tree).

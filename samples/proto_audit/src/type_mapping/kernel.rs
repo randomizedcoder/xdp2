@@ -13,6 +13,8 @@ pub struct KernelMappings {
     pub array_endian_overrides: HashMap<String, ArrayEndianOverride>,
     #[serde(default)]
     pub struct_sizes: HashMap<String, u32>,
+    #[serde(default)]
+    pub union_sizes: HashMap<String, u32>,
 }
 
 impl KernelMappings {
@@ -24,7 +26,11 @@ impl KernelMappings {
             return Some(bits);
         }
         // Check struct_sizes for embedded struct types (e.g., "icmp6hdr")
-        self.struct_sizes.get(c_type).copied()
+        if let Some(&bits) = self.struct_sizes.get(c_type) {
+            return Some(bits);
+        }
+        // Check union_sizes for embedded union types (e.g., "ib_gid")
+        self.union_sizes.get(c_type).copied()
     }
 
     /// Determine endianness from C type using prefix/exact rules.

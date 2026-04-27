@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/pitch_v2_addordershort.h
+@@ -0,0 +1,21 @@
++/*
++ * pitch_v2_addordershort.h — pitch_v2_addordershort_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PITCH_V2_ADDORDERSHORT_H
++#define PROTO_AUDIT_PITCH_V2_ADDORDERSHORT_H
++
++#include <stdint.h>
++
++/* PITCH_v2_AddOrderShort header — 23 bytes minimum */
++struct pitch_v2_addordershort_header {
++    uint32_t pitch_v2_addordershort_timeoffset;
++    uint64_t pitch_v2_addordershort_orderid;
++    uint8_t  pitch_v2_addordershort_sideindicator;
++    uint16_t pitch_v2_addordershort_quantityshort;
++    uint8_t  pitch_v2_addordershort_symbol;
++    uint16_t pitch_v2_addordershort_priceshort;
++    uint8_t  pitch_v2_addordershort_addorderflags;
++};
++
++#endif /* PROTO_AUDIT_PITCH_V2_ADDORDERSHORT_H */

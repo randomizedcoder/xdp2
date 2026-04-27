@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/pcap/proto_audit/soupbintcp_loginaccepted.h
+@@ -0,0 +1,16 @@
++/*
++ * soupbintcp_loginaccepted.h — soupbintcp_loginaccepted_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_SOUPBINTCP_LOGINACCEPTED_H
++#define PROTO_AUDIT_SOUPBINTCP_LOGINACCEPTED_H
++
++#include <stdint.h>
++
++/* SoupBinTCP_LoginAccepted header — 30 bytes minimum */
++struct soupbintcp_loginaccepted_header {
++    uint8_t  soupbintcp_loginaccepted_session[10];
++    uint8_t  soupbintcp_loginaccepted_sequencenumber[20];
++};
++
++#endif /* PROTO_AUDIT_SOUPBINTCP_LOGINACCEPTED_H */

@@ -1,0 +1,9 @@
+--- /dev/null
++++ b/src/proto_audit/eobi_v3_snapshotorder.rs
+@@ -0,0 +1,6 @@
++//! EOBI_v3_SnapshotOrder header — 24 bytes.
++
++/// EOBI_v3_SnapshotOrder header — 24 bytes.
++pub struct EOBI_v3_SnapshotOrderHeader {
++    pub orderdetailscomp: u128,
++}

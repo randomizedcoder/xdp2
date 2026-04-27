@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_noncrosstrade.h
+@@ -0,0 +1,23 @@
++/*
++ * itch_v5_noncrosstrade.h — itch_v5_noncrosstrade_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_NONCROSSTRADE_H
++#define PROTO_AUDIT_ITCH_V5_NONCROSSTRADE_H
++
++#include <stdint.h>
++
++/* ITCH_v5_NonCrossTrade header — 38 bytes minimum */
++struct itch_v5_noncrosstrade_header {
++    uint16_t itch_v5_noncrosstrade_stocklocate;
++    uint16_t itch_v5_noncrosstrade_trackingnumber;
++    uint8_t  itch_v5_noncrosstrade_timestamp;
++    uint64_t itch_v5_noncrosstrade_orderreferencenumber;
++    uint8_t  itch_v5_noncrosstrade_buysellindicator;
++    uint32_t itch_v5_noncrosstrade_shares;
++    uint64_t itch_v5_noncrosstrade_stock;
++    uint32_t itch_v5_noncrosstrade_price;
++    uint64_t itch_v5_noncrosstrade_matchnumber;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_NONCROSSTRADE_H */

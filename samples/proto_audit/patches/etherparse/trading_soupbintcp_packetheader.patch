@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/src/proto_audit/soupbintcp_packetheader.rs
+@@ -0,0 +1,7 @@
++//! SoupBinTCP_PacketHeader header — 3 bytes.
++
++/// SoupBinTCP_PacketHeader header — 3 bytes.
++pub struct SoupBinTCP_PacketHeaderHeader {
++    pub packetlength: u16,
++    pub packettype: u8,
++}

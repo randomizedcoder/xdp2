@@ -10,6 +10,7 @@ mod extractors;
 mod generator;
 mod ir;
 mod name_mapping;
+mod netlink;
 mod report;
 mod type_mapping;
 
@@ -40,9 +41,25 @@ pub(crate) struct SourcePaths {
     #[arg(long, env = "PROTO_AUDIT_PROTO_DEFS_DIR")]
     pub(crate) proto_defs_dir: Option<PathBuf>,
 
-    /// Path to kernel source tree
+    /// Path to kernel source tree (include/ + drivers/net/ + net/)
     #[arg(long, env = "PROTO_AUDIT_KERNEL_SRC")]
     pub(crate) kernel_src: Option<PathBuf>,
+
+    /// Path to DPDK net headers (lib/net/*.h packed protocol structs)
+    #[arg(long, env = "PROTO_AUDIT_DPDK_SRC")]
+    pub(crate) dpdk_src: Option<PathBuf>,
+
+    /// Path to nDPI headers (ndpi_typedefs.h packed protocol structs)
+    #[arg(long, env = "PROTO_AUDIT_NDPI_SRC")]
+    pub(crate) ndpi_src: Option<PathBuf>,
+
+    /// Path to pppd source (PPP control protocol headers and constants)
+    #[arg(long, env = "PROTO_AUDIT_PPPD_SRC")]
+    pub(crate) pppd_src: Option<PathBuf>,
+
+    /// Path to rdma-core headers (libibverbs/libibmad IB protocol structs)
+    #[arg(long, env = "PROTO_AUDIT_RDMA_SRC")]
+    pub(crate) rdma_src: Option<PathBuf>,
 
     /// Path to pcap file (for tshark)
     #[arg(long, env = "PROTO_AUDIT_PCAP")]
@@ -75,6 +92,32 @@ pub(crate) struct SourcePaths {
     /// Path to Suricata Rust source directory
     #[arg(long, env = "PROTO_AUDIT_SURICATA_DIR")]
     pub(crate) suricata_dir: Option<PathBuf>,
+
+    /// Path to OMI c-structs source tree
+    #[arg(long, env = "PROTO_AUDIT_OMI_CSTRUCTS_DIR")]
+    pub(crate) omi_cstructs_dir: Option<PathBuf>,
+
+    /// Path to OMI Wireshark Lua dissector tree (root of `wireshark-lua` repo).
+    /// When set alongside `omi_pcaps_dir`, enables tshark-based verification
+    /// of OMI trading protocols by loading the per-protocol Lua dissector.
+    #[arg(long, env = "PROTO_AUDIT_OMI_LUA_DIR")]
+    pub(crate) omi_lua_dir: Option<PathBuf>,
+
+    /// Path to OMI sample PCAPs tree (root of `omi-data-packets` repo).
+    #[arg(long, env = "PROTO_AUDIT_OMI_PCAPS_DIR")]
+    pub(crate) omi_pcaps_dir: Option<PathBuf>,
+
+    /// Path to xtcp2 Go source tree (pkg/xtcpnl/*.go netlink parsers)
+    #[arg(long, env = "PROTO_AUDIT_XTCP2_SRC")]
+    pub(crate) xtcp2_src: Option<PathBuf>,
+
+    /// Path to xtcp2 PCAP testdata directory (pkg/xtcpnl/testdata)
+    #[arg(long, env = "PROTO_AUDIT_XTCP2_PCAPS")]
+    pub(crate) xtcp2_pcaps: Option<PathBuf>,
+
+    /// Path to XDP2 native headers directory (src/include/ with uet/, sunh/, sue/)
+    #[arg(long, env = "PROTO_AUDIT_XDP2_HEADERS_DIR")]
+    pub(crate) xdp2_headers_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -460,6 +503,52 @@ enum Commands {
         json: bool,
     },
 
+    /// Pipeline coverage matrix: run pipeline across all protocols × all targets
+    #[command(name = "pipeline-matrix")]
+    PipelineMatrix {
+        /// Only these protocols (comma-separated)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Only these targets (comma-separated: etherparse,c,scapy,kaitai,pcap,libpcap)
+        #[arg(long)]
+        targets: Option<String>,
+
+        /// Number of parallel workers (default: 10)
+        #[arg(long, default_value = "10")]
+        workers: usize,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Auto-generate PCAP templates for protocols that lack them
+    #[command(name = "generate-templates")]
+    GenerateTemplates {
+        /// "missing" for protocols without templates, or comma-separated list
+        #[arg(long, default_value = "missing")]
+        protos: String,
+
+        /// Output directory for generated PCAP templates
+        #[arg(long, default_value = "pcap_templates")]
+        output_dir: PathBuf,
+
+        /// Dry-run: report what would be generated without writing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Number of parallel workers (default: 10)
+        #[arg(long, default_value = "10")]
+        workers: usize,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
     /// Cross-generator round-trip: generate code → re-extract → compare to original IR
     CrossGen {
         /// Protocol name (canonical: IPv4, TCP, etc.) or "all"
@@ -469,6 +558,66 @@ enum Commands {
         /// Target: etherparse, c, scapy, pcap, or all
         #[arg(long, default_value = "all")]
         target: String,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Generate upstream patches from in-tree IR (no corpus PDML required).
+    ///
+    /// Unlike `generate-libpcap-patches` / `generate-etherparse-patches`, which
+    /// rely on corpus PDML from tshark, this command extracts IR directly from
+    /// a structured source (currently `omi`) and pipes it through the
+    /// existing patch generators. Used to ship trading-protocol patches to
+    /// libpcap / etherparse upstreams without needing live packet captures.
+    #[command(name = "gen-patches")]
+    GenPatches {
+        /// Patch target: libpcap or etherparse
+        #[arg(long)]
+        target: String,
+
+        /// Source to extract IR from: omi (others may be added later)
+        #[arg(long, default_value = "omi")]
+        source: String,
+
+        /// Only generate for these protocols (comma-separated canonical names)
+        #[arg(long)]
+        protos: Option<String>,
+
+        /// Output directory for patch files
+        #[arg(long)]
+        out: Option<PathBuf>,
+
+        /// Print to stdout without writing files
+        #[arg(long)]
+        dry_run: bool,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+    },
+
+    /// Full pipeline: PCAP → IR → code → IR → PCAP → compare (PCAP-level verification)
+    #[command(name = "pipeline")]
+    Pipeline {
+        /// Protocol name (canonical: IPv4, TCP, etc.)
+        #[arg(long)]
+        proto: String,
+
+        /// Target: etherparse, c, scapy, kaitai, pcap, or all
+        #[arg(long, default_value = "all")]
+        target: String,
+
+        /// Input PCAP file (optional, auto-finds from templates/corpus)
+        #[arg(long)]
+        input_pcap: Option<PathBuf>,
+
+        /// Keep generated output PCAPs for inspection
+        #[arg(long)]
+        keep_pcap: bool,
 
         #[command(flatten)]
         paths: SourcePaths,
@@ -491,6 +640,25 @@ enum Commands {
         /// Save generated PCAP to this path (otherwise uses a temp file)
         #[arg(long)]
         keep_pcap: Option<PathBuf>,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Validate netlink protocols against real xtcp2 PCAPs using binary parsing + generated Lua dissectors
+    #[command(name = "validate-netlink")]
+    ValidateNetlink {
+        /// Protocol name (e.g., NL_Diag_BBRInfo) or "all" for all netlink protocols
+        #[arg(long, default_value = "all")]
+        proto: String,
+
+        /// Save generated Lua dissector to this path
+        #[arg(long)]
+        keep_lua: Option<PathBuf>,
 
         #[command(flatten)]
         paths: SourcePaths,
@@ -615,6 +783,36 @@ fn main() -> Result<()> {
             paths,
             json,
         } => cmd_crossgen(&proto, &target, json, &paths),
+        Commands::GenPatches {
+            target,
+            source,
+            protos,
+            out,
+            dry_run,
+            paths,
+        } => cmd_gen_patches(&target, &source, protos.as_deref(), out, dry_run, &paths),
+        Commands::Pipeline {
+            proto,
+            target,
+            input_pcap,
+            keep_pcap: _,
+            paths,
+            json,
+        } => cmd_pipeline(&proto, &target, input_pcap.as_deref(), json, &paths),
+        Commands::PipelineMatrix {
+            protos,
+            targets,
+            workers,
+            paths,
+            json,
+        } => cmd_pipeline_matrix(protos.as_deref(), targets.as_deref(), json, workers, &paths),
+        Commands::GenerateTemplates {
+            protos,
+            output_dir,
+            dry_run,
+            workers,
+            paths,
+        } => cmd_generate_templates(&protos, &output_dir, dry_run, workers, &paths),
         Commands::Validate {
             proto,
             tier,
@@ -622,5 +820,11 @@ fn main() -> Result<()> {
             paths,
             json,
         } => cmd_validate(&proto, &tier, keep_pcap, json, &paths),
+        Commands::ValidateNetlink {
+            proto,
+            keep_lua,
+            paths,
+            json,
+        } => cmd_validate_netlink(&proto, keep_lua, json, &paths),
     }
 }

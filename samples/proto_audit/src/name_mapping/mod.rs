@@ -41,6 +41,42 @@ pub struct ProtocolNames {
     pub suricata_module: Option<&'static str>,
     /// Suricata struct name (e.g., "DnsHeader")
     pub suricata_struct: Option<&'static str>,
+    /// OMI c-struct typedef name (e.g., "NonCrossTradeMessageT")
+    pub omi_struct: Option<&'static str>,
+    /// OMI c-struct source file (e.g., "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h")
+    pub omi_file: Option<&'static str>,
+    /// OMI Wireshark Lua dissector path (e.g., "Nasdaq/Nasdaq_NsmEquities_TotalView_Itch_v5_0_Dissector.lua")
+    pub omi_lua: Option<&'static str>,
+    /// OMI sample PCAP path (relative to omi-data-packets root, e.g.
+    /// "Nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0/AddOrderNoMpidAttributionMessage.pcap")
+    pub omi_pcap: Option<&'static str>,
+    /// OMI per-message PDML field name (e.g.
+    /// "nasdaq.nsmequities.totalview.itch.v5.0.addordernompidattributionmessage").
+    /// When set, tshark extraction descends into this field under the outer
+    /// Lua proto instead of returning the whole-packet superset.
+    pub omi_tshark_field: Option<&'static str>,
+    /// DPDK struct name (e.g., "rte_tcp_hdr")
+    pub dpdk_struct: Option<&'static str>,
+    /// DPDK header file (e.g., "rte_tcp.h")
+    pub dpdk_header: Option<&'static str>,
+    /// nDPI struct name (e.g., "ndpi_tcphdr")
+    pub ndpi_struct: Option<&'static str>,
+    /// nDPI header file (e.g., "ndpi_typedefs.h")
+    pub ndpi_header: Option<&'static str>,
+    /// pppd protocol name (e.g., "PPP", "LCP")
+    pub pppd_proto: Option<&'static str>,
+    /// rdma-core struct name (e.g., "ibv_grh")
+    pub rdma_struct: Option<&'static str>,
+    /// rdma-core header file (e.g., "infiniband/verbs.h")
+    pub rdma_header: Option<&'static str>,
+    /// xtcp2 Go struct name (e.g., "TCPInfo6_10_3")
+    pub xtcp2_struct: Option<&'static str>,
+    /// XDP2 native C struct name (e.g., "sunh_hdr", "uet_pds_ack")
+    pub xdp2_hdr_struct: Option<&'static str>,
+    /// XDP2 native header file relative to src/include/ (e.g., "sunh/sunh.h")
+    pub xdp2_hdr_file: Option<&'static str>,
+    /// UE Specification table/header identifier (e.g., "pds_ack")
+    pub ue_spec_id: Option<&'static str>,
     /// Minimum header size in bytes
     pub min_header_bytes: u32,
     /// Whether header length is variable
@@ -72,6 +108,22 @@ impl ProtocolNames {
             kaitai_file: None,
             suricata_module: None,
             suricata_struct: None,
+            omi_struct: None,
+            omi_file: None,
+            omi_lua: None,
+            omi_pcap: None,
+            omi_tshark_field: None,
+            dpdk_struct: None,
+            dpdk_header: None,
+            ndpi_struct: None,
+            ndpi_header: None,
+            pppd_proto: None,
+            rdma_struct: None,
+            rdma_header: None,
+            xtcp2_struct: None,
+            xdp2_hdr_struct: None,
+            xdp2_hdr_file: None,
+            ue_spec_id: None,
             min_header_bytes,
             variable_length: false,
             rfc_numbers: &[],
@@ -133,6 +185,78 @@ impl ProtocolNames {
     pub const fn suricata(mut self, module: &'static str, struct_name: &'static str) -> Self {
         self.suricata_module = Some(module);
         self.suricata_struct = Some(struct_name);
+        self
+    }
+
+    /// Set both OMI c-struct typedef name and source file path.
+    pub const fn omi(mut self, struct_name: &'static str, file: &'static str) -> Self {
+        self.omi_struct = Some(struct_name);
+        self.omi_file = Some(file);
+        self
+    }
+
+    /// Set OMI Wireshark Lua dissector path + sample PCAP path + per-message
+    /// PDML field name. The Lua/PCAP paths are relative to the roots of their
+    /// respective OMI repositories (`wireshark-lua` and `omi-data-packets`).
+    /// The field name is what tshark reports as `<field name="X">` under the
+    /// outer Lua proto once the dissector is loaded — proto-audit descends to
+    /// this field so extraction yields the per-message wire layout (not the
+    /// whole packet including session/seq/header).
+    pub const fn omi_tshark(
+        mut self,
+        lua: &'static str,
+        pcap: &'static str,
+        field: &'static str,
+    ) -> Self {
+        self.omi_lua = Some(lua);
+        self.omi_pcap = Some(pcap);
+        self.omi_tshark_field = Some(field);
+        self
+    }
+
+    /// Set both DPDK struct name and header file.
+    pub const fn dpdk(mut self, struct_name: &'static str, header: &'static str) -> Self {
+        self.dpdk_struct = Some(struct_name);
+        self.dpdk_header = Some(header);
+        self
+    }
+
+    /// Set both nDPI struct name and header file.
+    pub const fn ndpi(mut self, struct_name: &'static str, header: &'static str) -> Self {
+        self.ndpi_struct = Some(struct_name);
+        self.ndpi_header = Some(header);
+        self
+    }
+
+    /// Set pppd protocol name.
+    pub const fn pppd(mut self, proto: &'static str) -> Self {
+        self.pppd_proto = Some(proto);
+        self
+    }
+
+    /// Set both rdma-core struct name and header file.
+    pub const fn rdma(mut self, struct_name: &'static str, header: &'static str) -> Self {
+        self.rdma_struct = Some(struct_name);
+        self.rdma_header = Some(header);
+        self
+    }
+
+    /// Set xtcp2 Go struct name.
+    pub const fn xtcp2(mut self, struct_name: &'static str) -> Self {
+        self.xtcp2_struct = Some(struct_name);
+        self
+    }
+
+    /// Set both XDP2 native C struct name and header file.
+    pub const fn xdp2_hdr(mut self, struct_name: &'static str, file: &'static str) -> Self {
+        self.xdp2_hdr_struct = Some(struct_name);
+        self.xdp2_hdr_file = Some(file);
+        self
+    }
+
+    /// Set UE Specification table/header identifier.
+    pub const fn ue_spec(mut self, id: &'static str) -> Self {
+        self.ue_spec_id = Some(id);
         self
     }
 
@@ -226,6 +350,55 @@ pub fn find_by_suricata_struct(name: &str) -> Option<ProtocolNames> {
         .find(|p| p.suricata_struct == Some(name))
 }
 
+/// Look up a protocol by its OMI c-struct typedef name.
+pub fn find_by_omi_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.omi_struct == Some(name))
+}
+
+/// Look up a protocol by its DPDK struct name.
+pub fn find_by_dpdk_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.dpdk_struct == Some(name))
+}
+
+/// Look up a protocol by its nDPI struct name.
+pub fn find_by_ndpi_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.ndpi_struct == Some(name))
+}
+
+/// Look up a protocol by its pppd protocol name.
+pub fn find_by_pppd_proto(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.pppd_proto == Some(name))
+}
+
+/// Look up a protocol by its rdma-core struct name.
+pub fn find_by_rdma_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.rdma_struct == Some(name))
+}
+
+/// Look up a protocol by its XDP2 native C struct name.
+pub fn find_by_xdp2_hdr_struct(name: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.xdp2_hdr_struct == Some(name))
+}
+
+/// Look up a protocol by its UE Specification identifier.
+pub fn find_by_ue_spec_id(id: &str) -> Option<ProtocolNames> {
+    protocol_table()
+        .into_iter()
+        .find(|p| p.ue_spec_id == Some(id))
+}
+
 /// Build a HashMap from source-specific name → canonical name.
 ///
 /// `source` must be one of: "xdp2", "kernel", "scapy", "tshark", "etherparse", "libpcap"
@@ -242,6 +415,13 @@ pub fn source_to_canonical_map(source: &str) -> HashMap<String, String> {
             "libpcap" => p.libpcap_name.map(|s| s.to_string()),
             "kaitai" => p.kaitai_id.map(|s| s.to_string()),
             "suricata" => p.suricata_struct.map(|s| s.to_string()),
+            "omi" => p.omi_struct.map(|s| s.to_string()),
+            "dpdk" => p.dpdk_struct.map(|s| s.to_string()),
+            "ndpi" => p.ndpi_struct.map(|s| s.to_string()),
+            "pppd" => p.pppd_proto.map(|s| s.to_string()),
+            "rdma" => p.rdma_struct.map(|s| s.to_string()),
+            "xdp2_headers" => p.xdp2_hdr_struct.map(|s| s.to_string()),
+            "ue_spec" => p.ue_spec_id.map(|s| s.to_string()),
             _ => None,
         };
         if let Some(n) = name {

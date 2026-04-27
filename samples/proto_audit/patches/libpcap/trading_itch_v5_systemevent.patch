@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_systemevent.h
+@@ -0,0 +1,18 @@
++/*
++ * itch_v5_systemevent.h — itch_v5_systemevent_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_SYSTEMEVENT_H
++#define PROTO_AUDIT_ITCH_V5_SYSTEMEVENT_H
++
++#include <stdint.h>
++
++/* ITCH_v5_SystemEvent header — 6 bytes minimum */
++struct itch_v5_systemevent_header {
++    uint16_t itch_v5_systemevent_stocklocate;
++    uint16_t itch_v5_systemevent_trackingnumber;
++    uint8_t  itch_v5_systemevent_timestamp;
++    uint8_t  itch_v5_systemevent_eventcode;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_SYSTEMEVENT_H */

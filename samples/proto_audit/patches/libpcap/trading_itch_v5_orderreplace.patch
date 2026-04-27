@@ -1,0 +1,24 @@
+--- /dev/null
++++ b/pcap/proto_audit/itch_v5_orderreplace.h
+@@ -0,0 +1,21 @@
++/*
++ * itch_v5_orderreplace.h — itch_v5_orderreplace_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_ITCH_V5_ORDERREPLACE_H
++#define PROTO_AUDIT_ITCH_V5_ORDERREPLACE_H
++
++#include <stdint.h>
++
++/* ITCH_v5_OrderReplace header — 29 bytes minimum */
++struct itch_v5_orderreplace_header {
++    uint16_t itch_v5_orderreplace_stocklocate;
++    uint16_t itch_v5_orderreplace_trackingnumber;
++    uint8_t  itch_v5_orderreplace_timestamp;
++    uint64_t itch_v5_orderreplace_originalorderreferencenumber;
++    uint64_t itch_v5_orderreplace_neworderreferencenumber;
++    uint32_t itch_v5_orderreplace_shares;
++    uint32_t itch_v5_orderreplace_price;
++};
++
++#endif /* PROTO_AUDIT_ITCH_V5_ORDERREPLACE_H */

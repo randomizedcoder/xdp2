@@ -1,7 +1,7 @@
 # Code Generation
 
 The generator (`src/generator/`) converts `ProtocolDef` instances into source
-code or wire-format output for four targets. Each target has its own module
+code or wire-format output for five targets. Each target has its own module
 and (for etherparse and Scapy) a TOML configuration file for reverse type
 mapping — translating IR types back to target-language types.
 
@@ -20,10 +20,11 @@ nix run .#proto-audit -- generate --proto TCP --target pcap -o tcp.pcap
 | Rust (etherparse) | `src/generator/etherparse.rs` | `mappings/etherparse_gen.toml` | Rust struct with `#[derive(...)]` and `from_slice()` skeleton |
 | Python (Scapy) | `src/generator/scapy.rs` | `mappings/scapy_gen.toml` | Scapy Packet class with `fields_desc` and `bind_layers` |
 | PCAP | `src/generator/pcap.rs` | — | PCAP file with one minimal packet for the target protocol |
+| Kaitai Struct | `src/generator/kaitai.rs` | — | `.ksy` YAML format spec with `meta`, `seq`, and field-level types |
 
 Generation uses reverse type mappings from `mappings/etherparse_gen.toml`
-and `mappings/scapy_gen.toml`. The C target generates directly from IR
-without a TOML mapping file.
+and `mappings/scapy_gen.toml`. The C, PCAP, and Kaitai targets generate
+directly from IR without a TOML mapping file.
 
 ## etherparse_gen.toml
 

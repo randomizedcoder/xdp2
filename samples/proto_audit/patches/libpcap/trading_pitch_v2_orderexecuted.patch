@@ -1,0 +1,21 @@
+--- /dev/null
++++ b/pcap/proto_audit/pitch_v2_orderexecuted.h
+@@ -0,0 +1,18 @@
++/*
++ * pitch_v2_orderexecuted.h — pitch_v2_orderexecuted_header for proto-audit comparison.
++ */
++
++#ifndef PROTO_AUDIT_PITCH_V2_ORDEREXECUTED_H
++#define PROTO_AUDIT_PITCH_V2_ORDEREXECUTED_H
++
++#include <stdint.h>
++
++/* PITCH_v2_OrderExecuted header — 24 bytes minimum */
++struct pitch_v2_orderexecuted_header {
++    uint32_t pitch_v2_orderexecuted_timeoffset;
++    uint64_t pitch_v2_orderexecuted_orderid;
++    uint32_t pitch_v2_orderexecuted_executedquantity;
++    uint64_t pitch_v2_orderexecuted_executionid;
++};
++
++#endif /* PROTO_AUDIT_PITCH_V2_ORDEREXECUTED_H */

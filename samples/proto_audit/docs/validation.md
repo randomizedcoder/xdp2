@@ -2,7 +2,7 @@
 
 ## Validation Approaches
 
-Proto-audit has access to protocol definitions from 8 independent sources and
+Proto-audit has access to protocol definitions from 9 independent sources and
 a PCAP corpus of 624 real-world packet captures. This creates a matrix of
 validation approaches, from lightweight cross-source checks to full round-trip
 wire-level verification. The table below enumerates all approaches, which are

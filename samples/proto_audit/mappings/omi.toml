@@ -1,0 +1,95 @@
+# OMI c-structs → IR Type Mappings
+#
+# Maps Open Markets Initiative auto-generated packed C struct headers
+# (github.com/Open-Markets-Initiative/c-structs) to the proto-audit IR.
+#
+# OMI headers use a very limited type vocabulary: fixed-width uint*_t and
+# char/char[N]. All structs live inside `#pragma pack(push, 1)` so there
+# is no compiler padding to worry about.
+#
+# Endianness is per-protocol-family, not per-type — ITCH/OUCH/PITCH/EOBI
+# are big-endian on the wire, CME SBE / iLink3 are little-endian. The
+# extractor resolves endian from `[protocol_endian]` keyed by the filename
+# stem (e.g. "Nasdaq.Equities.TotalView.Itch.v5.0" → Big).
+
+[type_bits]
+uint8_t = 8
+uint16_t = 16
+uint32_t = 32
+uint64_t = 64
+char = 8
+int8_t = 8
+int16_t = 16
+int32_t = 32
+int64_t = 64
+
+[type_endian]
+# Endian is resolved per-protocol via [protocol_endian]; defaults here
+# only apply when no protocol prefix matches.
+"exact:uint8_t" = "Na"
+"exact:char" = "Na"
+"exact:int8_t" = "Na"
+
+# ── Per-protocol-family endian ──
+# Keyed by filename-stem prefix. Longest prefix wins. Applied to all
+# multi-byte integer fields in structs from matching files.
+[protocol_endian]
+# Nasdaq / BATS / CBOE family (ITCH, OUCH, PITCH, BOE are big-endian / network byte order)
+"Nasdaq" = "Big"
+"Cboe" = "Little"          # CBOE BOE/PITCH use little-endian
+"Bats" = "Little"           # BATS (pre-CBOE) uses little-endian
+# Chicago Mercantile Exchange Simple Binary Encoding — little-endian by spec
+"Cme" = "Little"
+# Eurex T7 (EOBI, ETI) — little-endian by spec
+"Eurex" = "Little"
+# ICE iMpact — little-endian
+"Ice" = "Little"
+# IEX DEEP / TOPS / DeepPlus — little-endian
+"Iex" = "Little"
+# Everything else defaults to big-endian (network byte order is the safer default)
+"Asx" = "Big"
+"B3" = "Big"
+"Box" = "Big"
+"Coinbase" = "Big"
+"Euronext" = "Big"
+"Finra" = "Big"
+"Jnx" = "Big"
+"Memx" = "Little"            # MEMX MEMOIR — little-endian
+"Miax" = "Little"            # MIAX — little-endian
+"Nyse" = "Little"             # NYSE Pillar/XDP — little-endian
+"Otc" = "Big"
+"Siac" = "Big"
+"Tmx" = "Big"
+
+[field_type_overrides]
+# Fields appearing across many OMI protocols with a known semantic type.
+MessageType = { type = "Enum", reason = "Single-char message type dispatch" }
+PacketType = { type = "Enum", reason = "SoupBinTCP packet type" }
+BuySellIndicator = { type = "Enum", reason = "B/S buy/sell enum" }
+Side = { type = "Enum", reason = "Order side enum" }
+EventCode = { type = "Enum", reason = "ITCH system event code" }
+OrderState = { type = "Enum", reason = "Order state enum" }
+CrossType = { type = "Enum", reason = "ITCH cross type" }
+ImbalanceDirection = { type = "Enum", reason = "Imbalance direction enum" }
+Authenticity = { type = "Enum", reason = "Live/test flag" }
+TradingState = { type = "Enum", reason = "Stock trading state" }
+MarketCategory = { type = "Enum", reason = "Market category" }
+FinancialStatusIndicator = { type = "Enum", reason = "Financial status" }
+IssueClassification = { type = "Enum", reason = "Security classification" }
+RegShoAction = { type = "Enum", reason = "Reg SHO action" }
+PrintableValue = { type = "Enum", reason = "Printable flag" }
+InterestFlag = { type = "Enum", reason = "Retail interest flag" }
+PriceVariationIndicator = { type = "Enum", reason = "Price variation indicator" }
+
+[array_endian_overrides]
+# OMI char arrays are ASCII text identifiers (symbols, session IDs).
+# They are byte-sequence fields with no endian — flag them Na so they do
+# not get swapped.
+"char:4" = { endian = "Na", reason = "ASCII symbol/identifier" }
+"char:6" = { endian = "Na", reason = "ASCII timestamp/identifier" }
+"char:8" = { endian = "Na", reason = "ASCII stock symbol" }
+"char:10" = { endian = "Na", reason = "ASCII session ID" }
+"char:12" = { endian = "Na", reason = "ASCII firm identifier" }
+"char:16" = { endian = "Na", reason = "ASCII token/identifier" }
+"char:20" = { endian = "Na", reason = "ASCII extended identifier" }
+"char:32" = { endian = "Na", reason = "ASCII long identifier" }

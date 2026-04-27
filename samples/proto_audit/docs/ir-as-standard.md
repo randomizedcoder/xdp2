@@ -3,7 +3,7 @@
 The IETF has never specified a machine-readable format for protocol header
 definitions. proto-audit's IR is a candidate to fill that gap — not because
 it was designed as a standard, but because it emerged from the practical
-requirement of reconciling eight independent implementations of the same RFCs.
+requirement of reconciling nine independent implementations of the same RFCs.
 
 ## The IETF Gap
 
@@ -113,12 +113,13 @@ to be useful:
 - **Code generation round-trips** to three languages (C, Rust, Scapy)
   prove the IR captures enough information to produce compilable code.
 
-- **Cross-source comparison** of 206 protocols demonstrates that the IR
-  can represent all eight sources' definitions precisely enough to detect
-  real disagreements (not just formatting differences).
+- **Cross-source comparison** of 428 protocols (including 27 trading
+  protocols from OMI) demonstrates that the IR can represent all nine
+  sources' definitions precisely enough to detect real disagreements
+  (not just formatting differences).
 
 - **TOML-driven extensibility**: 7 mapping files with 200+ entries were
-  sufficient to map all eight sources without modifying the IR schema itself.
+  sufficient to map all nine sources without modifying the IR schema itself.
 
 ## Comparison with Prior Art
 
