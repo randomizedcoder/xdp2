@@ -2502,7 +2502,8 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── DPDK-only protocols ──
         PN::new("eCPRI", 4)
             .dpdk("rte_ecpri_common_hdr", "rte_ecpri.h")
-            .tshark("ecpri"),
+            .tshark("ecpri")
+            .xdp2_hdr("xdp2_ecpri_common_hdr", "xdp2/proto_defs/management/proto_ecpri.h"),
         PN::new("HiGig2", 16)
             .dpdk("rte_higig2_hdr", "rte_higig.h")
             .tshark("hihig2"),
@@ -2640,5 +2641,81 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         PN::new("UET-SES-Std-SOM-OV", 44)
             .xdp2("uet_ses_parse_std_message_som_base_hdr_ov")
             .xdp2_hdr("uet_ses_request_std_hdr", "uet/ses.h"),
+        // ── Falcon Transport Protocol (OCP-NET) ──
+        PN::new("Falcon-Version-OV", 1)
+            .xdp2("falcon_parse_version")
+            .xdp2_hdr("falcon_version_switch_header", "falcon/falcon.h"),
+        PN::new("Falcon-Packet-Type-OV", 8)
+            .xdp2("falcon_parse_packet_type")
+            .xdp2_hdr("falcon_packet_type_switch_header", "falcon/falcon.h"),
+        PN::new("Falcon-Base-Hdr", 24)
+            .xdp2_hdr("falcon_base_hdr", "falcon/falcon.h"),
+        PN::new("Falcon-Pull-Request", 32)
+            .xdp2("falcon_parse_pull_request")
+            .xdp2_hdr("falcon_pull_req_pkt", "falcon/falcon.h"),
+        PN::new("Falcon-Pull-Data", 24)
+            .xdp2("falcon_parse_pull_data")
+            .xdp2_hdr("falcon_pull_data_pkt", "falcon/falcon.h"),
+        PN::new("Falcon-Push-Data", 28)
+            .xdp2("falcon_parse_push_data")
+            .xdp2_hdr("falcon_push_data_pkt", "falcon/falcon.h"),
+        PN::new("Falcon-Resync", 32)
+            .xdp2("falcon_parse_resync")
+            .xdp2_hdr("falcon_resync_pkt", "falcon/falcon.h"),
+        PN::new("Falcon-Base-ACK", 32)
+            .xdp2("falcon_parse_back")
+            .xdp2_hdr("falcon_base_ack_pkt", "falcon/falcon.h"),
+        PN::new("Falcon-Ext-ACK", 72)
+            .xdp2("falcon_parse_eack")
+            .xdp2_hdr("falcon_ext_ack_pkt", "falcon/falcon.h"),
+        PN::new("Falcon-NACK", 40)
+            .xdp2("falcon_parse_nack")
+            .xdp2_hdr("falcon_nack_pkt", "falcon/falcon.h"),
+        // ── NVMe/TCP (NVMe over Fabrics TCP transport) ──
+        PN::new("NVMe_TCP", 8)
+            .kernel("nvme_tcp_hdr", "linux/nvme-tcp.h")
+            .xdp2_hdr("xdp2_nvme_tcp_hdr", "xdp2/proto_defs/storage/proto_nvme_tcp.h")
+            .tshark("nvme-tcp"),
+        PN::new("NVMe_TCP_ICReq", 128)
+            .kernel("nvme_tcp_icreq_pdu", "linux/nvme-tcp.h")
+            .xdp2_hdr("xdp2_nvme_tcp_icreq_pdu", "xdp2/proto_defs/storage/proto_nvme_tcp.h"),
+        PN::new("NVMe_TCP_ICResp", 128)
+            .kernel("nvme_tcp_icresp_pdu", "linux/nvme-tcp.h")
+            .xdp2_hdr("xdp2_nvme_tcp_icresp_pdu", "xdp2/proto_defs/storage/proto_nvme_tcp.h"),
+        PN::new("NVMe_TCP_R2T", 24)
+            .kernel("nvme_tcp_r2t_pdu", "linux/nvme-tcp.h")
+            .xdp2_hdr("xdp2_nvme_tcp_r2t_pdu", "xdp2/proto_defs/storage/proto_nvme_tcp.h"),
+        PN::new("NVMe_TCP_Data", 24)
+            .kernel("nvme_tcp_data_pdu", "linux/nvme-tcp.h")
+            .xdp2_hdr("xdp2_nvme_tcp_data_pdu", "xdp2/proto_defs/storage/proto_nvme_tcp.h"),
+        PN::new("NVMe_TCP_Rsp", 24)
+            .kernel("nvme_tcp_rsp_pdu", "linux/nvme-tcp.h")
+            .xdp2_hdr("xdp2_nvme_tcp_rsp_pdu", "xdp2/proto_defs/storage/proto_nvme_tcp.h"),
+        // ── NVMe/RDMA CM private data (NVMe over RoCEv2 connection setup) ──
+        PN::new("NVMe_RDMA_CM_Req", 32)
+            .kernel("nvme_rdma_cm_req", "linux/nvme-rdma.h")
+            .xdp2_hdr("xdp2_nvme_rdma_cm_req", "xdp2/proto_defs/storage/proto_nvme_rdma.h"),
+        PN::new("NVMe_RDMA_CM_Rep", 32)
+            .kernel("nvme_rdma_cm_rep", "linux/nvme-rdma.h")
+            .xdp2_hdr("xdp2_nvme_rdma_cm_rep", "xdp2/proto_defs/storage/proto_nvme_rdma.h"),
+        PN::new("NVMe_RDMA_CM_Rej", 4)
+            .kernel("nvme_rdma_cm_rej", "linux/nvme-rdma.h")
+            .xdp2_hdr("xdp2_nvme_rdma_cm_rej", "xdp2/proto_defs/storage/proto_nvme_rdma.h"),
+        // ── PFC (Priority Flow Control, 802.1Qbb) ──
+        // PFC is a MAC Control sub-type (opcode 0x0101) for lossless RDMA networks.
+        PN::new("PFC", 18)
+            .tshark("pfc")
+            .ieee(&["802.1Qbb-2011"]),
+        // ── RoCEv2 (RDMA over Converged Ethernet v2) ──
+        // RoCEv2 = Ethernet + IP + UDP:4791 + IB BTH. The BTH is the same as
+        // IB_BTH but routed over UDP instead of native InfiniBand.
+        PN::new("RoCEv2", 12)
+            .xdp2("xdp2_parse_ib_bth")
+            .scapy("BTH")
+            .tshark("infiniband")
+            .dpdk("rte_ib_bth", "rte_ib.h"),
+        // ── CNP (Congestion Notification Packet) ──
+        // RoCEv2 CNP: BTH with opcode 0x81, followed by 16 bytes of reserved payload.
+        PN::new("CNP", 16),
     ]
 }

@@ -129,6 +129,8 @@ const UPPER_PDU_DISSECTORS: &[(&str, &str)] = &[
     ("ERSPAN", "erspan"),
     ("PVST", "stp"),
     ("RSTP", "stp"),
+    // ML/HPC networking
+    ("PFC", "pfc"),
 ];
 
 /// Output from PCAP generation.
@@ -591,6 +593,32 @@ const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("ERSPAN", "UpperPDU", "_always", 0),
     // eCPRI (EtherType 0xAEFE)
     ("eCPRI", "Ethernet", "ether_type", 0xAEFE),
+    // ── Falcon Transport Protocol (UDP port 7777) ──
+    ("Falcon-Version-OV", "UDP", "dst_port", 7777),
+    ("Falcon-Packet-Type-OV", "Falcon-Version-OV", "version", 1),
+    ("Falcon-Pull-Request", "Falcon-Packet-Type-OV", "packet_type", 0),
+    ("Falcon-Pull-Data", "Falcon-Packet-Type-OV", "packet_type", 3),
+    ("Falcon-Push-Data", "Falcon-Packet-Type-OV", "packet_type", 5),
+    ("Falcon-Resync", "Falcon-Packet-Type-OV", "packet_type", 6),
+    ("Falcon-NACK", "Falcon-Packet-Type-OV", "packet_type", 8),
+    ("Falcon-Base-ACK", "Falcon-Packet-Type-OV", "packet_type", 9),
+    ("Falcon-Ext-ACK", "Falcon-Packet-Type-OV", "packet_type", 10),
+    // ── NVMe/TCP (TCP port 4420, PDU type dispatch) ──
+    ("NVMe_TCP", "TCP", "dst_port", 4420),
+    ("NVMe_TCP_ICReq", "NVMe_TCP", "type", 0x0),
+    ("NVMe_TCP_ICResp", "NVMe_TCP", "type", 0x1),
+    ("NVMe_TCP_R2T", "NVMe_TCP", "type", 0x9),
+    ("NVMe_TCP_Data", "NVMe_TCP", "type", 0x7),
+    ("NVMe_TCP_Rsp", "NVMe_TCP", "type", 0x5),
+    // ── NVMe/RDMA CM private data (connection setup for NVMe over RoCEv2) ──
+    ("NVMe_RDMA_CM_Req", "RDMA_CM", "_always", 0),
+    ("NVMe_RDMA_CM_Rep", "RDMA_CM", "_always", 0),
+    ("NVMe_RDMA_CM_Rej", "RDMA_CM", "_always", 0),
+    // ── PFC (MAC Control sub-type, via UpperPDU for tshark) ──
+    ("PFC", "UpperPDU", "_always", 0),
+    // ── RoCEv2 (UDP port 4791 → BTH) ──
+    ("RoCEv2", "UDP", "dst_port", 4791),
+    ("CNP", "RoCEv2", "opcode", 0x81),
 ];
 
 /// Protocols that cannot round-trip through PCAP validation because they lack
@@ -2776,6 +2804,52 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                 ]),
         ),
 
+        // ── RoCEv2: BTH over UDP:4791 (96 bits, dispatch on opcode) ──
+        "RoCEv2" => Some(
+            ProtocolDef::new("RoCEv2", 96)
+                .with_fields(vec![
+                    FieldDef::new("opcode", 0, 8, FieldType::Enum).with_dispatch(),
+                    FieldDef::new("se_m_flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("pkey", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("dest_qp", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("ack_psn", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                ])
+                .with_dispatch_field("opcode"),
+        ),
+        // ── NVMe/TCP common PDU header (64 bits, dispatch on type) ──
+        "NVMe_TCP" => Some(
+            ProtocolDef::new("NVMe_TCP", 64)
+                .with_fields(vec![
+                    FieldDef::new("type", 0, 8, FieldType::Enum).with_dispatch(),
+                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("hlen", 16, 8, FieldType::Uint),
+                    FieldDef::new("pdo", 24, 8, FieldType::Uint),
+                    FieldDef::new("plen", 32, 32, FieldType::Uint).with_endian(Endian::Little),
+                ])
+                .with_dispatch_field("type"),
+        ),
+        // ── Falcon Transport Protocol overlays ──
+        "Falcon-Version-OV" => Some(
+            ProtocolDef::new("Falcon-Version-OV", 8)
+                .with_fields(vec![
+                    FieldDef::new("rsvd", 0, 4, FieldType::Pad),
+                    FieldDef::new("version", 4, 4, FieldType::Enum)
+                        .with_dispatch()
+                        .with_default_value("1"),
+                ])
+                .with_dispatch_field("version"),
+        ),
+        "Falcon-Packet-Type-OV" => Some(
+            ProtocolDef::new("Falcon-Packet-Type-OV", 64)
+                .with_fields(vec![
+                    FieldDef::new("rsvd1", 0, 32, FieldType::Pad),
+                    FieldDef::new("rsvd2", 32, 1, FieldType::Pad),
+                    FieldDef::new("packet_type", 33, 4, FieldType::Enum).with_dispatch(),
+                    FieldDef::new("rsvd3", 37, 27, FieldType::Pad),
+                ])
+                .with_dispatch_field("packet_type"),
+        ),
+
         _ => None,
     }
 }
@@ -4654,5 +4728,103 @@ mod tests {
                 name
             );
         }
+    }
+
+    // ── Falcon Transport Protocol routes ──
+
+    #[test]
+    fn test_build_stack_falcon_pull_request() {
+        let protos = BTreeMap::new();
+        let result = build_stack_no_discovery("Falcon-Pull-Request", &protos).unwrap();
+        assert_eq!(result.layers[0].proto_name, "Ethernet");
+        assert_eq!(result.layers[1].proto_name, "IPv4");
+        assert_eq!(result.layers[2].proto_name, "UDP");
+        assert_eq!(result.layers[3].proto_name, "Falcon-Version-OV");
+        assert_eq!(result.layers[4].proto_name, "Falcon-Packet-Type-OV");
+        assert_eq!(result.layers[5].proto_name, "Falcon-Pull-Request");
+        assert_eq!(result.link_type, 1);
+    }
+
+    #[test]
+    fn test_build_stack_falcon_base_ack() {
+        let protos = BTreeMap::new();
+        let result = build_stack_no_discovery("Falcon-Base-ACK", &protos).unwrap();
+        assert_eq!(result.layers[0].proto_name, "Ethernet");
+        assert_eq!(result.layers[1].proto_name, "IPv4");
+        assert_eq!(result.layers[2].proto_name, "UDP");
+        assert_eq!(result.layers[3].proto_name, "Falcon-Version-OV");
+        assert_eq!(result.layers[4].proto_name, "Falcon-Packet-Type-OV");
+        assert_eq!(result.layers[5].proto_name, "Falcon-Base-ACK");
+        assert_eq!(result.link_type, 1);
+    }
+
+    #[test]
+    fn test_build_stack_falcon_nack() {
+        let protos = BTreeMap::new();
+        let result = build_stack_no_discovery("Falcon-NACK", &protos).unwrap();
+        assert_eq!(result.layers[3].proto_name, "Falcon-Version-OV");
+        assert_eq!(result.layers[4].proto_name, "Falcon-Packet-Type-OV");
+        assert_eq!(result.layers[5].proto_name, "Falcon-NACK");
+    }
+
+    // ── NVMe/TCP routes ──
+
+    #[test]
+    fn test_build_stack_nvme_tcp_r2t() {
+        let protos = BTreeMap::new();
+        let result = build_stack_no_discovery("NVMe_TCP_R2T", &protos).unwrap();
+        assert_eq!(result.layers[0].proto_name, "Ethernet");
+        assert_eq!(result.layers[1].proto_name, "IPv4");
+        assert_eq!(result.layers[2].proto_name, "TCP");
+        assert_eq!(result.layers[3].proto_name, "NVMe_TCP");
+        assert_eq!(result.layers[4].proto_name, "NVMe_TCP_R2T");
+        assert_eq!(result.link_type, 1);
+    }
+
+    // ── RoCEv2 / CNP routes ──
+
+    #[test]
+    fn test_build_stack_rocev2() {
+        let protos = BTreeMap::new();
+        let result = build_stack_no_discovery("RoCEv2", &protos).unwrap();
+        assert_eq!(result.layers[0].proto_name, "Ethernet");
+        assert_eq!(result.layers[1].proto_name, "IPv4");
+        assert_eq!(result.layers[2].proto_name, "UDP");
+        assert_eq!(result.layers[3].proto_name, "RoCEv2");
+        assert_eq!(result.link_type, 1);
+    }
+
+    #[test]
+    fn test_build_stack_cnp() {
+        let protos = BTreeMap::new();
+        let result = build_stack_no_discovery("CNP", &protos).unwrap();
+        assert_eq!(result.layers[3].proto_name, "RoCEv2");
+        assert_eq!(result.layers[4].proto_name, "CNP");
+    }
+
+    #[test]
+    fn test_rocev2_embedded_def() {
+        let rocev2 = embedded_proto("RoCEv2").unwrap();
+        assert_eq!(rocev2.min_header_bits, 96);
+        assert!(rocev2.fields.iter().any(|f| f.name == "opcode"));
+    }
+
+    #[test]
+    fn test_nvme_tcp_embedded_def() {
+        let nvme_tcp = embedded_proto("NVMe_TCP").unwrap();
+        assert_eq!(nvme_tcp.min_header_bits, 64);
+        assert!(nvme_tcp.fields.iter().any(|f| f.name == "type"));
+        assert!(nvme_tcp.fields.iter().any(|f| f.name == "plen"));
+    }
+
+    #[test]
+    fn test_falcon_overlay_embedded_defs() {
+        let version_ov = embedded_proto("Falcon-Version-OV").unwrap();
+        assert_eq!(version_ov.min_header_bits, 8);
+        assert!(version_ov.fields.iter().any(|f| f.name == "version"));
+
+        let pkt_type_ov = embedded_proto("Falcon-Packet-Type-OV").unwrap();
+        assert_eq!(pkt_type_ov.min_header_bits, 64);
+        assert!(pkt_type_ov.fields.iter().any(|f| f.name == "packet_type"));
     }
 }

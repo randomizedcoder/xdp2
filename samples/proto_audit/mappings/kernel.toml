@@ -57,6 +57,14 @@ xfrm_id = 192          # 24 bytes: daddr(128)+spi(32)+proto(8)+pad(24)
 # Netlink diagnostic nested structs
 inet_diag_sockid = 320  # 40 bytes: sport(16)+dport(16)+src(128)+dst(128)+if(32)+cookie(64)
 ifla_bridge_id = 64     # 8 bytes: prio(16) + addr(48)
+# Falcon Transport Protocol nested structs
+falcon_base_hdr = 192   # 24 bytes: version/rsvd(8)+dest_cid(24)+dest_func(24)+proto_type(3)+pkt_type(4)+ack_req(1)+psns(4x32)
+falcon_base_ack_pkt = 256 # 32 bytes: version/rsvd(8)+dest_cid(24)+rsvd(24)+pkt_type(4)+rsvd(4)+ack_psns(2x32)+timestamps(2x32)+ecn_rue(2x32)
+# NVMe/TCP nested structs
+nvme_tcp_hdr = 64           # 8 bytes: type(1)+flags(1)+hlen(1)+pdo(1)+plen(4)
+xdp2_nvme_tcp_hdr = 64     # 8 bytes: same layout as nvme_tcp_hdr
+nvme_command = 512          # 64 bytes: NVMe command capsule
+nvme_completion = 128       # 16 bytes: NVMe completion queue entry
 
 [union_sizes]
 # Embedded union name → bit width (max of all variants).
