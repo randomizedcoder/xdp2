@@ -1,8 +1,9 @@
 //! Code generators: IR ProtocolDef → target language output.
 //!
-//! Supports four targets:
+//! Supports five targets:
 //! - **C** (XDP2 proto_def header): the original generator
 //! - **etherparse** (Rust struct): generates `pub struct` with derives
+//! - **xdp2-rs** (Rust ProtocolOps): generates zerocopy struct + ProtocolOps trait impl
 //! - **Scapy** (Python Packet class): generates `fields_desc` + `bind_layers`
 //! - **PCAP** (wire bytes): generates a PCAP file with one packet for round-trip validation
 
@@ -14,6 +15,7 @@ pub mod pcap;
 mod scapy;
 pub mod suricata;
 pub mod wireshark;
+pub mod xdp2_rs;
 
 pub use c::{generate_proto_def, generate_proto_def_synthetic, generate_proto_def_with_names, generate_libpcap_patch, generate_libpcap_toml_entry};
 pub use etherparse::{generate_etherparse, generate_etherparse_patch, generate_etherparse_toml_entry};
@@ -23,6 +25,7 @@ pub use pcap::{generate_pcap, generate_pcap_with_discovery, is_root, load_pcap_t
 pub use scapy::{generate_scapy, generate_scapy_patch};
 pub use suricata::{generate_suricata_struct, generate_suricata_patch};
 pub use wireshark::{generate_wireshark_lua, generate_wireshark_lua_single};
+pub use xdp2_rs::{generate_xdp2_rs, generate_xdp2_rs_bundle};
 
 // ── Shared helpers ──
 
