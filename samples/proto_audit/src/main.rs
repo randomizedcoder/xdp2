@@ -649,6 +649,23 @@ enum Commands {
         json: bool,
     },
 
+    /// Check xdp2-rs ProtocolOps coverage against C proto_defs.
+    /// Reports C protocols that have no Rust ProtocolOps implementation.
+    /// Exits non-zero if any Gold-tier protocol is missing (CI gate).
+    #[command(name = "check-rs")]
+    CheckRs {
+        /// Path to xdp2-rs crate root (crates/xdp2-protocols/src/)
+        #[arg(long)]
+        rs_src: PathBuf,
+
+        #[command(flatten)]
+        paths: SourcePaths,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Validate netlink protocols against real xtcp2 PCAPs using binary parsing + generated Lua dissectors
     #[command(name = "validate-netlink")]
     ValidateNetlink {
@@ -820,6 +837,11 @@ fn main() -> Result<()> {
             paths,
             json,
         } => cmd_validate(&proto, &tier, keep_pcap, json, &paths),
+        Commands::CheckRs {
+            rs_src,
+            paths,
+            json,
+        } => cmd_check_rs(&rs_src, json, &paths),
         Commands::ValidateNetlink {
             proto,
             keep_lua,

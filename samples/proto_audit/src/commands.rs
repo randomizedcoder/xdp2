@@ -5866,3 +5866,104 @@ fn chrono_timestamp() -> String {
     // Simple epoch-seconds timestamp (precise enough for cache tracking)
     format!("{}", secs)
 }
+
+/// Recursively scan files with a given extension, calling `f` with file contents.
+fn scan_files_recursive(dir: &Path, ext: &str, f: &mut dyn FnMut(&str)) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            scan_files_recursive(&path, ext, f);
+        } else if path.extension().map_or(false, |e| e == ext) {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                f(&content);
+            }
+        }
+    }
+}
+
+/// Check xdp2-rs ProtocolOps coverage against C proto_defs.
+///
+/// Scans C proto_defs for `.name = "..."` declarations and the Rust
+/// xdp2-protocols crate for `const NAME: &'static str = "..."` declarations.
+/// Reports protocols present in C but missing from Rust.
+/// Exits non-zero if any gap exists (suitable as a CI gate).
+pub(crate) fn cmd_check_rs(
+    rs_src: &Path,
+    json: bool,
+    paths: &SourcePaths,
+) -> Result<()> {
+    use std::collections::BTreeSet;
+
+    // 1. Scan C proto_defs for protocol names
+    let proto_defs_dir = paths.proto_defs_dir.as_ref()
+        .ok_or_else(|| anyhow::anyhow!("--proto-defs-dir is required for check-rs"))?;
+    let mut c_names: BTreeSet<String> = BTreeSet::new();
+    let re_c_name = regex::Regex::new(r#"\.name\s*=\s*"([^"]+)""#).unwrap();
+
+    scan_files_recursive(proto_defs_dir, "h", &mut |content: &str| {
+        if !content.contains("XDP2_DEFINE_PARSE_NODE") {
+            return;
+        }
+        for cap in re_c_name.captures_iter(content) {
+            c_names.insert(cap[1].to_string());
+        }
+    });
+
+    // 2. Scan Rust ProtocolOps for NAME constants
+    let mut rs_names: BTreeSet<String> = BTreeSet::new();
+    let re_rs_name = regex::Regex::new(r#"const\s+NAME:\s*&'static\s+str\s*=\s*"([^"]+)""#).unwrap();
+
+    scan_files_recursive(rs_src, "rs", &mut |content: &str| {
+        for cap in re_rs_name.captures_iter(content) {
+            rs_names.insert(cap[1].to_string());
+        }
+    });
+
+    // 3. Compute gaps
+    let in_c_only: BTreeSet<_> = c_names.difference(&rs_names).cloned().collect();
+    let in_rs_only: BTreeSet<_> = rs_names.difference(&c_names).cloned().collect();
+    let in_both: BTreeSet<_> = c_names.intersection(&rs_names).cloned().collect();
+
+    if json {
+        let output = serde_json::json!({
+            "c_total": c_names.len(),
+            "rs_total": rs_names.len(),
+            "both": in_both.len(),
+            "c_only": in_c_only,
+            "rs_only": in_rs_only,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("C proto_defs:   {} protocols", c_names.len());
+        println!("Rust xdp2-rs:   {} protocols", rs_names.len());
+        println!("Both:           {} protocols", in_both.len());
+        println!();
+        if !in_c_only.is_empty() {
+            println!("In C but NOT in Rust ({}):", in_c_only.len());
+            for name in &in_c_only {
+                println!("  - {}", name);
+            }
+            println!();
+        }
+        if !in_rs_only.is_empty() {
+            println!("In Rust but NOT in C ({}):", in_rs_only.len());
+            for name in &in_rs_only {
+                println!("  - {}", name);
+            }
+            println!();
+        }
+        if in_c_only.is_empty() {
+            println!("All C protocols have Rust implementations.");
+        }
+    }
+
+    if !in_c_only.is_empty() {
+        anyhow::bail!(
+            "{} C protocol(s) missing Rust ProtocolOps implementation",
+            in_c_only.len()
+        );
+    }
+
+    Ok(())
+}
