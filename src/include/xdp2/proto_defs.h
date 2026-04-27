@@ -216,6 +216,7 @@
 #include "xdp2/proto_defs/storage/proto_iscsi.h"
 #include "xdp2/proto_defs/storage/proto_iser.h"
 #include "xdp2/proto_defs/storage/proto_nvme.h"
+#include "xdp2/proto_defs/storage/proto_nvme_tcp.h"
 #include "xdp2/proto_defs/storage/proto_scsi.h"
 
 /* Wireless (802.11) */

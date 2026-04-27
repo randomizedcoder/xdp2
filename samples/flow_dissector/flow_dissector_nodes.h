@@ -28,6 +28,21 @@ XDP2_MAKE_LEAF_PARSE_NODE(icmpv4_node, xdp2_parse_icmpv4,
 XDP2_MAKE_LEAF_PARSE_NODE(icmpv6_node, xdp2_parse_icmpv6,
 			  (.ops.extract_metadata = icmp_metadata));
 
+/* TCP with dport dispatch — extracts port metadata AND dispatches
+ * on dport via tcp_app_table. Known app ports (3260→iSCSI,
+ * 4420→NVMe/TCP) continue into application protocol parsing.
+ * Unknown dports → XDP2_STOP_UNKNOWN_PROTO → parse stops with
+ * ports already extracted (same as old leaf behavior).
+ */
+XDP2_MAKE_PARSE_NODE(tcp_node, tcp_dport_dispatch_def, tcp_app_table,
+		     (.ops.extract_metadata = ports_metadata));
+
+/* iSCSI (leaf — reached via TCP dport 3260) */
+XDP2_MAKE_LEAF_PARSE_NODE(iscsi_node, xdp2_parse_iscsi, ());
+
+/* NVMe/TCP (leaf — reached via TCP dport 4420) */
+XDP2_MAKE_LEAF_PARSE_NODE(nvme_tcp_node, xdp2_parse_nvme_tcp, ());
+
 /* IGMP (IPv4 only, leaf) */
 XDP2_MAKE_LEAF_PARSE_NODE(igmp_node, xdp2_parse_igmp, ());
 
@@ -133,8 +148,16 @@ XDP2_MAKE_PARSE_NODE(e8021Q_node, xdp2_parse_vlan, ether_table,
 XDP2_MAKE_PARSE_NODE(e8021AD_node, xdp2_parse_vlan, ether_table,
 		     (.ops.extract_metadata = e8021AD_metadata));
 
-/* FCoE (leaf — Fibre Channel over Ethernet) */
-XDP2_MAKE_LEAF_PARSE_NODE(fcoe_node, xdp2_parse_fcoe, ());
+/* FC sub-protocol leaf nodes */
+XDP2_MAKE_LEAF_PARSE_NODE(fc_els_node, fc_els_leaf_def, ());
+XDP2_MAKE_LEAF_PARSE_NODE(fc_fcp_node, fc_fcp_leaf_def, ());
+XDP2_MAKE_LEAF_PARSE_NODE(fc_ct_node, fc_ct_leaf_def, ());
+
+/* Fibre Channel frame dispatch (FC type → ELS/FCP/CT) */
+XDP2_MAKE_PARSE_NODE(fc_node, xdp2_parse_fc, fc_type_table, ());
+
+/* FCoE → FC frame dispatch (was leaf, now chains to FC) */
+XDP2_MAKE_AUTONEXT_PARSE_NODE(fcoe_node, xdp2_parse_fcoe, fc_node, ());
 
 /* Batman (chainable — inner Ethernet dispatch) */
 XDP2_MAKE_PARSE_NODE(batman_node, xdp2_parse_batman, ether_table, ());

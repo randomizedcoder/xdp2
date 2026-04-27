@@ -102,3 +102,37 @@ static const struct xdp2_proto_def stp_bpdu_def __unused() = {
 	.name = "STP",
 	.min_len = sizeof(struct stp_bpdu_hdr),
 };
+
+/* Local proto_def: TCP with dport dispatch — parses TCP header using
+ * doff for variable length, then dispatches on dport for known
+ * application protocols (iSCSI, NVMe/TCP). Unknown dports →
+ * table miss → XDP2_STOP_UNKNOWN_PROTO (ports already extracted).
+ */
+static inline int tcp_dport_proto(const void *vtcp)
+{
+	return ((struct tcphdr *)vtcp)->dest;
+}
+
+static const struct xdp2_proto_def tcp_dport_dispatch_def __unused() = {
+	.name = "TCP (dport dispatch)",
+	.min_len = sizeof(struct tcphdr),
+	.ops.next_proto = tcp_dport_proto,
+	.ops.len = tcp_len,
+};
+
+/* Local proto_defs: FC sub-protocol leaf nodes (after FCoE → FC dispatch) */
+
+static const struct xdp2_proto_def fc_els_leaf_def __unused() = {
+	.name = "FC-ELS",
+	.min_len = 4,
+};
+
+static const struct xdp2_proto_def fc_fcp_leaf_def __unused() = {
+	.name = "FC-FCP",
+	.min_len = 32,
+};
+
+static const struct xdp2_proto_def fc_ct_leaf_def __unused() = {
+	.name = "FC-CT",
+	.min_len = 16,
+};

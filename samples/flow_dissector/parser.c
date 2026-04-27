@@ -36,7 +36,7 @@
  *   #include "parser.c"
  * which compiles only the L3 root parser (no L2 or non-Ethernet graphs).
  *
- * 14 parsers with dedicated roots covering ~65 protocol types:
+ * 14 parsers with dedicated roots covering ~70 protocol types:
  *
  * Ethernet/IP parsers:
  * 1. xdp2_parser_flow_dissector — root at ip_check_node (L3 entry).

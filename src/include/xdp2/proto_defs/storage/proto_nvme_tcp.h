@@ -108,4 +108,30 @@ struct xdp2_nvme_tcp_rsp_pdu {
 	__le16				status;
 } __packed;
 
+static inline ssize_t nvme_tcp_hdr_len(const void *vhdr, size_t maxlen)
+{
+	return ((struct xdp2_nvme_tcp_hdr *)vhdr)->hlen;
+}
+
+static inline int nvme_tcp_pdu_proto(const void *vhdr)
+{
+	return ((struct xdp2_nvme_tcp_hdr *)vhdr)->type;
+}
+
 #endif /* __XDP2_PROTO_NVME_TCP_H__ */
+
+#ifdef XDP2_DEFINE_PARSE_NODE
+
+/* xdp2_parse_nvme_tcp protocol definition
+ *
+ * Parse NVMe/TCP common PDU header (8 bytes).
+ * Dispatches on PDU type to specific PDU formats.
+ */
+static const struct xdp2_proto_def xdp2_parse_nvme_tcp __unused() = {
+	.name = "NVMe/TCP",
+	.min_len = sizeof(struct xdp2_nvme_tcp_hdr),
+	.ops.next_proto = nvme_tcp_pdu_proto,
+	.ops.len = nvme_tcp_hdr_len,
+};
+
+#endif /* XDP2_DEFINE_PARSE_NODE */

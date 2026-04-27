@@ -12,7 +12,7 @@ XDP2_MAKE_PROTO_TABLE(ip_check_table,
 );
 
 XDP2_MAKE_PROTO_TABLE(ipv4_table,
-		      ( IPPROTO_TCP, ports_node ),
+		      ( IPPROTO_TCP, tcp_node ),
 		      ( IPPROTO_UDP, udp_node ),
 		      ( IPPROTO_UDPLITE, ports_node ),
 		      ( IPPROTO_SCTP, ports_node ),
@@ -29,7 +29,7 @@ XDP2_MAKE_PROTO_TABLE(ipv4_table,
 );
 
 XDP2_MAKE_PROTO_TABLE(ipv6_table,
-		      ( IPPROTO_TCP, ports_node ),
+		      ( IPPROTO_TCP, tcp_node ),
 		      ( IPPROTO_UDP, udp_node ),
 		      ( IPPROTO_UDPLITE, ports_node ),
 		      ( IPPROTO_SCTP, ports_node ),
@@ -113,6 +113,21 @@ XDP2_MAKE_PROTO_TABLE(nsh_inner_table,
 XDP2_MAKE_PROTO_TABLE(llc_table,
 		      ( 0xAA, snap_node ),
 		      ( 0x42, stp_node )
+);
+
+/* FC type dispatch: FC frame type → sub-protocol leaf */
+XDP2_MAKE_PROTO_TABLE(fc_type_table,
+		      ( FC_TYPE_ELS, fc_els_node ),
+		      ( FC_TYPE_FCP, fc_fcp_node ),
+		      ( FC_TYPE_CT, fc_ct_node )
+);
+
+/* TCP application dispatch: known dports → app-layer protocol,
+ * unknown dports → table miss → XDP2_STOP_UNKNOWN_PROTO (ports extracted)
+ */
+XDP2_MAKE_PROTO_TABLE(tcp_app_table,
+		      ( __cpu_to_be16(3260), iscsi_node ),
+		      ( __cpu_to_be16(NVME_TCP_PORT), nvme_tcp_node )
 );
 
 /* Ether table used by VLAN nodes and inner Ethernet to recurse back
