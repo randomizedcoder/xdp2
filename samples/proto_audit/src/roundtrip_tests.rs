@@ -968,7 +968,7 @@ fn roundtrip_omi_itch_non_cross_trade() {
     let mappings = type_mapping::load_omi_mappings(None).unwrap();
     let def = omi::extract_from_source(
         OMI_ITCH_NON_CROSS_TRADE,
-        "ITCH_v5_NonCrossTrade",
+        "ITCH v5 NonCrossTrade",
         "NonCrossTradeMessageT",
         "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h",
         &mappings,
@@ -1019,7 +1019,7 @@ fn roundtrip_omi_sbe_message_header() {
 
 #[test]
 fn roundtrip_omi_name_mapping_lookup() {
-    let p = crate::name_mapping::find_by_canonical("ITCH_v5_NonCrossTrade").unwrap();
+    let p = crate::name_mapping::find_by_canonical("ITCH v5 NonCrossTrade").unwrap();
     assert_eq!(p.omi_struct, Some("NonCrossTradeMessageT"));
     assert_eq!(
         p.omi_file,
@@ -1027,7 +1027,7 @@ fn roundtrip_omi_name_mapping_lookup() {
     );
 
     let p2 = crate::name_mapping::find_by_omi_struct("NonCrossTradeMessageT").unwrap();
-    assert_eq!(p2.canonical, "ITCH_v5_NonCrossTrade");
+    assert_eq!(p2.canonical, "ITCH v5 NonCrossTrade");
 }
 
 #[test]

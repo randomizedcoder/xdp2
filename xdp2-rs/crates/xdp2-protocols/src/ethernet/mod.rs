@@ -10,6 +10,7 @@ pub mod pbb;
 pub mod ppoed;
 pub mod qinq;
 pub mod sll;
+pub mod snap;
 pub mod vlan;
 
 pub use edsa::{EdsaHeader, EdsaOps};
@@ -19,4 +20,5 @@ pub use pbb::{PbbHeader, PbbOps};
 pub use ppoed::{PpoedHeader, PpoedOps};
 pub use qinq::QinQOps;
 pub use sll::{Sll2Header, Sll2Ops, SllHeader, SllOps};
+pub use snap::SnapOps;
 pub use vlan::{VlanHeader, VlanOps};

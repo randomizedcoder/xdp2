@@ -34,7 +34,7 @@ pub struct Ieee80211MgmtOps;
 
 impl ProtocolOps for Ieee80211MgmtOps {
     const MIN_LEN: usize = 0;
-    const NAME: &'static str = "802.11 Mgmt";
+    const NAME: &'static str = "802.11 Management";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {

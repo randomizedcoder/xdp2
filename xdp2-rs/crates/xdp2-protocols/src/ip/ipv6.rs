@@ -98,7 +98,7 @@ pub struct Ipv6StopFlowLabelOps;
 
 impl ProtocolOps for Ipv6StopFlowLabelOps {
     const MIN_LEN: usize = 40;
-    const NAME: &'static str = "IPv6-stopfl";
+    const NAME: &'static str = "IPv6 stop at non-zero flow label";
 
     /// Return next header, or stop if flow label is non-zero.
     ///

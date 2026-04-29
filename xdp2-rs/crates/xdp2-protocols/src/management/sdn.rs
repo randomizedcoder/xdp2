@@ -31,7 +31,7 @@ pub struct HomePlugAvHeader {
 pub struct HomePlugAvOps;
 impl ProtocolOps for HomePlugAvOps {
     const MIN_LEN: usize = 1;
-    const NAME: &'static str = "HomePlug AV";
+    const NAME: &'static str = "HomePlug-AV";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

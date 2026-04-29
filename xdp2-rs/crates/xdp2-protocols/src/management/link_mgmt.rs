@@ -87,7 +87,7 @@ pub struct SlowHeader {
 pub struct SlowOps;
 impl ProtocolOps for SlowOps {
     const MIN_LEN: usize = 1;
-    const NAME: &'static str = "Slow";
+    const NAME: &'static str = "Slow Protocols";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

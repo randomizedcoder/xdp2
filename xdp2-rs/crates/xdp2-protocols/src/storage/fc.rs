@@ -102,7 +102,7 @@ pub struct FcoeOps;
 
 impl ProtocolOps for FcoeOps {
     const MIN_LEN: usize = FCOE_HEADER_LEN;
-    const NAME: &'static str = "FCoE";
+    const NAME: &'static str = "FCOE";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {

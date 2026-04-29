@@ -180,7 +180,7 @@ pub struct OpcUaHeader {
 pub struct OpcUaOps;
 impl ProtocolOps for OpcUaOps {
     const MIN_LEN: usize = 8;
-    const NAME: &'static str = "OPC UA";
+    const NAME: &'static str = "OPC-UA";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -200,7 +200,7 @@ pub struct ZigbeeNwkHeader {
 pub struct ZigbeeNwkOps;
 impl ProtocolOps for ZigbeeNwkOps {
     const MIN_LEN: usize = 8;
-    const NAME: &'static str = "Zigbee NWK";
+    const NAME: &'static str = "Zigbee-NWK";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -221,7 +221,7 @@ pub struct ZigbeeApsHeader {
 pub struct ZigbeeApsOps;
 impl ProtocolOps for ZigbeeApsOps {
     const MIN_LEN: usize = 8;
-    const NAME: &'static str = "Zigbee APS";
+    const NAME: &'static str = "Zigbee-APS";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -243,6 +243,135 @@ pub struct FipOps;
 impl ProtocolOps for FipOps {
     const MIN_LEN: usize = 8;
     const NAME: &'static str = "FIP";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// MSDP header (3 bytes). Reimplements: `struct msdp_hdr` in `proto_msdp.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct MsdpHeader {
+    pub r#type: u8,
+    pub length: [u8; 2],
+}
+pub struct MsdpOps;
+impl ProtocolOps for MsdpOps {
+    const MIN_LEN: usize = 3;
+    const NAME: &'static str = "MSDP";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// OWAMP header (14 bytes). Reimplements: `struct owamp_hdr` in `proto_owamp.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct OwampHeader {
+    pub sequence: [u8; 4],
+    pub timestamp: [u8; 8],
+    pub error_estimate: [u8; 2],
+}
+pub struct OwampOps;
+impl ProtocolOps for OwampOps {
+    const MIN_LEN: usize = 14;
+    const NAME: &'static str = "OWAMP";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// TWAMP header (16 bytes). Reimplements: `struct twamp_hdr` in `proto_twamp.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct TwampHeader {
+    pub sequence: [u8; 4],
+    pub timestamp: [u8; 8],
+    pub error_estimate: [u8; 2],
+    pub mbz: [u8; 2],
+}
+pub struct TwampOps;
+impl ProtocolOps for TwampOps {
+    const MIN_LEN: usize = 16;
+    const NAME: &'static str = "TWAMP";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// PFCP header (8 bytes). Reimplements: `struct pfcp_hdr` in `proto_pfcp.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct PfcpHeader {
+    pub flags: u8,
+    pub msg_type: u8,
+    pub length: [u8; 2],
+    pub seid: [u8; 4],
+}
+pub struct PfcpOps;
+impl ProtocolOps for PfcpOps {
+    const MIN_LEN: usize = 8;
+    const NAME: &'static str = "PFCP";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// sFlow header (4 bytes). Reimplements: `struct sflow_hdr` in `proto_sflow.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct SflowHeader {
+    pub version: [u8; 4],
+}
+pub struct SflowOps;
+impl ProtocolOps for SflowOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "sFlow";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// PPTP header (12 bytes). Reimplements: `struct pptp_hdr` in `proto_pptp.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct PptpHeader {
+    pub magic_cookie: [u8; 2],
+    pub length: [u8; 2],
+    pub msg_type: [u8; 2],
+    pub reserved0: [u8; 2],
+    pub ctrl_msg_type: [u8; 2],
+    pub reserved1: [u8; 2],
+}
+pub struct PptpOps;
+impl ProtocolOps for PptpOps {
+    const MIN_LEN: usize = 12;
+    const NAME: &'static str = "PPTP";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// LLDP-MED header (4 bytes). Reimplements: `struct lldp_med_hdr` in `proto_lldp_med.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct LldpMedHeader {
+    pub chassis_id_type: u8,
+    pub chassis_id_len: u8,
+    pub chassis_id: u8,
+    pub port_id_type: u8,
+}
+pub struct LldpMedOps;
+impl ProtocolOps for LldpMedOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "LLDP-MED";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

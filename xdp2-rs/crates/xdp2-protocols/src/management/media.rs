@@ -47,7 +47,7 @@ pub struct NetflowV5Header {
 pub struct NetflowV5Ops;
 impl ProtocolOps for NetflowV5Ops {
     const MIN_LEN: usize = 24;
-    const NAME: &'static str = "Netflow v5";
+    const NAME: &'static str = "NetFlow v5";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -68,7 +68,7 @@ pub struct NetflowV9Header {
 pub struct NetflowV9Ops;
 impl ProtocolOps for NetflowV9Ops {
     const MIN_LEN: usize = 20;
-    const NAME: &'static str = "Netflow v9";
+    const NAME: &'static str = "NetFlow v9";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -89,6 +89,23 @@ pub struct IpfixOps;
 impl ProtocolOps for IpfixOps {
     const MIN_LEN: usize = 16;
     const NAME: &'static str = "IPFIX";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// CFLOW/NetFlow header (4 bytes). Reimplements: `struct cflow_hdr` in `proto_cflow.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct CflowHeader {
+    pub version: [u8; 2],
+    pub count: [u8; 2],
+}
+pub struct CflowOps;
+impl ProtocolOps for CflowOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "CFLOW";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

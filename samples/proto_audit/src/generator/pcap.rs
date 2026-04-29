@@ -4720,6 +4720,7 @@ mod tests {
 
     #[test]
     fn test_generate_pcap_bt_att() {
+        let _guard = NoTemplatesGuard::new();
         let protos = BTreeMap::new();
         let target = ProtocolDef::new("BT_ATT", 8).with_fields(vec![
             FieldDef::new("opcode", 0, 8, FieldType::Uint),

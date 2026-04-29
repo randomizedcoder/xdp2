@@ -174,7 +174,7 @@ pub struct ProtobufOps;
 
 impl ProtocolOps for ProtobufOps {
     const MIN_LEN: usize = 1;
-    const NAME: &'static str = "Protobuf";
+    const NAME: &'static str = "Parse protobufs";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -222,6 +222,63 @@ pub struct X25Ops;
 impl ProtocolOps for X25Ops {
     const MIN_LEN: usize = 3;
     const NAME: &'static str = "X.25";
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FDDI
+// ---------------------------------------------------------------------------
+
+/// FDDI header (13 bytes).
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct FddiHeader {
+    pub fc: u8,
+    pub daddr: [u8; 6],
+    pub saddr: [u8; 6],
+}
+
+pub struct FddiOps;
+
+impl ProtocolOps for FddiOps {
+    const MIN_LEN: usize = 13;
+    const NAME: &'static str = "FDDI";
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// IPX
+// ---------------------------------------------------------------------------
+
+/// IPX header (30 bytes).
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct IpxHeader {
+    pub checksum: [u8; 2],
+    pub length: [u8; 2],
+    pub tc: u8,
+    pub type_: u8,
+    pub dest_net: [u8; 4],
+    pub dest_node: [u8; 6],
+    pub dest_port: [u8; 2],
+    pub src_net: [u8; 4],
+    pub src_node: [u8; 6],
+    pub src_port: [u8; 2],
+}
+
+pub struct IpxOps;
+
+impl ProtocolOps for IpxOps {
+    const MIN_LEN: usize = 30;
+    const NAME: &'static str = "IPX";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {

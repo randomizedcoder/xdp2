@@ -25,7 +25,7 @@ pub struct PitchV2AddOrderLongOps;
 
 impl ProtocolOps for PitchV2AddOrderLongOps {
     const MIN_LEN: usize = 34;
-    const NAME: &'static str = "PITCH_v2_AddOrderLong";
+    const NAME: &'static str = "PITCH v2 AddOrderLong";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -52,7 +52,7 @@ pub struct PitchV2AddOrderShortOps;
 
 impl ProtocolOps for PitchV2AddOrderShortOps {
     const MIN_LEN: usize = 26;
-    const NAME: &'static str = "PITCH_v2_AddOrderShort";
+    const NAME: &'static str = "PITCH v2 AddOrderShort";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -76,7 +76,7 @@ pub struct PitchV2OrderExecutedOps;
 
 impl ProtocolOps for PitchV2OrderExecutedOps {
     const MIN_LEN: usize = 26;
-    const NAME: &'static str = "PITCH_v2_OrderExecuted";
+    const NAME: &'static str = "PITCH v2 OrderExecuted";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {

@@ -38,6 +38,21 @@ impl ProtocolOps for IpOverlayOps {
     }
 }
 
+/// IP overlay by key — dispatches by version nibble, used with key-based dispatch.
+/// Reimplements: `xdp2_parse_ip_by_key` in `proto_ip.h`
+pub struct IpOverlayByKeyOps;
+
+impl ProtocolOps for IpOverlayByKeyOps {
+    const MIN_LEN: usize = 1;
+    const NAME: &'static str = "IP overlay by key";
+    const OVERLAY: bool = true;
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        Ok((hdr[0] >> 4) as i32)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

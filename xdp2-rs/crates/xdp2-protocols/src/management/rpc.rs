@@ -17,7 +17,7 @@ pub struct OncRpcHeader {
 pub struct OncRpcOps;
 impl ProtocolOps for OncRpcOps {
     const MIN_LEN: usize = 24;
-    const NAME: &'static str = "ONC RPC";
+    const NAME: &'static str = "ONC-RPC";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

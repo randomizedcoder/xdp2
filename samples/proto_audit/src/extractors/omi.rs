@@ -274,7 +274,7 @@ typedef struct {
         let mappings = type_mapping::load_omi_mappings(None).unwrap();
         let def = extract_from_source(
             ITCH_NON_CROSS_TRADE,
-            "ITCH_v5_NonCrossTrade",
+            "ITCH v5 NonCrossTrade",
             "NonCrossTradeMessageT",
             "nasdaq/Nasdaq.Equities.TotalView.Itch.v5.0.h",
             &mappings,

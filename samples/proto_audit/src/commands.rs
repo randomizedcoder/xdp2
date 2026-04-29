@@ -20,7 +20,7 @@ fn try_extract(
             let all_defs = extractors::xdp2::scan_proto_defs_dir(dir).ok()?;
             // Prefer exact var_name match from the name-mapping table when the
             // protocol carries an `.xdp2(...)` slot — canonical names and
-            // display strings often diverge (e.g. "ITCH_v5_AddOrder" ↔
+            // display strings often diverge (e.g. "ITCH v5 AddOrder" ↔
             // "xdp2_parse_itch_v5_add_order"), so fuzzy substring matches miss.
             let curated_var = name_mapping::find_by_canonical(proto)
                 .and_then(|n| n.xdp2);

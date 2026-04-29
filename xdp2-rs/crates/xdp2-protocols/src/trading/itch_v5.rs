@@ -24,7 +24,7 @@ pub struct ItchV5SystemEventOps;
 
 impl ProtocolOps for ItchV5SystemEventOps {
     const MIN_LEN: usize = 6;
-    const NAME: &'static str = "ITCH_v5_SystemEvent";
+    const NAME: &'static str = "ITCH v5 SystemEvent";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -55,7 +55,7 @@ pub struct ItchV5StockDirectoryOps;
 
 impl ProtocolOps for ItchV5StockDirectoryOps {
     const MIN_LEN: usize = 26;
-    const NAME: &'static str = "ITCH_v5_StockDirectory";
+    const NAME: &'static str = "ITCH v5 StockDirectory";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -81,7 +81,7 @@ pub struct ItchV5StockTradingActionOps;
 
 impl ProtocolOps for ItchV5StockTradingActionOps {
     const MIN_LEN: usize = 19;
-    const NAME: &'static str = "ITCH_v5_StockTradingAction";
+    const NAME: &'static str = "ITCH v5 StockTradingAction";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -108,7 +108,7 @@ pub struct ItchV5AddOrderOps;
 
 impl ProtocolOps for ItchV5AddOrderOps {
     const MIN_LEN: usize = 30;
-    const NAME: &'static str = "ITCH_v5_AddOrder";
+    const NAME: &'static str = "ITCH v5 AddOrder";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -136,7 +136,7 @@ pub struct ItchV5AddOrderMpidOps;
 
 impl ProtocolOps for ItchV5AddOrderMpidOps {
     const MIN_LEN: usize = 34;
-    const NAME: &'static str = "ITCH_v5_AddOrderMPID";
+    const NAME: &'static str = "ITCH v5 AddOrderMPID";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -161,7 +161,7 @@ pub struct ItchV5OrderExecutedOps;
 
 impl ProtocolOps for ItchV5OrderExecutedOps {
     const MIN_LEN: usize = 25;
-    const NAME: &'static str = "ITCH_v5_OrderExecuted";
+    const NAME: &'static str = "ITCH v5 OrderExecuted";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -188,7 +188,7 @@ pub struct ItchV5OrderExecutedWithPriceOps;
 
 impl ProtocolOps for ItchV5OrderExecutedWithPriceOps {
     const MIN_LEN: usize = 30;
-    const NAME: &'static str = "ITCH_v5_OrderExecutedWithPrice";
+    const NAME: &'static str = "ITCH v5 OrderExecutedWithPrice";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -212,7 +212,7 @@ pub struct ItchV5OrderCancelOps;
 
 impl ProtocolOps for ItchV5OrderCancelOps {
     const MIN_LEN: usize = 17;
-    const NAME: &'static str = "ITCH_v5_OrderCancel";
+    const NAME: &'static str = "ITCH v5 OrderCancel";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -235,7 +235,7 @@ pub struct ItchV5OrderDeleteOps;
 
 impl ProtocolOps for ItchV5OrderDeleteOps {
     const MIN_LEN: usize = 13;
-    const NAME: &'static str = "ITCH_v5_OrderDelete";
+    const NAME: &'static str = "ITCH v5 OrderDelete";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -261,7 +261,7 @@ pub struct ItchV5OrderReplaceOps;
 
 impl ProtocolOps for ItchV5OrderReplaceOps {
     const MIN_LEN: usize = 29;
-    const NAME: &'static str = "ITCH_v5_OrderReplace";
+    const NAME: &'static str = "ITCH v5 OrderReplace";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -289,7 +289,7 @@ pub struct ItchV5NonCrossTradeOps;
 
 impl ProtocolOps for ItchV5NonCrossTradeOps {
     const MIN_LEN: usize = 38;
-    const NAME: &'static str = "ITCH_v5_NonCrossTrade";
+    const NAME: &'static str = "ITCH v5 NonCrossTrade";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -316,7 +316,7 @@ pub struct ItchV5CrossTradeOps;
 
 impl ProtocolOps for ItchV5CrossTradeOps {
     const MIN_LEN: usize = 39;
-    const NAME: &'static str = "ITCH_v5_CrossTrade";
+    const NAME: &'static str = "ITCH v5 CrossTrade";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
@@ -339,7 +339,7 @@ pub struct ItchV5BrokenTradeOps;
 
 impl ProtocolOps for ItchV5BrokenTradeOps {
     const MIN_LEN: usize = 19;
-    const NAME: &'static str = "ITCH_v5_BrokenTrade";
+    const NAME: &'static str = "ITCH v5 BrokenTrade";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {

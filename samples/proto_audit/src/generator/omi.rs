@@ -116,7 +116,7 @@ mod tests {
     use crate::ir::*;
 
     fn sample_itch_addorder() -> ProtocolDef {
-        ProtocolDef::new("ITCH_v5_AddOrder", 264).with_fields(vec![
+        ProtocolDef::new("ITCH v5 AddOrder", 264).with_fields(vec![
             FieldDef::new("StockLocate", 0, 16, FieldType::Uint).with_endian(Endian::Big),
             FieldDef::new("TrackingNumber", 16, 16, FieldType::Uint).with_endian(Endian::Big),
             FieldDef::new("Timestamp", 32, 8, FieldType::Uint).with_endian(Endian::Na),
@@ -139,7 +139,7 @@ mod tests {
         assert!(output.contains("uint64_t OrderReferenceNumber;"));
         assert!(output.contains("char BuySellIndicator;"));
         assert!(output.contains("char Stock[8];"));
-        assert!(output.contains("} ITCH_v5_AddOrderT;"));
+        assert!(output.contains("} ITCHv5AddOrderT;"));
         assert!(output.contains("#pragma pack(pop)"));
     }
 

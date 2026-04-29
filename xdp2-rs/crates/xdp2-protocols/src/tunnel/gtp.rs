@@ -109,6 +109,29 @@ impl ProtocolOps for GtpcOps {
     }
 }
 
+/// GTPv2-C header (8 bytes). Reimplements: `struct gtpv2c_hdr` in `proto_gtpv2c.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct Gtpv2cHeader {
+    pub flags: u8,
+    pub msg_type: u8,
+    pub length: [u8; 2],
+    pub teid: [u8; 4],
+}
+
+/// GTPv2-C protocol operations (leaf).
+pub struct Gtpv2cOps;
+
+impl ProtocolOps for Gtpv2cOps {
+    const MIN_LEN: usize = 8;
+    const NAME: &'static str = "GTPv2-C";
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

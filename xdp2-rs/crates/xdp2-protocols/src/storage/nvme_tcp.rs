@@ -44,7 +44,7 @@ pub struct NvmeTcpOps;
 
 impl ProtocolOps for NvmeTcpOps {
     const MIN_LEN: usize = 8;
-    const NAME: &'static str = "NVMe_TCP";
+    const NAME: &'static str = "NVMe/TCP";
 
     #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {

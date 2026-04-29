@@ -85,6 +85,44 @@ impl ProtocolOps for TcpOps {
     }
 }
 
+/// TCP with TLV option parsing variant.
+/// Reimplements: `xdp2_parse_tcp_tlv` in `proto_tcp.h`
+pub struct TcpWithTlvOps;
+
+impl ProtocolOps for TcpWithTlvOps {
+    const MIN_LEN: usize = 20;
+    const NAME: &'static str = "TCP with TLVs";
+
+    #[inline]
+    fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
+        TcpOps.header_len(hdr, maxlen)
+    }
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// TCP without TLV option parsing variant.
+/// Reimplements: `xdp2_parse_tcp_no_tlv` in `proto_tcp.h`
+pub struct TcpNoTlvOps;
+
+impl ProtocolOps for TcpNoTlvOps {
+    const MIN_LEN: usize = 20;
+    const NAME: &'static str = "TCP without TLVs";
+
+    #[inline]
+    fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
+        TcpOps.header_len(hdr, maxlen)
+    }
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

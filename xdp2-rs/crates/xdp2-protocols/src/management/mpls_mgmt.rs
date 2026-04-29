@@ -34,7 +34,7 @@ pub struct MplsOamHeader {
 pub struct MplsOamOps;
 impl ProtocolOps for MplsOamOps {
     const MIN_LEN: usize = 4;
-    const NAME: &'static str = "MPLS OAM";
+    const NAME: &'static str = "MPLS-OAM";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

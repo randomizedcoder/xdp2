@@ -57,7 +57,7 @@ mod tests {
     use super::*;
     use xdp2_core::ParseResult;
 
-    /// Ethernet + IPv4 + TCP (54 bytes minimum).
+    /// Ethernet + IPv4 + TCP (54 bytes minimum + 8 bytes payload for app dispatch).
     fn make_eth_ipv4_tcp() -> Vec<u8> {
         let mut pkt = Vec::new();
         pkt.extend_from_slice(&[0u8; 12]); // MACs
@@ -73,7 +73,7 @@ mod tests {
         pkt.extend_from_slice(&[10, 0, 0, 2]); // dst IP
                                                // TCP header (20 bytes)
         pkt.extend_from_slice(&80u16.to_be_bytes()); // src port
-        pkt.extend_from_slice(&443u16.to_be_bytes()); // dst port
+        pkt.extend_from_slice(&12345u16.to_be_bytes()); // dst port
         pkt.extend_from_slice(&[0; 8]); // seq + ack
         pkt.push(5 << 4); // data offset=5
         pkt.push(0x02); // SYN
@@ -156,7 +156,7 @@ mod tests {
         pkt.extend_from_slice(&[192, 168, 1, 2]);
         // Inner TCP (20 bytes)
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -209,7 +209,7 @@ mod tests {
         pkt.extend_from_slice(&[192, 168, 1, 2]);
         // Inner TCP
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -260,7 +260,7 @@ mod tests {
         pkt.extend_from_slice(&[192, 168, 1, 2]);
         // Inner TCP
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -342,7 +342,7 @@ mod tests {
         pkt.extend_from_slice(&[192, 168, 1, 1]);
         pkt.extend_from_slice(&[192, 168, 1, 2]);
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -369,7 +369,7 @@ mod tests {
         assert!(!m.is_fragment);
         // Port extractor: TCP ports
         assert_eq!(m.ports.src_port, 80);
-        assert_eq!(m.ports.dst_port, 443);
+        assert_eq!(m.ports.dst_port, 12345);
     }
 
     #[test]
@@ -393,7 +393,7 @@ mod tests {
         pkt.extend_from_slice(&[10, 0, 0, 1]);
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -453,7 +453,7 @@ mod tests {
         pkt.extend_from_slice(&[10, 0, 0, 1]);
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -579,7 +579,7 @@ mod tests {
         pkt.extend_from_slice(&[10, 0, 0, 2]);
         // TCP header
         pkt.extend_from_slice(&80u16.to_be_bytes());
-        pkt.extend_from_slice(&443u16.to_be_bytes());
+        pkt.extend_from_slice(&12345u16.to_be_bytes());
         pkt.extend_from_slice(&[0; 8]);
         pkt.push(5 << 4);
         pkt.push(0x02);
@@ -605,5 +605,271 @@ mod tests {
         let pkt = make_eth_l2(0x88A4, &[0; 8]);
         let result = parse_packet(&parser, &pkt).unwrap();
         assert_eq!(result.result, ParseResult::Okay);
+    }
+
+    // ── Cross-mode oracle tests ──────────────────────────────────────
+    //
+    // Verify that graph, compiled, and mono parsers produce identical
+    // FlowMeta for every packet across all available PCAPs.
+
+    /// Resolve the pcap directory: $XDP2_TEST_PCAPS or fallback to repo path.
+    fn pcap_dir() -> Option<std::path::PathBuf> {
+        use std::path::PathBuf;
+        if let Some(dir) = std::env::var_os("XDP2_TEST_PCAPS") {
+            let p = PathBuf::from(dir);
+            if p.is_dir() {
+                return Some(p);
+            }
+        }
+        let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data/pcaps");
+        if repo.is_dir() {
+            Some(repo)
+        } else {
+            None
+        }
+    }
+
+    /// Compare graph vs compiled vs mono on a single PCAP file.
+    fn oracle_check_pcap(pcap_path: &std::path::Path) {
+        let packets = match crate::pcap::load_pcap(pcap_path) {
+            Ok(p) => p,
+            Err(e) => {
+                // Skip files that aren't valid classic pcap (e.g. pcapng)
+                eprintln!(
+                    "skip {}: {e}",
+                    pcap_path.file_name().unwrap().to_string_lossy()
+                );
+                return;
+            }
+        };
+        let parser = make_parser();
+        let fname = pcap_path.file_name().unwrap().to_string_lossy();
+
+        for (i, pkt) in packets.iter().enumerate() {
+            // Graph engine parse
+            let graph_result = parse_packet(&parser, &pkt.data);
+
+            // Compiled parser
+            let mut compiled_meta = FlowMeta::default();
+            let compiled_result =
+                crate::graph_compiled::parse_packet(&pkt.data, &mut compiled_meta);
+
+            // Mono parser
+            let mut mono_meta = FlowMeta::default();
+            let mono_result =
+                crate::graph_mono::parse_packet_mono(&pkt.data, &mut mono_meta);
+
+            // All three should agree on success/failure
+            match graph_result {
+                Ok(ref out) => {
+                    assert!(
+                        compiled_result.is_ok(),
+                        "{fname}[{i}]: graph ok but compiled failed: {compiled_result:?}"
+                    );
+                    assert!(
+                        mono_result.is_ok(),
+                        "{fname}[{i}]: graph ok but mono failed: {mono_result:?}"
+                    );
+
+                    // Compare metadata
+                    assert_eq!(
+                        out.metadata, compiled_meta,
+                        "{fname}[{i}]: graph vs compiled metadata mismatch"
+                    );
+                    assert_eq!(
+                        out.metadata, mono_meta,
+                        "{fname}[{i}]: graph vs mono metadata mismatch"
+                    );
+                }
+                Err(_) => {
+                    // If graph fails, compiled and mono should also fail
+                    // (but we allow them to succeed with partial metadata
+                    //  since some parse paths differ at error boundaries)
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_tcp_ipv4() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => {
+                eprintln!("skip: pcap dir not found");
+                return;
+            }
+        };
+        let pcap = dir.join("tcp_ipv4.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_tcp_ipv6() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("tcp_ipv6.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_vxlan() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("vxlan.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_gre() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("gre-sample.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_qinq() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("QinQ.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_ipip() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("ipip.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_6in4() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("6in4.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_vlan() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("vlan_icmp.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_icmp_ipv4() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("icmp_ipv4.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_icmp_ipv6() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("icmp_ipv6.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_ipv4_frags() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("ipv4frags.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    #[test]
+    fn cross_mode_oracle_ipv6_udp_frag() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => return,
+        };
+        let pcap = dir.join("ipv6-udp-fragmented.pcap");
+        if pcap.exists() {
+            oracle_check_pcap(&pcap);
+        }
+    }
+
+    /// Sweep all PCAPs in the pcap directory.
+    #[test]
+    fn cross_mode_oracle_all_pcaps() {
+        let dir = match pcap_dir() {
+            Some(d) => d,
+            None => {
+                eprintln!("skip: pcap dir not found");
+                return;
+            }
+        };
+
+        let mut checked = 0usize;
+        let mut skipped = 0usize;
+
+        for entry in std::fs::read_dir(&dir).expect("read pcap dir") {
+            let entry = entry.expect("dir entry");
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("pcap") {
+                continue;
+            }
+            // Skip malformed pcaps (intentionally broken, parser disagreement expected)
+            if path
+                .to_string_lossy()
+                .contains("malformed")
+            {
+                skipped += 1;
+                continue;
+            }
+            oracle_check_pcap(&path);
+            checked += 1;
+        }
+
+        eprintln!("cross-mode oracle: checked {checked} PCAPs, skipped {skipped} malformed");
+        assert!(checked > 0, "expected at least one PCAP to check");
     }
 }

@@ -102,6 +102,88 @@ impl ProtocolOps for RipOps {
     }
 }
 
+/// OSPFv3 header (16 bytes). Reimplements: `struct ospfv3hdr` in `proto_ospfv3.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct Ospfv3Header {
+    pub version: u8,
+    pub type_: u8,
+    pub length: [u8; 2],
+    pub router_id: [u8; 4],
+    pub area_id: [u8; 4],
+    pub checksum: [u8; 2],
+    pub instance_id: u8,
+    pub reserved: u8,
+}
+pub struct Ospfv3Ops;
+impl ProtocolOps for Ospfv3Ops {
+    const MIN_LEN: usize = 16;
+    const NAME: &'static str = "OSPFv3";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// VRRPv3 header (8 bytes). Reimplements: `struct vrrpv3hdr` in `proto_vrrpv3.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct Vrrpv3Header {
+    pub version_type: u8,
+    pub vrid: u8,
+    pub priority: u8,
+    pub count_ipv6: u8,
+    pub rsvd_max_adver: [u8; 2],
+    pub checksum: [u8; 2],
+}
+pub struct Vrrpv3Ops;
+impl ProtocolOps for Vrrpv3Ops {
+    const MIN_LEN: usize = 8;
+    const NAME: &'static str = "VRRPv3";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// RIPng header (4 bytes). Reimplements: `struct ripng_hdr` in `proto_ripng.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct RipngHeader {
+    pub command: u8,
+    pub version: u8,
+    pub reserved: [u8; 2],
+}
+pub struct RipngOps;
+impl ProtocolOps for RipngOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "RIPng";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
+/// Diameter S6a header (12 bytes). Reimplements: `struct diameter_s6a_hdr` in `proto_diameter_s6a.h`
+#[derive(FromBytes, KnownLayout, Immutable, Debug)]
+#[repr(C, packed)]
+pub struct DiameterS6aHeader {
+    pub version: u8,
+    pub len: [u8; 3],
+    pub flags: u8,
+    pub code: [u8; 3],
+    pub app_id: [u8; 4],
+}
+pub struct DiameterS6aOps;
+impl ProtocolOps for DiameterS6aOps {
+    const MIN_LEN: usize = 12;
+    const NAME: &'static str = "Diameter-S6a";
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

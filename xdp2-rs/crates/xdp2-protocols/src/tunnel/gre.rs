@@ -121,7 +121,7 @@ pub struct GreBaseOps;
 
 impl ProtocolOps for GreBaseOps {
     const MIN_LEN: usize = 4; // sizeof(struct gre_hdr)
-    const NAME: &'static str = "GRE";
+    const NAME: &'static str = "GRE base";
     const OVERLAY: bool = true;
 
     /// Return GRE version for dispatch (0 or 1).
@@ -183,6 +183,20 @@ impl ProtocolOps for GreV0Ops {
             .map_err(|_| ParseError::Length)?
             .0;
         Ok(gre.protocol() as i32)
+    }
+}
+
+/// GRE v1 (PPTP) variant — leaf node.
+/// Reimplements: `xdp2_parse_gre_v1_pptp` in `proto_gre.h`
+pub struct GreV1PptpOps;
+
+impl ProtocolOps for GreV1PptpOps {
+    const MIN_LEN: usize = 4;
+    const NAME: &'static str = "GRE v1 - pptp";
+
+    #[inline]
+    fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
+        Err(ParseError::UnknownProto)
     }
 }
 

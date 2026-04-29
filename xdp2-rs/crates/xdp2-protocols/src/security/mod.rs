@@ -6,6 +6,7 @@
 pub mod ah;
 pub mod dtls;
 pub mod eap;
+pub mod eap_variants;
 pub mod eapol;
 pub mod esp;
 pub mod ikev2;
@@ -21,6 +22,7 @@ pub mod wireguard;
 pub use ah::{AhHeader, AhOps};
 pub use dtls::{DtlsHeader, DtlsOps};
 pub use eap::{EapHeader, EapOps};
+pub use eap_variants::{EapPeapOps, EapTlsOps, EapTtlsOps};
 pub use eapol::{EapolHeader, EapolOps};
 pub use esp::{EspHeader, EspOps};
 pub use ikev2::{Ikev2Header, Ikev2Ops};

@@ -160,6 +160,28 @@ impl ProtocolOps for Ipv4CheckOps {
     }
 }
 
+/// IPv4 variant that does NOT stop at non-first fragments.
+/// Reimplements: `xdp2_parse_ipv4_no_frag` in `proto_ipv4.h`
+pub struct Ipv4NoFragOps;
+
+impl ProtocolOps for Ipv4NoFragOps {
+    const MIN_LEN: usize = 20;
+    const NAME: &'static str = "IPv4 without parsing 1st fragment";
+
+    #[inline]
+    fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
+        Ipv4Ops.header_len(hdr, maxlen)
+    }
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        let iph = Ipv4Header::ref_from_prefix(hdr)
+            .map_err(|_| ParseError::Length)?
+            .0;
+        Ok(iph.protocol as i32)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

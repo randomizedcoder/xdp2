@@ -15,7 +15,7 @@ pub struct ModbusHeader {
 pub struct ModbusOps;
 impl ProtocolOps for ModbusOps {
     const MIN_LEN: usize = 7;
-    const NAME: &'static str = "Modbus";
+    const NAME: &'static str = "Modbus TCP";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -31,7 +31,7 @@ pub struct ProfinetHeader {
 pub struct ProfinetOps;
 impl ProtocolOps for ProfinetOps {
     const MIN_LEN: usize = 2;
-    const NAME: &'static str = "Profinet";
+    const NAME: &'static str = "PROFINET";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -124,7 +124,7 @@ pub struct IecGooseHeader {
 pub struct IecGooseOps;
 impl ProtocolOps for IecGooseOps {
     const MIN_LEN: usize = 8;
-    const NAME: &'static str = "IEC GOOSE";
+    const NAME: &'static str = "IEC-GOOSE";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -143,7 +143,7 @@ pub struct IecSvHeader {
 pub struct IecSvOps;
 impl ProtocolOps for IecSvOps {
     const MIN_LEN: usize = 8;
-    const NAME: &'static str = "IEC SV";
+    const NAME: &'static str = "IEC-SV";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)
@@ -160,7 +160,7 @@ pub struct IecMmsHeader {
 pub struct IecMmsOps;
 impl ProtocolOps for IecMmsOps {
     const MIN_LEN: usize = 2;
-    const NAME: &'static str = "IEC MMS";
+    const NAME: &'static str = "IEC-MMS";
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {
         Err(ParseError::UnknownProto)

@@ -147,7 +147,7 @@ pub struct TplinkSmarthomeOps;
 
 impl ProtocolOps for TplinkSmarthomeOps {
     const MIN_LEN: usize = 4;
-    const NAME: &'static str = "TP-Link SmartHome";
+    const NAME: &'static str = "TP-Link-SmartHome";
 
     #[inline]
     fn next_proto(&self, _hdr: &[u8]) -> Result<i32, ParseError> {

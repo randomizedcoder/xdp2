@@ -7,6 +7,7 @@ pub mod bt_bnep;
 pub mod bt_profiles;
 pub mod hci;
 pub mod hci_sub;
+pub mod hci_variants;
 pub mod l2cap;
 
 pub use bt_bnep::{BtBnepHeader, BtBnepOps};
@@ -19,4 +20,5 @@ pub use hci_sub::{
     HciAclHeader, HciAclOps, HciCommandHeader, HciCommandOps, HciEventHeader, HciEventOps,
     HciIsoHeader, HciIsoOps, HciScoHeader, HciScoOps,
 };
+pub use hci_variants::HciCmdOps;
 pub use l2cap::{L2capHeader, L2capOps};

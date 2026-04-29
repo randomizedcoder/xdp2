@@ -99,6 +99,25 @@ impl ProtocolOps for Srv6Ops {
     }
 }
 
+/// SRv6 variant with segment list (leaf — stops after reading seg list).
+/// Reimplements: `xdp2_parse_srv6_with_seg_list` in `proto_srv6.h`
+pub struct Srv6WithSegListOps;
+
+impl ProtocolOps for Srv6WithSegListOps {
+    const MIN_LEN: usize = 8;
+    const NAME: &'static str = "SRV6 with seg list";
+
+    #[inline]
+    fn header_len(&self, hdr: &[u8], maxlen: usize) -> Result<usize, ParseError> {
+        Srv6Ops.header_len(hdr, maxlen)
+    }
+
+    #[inline]
+    fn next_proto(&self, hdr: &[u8]) -> Result<i32, ParseError> {
+        Srv6Ops.next_proto(hdr)
+    }
+}
+
 /// Array operations for SRv6 segment list parsing.
 ///
 /// Reimplements: `xdp2_parse_srv6_seg_list` in `proto_srv6.h:76-86`

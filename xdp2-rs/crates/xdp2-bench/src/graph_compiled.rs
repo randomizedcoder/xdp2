@@ -45,9 +45,9 @@ fn dispatch_ether(
         0x8847 | 0x8848 => parse_mpls(rest, meta),
         // Tunnels / encapsulation
         0x8864 => parse_pppoe(rest, depth + 1, meta),
-        0x4305 => parse_batman(rest),
-        0x88E7 => parse_pbb(rest),
-        0x22F3 => parse_trill(rest),
+        0x4305 => parse_batman(rest, depth + 1, meta),
+        0x88E7 => parse_pbb(rest, depth + 1, meta),
+        0x22F3 => parse_trill(rest, depth + 1, meta),
         0x892F | 0x88FB => parse_hsr(rest, depth + 1, meta), // HSR + PRP
         0x894F => parse_nsh(rest, depth + 1, meta),
         // Management / L2 leaves
@@ -177,6 +177,10 @@ fn parse_ipv4(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseEr
     meta.ip_proto = pkt[9];
     meta.addrs.v4_src = u32::from_be_bytes([pkt[12], pkt[13], pkt[14], pkt[15]]);
     meta.addrs.v4_dst = u32::from_be_bytes([pkt[16], pkt[17], pkt[18], pkt[19]]);
+    // Non-first fragments: stop here — transport header is not present
+    if meta.is_fragment && !meta.first_frag {
+        return Ok(());
+    }
     let next = pkt[9] as i64;
     let rest = &pkt[hlen..];
     dispatch_ipv4(next, rest, depth, meta)
@@ -190,14 +194,58 @@ fn dispatch_ipv4(
 ) -> Result<(), ParseError> {
     match next {
         6 => {
-            // TCP
+            // TCP with dport dispatch
             if rest.len() < 20 {
+                return Err(ParseError::Length);
+            }
+            let tcp_hlen = ((rest[12] >> 4) as usize) * 4;
+            if tcp_hlen < 20 || tcp_hlen > rest.len() {
                 return Err(ParseError::Length);
             }
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
             meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
-            Ok(())
+            let payload = &rest[tcp_hlen..];
+            match meta.ports.dst_port {
+                3260 => leaf(payload, 48),  // iSCSI
+                4420 => leaf(payload, 8),   // NVMe-TCP
+                7471 => leaf(payload, 18),  // STT
+                53 => leaf(payload, 12),    // DNS
+                80 => leaf(payload, 1),     // HTTP
+                443 => leaf(payload, 5),    // TLS
+                8080 => leaf(payload, 9),   // HTTP/2
+                22 => leaf(payload, 1),     // SSH
+                23 => leaf(payload, 1),     // Telnet
+                21 => leaf(payload, 1),     // FTP
+                25 => leaf(payload, 1),     // SMTP
+                143 => leaf(payload, 1),    // IMAP
+                179 => leaf(payload, 19),   // BGP
+                646 => leaf(payload, 10),   // LDP
+                639 => leaf(payload, 3),    // MSDP
+                389 => leaf(payload, 1),    // LDAP
+                88 => leaf(payload, 4),     // Kerberos
+                49 => leaf(payload, 12),    // TACACS+
+                111 => leaf(payload, 24),   // ONC-RPC
+                2049 => leaf(payload, 4),   // NFS
+                445 => leaf(payload, 4),    // SMB
+                6379 => leaf(payload, 1),   // Redis
+                9092 => leaf(payload, 12),  // Kafka
+                1883 => leaf(payload, 2),   // MQTT
+                5672 => leaf(payload, 8),   // AMQP
+                11211 => leaf(payload, 1),  // Memcached
+                5555 => leaf(payload, 1),   // ZeroMQ
+                502 => leaf(payload, 7),    // Modbus/TCP
+                20000 => leaf(payload, 10), // DNP3
+                44818 => leaf(payload, 24), // EtherNet/IP
+                4840 => leaf(payload, 8),   // OPC-UA
+                3868 => leaf(payload, 20),  // Diameter
+                554 => leaf(payload, 1),    // RTSP
+                2000 => leaf(payload, 8),   // Skinny/SCCP
+                1723 => leaf(payload, 12),  // PPTP
+                6653 => leaf(payload, 8),   // OpenFlow
+                4500 => leaf(payload, 28),  // IKEv2/TCP
+                _ => Ok(()),               // stop-leaf
+            }
         }
         17 => parse_udp_tunnel(rest, depth, meta), // UDP with tunnel dispatch
         1 => {
@@ -261,6 +309,14 @@ fn dispatch_ipv4(
             Ok(())
         }
         137 => parse_mpls(rest, meta), // MPLS
+        89 => leaf(rest, 16),   // OSPF
+        88 => leaf(rest, 20),   // EIGRP
+        112 => leaf(rest, 7),   // VRRP (VRRPv2 for IPv4)
+        103 => leaf(rest, 4),   // PIM
+        46 => leaf(rest, 8),    // RSVP
+        108 => leaf(rest, 4),   // IPComp
+        113 => leaf(rest, 16),  // PGM
+        97 => leaf(rest, 2),    // EtherIP
         _ => Err(ParseError::UnknownProto),
     }
 }
@@ -296,14 +352,58 @@ fn dispatch_ipv6(
     loop {
         match next {
             6 => {
-                // TCP
+                // TCP with dport dispatch
                 if rest.len() < 20 {
+                    return Err(ParseError::Length);
+                }
+                let tcp_hlen = ((rest[12] >> 4) as usize) * 4;
+                if tcp_hlen < 20 || tcp_hlen > rest.len() {
                     return Err(ParseError::Length);
                 }
                 meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
                 meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
                 meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
-                return Ok(());
+                let payload = &rest[tcp_hlen..];
+                return match meta.ports.dst_port {
+                    3260 => leaf(payload, 48),  // iSCSI
+                    4420 => leaf(payload, 8),   // NVMe-TCP
+                    7471 => leaf(payload, 18),  // STT
+                    53 => leaf(payload, 12),    // DNS
+                    80 => leaf(payload, 1),     // HTTP
+                    443 => leaf(payload, 5),    // TLS
+                    8080 => leaf(payload, 9),   // HTTP/2
+                    22 => leaf(payload, 1),     // SSH
+                    23 => leaf(payload, 1),     // Telnet
+                    21 => leaf(payload, 1),     // FTP
+                    25 => leaf(payload, 1),     // SMTP
+                    143 => leaf(payload, 1),    // IMAP
+                    179 => leaf(payload, 19),   // BGP
+                    646 => leaf(payload, 10),   // LDP
+                    639 => leaf(payload, 3),    // MSDP
+                    389 => leaf(payload, 1),    // LDAP
+                    88 => leaf(payload, 4),     // Kerberos
+                    49 => leaf(payload, 12),    // TACACS+
+                    111 => leaf(payload, 24),   // ONC-RPC
+                    2049 => leaf(payload, 4),   // NFS
+                    445 => leaf(payload, 4),    // SMB
+                    6379 => leaf(payload, 1),   // Redis
+                    9092 => leaf(payload, 12),  // Kafka
+                    1883 => leaf(payload, 2),   // MQTT
+                    5672 => leaf(payload, 8),   // AMQP
+                    11211 => leaf(payload, 1),  // Memcached
+                    5555 => leaf(payload, 1),   // ZeroMQ
+                    502 => leaf(payload, 7),    // Modbus/TCP
+                    20000 => leaf(payload, 10), // DNP3
+                    44818 => leaf(payload, 24), // EtherNet/IP
+                    4840 => leaf(payload, 8),   // OPC-UA
+                    3868 => leaf(payload, 20),  // Diameter
+                    554 => leaf(payload, 1),    // RTSP
+                    2000 => leaf(payload, 8),   // Skinny/SCCP
+                    1723 => leaf(payload, 12),  // PPTP
+                    6653 => leaf(payload, 8),   // OpenFlow
+                    4500 => leaf(payload, 28),  // IKEv2/TCP
+                    _ => Ok(()),               // stop-leaf
+                };
             }
             17 => return parse_udp_tunnel(rest, depth, meta), // UDP
             58 => {
@@ -347,6 +447,13 @@ fn dispatch_ipv6(
                 return Ok(());
             }
             137 => return parse_mpls(rest, meta), // MPLS
+            89 => return leaf(rest, 16),   // OSPFv3
+            88 => return leaf(rest, 20),   // EIGRP
+            112 => return leaf(rest, 8),   // VRRPv3
+            103 => return leaf(rest, 4),   // PIM
+            46 => return leaf(rest, 8),    // RSVP
+            108 => return leaf(rest, 4),   // IPComp
+            113 => return leaf(rest, 16),  // PGM
             4 | 41 => return parse_ip_check(rest, depth + 1, meta), // IP-in-IP
             47 => return parse_gre(rest, depth + 1, meta), // GRE
             50 => {
@@ -395,6 +502,10 @@ fn dispatch_ipv6(
                 let frag_off = u16::from_be_bytes([rest[2], rest[3]]);
                 meta.is_fragment = true;
                 meta.first_frag = (frag_off & 0xFFF8) == 0;
+                // Non-first fragments: stop here — transport header is not present
+                if !meta.first_frag {
+                    return Ok(());
+                }
                 next = rest[0] as i64;
                 rest = &rest[8..];
                 depth += 1;
@@ -411,9 +522,8 @@ fn dispatch_ipv6(
                 if hlen < 12 || hlen > rest.len() {
                     return Err(ParseError::Length);
                 }
-                // Extract AH metadata
+                // Extract AH metadata (ip_proto NOT updated — matches graph engine's extract_ah_metadata)
                 meta.ah_spi = u32::from_be_bytes([rest[4], rest[5], rest[6], rest[7]]);
-                meta.ip_proto = rest[0];
                 next = rest[0] as i64;
                 rest = &rest[hlen..];
                 depth += 1;
@@ -458,6 +568,56 @@ fn parse_udp_tunnel(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), P
     match dport {
         4789 => parse_vxlan(rest, depth, meta),
         6081 => parse_geneve(rest, depth, meta),
+        // GTP-U: version nibble dispatch
+        2152 => {
+            if rest.len() < 8 { return Err(ParseError::Length); }
+            let inner = &rest[8..];
+            if inner.is_empty() { return Err(ParseError::Length); }
+            parse_ip_check(inner, depth + 1, meta)
+        }
+        2123 => leaf(rest, 8),     // GTPv2-C
+        3544 => leaf(rest, 4),     // Teredo
+        4790 => leaf(rest, 8),     // VXLAN-GPE
+        4341 => leaf(rest, 8),     // LISP
+        5247 => leaf(rest, 4),     // CAPWAP
+        6080 => leaf(rest, 4),     // GUE
+        37008 => leaf(rest, 4),    // TZSP
+        // Application protocol leaves
+        53 => leaf(rest, 12),      // DNS
+        67 | 68 => leaf(rest, 236),    // DHCP
+        546 | 547 => leaf(rest, 4),    // DHCPv6
+        123 => leaf(rest, 48),     // NTP
+        161 | 162 => leaf(rest, 2),    // SNMP
+        69 => leaf(rest, 4),       // TFTP
+        514 => leaf(rest, 1),      // Syslog
+        520 => leaf(rest, 4),      // RIP
+        521 => leaf(rest, 4),      // RIPng
+        500 | 4500 => leaf(rest, 28),  // IKEv2
+        51820 => leaf(rest, 4),    // WireGuard
+        4433 => leaf(rest, 13),    // DTLS
+        1812 | 1813 => leaf(rest, 20), // RADIUS
+        1985 => leaf(rest, 8),     // HSRP
+        3222 => leaf(rest, 4),     // GLBP
+        5060 => leaf(rest, 1),     // SIP
+        5004 => leaf(rest, 12),    // RTP
+        5005 => leaf(rest, 8),     // RTCP
+        2427 => leaf(rest, 1),     // MGCP
+        5683 => leaf(rest, 4),     // CoAP
+        3784 => leaf(rest, 24),    // BFD
+        3478 => leaf(rest, 20),    // STUN
+        862 => leaf(rest, 16),     // TWAMP
+        8805 => leaf(rest, 8),     // PFCP
+        6343 => leaf(rest, 4),     // sFlow
+        2055 => leaf(rest, 4),     // CFLOW
+        4739 => leaf(rest, 16),    // IPFIX
+        443 => leaf(rest, 1),      // QUIC
+        9 => leaf(rest, 6),        // WOL
+        47808 => leaf(rest, 4),    // BACnet
+        1935 => leaf(rest, 16),    // SRT
+        1234 => leaf(rest, 4),     // MPEG-TS
+        137 => leaf(rest, 12),     // NBNS
+        5353 => leaf(rest, 12),    // mDNS
+        5355 => leaf(rest, 12),    // LLMNR
         _ => Ok(()), // stop-leaf: non-tunnel UDP succeeds
     }
 }
@@ -505,11 +665,11 @@ fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
     }
     let flags = u16::from_be_bytes([pkt[0], pkt[1]]);
     let version = flags & 0x07;
-    // Extract GRE flags metadata
-    meta.gre.flags = flags as u32;
     match version {
         0 => {
-            // GRE v0: check for routing flag (deprecated)
+            // GRE v0: extract flags metadata (graph engine only extracts for v0)
+            meta.gre.flags = flags as u32;
+            // check for routing flag (deprecated)
             if flags & 0x4000 != 0 {
                 return Err(ParseError::Fail);
             }
@@ -616,18 +776,44 @@ fn parse_nsh(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
     }
 }
 
-// ── Simple L2 encapsulation leaves ──────────────────────────────────
-// BATMAN/PBB/TRILL are complex encapsulation protocols with validation.
-// In the compiled parser, we treat them as successful leaf nodes.
+// ── L2 encapsulation protocols → inner Ethernet dispatch ────────────
 
-fn parse_batman(pkt: &[u8]) -> Result<(), ParseError> {
-    leaf(pkt, 24)
+fn parse_batman(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    // BATMAN-adv: 24-byte header, inner ethertype at bytes 22-23
+    if pkt.len() < 24 {
+        return Err(ParseError::Length);
+    }
+    let next = u16::from_be_bytes([pkt[22], pkt[23]]) as i64;
+    dispatch_ether(next, &pkt[24..], depth, meta)
 }
-fn parse_pbb(pkt: &[u8]) -> Result<(), ParseError> {
-    leaf(pkt, 18)
+
+fn parse_pbb(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    // PBB (802.1ah): 18-byte header (4B I-tag + 14B inner Ethernet), ethertype at bytes 16-17
+    if pkt.len() < 18 {
+        return Err(ParseError::Length);
+    }
+    let next = u16::from_be_bytes([pkt[16], pkt[17]]) as i64;
+    dispatch_ether(next, &pkt[18..], depth, meta)
 }
-fn parse_trill(pkt: &[u8]) -> Result<(), ParseError> {
-    leaf(pkt, 20)
+
+fn parse_trill(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseError> {
+    if depth >= MAX_DEPTH {
+        return Err(ParseError::MaxNodes);
+    }
+    // TRILL: 6-byte base + inner Ethernet (14B), ethertype at bytes 18-19
+    // Variable header length: 2 * (op_len field) + 6
+    if pkt.len() < 20 {
+        return Err(ParseError::Length);
+    }
+    // Read ethertype from the inner Ethernet at offset 18
+    let next = u16::from_be_bytes([pkt[18], pkt[19]]) as i64;
+    dispatch_ether(next, &pkt[20..], depth, meta)
 }
 
 // ── LLC/SNAP dispatch ────────────────────────────────────────────
