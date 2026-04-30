@@ -1,19 +1,19 @@
 # proto-audit Status
 
-## Current State (2026-04-20)
+## Current State (2026-04-29)
 
-459 curated protocols audited across 13 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI, xtcp2).
-467 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, xtcp2 Go struct parser tests, and exhaustive TOML coverage validation.
-206 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
-196 PCAP templates with valid protocol content for round-trip validation.
-Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
+567 curated protocols audited across 16 sources (XDP2, kernel, DPDK, nDPI, pppd, Scapy, tshark, etherparse, libpcap, Kaitai Struct, Suricata, OMI, xtcp2, RDMA, xdp2_headers, UE spec).
+517 unit tests including roundtrip, cross-source, PCAP generation, cross-generator, OMI triangle roundtrip, DPDK/nDPI/pppd extractor tests, nested struct/union resolution tests, xtcp2 Go struct parser tests, and exhaustive TOML coverage validation.
+333 protocols with Gold-tier round-trip validation (IR → PCAP → tshark → IR).
+378 PCAP templates with valid protocol content for round-trip validation.
+529 Rust ProtocolOps in xdp2-rs — 100% coverage of all Gold (333), Silver (41), and Bronze (63) tiers.
 332 libpcap + 332 etherparse per-protocol overlay patches (incl. 27 trading `trading_*.patch` each).
 
 ### Source Coverage Summary
 
 | Source | Coverage |
 |--------|----------|
-| XDP2 proto_defs | 238 (incl. 16 new trading leaf proto_defs) |
+| XDP2 proto_defs | 459 (incl. 16 trading leaf proto_defs) |
 | Etherparse structs | 332 overlay patches |
 | Libpcap overlays | 332 overlay patches |
 | Scapy classes | 5,798 (109 curated) |
@@ -31,18 +31,34 @@ Pipeline coverage: 1456/3448 cells PASS (42.2%) across 8 code generators.
 
 | Tier | Count | Meaning |
 |------|-------|---------|
-| Gold | 206 | Round-trip validated (IR → PCAP → tshark → IR matches) |
-| Silver | 36 | 2+ independent sources agree on field layout |
-| Bronze | 27 | Single source, self-consistent |
-| Unvalidated | 13 + ~8,100 discovered | Discovered but not yet verified |
+| Gold | 333 | Round-trip validated (IR → PCAP → tshark → IR matches) |
+| Silver | 41 | 2+ independent sources agree on field layout |
+| Bronze | 63 | Single source, self-consistent |
+| Unvalidated | 22 + ~8,100 discovered | Discovered but not yet verified |
 
-### Gold-Validated Protocols (206)
+### Gold-Validated Protocols (333)
 
 Round-trip validated through wire bytes — IR serialized to PCAP, parsed by tshark, extracted back to IR, field-by-field comparison passes.
 
 See `docs/pipeline-coverage.md` for the full list of 8/8 and 7/8 protocols.
 
 ### Recent Changes
+
+#### Full Rust Protocol Coverage — 529 ProtocolOps (2026-04-29)
+
+Achieved 100% parity between C proto_defs and Rust ProtocolOps across all validation tiers:
+- **333 Gold** protocols — all have Rust ProtocolOps
+- **41 Silver** protocols — all have Rust ProtocolOps
+- **63 Bronze** protocols — all have Rust ProtocolOps
+- **check-rs CI gate** passes with zero C-only protocols
+- Fixed 16 ITCH v5/PITCH v2 NAME constant spacing mismatches
+- Aligned 73 canonical names in table.rs to match C/Rust conventions
+- Added 204 new ProtocolOps across 29 new module files
+- Curated protocols: 459→567, unit tests: 467→517, Rust ProtocolOps: 325→529
+
+#### SCSI/SAS/FC Storage + ML/HPC Protocols (2026-04-28)
+
+50 SCSI/SAS/FC storage protocols (iSCSI PDUs, SRP, FCP, FC ELS, FC GS/NS, SAS/ATA) and 23 ML/HPC protocols (Falcon, NVMe/TCP, NVMe/RDMA, RoCEv2, eCPRI, PFC) added as curated entries.
 
 #### xtcp2 Source Addition — Go Netlink Parser Structs (2026-04-20)
 
@@ -54,7 +70,7 @@ Added xtcp2 (github.com/randomizedcoder/xtcp2) as 13th source — a Go-based net
 - **TOML mappings** (`mappings/xtcp2.toml`): Go type → bit size, endianness (all Little Endian), struct sizes
 - **Nix-pinned** to commit `a52e2f4` via `fetchFromGitHub`
 - **15 new tests**: struct parsing for all 9 protocol types, type alias resolution, size constant extraction, snake_case conversion, array type handling, endianness mapping
-- Curated protocols: 450→459, unit tests: 452→467, sources: 12→13
+- Curated protocols: 450→459, unit tests: 452→467, sources: 12→13→16
 
 #### Netlink Message Coverage + Parser Fix (2026-04-20)
 
@@ -184,6 +200,9 @@ Added missing imports for GTP, HomePlug_AV, HTTP2, and TLS record layer — enab
 
 | Iter | Key Change | Protocols | Tests |
 |------|------------|-----------|-------|
+| 33 | Full Rust coverage: 529 ProtocolOps (100% Gold/Silver/Bronze), 73 canonical name fixes, check-rs CI gate passes | 567 | 517 |
+| 32 | 50 SCSI/SAS/FC storage protocols, 23 ML/HPC protocols | 542 | 509 |
+| 31 | xtcp2 Go structs, 17 netlink messages, PCAP template expansion, Gold 206→333 | 459 | 467 |
 | 30 | 17 netlink message structs (5 subsystems), comment-semicolon parser fix, C type coverage expansion | 450 | 452 |
 | 29 | Nested struct/union expansion, 3 new kernel mappings (IB_GRH, PPTP, LACP), typedef support | 431 | 450 |
 | 28 | DPDK/nDPI/pppd extractors, 12 new kernel mappings, 3 DPDK-only protos | 431 | 442 |

@@ -1,40 +1,48 @@
 # Proto-Audit Protocol Coverage Report
 
-> Updated 2026-04-13 | 428 curated protocols | 9 sources (incl. OMI trading)
+> Updated 2026-04-29 | 567 curated protocols | 16 sources (incl. OMI trading, SCSI/SAS/FC storage, ML/HPC)
 >
 > Note: Parts of this document are generated from proto-audit report output.
 > Reproduce with `nix run .#proto-audit -- matrix` and `nix run .#proto-audit -- stats`.
 
 ## Overview
 
-The proto-audit tool cross-references protocol header definitions across nine independent sources to find discrepancies in field layout, byte ordering, type classification, and header size. This document captures the current coverage state: which protocols are tracked, which sources know about each one, and where the sources disagree.
+The proto-audit tool cross-references protocol header definitions across sixteen independent sources to find discrepancies in field layout, byte ordering, type classification, and header size. This document captures the current coverage state: which protocols are tracked, which sources know about each one, and where the sources disagree.
 
 ### Sources
 
 | Source | What it provides | Coverage |
 |--------|-----------------|----------|
-| **XDP2** | In-tree parser struct definitions (`xdp2_parse_*`) | 238 proto_defs (incl. 16 new trading) |
-| **Linux kernel** | UAPI struct definitions (`iphdr`, `tcphdr`, ...) | 74 protocols (173 in registry) |
-| **Scapy** | Python packet class field descriptors | 5,798 classes (109 curated) |
+| **XDP2** | In-tree parser struct definitions (`xdp2_parse_*`) | 459 proto_defs (incl. 16 trading) |
+| **Linux kernel** | UAPI struct definitions (`iphdr`, `tcphdr`, ...) | 109 protocols (190 in registry, incl. 17 netlink subsystem messages) |
+| **Scapy** | Python packet class field descriptors | 5,786 classes (109 curated) |
 | **tshark** | Wireshark dissector PDML field output | 3,155 protocols (305 from corpus) |
 | **etherparse** | Rust crate structs + overlay patches | 332 overlay patches |
 | **libpcap** | BPF gencode + C struct overlay patches | 332 overlay patches |
 | **Kaitai Struct** | Format specification files (.ksy) | ~20 protocols (12 curated) |
 | **Suricata** | Rust app-layer parser structs | ~15 protocols (20 curated) |
 | **OMI** | Exchange trading c-structs + Wireshark Lua dissectors | ~27 trading msgs (ITCH v5, PITCH v2, SBE MDP3, EOBI, SoupBinTCP) |
+| **DPDK** | DPDK packed protocol header structs | 24 protocols |
+| **nDPI** | nDPI deep packet inspection wire structs | 13 protocols |
+| **pppd** | PPP daemon protocol headers and constants | 7 protocols |
+| **xtcp2** | Go netlink parser structs | 11 protocols |
+| **RDMA** | RDMA/InfiniBand kernel UAPI structs | ~10 protocols |
+| **xdp2_headers** | XDP2 C header struct field definitions | ~50 protocols |
+| **UE spec** | 3GPP UE protocol specifications | 5 protocols |
 
 ### Audit Summary
 
 | Metric | Count |
 |--------|-------|
-| Total protocols tracked | 8,358 |
-| Curated (Tier 1) | 206 |
-| Discovered (Tier 2) | 8,152 |
-| Gold (round-trip validated) | 112 |
-| Silver (2+ sources agree) | 36 |
-| Bronze (single source) | 27 |
-| PCAP-routable | 205/206 |
-| Multi-source (2+) | 1,198 |
+| Total protocols tracked | ~8,700 |
+| Curated (Tier 1) | 567 |
+| Discovered (Tier 2) | ~8,100 |
+| Gold (round-trip validated) | 333 |
+| Silver (2+ sources agree) | 41 |
+| Bronze (single source) | 63 |
+| Unvalidated | 22 |
+| Multi-source (2+) | 394 |
+| Rust ProtocolOps (xdp2-rs) | 529 (100% of Gold/Silver/Bronze) |
 
 ## Source Coverage Matrix
 
