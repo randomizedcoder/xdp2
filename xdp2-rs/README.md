@@ -166,6 +166,94 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
+## Benchmarking and Coverage Verification
+
+All benchmark targets are hermetic Nix `writeShellApplication` wrappers.
+They build xdp2-bench with fat LTO and `target-cpu=native` for maximum
+optimization, then run against standardized PCAPs.
+
+### Protocol coverage
+
+Verify that all parser modes accept packets with known and unknown protocols:
+
+```bash
+# Acceptance rate + chain histogram on combo.pcap (500K packets)
+nix run .#coverage-check
+
+# Acceptance rate on all data/pcaps/*.pcap files
+nix run .#coverage-check-all
+
+# Custom PCAP
+nix run .#coverage-check -- /path/to/custom.pcap
+```
+
+### Performance benchmarks
+
+```bash
+# Standard benchmark: all parser modes, perf counters
+nix run .#perf-bench
+
+# Custom mode/iterations
+nix run .#perf-bench -- --mode compiled --iterations 1000
+
+# Full performance sweep: all thread counts, JSON output
+nix run .#perf-sweep
+
+# Workload-specific sweeps
+nix run .#sweep-workload-https-web
+nix run .#sweep-workload-nfs-server
+nix run .#sweep-workload-k8s
+nix run .#sweep-workloads-all
+
+# Deep analysis: flamegraphs, assembly annotation, A/B tests
+nix run .#perf-flamegraph
+nix run .#perf-annotate
+nix run .#perf-graph-enum-compare
+nix run .#perf-analysis-all
+```
+
+### PCAP generation
+
+```bash
+# Generate combinatorial test PCAP (requires scapy)
+nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap
+
+# List all valid protocol combinations
+nix run .#gen-test-pcap -- --list
+
+# Cached 500K-packet PCAP (deterministic, in Nix store)
+nix build .#test-pcap       # result/combo.pcap
+
+# Workload-specific PCAPs
+nix build .#workload-pcap-https-web
+nix build .#workload-pcap-nfs-server
+nix build .#workload-pcap-k8s-microservices
+nix run .#gen-workload-pcap -- --list
+```
+
+### Chain-signature exploration
+
+```bash
+# Probe protocol chain distribution on any PCAP
+nix run .#chain-histogram -- /path/to/capture.pcap
+
+# Probe all reference PCAPs
+nix run .#chain-histogram-all
+
+# Probe workload PCAPs
+nix run .#chain-histogram-workloads
+```
+
+### Physical testbed
+
+For bare-metal benchmarking on hp2/hp5 (see `docs/physical-testbed.md`):
+
+```bash
+# Drive any nix target on a remote host via rsync+ssh
+nix run .#run-on-host -- hp5 -- perf-bench
+nix run .#run-on-host -- hp2 -- perf-sweep
+```
+
 ## License
 
 BSD-2-Clause-FreeBSD, matching the XDP2 C codebase.

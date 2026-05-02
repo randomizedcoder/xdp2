@@ -269,6 +269,13 @@
           inherit pkgs xdp2Rs test-pcap;
         };
 
+        # Protocol coverage verification
+        # Usage: nix run .#coverage-check       — acceptance rate on combo.pcap
+        #        nix run .#coverage-check-all   — acceptance rate on all PCAPs
+        coverageCheck = import ./nix/coverage-check.nix {
+          inherit pkgs xdp2Rs test-pcap;
+        };
+
         # Physical-testbed automation wrapper
         # Drives nix targets on hp2/hp5 (or any SSH-reachable host) via
         # rsync + ssh + nix build/run. See docs/physical-testbed.md §9.
@@ -887,6 +894,12 @@
           sweep-workload-nfs-server      = perfAnalysis.sweep-workload-nfs-server;
           sweep-workload-k8s             = perfAnalysis.sweep-workload-k8s;
           sweep-workloads-all            = perfAnalysis.sweep-workloads-all;
+
+          # Protocol coverage verification
+          # nix run .#coverage-check         — acceptance rate + chain histogram
+          # nix run .#coverage-check-all     — acceptance rate on all PCAPs
+          coverage-check     = coverageCheck.check;
+          coverage-check-all = coverageCheck.check-all;
 
           # Generate combinatorial test PCAPs
           # nix run .#gen-test-pcap -- -n 500000 -o /tmp/combo.pcap
