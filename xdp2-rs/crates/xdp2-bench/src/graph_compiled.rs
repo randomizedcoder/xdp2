@@ -669,9 +669,9 @@ fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
         0 => {
             // GRE v0: extract flags metadata (graph engine only extracts for v0)
             meta.gre.flags = flags as u32;
-            // check for routing flag (deprecated)
+            // Routing flag (deprecated) — accept with partial metadata
             if flags & 0x4000 != 0 {
-                return Err(ParseError::Fail);
+                return Ok(());
             }
             // Variable header length based on C/K/S flags
             let mut hlen: usize = 4;
@@ -857,7 +857,7 @@ fn parse_arp(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     let hw_type = u16::from_be_bytes([pkt[0], pkt[1]]);
     let proto_type = u16::from_be_bytes([pkt[2], pkt[3]]);
     let op = u16::from_be_bytes([pkt[6], pkt[7]]);
-    if hw_type != 1 || proto_type != 0x0800 || pkt[4] != 6 || pkt[5] != 4 || (op != 1 && op != 2) {
+    if hw_type != 1 || pkt[4] != 6 {
         return Err(ParseError::Fail);
     }
     // Extract ARP metadata

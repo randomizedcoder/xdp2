@@ -744,7 +744,7 @@ fn parse_vxlan(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     let rest = &pkt[hlen..];
     match next {
         0x6558 => parse_eth(rest, 0, meta), // ETH_P_TEB: inner Ethernet
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()), // stop-leaf: unknown VXLAN inner
     }
 }
 

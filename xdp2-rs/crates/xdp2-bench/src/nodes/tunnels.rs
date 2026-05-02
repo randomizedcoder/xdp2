@@ -21,7 +21,7 @@ pub(crate) static GTPU_NODE: ParseNode<FlowMeta, GtpuOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&GTPU_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "gtpu",
 };
@@ -54,7 +54,7 @@ pub(crate) static VXLAN_GPE_NODE: ParseNode<FlowMeta, VxlanGpeOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&VXLAN_GPE_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "vxlan-gpe",
 };
@@ -71,7 +71,7 @@ pub(crate) static TEREDO_NODE: ParseNode<FlowMeta, TeredoOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&TEREDO_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "teredo",
 };
@@ -89,7 +89,7 @@ pub(crate) static LISP_NODE: ParseNode<FlowMeta, LispOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&LISP_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "lisp",
 };
@@ -106,7 +106,7 @@ pub(crate) static CAPWAP_NODE: ParseNode<FlowMeta, CapwapOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&CAPWAP_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "capwap",
 };
@@ -125,7 +125,7 @@ pub(crate) static GUE_NODE: ParseNode<FlowMeta, GueOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&GUE_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "gue",
 };
@@ -142,7 +142,7 @@ pub(crate) static STT_NODE: ParseNode<FlowMeta, SttOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&STT_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "stt",
 };
@@ -161,7 +161,7 @@ pub(crate) static TZSP_NODE: ParseNode<FlowMeta, TzspOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&TZSP_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "tzsp",
 };
@@ -186,7 +186,7 @@ pub(crate) static VXLAN_NODE: ParseNode<FlowMeta, VxlanOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&VXLAN_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "vxlan",
 };
@@ -228,7 +228,7 @@ pub(crate) static ETHER_INNER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode
         post_handler: None,
     },
     proto_table: Some(&ETHER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ethernet-inner",
 };

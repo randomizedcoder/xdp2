@@ -60,7 +60,7 @@ pub(crate) static AH_V4_NODE: ParseNode<FlowMeta, AhOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV4_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ah-v4",
 };
@@ -73,7 +73,7 @@ pub(crate) static AH_V6_NODE: ParseNode<FlowMeta, AhOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV6_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ah-v6",
 };
@@ -203,7 +203,7 @@ pub(crate) static GRE_BASE_NODE: ParseNode<FlowMeta, GreBaseOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&GRE_BASE_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "gre-base",
 };
@@ -260,7 +260,7 @@ pub(crate) static IPV6_HBH_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV6_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ipv6-hbh",
 };
@@ -273,7 +273,7 @@ pub(crate) static IPV6_DST_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV6_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ipv6-dst",
 };
@@ -286,7 +286,7 @@ pub(crate) static IPV6_ROUTING_NODE: ParseNode<FlowMeta, Ipv6EhOps> = ParseNode 
         post_handler: None,
     },
     proto_table: Some(&IPV6_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ipv6-routing",
 };
@@ -299,7 +299,7 @@ pub(crate) static IPV6_FRAG_NODE: ParseNode<FlowMeta, Ipv6FragOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV6_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ipv6-frag",
 };

@@ -139,7 +139,7 @@ pub(crate) static SNAP_NODE: ParseNode<FlowMeta, LlcSnapOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&ETHER_TABLE), // re-dispatch encapsulated ethertype
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "llc-snap",
 };

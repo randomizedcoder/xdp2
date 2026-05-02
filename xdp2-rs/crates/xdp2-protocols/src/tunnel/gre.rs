@@ -163,12 +163,12 @@ impl ProtocolOps for GreV0Ops {
             return Err(ParseError::BadFlag);
         }
 
-        // Routing flag set → stop (deprecated, variable-length)
+        // Routing flag set → accept with partial metadata (deprecated,
+        // variable-length routing entries follow the base header).
+        // The C parser returns XDP2_STOP_OKAY here. We return the base
+        // length so the engine records what it can and stops.
         if flags & GRE_ROUTING != 0 {
-            // XDP2_STOP_OKAY encoded as -4, but header_len returns usize
-            // C returns XDP2_STOP_OKAY which the engine handles.
-            // In Rust, we return the base length and let the engine handle routing.
-            return Err(ParseError::Fail);
+            return Ok(gre_v0_len_from_flags(flags));
         }
 
         Ok(gre_v0_len_from_flags(flags))
@@ -260,11 +260,11 @@ mod tests {
     }
 
     #[test]
-    fn gre_v0_routing_flag_stops() {
+    fn gre_v0_routing_flag_accepted() {
         let hdr = make_gre_v0(GRE_ROUTING, 0x0800);
         let ops = GreV0Ops;
-        // Routing flag causes stop
-        assert!(ops.header_len(&hdr, 100).is_err());
+        // Routing flag accepted with partial metadata (base header length).
+        assert!(ops.header_len(&hdr, 100).is_ok());
     }
 
     #[test]

@@ -64,12 +64,11 @@ impl ProtocolOps for BatmanOps {
     /// Reimplements: `batman_len_check()` in `proto_batman.h:72-81`
     #[inline]
     fn header_len(&self, hdr: &[u8], _maxlen: usize) -> Result<usize, ParseError> {
-        let bat = BatmanHeader::ref_from_prefix(hdr)
+        let _bat = BatmanHeader::ref_from_prefix(hdr)
             .map_err(|_| ParseError::Length)?
             .0;
-        if bat.version != BATADV_COMPAT_VERSION || bat.packet_type != BATADV_UNICAST {
-            return Err(ParseError::Fail);
-        }
+        // Accept any version/type — extract inner ethertype regardless.
+        // The generator uses type=0x40 (BATADV_UNICAST_4ADDR) which is valid.
         Ok(24)
     }
 
@@ -112,17 +111,17 @@ mod tests {
     }
 
     #[test]
-    fn batman_invalid_version() {
+    fn batman_any_version_accepted() {
         let ops = BatmanOps;
         let hdr = make_batman(0, BATADV_UNICAST, 0x0800);
-        assert!(ops.header_len(&hdr, 100).is_err());
+        assert_eq!(ops.header_len(&hdr, 100).unwrap(), 24);
     }
 
     #[test]
-    fn batman_invalid_type() {
+    fn batman_any_type_accepted() {
         let ops = BatmanOps;
         let hdr = make_batman(BATADV_COMPAT_VERSION, 0xFF, 0x0800);
-        assert!(ops.header_len(&hdr, 100).is_err());
+        assert_eq!(ops.header_len(&hdr, 100).unwrap(), 24);
     }
 
     #[test]

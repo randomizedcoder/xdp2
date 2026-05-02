@@ -82,6 +82,47 @@
 #ifndef ETH_P_MCTP
 #define ETH_P_MCTP	0x00FA
 #endif
+#ifndef ETH_P_IEC61850_GOOSE
+#define ETH_P_IEC61850_GOOSE	0x88B8
+#endif
+#ifndef ETH_P_IEC61850_SV
+#define ETH_P_IEC61850_SV	0x88BA
+#endif
+#ifndef ETH_P_HOMEPLUG_AV
+#define ETH_P_HOMEPLUG_AV	0x88E1
+#endif
+#ifndef ETH_P_LLTD
+#define ETH_P_LLTD	0x893A
+#endif
+#ifndef ETH_P_WOL
+#define ETH_P_WOL	0x0842
+#endif
+
+/* IP protocol numbers not in all kernel headers */
+#ifndef IPPROTO_OSPF
+#define IPPROTO_OSPF	89
+#endif
+#ifndef IPPROTO_EIGRP
+#define IPPROTO_EIGRP	88
+#endif
+#ifndef IPPROTO_VRRP
+#define IPPROTO_VRRP	112
+#endif
+#ifndef IPPROTO_PIM
+#define IPPROTO_PIM	103
+#endif
+#ifndef IPPROTO_RSVP
+#define IPPROTO_RSVP	46
+#endif
+#ifndef IPPROTO_PGM
+#define IPPROTO_PGM	113
+#endif
+#ifndef IPPROTO_COMP
+#define IPPROTO_COMP	108
+#endif
+#ifndef IPPROTO_ETHERIP
+#define IPPROTO_ETHERIP	97
+#endif
 #include "xdp2/parser_metadata.h"
 #include "xdp2/proto_defs_define.h"
 #include "xdp2/utility.h"
@@ -98,6 +139,7 @@
 /* === Extended L2 nodes (userspace only) === */
 #ifndef XDP2_XDP_BUILD
 #include "flow_dissector_nodes_l2.h"
+#include "flow_dissector_nodes_app.h"
 #endif
 
 /* === Protocol dispatch tables === */

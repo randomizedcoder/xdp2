@@ -95,12 +95,11 @@ impl ProtocolOps for ArpOps {
             .map_err(|_| ParseError::Length)?
             .0;
 
+        // Accept any ARP/RARP operation code — we extract metadata
+        // regardless. The strict validation (Ethernet/IPv4 only) is
+        // relaxed to support RARP (ops 3/4) and other ARP variants.
         if earp.arp.hardware_type() != ARPHRD_ETHER
-            || earp.arp.protocol_type() != 0x0800 // ETH_P_IP
             || earp.arp.ar_hln != ETH_ALEN
-            || earp.arp.ar_pln != 4
-            || (earp.arp.operation() != ARPOP_REQUEST
-                && earp.arp.operation() != ARPOP_REPLY)
         {
             return Err(ParseError::Fail);
         }
@@ -175,11 +174,12 @@ mod tests {
     }
 
     #[test]
-    fn arp_invalid_operation() {
+    fn arp_nonstandard_operation_accepted() {
         let mut hdr = make_arp_request();
-        hdr[6..8].copy_from_slice(&42u16.to_be_bytes()); // not REQUEST or REPLY
+        hdr[6..8].copy_from_slice(&42u16.to_be_bytes()); // non-standard op
         let ops = ArpOps;
-        assert_eq!(ops.header_len(&hdr, 100).unwrap_err(), ParseError::Fail);
+        // Any operation code is accepted — we extract metadata regardless.
+        assert_eq!(ops.header_len(&hdr, 100).unwrap(), 28);
     }
 
     #[test]
