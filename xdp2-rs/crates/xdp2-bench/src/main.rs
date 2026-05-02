@@ -33,6 +33,7 @@
 mod af_xdp;
 #[cfg(target_os = "linux")]
 mod af_xdp_template;
+mod bench;
 mod chain_histogram;
 mod cli;
 mod extractors;
@@ -49,6 +50,7 @@ mod report;
 mod runners;
 mod simd_batch;
 mod template;
+mod template_classify;
 mod template_gre;
 mod template_ipip;
 mod template_plain;
@@ -60,9 +62,9 @@ use std::process;
 
 use clap::Parser;
 
-use cli::{AfXdpTemplate, BenchResult, Cli, ParserMode};
+use cli::{AfXdpTemplate, Cli, ParserMode};
 use report::{af_xdp_error, print_af_xdp_stats, print_json_report, report, report_mt};
-use runners::{bench_mono_x4, pin_to_core, run_mt, time_run_passes};
+use runners::pin_to_core;
 
 fn main() {
     let cli = Cli::parse();
@@ -184,341 +186,25 @@ fn main() {
         }
     }
 
-    let total_pkts = npkts as u64 * cli.iterations as u64;
-
-    let run_graph = matches!(cli.mode, ParserMode::Graph | ParserMode::Both);
-    #[cfg(feature = "graph-enum")]
-    let run_graph_enum = matches!(cli.mode, ParserMode::GraphEnum);
-    let run_mono = matches!(cli.mode, ParserMode::Mono | ParserMode::Both);
-    let run_monox4 = matches!(cli.mode, ParserMode::MonoX4 | ParserMode::Both);
-    let run_compiled = matches!(cli.mode, ParserMode::Compiled | ParserMode::Both);
-    let run_simd = matches!(cli.mode, ParserMode::Simd | ParserMode::Both);
-    let run_template = matches!(cli.mode, ParserMode::Template | ParserMode::Both);
-    let run_template_simd = matches!(cli.mode, ParserMode::TemplateSimd | ParserMode::Both);
-
     // Correctness & anti-DCE: count successful parses across one full sweep.
-    let graph_ok = packets
-        .iter()
-        .filter(|pkt| graph::parse_packet(&parser, &pkt.data).is_ok())
-        .count();
-    let mono_ok = packets
-        .iter()
-        .filter(|pkt| {
-            let mut meta = graph::FlowMeta::default();
-            graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok()
-        })
-        .count();
-    let compiled_ok = packets
-        .iter()
-        .filter(|pkt| {
-            let mut meta = graph::FlowMeta::default();
-            graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok()
-        })
-        .count();
-    let template_ok = packets
-        .iter()
-        .filter(|pkt| {
-            let mut meta = graph::FlowMeta::default();
-            template::select_template_id(&pkt.data)
-                .map(|id| template::extract_by_id(&pkt.data, id, &mut meta).is_ok())
-                .unwrap_or(false)
-        })
-        .count();
+    let cc = bench::check_correctness(&packets, &parser);
 
     if !cli.report {
         println!(
             "--- Performance ({} packets x {} iterations, {} template-matched) ---",
-            npkts, cli.iterations, template_ok
+            npkts, cli.iterations, cc.template_ok
         );
     }
 
-    let mut results: Vec<BenchResult> = Vec::new();
-
-    if cli.threads <= 1 {
-        if run_graph {
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let mut acc: u64 = 0;
-                for pkt in &packets {
-                    if graph::parse_packet(&parser, &pkt.data).is_ok() {
-                        acc += 1;
-                    }
-                }
-                std::hint::black_box(acc);
-            });
-            results.push(BenchResult::new("graph", ns, total_pkts, 1, snap));
-        }
-
-        #[cfg(feature = "graph-enum")]
-        if run_graph_enum {
-            let cfg = graph_enum::make_config();
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let mut acc: u64 = 0;
-                for pkt in &packets {
-                    if graph_enum::parse_packet(&cfg, &pkt.data).is_ok() {
-                        acc += 1;
-                    }
-                }
-                std::hint::black_box(acc);
-            });
-            results.push(BenchResult::new("graph-enum", ns, total_pkts, 1, snap));
-        }
-
-        if run_mono {
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let mut acc: u64 = 0;
-                let mut meta = graph::FlowMeta::default();
-                for pkt in &packets {
-                    meta = graph::FlowMeta::default();
-                    if graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok() {
-                        acc += 1;
-                    }
-                }
-                std::hint::black_box(acc);
-                std::hint::black_box(&meta);
-            });
-            results.push(BenchResult::new("mono", ns, total_pkts, 1, snap));
-        }
-
-        if run_monox4 {
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                std::hint::black_box(bench_mono_x4(&packets));
-            });
-            results.push(BenchResult::new("mono-x4", ns, total_pkts, 1, snap));
-        }
-
-        if run_compiled {
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let mut acc: u64 = 0;
-                let mut meta = graph::FlowMeta::default();
-                for pkt in &packets {
-                    meta = graph::FlowMeta::default();
-                    if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
-                        acc += 1;
-                    }
-                }
-                std::hint::black_box(acc);
-                std::hint::black_box(&meta);
-            });
-            results.push(BenchResult::new("compiled", ns, total_pkts, 1, snap));
-        }
-
-        if run_simd && simd_batch::is_available() {
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let mut meta = graph::FlowMeta::default();
-                std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(&packets, &mut meta) });
-                std::hint::black_box(&meta);
-            });
-            results.push(BenchResult::new("simd", ns, total_pkts, 1, snap));
-        } else if run_simd {
-            eprintln!("warning: AVX2 not available, skipping SIMD benchmark");
-        }
-
-        if run_template {
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let mut acc: u64 = 0;
-                let mut meta = graph::FlowMeta::default();
-                for pkt in &packets {
-                    meta = graph::FlowMeta::default();
-                    if let Some(id) = template::select_template_id(&pkt.data) {
-                        if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
-                            acc += 1;
-                        }
-                    } else {
-                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
-                            acc += 1;
-                        }
-                    }
-                }
-                std::hint::black_box(acc);
-                std::hint::black_box(&meta);
-            });
-            results.push(BenchResult::new("template", ns, total_pkts, 1, snap));
-        }
-
-        if run_template_simd && template_simd::is_available() {
-            let template_ids: Vec<Option<template::TemplateId>> = packets
-                .iter()
-                .map(|pkt| template::select_template_id(&pkt.data))
-                .collect();
-            let (ns, snap) = time_run_passes(&perf_passes, cli.iterations, || {
-                let batch_acc = template_simd::extract_batch(&packets, &template_ids);
-                let mut meta = graph::FlowMeta::default();
-                let mut fallback_acc: u64 = 0;
-                for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
-                    if tid.is_none() {
-                        meta = graph::FlowMeta::default();
-                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
-                            fallback_acc += 1;
-                        }
-                    }
-                }
-                std::hint::black_box(batch_acc + fallback_acc);
-                std::hint::black_box(&meta);
-            });
-            results.push(BenchResult::new("template-simd", ns, total_pkts, 1, snap));
-        } else if run_template_simd {
-            eprintln!("warning: AVX2 not available, skipping template-simd benchmark");
-        }
-    } else {
-        if !cli.report {
-            eprintln!(
-                "Multi-threaded benchmark: {} threads (perf counters disabled)",
-                cli.threads
-            );
-        }
-        if run_graph {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                let slice = std::hint::black_box(slice);
-                let mut acc: u64 = 0;
-                for pkt in slice {
-                    if graph::parse_packet(&parser, &pkt.data).is_ok() {
-                        acc += 1;
-                    }
-                }
-                acc
-            });
-            results.push(BenchResult::new(
-                "graph-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-
-        if run_mono {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                let slice = std::hint::black_box(slice);
-                let mut acc: u64 = 0;
-                let mut meta = graph::FlowMeta::default();
-                for pkt in slice {
-                    meta = graph::FlowMeta::default();
-                    if graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok() {
-                        acc += 1;
-                    }
-                }
-                std::hint::black_box(&meta);
-                acc
-            });
-            results.push(BenchResult::new(
-                "mono-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-
-        if run_monox4 {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                bench_mono_x4(slice)
-            });
-            results.push(BenchResult::new(
-                "mono-x4-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-
-        if run_compiled {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                let slice = std::hint::black_box(slice);
-                let mut acc: u64 = 0;
-                let mut meta = graph::FlowMeta::default();
-                for pkt in slice {
-                    meta = graph::FlowMeta::default();
-                    if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
-                        acc += 1;
-                    }
-                }
-                std::hint::black_box(&meta);
-                acc
-            });
-            results.push(BenchResult::new(
-                "compiled-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-
-        if run_simd && simd_batch::is_available() {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                let mut meta = graph::FlowMeta::default();
-                let r = unsafe { simd_batch::parse_batch_avx2(slice, &mut meta) };
-                std::hint::black_box(&meta);
-                r
-            });
-            results.push(BenchResult::new(
-                "simd-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-
-        if run_template {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                let slice = std::hint::black_box(slice);
-                let mut acc: u64 = 0;
-                let mut meta = graph::FlowMeta::default();
-                for pkt in slice {
-                    meta = graph::FlowMeta::default();
-                    if let Some(id) = template::select_template_id(&pkt.data) {
-                        if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
-                            acc += 1;
-                        }
-                    } else {
-                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
-                            acc += 1;
-                        }
-                    }
-                }
-                std::hint::black_box(&meta);
-                acc
-            });
-            results.push(BenchResult::new(
-                "template-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-
-        if run_template_simd && template_simd::is_available() {
-            let ns = run_mt(&packets, cli.iterations, cli.threads, |slice| {
-                let tids: Vec<Option<template::TemplateId>> = slice
-                    .iter()
-                    .map(|pkt| template::select_template_id(&pkt.data))
-                    .collect();
-                let batch_acc = template_simd::extract_batch(slice, &tids);
-                let mut meta = graph::FlowMeta::default();
-                let mut fallback_acc: u64 = 0;
-                for (pkt, tid) in slice.iter().zip(tids.iter()) {
-                    if tid.is_none() {
-                        meta = graph::FlowMeta::default();
-                        if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
-                            fallback_acc += 1;
-                        }
-                    }
-                }
-                std::hint::black_box(&meta);
-                batch_acc + fallback_acc
-            });
-            results.push(BenchResult::new(
-                "template-simd-mt",
-                ns,
-                total_pkts,
-                cli.threads,
-                None,
-            ));
-        }
-    }
+    let results = bench::run_benchmarks(
+        &cli.mode,
+        &packets,
+        &parser,
+        cli.iterations,
+        cli.threads,
+        &perf_passes,
+        cli.report,
+    );
 
     // Output results
     if cli.report {
@@ -527,10 +213,10 @@ fn main() {
             npkts,
             cli.iterations,
             &results,
-            graph_ok,
-            mono_ok,
-            compiled_ok,
-            template_ok,
+            cc.graph_ok,
+            cc.mono_ok,
+            cc.compiled_ok,
+            cc.template_ok,
         );
     } else {
         for r in &results {
@@ -542,7 +228,7 @@ fn main() {
         }
         println!(
             "Correctness: graph ok={}/{}, mono ok={}/{}, compiled ok={}/{}, template ok={}/{}",
-            graph_ok, npkts, mono_ok, npkts, compiled_ok, npkts, template_ok, npkts
+            cc.graph_ok, npkts, cc.mono_ok, npkts, cc.compiled_ok, npkts, cc.template_ok, npkts
         );
     }
 }
