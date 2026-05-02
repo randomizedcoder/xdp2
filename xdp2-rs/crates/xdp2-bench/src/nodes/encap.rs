@@ -23,7 +23,7 @@ pub(crate) static PPPOE_NODE: ParseNode<FlowMeta, PppoeOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&PPP_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "pppoe",
 };
@@ -106,7 +106,7 @@ pub(crate) static NSH_NODE: ParseNode<FlowMeta, NshOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&NSH_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "nsh",
 };
@@ -158,7 +158,7 @@ pub(crate) static LLC_NODE: ParseNode<FlowMeta, LlcDispatchOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&LLC_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "llc",
 };
@@ -211,7 +211,7 @@ pub(crate) static ETHER_NODE: ParseNode<FlowMeta, EtherLlcOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&ETHER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ethernet",
 };
@@ -224,7 +224,7 @@ pub(crate) static VLAN_NODE: ParseNode<FlowMeta, VlanLlcOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&ETHER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "vlan",
 };
@@ -237,7 +237,7 @@ pub(crate) static QINQ_NODE: ParseNode<FlowMeta, QinQLlcOps> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&ETHER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "qinq",
 };

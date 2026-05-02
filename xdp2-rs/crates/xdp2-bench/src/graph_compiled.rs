@@ -71,7 +71,7 @@ fn dispatch_ether(
             Ok(())
         }
         0x8906 => leaf(rest, 38), // FCoE
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()),                // unknown ethertype — stop with partial metadata
     }
 }
 
@@ -317,7 +317,7 @@ fn dispatch_ipv4(
         108 => leaf(rest, 4),   // IPComp
         113 => leaf(rest, 16),  // PGM
         97 => leaf(rest, 2),    // EtherIP
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()),                   // unknown IPv4 protocol — stop with partial metadata
     }
 }
 
@@ -528,7 +528,7 @@ fn dispatch_ipv6(
                 rest = &rest[hlen..];
                 depth += 1;
             }
-            _ => return Err(ParseError::UnknownProto),
+            _ => return Ok(()),                // unknown IPv6 protocol — stop with partial metadata
         }
     }
 }
@@ -650,7 +650,7 @@ fn parse_geneve(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), Parse
     match next {
         0x6558 => parse_ethernet(rest, depth + 1, meta),
         0x0800 | 0x86DD => parse_ip_check(rest, depth + 1, meta),
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()),                                              // unknown Geneve inner — stop
     }
 }
 
@@ -711,7 +711,7 @@ fn parse_gre(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
             match next {
                 0x0800 | 0x86DD => parse_ip_check(rest, depth + 1, meta),
                 0x6558 => parse_ethernet(rest, depth + 1, meta), // ETH_P_TEB
-                _ => Err(ParseError::UnknownProto),
+                _ => Ok(()),                                      // unknown GRE inner — stop
             }
         }
         _ => Ok(()), // GRE v1 → stop-leaf
@@ -732,7 +732,7 @@ fn parse_pppoe(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseE
     let rest = &pkt[8..];
     match ppp_proto {
         0x0021 | 0x0057 => parse_ip_check(rest, depth + 1, meta), // PPP_IP / PPP_IPV6
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()),                                              // unknown PPP protocol — stop
     }
 }
 
@@ -772,7 +772,7 @@ fn parse_nsh(pkt: &[u8], depth: u32, meta: &mut FlowMeta) -> Result<(), ParseErr
         0x0800 | 0x86DD => parse_ip_check(rest, depth + 1, meta),
         0x6558 => parse_ethernet(rest, depth + 1, meta),
         0x8847 => parse_mpls(rest, meta),
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()),                         // unknown NSH inner protocol — stop
     }
 }
 
@@ -826,7 +826,7 @@ fn parse_llc(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
         // DSAP
         0xAA => parse_snap(pkt, meta),
         0x42 => Ok(()), // STP leaf
-        _ => Err(ParseError::UnknownProto),
+        _ => Ok(()),    // unknown LLC DSAP — stop
     }
 }
 

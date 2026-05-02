@@ -212,7 +212,7 @@ pub(crate) static GENEVE_NODE: ParseNode<FlowMeta, GeneveV0Ops> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&GENEVE_INNER_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "geneve",
 };

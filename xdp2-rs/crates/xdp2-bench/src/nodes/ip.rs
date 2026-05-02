@@ -40,7 +40,7 @@ pub(crate) static IPV4_NODE: ParseNode<FlowMeta, Ipv4Ops> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV4_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ipv4",
 };
@@ -158,7 +158,7 @@ pub(crate) static GRE_V0_INNER_NODE: ParseNode<FlowMeta, GreV0Ops> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&GRE_V0_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "gre-v0",
 };
@@ -245,7 +245,7 @@ pub(crate) static IPV6_NODE: ParseNode<FlowMeta, Ipv6Ops> = ParseNode {
         post_handler: None,
     },
     proto_table: Some(&IPV6_TABLE),
-    wildcard_node: None,
+    wildcard_node: Some(&STOP_LEAF_NODE),
     unknown_ret: ParseError::UnknownProto,
     name: "ipv6",
 };
