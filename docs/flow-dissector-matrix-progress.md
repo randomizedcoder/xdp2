@@ -15,8 +15,8 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | Phase | Name                                                     | Status         | Started     | Completed   | Commit(s) |
 |-------|----------------------------------------------------------|----------------|-------------|-------------|-----------|
 | 0     | Pre-flight                                               | done           | 2026-05-02  | 2026-05-02  | `ecd2642` |
-| 1     | `testbed-config` schema + loader                         | done           | 2026-05-02  | 2026-05-02  | (next commit) |
-| 2     | `testbed-config`-to-module adapter                       | not started    | —           | —           | —         |
+| 1     | `testbed-config` schema + loader                         | done           | 2026-05-02  | 2026-05-02  | `9c6caa1` |
+| 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | (next commit) |
 | 3     | `nic-tuning` NixOS module (i40e)                         | not started    | —           | —           | —         |
 | 4     | Refactor `physical-testbed-runner`                       | not started    | —           | —           | —         |
 | 5     | Refactor `flow-dissector-matrix-runner`                  | not started    | —           | —           | —         |
@@ -111,28 +111,65 @@ error: testbed-config: exactly one host must have role='dut', got 2
 
 ## Phase 2 — `testbed-config`-to-module adapter
 
-**Status:** not started
+**Status:** done
 
-Pending implementation. Will produce:
-- `nix/modules/testbed-config-adapter.nix` — pure helper mapping
-  testbed-config attrset onto the existing
-  `xdp2.testbed.*` options exposed by
-  `nix/modules/physical-testbed.nix`.
-- `flake.nix` — expose `lib.testbedConfigToModule`.
+**Files landed:**
+- `nix/modules/testbed-config-adapter.nix` — pure helper. Provides
+  `testbedConfigToModule { config; role; }` that returns the
+  `xdp2.testbed.*` config values for a given host role, plus a
+  `parseCpuRange` utility (Linux-style `"2-7"` / `"2,4-6"` strings
+  → integer list) and a `tests` attrset of pure-Nix unit tests.
+- `flake.nix` — exposes `lib.testbedConfigToModule`,
+  `lib.parseCpuRange`, and `lib.testbedConfigAdapterTests`.
 
-**Note:** Plan originally called this a "refactor" of
-`physical-testbed.nix`. Investigation showed the module is already
-fully option-driven (nothing hardcoded to `hp2`/`hp5`); a
-**non-invasive adapter** is the correct shape. The module itself is
-not modified in this work.
+**Mappings implemented:**
 
-**Definition of Done (from plan):**
-- `nix eval .#lib.testbedConfigToModule .#testbedConfigs.hp2-hp5-x710 "dut"`
-  produces an attrset with
-  `xdp2.testbed.isolatedCpus = [ 2 3 4 5 6 7 ]`,
-  `hugepages2M = 1024`.
-- CPU-range parser handles `"2-7"` → `[ 2 3 4 5 6 7 ]` and
-  `"2,4-6"` → `[ 2 4 5 6 ]`.
+| testbed-config field                        | xdp2.testbed.* output       |
+|---------------------------------------------|-----------------------------|
+| `hosts.<role>.isolated_cpus`                | `isolatedCpus` (list of int, range-parsed) |
+| `hosts.<role>.hugepage_count`               | `hugepages2M`               |
+| `nic.dut_iface` / `nic.gen_iface`           | `peerInterfaces` (one entry, role-selected) |
+| `hosts.<role>.governor` + `mitigations`     | `lowJitter` (true if perf + off) |
+| `hosts.<role>.mitigations`                  | `disableMitigations`        |
+| (always)                                    | `enable = true`             |
+
+The existing `physical-testbed.nix` module is **not modified** —
+the adapter speaks its option language as-is.
+
+**Verification (all DoD criteria — actual output):**
+
+```bash
+# Adapter unit tests (CPU-range parser round-trips)
+$ nix eval .#lib.testbedConfigAdapterTests.ok
+true
+
+# DUT role on the reference x710 testbed
+$ nix eval --impure --json --expr '
+    let lib = import <nixpkgs/lib>;
+        tlib = import ./nix/testbed-config.nix { inherit lib; };
+        adapter = import ./nix/modules/testbed-config-adapter.nix { inherit lib; };
+        cfg = tlib.loadTestbedConfig ./testbeds/hp2-hp5-x710.toml;
+    in adapter.testbedConfigToModule { config = cfg; role = "dut"; }'
+{"xdp2":{"testbed":{"disableMitigations":true,"enable":true,
+  "hugepages2M":1024,"isolatedCpus":[2,3,4,5,6,7],
+  "lowJitter":true,"peerInterfaces":["enp1s0f0"]}}}
+
+# Generator role picks gen_iface
+... role = "generator"; }
+peerInterfaces = ["enp1s0f1"]
+
+# Mellanox sketch parses 24-CPU isolation + 4096 hugepages
+... ./testbeds/example-mellanox-cx4.toml ... role = "dut"; }
+isolatedCpus = [8..31] (24 entries), hugepages2M = 4096,
+peerInterfaces = ["enp1s0f0np0"]
+```
+
+**Notes:**
+- `nix eval .#lib.testbedConfigToModule ...` via the flake hits the
+  same untracked-socket-file impurity as Phase 1; direct module
+  imports remain the working verification path. Cleanup of the
+  working tree (untracked `result-*` symlinks, `.sock` files) is
+  out of scope for this session.
 
 ## Phases 3–9
 

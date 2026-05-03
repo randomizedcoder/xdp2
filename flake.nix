@@ -1189,6 +1189,7 @@
           # System-independent outputs reuse nixpkgs.lib directly.
           lib = nixpkgs.lib;
           testbedLib = import ./nix/testbed-config.nix { inherit lib; };
+          testbedAdapter = import ./nix/modules/testbed-config-adapter.nix { inherit lib; };
         in
         {
           # ---- System-independent outputs ----
@@ -1224,6 +1225,12 @@
           # Phase 2 adapter).
           lib = {
             inherit (testbedLib) loadTestbedConfig loadAll;
+            # Adapter: lowers a testbed-config onto xdp2.testbed.*
+            # options for a given host role.
+            inherit (testbedAdapter) testbedConfigToModule parseCpuRange;
+            # Pure-Nix unit tests for the adapter (CPU-range parser
+            # round-trips). Evaluation throws on failure.
+            testbedConfigAdapterTests = testbedAdapter.tests;
           };
         }
       );
