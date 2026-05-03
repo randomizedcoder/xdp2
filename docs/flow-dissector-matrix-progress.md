@@ -16,7 +16,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 |-------|----------------------------------------------------------|----------------|-------------|-------------|-----------|
 | 0     | Pre-flight                                               | done           | 2026-05-02  | 2026-05-02  | `ecd2642` |
 | 1     | `testbed-config` schema + loader                         | done           | 2026-05-02  | 2026-05-02  | `9c6caa1` |
-| 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | (next commit) |
+| 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | `ca7739f` |
 | 3     | `nic-tuning` NixOS module (i40e)                         | not started    | —           | —           | —         |
 | 4     | Refactor `physical-testbed-runner`                       | not started    | —           | —           | —         |
 | 5     | Refactor `flow-dissector-matrix-runner`                  | not started    | —           | —           | —         |
