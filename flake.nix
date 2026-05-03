@@ -1184,23 +1184,47 @@
 
         # Development shell
         devShells.default = devshell;
-      }) // {
-        # ---- System-independent outputs ----
+      }) // (
+        let
+          # System-independent outputs reuse nixpkgs.lib directly.
+          lib = nixpkgs.lib;
+          testbedLib = import ./nix/testbed-config.nix { inherit lib; };
+        in
+        {
+          # ---- System-independent outputs ----
 
-        # NixOS module for physical benchmark hosts (hp2, hp5, replicas).
-        # See docs/physical-testbed.md §5–§6 for the full option set.
-        # Consumer:
-        #   imports = [ inputs.xdp2.nixosModules.physical-testbed ];
-        #   xdp2.testbed = {
-        #     enable = true;
-        #     peerInterfaces = [ "enp1s0f0np0" "enp1s0f1np1" ];
-        #     addresses = {
-        #       enp1s0f0np0 = { local = "10.10.0.5/29"; peer = "10.10.0.2"; };
-        #       enp1s0f1np1 = { local = "10.10.1.5/29"; peer = "10.10.1.2"; };
-        #     };
-        #     isolatedCpus = [ 2 3 4 5 6 7 ];
-        #     hugepages2M = 512;
-        #   };
-        nixosModules.physical-testbed = ./nix/modules/physical-testbed.nix;
-      };
+          # NixOS module for physical benchmark hosts (hp2, hp5, replicas).
+          # See docs/physical-testbed.md §5–§6 for the full option set.
+          # Consumer:
+          #   imports = [ inputs.xdp2.nixosModules.physical-testbed ];
+          #   xdp2.testbed = {
+          #     enable = true;
+          #     peerInterfaces = [ "enp1s0f0np0" "enp1s0f1np1" ];
+          #     addresses = {
+          #       enp1s0f0np0 = { local = "10.10.0.5/29"; peer = "10.10.0.2"; };
+          #       enp1s0f1np1 = { local = "10.10.1.5/29"; peer = "10.10.1.2"; };
+          #     };
+          #     isolatedCpus = [ 2 3 4 5 6 7 ];
+          #     hugepages2M = 512;
+          #   };
+          nixosModules.physical-testbed = ./nix/modules/physical-testbed.nix;
+
+          # ---- Testbed configurations ----
+          #
+          # Each *.toml in ./testbeds/ is loaded and validated by
+          # nix/testbed-config.nix. Schema is documented in
+          # docs/flow-dissector-matrix-physical-testbed.md §3.
+          #
+          # Inspect:
+          #   nix eval .#testbedConfigs.hp2-hp5-x710.nic.driver
+          #   nix eval .#testbedConfigs.hp2-hp5-x710.hosts.dut.hostname
+          testbedConfigs = testbedLib.loadAll ./testbeds;
+
+          # Helpers for downstream consumers (NixOS host configs,
+          # Phase 2 adapter).
+          lib = {
+            inherit (testbedLib) loadTestbedConfig loadAll;
+          };
+        }
+      );
 }

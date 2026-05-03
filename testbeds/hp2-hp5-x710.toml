@@ -1,0 +1,50 @@
+# Reference testbed instantiation — AMD Ryzen 5 PRO 2400G (Zen 1) × 2,
+# Intel X710 10GbE, NixOS bare-metal. This file reproduces the
+# 2026-05-02 reference run captured in
+# perf-results/2026-05-02-physical-testbed-summary.md.
+#
+# Schema documented in docs/flow-dissector-matrix-physical-testbed.md §3
+# and validated by nix/testbed-config.nix.
+
+[testbed]
+name        = "hp2-hp5-x710"
+description = "AMD Ryzen 5 PRO 2400G (Zen 1) × 2, Intel X710 10GbE, NixOS"
+
+[[hosts]]
+role           = "dut"
+hostname       = "hp5"
+arch           = "x86_64-linux"
+cpu_vendor     = "amd"
+cpu_uarch      = "zen1"
+isolated_cpus  = "2-7"
+hugepage_count = 1024
+governor       = "performance"
+mitigations    = "off"
+
+[[hosts]]
+role          = "generator"
+hostname      = "hp2"
+arch          = "x86_64-linux"
+cpu_vendor    = "amd"
+cpu_uarch     = "zen1"
+isolated_cpus = "2-7"
+hugepage_count = 1024
+governor       = "performance"
+mitigations    = "off"
+
+[nic]
+driver          = "i40e"
+model           = "Intel X710"
+dut_iface       = "enp1s0f0"
+gen_iface       = "enp1s0f1"
+link_speed_gbps = 10
+queues          = 8
+zerocopy_afxdp  = true
+flow_director   = "ethtool"
+rss_config      = "default"
+
+[run]
+iterations_combo    = 200
+iterations_tcp_ipv4 = 500
+iterations_mixed    = 200
+afxdp_duration_s    = 30

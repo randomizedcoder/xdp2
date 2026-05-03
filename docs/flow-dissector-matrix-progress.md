@@ -14,8 +14,8 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 
 | Phase | Name                                                     | Status         | Started     | Completed   | Commit(s) |
 |-------|----------------------------------------------------------|----------------|-------------|-------------|-----------|
-| 0     | Pre-flight                                               | done           | 2026-05-02  | 2026-05-02  | (this commit) |
-| 1     | `testbed-config` schema + loader                         | not started    | —           | —           | —         |
+| 0     | Pre-flight                                               | done           | 2026-05-02  | 2026-05-02  | `ecd2642` |
+| 1     | `testbed-config` schema + loader                         | done           | 2026-05-02  | 2026-05-02  | (next commit) |
 | 2     | `testbed-config`-to-module adapter                       | not started    | —           | —           | —         |
 | 3     | `nic-tuning` NixOS module (i40e)                         | not started    | —           | —           | —         |
 | 4     | Refactor `physical-testbed-runner`                       | not started    | —           | —           | —         |
@@ -55,22 +55,59 @@ merge/matrix-physical-testbed
 
 ## Phase 1 — `testbed-config` schema + loader
 
-**Status:** not started
+**Status:** done
 
-Pending implementation. Will produce:
-- `nix/testbed-config.nix` — TOML loader + validator.
-- `testbeds/hp2-hp5-x710.toml` — reference testbed (Intel X710 / i40e).
+**Files landed:**
+- `nix/testbed-config.nix` — pure-Nix TOML loader + validator.
+  Exposes `loadTestbedConfig`, `loadAll`, plus the supported sets
+  for uarch, driver, and flow-director styles.
+- `testbeds/hp2-hp5-x710.toml` — reference testbed (Intel X710 / i40e
+  / AMD Zen 1).
 - `testbeds/example-mellanox-cx4.toml` — Mellanox sketch
-  (mlx5_core / tc-flower) for portability validation.
-- `flake.nix` — expose `testbedConfigs.<name>`.
+  (mlx5_core / tc-flower / AMD Zen 2 / 25 GbE) for portability
+  validation.
+- `flake.nix` — exposes `testbedConfigs.<name>` (system-independent
+  output) loaded via `loadAll ./testbeds`, and `lib.loadTestbedConfig`
+  / `lib.loadAll` helpers for downstream consumers.
 
-**Definition of Done (from plan):**
-- `nix eval .#testbedConfigs.hp2-hp5-x710.nic.driver` → `"i40e"`
-- `nix eval .#testbedConfigs.example-mellanox-cx4.nic.driver` →
-  `"mlx5_core"`
-- `nix eval .#testbedConfigs.hp2-hp5-x710.hosts.dut.hostname` →
-  `"hp5"`
-- TOML with two `dut` roles fails evaluation with a clear message.
+**Validation invariants enforced:**
+- `cpu_uarch` must be in `{zen1..zen4, skylake, icelake, icx,
+  sapphirerapids, neoverse-n1, neoverse-v1}`.
+- `nic.driver` must be in `{i40e, ice, mlx5_core, bnxt_en}`.
+- `nic.flow_director` must be in `{ethtool, tc-flower, devlink}`.
+- Exactly one host with `role = "dut"`; at most one with
+  `role = "generator"`.
+
+**Verification (all four DoD criteria — actual output):**
+
+```bash
+$ nix eval --raw .#testbedConfigs.hp2-hp5-x710.nic.driver
+i40e
+
+$ nix eval --raw .#testbedConfigs.example-mellanox-cx4.nic.driver
+mlx5_core
+
+$ nix eval --raw .#testbedConfigs.hp2-hp5-x710.hosts.dut.hostname
+hp5
+
+$ nix eval --raw .#testbedConfigs.hp2-hp5-x710.hosts.generator.hostname
+hp2
+
+# Bad config (two duts) rejected with clear message:
+$ nix eval --impure --expr 'let lib = import <nixpkgs/lib>; \
+  tlib = import /home/das/Downloads/xdp2/nix/testbed-config.nix \
+    { inherit lib; }; \
+  in (tlib.loadTestbedConfig /tmp/bad-two-duts.toml).testbed.name'
+error: testbed-config: exactly one host must have role='dut', got 2
+```
+
+**Notes:**
+- `nix flake check` not run as a final gate this phase: the working
+  tree currently contains many untracked `result-*` symlinks and a
+  pre-existing `xdp2-test-riscv64.sock` socket file that blocks flake
+  imports unrelated to this work. Direct attribute eval succeeds,
+  proving the loader is sound; full flake check can be re-validated
+  once the working tree is cleaned in a future session.
 
 ## Phase 2 — `testbed-config`-to-module adapter
 

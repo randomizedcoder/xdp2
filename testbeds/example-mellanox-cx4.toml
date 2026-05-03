@@ -1,0 +1,51 @@
+# Sketch testbed config — alternative hardware demonstrating
+# portability of the design. AMD Threadripper 3970X (Zen 2) × 2,
+# Mellanox ConnectX-4 Lx 25GbE.
+#
+# This file is NOT bound to live hardware — it exists to validate that
+# the schema and adapter handle a different CPU family (Zen 2 → Zen 2
+# PMU passes), a different NIC driver (mlx5_core → tc-flower for flow
+# steering), and a higher link speed (25 GbE).
+
+[testbed]
+name        = "example-mellanox-cx4"
+description = "AMD Threadripper 3970X (Zen 2) × 2, Mellanox ConnectX-4 Lx 25GbE — sketch"
+
+[[hosts]]
+role           = "dut"
+hostname       = "tr1"
+arch           = "x86_64-linux"
+cpu_vendor     = "amd"
+cpu_uarch      = "zen2"
+isolated_cpus  = "8-31"
+hugepage_count = 4096
+governor       = "performance"
+mitigations    = "off"
+
+[[hosts]]
+role          = "generator"
+hostname      = "tr2"
+arch          = "x86_64-linux"
+cpu_vendor    = "amd"
+cpu_uarch     = "zen2"
+isolated_cpus = "8-31"
+hugepage_count = 4096
+governor       = "performance"
+mitigations    = "off"
+
+[nic]
+driver          = "mlx5_core"
+model           = "Mellanox ConnectX-4 Lx"
+dut_iface       = "enp1s0f0np0"
+gen_iface       = "enp1s0f0np0"
+link_speed_gbps = 25
+queues          = 16
+zerocopy_afxdp  = true
+flow_director   = "tc-flower"
+rss_config      = "default"
+
+[run]
+iterations_combo    = 500
+iterations_tcp_ipv4 = 1000
+iterations_mixed    = 500
+afxdp_duration_s    = 60
