@@ -97,15 +97,40 @@ graph-enum at 12 ns/pkt = ~28 cycles/pkt at 2.4 GHz AMD Zen 1 — close
 to the theoretical lower bound for a parse-and-extract with single L3+L4
 field reads.
 
+## Phase C: Hardware perf counters (combo.pcap, hp5)
+
+Direct `xdp2-bench --perf` invocation surfaced PMU counters that the
+perf-sweep wrapper was missing. AMD Ryzen 5 PRO 2400G (Zen 1).
+
+| Mode           | ns/pkt | cycles/pkt | insns/pkt | IPC  | branch-miss | L1d-miss |
+|----------------|--------|------------|-----------|------|-------------|----------|
+| **graph-enum** | **12** | **42.9**   | **109.3** | **2.55** | **0.4%** | **1.45%** |
+| compiled       | 48     | 173.0      | 207.3     | 1.20 | 6.18%       | 2.29%    |
+| mono           | 50     | 181.4      | 232.7     | 1.28 | 5.91%       | 2.27%    |
+| template       | 50     | 181.0      | 196.1     | 1.08 | 6.50%       | 2.38%    |
+| template-simd  | 56     | 202.8      | 170.3     | 0.84 | 7.96%       | 8.67%    |
+| graph          | 289    | 1036.8     | 1360.1    | 1.31 | 3.91%       | 0.91%    |
+
+**graph-enum's lead is structural**: ~half the instructions of compiled,
+near-double the IPC, and 15× lower branch miss rate. Enum-tag dispatch
+elides the indirect-call sequence that wrecks branch prediction in
+the trait-object graph mode.
+
+Smaller `tcp_ipv4.pcap` (homogeneous, fits in L1 cache) shows the same
+shape — see `perf-results/hp5/perf-bench.log`.
+
 ## Notes
 
-- Hardware perf counters were not available (`note: perf event not
-  available on this CPU`) — no IPC/cache/branch numbers. The kernel's
-  `perf_event_paranoid` setting blocks rdpmc from this AMD Zen 1 part
-  in NixOS default config.
+- The perf-sweep wrapper hit `perf event not available on this CPU` —
+  appears to be a perf-counter init issue specific to that target's
+  invocation style; direct `xdp2-bench --perf` works fine.
 - Both hosts produce results within ±5% of each other, confirming
   identical hardware configuration.
 - Full per-PCAP JSON files are in `perf-results/{hp2,hp5}/*.json`.
+- AF_XDP live-traffic benchmarks were not run — they require pktgen
+  on hp2 driving hp5 over the X710 fibre link, which would generate
+  measurable traffic on the testbed and is better done as a deliberate
+  separate session.
 
 ## Files
 
