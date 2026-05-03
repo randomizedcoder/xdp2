@@ -1184,6 +1184,17 @@
 
         # Development shell
         devShells.default = devshell;
+
+        # Pure-Nix evaluation checks. Picked up by `nix flake check`.
+        checks = {
+          # Synthetic NixOS evaluation of the nic-tuning module:
+          # asserts that `i40e` produces the expected per-interface
+          # systemd units, and that `mlx5_core` (not yet implemented)
+          # produces no tune services and a warning.
+          nic-tuning-eval = import ./nix/modules/tests/nic-tuning-eval-test.nix {
+            inherit pkgs lib;
+          };
+        };
       }) // (
         let
           # System-independent outputs reuse nixpkgs.lib directly.
@@ -1209,6 +1220,13 @@
           #     hugepages2M = 512;
           #   };
           nixosModules.physical-testbed = ./nix/modules/physical-testbed.nix;
+
+          # NixOS module for NIC-driver-aware data-plane tuning (ethtool,
+          # queues, IRQ affinity, Flow Director). Imported automatically
+          # by physical-testbed.nix; can also be imported standalone for
+          # hosts that don't need the full testbed treatment.
+          # See nix/modules/nic-tuning.nix for the option surface.
+          nixosModules.nicTuning = ./nix/modules/nic-tuning.nix;
 
           # ---- Testbed configurations ----
           #

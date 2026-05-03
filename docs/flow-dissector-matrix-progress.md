@@ -17,7 +17,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 0     | Pre-flight                                               | done           | 2026-05-02  | 2026-05-02  | `ecd2642` |
 | 1     | `testbed-config` schema + loader                         | done           | 2026-05-02  | 2026-05-02  | `9c6caa1` |
 | 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | `ca7739f` |
-| 3     | `nic-tuning` NixOS module (i40e)                         | not started    | —           | —           | —         |
+| 3     | `nic-tuning` NixOS module (i40e)                         | done           | 2026-05-03  | 2026-05-03  | (next commit) |
 | 4     | Refactor `physical-testbed-runner`                       | not started    | —           | —           | —         |
 | 5     | Refactor `flow-dissector-matrix-runner`                  | not started    | —           | —           | —         |
 | 6     | `aggregate-results`                                      | not started    | —           | —           | —         |
@@ -171,16 +171,100 @@ peerInterfaces = ["enp1s0f0np0"]
   working tree (untracked `result-*` symlinks, `.sock` files) is
   out of scope for this session.
 
-## Phases 3–9
+## Phase 3 — `nic-tuning` NixOS module (i40e), refactor/extract
 
-**Status:** not started.
+**Status:** done
+
+**Files landed:**
+- `nix/modules/nic-tuning.nix` — new NixOS module owning all
+  driver-specific data-plane tuning. Options:
+  `xdp2.nicTuning.{enable, driver, peerInterfaces, isolatedCpus,
+  jumbo, gro, flowDirectorRules}`. Driver dispatch: `i40e` is
+  fully implemented (per-NIC ethtool tune service + IRQ affinity
+  service, both lifted verbatim from the historic
+  `physical-testbed.nix` body); `mlx5_core` / `ice` / `bnxt_en`
+  are accepted by the enum but produce no activation services
+  and a top-level warning until Phase 9 lands.
+- `nix/modules/physical-testbed.nix` — refactored to import
+  `./nic-tuning.nix` and forward `peerInterfaces`,
+  `isolatedCpus`, `jumbo`, `gro`, `flowDirectorRules` to the new
+  module's options. The two helper functions
+  (`mkNicTuneService`, `mkNicAffinityService`) and the
+  `cpuMaskCount` helper are removed; CPU isolation, hugepages,
+  kernel cmdline, sysctls, addressing, real-services bench, and
+  the lowJitter / mgmt-affinity services remain.
+- `nix/modules/testbed-config-adapter.nix` — extended so the
+  returned attrset also populates
+  `xdp2.nicTuning.driver = config.nic.driver`, overriding the
+  `lib.mkDefault "i40e"` set by physical-testbed.
+- `nix/modules/tests/nic-tuning-eval-test.nix` — synthetic NixOS
+  evaluation test that builds the module twice (once with
+  `i40e`, once with `mlx5_core`) and asserts the expected unit
+  names + warnings. Returns a `runCommand` derivation whose name
+  encodes the result; throws on failure with a clear message.
+- `flake.nix` — exposes
+  `nixosModules.nicTuning = ./nix/modules/nic-tuning.nix` and
+  wires `checks.<system>.nic-tuning-eval` into the per-system
+  block.
+
+**Deviations from plan:**
+- The plan called for verifying via
+  `nix build .#nixosConfigurations.hp5`. `hp5` NixOS host config
+  is external to this repo (per `docs/physical-testbed.md`), so
+  the byte-identical-cmdline DoD line is **deferred**. Phase 3
+  verification rests on the synthetic eval test, which evaluates
+  the same module pipeline against an inline configuration.
+
+**Verification (all DoD criteria — actual output):**
+
+```bash
+$ nix eval --impure --json --expr '
+    let pkgs = import <nixpkgs> {}; lib = pkgs.lib;
+        test = import ./nix/modules/tests/nic-tuning-eval-test.nix { inherit pkgs lib; };
+    in test.name'
+"nic-tuning-eval-ok"
+
+$ nix eval --impure --json --expr '
+    let lib = (import <nixpkgs> {}).lib;
+        tlib = import ./nix/testbed-config.nix { inherit lib; };
+        a = import ./nix/modules/testbed-config-adapter.nix { inherit lib; };
+        cfg = tlib.loadTestbedConfig ./testbeds/hp2-hp5-x710.toml;
+    in (a.testbedConfigToModule { config = cfg; role = "dut"; }).xdp2.nicTuning.driver'
+"i40e"
+
+$ nix eval --impure --json --expr '
+    ...example-mellanox-cx4.toml ... .xdp2.nicTuning.driver'
+"mlx5_core"
+
+# Full physical-testbed eval (synthetic) produces both expected services:
+$ nix eval --impure --json --expr '
+    ... eval-config with xdp2.testbed.enable = true,
+        peerInterfaces = ["enp1s0f0"] ...
+    builtins.attrNames eval.config.systemd.services'
+# Includes: "xdp2-nic-tune-enp1s0f0", "xdp2-nic-affinity-enp1s0f0"
+
+# No NIC-tuning logic remains in physical-testbed.nix
+$ grep -nE 'mkNicTuneService|mkNicAffinityService|cpuMaskCount|TxRx-' \
+    nix/modules/physical-testbed.nix
+# (no matches)
+```
+
+**Notes:**
+- physical-testbed.nix sets `xdp2.nicTuning.driver = lib.mkDefault
+  "i40e"` so existing consumers (those who don't go through the
+  testbed-config adapter) get unchanged behavior. The adapter
+  overrides this default with the testbed-config's `[nic].driver`.
+
+## Phases 4–9
+
+**Status:** Phases 4-5 in scope this session; Phases 6-9 not started.
 
 These phases require either:
 - Multi-host orchestration with live ssh access (Phases 4, 5, 7, 8),
 - Live hardware to verify (Phase 8 — AF_XDP), or
 - A second NIC family on a real testbed (Phase 9 — mlx5_core).
 
-They will be tackled in subsequent sessions; details remain in
+Details remain in
 [`flow-dissector-matrix-implementation-plan.md`](flow-dissector-matrix-implementation-plan.md).
 
 ## Cross-Phase Notes

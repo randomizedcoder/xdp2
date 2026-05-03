@@ -97,6 +97,11 @@ let
         # testbed-config; the module's defaults stand
         # (jumbo=false, gro=false) for parser-result reproducibility.
       };
+      # nic-tuning module driver dispatch — forwarded from
+      # [nic].driver so the right per-driver implementation is
+      # selected. physical-testbed.nix sets driver = "i40e" via
+      # mkDefault; this assignment overrides it.
+      xdp2.nicTuning.driver = config.nic.driver;
     };
 
   # ---------- Pure-Nix unit tests ----------

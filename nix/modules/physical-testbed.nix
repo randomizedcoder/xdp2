@@ -29,119 +29,14 @@ let
   cfg = config.xdp2.testbed;
 
   cpuList = lib.concatMapStringsSep "," toString cfg.isolatedCpus;
-  cpuMaskCount = lib.length cfg.isolatedCpus;
-
-  # Per-NIC ethtool tuning service — runs once at network-online.
-  # Idempotent: ethtool returns 0 even if the requested setting is
-  # already in place.
-  mkNicTuneService = ifname: {
-    description = "xdp2 testbed NIC tuning for ${ifname}";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [ pkgs.ethtool pkgs.iproute2 ];
-    script = ''
-      set -eu
-      ifc=${ifname}
-
-      # Wait for the interface to exist; udev rename can lag boot.
-      for _ in $(seq 1 30); do
-        if ip link show "$ifc" >/dev/null 2>&1; then break; fi
-        sleep 1
-      done
-      if ! ip link show "$ifc" >/dev/null 2>&1; then
-        echo "xdp2-nic-tune: $ifc never appeared, skipping" >&2
-        exit 0
-      fi
-
-      # Rings: max-or-4096 RX/TX descriptors. Larger = more buffering
-      # capacity at the cost of cache pressure.
-      ethtool -G "$ifc" rx 4096 tx 4096 || true
-
-      # One combined queue per isolated CPU.
-      ethtool -L "$ifc" combined ${toString cpuMaskCount} || true
-
-      # Offloads: off by default for parser-result reproducibility.
-      # GRO collapses packets before the parser sees them; TSO/GSO
-      # likewise distort what the parser observes.
-      ${if cfg.gro then ''
-        ethtool -K "$ifc" gro on lro on tso on gso on || true
-      '' else ''
-        ethtool -K "$ifc" gro off lro off tso off gso off || true
-      ''}
-
-      # Flow control off — no PAUSE frames on a back-to-back link.
-      ethtool -A "$ifc" rx off tx off autoneg off || true
-
-      # Flow director: enable, hash on the 5-tuple. Per-rule ntuple
-      # steering is programmed below from cfg.flowDirectorRules.
-      ethtool -K "$ifc" ntuple on || true
-      ethtool -N "$ifc" rx-flow-hash tcp4 sdfn || true
-      ethtool -N "$ifc" rx-flow-hash udp4 sdfn || true
-      ethtool -N "$ifc" rx-flow-hash tcp6 sdfn || true
-      ethtool -N "$ifc" rx-flow-hash udp6 sdfn || true
-
-      # Per-rule Flow Director steering. Each rule in
-      # cfg.flowDirectorRules matching this interface gets installed
-      # with its own location (so re-applying at boot is idempotent —
-      # the same location slot is overwritten rather than duplicated).
-      # On i40e (X710) the max rule count is 8K; we fit well inside.
-      ${lib.concatStringsSep "\n" (lib.imap0 (i: rule:
-        lib.optionalString (rule.interface == ifname) ''
-          # Rule ${toString i}: ${rule.flowType} dst-port ${toString rule.destPort} -> queue ${toString rule.queue}
-          ethtool -N "$ifc" delete ${toString i} 2>/dev/null || true
-          ethtool -N "$ifc" flow-type ${rule.flowType} dst-port ${toString rule.destPort} action ${toString rule.queue} loc ${toString i} || \
-            echo "xdp2-nic-tune: failed to install FD rule ${toString i} on $ifc" >&2
-        ''
-      ) cfg.flowDirectorRules)}
-
-      ${lib.optionalString cfg.jumbo ''
-        ip link set "$ifc" mtu 9000 || true
-      ''}
-    '';
-  };
-
-  # Per-NIC IRQ affinity service — pins ${ifname}-TxRx-N IRQs to
-  # isolatedCpus[N % length]. Replaces irqbalance for the data-plane
-  # NICs (irqbalance itself is disabled module-wide).
-  mkNicAffinityService = ifname: {
-    description = "xdp2 testbed IRQ affinity for ${ifname}";
-    after = [ "xdp2-nic-tune-${ifname}.service" ];
-    requires = [ "xdp2-nic-tune-${ifname}.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [ pkgs.gawk pkgs.coreutils ];
-    script = ''
-      set -eu
-      ifc=${ifname}
-      cpus=(${lib.concatMapStringsSep " " toString cfg.isolatedCpus})
-      ncpu=''${#cpus[@]}
-
-      # Find IRQ numbers for ${ifname}-TxRx-N (i40e naming).
-      i=0
-      while read -r line; do
-        irq=$(echo "$line" | awk -F: '{gsub(/ /,"",$1); print $1}')
-        cpu=''${cpus[$((i % ncpu))]}
-        mask=$(printf '%x' $((1 << cpu)))
-        echo "$mask" > /proc/irq/$irq/smp_affinity || true
-        i=$((i + 1))
-      done < <(grep -E "$ifc-TxRx-[0-9]+" /proc/interrupts || true)
-
-      if [ "$i" -eq 0 ]; then
-        echo "xdp2-nic-affinity: no $ifc-TxRx-N IRQs found" >&2
-      fi
-    '';
-  };
 
 in
 {
+  # NIC-driver-aware tuning (ethtool, queues, IRQ, Flow Director) lives
+  # in the dedicated nic-tuning module. physical-testbed forwards the
+  # relevant options to it below.
+  imports = [ ./nic-tuning.nix ];
+
   options.xdp2.testbed = {
     enable = lib.mkEnableOption "xdp2 physical testbed tuning";
 
@@ -476,16 +371,22 @@ in
     networking.dhcpcd.denyInterfaces = cfg.peerInterfaces;
 
     # ---- Per-NIC tuning + affinity services ----
-    systemd.services = lib.mkMerge ([
-      (lib.listToAttrs (map
-        (ifname: lib.nameValuePair "xdp2-nic-tune-${ifname}"
-          (mkNicTuneService ifname))
-        cfg.peerInterfaces))
-      (lib.listToAttrs (map
-        (ifname: lib.nameValuePair "xdp2-nic-affinity-${ifname}"
-          (mkNicAffinityService ifname))
-        cfg.peerInterfaces))
-    ] ++ lib.optional cfg.realServicesBench {
+    # Forwarded to the nic-tuning module (imported above), which owns
+    # all driver-specific ethtool / queue / IRQ / Flow Director logic.
+    # Driver defaults to "i40e" — testbed-config-driven hosts override
+    # this via the testbed-config-adapter. mkDefault here loses to any
+    # explicit assignment from the consumer or adapter.
+    xdp2.nicTuning = {
+      enable = lib.mkDefault (cfg.peerInterfaces != [ ]);
+      driver = lib.mkDefault "i40e";
+      peerInterfaces = cfg.peerInterfaces;
+      isolatedCpus = cfg.isolatedCpus;
+      jumbo = cfg.jumbo;
+      gro = cfg.gro;
+      flowDirectorRules = cfg.flowDirectorRules;
+    };
+
+    systemd.services = lib.mkMerge (lib.optional cfg.realServicesBench {
       # Snake-oil cert for nginx-bench. Idempotent via ConditionPathExists —
       # skips on re-runs once both files already exist.
       xdp2-testbed-nginx-cert = {
