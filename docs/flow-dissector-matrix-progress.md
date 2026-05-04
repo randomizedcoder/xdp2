@@ -19,7 +19,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | `ca7739f` |
 | 3     | `nic-tuning` NixOS module (i40e)                         | done           | 2026-05-03  | 2026-05-03  | `c5b2ce4` |
 | 4     | Refactor `physical-testbed-runner`                       | done           | 2026-05-03  | 2026-05-03  | `7f63a36` |
-| 5     | Refactor `flow-dissector-matrix-runner`                  | done           | 2026-05-04  | 2026-05-04  | TBD       |
+| 5     | Refactor `flow-dissector-matrix-runner`                  | done           | 2026-05-04  | 2026-05-04  | `94a36f2` |
 | 6     | `aggregate-results`                                      | not started    | —           | —           | —         |
 | 7     | `flake.nix` outputs + regression gate                    | not started    | —           | —           | —         |
 | 8     | AF_XDP live (Phase E)                                    | not started    | —           | —           | —         |
