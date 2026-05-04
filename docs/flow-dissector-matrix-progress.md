@@ -20,7 +20,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 3     | `nic-tuning` NixOS module (i40e)                         | done           | 2026-05-03  | 2026-05-03  | `c5b2ce4` |
 | 4     | Refactor `physical-testbed-runner`                       | done           | 2026-05-03  | 2026-05-03  | `7f63a36` |
 | 5     | Refactor `flow-dissector-matrix-runner`                  | done           | 2026-05-04  | 2026-05-04  | `94a36f2` |
-| 6     | `aggregate-results`                                      | not started    | —           | —           | —         |
+| 6     | `aggregate-results`                                      | done           | 2026-05-04  | 2026-05-04  | TBD       |
 | 7     | `flake.nix` outputs + regression gate                    | not started    | —           | —           | —         |
 | 8     | AF_XDP live (Phase E)                                    | not started    | —           | —           | —         |
 | 9     | Second NIC branch (mlx5_core / tc-flower)                | not started    | —           | —           | —         |
@@ -402,10 +402,116 @@ Usage: xdp2-flow-dissector-matrix-unified [OPTIONS] [pcap_file]
   validated locally via the synthetic check.
 - Phase 6 (`aggregate-results`) will consume these per-cell JSONs.
 
-## Phases 6–9
+## Phase 6 — `aggregate-results` (Python)
+
+**Status:** done
+
+**Files landed:**
+- `nix/scripts/aggregate-results.py` — single-file Python stdlib-only
+  aggregator (~330 LoC). Walks
+  `<results>/<date>/<testbed>/<host>/<target-ts>/<pcap>/<mode>.json`,
+  groups by `(testbed, host, pcap, mode)`, computes mean/median/p95
+  and 95% CI (Normal-approx via `1.96 × SEM`), and emits
+  `summary.md`, `summary.csv`, and (with `--baseline`)
+  `regressions.md`. CLI flags: `--results`, `--out`, `--baseline`,
+  `--threshold-pct` (default 10), `--min-iterations` (default 30),
+  `--fail-on-regression`.
+- `nix/aggregate-results.nix` — `pkgs.writeShellApplication` wrapper
+  that execs python3 against the script, with `mainProgram` set so
+  `nix run .#flow-dissector-matrix-aggregate` works directly.
+- `nix/checks/aggregate-results-test.nix` — pure-Nix
+  `runCommand` that synthesizes a 5-cell Phase-5 fixture
+  (`hp2`+`hp5` × `combo.pcap`+`tcp_ipv4.pcap` × multiple modes),
+  runs the aggregator, validates `summary.csv` parses with
+  `csv.DictReader` (5 rows, expected hosts + modes), greps
+  `summary.md` for testbed/pcap/mode names, and exercises
+  `--baseline` in three modes:
+  1. baseline that disagrees on `hp2/rust-graph` produces a
+     regression row for that cell **and** does **not** flag
+     `hp5/rust-graph` (which matches baseline).
+  2. baseline with non-numeric median (`?`) fails with
+     "baseline incomplete" in stderr.
+  3. `--fail-on-regression` propagates a non-zero exit when
+     regressions exist.
+- `flake.nix` — exposes
+  `packages.<system>.flow-dissector-matrix-aggregate` and wires
+  `checks.<system>.aggregate-results`.
+
+**Schema delivered:**
+
+`summary.csv` columns: `testbed, host, pcap, mode, n_iter,
+n_replicates, ns_per_pkt_mean, ns_per_pkt_median, ns_per_pkt_p95,
+ns_per_pkt_ci95_lo, ns_per_pkt_ci95_hi, mpps_median, build_hash,
+kernel, nic_driver, nic_firmware`.
+
+`summary.md`: one section per `(testbed, pcap)`, rows = mode in
+canonical order (`c-flowdis-usp`, `c-xdp2-usp`,
+`c-xdp2-parse-only`, `c-bpf-flowdis`, `c-bpf-xdp2`, `c-bpf-fast`,
+`rust-graph`, `rust-mono`, `rust-compiled`, `rust-template`),
+columns = host. Cell content: `<median> ns/pkt (<mpps> Mpps)`
+with optional `(low-N)` annotation when
+`iterations < --min-iterations`.
+
+`regressions.md`: dual-gate detection — a cell regresses iff
+**both** the median delta exceeds `--threshold-pct` (default
+10%) **and** new CI95-lo > baseline CI95-hi (CI-disjoint). This
+follows the design's §15 guidance ("Win = CI-disjoint;
+otherwise = noise") and avoids small-N false positives.
+
+**Deviations from plan:**
+- Used `1.96 × SEM` Normal approximation rather than the
+  Student-t for CI95. Stdlib lacks t-quantiles and the
+  difference is immaterial for the regression-detection
+  purpose (the dual-gate's CI-disjoint condition is robust to
+  the approximation). Documented inline.
+- Skipped `pkgs.jq` from `runtimeInputs` — the Python
+  implementation reads JSON directly via `json.loads`, so jq
+  is unused.
+- Path-inference is forgiving: a malformed tree warns once
+  and falls back to `host="unknown"`, `testbed="unknown"`
+  rather than failing, so partial result trees still produce
+  useful output.
+
+**Verification (all DoD criteria — actual output):**
+
+```bash
+$ nix build --no-link --print-out-paths .#flow-dissector-matrix-aggregate
+/nix/store/<hash>-flow-dissector-matrix-aggregate
+
+$ nix build --no-link --print-out-paths .#checks.x86_64-linux.aggregate-results
+/nix/store/<hash>-aggregate-results-test
+$ cat /nix/store/<hash>-aggregate-results-test
+ok
+
+# Synthetic single-cell smoke:
+$ TMP=$(mktemp -d) && \
+  D=$TMP/results/2026-05-04/hp2-hp5-x710/hp5/run-001/combo.pcap && \
+  mkdir -p "$D" && \
+  printf '{"mode":"rust-graph","pcap":"combo.pcap","ns_per_pkt":12,"mpps":80,"iterations":100,"build_hash":"x","kernel":"6.18.22","nic_driver":"i40e","nic_firmware":""}\n' > "$D/rust-graph.json" && \
+  nix run .#flow-dissector-matrix-aggregate -- --results "$TMP/results"
+$ cat "$TMP/results/summary.md"
+## hp2-hp5-x710 — `combo.pcap`
+| Mode | hp5 |
+|---|---|
+| rust-graph | 12 ns/pkt (80 Mpps) |
+$ cat "$TMP/results/summary.csv"
+testbed,host,pcap,mode,n_iter,n_replicates,...
+hp2-hp5-x710,hp5,combo.pcap,rust-graph,100,1,12,12,12,—,—,80,x,6.18.22,i40e,
+```
+
+**Notes:**
+- Live end-to-end (against a real Phase-5 result tree from
+  `hp2`/`hp5`) is exercised in Phase 7's composed
+  `flow-dissector-matrix-run` wrapper.
+- The `regressions.md` dual-gate aligns with the design's
+  noise-rejection guidance and is unit-tested both for the
+  positive (hp2 disagreement → flagged) and negative
+  (hp5 agreement → not flagged) cases.
+
+## Phases 7–9
 
 These phases require either:
-- Multi-host orchestration with live ssh access (Phases 4, 5, 7, 8),
+- Multi-host orchestration with live ssh access (Phases 7, 8),
 - Live hardware to verify (Phase 8 — AF_XDP), or
 - A second NIC family on a real testbed (Phase 9 — mlx5_core).
 

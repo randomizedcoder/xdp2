@@ -184,6 +184,12 @@
           workloadPcapHttpsWeb = perfAnalysis.workload-pcap-https-web;
         };
 
+        # Aggregator over Phase-5 per-cell JSONs. Walks a result tree
+        # and emits summary.md / summary.csv / regressions.md. Stdlib-
+        # only Python. See nix/scripts/aggregate-results.py.
+        flowDissectorMatrixAggregate =
+          import ./nix/aggregate-results.nix { inherit pkgs; };
+
         # Peer-side kernel pktgen driver, shellchecked + packaged as a
         # standalone writeShellApplication. The orchestrator below scp's
         # this to the peer at runtime.
@@ -570,6 +576,16 @@
           # Run:    sudo ./result/bin/xdp2-flow-dissector-matrix-unified [pcap]
           # ===================================================================
           flow-dissector-matrix-unified = flowDissectorMatrixUnified;
+
+          # ===================================================================
+          # flow-dissector-matrix-aggregate — Phase 6 aggregator over
+          # the per-cell JSONs emitted by flow-dissector-matrix-unified
+          # under -j <dir>. Emits summary.md / summary.csv and, when
+          # --baseline is given, regressions.md.
+          # Build:  nix build .#flow-dissector-matrix-aggregate
+          # Run:    nix run .#flow-dissector-matrix-aggregate -- --results <dir>
+          # ===================================================================
+          flow-dissector-matrix-aggregate = flowDissectorMatrixAggregate;
 
           # ===================================================================
           # flow-dissector-ntuple-template-bench — live X710 Flow Director
@@ -1200,6 +1216,14 @@
           # the `--json-out` printf template (xdp2-rs-matrix.nix and
           # the standalone shell script).
           matrix-runner-json-shape = import ./nix/checks/matrix-runner-json-shape.nix {
+            inherit pkgs lib;
+          };
+
+          # End-to-end check for the Phase-6 aggregator:
+          # builds a synthetic Phase-5 result tree, runs the aggregator,
+          # validates summary/regressions outputs and the baseline-
+          # incomplete error path.
+          aggregate-results = import ./nix/checks/aggregate-results-test.nix {
             inherit pkgs lib;
           };
         };
