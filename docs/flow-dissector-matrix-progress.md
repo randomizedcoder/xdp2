@@ -21,7 +21,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 4     | Refactor `physical-testbed-runner`                       | done           | 2026-05-03  | 2026-05-03  | `7f63a36` |
 | 5     | Refactor `flow-dissector-matrix-runner`                  | done           | 2026-05-04  | 2026-05-04  | `94a36f2` |
 | 6     | `aggregate-results`                                      | done           | 2026-05-04  | 2026-05-04  | `aec1037` |
-| 7     | `flake.nix` outputs + regression gate                    | not started    | —           | —           | —         |
+| 7     | `flake.nix` outputs + regression gate                    | done           | 2026-05-04  | 2026-05-04  | TBD       |
 | 8     | AF_XDP live (Phase E)                                    | not started    | —           | —           | —         |
 | 9     | Second NIC branch (mlx5_core / tc-flower)                | not started    | —           | —           | —         |
 
@@ -508,10 +508,103 @@ hp2-hp5-x710,hp5,combo.pcap,rust-graph,100,1,12,12,12,—,—,80,x,6.18.22,i40e,
   positive (hp2 disagreement → flagged) and negative
   (hp5 agreement → not flagged) cases.
 
-## Phases 7–9
+## Phase 7 — public flake outputs + smoke regression gate
+
+**Status:** done
+
+**Files landed:**
+- `nix/flow-dissector-matrix-run.nix` — composed runner. Parses
+  `--testbed PATH`, `--results DIR`, `--smoke`, and forwards to
+  `xdp2-run-on-host --testbed PATH -- flow-dissector-matrix-unified`,
+  then runs `flow-dissector-matrix-aggregate` over the result tree.
+  Exports `XDP2_RESULTS_ROOT` and `XDP2_MATRIX_SMOKE` for
+  downstream consumers.
+- `nix/flow-dissector-matrix-check.nix` — smoke regression gate.
+  Wraps `-run --smoke` (overridable via `--no-smoke`) and then
+  invokes the aggregator with `--baseline` +
+  `--threshold-pct N` + `--fail-on-regression`. Default baseline
+  resolves to `testbeds/<testbed-name>.baseline.csv` (parsed from
+  the testbed-config TOML's `[testbed].name` via inline awk).
+- `nix/checks/matrix-check-smoke.nix` — pure-Nix wiring check.
+  Builds both wrappers, asserts `--help` exits 0 with the
+  documented flag set (`--testbed`, `--results`, `--smoke`,
+  `--baseline`, `--threshold`, `--help`), and exercises three
+  error paths (missing `--testbed`, bogus testbed path) for both
+  wrappers.
+- `testbeds/hp2-hp5-x710.baseline.csv` — placeholder baseline.
+  Schema matches `summary.csv` from Phase 6; all `?` markers in
+  numeric columns trigger the aggregator's "baseline incomplete"
+  rejection so `flow-dissector-matrix-check` exits non-zero
+  against the placeholder until a real baseline is committed.
+- `testbeds/hp2-hp5-x710.baseline.csv.README.md` — sibling doc
+  explaining the placeholder + regeneration recipe (kept out of
+  the CSV so `csv.DictReader` doesn't choke on `#` comment
+  lines).
+- `flake.nix` — adds `packages.<system>.flow-dissector-matrix-run`
+  and `flow-dissector-matrix-check`, plus
+  `checks.<system>.matrix-check-smoke`.
+
+**Deviations from plan:**
+- Plan specified passing `-j <out>/json` to the matrix runner
+  through `xdp2-run-on-host`. The Phase-4 runner only accepts
+  bare flake-target names (no per-target args), so the wrapper
+  invokes `flow-dissector-matrix-unified` plain and relies on
+  the matrix runner's environment-driven JSON emission for the
+  Phase-5 schema. End-to-end validation of the JSON pipeline
+  remains coupled to a future hardware session; the smoke check
+  exercises only `--help`/error paths, not behavior.
+- Plan placed comments inside the placeholder CSV. Moved them
+  to a sibling `.README.md` because `csv.DictReader` treats the
+  first non-blank line as the header row, which would map
+  comment text to column names instead of `testbed,host,...`.
+  The aggregator's "baseline incomplete" message now reports a
+  real-shaped row (with all `?` placeholders) instead of a
+  comment fragment.
+
+**Verification (all DoD criteria — actual output):**
+
+```bash
+$ nix flake show 2>&1 | grep -E 'flow-dissector-matrix-(run|aggregate|check)' \
+  | grep -c x86_64-linux
+3   # all three packages on x86_64-linux
+
+$ nix run .#flow-dissector-matrix-run -- --help | head -2
+Usage:
+  flow-dissector-matrix-run --testbed PATH [OPTIONS]
+
+$ nix run .#flow-dissector-matrix-check -- --help | head -2
+Usage:
+  flow-dissector-matrix-check --testbed PATH [OPTIONS]
+
+$ python3 -c 'import csv; list(csv.DictReader(open("testbeds/hp2-hp5-x710.baseline.csv")))' \
+  && echo "csv parses ok"
+csv parses ok
+
+$ nix build --no-link --print-out-paths .#checks.x86_64-linux.matrix-check-smoke
+/nix/store/<hash>-matrix-check-smoke
+$ cat /nix/store/<hash>-matrix-check-smoke
+ok
+
+# Placeholder rejection (used as default baseline for hp2-hp5-x710):
+$ nix run .#flow-dissector-matrix-aggregate -- \
+    --results /tmp/synthetic-results \
+    --baseline testbeds/hp2-hp5-x710.baseline.csv 2>&1 | tail -1
+ValueError: baseline incomplete: row {...} has non-numeric ns_per_pkt_median
+or CI columns. Promote a real summary.csv before invoking --baseline.
+```
+
+**Notes:**
+- Live multi-host orchestration (`flow-dissector-matrix-run`
+  without `--help`) requires ssh access to the hosts named in
+  the testbed-config TOML and is exercised in a hardware
+  session.
+- The placeholder baseline is intentionally rejection-only.
+  Until a real baseline is committed, `flow-dissector-matrix-
+  check` exits non-zero with the documented message.
+
+## Phases 8–9
 
 These phases require either:
-- Multi-host orchestration with live ssh access (Phases 7, 8),
 - Live hardware to verify (Phase 8 — AF_XDP), or
 - A second NIC family on a real testbed (Phase 9 — mlx5_core).
 

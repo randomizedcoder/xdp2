@@ -190,6 +190,25 @@
         flowDissectorMatrixAggregate =
           import ./nix/aggregate-results.nix { inherit pkgs; };
 
+        # Phase 7: composed runner (orchestrator + aggregator).
+        # nix run .#flow-dissector-matrix-run -- --testbed PATH
+        flowDissectorMatrixRun =
+          import ./nix/flow-dissector-matrix-run.nix {
+            inherit pkgs;
+            runOnHost = run-on-host;
+            aggregate = flowDissectorMatrixAggregate;
+          };
+
+        # Phase 7: smoke regression gate. Wraps -run --smoke with
+        # the aggregator's --baseline / --fail-on-regression mode.
+        flowDissectorMatrixCheck =
+          import ./nix/flow-dissector-matrix-check.nix {
+            inherit pkgs;
+            runOnHost = run-on-host;
+            aggregate = flowDissectorMatrixAggregate;
+            matrixRun = flowDissectorMatrixRun;
+          };
+
         # Peer-side kernel pktgen driver, shellchecked + packaged as a
         # standalone writeShellApplication. The orchestrator below scp's
         # this to the peer at runtime.
@@ -586,6 +605,25 @@
           # Run:    nix run .#flow-dissector-matrix-aggregate -- --results <dir>
           # ===================================================================
           flow-dissector-matrix-aggregate = flowDissectorMatrixAggregate;
+
+          # ===================================================================
+          # flow-dissector-matrix-run — Phase 7 composed runner.
+          # Orchestrates flow-dissector-matrix-unified across the testbed
+          # (via run-on-host) and aggregates results.
+          # Run:  nix run .#flow-dissector-matrix-run -- \
+          #         --testbed testbeds/<name>.toml [--smoke] [--results <dir>]
+          # ===================================================================
+          flow-dissector-matrix-run = flowDissectorMatrixRun;
+
+          # ===================================================================
+          # flow-dissector-matrix-check — Phase 7 smoke regression gate.
+          # Wraps -run --smoke with the aggregator's --baseline /
+          # --fail-on-regression mode. Exits non-zero on any cell
+          # regression. Designed for CI.
+          # Run:  nix run .#flow-dissector-matrix-check -- \
+          #         --testbed testbeds/<name>.toml [--baseline ...] [--threshold N]
+          # ===================================================================
+          flow-dissector-matrix-check = flowDissectorMatrixCheck;
 
           # ===================================================================
           # flow-dissector-ntuple-template-bench — live X710 Flow Director
@@ -1225,6 +1263,17 @@
           # incomplete error path.
           aggregate-results = import ./nix/checks/aggregate-results-test.nix {
             inherit pkgs lib;
+          };
+
+          # Phase 7 wiring check: builds the public matrix-run /
+          # matrix-check wrappers and asserts that --help, missing-
+          # required-arg, and bogus-path code paths behave as
+          # documented. Behavioral regression detection is covered
+          # by the aggregate-results check above.
+          matrix-check-smoke = import ./nix/checks/matrix-check-smoke.nix {
+            inherit pkgs lib;
+            matrixRun = flowDissectorMatrixRun;
+            matrixCheck = flowDissectorMatrixCheck;
           };
         };
       }) // (
