@@ -19,7 +19,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | `ca7739f` |
 | 3     | `nic-tuning` NixOS module (i40e)                         | done           | 2026-05-03  | 2026-05-03  | `c5b2ce4` |
 | 4     | Refactor `physical-testbed-runner`                       | done           | 2026-05-03  | 2026-05-03  | `7f63a36` |
-| 5     | Refactor `flow-dissector-matrix-runner`                  | not started    | —           | —           | —         |
+| 5     | Refactor `flow-dissector-matrix-runner`                  | done           | 2026-05-04  | 2026-05-04  | TBD       |
 | 6     | `aggregate-results`                                      | not started    | —           | —           | —         |
 | 7     | `flake.nix` outputs + regression gate                    | not started    | —           | —           | —         |
 | 8     | AF_XDP live (Phase E)                                    | not started    | —           | —           | —         |
@@ -317,9 +317,92 @@ $ XDP2_RESULTS_ROOT=/tmp/legacy nix run .#run-on-host -- example.invalid -- echo
   future session with `hp2`/`hp5` access. The path-computation and
   arg-parse changes are local-side and fully witnessed above.
 
-## Phases 5–9
+## Phase 5 — `flow-dissector-matrix-runner` per-cell JSON
 
-**Status:** Phase 5 in scope this session; Phases 6-9 not started.
+**Status:** done
+
+**Files landed:**
+- `nix/xdp2-rs-matrix.nix` — added `-j <dir>` flag. When set, an
+  `emit_cell_json` helper writes `<dir>/<pcap-basename>/<mode>.json`
+  after every measured cell. Modes: `c-flowdis-usp`, `c-xdp2-usp`,
+  `c-xdp2-parse-only`, `c-bpf-flowdis`, `c-bpf-xdp2`, `c-bpf-fast`,
+  `rust-graph`, `rust-mono`, `rust-compiled`, `rust-template`.
+- `samples/flow_dissector/xdp2_rs_matrix.sh` — same flag (`-j <dir>`),
+  same helper, same mode names. Standalone (non-Nix) callers stay in
+  parity with the Nix wrapper.
+- `nix/checks/matrix-runner-json-shape.nix` (new) — pure-Nix
+  regression gate. Synthesizes one cell record using the agreed
+  printf template, validates with `jq -e` that all expected keys are
+  present, and greps both source files to confirm they carry the
+  same key set. Tripping condition: anyone removes or renames a
+  field in either source's printf template.
+- `flake.nix` — wired `checks.<system>.matrix-runner-json-shape` so
+  the gate runs as part of `nix flake check`.
+
+**JSON schema (one record per `(pcap, mode)` cell):**
+
+```json
+{
+  "mode":         "rust-graph",
+  "pcap":         "combo.pcap",
+  "ns_per_pkt":   12,
+  "mpps":         80,
+  "iterations":   100,
+  "build_hash":   "<truncated absolute path to xdp2-bench>",
+  "kernel":       "6.18.22",
+  "nic_driver":   "i40e",
+  "nic_firmware": "9.30"
+}
+```
+
+`nic_driver` / `nic_firmware` are populated from `XDP2_NIC_DRIVER`
+and `XDP2_NIC_FIRMWARE` environment variables (empty by default).
+`build_hash` is the resolved path to `xdp2-bench` (truncated to
+80 chars), which uniquely identifies the binary in the Nix store.
+`ns_per_pkt` and `mpps` fall back to JSON `null` when the cell did
+not produce a numeric measurement (e.g. a BPF run failing without
+CAP_BPF).
+
+**Deviations from plan:**
+- Plan specified `--json-out` long form; used short form `-j`
+  because both runners use `getopts` (no `--long-flag` support).
+  Functionality is identical.
+- Plan suggested running the actual matrix runner inside the
+  flake check on the smallest test-pcap fixture. That requires
+  `CAP_BPF` (BPF_PROG_TEST_RUN) which Nix sandbox builds do not
+  grant — moved to a synthetic-data approach that exercises the
+  exact printf template and grep-witnesses both sources for the
+  same key set. Live end-to-end verification is deferred to the
+  same session that runs Phase 4 on hp2/hp5.
+- Plan listed mode names as `graph`/`mono`/etc.; chose
+  `rust-graph` / `c-bpf-fast` / etc. so the JSON is unambiguous
+  when aggregated across all 10 cells (which Phase 6 will do).
+
+**Verification:**
+
+```bash
+$ nix build --no-link --print-out-paths .#checks.x86_64-linux.matrix-runner-json-shape
+/nix/store/<hash>-matrix-runner-json-shape
+
+$ cat /nix/store/<hash>-matrix-runner-json-shape
+ok
+
+$ /nix/store/<hash>-xdp2-flow-dissector-matrix-unified/bin/xdp2-flow-dissector-matrix-unified -h
+Usage: xdp2-flow-dissector-matrix-unified [OPTIONS] [pcap_file]
+  ...
+  -j <dir>    Per-cell JSON output directory        (default: unset)
+              When set, writes <dir>/<pcap>/<mode>.json for every
+              measured (pcap, mode) cell. The text table on stdout
+              is unchanged.
+```
+
+**Notes:**
+- Live end-to-end (`nix run .#flow-dissector-matrix-unified -- -j /tmp/cells`)
+  requires xdp2-bench + CAP_BPF on a real host; the schema is
+  validated locally via the synthetic check.
+- Phase 6 (`aggregate-results`) will consume these per-cell JSONs.
+
+## Phases 6–9
 
 These phases require either:
 - Multi-host orchestration with live ssh access (Phases 4, 5, 7, 8),

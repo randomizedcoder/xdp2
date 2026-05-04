@@ -62,6 +62,10 @@ pkgs.writeShellApplication {
       -n <N>      xdp2-bench iterations per mode        (default: 100)
       -N <N>      BPF_PROG_TEST_RUN repeat count        (default: 1000)
       -c <cpu>    Pin xdp2-bench to this CPU            (default: unset)
+      -j <dir>    Per-cell JSON output directory        (default: unset)
+                  When set, writes <dir>/<pcap>/<mode>.json for every
+                  measured (pcap, mode) cell. The text table on stdout
+                  is unchanged.
       -h          This help.
 
     Ways 4-6 (BPF_PROG_TEST_RUN) require root / CAP_BPF.
@@ -71,12 +75,14 @@ pkgs.writeShellApplication {
     ITER=100
     BPF_REPEAT=1000
     CORE_PIN=""
+    JSON_OUT=""
 
-    while getopts "n:N:c:h" opt; do
+    while getopts "n:N:c:j:h" opt; do
       case $opt in
         n) ITER="$OPTARG" ;;
         N) BPF_REPEAT="$OPTARG" ;;
         c) CORE_PIN="$OPTARG" ;;
+        j) JSON_OUT="$OPTARG" ;;
         h) echo "$USAGE"; exit 0 ;;
         *) echo "$USAGE" >&2; exit 1 ;;
       esac
@@ -88,6 +94,37 @@ pkgs.writeShellApplication {
       echo "Error: PCAP not found: $INPUT_PCAP" >&2
       exit 1
     fi
+
+    # Per-cell JSON setup. PCAP_BASENAME is used both as a directory
+    # under JSON_OUT and as the "pcap" field of every emitted record;
+    # restrict to a safe character class so filename and JSON value
+    # stay corruption-free without needing jq at runtime.
+    PCAP_BASENAME=$(basename "$INPUT_PCAP")
+    if [[ -n "$JSON_OUT" ]]; then
+      if ! [[ "$PCAP_BASENAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "Error: --json-out requires PCAP basename to match [A-Za-z0-9._-]+; got '$PCAP_BASENAME'" >&2
+        exit 1
+      fi
+      mkdir -p "$JSON_OUT/$PCAP_BASENAME"
+    fi
+    KERNEL_RELEASE=$(uname -r)
+    XDP2_BENCH_PATH=$(command -v xdp2-bench || echo unknown)
+    BUILD_HASH=$(printf '%s' "$XDP2_BENCH_PATH" | head -c 80)
+    NIC_DRIVER="''${XDP2_NIC_DRIVER:-}"
+    NIC_FIRMWARE="''${XDP2_NIC_FIRMWARE:-}"
+
+    emit_cell_json() {
+      local mode="$1" nspkt="$2" mpps="$3"
+      [[ -z "$JSON_OUT" ]] && return 0
+      local nspkt_num="''${nspkt%% *}"
+      local mpps_num="''${mpps%% *}"
+      [[ "$nspkt_num" =~ ^[0-9]+$ ]] || nspkt_num="null"
+      [[ "$mpps_num"  =~ ^[0-9]+$ ]] || mpps_num="null"
+      printf '{"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s"}\n' \
+        "$mode" "$PCAP_BASENAME" "$nspkt_num" "$mpps_num" "$ITER" \
+        "$BUILD_HASH" "$KERNEL_RELEASE" "$NIC_DRIVER" "$NIC_FIRMWARE" \
+        > "$JSON_OUT/$PCAP_BASENAME/$mode.json"
+    }
 
     TMPDIR=$(mktemp -d -t xdp2-matrix-unified-XXXX)
     trap 'rm -rf "$TMPDIR"' EXIT
@@ -164,9 +201,13 @@ pkgs.writeShellApplication {
     XDP2_PO_NSPKT=$(extract_nspkt "$XDP2_PO_LINE")
     XDP2_PO_MPPS=$(extract_mpps "$XDP2_PO_LINE")
 
+    emit_cell_json "c-flowdis-usp"     "$FLOWDIS_NSPKT"  "$FLOWDIS_MPPS"
+    emit_cell_json "c-xdp2-usp"        "$XDP2_NSPKT"     "$XDP2_MPPS"
+    emit_cell_json "c-xdp2-parse-only" "$XDP2_PO_NSPKT"  "$XDP2_PO_MPPS"
+
     # ─── Step 3: C BPF (ways 4-6) ───────────────────────────────────
     run_bpf() {
-      local label="$1" obj="$2" out_var_ns="$3" out_var_mpps="$4"
+      local label="$1" obj="$2" out_var_ns="$3" out_var_mpps="$4" json_mode="$5"
       local out line nspkt mpps
       echo "--- C matrix: $label ($(basename "$obj")) ---"
       if out=$("$BENCHMARK_BPF" -p -n "$BPF_REPEAT" -l "$label" -b "$obj" "$FILTERED" 2>&1); then
@@ -184,6 +225,7 @@ pkgs.writeShellApplication {
       printf -v "$out_var_ns"   '%s' "$nspkt"
       # shellcheck disable=SC2086
       printf -v "$out_var_mpps" '%s' "$mpps"
+      emit_cell_json "$json_mode" "$nspkt" "$mpps"
       echo ""
     }
 
@@ -191,9 +233,9 @@ pkgs.writeShellApplication {
     XDP2_BPF_NSPKT="N/A"; XDP2_BPF_MPPS="N/A"
     FAST_BPF_NSPKT="N/A"; FAST_BPF_MPPS="N/A"
 
-    run_bpf "Kernel BPF flowdis"  "$BPF_OBJ"       BPF_NSPKT       BPF_MPPS
-    run_bpf "XDP2 BPF parser"     "$XDP2_BPF_OBJ"  XDP2_BPF_NSPKT  XDP2_BPF_MPPS
-    run_bpf "xdp2-flow-ebpf fast" "$FAST_BPF_OBJ"  FAST_BPF_NSPKT  FAST_BPF_MPPS
+    run_bpf "Kernel BPF flowdis"  "$BPF_OBJ"       BPF_NSPKT       BPF_MPPS       "c-bpf-flowdis"
+    run_bpf "XDP2 BPF parser"     "$XDP2_BPF_OBJ"  XDP2_BPF_NSPKT  XDP2_BPF_MPPS  "c-bpf-xdp2"
+    run_bpf "xdp2-flow-ebpf fast" "$FAST_BPF_OBJ"  FAST_BPF_NSPKT  FAST_BPF_MPPS  "c-bpf-fast"
 
     # ─── Step 4: xdp2-bench modes on filtered pcap ──────────────────
     run_rust() {
@@ -220,6 +262,7 @@ pkgs.writeShellApplication {
       printf -v "$out_var_ns"   '%s' "$nspkt"
       # shellcheck disable=SC2086
       printf -v "$out_var_mpps" '%s' "$mpps"
+      emit_cell_json "rust-$mode" "$nspkt" "$mpps"
       echo ""
     }
 

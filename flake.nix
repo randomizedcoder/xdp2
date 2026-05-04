@@ -1194,6 +1194,14 @@
           nic-tuning-eval = import ./nix/modules/tests/nic-tuning-eval-test.nix {
             inherit pkgs lib;
           };
+
+          # Per-cell JSON schema regression gate for the unified
+          # flow-dissector matrix runner. Catches accidental drift in
+          # the `--json-out` printf template (xdp2-rs-matrix.nix and
+          # the standalone shell script).
+          matrix-runner-json-shape = import ./nix/checks/matrix-runner-json-shape.nix {
+            inherit pkgs lib;
+          };
         };
       }) // (
         let

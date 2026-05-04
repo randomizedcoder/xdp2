@@ -27,6 +27,7 @@ set -euo pipefail
 ITER=100
 BPF_REPEAT=1000
 CORE_PIN=""
+JSON_OUT=""
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BPF_OBJ="$SCRIPT_DIR/bpf_flow.kern.o"
 XDP2_BPF_OBJ="$SCRIPT_DIR/flow_dissector.bpf.o"
@@ -42,12 +43,14 @@ Usage: $0 [OPTIONS] <pcap_file>
   -b <o>   Kernel BPF flowdis object              (default: $BPF_OBJ)
   -x <o>   XDP2 BPF parser object                 (default: $XDP2_BPF_OBJ)
   -f <o>   xdp2-flow-ebpf fast-path object        (default: $FAST_BPF_OBJ)
+  -j <d>   Per-cell JSON output directory         (default: unset)
+           When set, writes <d>/<pcap>/<mode>.json per measured cell.
   -h       This help.
 EOF
     exit 1
 }
 
-while getopts "n:N:c:b:x:f:h" opt; do
+while getopts "n:N:c:b:x:f:j:h" opt; do
     case $opt in
         n) ITER="$OPTARG" ;;
         N) BPF_REPEAT="$OPTARG" ;;
@@ -55,6 +58,7 @@ while getopts "n:N:c:b:x:f:h" opt; do
         b) BPF_OBJ="$OPTARG" ;;
         x) XDP2_BPF_OBJ="$OPTARG" ;;
         f) FAST_BPF_OBJ="$OPTARG" ;;
+        j) JSON_OUT="$OPTARG" ;;
         h|*) usage ;;
     esac
 done
@@ -79,6 +83,33 @@ BENCHMARK_BPF="$SCRIPT_DIR/benchmark_bpf"
 TMPDIR=$(mktemp -d -t xdp2-matrix-unified-XXXX)
 trap 'rm -rf "$TMPDIR"' EXIT
 FILTERED="$TMPDIR/filtered.pcap"
+
+PCAP_BASENAME=$(basename "$INPUT_PCAP")
+if [[ -n "$JSON_OUT" ]]; then
+    if ! [[ "$PCAP_BASENAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "Error: --json-out requires PCAP basename to match [A-Za-z0-9._-]+; got '$PCAP_BASENAME'" >&2
+        exit 1
+    fi
+    mkdir -p "$JSON_OUT/$PCAP_BASENAME"
+fi
+KERNEL_RELEASE=$(uname -r)
+XDP2_BENCH_PATH=$(command -v xdp2-bench || echo unknown)
+BUILD_HASH=$(printf '%s' "$XDP2_BENCH_PATH" | head -c 80)
+NIC_DRIVER="${XDP2_NIC_DRIVER:-}"
+NIC_FIRMWARE="${XDP2_NIC_FIRMWARE:-}"
+
+emit_cell_json() {
+    local mode="$1" nspkt="$2" mpps="$3"
+    [[ -z "$JSON_OUT" ]] && return 0
+    local nspkt_num="${nspkt%% *}"
+    local mpps_num="${mpps%% *}"
+    [[ "$nspkt_num" =~ ^[0-9]+$ ]] || nspkt_num="null"
+    [[ "$mpps_num"  =~ ^[0-9]+$ ]] || mpps_num="null"
+    printf '{"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s"}\n' \
+        "$mode" "$PCAP_BASENAME" "$nspkt_num" "$mpps_num" "$ITER" \
+        "$BUILD_HASH" "$KERNEL_RELEASE" "$NIC_DRIVER" "$NIC_FIRMWARE" \
+        > "$JSON_OUT/$PCAP_BASENAME/$mode.json"
+}
 
 extract_nspkt() {
     local m
@@ -120,6 +151,10 @@ FLOWDIS_NSPKT=$(extract_nspkt "$FLOWDIS_LINE"); FLOWDIS_MPPS=$(extract_mpps "$FL
 XDP2_NSPKT=$(extract_nspkt "$XDP2_LINE");       XDP2_MPPS=$(extract_mpps "$XDP2_LINE")
 XDP2_PO_NSPKT=$(extract_nspkt "$XDP2_PO_LINE"); XDP2_PO_MPPS=$(extract_mpps "$XDP2_PO_LINE")
 
+emit_cell_json "c-flowdis-usp"     "$FLOWDIS_NSPKT"  "$FLOWDIS_MPPS"
+emit_cell_json "c-xdp2-usp"        "$XDP2_NSPKT"     "$XDP2_MPPS"
+emit_cell_json "c-xdp2-parse-only" "$XDP2_PO_NSPKT"  "$XDP2_PO_MPPS"
+
 # ─── Step 3: C BPF (ways 4-6) ────────────────────────────────────
 run_bpf() {
     local label="$1" obj="$2"
@@ -144,6 +179,10 @@ run_bpf() {
 read -r BPF_NSPKT BPF_MPPS            < <(run_bpf "Kernel BPF flowdis"  "$BPF_OBJ")
 read -r XDP2_BPF_NSPKT XDP2_BPF_MPPS  < <(run_bpf "XDP2 BPF parser"     "$XDP2_BPF_OBJ")
 read -r FAST_BPF_NSPKT FAST_BPF_MPPS  < <(run_bpf "xdp2-flow-ebpf fast" "$FAST_BPF_OBJ")
+
+emit_cell_json "c-bpf-flowdis" "$BPF_NSPKT"      "$BPF_MPPS"
+emit_cell_json "c-bpf-xdp2"    "$XDP2_BPF_NSPKT" "$XDP2_BPF_MPPS"
+emit_cell_json "c-bpf-fast"    "$FAST_BPF_NSPKT" "$FAST_BPF_MPPS"
 echo ""
 
 # ─── Step 4: xdp2-bench modes ────────────────────────────────────
@@ -170,6 +209,11 @@ read -r GRAPH_NSPKT GRAPH_MPPS       < <(run_rust graph)
 read -r MONO_NSPKT MONO_MPPS         < <(run_rust mono)
 read -r COMPILED_NSPKT COMPILED_MPPS < <(run_rust compiled)
 read -r TEMPLATE_NSPKT TEMPLATE_MPPS < <(run_rust template)
+
+emit_cell_json "rust-graph"    "$GRAPH_NSPKT"    "$GRAPH_MPPS"
+emit_cell_json "rust-mono"     "$MONO_NSPKT"     "$MONO_MPPS"
+emit_cell_json "rust-compiled" "$COMPILED_NSPKT" "$COMPILED_MPPS"
+emit_cell_json "rust-template" "$TEMPLATE_NSPKT" "$TEMPLATE_MPPS"
 echo ""
 
 # ─── Unified table ───────────────────────────────────────────────
