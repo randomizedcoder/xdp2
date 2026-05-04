@@ -1,13 +1,23 @@
 # SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 #
-# nix run .#run-on-host -- HOST [HOST...] -- TARGET [TARGET...]
+# Two invocation forms:
 #
-# Drives physical-testbed runs (hp2/hp5 today, any host with the xdp2
-# repo and nix-flakes installed) by:
+#   nix run .#run-on-host -- --testbed testbeds/<name>.toml -- TARGET [TARGET...]
+#   nix run .#run-on-host -- HOST [HOST...] -- TARGET [TARGET...]
 #
+# The --testbed form loads a testbed-config TOML (schema:
+# docs/flow-dissector-matrix-physical-testbed.md §3) and resolves the
+# DUT and (optional) generator hostnames automatically. Result trees
+# go to perf-results/<date>/<testbed.name>/<host>/... so multiple
+# testbeds coexist without clobbering.
+#
+# The positional form is the historic interface; results go to
+# perf-results/<host>/... unchanged.
+#
+# Both forms:
 #   1. rsync the working tree to root@host:~/xdp2/
 #   2. ssh root@host 'cd ~/xdp2 && nix build|run .#TARGET'
-#   3. rsync ~/xdp2/result/ back to perf-results/${host}/${target}-<ts>/
+#   3. rsync ~/xdp2/result/ back to <results-prefix>/<target>-<ts>/
 #   4. emit a summary table to stdout
 #
 # Multiple hosts run in parallel; targets within a host run sequentially
@@ -36,20 +46,67 @@ pkgs.writeShellApplication {
 
     print_usage() {
       cat <<'EOF'
-    Usage: xdp2-run-on-host HOST [HOST...] -- TARGET [TARGET...]
+    Usage:
+      xdp2-run-on-host --testbed PATH -- TARGET [TARGET...]
+      xdp2-run-on-host HOST [HOST...]  -- TARGET [TARGET...]
 
-      HOST    SSH-reachable host (e.g. hp2, hp5, root@1.2.3.4).
-              Bare names are connected to as root@HOST.
-      TARGET  flake attribute (e.g. xdp2-rs-test, flow-dissector-matrix,
-              perf-analysis-all). Tried as a package first
-              (nix build .#TARGET), then as an app (nix run .#TARGET)
-              if the package build fails.
+      --testbed PATH  Load testbed-config TOML at PATH; resolves DUT
+                      and (optional) generator hostnames from it. Result
+                      trees go to perf-results/<date>/<testbed.name>/<host>/.
+      HOST            SSH-reachable host (e.g. hp2, hp5, root@1.2.3.4).
+                      Bare names are connected to as root@HOST. Result
+                      trees go to perf-results/<host>/ (legacy form).
+      TARGET          flake attribute (e.g. xdp2-rs-test, flow-dissector-matrix,
+                      perf-analysis-all). Tried as a package first
+                      (nix build .#TARGET), then as an app (nix run .#TARGET)
+                      if the package build fails.
 
     Examples:
+      xdp2-run-on-host --testbed testbeds/hp2-hp5-x710.toml -- xdp2-rs-test
       xdp2-run-on-host hp5 -- xdp2-rs-test
       xdp2-run-on-host hp2 hp5 -- xdp2-rs-test flow-dissector-matrix
-      xdp2-run-on-host hp5 -- perf-analysis-all
     EOF
+    }
+
+    # parse_testbed_toml — extract testbed.name, DUT hostname, and
+    # (optional) generator hostname from a testbed-config TOML. The
+    # schema is small and stylized (see
+    # docs/flow-dissector-matrix-physical-testbed.md §3) so a tiny awk
+    # parser is sufficient. Output is shell-eval'able assignments:
+    #   TESTBED_NAME=<name>
+    #   DUT_HOST=<hostname>
+    #   GEN_HOST=<hostname or empty>
+    parse_testbed_toml() {
+      awk '
+        function strip(s) {
+          gsub(/^[[:space:]]*"?|"?[[:space:]]*$/, "", s); return s
+        }
+        function flush_host() {
+          if (cur_role != "" && cur_host != "") {
+            if (cur_role == "dut") dut = cur_host
+            else if (cur_role == "generator") gen = cur_host
+          }
+          cur_role=""; cur_host=""
+        }
+        BEGIN { section=""; name=""; dut=""; gen=""; cur_role=""; cur_host="" }
+        /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+        /^[[:space:]]*\[testbed\]/ { flush_host(); section="testbed"; next }
+        /^[[:space:]]*\[\[hosts\]\]/ { flush_host(); section="hosts"; next }
+        /^[[:space:]]*\[/ { flush_host(); section="other"; next }
+        section=="testbed" && /^[[:space:]]*name[[:space:]]*=/ {
+          sub(/^[^=]*=[[:space:]]*/, ""); name=strip($0)
+        }
+        section=="hosts" && /^[[:space:]]*role[[:space:]]*=/ {
+          sub(/^[^=]*=[[:space:]]*/, ""); cur_role=strip($0)
+        }
+        section=="hosts" && /^[[:space:]]*hostname[[:space:]]*=/ {
+          sub(/^[^=]*=[[:space:]]*/, ""); cur_host=strip($0)
+        }
+        END {
+          flush_host()
+          printf "TESTBED_NAME=%s\nDUT_HOST=%s\nGEN_HOST=%s\n", name, dut, gen
+        }
+      ' "$1"
     }
 
     if [ "$#" -lt 3 ]; then
@@ -59,13 +116,50 @@ pkgs.writeShellApplication {
 
     HOSTS=()
     TARGETS=()
+    TESTBED=""
+    TESTBED_NAME=""
     seen_sep=0
+
+    # First pass: peel off --testbed if present (must come before
+    # any positional args so we don't mistake "--testbed" for a
+    # hostname).
+    if [ "$1" = "--testbed" ] || [ "$1" = "-t" ]; then
+      if [ "$#" -lt 2 ]; then
+        echo "xdp2-run-on-host: --testbed requires a path argument" >&2
+        print_usage >&2
+        exit 2
+      fi
+      TESTBED="$2"
+      shift 2
+      if [ ! -f "$TESTBED" ]; then
+        echo "xdp2-run-on-host: testbed config not found: $TESTBED" >&2
+        exit 2
+      fi
+      # Eval the awk parser output into the current shell.
+      eval "$(parse_testbed_toml "$TESTBED")"
+      if [ -z "$TESTBED_NAME" ] || [ -z "$DUT_HOST" ]; then
+        echo "xdp2-run-on-host: failed to extract testbed.name or DUT hostname from $TESTBED" >&2
+        exit 2
+      fi
+      HOSTS+=("$DUT_HOST")
+      if [ -n "$GEN_HOST" ]; then
+        HOSTS+=("$GEN_HOST")
+      fi
+      echo "[testbed] $TESTBED_NAME: dut=$DUT_HOST gen=''${GEN_HOST:-<none>}" >&2
+    fi
+
     for arg in "$@"; do
       if [ "$arg" = "--" ]; then
         seen_sep=1
         continue
       fi
       if [ "$seen_sep" -eq 0 ]; then
+        # In --testbed mode, hosts are derived from the config; reject
+        # any positional host args to avoid silent disagreement.
+        if [ -n "$TESTBED" ]; then
+          echo "xdp2-run-on-host: positional hosts not allowed with --testbed (got '$arg')" >&2
+          exit 2
+        fi
         HOSTS+=("$arg")
       else
         TARGETS+=("$arg")
@@ -142,11 +236,23 @@ pkgs.writeShellApplication {
         return 1
       fi
 
+      # Per-host results prefix. With --testbed, we nest under
+      # <date>/<testbed_name>/<host>/ so multiple testbeds and runs
+      # coexist without clobbering. Legacy positional form keeps the
+      # historic <host>/ layout.
+      local host_prefix
+      if [ -n "$TESTBED" ]; then
+        local run_date; run_date=$(date -I)
+        host_prefix="$RESULTS_ROOT/$run_date/$TESTBED_NAME/$host"
+      else
+        host_prefix="$RESULTS_ROOT/$host"
+      fi
+
       for target in "$@"; do
         local ts; ts=$(date -u +%Y%m%dT%H%M%SZ)
-        local outdir="$RESULTS_ROOT/$host/$target-$ts"
+        local outdir="$host_prefix/$target-$ts"
         local logfile="$outdir.log"
-        mkdir -p "$RESULTS_ROOT/$host"
+        mkdir -p "$host_prefix"
 
         echo "[$host] -> $target  (log: $logfile)" >&2
         local start end wall exit_code

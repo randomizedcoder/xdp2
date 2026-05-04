@@ -17,8 +17,8 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 0     | Pre-flight                                               | done           | 2026-05-02  | 2026-05-02  | `ecd2642` |
 | 1     | `testbed-config` schema + loader                         | done           | 2026-05-02  | 2026-05-02  | `9c6caa1` |
 | 2     | `testbed-config`-to-module adapter                       | done           | 2026-05-03  | 2026-05-03  | `ca7739f` |
-| 3     | `nic-tuning` NixOS module (i40e)                         | done           | 2026-05-03  | 2026-05-03  | (next commit) |
-| 4     | Refactor `physical-testbed-runner`                       | not started    | —           | —           | —         |
+| 3     | `nic-tuning` NixOS module (i40e)                         | done           | 2026-05-03  | 2026-05-03  | `c5b2ce4` |
+| 4     | Refactor `physical-testbed-runner`                       | done           | 2026-05-03  | 2026-05-03  | TBD       |
 | 5     | Refactor `flow-dissector-matrix-runner`                  | not started    | —           | —           | —         |
 | 6     | `aggregate-results`                                      | not started    | —           | —           | —         |
 | 7     | `flake.nix` outputs + regression gate                    | not started    | —           | —           | —         |
@@ -255,9 +255,71 @@ $ grep -nE 'mkNicTuneService|mkNicAffinityService|cpuMaskCount|TxRx-' \
   testbed-config adapter) get unchanged behavior. The adapter
   overrides this default with the testbed-config's `[nic].driver`.
 
-## Phases 4–9
+## Phase 4 — `physical-testbed-runner` consumes `--testbed <toml>`
 
-**Status:** Phases 4-5 in scope this session; Phases 6-9 not started.
+**Status:** done
+
+**Files landed:**
+- `nix/physical-testbed-runner.nix` — extended with two coexisting
+  invocation forms:
+  - **New** `--testbed PATH -- TARGET [TARGET...]`: loads a
+    testbed-config TOML, derives DUT and (optional) generator
+    hostnames, and writes results under
+    `perf-results/<date>/<testbed.name>/<host>/...`.
+  - **Legacy** `HOST [HOST...] -- TARGET [TARGET...]`: byte-identical
+    to pre-Phase-4 behavior; results stay at `perf-results/<host>/...`.
+- A small inlined `parse_testbed_toml()` awk function extracts
+  `testbed.name`, the DUT hostname, and the (optional) generator
+  hostname from the config. Awk was chosen over `dasel` (CLI changed
+  in v3) and `python3` to keep the script self-contained and avoid
+  growing `runtimeInputs`.
+
+**Mutual-exclusion guarantees:**
+- `--testbed PATH extra-host -- TARGET` is rejected with a clear
+  message ("positional hosts not allowed with --testbed").
+- A missing TOML file fails before any ssh side effects.
+- A TOML missing either `testbed.name` or the DUT host fails fast.
+
+**Deviations from plan:**
+- Plan suggested `dasel` for TOML parsing; switched to gawk because
+  `dasel` 3.x has an incompatible CLI (no `-f` flag) and the
+  testbed-config schema is small and stylized — a 12-line awk parser
+  is sufficient and ships with `gawk` (already in `runtimeInputs`).
+- Phase 4 result-tree layout uses `<date>/<testbed.name>/<host>/` per
+  plan; the existing `INDEX.json` file remains at the top of
+  `RESULTS_ROOT` so a single index covers all testbed runs.
+
+**Verification (parse-only smoke; ssh fails as expected without
+live hosts):**
+
+```bash
+$ XDP2_RESULTS_ROOT=/tmp/run-out-phase4 nix run .#run-on-host -- \
+    --testbed testbeds/hp2-hp5-x710.toml -- echo
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp2] -> echo  (log: /tmp/run-out-phase4/2026-05-03/hp2-hp5-x710/hp2/echo-...log)
+[hp5] -> echo  (log: /tmp/run-out-phase4/2026-05-03/hp2-hp5-x710/hp5/echo-...log)
+# Path computation observable: /tmp/run-out-phase4/<date>/hp2-hp5-x710/<host>/
+
+# Mutual exclusion:
+$ nix run .#run-on-host -- --testbed testbeds/hp2-hp5-x710.toml extra -- echo
+xdp2-run-on-host: positional hosts not allowed with --testbed (got 'extra')
+
+# Legacy positional form unchanged:
+$ XDP2_RESULTS_ROOT=/tmp/legacy nix run .#run-on-host -- example.invalid -- echo
+[example.invalid] rsync -> root@example.invalid:~/xdp2/
+# (results would land at /tmp/legacy/example.invalid/echo-<ts>/)
+```
+
+**Notes:**
+- Live multi-host fan-out + result rsync-back are validated in a
+  future session with `hp2`/`hp5` access. The path-computation and
+  arg-parse changes are local-side and fully witnessed above.
+
+## Phases 5–9
+
+**Status:** Phase 5 in scope this session; Phases 6-9 not started.
 
 These phases require either:
 - Multi-host orchestration with live ssh access (Phases 4, 5, 7, 8),
