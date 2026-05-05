@@ -23,7 +23,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 6     | `aggregate-results`                                      | done           | 2026-05-04  | 2026-05-04  | `aec1037` |
 | 7     | `flake.nix` outputs + regression gate                    | done           | 2026-05-04  | 2026-05-04  | `dbe839d` |
 | 8     | AF_XDP live (Phase E)                                    | not started    | —           | —           | —         |
-| 9     | Second NIC branch (mlx5_core / tc-flower)                | done           | 2026-05-04  | 2026-05-04  | TBD       |
+| 9     | Second NIC branch (mlx5_core / tc-flower)                | done           | 2026-05-04  | 2026-05-04  | `438fbf3` |
 
 ## Branch
 
