@@ -114,6 +114,57 @@ EOF
     exit 1
 }
 
+# Pre-getopts peel: --testbed PATH resolves TARGET / PEER / INTERFACE
+# from a testbed-config TOML (schema: nix/testbed-config.nix), so the
+# script can be invoked the same way as the rest of the matrix
+# tooling. Must come before any positional args.
+TESTBED=""
+if [[ $# -gt 0 && ( "$1" == "--testbed" || "$1" == "-t" ) ]]; then
+    [[ $# -ge 2 ]] || { echo "ERROR: --testbed requires PATH" >&2; exit 2; }
+    TESTBED="$2"
+    shift 2
+    [[ -f "$TESTBED" ]] || { echo "ERROR: testbed file not found: $TESTBED" >&2; exit 2; }
+    # Same awk heuristic used by nix/physical-testbed-runner.nix.
+    _t_dut=$(awk '
+        BEGIN { sec=""; r=""; h="" }
+        function strip(s) { gsub(/^[ \t"]+|[ \t"]+$/, "", s); return s }
+        /^\s*\[\[hosts\]\]/ { sec="hosts"; r=""; h=""; next }
+        /^\s*\[/             { sec="other"; next }
+        sec == "hosts" && /^\s*role\s*=/     { sub(/^[^=]*=[[:space:]]*/, ""); r=strip($0) }
+        sec == "hosts" && /^\s*hostname\s*=/ {
+            sub(/^[^=]*=[[:space:]]*/, ""); h=strip($0)
+            if (r == "dut") { print h; exit }
+        }
+    ' "$TESTBED")
+    _t_gen=$(awk '
+        BEGIN { sec=""; r=""; h="" }
+        function strip(s) { gsub(/^[ \t"]+|[ \t"]+$/, "", s); return s }
+        /^\s*\[\[hosts\]\]/ { sec="hosts"; r=""; h=""; next }
+        /^\s*\[/             { sec="other"; next }
+        sec == "hosts" && /^\s*role\s*=/     { sub(/^[^=]*=[[:space:]]*/, ""); r=strip($0) }
+        sec == "hosts" && /^\s*hostname\s*=/ {
+            sub(/^[^=]*=[[:space:]]*/, ""); h=strip($0)
+            if (r == "generator") { print h; exit }
+        }
+    ' "$TESTBED")
+    _t_iface=$(awk '
+        BEGIN { sec="" }
+        function strip(s) { gsub(/^[ \t"]+|[ \t"]+$/, "", s); return s }
+        /^\s*\[nic\]/ { sec="nic"; next }
+        /^\s*\[/      { sec="other"; next }
+        sec == "nic" && /^\s*dut_iface\s*=/ {
+            sub(/^[^=]*=[[:space:]]*/, ""); print strip($0); exit
+        }
+    ' "$TESTBED")
+    [[ -n "$_t_dut" && -n "$_t_gen" && -n "$_t_iface" ]] || {
+        echo "ERROR: testbed missing dut/generator/dut_iface (parsed dut='$_t_dut' gen='$_t_gen' iface='$_t_iface')" >&2
+        exit 2
+    }
+    TARGET="$_t_dut"
+    PEER="$_t_gen"
+    INTERFACE="$_t_iface"
+fi
+
 while getopts "d:i:c:s:t:r:h" opt; do
     case $opt in
         d) DURATION="$OPTARG" ;;
@@ -127,9 +178,15 @@ while getopts "d:i:c:s:t:r:h" opt; do
 done
 shift $((OPTIND - 1))
 
-[[ $# -eq 2 ]] || usage
-TARGET="$1"
-PEER="$2"
+# In --testbed mode, TARGET/PEER are already set; reject positional
+# args. Otherwise require positional <target_host> <peer_host>.
+if [[ -n "$TESTBED" ]]; then
+    [[ $# -eq 0 ]] || { echo "ERROR: positional hosts not allowed with --testbed (got '$*')" >&2; exit 2; }
+else
+    [[ $# -eq 2 ]] || usage
+    TARGET="$1"
+    PEER="$2"
+fi
 
 ts=$(date +%Y%m%dT%H%M%S)
 RESULT_DIR="${RESULT_DIR:-perf-results/${TARGET}/ntuple-template-bench-${ts}}"

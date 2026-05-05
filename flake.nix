@@ -209,6 +209,15 @@
             matrixRun = flowDissectorMatrixRun;
           };
 
+        # Phase 8: AF_XDP live offered-load sweep. Composes
+        # flow-dissector-ntuple-template-bench across [1,2,5,10] Mpps
+        # and emits per-load JSON.
+        flowDissectorAfxdpLive =
+          import ./nix/flow-dissector-afxdp-live.nix {
+            inherit pkgs;
+            ntupleTemplateBench = flowDissectorNtupleTemplateBench;
+          };
+
         # Peer-side kernel pktgen driver, shellchecked + packaged as a
         # standalone writeShellApplication. The orchestrator below scp's
         # this to the peer at runtime.
@@ -624,6 +633,16 @@
           #         --testbed testbeds/<name>.toml [--baseline ...] [--threshold N]
           # ===================================================================
           flow-dissector-matrix-check = flowDissectorMatrixCheck;
+
+          # ===================================================================
+          # flow-dissector-afxdp-live — Phase 8 offered-load sweep.
+          # Sweeps pktgen rates [1,2,5,10] Mpps against the testbed's
+          # DUT (running xdp2-bench --mode af-xdp-template) and emits
+          # per-load JSON under <results>/<date>/<testbed>/afxdp/.
+          # Run:  nix run .#flow-dissector-afxdp-live -- \
+          #         --testbed testbeds/<name>.toml [--duration N] [--loads CSV]
+          # ===================================================================
+          flow-dissector-afxdp-live = flowDissectorAfxdpLive;
 
           # ===================================================================
           # flow-dissector-ntuple-template-bench — live X710 Flow Director
@@ -1274,6 +1293,16 @@
             inherit pkgs lib;
             matrixRun = flowDissectorMatrixRun;
             matrixCheck = flowDissectorMatrixCheck;
+          };
+
+          # Phase 8 wiring check: builds flow-dissector-afxdp-live and
+          # exercises --help, missing-arg, bogus-path, bad-duration,
+          # bad-loads, and missing-generator error paths. Live AF_XDP
+          # sweep is hardware-bound and exercised in a hardware
+          # session.
+          afxdp-live-smoke = import ./nix/checks/afxdp-live-smoke.nix {
+            inherit pkgs lib;
+            afxdpLive = flowDissectorAfxdpLive;
           };
         };
       }) // (
