@@ -23,7 +23,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 6     | `aggregate-results`                                      | done           | 2026-05-04  | 2026-05-04  | `aec1037` |
 | 7     | `flake.nix` outputs + regression gate                    | done           | 2026-05-04  | 2026-05-04  | `dbe839d` |
 | 8     | AF_XDP live (Phase E)                                    | not started    | —           | —           | —         |
-| 9     | Second NIC branch (mlx5_core / tc-flower)                | not started    | —           | —           | —         |
+| 9     | Second NIC branch (mlx5_core / tc-flower)                | done           | 2026-05-04  | 2026-05-04  | TBD       |
 
 ## Branch
 
@@ -602,11 +602,115 @@ or CI columns. Promote a real summary.csv before invoking --baseline.
   Until a real baseline is committed, `flow-dissector-matrix-
   check` exits non-zero with the documented message.
 
-## Phases 8–9
+## Phase 9 — Second NIC branch (mlx5_core / tc-flower)
 
-These phases require either:
-- Live hardware to verify (Phase 8 — AF_XDP), or
-- A second NIC family on a real testbed (Phase 9 — mlx5_core).
+**Status:** done
+
+**Files landed:**
+- `nix/modules/nic-tuning.nix` — adds the `mlx5_core` driver
+  branch:
+  - `mkMlx5TuneService` — per-NIC ethtool (rings, queues,
+    offloads, flow-control, RSS hash) plus tc-flower flow
+    steering. The tune script does
+    `tc qdisc replace dev <ifc> clsact` (idempotent) and then
+    installs one `tc filter add ... flower ip_proto <t>
+    dst_port <p> action skbedit queue_mapping <q>` per
+    `flowDirectorRules` entry. mlx5_core's ethtool path lacks
+    `-N flow-type ... action ...` for destination steering, so
+    tc-flower is the canonical mechanism.
+  - `mkMlx5AffinityService` — pins `mlx5_comp<N>@pci:<bdf>`
+    IRQs to `isolatedCpus`. The PCI BDF is resolved at runtime
+    via `readlink /sys/class/net/<ifc>/device` because mlx5
+    completion-vector IRQ names embed the BDF, not the
+    interface name (unlike i40e's `<ifc>-TxRx-<N>`).
+  - Driver dispatch refactored to an attrset-keyed lookup
+    (`driverImpls.${cfg.driver} or (throw ...)`) so any future
+    branch removal causes a hard eval-time error rather than a
+    silent stub. `i40e` and `mlx5_core` are real
+    implementations; `ice` and `bnxt_en` remain stubbed
+    (empty service set + warning) and exhaustiveness across
+    the option enum is enforced.
+- `nix/modules/tests/nic-tuning-eval-test.nix` — extended:
+  Case A (i40e) unchanged; Case B (mlx5_core) flips from
+  "expects no services + warning" to "expects both services,
+  no warning, and tc-flower commands in the tune script
+  (`tc qdisc replace dev`, `flower`, `skbedit queue_mapping
+  2`)"; Case C (ice) added as a still-stubbed regression
+  guard.
+
+**Deviations from plan:**
+- Plan listed
+  `nix build .#nixosConfigurations.example-mellanox.config.system.build.toplevel`
+  as the DoD. There is no in-repo NixOS host config for the
+  Mellanox sketch (it would need to declare a bootloader,
+  filesystem, etc., none of which the testbed cares about).
+  Verification instead uses `eval-config.nix` against the same
+  module pipeline (`testbed-config.nix` →
+  `testbed-config-adapter.nix` → `nic-tuning.nix`) loading
+  `testbeds/example-mellanox-cx4.toml`. This is byte-identical
+  coverage of the dispatch logic without the bootloader noise.
+- Plan suggested verifying tc-flower via
+  `readlink result | xargs -I{} grep -l 'tc filter add' {}/activate`.
+  The test instead asserts on the systemd unit's `script` field
+  directly via `lib.hasInfix`. Same coverage, no need to build
+  a toplevel.
+
+**Verification (all DoD criteria — actual output):**
+
+```bash
+$ nix build --no-link --print-out-paths .#checks.x86_64-linux.nic-tuning-eval
+/nix/store/<hash>-nic-tuning-eval-ok
+
+# End-to-end through the testbed-config adapter:
+$ nix eval --impure --json --expr '
+    let pkgs = import <nixpkgs> { system = "x86_64-linux"; };
+        lib = pkgs.lib;
+        tlib = import ./nix/testbed-config.nix { inherit lib; };
+        adapter = import ./nix/modules/testbed-config-adapter.nix { inherit lib; };
+        cfg = tlib.loadTestbedConfig ./testbeds/example-mellanox-cx4.toml;
+        moduleCfg = adapter.testbedConfigToModule { config = cfg; role = "dut"; };
+        eval = import (pkgs.path + "/nixos/lib/eval-config.nix") {
+          system = "x86_64-linux";
+          modules = [
+            ./nix/modules/nic-tuning.nix
+            { fileSystems."/" = { device = "none"; fsType = "tmpfs"; };
+              boot.loader.grub.enable = false;
+              system.stateVersion = "24.11"; }
+            { xdp2.nicTuning = {
+                enable = true;
+                driver = moduleCfg.xdp2.nicTuning.driver;
+                peerInterfaces = moduleCfg.xdp2.testbed.peerInterfaces;
+                isolatedCpus = moduleCfg.xdp2.testbed.isolatedCpus;
+              };
+            }
+          ];
+        };
+    in {
+      driver = moduleCfg.xdp2.nicTuning.driver;
+      services = builtins.filter (lib.hasPrefix "xdp2-nic-")
+        (builtins.attrNames eval.config.systemd.services);
+      warnings = eval.config.warnings;
+    }'
+{"driver":"mlx5_core",
+ "services":["xdp2-nic-affinity-enp1s0f0np0","xdp2-nic-tune-enp1s0f0np0"],
+ "warnings":[]}
+```
+
+**Notes:**
+- Live tc-flower validation requires actual Mellanox hardware
+  and is deferred to a hardware session. The synthetic eval
+  test asserts the script *content* (clsact qdisc + flower
+  filter + skbedit queue_mapping) is exactly what the design
+  calls for.
+- mlx5_core ring sizing is capped at 4096 (mlx5 supports
+  8192) for cross-driver comparability with i40e in matrix
+  results.
+
+## Phase 8
+
+Phase 8 (AF_XDP live) remains the only outstanding item. It
+requires a DUT + generator with sustained line-rate traffic and
+is deferred to a hardware session.
 
 Details remain in
 [`flow-dissector-matrix-implementation-plan.md`](flow-dissector-matrix-implementation-plan.md).

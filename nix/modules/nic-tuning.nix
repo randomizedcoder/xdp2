@@ -10,9 +10,9 @@
 # stays in `physical-testbed.nix`, which now imports this module and
 # forwards its configuration to the matching options here.
 #
-# Currently implemented driver branches: `i40e`. Other drivers
-# (`mlx5_core`, `ice`, `bnxt_en`) are accepted by the option type but
-# the activation block is a no-op + warning until Phase 9 lands.
+# Currently implemented driver branches: `i40e`, `mlx5_core`. The
+# remaining drivers (`ice`, `bnxt_en`) are accepted by the option type
+# but their activation blocks are no-ops + warning placeholders.
 #
 # Consumer (typical, via physical-testbed.nix):
 #
@@ -141,25 +141,177 @@ let
     '';
   };
 
-  # Driver dispatch: returns an attrset of (service-name -> unit).
-  # Currently only the i40e branch produces real services; other
-  # drivers produce an empty attrset and a top-level warning. Phase 9
-  # adds the mlx5_core branch.
-  driverServices =
-    if cfg.driver == "i40e" then
-      lib.listToAttrs (
+  # mlx5_core branch — per-NIC tuning. Differences from i40e:
+  #   - Flow steering uses tc-flower (queue_mapping skbedit) instead
+  #     of ethtool ntuple/Flow Director, because mlx5_core's
+  #     "ethtool -N" only exposes RSS/hash control, not destination
+  #     steering. The qdisc must exist before filters can attach.
+  #   - IRQ names are `mlx5_comp<N>@pci:<bdf>` rather than the i40e
+  #     `<iface>-TxRx-<N>` pattern, so the affinity service greps
+  #     for the device's PCI BDF (resolved at runtime via
+  #     `readlink /sys/class/net/<ifc>/device`) rather than `<ifc>`.
+  #   - mlx5 supports the same ethtool -G/-K/-A flags as i40e for
+  #     ring sizing, offloads, and pause-frame control.
+  mkMlx5TuneService = ifname: {
+    description = "xdp2 testbed NIC tuning for ${ifname} (mlx5_core)";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.ethtool pkgs.iproute2 ];
+    script = ''
+      set -eu
+      ifc=${ifname}
+
+      # Wait for the interface to exist; udev rename can lag boot.
+      for _ in $(seq 1 30); do
+        if ip link show "$ifc" >/dev/null 2>&1; then break; fi
+        sleep 1
+      done
+      if ! ip link show "$ifc" >/dev/null 2>&1; then
+        echo "xdp2-nic-tune: $ifc never appeared, skipping" >&2
+        exit 0
+      fi
+
+      # Rings: 4096 RX/TX descriptors. mlx5 supports up to 8192 but we
+      # match i40e for cross-driver comparability.
+      ethtool -G "$ifc" rx 4096 tx 4096 || true
+
+      # One combined queue per isolated CPU.
+      ethtool -L "$ifc" combined ${toString (lib.length cfg.isolatedCpus)} || true
+
+      # Offloads: off by default for parser-result reproducibility.
+      ${if cfg.gro then ''
+        ethtool -K "$ifc" gro on lro on tso on gso on || true
+      '' else ''
+        ethtool -K "$ifc" gro off lro off tso off gso off || true
+      ''}
+
+      # Flow control off — no PAUSE frames on a back-to-back link.
+      ethtool -A "$ifc" rx off tx off autoneg off || true
+
+      # mlx5 supports rx-flow-hash configuration via ethtool -N for
+      # RSS hashing; keep the 5-tuple distribution.
+      ethtool -N "$ifc" rx-flow-hash tcp4 sdfn || true
+      ethtool -N "$ifc" rx-flow-hash udp4 sdfn || true
+      ethtool -N "$ifc" rx-flow-hash tcp6 sdfn || true
+      ethtool -N "$ifc" rx-flow-hash udp6 sdfn || true
+
+      # tc-flower flow steering. The clsact qdisc lets filters attach
+      # to the ingress hook; `replace` is idempotent so re-running
+      # the unit after a reboot is safe.
+      tc qdisc replace dev "$ifc" clsact || true
+
+      # Per-rule tc-flower steering. Action: skbedit queue_mapping.
+      ${lib.concatStringsSep "\n" (lib.imap0 (i: rule:
+        lib.optionalString (rule.interface == ifname) ''
+          # Rule ${toString i}: ${rule.flowType} dst-port ${toString rule.destPort} -> queue ${toString rule.queue}
+          tc filter del dev "$ifc" ingress pref ${toString (1000 + i)} 2>/dev/null || true
+          tc filter add dev "$ifc" ingress pref ${toString (1000 + i)} protocol ${
+            if lib.hasSuffix "6" rule.flowType then "ipv6" else "ip"
+          } flower ip_proto ${
+            if lib.hasPrefix "tcp" rule.flowType then "tcp"
+            else if lib.hasPrefix "udp" rule.flowType then "udp"
+            else "sctp"
+          } dst_port ${toString rule.destPort} action skbedit queue_mapping ${toString rule.queue} || \
+            echo "xdp2-nic-tune: failed to install tc-flower rule ${toString i} on $ifc" >&2
+        ''
+      ) cfg.flowDirectorRules)}
+
+      ${lib.optionalString cfg.jumbo ''
+        ip link set "$ifc" mtu 9000 || true
+      ''}
+    '';
+  };
+
+  # mlx5_core branch — IRQ affinity. mlx5 names completion-vector IRQs
+  # `mlx5_comp<N>@pci:<bdf>`, so we match against the interface's PCI
+  # BDF (resolved at runtime via /sys/class/net/<ifc>/device) rather
+  # than the interface name.
+  mkMlx5AffinityService = ifname: {
+    description = "xdp2 testbed IRQ affinity for ${ifname} (mlx5_core)";
+    after = [ "xdp2-nic-tune-${ifname}.service" ];
+    requires = [ "xdp2-nic-tune-${ifname}.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.gawk pkgs.coreutils ];
+    script = ''
+      set -eu
+      ifc=${ifname}
+      cpus=(${lib.concatMapStringsSep " " toString cfg.isolatedCpus})
+      ncpu=''${#cpus[@]}
+
+      # Resolve the interface's PCI BDF (e.g. "0000:01:00.0").
+      if [ ! -e "/sys/class/net/$ifc/device" ]; then
+        echo "xdp2-nic-affinity: $ifc has no /sys device link, skipping" >&2
+        exit 0
+      fi
+      bdf=$(basename "$(readlink "/sys/class/net/$ifc/device")")
+
+      # Find IRQ numbers for mlx5_comp*@pci:<bdf>.
+      i=0
+      while read -r line; do
+        irq=$(echo "$line" | awk -F: '{gsub(/ /,"",$1); print $1}')
+        cpu=''${cpus[$((i % ncpu))]}
+        mask=$(printf '%x' $((1 << cpu)))
+        echo "$mask" > /proc/irq/$irq/smp_affinity || true
+        i=$((i + 1))
+      done < <(grep -E "mlx5_comp[0-9]+@pci:$bdf" /proc/interrupts || true)
+
+      if [ "$i" -eq 0 ]; then
+        echo "xdp2-nic-affinity: no mlx5_comp*@pci:$bdf IRQs found" >&2
+      fi
+    '';
+  };
+
+  # Per-driver service builders: returns the attrset of services for a
+  # given driver. An attrset-keyed dispatch (rather than a chain of
+  # `if`s) makes the structure visible and lets us assert
+  # exhaustiveness with a single `or throw`: any driver value not
+  # listed here causes evaluation to fail with a clear message.
+  driverImpls = {
+    i40e = {
+      services =
         (map (ifname: lib.nameValuePair "xdp2-nic-tune-${ifname}"
                        (mkI40eTuneService ifname)) cfg.peerInterfaces)
         ++
         (map (ifname: lib.nameValuePair "xdp2-nic-affinity-${ifname}"
-                       (mkI40eAffinityService ifname)) cfg.peerInterfaces)
-      )
-    else
-      { };
+                       (mkI40eAffinityService ifname)) cfg.peerInterfaces);
+      stubbed = false;
+    };
+    mlx5_core = {
+      services =
+        (map (ifname: lib.nameValuePair "xdp2-nic-tune-${ifname}"
+                       (mkMlx5TuneService ifname)) cfg.peerInterfaces)
+        ++
+        (map (ifname: lib.nameValuePair "xdp2-nic-affinity-${ifname}"
+                       (mkMlx5AffinityService ifname)) cfg.peerInterfaces);
+      stubbed = false;
+    };
+    ice = { services = [ ]; stubbed = true; };
+    bnxt_en = { services = [ ]; stubbed = true; };
+  };
 
-  # Top-level warnings for not-yet-implemented drivers.
+  # Driver dispatch: attrset lookup + `or throw`. The throw never
+  # triggers in practice (option enum guarantees `cfg.driver` is in
+  # the supported set) but it makes removing a branch from
+  # `driverImpls` a hard eval-time error rather than a silent gap.
+  driverImpl = driverImpls.${cfg.driver}
+    or (throw "xdp2.nicTuning: unhandled driver '${cfg.driver}' — driverImpls is missing a branch.");
+
+  driverServices = lib.listToAttrs driverImpl.services;
+
+  # Top-level warning for stubbed (no-op) drivers only. Implemented
+  # branches (`i40e`, `mlx5_core`) install real services and emit no
+  # warning.
   driverWarnings = lib.optional
-    (cfg.enable && cfg.driver != "i40e" && cfg.peerInterfaces != [ ])
+    (cfg.enable && driverImpl.stubbed && cfg.peerInterfaces != [ ])
     "xdp2.nicTuning: driver '${cfg.driver}' is accepted but its activation logic is not yet implemented; no NIC tuning services will be installed. Tracking issue: Phase 9 of the flow-dissector matrix implementation plan.";
 
 in
@@ -172,10 +324,11 @@ in
       default = "i40e";
       description = ''
         NIC driver in use on `peerInterfaces`. Selects the per-driver
-        tuning implementation. `i40e` is fully implemented (Phase 3);
-        the other values are accepted to keep external configurations
-        valid but currently produce a warning and no activation
-        services until Phase 9 lands.
+        tuning implementation. `i40e` (Intel X710 / XL710) and
+        `mlx5_core` (Mellanox ConnectX-4 and later) are implemented;
+        `ice` and `bnxt_en` are accepted to keep external
+        configurations valid but currently install no tuning
+        services and emit a warning.
       '';
     };
 
@@ -250,8 +403,12 @@ in
       default = [ ];
       description = ''
         Driver-specific steering rules. On i40e these are installed via
-        `ethtool -N <ifc> flow-type <t> dst-port <p> action <q> loc <i>`
-        in the xdp2-nic-tune-<ifname>.service unit at boot.
+        `ethtool -N <ifc> flow-type <t> dst-port <p> action <q> loc <i>`.
+        On mlx5_core they translate to tc-flower:
+        `tc filter add dev <ifc> ingress flower ip_proto <t> dst_port <p>
+        action skbedit queue_mapping <q>` (the clsact qdisc is created
+        first). Both paths run inside the xdp2-nic-tune-<ifname>.service
+        unit at boot.
       '';
     };
   };
