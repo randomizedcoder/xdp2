@@ -96,8 +96,10 @@ def collect(results_root: Path) -> dict:
     grouped: dict = defaultdict(list)
     warned_unknown = False
     for json_path in results_root.rglob("*.json"):
-        # Skip our own outputs if re-running over a previous out dir.
-        if json_path.name in {"summary.json"}:
+        # Skip our own outputs and the orchestrator's run-index sibling.
+        # (xdp2-run-on-host writes INDEX.json one level above the cell
+        # tree; rglob picks it up but it has no mode/pcap fields.)
+        if json_path.name in {"summary.json", "INDEX.json"}:
             continue
         record = parse_cell_json(json_path)
         if record is None:
