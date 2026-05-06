@@ -24,6 +24,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 7     | `flake.nix` outputs + regression gate                    | done           | 2026-05-04  | 2026-05-04  | `dbe839d` |
 | 8     | AF_XDP live (Phase E)                                    | done           | 2026-05-04  | 2026-05-04  | `86fece4` |
 | 9     | Second NIC branch (mlx5_core / tc-flower)                | done           | 2026-05-04  | 2026-05-04  | `438fbf3` |
+| 10    | In-tree fixes for live campaign (JSON wiring + 14 modes) | done           | 2026-05-05  | 2026-05-05  | `683c12b` |
 
 ## Branch
 
@@ -800,6 +801,123 @@ $ nix build --no-link --print-out-paths \
   hardware-session work. The progress doc records that
   status; no further design or wiring work remains.
 
+## Phase 10 — In-tree fixes for live campaign
+
+**Status:** done
+
+**Goal:** unblock the live campaign by closing two gaps that the synthetic
+in-tree checks could not surface — Phase 7's JSON-wiring deviation (per-cell
+JSONs were never emitted on real hardware) and the matrix runner's mode
+coverage (10 of design §5's 14 cells), which together made the headline
+`graph-enum 12 ns/pkt` baseline unreproducible through the new pipeline.
+
+**Files landed:**
+- `nix/xdp2-rs-matrix.nix`, `samples/flow_dissector/xdp2_rs_matrix.sh` —
+  - JSON_OUT now defaults to `XDP2_MATRIX_JSON_OUT` env var (the
+    orchestrator path) so the composed pipeline produces per-cell JSON
+    without `-j` forwarded through `xdp2-run-on-host`. Explicit `-j` still
+    wins when both are present.
+  - INPUT_PCAP resolves in priority order: positional arg → `XDP2_MATRIX_PCAP`
+    env var → cached https-web workload pcap. Lets the orchestrator drive
+    multiple PCAPs without per-target arg forwarding.
+  - 4 new `run_rust` invocations — `graph-enum`, `mono-x4`, `simd`,
+    `template-simd` — and matching `emit_cell_json` calls + unified-table
+    rows. Total 14 cells (6 C + 8 Rust) per (host, pcap) cell group.
+  - AVX2 modes (`simd`, `template-simd`) on non-AVX2 hosts emit
+    `"warning: AVX2 not available"` and `run_rust` already maps to `N/A` →
+    JSON `null`; the aggregator skips `null` rows cleanly.
+- `nix/physical-testbed-runner.nix` — added `--exec` flag.
+  - Without `--exec`: legacy behavior (try `nix build` first, fall back to
+    `nix run`).
+  - With `--exec`: skip `nix build` and force `nix run` so
+    `writeShellApplication` targets actually execute. Required for the
+    matrix runner: under legacy logic, `nix build` succeeded (just built
+    the wrapper) and the matrix never ran, so no JSONs.
+  - Also propagates `XDP2_MATRIX_PCAP`, `XDP2_MATRIX_SMOKE`,
+    `XDP2_NIC_DRIVER`, `XDP2_NIC_FIRMWARE` over ssh.
+  - Injects `XDP2_MATRIX_JSON_OUT="$PWD/result"` on the remote so per-cell
+    JSONs land at `result/<pcap>/<mode>.json` and ride back via the
+    existing `result/` rsync.
+  - Per-host result tree depth (`<results>/<date>/<testbed>/<host>/<target-ts>/<pcap>/<mode>.json`)
+    is unchanged → aggregator's path inference still works.
+- `nix/flow-dissector-matrix-run.nix` — pass `--exec` through to
+  `xdp2-run-on-host`.
+- `nix/scripts/aggregate-results.py` — `CANONICAL_MODES` extended from 10
+  to 14, in design §5 row order. Modes still not in the list sort
+  alphabetically and get `(unknown)` tag; nothing in the canonical list
+  is dropped silently.
+- `nix/checks/matrix-runner-json-shape.nix` — extended:
+  - Renamed inner loop var from `$src` to `$file` to stop shadowing the
+    outer `$src` (= source root) — required for the new mode-coverage
+    check below to find the right source files.
+  - Added §4: per-source canonical mode witness. C modes greppedas
+    literal `"c-..."`; Rust modes greppedas `run_rust <bare>` invocations
+    (the Nix wrapper builds the prefix dynamically as `"rust-$mode"`, so
+    the literal `"rust-graph"` never appears in `nix/xdp2-rs-matrix.nix`).
+- `nix/checks/aggregate-results-test.nix` — extended fixture: added
+  `rust-graph-enum` cells on hp5/combo, hp2/combo, and hp5/tcp_ipv4. The
+  hp5 baseline-disagreement case was retargeted from `rust-graph` to
+  `rust-graph-enum` so the regression-detection covers the new headline
+  metric. CSV row count assertion bumped 5 → 6.
+
+**Deviations from plan:**
+- Phase 10's DoD listed an explicit CSV-row count of 14×4×2 — that's the
+  Phase 12 goal, not Phase 10's. Phase 10 only needed: in-tree edits land,
+  all 5 flake checks pass, and the local synthetic produces 14 mode JSONs
+  per pcap. All three verified.
+- Plan §10.0 also listed an env-prefix scheme that injected
+  `result/cells/` as the JSON root. Dropped the `cells/` segment — adding
+  it would push the result-tree depth to 7 components, breaking the
+  aggregator's `infer_testbed_host` (which expects ≥6). Wrote directly
+  into `result/` instead.
+
+**Verification (all DoD criteria — actual output):**
+
+```bash
+# 1. All 5 flake checks pass.
+$ nix build --no-link --print-out-paths \
+    .#checks.x86_64-linux.nic-tuning-eval \
+    .#checks.x86_64-linux.matrix-runner-json-shape \
+    .#checks.x86_64-linux.aggregate-results \
+    .#checks.x86_64-linux.matrix-check-smoke \
+    .#checks.x86_64-linux.afxdp-live-smoke
+/nix/store/<hash>-nic-tuning-eval-ok
+/nix/store/<hash>-matrix-runner-json-shape
+/nix/store/<hash>-aggregate-results-test
+/nix/store/<hash>-matrix-check-smoke
+/nix/store/<hash>-afxdp-live-smoke
+
+# 2. Local synthetic: 14 mode JSONs emit when XDP2_MATRIX_JSON_OUT is set.
+$ XDP2_MATRIX_JSON_OUT=/tmp/m10-cells \
+    nix run .#flow-dissector-matrix-unified -- -n 3 \
+      "$(nix build --no-link --print-out-paths .#test-pcap)/combo.pcap"
+$ ls /tmp/m10-cells/combo.pcap/ | wc -l
+14
+
+# 3. Aggregator consumes the new 14-mode tree.
+$ mkdir -p /tmp/m10-tree/2026-05-05/test-tb/local/run-001 && \
+    cp -r /tmp/m10-cells/combo.pcap /tmp/m10-tree/2026-05-05/test-tb/local/run-001/
+$ nix run .#flow-dissector-matrix-aggregate -- --results /tmp/m10-tree
+wrote /tmp/m10-tree/summary.csv and /tmp/m10-tree/summary.md
+$ grep -c '^| rust-' /tmp/m10-tree/summary.md
+8                       # rust-{graph,graph-enum,mono,mono-x4,compiled,simd,template,template-simd}
+
+# 4. Headline graph-enum metric reproducible (this dev host is Zen 2,
+#    not Zen 1 hp5; just confirms the mode is wired and produces a
+#    sensible number — Phase 12 reproduces hp5's 12 ns/pkt).
+$ jq '.ns_per_pkt' /tmp/m10-cells/combo.pcap/rust-graph-enum.json
+10
+```
+
+**Notes:**
+- Live multi-host run (`flow-dissector-matrix-run --testbed ...` against
+  hp2/hp5) is Phase 11's territory. Phase 10's verification rests on
+  synthetic in-process runs that exercise the same code paths.
+- The Phase 7 placeholder baseline (`testbeds/hp2-hp5-x710.baseline.csv`
+  with `?` markers) still rejects-only against the new 14-mode tree —
+  the aggregator's "baseline incomplete" rejection is unchanged. Phase 12
+  promotes the live sweep over the placeholder.
+
 ## Cross-Phase Notes
 
 - All result trees emitted by future phases will live under
@@ -810,3 +928,5 @@ $ nix build --no-link --print-out-paths \
   `perf-results/2026-05-02-physical-testbed-summary.md` are the
   baseline that the final implementation must reproduce within 95%
   CI (specifically: `xdp2-rs graph-enum` at ~12 ns/pkt on combo.pcap).
+  Phase 10 wired graph-enum into the runner; Phase 12 promotes the
+  live sweep into the regression-gated baseline CSV.
