@@ -41,9 +41,13 @@ CANONICAL_MODES = [
     "c-bpf-xdp2",
     "c-bpf-fast",
     "rust-graph",
+    "rust-graph-enum",
     "rust-mono",
+    "rust-mono-x4",
     "rust-compiled",
+    "rust-simd",
     "rust-template",
+    "rust-template-simd",
 ]
 
 CSV_COLUMNS = [

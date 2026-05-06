@@ -47,24 +47,38 @@ pkgs.writeShellApplication {
     print_usage() {
       cat <<'EOF'
     Usage:
-      xdp2-run-on-host --testbed PATH -- TARGET [TARGET...]
-      xdp2-run-on-host HOST [HOST...]  -- TARGET [TARGET...]
+      xdp2-run-on-host [--exec] --testbed PATH -- TARGET [TARGET...]
+      xdp2-run-on-host [--exec] HOST [HOST...]  -- TARGET [TARGET...]
 
       --testbed PATH  Load testbed-config TOML at PATH; resolves DUT
                       and (optional) generator hostnames from it. Result
                       trees go to perf-results/<date>/<testbed.name>/<host>/.
+      --exec          Force `nix run` (skip the `nix build` first-pass).
+                      Required for writeShellApplication targets that
+                      produce side effects at runtime (e.g. the unified
+                      matrix runner emitting per-cell JSON via
+                      XDP2_MATRIX_JSON_OUT). Without --exec, `nix build`
+                      succeeds and the target never executes. Also
+                      propagates XDP2_MATRIX_PCAP / XDP2_MATRIX_SMOKE /
+                      XDP2_NIC_DRIVER / XDP2_NIC_FIRMWARE from the local
+                      env over ssh, and sets XDP2_MATRIX_JSON_OUT to
+                      ~/<remote_path>/result/cells/ so JSONs ride back
+                      via the existing result/ rsync.
       HOST            SSH-reachable host (e.g. hp2, hp5, root@1.2.3.4).
                       Bare names are connected to as root@HOST. Result
                       trees go to perf-results/<host>/ (legacy form).
       TARGET          flake attribute (e.g. xdp2-rs-test, flow-dissector-matrix,
                       perf-analysis-all). Tried as a package first
                       (nix build .#TARGET), then as an app (nix run .#TARGET)
-                      if the package build fails.
+                      if the package build fails — unless --exec forces
+                      `nix run` directly.
 
     Examples:
       xdp2-run-on-host --testbed testbeds/hp2-hp5-x710.toml -- xdp2-rs-test
       xdp2-run-on-host hp5 -- xdp2-rs-test
       xdp2-run-on-host hp2 hp5 -- xdp2-rs-test flow-dissector-matrix
+      xdp2-run-on-host --exec --testbed testbeds/hp2-hp5-x710.toml -- \
+        flow-dissector-matrix-unified
     EOF
     }
 
@@ -118,19 +132,33 @@ pkgs.writeShellApplication {
     TARGETS=()
     TESTBED=""
     TESTBED_NAME=""
+    EXEC=0
     seen_sep=0
 
-    # First pass: peel off --testbed if present (must come before
-    # any positional args so we don't mistake "--testbed" for a
-    # hostname).
-    if [ "$1" = "--testbed" ] || [ "$1" = "-t" ]; then
-      if [ "$#" -lt 2 ]; then
-        echo "xdp2-run-on-host: --testbed requires a path argument" >&2
-        print_usage >&2
-        exit 2
-      fi
-      TESTBED="$2"
-      shift 2
+    # First pass: peel off leading flags (--testbed, --exec) in any
+    # order, before we hit positional hostnames or the `--` separator.
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --testbed|-t)
+          if [ "$#" -lt 2 ]; then
+            echo "xdp2-run-on-host: --testbed requires a path argument" >&2
+            print_usage >&2
+            exit 2
+          fi
+          TESTBED="$2"
+          shift 2
+          ;;
+        --exec)
+          EXEC=1
+          shift
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
+
+    if [ -n "$TESTBED" ]; then
       if [ ! -f "$TESTBED" ]; then
         echo "xdp2-run-on-host: testbed config not found: $TESTBED" >&2
         exit 2
@@ -258,21 +286,54 @@ pkgs.writeShellApplication {
         local start end wall exit_code
         start=$(date +%s)
 
-        # Try `nix build` first (idempotent, cacheable). If it fails
-        # with "is not a derivation" or similar, fall back to `nix run`
-        # for app-style targets. We can't easily distinguish without
-        # `nix flake show --json` (which is slow on first run), so we
-        # just try both and report the second result if the first fails.
-        if $SSH_CMD "$sshto" \
-              "cd ~/$remote_path && nix build .#$target --print-build-logs --no-link --print-out-paths" \
-              >"$logfile" 2>&1; then
-          exit_code=0
-        elif $SSH_CMD "$sshto" \
-              "cd ~/$remote_path && nix run .#$target --print-build-logs" \
-              >>"$logfile" 2>&1; then
-          exit_code=0
+        if [ "$EXEC" -eq 1 ]; then
+          # --exec: force `nix run` so writeShellApplication targets
+          # actually execute. Build an env-prefix from any XDP2_*
+          # caller-side overrides and inject XDP2_MATRIX_JSON_OUT
+          # pointing at result/ so the matrix runner's per-cell JSONs
+          # land at result/<pcap>/<mode>.json and ride back via the
+          # existing result/ rsync below. The aggregator's path-inference
+          # (nix/scripts/aggregate-results.py) expects exactly six path
+          # components below --results, i.e.
+          # <date>/<testbed>/<host>/<target-ts>/<pcap>/<mode>.json — so
+          # JSON_OUT is the rsync-back root, not a `cells/` subdir.
+          local env_prefix=""
+          local var val
+          for var in XDP2_MATRIX_PCAP XDP2_MATRIX_SMOKE XDP2_NIC_DRIVER XDP2_NIC_FIRMWARE; do
+            val="''${!var:-}"
+            if [ -n "$val" ]; then
+              # printf %q for safety against spaces/special chars in val.
+              env_prefix+=" $var=$(printf '%q' "$val")"
+            fi
+          done
+
+          if $SSH_CMD "$sshto" \
+                "cd ~/$remote_path && rm -rf result && mkdir -p result && \
+                 XDP2_MATRIX_JSON_OUT=\"\$PWD/result\"$env_prefix \
+                 nix run .#$target --print-build-logs" \
+                >"$logfile" 2>&1; then
+            exit_code=0
+          else
+            exit_code=1
+          fi
         else
-          exit_code=1
+          # Default: try `nix build` first (idempotent, cacheable). If
+          # it fails with "is not a derivation" or similar, fall back
+          # to `nix run` for app-style targets. We can't easily
+          # distinguish without `nix flake show --json` (which is slow
+          # on first run), so we just try both and report the second
+          # result if the first fails.
+          if $SSH_CMD "$sshto" \
+                "cd ~/$remote_path && nix build .#$target --print-build-logs --no-link --print-out-paths" \
+                >"$logfile" 2>&1; then
+            exit_code=0
+          elif $SSH_CMD "$sshto" \
+                "cd ~/$remote_path && nix run .#$target --print-build-logs" \
+                >>"$logfile" 2>&1; then
+            exit_code=0
+          else
+            exit_code=1
+          fi
         fi
 
         end=$(date +%s)

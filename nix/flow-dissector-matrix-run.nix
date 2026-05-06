@@ -112,7 +112,14 @@ pkgs.writeShellApplication {
     fi
 
     echo "[matrix-run] testbed=$TESTBED results=$RESULTS smoke=$SMOKE" >&2
-    xdp2-run-on-host --testbed "$TESTBED" -- flow-dissector-matrix-unified
+    # --exec is required: flow-dissector-matrix-unified is a
+    # writeShellApplication. Without --exec, xdp2-run-on-host's default
+    # `nix build` first-pass succeeds (it just builds the wrapper) and
+    # the matrix runner is never executed, so no per-cell JSONs are
+    # emitted. With --exec, xdp2-run-on-host forces `nix run` and
+    # propagates XDP2_MATRIX_PCAP / XDP2_MATRIX_SMOKE / XDP2_NIC_*
+    # over ssh, plus injects XDP2_MATRIX_JSON_OUT=$PWD/result/cells/.
+    xdp2-run-on-host --exec --testbed "$TESTBED" -- flow-dissector-matrix-unified
 
     echo "[matrix-run] aggregating $RESULTS" >&2
     flow-dissector-matrix-aggregate --results "$RESULTS"

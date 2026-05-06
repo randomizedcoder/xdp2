@@ -75,7 +75,11 @@ pkgs.writeShellApplication {
     ITER=100
     BPF_REPEAT=1000
     CORE_PIN=""
-    JSON_OUT=""
+    # JSON_OUT defaults to XDP2_MATRIX_JSON_OUT if set in the environment
+    # (the orchestrator path) so the composed pipeline produces per-cell
+    # JSON without needing -j forwarded through xdp2-run-on-host. The
+    # explicit -j flag still wins when both are present.
+    JSON_OUT="''${XDP2_MATRIX_JSON_OUT:-}"
 
     while getopts "n:N:c:j:h" opt; do
       case $opt in
@@ -89,7 +93,11 @@ pkgs.writeShellApplication {
     done
     shift $((OPTIND - 1))
 
-    INPUT_PCAP="''${1:-${workloadPcapHttpsWeb}/https-web.pcap}"
+    # PCAP resolution order: positional arg → XDP2_MATRIX_PCAP env var →
+    # cached https-web workload pcap. The env-var path lets the orchestrator
+    # drive multiple PCAPs through xdp2-run-on-host (which has no per-target
+    # arg forwarding).
+    INPUT_PCAP="''${1:-''${XDP2_MATRIX_PCAP:-${workloadPcapHttpsWeb}/https-web.pcap}}"
     if [[ ! -f "$INPUT_PCAP" ]]; then
       echo "Error: PCAP not found: $INPUT_PCAP" >&2
       exit 1
@@ -266,15 +274,23 @@ pkgs.writeShellApplication {
       echo ""
     }
 
-    GRAPH_NSPKT="N/A"; GRAPH_MPPS="N/A"
-    MONO_NSPKT="N/A"; MONO_MPPS="N/A"
-    COMPILED_NSPKT="N/A"; COMPILED_MPPS="N/A"
-    TEMPLATE_NSPKT="N/A"; TEMPLATE_MPPS="N/A"
+    GRAPH_NSPKT="N/A";      GRAPH_MPPS="N/A"
+    GRAPH_ENUM_NSPKT="N/A"; GRAPH_ENUM_MPPS="N/A"
+    MONO_NSPKT="N/A";       MONO_MPPS="N/A"
+    MONOX4_NSPKT="N/A";     MONOX4_MPPS="N/A"
+    COMPILED_NSPKT="N/A";   COMPILED_MPPS="N/A"
+    SIMD_NSPKT="N/A";       SIMD_MPPS="N/A"
+    TEMPLATE_NSPKT="N/A";   TEMPLATE_MPPS="N/A"
+    TSIMD_NSPKT="N/A";      TSIMD_MPPS="N/A"
 
-    run_rust graph    GRAPH_NSPKT    GRAPH_MPPS
-    run_rust mono     MONO_NSPKT     MONO_MPPS
-    run_rust compiled COMPILED_NSPKT COMPILED_MPPS
-    run_rust template TEMPLATE_NSPKT TEMPLATE_MPPS
+    run_rust graph         GRAPH_NSPKT      GRAPH_MPPS
+    run_rust graph-enum    GRAPH_ENUM_NSPKT GRAPH_ENUM_MPPS
+    run_rust mono          MONO_NSPKT       MONO_MPPS
+    run_rust mono-x4       MONOX4_NSPKT     MONOX4_MPPS
+    run_rust compiled      COMPILED_NSPKT   COMPILED_MPPS
+    run_rust simd          SIMD_NSPKT       SIMD_MPPS
+    run_rust template      TEMPLATE_NSPKT   TEMPLATE_MPPS
+    run_rust template-simd TSIMD_NSPKT      TSIMD_MPPS
 
     # ─── Unified table ──────────────────────────────────────────────
     echo "================================================================="
@@ -290,10 +306,14 @@ pkgs.writeShellApplication {
     printf "%-32s | %-18s | %-9s\n" "C XDP2 BPF parser"          "$XDP2_BPF_NSPKT" "$XDP2_BPF_MPPS"
     printf "%-32s | %-18s | %-9s\n" "C xdp2-flow-ebpf fast (BPF)" "$FAST_BPF_NSPKT" "$FAST_BPF_MPPS"
     printf -- "---------------------------------+--------------------+----------\n"
-    printf "%-32s | %-18s | %-9s\n" "Rust graph (dyn dispatch)"  "$GRAPH_NSPKT" "$GRAPH_MPPS"
-    printf "%-32s | %-18s | %-9s\n" "Rust mono (hand-rolled)"    "$MONO_NSPKT" "$MONO_MPPS"
-    printf "%-32s | %-18s | %-9s\n" "Rust compiled (monomorphized)" "$COMPILED_NSPKT" "$COMPILED_MPPS"
-    printf "%-32s | %-18s | %-9s\n" "Rust template (fixed-offset)" "$TEMPLATE_NSPKT" "$TEMPLATE_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust graph (dyn dispatch)"     "$GRAPH_NSPKT"      "$GRAPH_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust graph-enum (enum match)"  "$GRAPH_ENUM_NSPKT" "$GRAPH_ENUM_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust mono (hand-rolled)"       "$MONO_NSPKT"       "$MONO_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust mono-x4 (sw-pipelined)"   "$MONOX4_NSPKT"     "$MONOX4_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust compiled (monomorphized)" "$COMPILED_NSPKT"   "$COMPILED_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust simd (AVX2 batch)"        "$SIMD_NSPKT"       "$SIMD_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust template (fixed-offset)"  "$TEMPLATE_NSPKT"   "$TEMPLATE_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "Rust template-simd (AVX2)"     "$TSIMD_NSPKT"      "$TSIMD_MPPS"
     echo ""
     echo "Notes:"
     echo "  - All rows measure the SAME filtered pcap (xdp2-bench pre-filter)."

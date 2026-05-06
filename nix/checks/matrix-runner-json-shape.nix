@@ -64,14 +64,50 @@ pkgs.runCommand "matrix-runner-json-shape"
     exit 1
   fi
 
+  # Pin the source-tree root to a non-shadowed variable so the per-file
+  # loops below don't clobber it on each iteration.
+  SRC_ROOT="$src"
+
   # 3. Confirm every expected key string is also present in both
   #    sources, so the check trips if either source drifts.
-  for src in \
-      "$src/nix/xdp2-rs-matrix.nix" \
-      "$src/samples/flow_dissector/xdp2_rs_matrix.sh"; do
+  for file in \
+      "$SRC_ROOT/nix/xdp2-rs-matrix.nix" \
+      "$SRC_ROOT/samples/flow_dissector/xdp2_rs_matrix.sh"; do
     for key in ${lib.concatStringsSep " " expectedKeys}; do
-      if ! grep -qF "\"$key\":" "$src"; then
-        echo "matrix-runner-json-shape: key '$key' missing from $src" >&2
+      if ! grep -qF "\"$key\":" "$file"; then
+        echo "matrix-runner-json-shape: key '$key' missing from $file" >&2
+        exit 1
+      fi
+    done
+  done
+
+  # 4. Confirm every canonical mode (design §5, 14 cells total) is
+  #    emitted by both runners. C modes are literal "c-..." strings in
+  #    emit_cell_json; Rust modes are dispatched via `run_rust <bare>`
+  #    and the prefix "rust-" is added inline (`emit_cell_json
+  #    "rust-$mode" ...`), so the witness pattern differs.
+  #
+  #    The check trips if the mode loop is shrunk back to the legacy
+  #    10 modes and the headline graph-enum baseline becomes
+  #    unreproducible.
+  for file in \
+      "$SRC_ROOT/nix/xdp2-rs-matrix.nix" \
+      "$SRC_ROOT/samples/flow_dissector/xdp2_rs_matrix.sh"; do
+    # C modes: literal string check.
+    for mode in c-flowdis-usp c-xdp2-usp c-xdp2-parse-only \
+                c-bpf-flowdis c-bpf-xdp2 c-bpf-fast; do
+      if ! grep -qF "\"$mode\"" "$file"; then
+        echo "matrix-runner-json-shape: canonical mode '$mode' missing from $file" >&2
+        exit 1
+      fi
+    done
+    # Rust modes: must appear as a `run_rust <bare>` invocation. Match
+    # the bare kebab-case mode name with a word boundary on the right
+    # so 'mono' doesn't accept 'mono-x4' and vice versa.
+    for bare in graph graph-enum mono mono-x4 \
+                compiled simd template template-simd; do
+      if ! grep -qE "run_rust[[:space:]]+$bare(\b|[[:space:]])" "$file"; then
+        echo "matrix-runner-json-shape: rust mode 'rust-$bare' (run_rust $bare) missing from $file" >&2
         exit 1
       fi
     done

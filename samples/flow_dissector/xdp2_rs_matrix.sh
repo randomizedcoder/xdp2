@@ -27,7 +27,10 @@ set -euo pipefail
 ITER=100
 BPF_REPEAT=1000
 CORE_PIN=""
-JSON_OUT=""
+# JSON_OUT defaults to XDP2_MATRIX_JSON_OUT if set in the environment so the
+# composed Nix pipeline can drive per-cell JSON without forwarding -j through
+# xdp2-run-on-host. Explicit -j still wins.
+JSON_OUT="${XDP2_MATRIX_JSON_OUT:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BPF_OBJ="$SCRIPT_DIR/bpf_flow.kern.o"
 XDP2_BPF_OBJ="$SCRIPT_DIR/flow_dissector.bpf.o"
@@ -64,8 +67,15 @@ while getopts "n:N:c:b:x:f:j:h" opt; do
 done
 shift $((OPTIND - 1))
 
-[[ $# -eq 1 ]] || usage
-INPUT_PCAP="$1"
+# PCAP resolution: positional arg → XDP2_MATRIX_PCAP env var. Without either,
+# usage().
+if [[ $# -eq 0 && -n "${XDP2_MATRIX_PCAP:-}" ]]; then
+    INPUT_PCAP="$XDP2_MATRIX_PCAP"
+elif [[ $# -eq 1 ]]; then
+    INPUT_PCAP="$1"
+else
+    usage
+fi
 [[ -f "$INPUT_PCAP" ]] || { echo "Error: PCAP not found: $INPUT_PCAP" >&2; exit 1; }
 
 command -v xdp2-bench >/dev/null 2>&1 || {
@@ -205,15 +215,23 @@ run_rust() {
     fi
 }
 
-read -r GRAPH_NSPKT GRAPH_MPPS       < <(run_rust graph)
-read -r MONO_NSPKT MONO_MPPS         < <(run_rust mono)
-read -r COMPILED_NSPKT COMPILED_MPPS < <(run_rust compiled)
-read -r TEMPLATE_NSPKT TEMPLATE_MPPS < <(run_rust template)
+read -r GRAPH_NSPKT GRAPH_MPPS             < <(run_rust graph)
+read -r GRAPH_ENUM_NSPKT GRAPH_ENUM_MPPS   < <(run_rust graph-enum)
+read -r MONO_NSPKT MONO_MPPS               < <(run_rust mono)
+read -r MONOX4_NSPKT MONOX4_MPPS           < <(run_rust mono-x4)
+read -r COMPILED_NSPKT COMPILED_MPPS       < <(run_rust compiled)
+read -r SIMD_NSPKT SIMD_MPPS               < <(run_rust simd)
+read -r TEMPLATE_NSPKT TEMPLATE_MPPS       < <(run_rust template)
+read -r TSIMD_NSPKT TSIMD_MPPS             < <(run_rust template-simd)
 
-emit_cell_json "rust-graph"    "$GRAPH_NSPKT"    "$GRAPH_MPPS"
-emit_cell_json "rust-mono"     "$MONO_NSPKT"     "$MONO_MPPS"
-emit_cell_json "rust-compiled" "$COMPILED_NSPKT" "$COMPILED_MPPS"
-emit_cell_json "rust-template" "$TEMPLATE_NSPKT" "$TEMPLATE_MPPS"
+emit_cell_json "rust-graph"         "$GRAPH_NSPKT"      "$GRAPH_MPPS"
+emit_cell_json "rust-graph-enum"    "$GRAPH_ENUM_NSPKT" "$GRAPH_ENUM_MPPS"
+emit_cell_json "rust-mono"          "$MONO_NSPKT"       "$MONO_MPPS"
+emit_cell_json "rust-mono-x4"       "$MONOX4_NSPKT"     "$MONOX4_MPPS"
+emit_cell_json "rust-compiled"      "$COMPILED_NSPKT"   "$COMPILED_MPPS"
+emit_cell_json "rust-simd"          "$SIMD_NSPKT"       "$SIMD_MPPS"
+emit_cell_json "rust-template"      "$TEMPLATE_NSPKT"   "$TEMPLATE_MPPS"
+emit_cell_json "rust-template-simd" "$TSIMD_NSPKT"      "$TSIMD_MPPS"
 echo ""
 
 # ─── Unified table ───────────────────────────────────────────────
@@ -230,10 +248,14 @@ printf "%-32s | %-18s | %-9s\n" "C kernel BPF flowdis"         "$BPF_NSPKT"     
 printf "%-32s | %-18s | %-9s\n" "C XDP2 BPF parser"            "$XDP2_BPF_NSPKT"  "$XDP2_BPF_MPPS"
 printf "%-32s | %-18s | %-9s\n" "C xdp2-flow-ebpf fast (BPF)"  "$FAST_BPF_NSPKT"  "$FAST_BPF_MPPS"
 printf -- "---------------------------------+--------------------+----------\n"
-printf "%-32s | %-18s | %-9s\n" "Rust graph (dyn dispatch)"    "$GRAPH_NSPKT"     "$GRAPH_MPPS"
-printf "%-32s | %-18s | %-9s\n" "Rust mono (hand-rolled)"      "$MONO_NSPKT"      "$MONO_MPPS"
-printf "%-32s | %-18s | %-9s\n" "Rust compiled (monomorphized)" "$COMPILED_NSPKT" "$COMPILED_MPPS"
-printf "%-32s | %-18s | %-9s\n" "Rust template (fixed-offset)" "$TEMPLATE_NSPKT"  "$TEMPLATE_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust graph (dyn dispatch)"     "$GRAPH_NSPKT"      "$GRAPH_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust graph-enum (enum match)"  "$GRAPH_ENUM_NSPKT" "$GRAPH_ENUM_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust mono (hand-rolled)"       "$MONO_NSPKT"       "$MONO_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust mono-x4 (sw-pipelined)"   "$MONOX4_NSPKT"     "$MONOX4_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust compiled (monomorphized)" "$COMPILED_NSPKT"   "$COMPILED_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust simd (AVX2 batch)"        "$SIMD_NSPKT"       "$SIMD_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust template (fixed-offset)"  "$TEMPLATE_NSPKT"   "$TEMPLATE_MPPS"
+printf "%-32s | %-18s | %-9s\n" "Rust template-simd (AVX2)"     "$TSIMD_NSPKT"      "$TSIMD_MPPS"
 echo ""
 echo "Notes:"
 echo "  - All rows measure the SAME filtered pcap (xdp2-bench pre-filter)."
