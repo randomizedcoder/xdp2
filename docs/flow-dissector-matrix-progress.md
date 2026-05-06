@@ -27,6 +27,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 10    | In-tree fixes for live campaign (JSON wiring + 14 modes) | done           | 2026-05-05  | 2026-05-05  | `683c12b` |
 | 11    | Phase A — pre-flight + smoke (live hp2/hp5)              | done           | 2026-05-05  | 2026-05-05  | `989f734` |
 | 12    | Phase B — full sweep + baseline promotion                | done           | 2026-05-05  | 2026-05-05  | `a4f196a` |
+| 13    | Phase C — perf-sweep + PMU breakdown (T5 / D4)           | done           | 2026-05-05  | 2026-05-05  | `6b7ef6d` |
 
 ## Branch
 
@@ -1141,6 +1142,82 @@ exit 1 with the cell named in regressions.md.
   from Phase 10) and `XDP2_MATRIX_PCAP` (the new pcap-input fallback,
   not in Phase 10's progress entry but added in `683c12b` alongside
   the JSON_OUT fallback).
+
+## Phase 13 — Phase C: perf-sweep + PMU breakdown
+
+**Status:** done
+
+**Goal:** capture per-mode hardware-counter (PMU) breakdown on hp2/hp5
+across tcp_ipv4, mixed-real, combo PCAPs — producing T5 (deliverable
+D4 from `docs/flow-dissector-benchmark-plan.md` §9).
+
+**Files landed (commits `025897e` + `6b7ef6d`):**
+- `nix/perf-analysis.nix` — `perf-sweep-{tcp,mixed,combo}` targets
+  gain `XDP2_PERF_SWEEP_OUT` env-fallback for `OUTDIR` (mirrors
+  Phase 10's `XDP2_MATRIX_JSON_OUT` pattern).
+- `nix/physical-testbed-runner.nix` — `--exec` branch now also
+  injects `XDP2_PERF_SWEEP_OUT="$PWD/result"` so perf-sweep targets'
+  report JSONs ride back via the existing `result/` rsync.
+- `perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/{hp2,hp5}/perf-sweep-*-<ts>/` —
+  30 host-rep dirs (3 pcaps × 5 reps × 2 hosts).
+- `perf-results/2026-05-06/T5-tma.md` — generated T5 TMA breakdown
+  (deliverable D4): 7 modes × 3 pcaps × 2 hosts = 42 cells, each
+  carrying ns/pkt, Mpps, IPC, branch-miss%, cache-miss%, L1d-miss%,
+  FE-bound%, BE-bound% medians over 5 reps.
+- `perf-results/2026-05-06/perf-sweep-driver.log` — driver log.
+
+**Sweep configuration:**
+- 3 PCAPs × 5 reps × 2 hosts = 30 host-rep pairs.
+- `xdp2-bench --mode both --perf` with all 4 perf passes (basic,
+  stalls, detail, zen). 7 modes per pass: graph, mono, mono-x4,
+  compiled, simd, template, template-simd. **graph-enum is NOT
+  iterated by --mode both** (separate run if needed; the
+  2026-05-02 reference summary already has graph-enum's PMU
+  breakdown at 12 ns / 28 cycles / IPC 2.55 / branch-miss 0.4%).
+- Extractor: `/tmp/phase13-extract-t5.py` (one-off, not committed).
+
+**Wall clock:**
+- Total: 1280 s (≈ 21 min).
+- Per-pcap (warm cache):
+  - `tcp_ipv4` (11 pkts × 500 iter): 2-6 s/rep
+  - `mixed-real` (~870 pkts × 500 iter): 4-6 s/rep
+  - `combo` (500K pkts × 200 iter): 241-249 s/rep
+
+**Failures:** 0 / 15 invocations.
+
+**Headline T5 (combo on hp5):**
+
+| Mode             | ns/pkt | IPC  | branch-miss% | FE-bound% | BE-bound% |
+|------------------|-------:|-----:|-------------:|----------:|----------:|
+| graph            | 289    | 1.31 | 3.89%        | 2.5%      | 8.6%      |
+| mono             |  50    | 1.28 | 5.91%        | 2.8%      | 17.7%     |
+| mono-x4          |  55    | 1.16 | 6.16%        | 2.9%      | 22.4%     |
+| compiled         |  47    | 1.22 | 6.19%        | 3.3%      | 10.3%     |
+| simd             |  56    | 1.18 | 6.62%        | 3.9%      | 18.7%     |
+| template         |  50    | 1.09 | 6.50%        | 3.6%      | 15.4%     |
+| template-simd    |  56    | 0.84 | 7.98%        | 5.9%      | 9.9%      |
+
+**Hypothesis verdicts (early — full D7 in Phase 16):**
+- H1 (Rust compiled 40-50 ns on combo): ✅ measured 47 ns.
+- H5 (Rust graph 4-5× slower than compiled): ✅ish — 289/47 = 6.1×
+  (slightly more than predicted but same order).
+- H8 (Kernel flowdis beats Rust graph): ✅ 162 vs 289.
+
+**Deviations from plan:**
+- Plan §13.0 worried that `nix/perf-bench.nix` might need cpu_uarch
+  dispatch. Not needed — `xdp2-bench --perf` does graceful per-counter
+  degradation when an event isn't available on the host CPU. On Zen 1,
+  several events return ENOENT ("perf event not available, skipping")
+  — the bench reports zero for those rather than aborting. T5 columns
+  with high `—` density correspond to those degraded counters.
+- Plan §13 estimated ~3 h overnight; actual was 21 min (small
+  pcaps + cache reuse).
+- The T5 `L1d-miss%` column uses `l1d_misses / cache_refs` as the
+  ratio (~46-48% on combo), which differs from the 2026-05-02
+  summary doc's `l1d_misses / total_mem_refs` ratio (~2.27% on combo).
+  Internally consistent across the 42 cells. If a future deliverable
+  wants the lower ratio, change the denominator in
+  `/tmp/phase13-extract-t5.py:cell_stats`.
 
 ## Cross-Phase Notes
 
