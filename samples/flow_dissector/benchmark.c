@@ -46,9 +46,11 @@
  *   -n  Number of iterations for performance measurement (default: 100)
  */
 
+#include <errno.h>
 #include <getopt.h>
 
 #include "pcap_loader.h"
+#include "parity_schema.h"
 
 #include "xdp2/parser.h"
 #include "xdp2/parser_metadata.h"
@@ -240,6 +242,223 @@ static int run_xdp2(const struct xdp2_parser *l2_parser,
 	/* IPsec/L2TP key */
 	result->keyid = metadata.keyid;
 
+	return 0;
+}
+
+/* ── Phase 17.B.C parity dump-meta helpers ────────────────────────
+ *
+ * Convert the populated parsed_result / xdp2_metadata_all into a
+ * ParityRecord (samples/flow_dissector/parity_schema.h). One record
+ * per parser per packet; written to a JSONL file when `-D <path>` is
+ * passed. Independent of the timing loop's `repeat` count.
+ */
+
+static void parity_fill_from_parsed_result(struct parity_record *r,
+					   const struct parsed_result *p)
+{
+	switch (p->addr_type) {
+	case ADDR_TYPE_IPV4:
+		parity_set_addr_type(r, PARITY_ADDR_IPV4);
+		parity_set_ipv4(r, p->ipv4_src, p->ipv4_dst);
+		break;
+	case ADDR_TYPE_IPV6:
+		parity_set_addr_type(r, PARITY_ADDR_IPV6);
+		parity_set_ipv6(r, &p->ipv6_src, &p->ipv6_dst);
+		break;
+	case ADDR_TYPE_TIPC:
+		parity_set_addr_type(r, PARITY_ADDR_TIPC);
+		parity_set_tipc_key(r, p->tipc_key);
+		break;
+	default:
+		break;
+	}
+	if (p->ip_proto)
+		parity_set_ip_proto(r, p->ip_proto);
+	if (p->sport || p->dport)
+		parity_set_ports(r, ntohs(p->sport), ntohs(p->dport));
+	if (p->thoff)
+		parity_set_thoff(r, p->thoff);
+	if (p->is_frag || p->is_first_frag)
+		parity_set_frag(r, !!p->is_frag, !!p->is_first_frag);
+	if (p->flow_label)
+		parity_set_flow_label(r, p->flow_label);
+	if (p->arp_op || p->arp_sip || p->arp_tip)
+		parity_set_arp(r, p->arp_sip, p->arp_tip, p->arp_op);
+	if (p->keyid)
+		parity_set_keyid(r, ntohl(p->keyid));
+}
+
+/* Convert XDP2 C metadata to a ParityRecord.
+ *
+ * Offset translation: the C XDP2 parser is invoked starting at the
+ * ETHERTYPE field of the packet (samples/flow_dissector/benchmark.c
+ * passes `etype_data = data + l3_off - 2`), so its `l*_off` fields
+ * are relative to the ethertype offset, NOT to the original frame.
+ * `etype_offset_abs` is the original-frame byte offset of that
+ * ethertype field; we add it to translate l2/l3/l4_off back to
+ * absolute frame offsets so they align with kernel-flowdis (which
+ * reports absolute frame offsets) and xdp2-rs (likewise). Without
+ * this, the parity gate flags an in-scope disagreement on every
+ * packet that any parser populates l3_off/l4_off for.
+ */
+static void parity_fill_from_metadata(struct parity_record *r,
+				      const struct xdp2_metadata_all *m,
+				      __u16 etype_offset_abs)
+{
+	switch (m->addr_type) {
+	case XDP2_ADDR_TYPE_IPV4:
+		parity_set_addr_type(r, PARITY_ADDR_IPV4);
+		parity_set_ipv4(r, m->addrs.v4.saddr, m->addrs.v4.daddr);
+		break;
+	case XDP2_ADDR_TYPE_IPV6:
+		parity_set_addr_type(r, PARITY_ADDR_IPV6);
+		parity_set_ipv6(r, &m->addrs.v6.saddr, &m->addrs.v6.daddr);
+		break;
+	case XDP2_ADDR_TYPE_TIPC:
+		parity_set_addr_type(r, PARITY_ADDR_TIPC);
+		parity_set_tipc_key(r, m->addrs.tipckey);
+		break;
+	default:
+		break;
+	}
+	if (m->ip_proto)
+		parity_set_ip_proto(r, m->ip_proto);
+	if (m->port_pair.sport || m->port_pair.dport)
+		parity_set_ports(r, ntohs(m->port_pair.sport),
+				 ntohs(m->port_pair.dport));
+	if (m->l4_off)
+		parity_set_thoff(r, etype_offset_abs + m->l4_off);
+	if (m->is_fragment || m->first_frag)
+		parity_set_frag(r, !!m->is_fragment, !!m->first_frag);
+	if (m->flow_label)
+		parity_set_flow_label(r, m->flow_label);
+	if (m->eth_proto)
+		parity_set_eth_proto(r, ntohs(m->eth_proto));
+	{
+		__u8 zero[12] = {0};
+		if (memcmp(m->eth_addrs, zero, 12) != 0)
+			parity_set_eth_addrs(r, m->eth_addrs, m->eth_addrs + 6);
+	}
+	for (unsigned i = 0; i < m->vlan_count && i < XDP2_MAX_VLAN_CNT; i++)
+		parity_push_vlan(r, ntohs(m->vlan[i].tci),
+				 ntohs(m->vlan[i].tpid),
+				 m->vlan[i].id);
+	if (m->mpls.label)
+		parity_push_mpls(r, m->mpls.label, m->mpls.tc,
+				 !!m->mpls.bos, m->mpls.ttl);
+	if (m->arp.op || m->arp.sip || m->arp.tip)
+		parity_set_arp(r, m->arp.sip, m->arp.tip, m->arp.op);
+	if (m->gre.keyid)
+		parity_set_gre(r, 0, ntohl(m->gre.keyid));
+	if (m->keyid && !m->gre.keyid)
+		parity_set_keyid(r, ntohl(m->keyid));
+	if (m->icmp.type || m->icmp.code || m->icmp.id)
+		parity_set_icmp(r, m->icmp.type, m->icmp.code,
+				ntohs(m->icmp.id), 0);
+	if (m->l2_off || m->l3_off || m->l4_off)
+		parity_set_offsets(r,
+				   etype_offset_abs + m->l2_off,
+				   etype_offset_abs + m->l3_off,
+				   etype_offset_abs + m->l4_off);
+}
+
+static int dump_meta_pass(const char *out_path,
+			  const struct xdp2_parser *l2_parser,
+			  int fast_parser,
+			  struct flowdis_state *fstate,
+			  struct stored_packet *packets, int npkts,
+			  const char *pcap_label)
+{
+	FILE *fp = fopen(out_path, "w");
+	if (!fp) {
+		fprintf(stderr, "dump-meta: cannot open '%s': %s\n",
+			out_path, strerror(errno));
+		return -1;
+	}
+
+	for (int i = 0; i < npkts; i++) {
+		struct parity_record rec;
+		struct parsed_result pr;
+		struct xdp2_metadata_all metadata;
+		struct xdp2_ctrl_data ctrl;
+		int rc;
+
+		/* c-flowdis-usp */
+		parity_record_init(&rec, "c-flowdis-usp", "c", pcap_label, i);
+		if (run_flowdis(fstate, packets[i].data,
+				packets[i].len, &pr) == 0) {
+			parity_record_set_accepted(&rec, true, NULL);
+			parity_fill_from_parsed_result(&rec, &pr);
+		} else {
+			parity_record_set_accepted(&rec, false, "parse-error");
+		}
+		parity_record_emit_jsonl(fp, &rec);
+
+		/* c-xdp2-usp + c-xdp2-parse-only — both run xdp2_parse_*
+		 * and produce the same xdp2_metadata_all output, differing
+		 * only in whether they pre-zero the metadata struct. We
+		 * dump the same record under both parser_ids so the
+		 * comparator confirms zero divergence between them.
+		 */
+		if (packets[i].l3_off >= 2) {
+			void *etype_data = packets[i].data + packets[i].l3_off - 2;
+			size_t etype_len = packets[i].len - packets[i].l3_off + 2;
+			memset(&metadata, 0, sizeof(metadata));
+			memset(&ctrl, 0, sizeof(ctrl));
+			XDP2_CTRL_SET_BASIC_PKT_DATA(&ctrl, etype_data,
+						     etype_data, etype_len, 0);
+			rc = fast_parser
+				? xdp2_parse_fast(l2_parser, etype_data,
+						  etype_len, &metadata, &ctrl)
+				: xdp2_parse(l2_parser, etype_data, etype_len,
+					     &metadata, &ctrl, 0);
+			int xdp2_ok = (rc == XDP2_OKAY ||
+				       rc == XDP2_STOP_OKAY ||
+				       rc == XDP2_STOP_UNKNOWN_PROTO ||
+				       rc == XDP2_STOP_ENCAP_DEPTH);
+
+			parity_record_init(&rec, "c-xdp2-usp", "c",
+					   pcap_label, i);
+			if (xdp2_ok) {
+				parity_record_set_accepted(&rec, true, NULL);
+				parity_fill_from_metadata(&rec, &metadata,
+							  packets[i].l3_off - 2);
+			} else {
+				parity_record_set_accepted(&rec, false,
+							   "parse-error");
+			}
+			parity_record_emit_jsonl(fp, &rec);
+
+			parity_record_init(&rec, "c-xdp2-parse-only", "c",
+					   pcap_label, i);
+			if (xdp2_ok) {
+				parity_record_set_accepted(&rec, true, NULL);
+				parity_fill_from_metadata(&rec, &metadata,
+							  packets[i].l3_off - 2);
+			} else {
+				parity_record_set_accepted(&rec, false,
+							   "parse-error");
+			}
+			parity_record_emit_jsonl(fp, &rec);
+		} else {
+			/* Packet too short for L3; report as parse-error
+			 * for the XDP2 parsers. */
+			for (const char *pid = "c-xdp2-usp";
+			     pid != NULL;
+			     pid = strcmp(pid, "c-xdp2-usp") == 0
+				    ? "c-xdp2-parse-only" : NULL) {
+				parity_record_init(&rec, pid, "c",
+						   pcap_label, i);
+				parity_record_set_accepted(&rec, false,
+							   "parse-error");
+				parity_record_emit_jsonl(fp, &rec);
+			}
+		}
+	}
+
+	fclose(fp);
+	fprintf(stderr, "[dump-meta] wrote %s (%d packets × 3 modes)\n",
+		out_path, npkts);
 	return 0;
 }
 
@@ -435,8 +654,9 @@ int main(int argc, char *argv[])
 	int repeat = 100;
 	int npkts = 0;
 	int c;
+	const char *dump_meta_path = NULL;  /* -D <path>: parity dump (Phase 17.B.C) */
 
-	while ((c = getopt(argc, argv, "cpvOFn:")) != -1) {
+	while ((c = getopt(argc, argv, "cpvOFn:D:")) != -1) {
 		switch (c) {
 		case 'c':
 			do_correctness = 1;
@@ -459,6 +679,9 @@ int main(int argc, char *argv[])
 			repeat = atoi(optarg);
 			if (repeat < 1)
 				repeat = 1;
+			break;
+		case 'D':
+			dump_meta_path = optarg;
 			break;
 		default:
 			usage(argv[0]);
@@ -509,6 +732,20 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "No packets read\n");
 		free(packets);
 		exit(1);
+	}
+
+	/* Parity dump-meta pass (Phase 17.B.C). Independent from
+	 * correctness/performance loops; one record per parser per
+	 * packet (3 records per packet: c-flowdis-usp, c-xdp2-usp,
+	 * c-xdp2-parse-only). Runs once regardless of -n iteration count. */
+	if (dump_meta_path) {
+		const char *bn = strrchr(argv[optind], '/');
+		const char *pcap_label = bn ? bn + 1 : argv[optind];
+		if (dump_meta_pass(dump_meta_path, l2_parser, fast_parser,
+				   &fstate, packets, npkts, pcap_label) != 0) {
+			free(packets);
+			exit(1);
+		}
 	}
 
 	/* Correctness comparison */
