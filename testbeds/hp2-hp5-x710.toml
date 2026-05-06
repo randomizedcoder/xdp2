@@ -35,8 +35,12 @@ mitigations    = "off"
 [nic]
 driver          = "i40e"
 model           = "Intel X710"
-dut_iface       = "enp1s0f0"
-gen_iface       = "enp1s0f1"
+# Real interface names on hp2/hp5 carry the i40e NetPort suffix (np0/np1);
+# verified live with `ip -br link show` (2026-05-05). Older configs that
+# referenced bare `enp1s0f0` / `enp1s0f1` are silent dead code per
+# docs/physical-testbed.md §3.
+dut_iface       = "enp1s0f0np0"
+gen_iface       = "enp1s0f1np1"
 link_speed_gbps = 10
 queues          = 8
 zerocopy_afxdp  = true
