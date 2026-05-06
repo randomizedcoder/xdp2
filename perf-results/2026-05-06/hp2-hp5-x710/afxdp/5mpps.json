@@ -1,0 +1,15 @@
+{
+  "testbed": "hp2-hp5-x710",
+  "target": "hp5",
+  "peer": "hp2",
+  "interface": "enp1s0f0np0",
+  "offered_mpps": 5,
+  "duration_s": 30,
+  "bench_exit": 0,
+  "pps_received": 877791,
+  "drops": 123666264,
+  "drops_pct": 82.4442,
+  "queue_util": null,
+  "zerocopy": "zerocopy",
+  "bench_log": "perf-results/2026-05-06/hp2-hp5-x710/afxdp/5mpps.log"
+}

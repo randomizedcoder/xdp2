@@ -1,0 +1,7 @@
+AF_XDP: registered in XSKMAP at /sys/fs/bpf/xsks_map
+AF_XDP: busy-poll enabled (50us timeout)
+AF_XDP: receiving on enp1s0f0np0 queue 1 for 30s (batch=64)...
+--- AF_XDP per-queue template on enp1s0f0np0 (30s) ---
+queue    | template                           |        packets |          bytes |     ns/pkt |     Mpps
+-------------------------------------------------------------------------------------------------------
+1        | EthIpv4Udp                         |       26333896 |    36867454400 |       1139 |     0.88
