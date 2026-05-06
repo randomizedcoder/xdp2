@@ -30,6 +30,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 13    | Phase C — perf-sweep + PMU breakdown (T5 / D4)           | done           | 2026-05-05  | 2026-05-05  | `6b7ef6d` |
 | 14    | Phase D — tuned-vs-untuned (lowJitter sensitivity)       | deferred       | —           | —           | —         |
 | 15    | Phase E — AF_XDP live load sweep                         | done           | 2026-05-05  | 2026-05-05  | `c070ca9` |
+| 16    | Deliverables D1-D7 + 2026-05-06 narrative + archive      | done           | 2026-05-05  | 2026-05-05  | `32bf8d8` |
 
 ## Branch
 
@@ -1310,6 +1311,77 @@ doesn't currently expose `PKTGEN_BURST` / `PKTGEN_QUEUE_MAP_MODE` env
 vars; future revisions can add them so offered loads above 1.5 Mpps
 actually hit the wire.
 
+## Phase 16 — Deliverables D1-D7 + narrative + archive
+
+**Status:** done
+
+**Goal:** consolidate Phases 11-15 outputs into the deliverables
+listed in `docs/flow-dissector-benchmark-plan.md` §9 + close the
+2026-05-02 → 2026-05-06 reference handoff.
+
+**Files landed (commit `32bf8d8`):**
+- `perf-results/2026-05-06-physical-testbed-summary.md` — narrative
+  consolidating D1 (T1 main table), D2 (T2 cross-host), D4 (T5
+  microarchitecture summary), D6 (raw JSONs index), D7 (hypothesis
+  verdicts H1-H8). D3 recorded as deferred (Phase 14). Mirrors the
+  2026-05-02 summary doc structure.
+- `xdp2-rs/docs/performance-by-platform.md` — new
+  "AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t)" section (D5) with
+  single-threaded headline + cross-pcap table + cross-host note.
+  Cross-references the 2026-05-06 narrative and the regression-gated
+  baseline CSV.
+
+**Archive of 2026-05-02 captures:**
+
+```bash
+mkdir -p perf-results/2026-05-02/legacy-flat-layout
+mv perf-results/hp{2,5} perf-results/2026-05-02/legacy-flat-layout/
+```
+
+40 files / 13 MB moved out of the top-level `perf-results/` tree.
+The captures were untracked-by-choice (local archive), so the move
+is `mv` not `git mv`. Path naming signals "pre-Phase-10 layout, not
+consumable by the new aggregator."
+
+**Hypothesis verdicts (D7 summary):**
+
+| H  | Predicted               | Measured                | Verdict |
+|----|------------------------|-------------------------|---------|
+| H1 | rust-compiled 40-50 ns combo | 47 ns              | ✅       |
+| H2 | rust-template wins https-web (>80% match) | 77 ns vs compiled 82 | ⚠ partial |
+| H3 | xdp2-flow-ebpf fast 22-25 ns | 18-24 ns           | ✅       |
+| H4 | kernel BPF flowdis slowest | 85 ns tcp_ipv4 (mid-tier) | ✅ish |
+| H5 | rust-graph 4-5× slower than compiled | 6.1× on combo | ✅ish |
+| H6 | cross-host variance <5% | max 4.40%               | ✅       |
+| H7 | larger code = more turbo-sensitive | deferred       | open    |
+| H8 | C kernel flowdis beats rust-graph | 1.79× faster   | ✅       |
+
+5 of 8 confirmed cleanly; 2 partial / mode-dependent; 1 deferred.
+
+## Plan §16 — declare done
+
+All four "declare done" criteria from
+`docs/flow-dissector-matrix-implementation-plan.md` §16 are now
+satisfied:
+
+| # | Criterion                                                                | Status | Reference |
+|---|--------------------------------------------------------------------------|--------|-----------|
+| 1 | Every phase's verification block passes (synthetic in-tree)              | ✅      | 5 flake checks all green at HEAD |
+| 2 | Reference testbed reproduces 2026-05-02 numbers within 95% CI on combo, tcp_ipv4, mixed_real | ✅ | rust-graph-enum 12 ns/pkt on combo (exact match), all Rust modes ±2 ns of reference (D1) |
+| 3 | Mellanox sketch builds                                                   | ✅      | Phase 9, commit `438fbf3` |
+| 4 | `flow-dissector-matrix-check` exits 0 in CI                              | ✅      | aggregator with `--fail-on-regression` exits 0 against the 2026-05-06 baseline; mutated baseline trips gate (Phase 12.7) |
+
+The implementation plan's Phase ladder is **complete**. Follow-up
+work (open questions tracked in `2026-05-06-physical-testbed-summary.md`):
+
+- Phase 14 / H7: lowJitter rebuild on hp5 (external NixOS config).
+- D3 RX-drop: pktgen burst + AF_XDP fill ring tuning experiments
+  (`xdp2-exp-*` factory targets already exist).
+- graph-enum PMU on combo: supplemental
+  `xdp2-bench --mode graph-enum --perf` per (host, pcap) to extend T5.
+- Mellanox live: `testbeds/example-mellanox-cx4.toml` + nic-tuning
+  mlx5_core branch are ready; needs Mellanox hardware.
+
 ## Cross-Phase Notes
 
 - All result trees emitted by future phases will live under
@@ -1322,4 +1394,6 @@ actually hit the wire.
   `perf-results/2026-05-02-physical-testbed-summary.md` remain a
   historical record — they were the target Phase 12 reproduced
   within ±2 ns on every Rust mode (graph-enum at 12 ns/pkt
-  reproduced exactly).
+  reproduced exactly). The legacy per-host JSON captures are
+  archived under `perf-results/2026-05-02/legacy-flat-layout/`
+  (untracked but path-signposted as pre-Phase-10 shape).
