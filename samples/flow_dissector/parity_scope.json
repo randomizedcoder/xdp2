@@ -61,85 +61,125 @@
     ]
   },
 
+  "tunnel_detection": {
+    "doc": "On packets that contain a tunnel header (the outer parser reports a tunnel-protocol indicator), the inner-flow 5-tuple fields legitimately differ between OUTER-behavior parsers (kernel-flowdis-style) and INNER-behavior parsers (XDP2/xdp2-rs, which follow the tunnel). The comparator masks `inner_outer_fields` when comparing across mismatched tunnel_behavior. This is the structurally-richer XDP2 design — XDP2 reports the actual flow inside the tunnel; kernel-flowdis stops at the tunnel header. See benchmark.c:264-277 and docs/flow-dissector-parity.md 'Phase 17.C findings → Finding 2'.",
+    "outer_ip_protos": {
+      "4":   "IP-in-IP (IPIP)",
+      "41":  "IPv6-in-IPv4 (6in4)",
+      "47":  "GRE",
+      "50":  "ESP",
+      "51":  "AH",
+      "115": "L2TPv3"
+    },
+    "outer_udp_ports": {
+      "1701": "L2TP",
+      "2152": "GTP-U",
+      "4789": "VXLAN",
+      "6081": "Geneve",
+      "6635": "MPLS-over-UDP"
+    },
+    "inner_outer_fields": [
+      "addr_type", "ip_proto",
+      "ipv4_src", "ipv4_dst", "ipv6_src", "ipv6_dst",
+      "sport", "dport", "thoff",
+      "tipc_key", "flow_label",
+      "l3_off", "l4_off"
+    ]
+  },
+
   "scopes": {
     "c-flowdis-usp": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras"],
       "kind": "c",
+      "tunnel_behavior": "outer",
       "source": "samples/flow_dissector/benchmark.c:104-159 (struct parsed_result)",
-      "doc": "Linux kernel userspace flowdis (libflowdis) — bpf_flow_keys equivalent + ARP + TIPC + GRE keyid"
+      "doc": "Linux kernel userspace flowdis (libflowdis) — bpf_flow_keys equivalent + ARP + TIPC + GRE keyid. Stops at the OUTER 5-tuple on tunnel-encapsulated packets (does NOT follow GRE/VXLAN/Geneve/etc. into the inner flow)."
     },
     "c-xdp2-usp": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "c",
+      "tunnel_behavior": "inner",
       "source": "src/include/xdp2/parser_metadata.h (struct xdp2_metadata_all)",
-      "doc": "XDP2 C userspace parser — full FlowMeta-equivalent"
+      "doc": "XDP2 C userspace parser — full FlowMeta-equivalent. Follows tunnels (GRE, IPIP, VXLAN, Geneve, etc.) and reports the INNER 5-tuple. Slower than kernel-flowdis on tunneled traffic, but produces a richer flow signature; see benchmark.c:264-277."
     },
     "c-xdp2-parse-only": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "c",
+      "tunnel_behavior": "inner",
       "source": "Same as c-xdp2-usp; -P flag skips per-packet 200B memset",
       "doc": "Identical scope to c-xdp2-usp; perf-only variant"
     },
     "c-bpf-flowdis": {
       "tiers": ["bpf_flow_keys"],
       "kind": "bpf",
+      "tunnel_behavior": "outer",
       "source": "samples/flow_dissector/bpf_flow.kern.o (vendored Linux selftest)",
-      "doc": "Kernel BPF flow dissector"
+      "doc": "Kernel BPF flow dissector. Same outer-stop behavior as c-flowdis-usp."
     },
     "c-bpf-xdp2": {
       "tiers": ["bpf_flow_keys"],
       "kind": "bpf",
+      "tunnel_behavior": "inner",
       "source": "samples/flow_dissector/flow_dissector.bpf.o (xdp2-compiler-generated BPF)",
       "doc": "XDP2 BPF parser. **Verifier-rejected on kernel 7.x** — every record will have accepted=false, reject_reason=verifier"
     },
     "c-bpf-fast": {
       "tiers": ["bpf_flow_keys"],
       "kind": "bpf-with-fallback",
+      "tunnel_behavior": "outer",
       "source": "samples/flow_dissector/fast_bpf/fast_flow.bpf.c",
-      "doc": "xdp2-flow-ebpf top-N tail-call. Returns BPF_FLOW_DISSECTOR_CONTINUE on packets outside its 7 fast-path chains; record sets accept_path=slow when fall-through occurs."
+      "doc": "xdp2-flow-ebpf top-N tail-call. Doesn't follow tunnels itself; returns BPF_FLOW_DISSECTOR_CONTINUE on tunnel packets so the kernel's slow path (also outer-only) takes over."
     },
     "rust-graph": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph.rs",
-      "doc": "Trait-object dynamic dispatch parser, full FlowMeta"
+      "doc": "Trait-object dynamic dispatch parser, full FlowMeta. Follows tunnels."
     },
     "rust-graph-enum": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph.rs (graph-enum feature)",
-      "doc": "Static-dispatch enum match, full FlowMeta"
+      "doc": "Static-dispatch enum match. Currently table covers Ether/IPv4/{TCP,UDP,ICMP} only — emits reject_reason=ipv4-only on non-IPv4 packets per parity_scope.json:expected_divergences/rust-graph-enum-ipv4-only."
     },
     "rust-mono": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph_mono.rs"
     },
     "rust-mono-x4": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph_mono.rs (sw-pipelined wrapper)"
     },
     "rust-compiled": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph_compiled.rs (xdp2-compiler-generated)"
     },
     "rust-simd": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/simd_batch.rs",
       "doc": "AVX2 batch parser; on non-AVX2 hosts (e.g. Zen 1) every record will have accepted=false, reject_reason=no-avx2"
     },
     "rust-template": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust-with-fallback",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/template.rs",
       "doc": "Hardware-template fixed-offset extractor. On template miss, accepted=false, reject_reason=no-template (or accept_path=fallback if fall-through to compiled is enabled — TBD in 17.B)."
     },
     "rust-template-simd": {
       "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
       "kind": "rust-with-fallback",
+      "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/template_simd.rs",
       "doc": "AVX2 batch + fixed-offset template; same fallback semantics as rust-template, plus no-avx2 on non-AVX2 hosts"
     }
@@ -185,6 +225,18 @@
       "parsers": ["c-bpf-flowdis", "c-bpf-xdp2", "c-bpf-fast"],
       "applies_to": "fields:tcp_flags,ip_tos,ip_ttl",
       "doc": "BPF flow dissector path doesn't extract these. They're optional even in kernel-flowdis-usp (only set when packet hit specific paths)."
+    },
+    {
+      "id": "tunnel-outer-vs-inner-flow",
+      "applies_to": "tunnel-encapsulated packets where one parser has tunnel_behavior='outer' and the other has 'inner'",
+      "doc": "On packets where the outer parser reports an ip_proto in tunnel_detection.outer_ip_protos OR a UDP dport in tunnel_detection.outer_udp_ports, the comparator masks tunnel_detection.inner_outer_fields between the two behaviors. The XDP2 / xdp2-rs parsers report the INNER 5-tuple by following the tunnel; the kernel-flowdis variants stop at the OUTER 5-tuple. Both are correct under their respective design; XDP2's behavior is structurally richer but slower on tunneled traffic. This is intentional, not a bug. See docs/flow-dissector-parity.md 'Phase 17.C findings → Finding 2'."
+    },
+    {
+      "id": "rust-graph-enum-ipv4-only",
+      "parsers": ["rust-graph-enum"],
+      "applies_to": "packets where ethertype != IPv4",
+      "reject_reason": "ipv4-only",
+      "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). On packets whose ethertype isn't IPv4 (IPv6, ARP, MPLS, etc.), rust-graph-enum's dump-meta emits reject_reason=ipv4-only. This is a known scope gap (the 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4-dominant); extending the enum table to IPv6/VLAN is tracked as a follow-up. Until then, the parity gate treats this rejection as expected."
     }
   ]
 }

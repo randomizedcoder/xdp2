@@ -195,6 +195,13 @@ fn main() {
     // packet and emit one ParityRecord per packet per mode. Done as a
     // separate pass before the timed benchmark so iteration count
     // doesn't multiply the JSONL line count.
+    //
+    // CRITICAL: dump-meta iterates `all_packets` (the unfiltered set),
+    // NOT the graph-filtered `packets`. The parity comparator joins
+    // records across parsers by (pcap, packet_index); using the filtered
+    // set in Rust while C parsers use the unfiltered set breaks index
+    // alignment across the JSONL tree and produces phantom disagreements.
+    // Each parser handles its own rejections via accepted=false.
     if let Some(ref dump_path) = cli.dump_meta {
         let pcap_label = cli
             .dump_meta_pcap
@@ -206,9 +213,10 @@ fn main() {
                     .unwrap_or("?")
                     .to_string()
             });
+        let all_refs: Vec<&pcap::StoredPacket> = all_packets.iter().collect();
         if let Err(e) = bench::dump_meta_pass(
             &cli.mode,
-            &packets,
+            &all_refs,
             &parser,
             dump_path,
             &pcap_label,
@@ -216,7 +224,7 @@ fn main() {
             eprintln!("error: dump-meta pass failed: {e}");
             process::exit(1);
         }
-        eprintln!("[dump-meta] wrote {} ({} packets)", dump_path, npkts);
+        eprintln!("[dump-meta] wrote {} ({} packets)", dump_path, all_packets.len());
         if cli.dump_meta_only {
             return;
         }

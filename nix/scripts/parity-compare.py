@@ -40,6 +40,19 @@ class ParserScope:
     parser_id: str
     kind: str  # "c" | "rust" | "bpf" | "bpf-with-fallback" | "rust-with-fallback"
     fields: frozenset[str]  # set of field names this parser populates
+    tunnel_behavior: str  # "outer" | "inner" | "unknown"
+
+
+@dataclass(frozen=True)
+class TunnelDetection:
+    """Heuristic for "is this packet tunneled?" Read from
+    parity_scope.json:tunnel_detection. The comparator uses it to
+    mask inner_outer_fields between parsers with mismatched
+    tunnel_behavior — both answers are correct under their design;
+    XDP2 reports the INNER flow, kernel-flowdis reports the OUTER."""
+    outer_ip_protos: frozenset[int]
+    outer_udp_ports: frozenset[int]
+    inner_outer_fields: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -48,6 +61,7 @@ class Schema:
     field_names: frozenset[str]
     parsers: dict[str, ParserScope]
     expected_divergences: list[dict]
+    tunnel: TunnelDetection
 
 
 def load_schema(scope_path: Path) -> Schema:
@@ -82,12 +96,22 @@ def load_schema(scope_path: Path) -> Schema:
             parser_id=parser_id,
             kind=decl.get("kind", "?"),
             fields=frozenset(flat),
+            tunnel_behavior=decl.get("tunnel_behavior", "unknown"),
         )
+
+    td_raw = raw.get("tunnel_detection", {}) or {}
+    tunnel = TunnelDetection(
+        outer_ip_protos=frozenset(int(k) for k in td_raw.get("outer_ip_protos", {}).keys()),
+        outer_udp_ports=frozenset(int(k) for k in td_raw.get("outer_udp_ports", {}).keys()),
+        inner_outer_fields=frozenset(td_raw.get("inner_outer_fields", []) or []),
+    )
+
     return Schema(
         version=raw["schema_version"],
         field_names=field_names,
         parsers=parsers,
         expected_divergences=raw.get("expected_divergences", []),
+        tunnel=tunnel,
     )
 
 
@@ -157,10 +181,39 @@ class FieldDisagreement:
     value_b: object
 
 
+def is_tunneled_packet(schema: Schema, recs: list[Record]) -> bool:
+    """Detect whether (pcap, packet_index) is tunnel-encapsulated.
+
+    Heuristic: pick any accepted parser with tunnel_behavior == "outer"
+    (kernel-flowdis-style — these report the OUTER 5-tuple). If its
+    ip_proto is in the schema's tunnel outer_ip_protos, the packet is
+    tunneled. If ip_proto is UDP (17), additionally check dport against
+    outer_udp_ports for VXLAN/Geneve/L2TP/etc. Returns False if no
+    outer-behavior parser ran (e.g., only INNER parsers in the
+    request).
+    """
+    for r in recs:
+        if not r.accepted:
+            continue
+        scope = schema.parsers.get(r.parser_id)
+        if scope is None or scope.tunnel_behavior != "outer":
+            continue
+        ip_proto = r.fields.get("ip_proto")
+        if isinstance(ip_proto, int) and ip_proto in schema.tunnel.outer_ip_protos:
+            return True
+        if ip_proto == 17:  # UDP
+            dport = r.fields.get("dport")
+            if isinstance(dport, int) and dport in schema.tunnel.outer_udp_ports:
+                return True
+    return False
+
+
 def compare_pair(
     schema: Schema,
     rec_a: Record,
     rec_b: Record,
+    *,
+    tunneled: bool = False,
 ) -> list[FieldDisagreement]:
     """Compare two records on the same (pcap, packet_index). Return
     list of in-scope field disagreements. Caller is responsible for
@@ -173,6 +226,12 @@ def compare_pair(
       - Skip if the field is absent from one record's `fields` block
         (parser populated it conditionally; treated as out-of-scope
         for this packet).
+      - **Tunnel mask:** if `tunneled=True` and the two parsers have
+        different tunnel_behavior (outer vs inner), skip the
+        schema's inner_outer_fields. The XDP2-style inner parser
+        legitimately reports the inner-flow 5-tuple while the
+        kernel-flowdis-style outer parser reports the outer-flow
+        5-tuple — both correct under their design.
       - Otherwise, compare values byte-for-byte.
     """
     if rec_a.pcap != rec_b.pcap or rec_a.packet_index != rec_b.packet_index:
@@ -184,6 +243,19 @@ def compare_pair(
     if scope_a is None or scope_b is None:
         raise ValueError(f"unknown parser_id: {rec_a.parser_id} or {rec_b.parser_id}")
     intersect = scope_a.fields & scope_b.fields
+
+    # Apply tunnel mask: when comparing an outer-behavior parser
+    # against an inner-behavior parser on a tunneled packet, the
+    # inner_outer_fields are out-of-scope (each parser reports a
+    # different layer's 5-tuple, both correct).
+    if (
+        tunneled
+        and scope_a.tunnel_behavior != "unknown"
+        and scope_b.tunnel_behavior != "unknown"
+        and scope_a.tunnel_behavior != scope_b.tunnel_behavior
+    ):
+        intersect = intersect - schema.tunnel.inner_outer_fields
+
     out: list[FieldDisagreement] = []
     for field in sorted(intersect):
         va = rec_a.fields.get(field, _ABSENT)
@@ -261,11 +333,18 @@ def find_acceptance_disagreements(
 def find_field_disagreements(
     schema: Schema, recs: list[Record]
 ) -> list[FieldDisagreement]:
-    """All-pairs field comparison within accepted set; pairwise output."""
+    """All-pairs field comparison within accepted set; pairwise output.
+
+    Detects whether the packet is tunneled (per schema.tunnel
+    heuristic) and threads that flag through compare_pair so
+    inner_outer_fields are masked between mismatched-behavior
+    parsers.
+    """
     accepted = [r for r in recs if r.accepted]
+    tunneled = is_tunneled_packet(schema, accepted)
     out: list[FieldDisagreement] = []
     for a, b in itertools.combinations(accepted, 2):
-        out.extend(compare_pair(schema, a, b))
+        out.extend(compare_pair(schema, a, b, tunneled=tunneled))
     return out
 
 
