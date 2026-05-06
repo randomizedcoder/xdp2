@@ -26,20 +26,20 @@ win = CI-disjoint ns/pkt; otherwise = noise.
 
 | Mode | hp2 | hp5 |
 |---|---|---|
-| c-flowdis-usp | 124.0 ns/pkt (8.0 Mpps) | 122.0 ns/pkt (8.0 Mpps) |
-| c-xdp2-usp | 198.5 ns/pkt (4.5 Mpps) | 195.0 ns/pkt (5.0 Mpps) |
-| c-xdp2-parse-only | 186.5 ns/pkt (5.0 Mpps) | 183.0 ns/pkt (5.0 Mpps) |
-| c-bpf-flowdis | 121.0 ns/pkt (8.0 Mpps) | 117.0 ns/pkt (8.0 Mpps) |
+| c-flowdis-usp | 121.0 ns/pkt (8.0 Mpps) (parity-fail, 9280) | 121.0 ns/pkt (8.0 Mpps) (parity-fail, 9280) |
+| c-xdp2-usp | 197.5 ns/pkt (4.5 Mpps) (parity-fail, 9280) | 195.0 ns/pkt (5.0 Mpps) (parity-fail, 9280) |
+| c-xdp2-parse-only | 185.5 ns/pkt (5.0 Mpps) (parity-fail, 9280) | 183.0 ns/pkt (5.0 Mpps) (parity-fail, 9280) |
+| c-bpf-flowdis | 119.0 ns/pkt (8.0 Mpps) (parity-fail, 9280) | 115.5 ns/pkt (8.0 Mpps) (parity-fail, 9280) |
 | c-bpf-xdp2 | — | — |
-| c-bpf-fast | 22.0 ns/pkt (45.0 Mpps) | 23.0 ns/pkt (43.0 Mpps) |
-| rust-graph | 259.0 ns/pkt (4.0 Mpps) | 265.5 ns/pkt (4.0 Mpps) |
-| rust-graph-enum | 78.0 ns/pkt (13.0 Mpps) | 78.5 ns/pkt (13.0 Mpps) |
-| rust-mono | 81.0 ns/pkt (12.0 Mpps) | 82.0 ns/pkt (12.0 Mpps) |
-| rust-mono-x4 | 83.5 ns/pkt (12.0 Mpps) | 85.5 ns/pkt (12.0 Mpps) |
-| rust-compiled | 81.0 ns/pkt (12.0 Mpps) | 82.5 ns/pkt (12.0 Mpps) |
-| rust-simd | 41.0 ns/pkt (24.0 Mpps) | 42.0 ns/pkt (23.0 Mpps) |
-| rust-template | 77.0 ns/pkt (13.0 Mpps) | 77.0 ns/pkt (13.0 Mpps) |
-| rust-template-simd | 72.5 ns/pkt (14.0 Mpps) | 74.0 ns/pkt (13.0 Mpps) |
+| c-bpf-fast | 23.0 ns/pkt (43.0 Mpps) (parity-fail, 9280) | 23.0 ns/pkt (43.0 Mpps) (parity-fail, 9280) |
+| rust-graph | 258.0 ns/pkt (4.0 Mpps) (parity-fail, 9280) | 263.0 ns/pkt (4.0 Mpps) (parity-fail, 9280) |
+| rust-graph-enum | 78.0 ns/pkt (13.0 Mpps) (parity-fail, 9280) | 79.5 ns/pkt (12.5 Mpps) (parity-fail, 9280) |
+| rust-mono | 81.0 ns/pkt (12.0 Mpps) (parity-fail, 9280) | 82.5 ns/pkt (12.0 Mpps) (parity-fail, 9280) |
+| rust-mono-x4 | 84.0 ns/pkt (12.0 Mpps) (parity-fail, 9280) | 85.0 ns/pkt (12.0 Mpps) (parity-fail, 9280) |
+| rust-compiled | 81.0 ns/pkt (12.0 Mpps) (parity-fail, 9280) | 82.0 ns/pkt (12.0 Mpps) (parity-fail, 9280) |
+| rust-simd | 41.5 ns/pkt (24.0 Mpps) (parity-fail, 9280) | 42.0 ns/pkt (23.0 Mpps) (parity-fail, 9280) |
+| rust-template | 77.0 ns/pkt (13.0 Mpps) (parity-fail, 9280) | 78.0 ns/pkt (13.0 Mpps) (parity-fail, 9280) |
+| rust-template-simd | 73.0 ns/pkt (14.0 Mpps) (parity-fail, 9280) | 74.0 ns/pkt (13.0 Mpps) (parity-fail, 9280) |
 
 ## hp2-hp5-x710 — `mixed-real.pcap`
 
