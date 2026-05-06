@@ -44,7 +44,17 @@
  */
 
 #include <errno.h>
+#include <errno.h>
 #include <getopt.h>
+
+#include "parity_schema.h"
+
+/* BPF_FLOW_DISSECTOR_CONTINUE is part of the BPF ret-code enum in
+ * <linux/bpf.h> on Linux 5.1+ (commit ad50d30ba39c). It indicates a
+ * fast-path program is punting to the kernel's slow-path dissector.
+ * Linux header should already pull it in via this file's existing
+ * <linux/bpf.h> include — no fallback macro needed.
+ */
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 
@@ -250,8 +260,10 @@ int main(int argc, char *argv[])
 	int repeat = 1000;
 	int npkts = 0;
 	int c;
+	const char *dump_meta_path = NULL;     /* -D <path> (Phase 17.B.BPF) */
+	const char *dump_parser_id = NULL;     /* -P <parser-id> (which parity_scope.json id) */
 
-	while ((c = getopt(argc, argv, "cpvn:b:l:")) != -1) {
+	while ((c = getopt(argc, argv, "cpvn:b:l:D:P:")) != -1) {
 		switch (c) {
 		case 'c':
 			do_correctness = 1;
@@ -274,6 +286,12 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			label = optarg;
+			break;
+		case 'D':
+			dump_meta_path = optarg;
+			break;
+		case 'P':
+			dump_parser_id = optarg;
 			break;
 		default:
 			usage(argv[0]);
@@ -310,6 +328,107 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "No packets read\n");
 		free(packets);
 		exit(1);
+	}
+
+	/* Parity dump-meta pass (Phase 17.B.BPF). Independent from the
+	 * timing loop; one record per packet for a single parser_id.
+	 *
+	 * For c-bpf-fast: distinguish accept_path="fast" (BPF program
+	 * returned BPF_OK) from accept_path="slow" (returned
+	 * BPF_FLOW_DISSECTOR_CONTINUE — fall-through to slow path). When
+	 * slow, mark accepted=false with reject_reason="no-fast-path-chain";
+	 * the comparator (per parity_scope.json expected_divergences)
+	 * treats this as a documented out-of-scope.
+	 *
+	 * For c-bpf-flowdis (and other always-accepting BPF): retval is
+	 * always BPF_OK on success.
+	 *
+	 * c-bpf-xdp2 is verifier-rejected on 7.x (load fails); the
+	 * driver wrapper synthesizes its records — this binary doesn't
+	 * see those packets.
+	 */
+	if (dump_meta_path) {
+		const char *bn = strrchr(argv[optind], '/');
+		const char *pcap_label = bn ? bn + 1 : argv[optind];
+		const char *pid = dump_parser_id ? dump_parser_id : "c-bpf-flowdis";
+		int is_fast = (strcmp(pid, "c-bpf-fast") == 0);
+
+		FILE *fp = fopen(dump_meta_path, "w");
+		if (!fp) {
+			fprintf(stderr, "dump-meta: cannot open '%s': %s\n",
+				dump_meta_path, strerror(errno));
+			free(packets);
+			exit(1);
+		}
+		for (int i = 0; i < npkts; i++) {
+			struct bpf_run_result rr;
+			struct parity_record rec;
+
+			parity_record_init(&rec, pid, "bpf", pcap_label, i);
+
+			if (packets[i].len < ETH_HLEN) {
+				parity_record_set_accepted(&rec, false,
+							   "parse-error");
+				parity_record_emit_jsonl(fp, &rec);
+				continue;
+			}
+
+			memset(&rr, 0, sizeof(rr));
+			if (run_bpf_dissect(bpf_ctx.prog_fd, packets[i].data,
+					    packets[i].len, 1, &rr) < 0) {
+				parity_record_set_accepted(&rec, false,
+							   "parse-error");
+				parity_record_emit_jsonl(fp, &rec);
+				continue;
+			}
+
+			if (is_fast && rr.retval == BPF_FLOW_DISSECTOR_CONTINUE) {
+				parity_record_set_accepted(&rec, false,
+							   "no-fast-path-chain");
+				parity_record_set_accept_path(&rec, "slow");
+				parity_record_emit_jsonl(fp, &rec);
+				continue;
+			}
+
+			/* Successful BPF run: bpf_flow_keys is populated. */
+			parity_record_set_accepted(&rec, true, NULL);
+			if (is_fast)
+				parity_record_set_accept_path(&rec, "fast");
+
+			switch (rr.flow_keys.addr_proto) {
+			case ETH_P_IP:
+				parity_set_addr_type(&rec, PARITY_ADDR_IPV4);
+				parity_set_ipv4(&rec, rr.flow_keys.ipv4_src,
+						rr.flow_keys.ipv4_dst);
+				break;
+			case ETH_P_IPV6:
+				parity_set_addr_type(&rec, PARITY_ADDR_IPV6);
+				parity_set_ipv6(&rec, &rr.flow_keys.ipv6_src,
+						&rr.flow_keys.ipv6_dst);
+				break;
+			default:
+				parity_set_addr_type(&rec, PARITY_ADDR_NULL);
+				break;
+			}
+			if (rr.flow_keys.ip_proto)
+				parity_set_ip_proto(&rec, rr.flow_keys.ip_proto);
+			if (rr.flow_keys.sport || rr.flow_keys.dport)
+				parity_set_ports(&rec, ntohs(rr.flow_keys.sport),
+						 ntohs(rr.flow_keys.dport));
+			if (rr.flow_keys.thoff)
+				parity_set_thoff(&rec, rr.flow_keys.thoff);
+			if (rr.flow_keys.is_frag || rr.flow_keys.is_first_frag)
+				parity_set_frag(&rec, !!rr.flow_keys.is_frag,
+						!!rr.flow_keys.is_first_frag);
+			if (rr.flow_keys.flow_label)
+				parity_set_flow_label(&rec,
+						      rr.flow_keys.flow_label);
+			parity_record_emit_jsonl(fp, &rec);
+		}
+		fclose(fp);
+		fprintf(stderr,
+			"[dump-meta] wrote %s (%d packets, parser=%s)\n",
+			dump_meta_path, npkts, pid);
 	}
 
 	/* Correctness: run each packet once and display flow keys */
