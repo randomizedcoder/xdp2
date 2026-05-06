@@ -218,6 +218,21 @@
             ntupleTemplateBench = flowDissectorNtupleTemplateBench;
           };
 
+        # Phase 17: cross-parser parity comparator (Python). Wraps
+        # nix/scripts/parity-compare.py with a vendored default --scope
+        # path so the comparator is invocable hermetically.
+        parityCompare = import ./nix/parity-compare.nix { inherit pkgs; };
+
+        # Phase 17: parity gate driver. Runs each of 14 flow-dissector
+        # parsers on a pcap with the dump-meta protocol added in 17.B,
+        # captures per-packet ParityRecord JSONL, and feeds the tree
+        # into the comparator. Exits non-zero on any unexpected
+        # cross-parser disagreement.
+        flowDissectorParityCheck =
+          import ./nix/flow-dissector-parity-check.nix {
+            inherit pkgs xdp2Rs flowDissectorMatrix parityCompare;
+          };
+
         # Peer-side kernel pktgen driver, shellchecked + packaged as a
         # standalone writeShellApplication. The orchestrator below scp's
         # this to the peer at runtime.
@@ -643,6 +658,20 @@
           #         --testbed testbeds/<name>.toml [--duration N] [--loads CSV]
           # ===================================================================
           flow-dissector-afxdp-live = flowDissectorAfxdpLive;
+
+          # ===================================================================
+          # flow-dissector-parity-check — Phase 17 cross-parser parity gate.
+          # Runs each of 14 flow-dissector parsers on a pcap with their
+          # dump-meta path, captures per-packet ParityRecord JSONL, and
+          # feeds the tree into the symmetric all-vs-all comparator at
+          # nix/scripts/parity-compare.py. Catches the gaps the matrix
+          # campaign masks: c-bpf-fast slow-path fall-through reported
+          # as accepted, parser-specific extract bugs, scope drift.
+          # Run:  nix run .#flow-dissector-parity-check -- --pcap PATH
+          # See:  docs/flow-dissector-parity.md (Phase 17.D)
+          # ===================================================================
+          flow-dissector-parity-check = flowDissectorParityCheck;
+          parity-compare = parityCompare;
 
           # ===================================================================
           # flow-dissector-ntuple-template-bench — live X710 Flow Director
