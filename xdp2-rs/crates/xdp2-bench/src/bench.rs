@@ -4,7 +4,11 @@
 use std::io;
 
 use crate::cli::{BenchResult, ParserMode};
-use crate::parity::{parser_id, reject_reason, DumpMetaWriter, ParityRecord};
+use crate::parity::{
+    first_ethertype, parser_id, reject_reason, DumpMetaWriter, ParityRecord,
+};
+
+const ETH_P_IP: u16 = 0x0800;
 use crate::{graph, graph_compiled, graph_mono, pcap, perf, simd_batch, template, template_simd};
 use crate::runners::{bench_mono_x4, run_mt, time_run_passes};
 
@@ -99,12 +103,13 @@ pub fn dump_meta_pass(
 
         #[cfg(feature = "graph-enum")]
         if matches!(mode, ParserMode::GraphEnum) || do_all {
-            // graph-enum::parse_packet currently returns Result<(), ()>
-            // without a FlowMeta-output variant. Until it does, fall
-            // back to graph-mode's metadata when graph-enum reports
-            // accepted. Documented in
-            // /home/das/.claude/profiles/personal/plans/das-l-downloads-xdp2-find-name-fizzy-ocean.md
-            // (Phase 17.B open question).
+            // graph-enum's table currently covers Ether/IPv4/{TCP,UDP,
+            // ICMP} only (see cli.rs:12-13). On non-IPv4 packets we
+            // emit reject_reason="ipv4-only" so the parity gate
+            // distinguishes a documented scope gap from a parser bug.
+            // graph-enum::parse_packet returns Result<(), ()> without
+            // a FlowMeta-output variant; when accepted, fall back to
+            // graph-mode's metadata for parity purposes.
             let cfg = crate::graph_enum::make_config();
             let ok = crate::graph_enum::parse_packet(&cfg, &pkt.data).is_ok();
             let rec =
@@ -115,7 +120,11 @@ pub fn dump_meta_pass(
                     Err(_) => w.emit(&rec.rejected(reject_reason::PARSE_ERROR))?,
                 }
             } else {
-                w.emit(&rec.rejected(reject_reason::PARSE_ERROR))?;
+                let reason = match first_ethertype(&pkt.data) {
+                    Some(et) if et != ETH_P_IP => reject_reason::IPV4_ONLY,
+                    _ => reject_reason::PARSE_ERROR,
+                };
+                w.emit(&rec.rejected(reason))?;
             }
         }
 

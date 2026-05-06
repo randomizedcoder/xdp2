@@ -59,6 +59,36 @@ pub mod reject_reason {
     pub const NO_TEMPLATE: &str = "no-template";
     pub const NO_FAST_PATH_CHAIN: &str = "no-fast-path-chain";
     pub const PARSE_ERROR: &str = "parse-error";
+    /// Used by rust-graph-enum on non-IPv4 packets — its current
+    /// table covers Ether/IPv4/{TCP,UDP,ICMP} only. Documented in
+    /// parity_scope.json:expected_divergences/rust-graph-enum-ipv4-only.
+    pub const IPV4_ONLY: &str = "ipv4-only";
+}
+
+/// Pull the first non-VLAN ethertype out of a packet header. Returns
+/// `None` if the packet is too short. Used by graph-enum's dump-meta
+/// path to distinguish "non-IPv4 packet I don't support" from "IPv4
+/// packet I should have parsed but didn't" — the former is documented
+/// scope-narrowing, the latter is a real parse-error.
+pub fn first_ethertype(data: &[u8]) -> Option<u16> {
+    if data.len() < 14 {
+        return None;
+    }
+    let mut etype = u16::from_be_bytes([data[12], data[13]]);
+    let mut off = 14usize;
+    // Peel up to two VLAN tags (802.1Q = 0x8100, 802.1AD = 0x88a8).
+    for _ in 0..2 {
+        if etype == 0x8100 || etype == 0x88a8 {
+            if data.len() < off + 4 {
+                return Some(etype);
+            }
+            etype = u16::from_be_bytes([data[off + 2], data[off + 3]]);
+            off += 4;
+        } else {
+            break;
+        }
+    }
+    Some(etype)
 }
 
 /// One JSONL record per (parser, pcap, packet).
