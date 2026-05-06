@@ -1,0 +1,8 @@
+{
+  "hostname": "hp2",
+  "arch": "x86_64",
+  "kernel": "7.0.1",
+  "cpu_model": "AMD Ryzen 5 PRO 2400G with Radeon Vega Graphics",
+  "cores": 2,
+  "date": "2026-05-06T04:55:57Z"
+}

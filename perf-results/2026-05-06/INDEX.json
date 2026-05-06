@@ -318,5 +318,389 @@
     "exit": 0,
     "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043811Z",
     "ts": "2026-05-06T04:40:22Z"
+  },
+  {
+    "host": "hp2",
+    "target": "flow-dissector-matrix-unified",
+    "wall": "378s",
+    "exit": 0,
+    "path": "perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T044208Z",
+    "ts": "2026-05-06T04:48:29Z"
+  },
+  {
+    "host": "hp5",
+    "target": "flow-dissector-matrix-unified",
+    "wall": "381s",
+    "exit": 0,
+    "path": "perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T044208Z",
+    "ts": "2026-05-06T04:48:29Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "3s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T044827Z",
+    "ts": "2026-05-06T04:48:30Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "3s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T044827Z",
+    "ts": "2026-05-06T04:48:30Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T044833Z",
+    "ts": "2026-05-06T04:48:35Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T044833Z",
+    "ts": "2026-05-06T04:48:35Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T044837Z",
+    "ts": "2026-05-06T04:48:38Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T044837Z",
+    "ts": "2026-05-06T04:48:38Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T044840Z",
+    "ts": "2026-05-06T04:48:41Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T044840Z",
+    "ts": "2026-05-06T04:48:41Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T044843Z",
+    "ts": "2026-05-06T04:48:44Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T044843Z",
+    "ts": "2026-05-06T04:48:44Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "3s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T044846Z",
+    "ts": "2026-05-06T04:48:49Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "3s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T044846Z",
+    "ts": "2026-05-06T04:48:49Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T044852Z",
+    "ts": "2026-05-06T04:48:52Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T044852Z",
+    "ts": "2026-05-06T04:48:52Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T044855Z",
+    "ts": "2026-05-06T04:48:55Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T044855Z",
+    "ts": "2026-05-06T04:48:55Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045514Z",
+    "ts": "2026-05-06T04:55:17Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045514Z",
+    "ts": "2026-05-06T04:55:17Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045519Z",
+    "ts": "2026-05-06T04:55:20Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045519Z",
+    "ts": "2026-05-06T04:55:20Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045522Z",
+    "ts": "2026-05-06T04:55:22Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045522Z",
+    "ts": "2026-05-06T04:55:22Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045525Z",
+    "ts": "2026-05-06T04:55:25Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "0s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045525Z",
+    "ts": "2026-05-06T04:55:25Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045528Z",
+    "ts": "2026-05-06T04:55:29Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-tcp",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045528Z",
+    "ts": "2026-05-06T04:55:29Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "4s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045531Z",
+    "ts": "2026-05-06T04:55:35Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "4s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045531Z",
+    "ts": "2026-05-06T04:55:35Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045538Z",
+    "ts": "2026-05-06T04:55:40Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045538Z",
+    "ts": "2026-05-06T04:55:40Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045542Z",
+    "ts": "2026-05-06T04:55:44Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045542Z",
+    "ts": "2026-05-06T04:55:44Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045546Z",
+    "ts": "2026-05-06T04:55:48Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045546Z",
+    "ts": "2026-05-06T04:55:48Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-mixed",
+    "wall": "2s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045550Z",
+    "ts": "2026-05-06T04:55:52Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-mixed",
+    "wall": "1s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045550Z",
+    "ts": "2026-05-06T04:55:52Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-combo",
+    "wall": "242s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T045555Z",
+    "ts": "2026-05-06T05:00:01Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-combo",
+    "wall": "246s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T045555Z",
+    "ts": "2026-05-06T05:00:01Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-combo",
+    "wall": "241s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050003Z",
+    "ts": "2026-05-06T05:04:10Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-combo",
+    "wall": "247s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050003Z",
+    "ts": "2026-05-06T05:04:10Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-combo",
+    "wall": "242s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050412Z",
+    "ts": "2026-05-06T05:08:17Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-combo",
+    "wall": "245s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050412Z",
+    "ts": "2026-05-06T05:08:17Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-combo",
+    "wall": "242s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050819Z",
+    "ts": "2026-05-06T05:12:26Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-combo",
+    "wall": "247s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050819Z",
+    "ts": "2026-05-06T05:12:26Z"
+  },
+  {
+    "host": "hp2",
+    "target": "perf-sweep-combo",
+    "wall": "241s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T051228Z",
+    "ts": "2026-05-06T05:16:31Z"
+  },
+  {
+    "host": "hp5",
+    "target": "perf-sweep-combo",
+    "wall": "243s",
+    "exit": 0,
+    "path": "/home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T051228Z",
+    "ts": "2026-05-06T05:16:31Z"
   }
 ]

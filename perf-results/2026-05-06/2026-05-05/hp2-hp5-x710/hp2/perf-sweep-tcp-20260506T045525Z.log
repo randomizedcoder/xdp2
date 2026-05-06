@@ -1,0 +1,24 @@
+warning: Git tree '/root/xdp2' is dirty
+=== XDP2 Performance Sweep ===
+Host:       hp2 (x86_64)
+CPU:        AMD Ryzen 5 PRO 2400G with Radeon Vega Graphics (2 cores)
+Kernel:     7.0.1
+PCAP:       /nix/store/lwkrw01qxkg7nycvaja5z601cg04mpsx-tcp_ipv4.pcap
+Iterations: 500
+Output:     /root/xdp2/result/tcp_ipv4/
+
+
+--- Single-threaded (with perf counters: basic + stalls + detail + zen) ---
+Loaded 11 packets from /nix/store/lwkrw01qxkg7nycvaja5z601cg04mpsx-tcp_ipv4.pcap
+Filtered: 11/11 packets parseable (100.0%)
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+Wrote: /root/xdp2/result/tcp_ipv4/lwkrw01qxkg7nycvaja5z601cg04mpsx-tcp_ipv4_hp2_1T.json
+
+Wrote metadata: /root/xdp2/result/tcp_ipv4/hp2_meta.json
+Done. Results in /root/xdp2/result/tcp_ipv4/

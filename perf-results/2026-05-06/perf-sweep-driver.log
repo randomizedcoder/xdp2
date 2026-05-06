@@ -1,0 +1,219 @@
+=== Phase 13 driver started at 2026-05-05T21:55:11-07:00 ===
+Results root: /home/das/Downloads/xdp2/perf-results/2026-05-06
+Reps:         5
+
+=== [1] 2026-05-05T21:55:11-07:00 target=perf-sweep-tcp rep=1 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp2] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045514Z.log)
+[hp5] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045514Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-tcp                        2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045514Z
+hp5           perf-sweep-tcp                        2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045514Z
+    wall: 6s
+=== [2] 2026-05-05T21:55:17-07:00 target=perf-sweep-tcp rep=2 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045519Z.log)
+[hp2] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045519Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-tcp                        0s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045519Z
+hp5           perf-sweep-tcp                        0s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045519Z
+    wall: 3s
+=== [3] 2026-05-05T21:55:20-07:00 target=perf-sweep-tcp rep=3 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045522Z.log)
+[hp2] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045522Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-tcp                        0s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045522Z
+hp5           perf-sweep-tcp                        0s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045522Z
+    wall: 2s
+=== [4] 2026-05-05T21:55:22-07:00 target=perf-sweep-tcp rep=4 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045525Z.log)
+[hp2] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045525Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-tcp                        0s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045525Z
+hp5           perf-sweep-tcp                        0s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045525Z
+    wall: 3s
+=== [5] 2026-05-05T21:55:25-07:00 target=perf-sweep-tcp rep=5 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045528Z.log)
+[hp2] -> perf-sweep-tcp  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045528Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-tcp                        1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-tcp-20260506T045528Z
+hp5           perf-sweep-tcp                        1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-tcp-20260506T045528Z
+    wall: 3s
+=== [6] 2026-05-05T21:55:29-07:00 target=perf-sweep-mixed rep=1 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045531Z.log)
+[hp2] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045531Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-mixed                      4s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045531Z
+hp5           perf-sweep-mixed                      4s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045531Z
+    wall: 6s
+=== [7] 2026-05-05T21:55:35-07:00 target=perf-sweep-mixed rep=2 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045538Z.log)
+[hp2] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045538Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-mixed                      1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045538Z
+hp5           perf-sweep-mixed                      1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045538Z
+    wall: 5s
+=== [8] 2026-05-05T21:55:40-07:00 target=perf-sweep-mixed rep=3 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045542Z.log)
+[hp2] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045542Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-mixed                      2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045542Z
+hp5           perf-sweep-mixed                      2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045542Z
+    wall: 4s
+=== [9] 2026-05-05T21:55:44-07:00 target=perf-sweep-mixed rep=4 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045546Z.log)
+[hp2] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045546Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-mixed                      2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045546Z
+hp5           perf-sweep-mixed                      2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045546Z
+    wall: 4s
+=== [10] 2026-05-05T21:55:48-07:00 target=perf-sweep-mixed rep=5 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045550Z.log)
+[hp2] -> perf-sweep-mixed  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045550Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-mixed                      1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-mixed-20260506T045550Z
+hp5           perf-sweep-mixed                      2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-mixed-20260506T045550Z
+    wall: 4s
+=== [11] 2026-05-05T21:55:52-07:00 target=perf-sweep-combo rep=1 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T045555Z.log)
+[hp2] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T045555Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-combo                    242s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T045555Z
+hp5           perf-sweep-combo                    246s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T045555Z
+    wall: 249s
+=== [12] 2026-05-05T22:00:01-07:00 target=perf-sweep-combo rep=2 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050003Z.log)
+[hp2] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050003Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-combo                    241s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050003Z
+hp5           perf-sweep-combo                    247s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050003Z
+    wall: 249s
+=== [13] 2026-05-05T22:04:10-07:00 target=perf-sweep-combo rep=3 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050412Z.log)
+[hp2] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050412Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-combo                    242s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050412Z
+hp5           perf-sweep-combo                    245s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050412Z
+    wall: 247s
+=== [14] 2026-05-05T22:08:17-07:00 target=perf-sweep-combo rep=4 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050819Z.log)
+[hp2] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050819Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-combo                    242s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T050819Z
+hp5           perf-sweep-combo                    247s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T050819Z
+    wall: 249s
+=== [15] 2026-05-05T22:12:26-07:00 target=perf-sweep-combo rep=5 ===
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T051228Z.log)
+[hp2] -> perf-sweep-combo  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T051228Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           perf-sweep-combo                    241s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/perf-sweep-combo-20260506T051228Z
+hp5           perf-sweep-combo                    243s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/perf-sweep-combo-20260506T051228Z
+    wall: 245s
+
+=== Phase 13 driver complete at 2026-05-05T22:16:31-07:00 ===
+Total wall: 1280s (0h21m)
+Total invocations: 15
+Failed:            0

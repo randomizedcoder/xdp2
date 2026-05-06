@@ -1,0 +1,27 @@
+warning: Git tree '/root/xdp2' is dirty
+this derivation will be built:
+  /nix/store/plly8w754n1qvvklq8ch6bfl1nz9hx46-xdp2-perf-sweep-mixed.drv
+building '/nix/store/plly8w754n1qvvklq8ch6bfl1nz9hx46-xdp2-perf-sweep-mixed.drv'...
+=== XDP2 Performance Sweep ===
+Host:       hp5 (x86_64)
+CPU:        AMD Ryzen 5 PRO 2400G with Radeon Vega Graphics (2 cores)
+Kernel:     7.0.1
+PCAP:       /nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+Iterations: 500
+Output:     /root/xdp2/result/mixed-real/
+
+
+--- Single-threaded (with perf counters: basic + stalls + detail + zen) ---
+Loaded 828 packets from /nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+Filtered: 801/828 packets parseable (96.7%)
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+  note: perf event not available on this CPU, skipping (No such file or directory (os error 2))
+Wrote: /root/xdp2/result/mixed-real/mixed-real_hp5_1T.json
+
+Wrote metadata: /root/xdp2/result/mixed-real/hp5_meta.json
+Done. Results in /root/xdp2/result/mixed-real/

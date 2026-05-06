@@ -1,0 +1,20 @@
+{
+  "pcap": "/nix/store/lwkrw01qxkg7nycvaja5z601cg04mpsx-tcp_ipv4.pcap",
+  "packets": 11,
+  "iterations": 500,
+  "correctness": {
+    "graph": 11,
+    "mono": 11,
+    "compiled": 11,
+    "template": 11
+  },
+  "results": [
+    {"mode": "graph", "ns_pkt": 238, "mpps": 4.2, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 4526036, "instructions": 6731931, "branches": 1827260, "branch_misses": 42963, "cache_refs": 2157, "cache_misses": 317, "frontend_stalls": 64262, "backend_stalls": 616020, "dtlb_misses": 2, "itlb_misses": 1, "l1d_misses": 1141, "l1i_misses": 700, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 7881058, "dispatch_stalls": 0, "mab_stalls": 0}},
+    {"mode": "mono", "ns_pkt": 25, "mpps": 39.7, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 520410, "instructions": 984948, "branches": 176761, "branch_misses": 1564, "cache_refs": 292, "cache_misses": 99, "frontend_stalls": 3025, "backend_stalls": 105763, "dtlb_misses": 0, "itlb_misses": 0, "l1d_misses": 52, "l1i_misses": 114, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 991102, "dispatch_stalls": 0, "mab_stalls": 0}},
+    {"mode": "mono-x4", "ns_pkt": 26, "mpps": 37.9, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 579711, "instructions": 988388, "branches": 171248, "branch_misses": 554, "cache_refs": 283, "cache_misses": 65, "frontend_stalls": 1536, "backend_stalls": 103913, "dtlb_misses": 0, "itlb_misses": 0, "l1d_misses": 45, "l1i_misses": 274, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 1008224, "dispatch_stalls": 0, "mab_stalls": 0}},
+    {"mode": "compiled", "ns_pkt": 23, "mpps": 43.1, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 500380, "instructions": 957386, "branches": 176750, "branch_misses": 1574, "cache_refs": 398, "cache_misses": 87, "frontend_stalls": 3029, "backend_stalls": 86761, "dtlb_misses": 0, "itlb_misses": 0, "l1d_misses": 50, "l1i_misses": 82, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 978395, "dispatch_stalls": 0, "mab_stalls": 0}},
+    {"mode": "simd", "ns_pkt": 28, "mpps": 34.5, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 597325, "instructions": 768391, "branches": 127748, "branch_misses": 71, "cache_refs": 321, "cache_misses": 114, "frontend_stalls": 651, "backend_stalls": 148669, "dtlb_misses": 0, "itlb_misses": 0, "l1d_misses": 97, "l1i_misses": 313, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 764396, "dispatch_stalls": 0, "mab_stalls": 0}},
+    {"mode": "template", "ns_pkt": 20, "mpps": 49.5, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 431198, "instructions": 617420, "branches": 100755, "branch_misses": 543, "cache_refs": 254, "cache_misses": 63, "frontend_stalls": 44547, "backend_stalls": 84801, "dtlb_misses": 0, "itlb_misses": 0, "l1d_misses": 50, "l1i_misses": 82, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 686521, "dispatch_stalls": 0, "mab_stalls": 0}},
+    {"mode": "template-simd", "ns_pkt": 19, "mpps": 51.8, "threads": 1, "total_pkts": 5500, "perf": {"cycles": 415210, "instructions": 467882, "branches": 63247, "branch_misses": 546, "cache_refs": 247, "cache_misses": 54, "frontend_stalls": 1005, "backend_stalls": 129231, "dtlb_misses": 0, "itlb_misses": 0, "l1d_misses": 54, "l1i_misses": 64, "ll_misses": 0, "op_cache_hits": 0, "retired_uops": 554537, "dispatch_stalls": 0, "mab_stalls": 0}}
+  ]
+}

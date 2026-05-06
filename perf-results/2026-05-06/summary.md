@@ -26,20 +26,20 @@ win = CI-disjoint ns/pkt; otherwise = noise.
 
 | Mode | hp2 | hp5 |
 |---|---|---|
-| c-flowdis-usp | 125 ns/pkt (8 Mpps) | 122 ns/pkt (8 Mpps) |
-| c-xdp2-usp | 204 ns/pkt (4 Mpps) | 194 ns/pkt (5 Mpps) |
-| c-xdp2-parse-only | 193 ns/pkt (5 Mpps) | 183 ns/pkt (5 Mpps) |
-| c-bpf-flowdis | 122 ns/pkt (8 Mpps) | 119 ns/pkt (8 Mpps) |
+| c-flowdis-usp | 124.0 ns/pkt (8.0 Mpps) | 122.0 ns/pkt (8.0 Mpps) |
+| c-xdp2-usp | 198.5 ns/pkt (4.5 Mpps) | 195.0 ns/pkt (5.0 Mpps) |
+| c-xdp2-parse-only | 186.5 ns/pkt (5.0 Mpps) | 183.0 ns/pkt (5.0 Mpps) |
+| c-bpf-flowdis | 121.0 ns/pkt (8.0 Mpps) | 117.0 ns/pkt (8.0 Mpps) |
 | c-bpf-xdp2 | — | — |
-| c-bpf-fast | 22 ns/pkt (45 Mpps) | 23 ns/pkt (43 Mpps) |
-| rust-graph | 259 ns/pkt (4 Mpps) | 265 ns/pkt (4 Mpps) |
-| rust-graph-enum | 78 ns/pkt (13 Mpps) | 78 ns/pkt (13 Mpps) |
-| rust-mono | 81 ns/pkt (12 Mpps) | 82 ns/pkt (12 Mpps) |
-| rust-mono-x4 | 83 ns/pkt (12 Mpps) | 85 ns/pkt (12 Mpps) |
-| rust-compiled | 81 ns/pkt (12 Mpps) | 82 ns/pkt (12 Mpps) |
-| rust-simd | 41 ns/pkt (24 Mpps) | 42 ns/pkt (23 Mpps) |
-| rust-template | 77 ns/pkt (13 Mpps) | 77 ns/pkt (13 Mpps) |
-| rust-template-simd | 73 ns/pkt (14 Mpps) | 74 ns/pkt (13 Mpps) |
+| c-bpf-fast | 22.0 ns/pkt (45.0 Mpps) | 23.0 ns/pkt (43.0 Mpps) |
+| rust-graph | 259.0 ns/pkt (4.0 Mpps) | 265.5 ns/pkt (4.0 Mpps) |
+| rust-graph-enum | 78.0 ns/pkt (13.0 Mpps) | 78.5 ns/pkt (13.0 Mpps) |
+| rust-mono | 81.0 ns/pkt (12.0 Mpps) | 82.0 ns/pkt (12.0 Mpps) |
+| rust-mono-x4 | 83.5 ns/pkt (12.0 Mpps) | 85.5 ns/pkt (12.0 Mpps) |
+| rust-compiled | 81.0 ns/pkt (12.0 Mpps) | 82.5 ns/pkt (12.0 Mpps) |
+| rust-simd | 41.0 ns/pkt (24.0 Mpps) | 42.0 ns/pkt (23.0 Mpps) |
+| rust-template | 77.0 ns/pkt (13.0 Mpps) | 77.0 ns/pkt (13.0 Mpps) |
+| rust-template-simd | 72.5 ns/pkt (14.0 Mpps) | 74.0 ns/pkt (13.0 Mpps) |
 
 ## hp2-hp5-x710 — `mixed-real.pcap`
 
