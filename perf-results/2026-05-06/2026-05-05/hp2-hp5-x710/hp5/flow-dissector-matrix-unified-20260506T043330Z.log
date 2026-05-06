@@ -1,0 +1,674 @@
+warning: Git tree '/root/xdp2' is dirty
+=== Unified xdp2-rs vs C-matrix Performance Comparison ===
+Input PCAP:           /nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+xdp2-bench iterations: 100
+BPF repeat count:      1000
+Artifacts:             /nix/store/pf0sm1fbjz9bbvnbpzpxyp6qxy0vfr39-xdp2-flow-dissector-matrix-artifacts-0.1.0
+
+--- Pre-filtering pcap with xdp2-bench (Rust parse filter) ---
+Loaded 500000 packets from /nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+Filtered: 499995/500000 packets parseable (100.0%)
+Wrote filtered PCAP: /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap (499995 packets)
+
+--- C matrix: userspace (ways 1-3) on filtered pcap ---
+=== Flow Dissector Benchmark ===
+Packets: 499995
+PCAP: /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Parser: standard
+
+--- Performance (499995 packets x 100 iterations) ---
+Kernel flowdis: 162 ns/pkt,  6 Mpps
+XDP2 parser:    232 ns/pkt,  4 Mpps
+XDP2 parse-only:220 ns/pkt,  4 Mpps
+Speedup:        0.7x (parse-only: 0.7x)
+
+--- C matrix: Kernel BPF flowdis (bpf_flow.kern.o) ---
+=== BPF Flow Dissector Benchmark ===
+Packets: 499995
+PCAP: /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+BPF program: /nix/store/pf0sm1fbjz9bbvnbpzpxyp6qxy0vfr39-xdp2-flow-dissector-matrix-artifacts-0.1.0/lib/xdp2-flow-dissector-matrix/bpf_flow.kern.o
+
+--- Performance (499995 packets x 1000 BPF_PROG_TEST_RUN repeats) ---
+Kernel BPF flowdis: 88 ns/pkt,  11 Mpps
+Packets measured: 499995 / 499995
+
+--- C matrix: XDP2 BPF parser (flow_dissector.bpf.o) ---
+Warning: XDP2 BPF parser failed (need root / CAP_BPF?)
+libbpf: elf: skipping relo section(6) .rel.rodata for section(5) .rodata
+libbpf: elf: skipping relo section(9) .rel.data for section(8) .data
+libbpf: prog '_dissect': BPF program load failed: -EINVAL
+libbpf: prog '_dissect': -- BEGIN PROG LOAD LOG --
+0: R1=ctx() R10=fp0
+; void *data = (void *)(long)skb->data; @ flow_dissector.bpf.c:157
+0: (61) r9 = *(u32 *)(r1 +76)         ; R1=ctx() R9=pkt(r=0)
+; void *data_end = (void *)(long)skb->data_end; @ flow_dissector.bpf.c:156
+1: (61) r7 = *(u32 *)(r1 +80)         ; R1=ctx() R7=pkt_end()
+; struct bpf_flow_keys *keys = skb->flow_keys; @ flow_dissector.bpf.c:155
+2: (79) r6 = *(u64 *)(r1 +144)        ; R1=ctx() R6=flow_keys()
+; if (keys->n_proto == bpf_htons(ETH_P_8021Q) || @ flow_dissector.bpf.c:163
+3: (69) r2 = *(u16 *)(r6 +10)         ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=flow_keys()
+4: (15) if r2 == 0x81 goto pc+6       ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+5: (15) if r2 == 0xa888 goto pc+5     ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+6: (bf) r4 = r7                       ; R4=pkt_end() R7=pkt_end()
+; if (keys->n_proto == bpf_htons(ETH_P_MPLS_UC) || @ flow_dissector.bpf.c:174
+7: (65) if r2 s> 0x4887 goto pc+36    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=18567,var_off=(0x0; 0x7fff))
+8: (15) if r2 == 0x608 goto pc+148    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=18567,var_off=(0x0; 0x7fff))
+9: (15) if r2 == 0x4788 goto pc+37    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=18567,var_off=(0x0; 0x7fff))
+10: (05) goto pc+71
+;  @ flow_dissector.bpf.c:0
+82: (b7) r8 = 129                     ; R8=129
+; if (keys->n_proto != bpf_htons(ETH_P_IP) && @ flow_dissector.bpf.c:226
+83: (15) if r2 == 0xdd86 goto pc+1    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=18567,var_off=(0x0; 0x7fff))
+84: (55) if r2 != 0x8 goto pc+79      ; R2=8
+85: (b7) r1 = 1                       ; R1=1
+; __u32 key = 1; @ flow_dissector.bpf.c:47
+86: (63) *(u32 *)(r10 -88) = r1       ; R1=1 R10=fp0 fp-88=????1
+87: (bf) r2 = r10                     ; R2=fp0 R10=fp0
+;  @ flow_dissector.bpf.c:0
+88: (07) r2 += -88                    ; R2=fp-88
+; return bpf_map_lookup_elem(&ctx_map, &key); @ flow_dissector.bpf.c:49
+89: (18) r1 = 0xffff8ef653467000      ; R1=map_ptr(map=ctx_map,ks=4,vs=232)
+91: (7b) *(u64 *)(r10 -96) = r4       ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+92: (85) call bpf_map_lookup_elem#1   ; R0=map_value(map=ctx_map,ks=4,vs=232)
+93: (79) r4 = *(u64 *)(r10 -96)       ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+; if (!parser_ctx) @ flow_dissector.bpf.c:232
+94: (15) if r0 == 0x0 goto pc+69      ; R0=map_value(map=ctx_map,ks=4,vs=232)
+95: (b7) r1 = 0                       ; R1=0
+; __builtin_memset(parser_ctx->frame, 0, @ flow_dissector.bpf.c:236
+96: (7b) *(u64 *)(r0 +224) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+97: (7b) *(u64 *)(r0 +216) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+98: (7b) *(u64 *)(r0 +208) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+99: (7b) *(u64 *)(r0 +200) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+100: (7b) *(u64 *)(r0 +192) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+101: (7b) *(u64 *)(r0 +184) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+102: (7b) *(u64 *)(r0 +176) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+103: (7b) *(u64 *)(r0 +168) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+104: (7b) *(u64 *)(r0 +160) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+105: (7b) *(u64 *)(r0 +152) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+106: (7b) *(u64 *)(r0 +144) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+107: (7b) *(u64 *)(r0 +136) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+108: (7b) *(u64 *)(r0 +128) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+109: (7b) *(u64 *)(r0 +120) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+110: (7b) *(u64 *)(r0 +112) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+111: (7b) *(u64 *)(r0 +104) = r1      ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+112: (7b) *(u64 *)(r0 +96) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+113: (7b) *(u64 *)(r0 +88) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+114: (7b) *(u64 *)(r0 +80) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+115: (7b) *(u64 *)(r0 +72) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+116: (7b) *(u64 *)(r0 +64) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+117: (7b) *(u64 *)(r0 +56) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+118: (7b) *(u64 *)(r0 +48) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+119: (7b) *(u64 *)(r0 +40) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+120: (7b) *(u64 *)(r0 +32) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0
+121: (18) r1 = 0x3900000000           ; R1=0x3900000000
+; parser_ctx->ctx.frame_num = 0; @ flow_dissector.bpf.c:238
+123: (7b) *(u64 *)(r0 +0) = r1        ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=0x3900000000
+; __builtin_memset(parser_ctx->frame, 0, @ flow_dissector.bpf.c:236
+124: (bf) r1 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=map_value(map=ctx_map,ks=4,vs=232)
+125: (07) r1 += 32                    ; R1=map_value(map=ctx_map,ks=4,vs=232,off=32)
+126: (7b) *(u64 *)(r10 -112) = r1     ; R1=map_value(map=ctx_map,ks=4,vs=232,off=32) R10=fp0 fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32)
+; parser_ctx->ctx.metadata = parser_ctx->frame; @ flow_dissector.bpf.c:240
+127: (7b) *(u64 *)(r0 +16) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=map_value(map=ctx_map,ks=4,vs=232,off=32)
+; parser_ctx->ctx.parser = xdp2_parser_flow_dissector; @ flow_dissector.bpf.c:241
+128: (18) r1 = 0xffffcffb8891a000     ; R1=map_value(map=flow_dis.data,ks=4,vs=8)
+130: (79) r1 = *(u64 *)(r1 +0)        ; R1=scalar()
+131: (7b) *(u64 *)(r0 +24) = r1       ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=scalar()
+; if (keys->thoff > 128) @ flow_dissector.bpf.c:247
+132: (69) r1 = *(u16 *)(r6 +2)        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=flow_keys()
+133: (25) if r1 > 0x80 goto pc+30     ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; hdr = data + keys->thoff; @ flow_dissector.bpf.c:259
+134: (bf) r2 = r9                     ; R2=pkt(r=0) R9=pkt(r=0)
+135: (0f) r2 += r1                    ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R2=pkt(id=1,r=0,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+136: (7b) *(u64 *)(r10 -104) = r2     ; R2=pkt(id=1,r=0,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,r=0,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; if (hdr + sizeof(struct iphdr) > data_end) @ flow_dissector.bpf.c:260
+137: (bf) r1 = r2                     ; R1=pkt(id=1,r=0,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R2=pkt(id=1,r=0,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+138: (07) r1 += 20                    ; R1=pkt(id=1,off=20,r=0,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+139: (2d) if r1 > r4 goto pc+24       ; R1=pkt(id=1,off=20,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R4=pkt_end()
+;  @ flow_dissector.bpf.c:0
+140: (bf) r2 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R2=map_value(map=ctx_map,ks=4,vs=232)
+141: (07) r2 += 4                     ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4)
+142: (79) r5 = *(u64 *)(r10 -104)     ; R5=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; return ((struct ip_hdr_byte *)viph)->version; @ proto_ip.h:50
+143: (71) r1 = *(u8 *)(r5 +0)         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+144: (77) r1 >>= 4                    ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=15,var_off=(0x0; 0xf))
+; switch (type) { @ parser.xdp.h:448
+145: (15) if r1 == 0x4 goto pc+81     ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=15,var_off=(0x0; 0xf))
+146: (15) if r1 == 0x6 goto pc+19 166: R0=map_value(map=ctx_map,ks=4,vs=232) R1=6 R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R4=pkt_end() R5=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R6=flow_keys() R7=pkt_end() R8=129 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32)
+; } @ flow_dissector.bpf.c:279
+166: (7b) *(u64 *)(r10 -152) = r2     ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+167: (b7) r8 = 2                      ; R8=2
+; ctx->next = CODE_ipv6_node; @ parser.xdp.h:453
+168: (63) *(u32 *)(r0 +4) = r8        ; R0=map_value(map=ctx_map,ks=4,vs=232) R8=2
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+169: (bf) r1 = r5                     ; R1=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R5=pkt(id=1,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+170: (07) r1 += 40                    ; R1=pkt(id=1,off=40,r=20,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+171: (2d) if r1 > r4 goto pc-8        ; R1=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R4=pkt_end()
+172: (7b) *(u64 *)(r10 -160) = r7     ; R7=pkt_end() R10=fp0 fp-160=pkt_end()
+173: (bf) r5 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R5=map_value(map=ctx_map,ks=4,vs=232)
+174: (07) r5 += 172                   ; R5=map_value(map=ctx_map,ks=4,vs=232,off=172)
+175: (bf) r2 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R2=map_value(map=ctx_map,ks=4,vs=232)
+176: (07) r2 += 33                    ; R2=map_value(map=ctx_map,ks=4,vs=232,off=33)
+177: (7b) *(u64 *)(r10 -136) = r2     ; R2=map_value(map=ctx_map,ks=4,vs=232,off=33) R10=fp0 fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33)
+178: (bf) r7 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R7=map_value(map=ctx_map,ks=4,vs=232)
+179: (07) r7 += 196                   ; R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+180: (bf) r3 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R3=map_value(map=ctx_map,ks=4,vs=232)
+181: (07) r3 += 170                   ; R3=map_value(map=ctx_map,ks=4,vs=232,off=170)
+182: (bf) r2 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R2=map_value(map=ctx_map,ks=4,vs=232)
+183: (07) r2 += 188                   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=188)
+184: (7b) *(u64 *)(r10 -168) = r2     ; R2=map_value(map=ctx_map,ks=4,vs=232,off=188) R10=fp0 fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188)
+185: (79) r8 = *(u64 *)(r10 -104)     ; R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; XDP2_METADATA_TEMP_ipv6(ipv6_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:9
+186: (71) r2 = *(u8 *)(r8 +6)         ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+187: (7b) *(u64 *)(r10 -176) = r3     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+188: (73) *(u8 *)(r3 +0) = r2         ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=170)
+189: (b7) r2 = 2                      ; R2=2
+190: (79) r3 = *(u64 *)(r10 -112)     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=32) R10=fp0 fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32)
+191: (73) *(u8 *)(r3 +0) = r2         ; R2=2 R3=map_value(map=ctx_map,ks=4,vs=232,off=32)
+; return *(__be32 *)hdr & IPV6_FLOWLABEL_MASK; @ proto_ipv6.h:44
+192: (61) r2 = *(u32 *)(r8 +0)        ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+193: (18) r3 = 0xffff0f00             ; R3=0xffff0f00
+195: (5f) r2 &= r3                    ; R2=scalar(smin=0,smax=umax=umax32=0xffff0f00,smax32=0x7fff0f00,var_off=(0x0; 0xffff0f00)) R3=0xffff0f00
+; XDP2_METADATA_TEMP_ipv6(ipv6_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:9
+196: (dc) r2 = be32 r2                ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xfffff,var_off=(0x0; 0xfffff))
+197: (7b) *(u64 *)(r10 -128) = r5     ; R5=map_value(map=ctx_map,ks=4,vs=232,off=172) R10=fp0 fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172)
+198: (63) *(u32 *)(r5 +0) = r2        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xfffff,var_off=(0x0; 0xfffff)) R5=map_value(map=ctx_map,ks=4,vs=232,off=172)
+199: (61) r2 = *(u32 *)(r8 +36)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+200: (63) *(u32 *)(r7 +28) = r2       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+201: (61) r2 = *(u32 *)(r8 +32)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+202: (63) *(u32 *)(r7 +24) = r2       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+203: (61) r2 = *(u32 *)(r8 +28)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+204: (63) *(u32 *)(r7 +20) = r2       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+205: (61) r2 = *(u32 *)(r8 +24)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+206: (63) *(u32 *)(r7 +16) = r2       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+207: (61) r2 = *(u32 *)(r8 +20)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+208: (63) *(u32 *)(r7 +12) = r2       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+209: (61) r2 = *(u32 *)(r8 +16)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+210: (63) *(u32 *)(r7 +8) = r2        ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+211: (61) r2 = *(u32 *)(r8 +12)       ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+212: (63) *(u32 *)(r7 +4) = r2        ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+213: (61) r2 = *(u32 *)(r8 +8)        ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+214: (7b) *(u64 *)(r10 -144) = r7     ; R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R10=fp0 fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196)
+215: (63) *(u32 *)(r7 +0) = r2        ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R7=map_value(map=ctx_map,ks=4,vs=232,off=196)
+; return ((struct ipv6hdr *)viph)->nexthdr; @ proto_ipv6.h:49
+216: (71) r2 = *(u8 *)(r8 +6)         ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; switch (type) { @ parser.xdp.h:580
+217: (7b) *(u64 *)(r10 -120) = r0     ; R0=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+218: (65) if r2 s> 0x2e goto pc+47    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=46,var_off=(0x0; 0x3f))
+219: (65) if r2 s> 0x20 goto pc+61    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=32,var_off=(0x0; 0x3f))
+220: (65) if r2 s> 0x5 goto pc+90     ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+221: (15) if r2 == 0x0 goto pc+101    ; R2=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+222: (7b) *(u64 *)(r10 -104) = r1     ; R1=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+223: (15) if r2 == 0x4 goto pc+1 225: R0=map_value(map=ctx_map,ks=4,vs=232) R1=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R2=4 R3=0xffff0f00 R4=pkt_end() R5=map_value(map=ctx_map,ks=4,vs=232,off=172) R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=pkt(id=1,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+; switch (type) { @ parser.xdp.h:580
+225: (b7) r2 = 30                     ; R2=30
+226: (05) goto pc+118
+;  @ parser.xdp.h:0
+345: (79) r3 = *(u64 *)(r10 -152)     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+346: (63) *(u32 *)(r3 +0) = r2        ; R2=30 R3=map_value(map=ctx_map,ks=4,vs=232,off=4)
+347: (7b) *(u64 *)(r10 -104) = r1     ; R1=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+348: (b7) r1 = 0                      ; R1=0
+349: (05) goto pc+41
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+391: (55) if r1 != 0x0 goto pc+26512          ; R1=0
+392: (79) r2 = *(u64 *)(r10 -120)     ; R2=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+393: (61) r2 = *(u32 *)(r2 +4)        ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+394: (15) if r2 == 0x39 goto pc+26509         ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+395: (79) r0 = *(u64 *)(r10 -120)     ; R0=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+396: (bf) r1 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R1=map_value(map=ctx_map,ks=4,vs=232)
+397: (07) r1 += 111                   ; R1=map_value(map=ctx_map,ks=4,vs=232,off=111)
+398: (bf) r3 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R3=map_value(map=ctx_map,ks=4,vs=232)
+399: (07) r3 += 105                   ; R3=map_value(map=ctx_map,ks=4,vs=232,off=105)
+400: (bf) r4 = r0                     ; R0=map_value(map=ctx_map,ks=4,vs=232) R4=map_value(map=ctx_map,ks=4,vs=232)
+401: (07) r4 += 34                    ; R4=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+402: (65) if r2 s> 0x1b goto pc+68    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=27,var_off=(0x0; 0x1f))
+403: (65) if r2 s> 0xd goto pc+95     ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=13,var_off=(0x0; 0xf))
+404: (65) if r2 s> 0x6 goto pc+165    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=6,var_off=(0x0; 0x7))
+405: (65) if r2 s> 0x2 goto pc+249    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,var_off=(0x0; 0x3))
+406: (7b) *(u64 *)(r10 -200) = r4     ; R4=map_value(map=ctx_map,ks=4,vs=232,off=34) R10=fp0 fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+407: (7b) *(u64 *)(r10 -192) = r3     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=105) R10=fp0 fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105)
+408: (7b) *(u64 *)(r10 -184) = r1     ; R1=map_value(map=ctx_map,ks=4,vs=232,off=111) R10=fp0 fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111)
+409: (15) if r2 == 0x0 goto pc+914    ; R2=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=2,var_off=(0x0; 0x3))
+410: (15) if r2 == 0x1 goto pc+967    ; R2=2
+411: (79) r4 = *(u64 *)(r10 -96)      ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+412: (79) r1 = *(u64 *)(r10 -160)     ; R1=pkt_end() R10=fp0 fp-160=pkt_end()
+413: (15) if r2 == 0x2 goto pc+1      ; R2=2
+415: (b7) r8 = 2                      ; R8=2
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+416: (79) r2 = *(u64 *)(r10 -104)     ; R2=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=40,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+417: (07) r2 += 40                    ; R2=pkt(id=1,off=80,r=40,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+418: (2d) if r2 > r4 goto pc-255      ; R2=pkt(id=1,off=80,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R4=pkt_end()
+419: (7b) *(u64 *)(r10 -160) = r1     ; R1=pkt_end() R10=fp0 fp-160=pkt_end()
+420: (7b) *(u64 *)(r10 -120) = r0     ; R0=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+421: (79) r4 = *(u64 *)(r10 -104)     ; R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; XDP2_METADATA_TEMP_ipv6(ipv6_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:9
+422: (71) r1 = *(u8 *)(r4 +6)         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+423: (79) r3 = *(u64 *)(r10 -176)     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+424: (73) *(u8 *)(r3 +0) = r1         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=170)
+425: (b7) r1 = 2                      ; R1=2
+426: (79) r3 = *(u64 *)(r10 -112)     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=32) R10=fp0 fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32)
+427: (73) *(u8 *)(r3 +0) = r1         ; R1=2 R3=map_value(map=ctx_map,ks=4,vs=232,off=32)
+; return *(__be32 *)hdr & IPV6_FLOWLABEL_MASK; @ proto_ipv6.h:44
+428: (61) r1 = *(u32 *)(r4 +0)        ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+429: (18) r3 = 0xffff0f00             ; R3=0xffff0f00
+431: (5f) r1 &= r3                    ; R1=scalar(smin=0,smax=umax=umax32=0xffff0f00,smax32=0x7fff0f00,var_off=(0x0; 0xffff0f00)) R3=0xffff0f00
+; XDP2_METADATA_TEMP_ipv6(ipv6_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:9
+432: (dc) r1 = be32 r1                ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xfffff,var_off=(0x0; 0xfffff))
+433: (79) r3 = *(u64 *)(r10 -128)     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=172) R10=fp0 fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172)
+434: (63) *(u32 *)(r3 +0) = r1        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xfffff,var_off=(0x0; 0xfffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=172)
+435: (61) r1 = *(u32 *)(r4 +36)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+436: (79) r3 = *(u64 *)(r10 -144)     ; R3=map_value(map=ctx_map,ks=4,vs=232,off=196) R10=fp0 fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196)
+437: (63) *(u32 *)(r3 +28) = r1       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+438: (61) r1 = *(u32 *)(r4 +32)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+439: (63) *(u32 *)(r3 +24) = r1       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+440: (61) r1 = *(u32 *)(r4 +28)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+441: (63) *(u32 *)(r3 +20) = r1       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+442: (61) r1 = *(u32 *)(r4 +24)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+443: (63) *(u32 *)(r3 +16) = r1       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+444: (61) r1 = *(u32 *)(r4 +20)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+445: (63) *(u32 *)(r3 +12) = r1       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+446: (61) r1 = *(u32 *)(r4 +16)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+447: (63) *(u32 *)(r3 +8) = r1        ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+448: (61) r1 = *(u32 *)(r4 +12)       ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+449: (63) *(u32 *)(r3 +4) = r1        ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+450: (61) r1 = *(u32 *)(r4 +8)        ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+451: (63) *(u32 *)(r3 +0) = r1        ; R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196)
+; return ((struct ipv6hdr *)viph)->nexthdr; @ proto_ipv6.h:49
+452: (71) r1 = *(u8 *)(r4 +6)         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; switch (type) { @ parser.xdp.h:580
+453: (65) if r1 s> 0x2e goto pc+1114          ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=46,var_off=(0x0; 0x3f))
+454: (65) if r1 s> 0x20 goto pc+1489          ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=32,var_off=(0x0; 0x3f))
+455: (65) if r1 s> 0x5 goto pc+1983   ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+456: (15) if r1 == 0x0 goto pc+2573 3030: R0=map_value(map=ctx_map,ks=4,vs=232) R1=0 R2=pkt(id=1,off=80,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R3=map_value(map=ctx_map,ks=4,vs=232,off=196) R4=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R5=map_value(map=ctx_map,ks=4,vs=232,off=172) R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=1,off=40,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+3030: (b7) r1 = 3                     ; R1=3
+; ctx->next = CODE_ipv6_eh_node; @ parser.xdp.h:600
+3031: (79) r3 = *(u64 *)(r10 -152)    ; R3=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+3032: (63) *(u32 *)(r3 +0) = r1       ; R1=3 R3=map_value(map=ctx_map,ks=4,vs=232,off=4)
+3033: (b7) r3 = 0                     ; R3=0
+3034: (b7) r1 = 0                     ; R1=0
+3035: (7b) *(u64 *)(r10 -104) = r2    ; R2=pkt(id=1,off=80,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=80,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+3036: (b7) r2 = 3                     ; R2=3
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+3037: (55) if r3 != 0x0 goto pc+23866         ; R3=0
+3038: (05) goto pc+1426
+4465: (15) if r2 == 0x39 goto pc+22438        ; R2=3
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+4466: (bf) r1 = r2                    ; R1=3 R2=3
+4467: (65) if r2 s> 0x1b goto pc+66   ; R2=3
+4468: (65) if r1 s> 0xd goto pc+92    ; R1=3
+4469: (65) if r1 s> 0x6 goto pc+159   ; R1=3
+4470: (65) if r1 s> 0x2 goto pc+239   ; R1=3
+4710: (65) if r1 s> 0x4 goto pc+247   ; R1=3
+4711: (15) if r1 == 0x3 goto pc+415   ; R1=3
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+5127: (b7) r8 = 2                     ; R8=2
+5128: (79) r2 = *(u64 *)(r10 -104)    ; R2=pkt(id=1,off=80,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=80,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+5129: (07) r2 += 2                    ; R2=pkt(id=1,off=82,r=80,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+5130: (79) r1 = *(u64 *)(r10 -120)    ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+5131: (79) r4 = *(u64 *)(r10 -96)     ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+5132: (79) r5 = *(u64 *)(r10 -160)    ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+5133: (2d) if r2 > r4 goto pc-4970    ; R2=pkt(id=1,off=82,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R4=pkt_end()
+5134: (79) r2 = *(u64 *)(r10 -104)    ; R2=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+; return ipv6_optlen((struct ipv6_opt_hdr *)vopt); @ proto_ipv6_eh.h:55
+5135: (71) r3 = *(u8 *)(r2 +1)        ; R2=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+5136: (67) r3 <<= 3                   ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=2040,var_off=(0x0; 0x7f8))
+5137: (0f) r3 += r2                   ; R2=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R3=pkt(id=2,off=80,r=0,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+5138: (07) r3 += 8                    ; R3=pkt(id=2,off=88,r=0,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+; if (*hlen < pnode->min_len) @ parser.xdp.h:110
+5139: (2d) if r3 > r4 goto pc-4976    ; R3=pkt(id=2,off=88,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R4=pkt_end()
+5140: (7b) *(u64 *)(r10 -160) = r5    ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+5141: (7b) *(u64 *)(r10 -120) = r1    ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+; XDP2_METADATA_TEMP_ipv6_eh(ipv6_eh_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:10
+5142: (79) r1 = *(u64 *)(r10 -104)    ; R1=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) R10=fp0 fp-104=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff))
+5143: (71) r1 = *(u8 *)(r1 +0)        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+5144: (79) r2 = *(u64 *)(r10 -176)    ; R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+5145: (73) *(u8 *)(r2 +0) = r1        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170)
+; switch (type) { @ parser.xdp.h:673
+5146: (65) if r1 s> 0x2e goto pc+779          ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=46,var_off=(0x0; 0x3f))
+5147: (65) if r1 s> 0x20 goto pc+1629         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=32,var_off=(0x0; 0x3f))
+5148: (65) if r1 s> 0x5 goto pc+2216          ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+5149: (15) if r1 == 0x0 goto pc+3232 8382: R0=map_value(map=ctx_map,ks=4,vs=232) R1=0 R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=2,off=88,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=1,off=80,r=82,smin=smin32=0,smax=umax=smax32=umax32=128,var_off=(0x0; 0xff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=2
+32,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+8382: (b7) r1 = 3                     ; R1=3
+; ctx->next = CODE_ipv6_eh_node; @ parser.xdp.h:693
+8383: (79) r2 = *(u64 *)(r10 -152)    ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+8384: (63) *(u32 *)(r2 +0) = r1       ; R1=3 R2=map_value(map=ctx_map,ks=4,vs=232,off=4)
+8385: (b7) r4 = 0                     ; R4=0
+8386: (b7) r1 = 0                     ; R1=0
+8387: (7b) *(u64 *)(r10 -104) = r3    ; R3=pkt(id=2,off=88,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R10=fp0 fp-104=pkt(id=2,off=88,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+8388: (b7) r2 = 3                     ; R2=3
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+8389: (55) if r4 != 0x0 goto pc+18514         ; R4=0
+8390: (05) goto pc+404
+8795: (15) if r2 == 0x39 goto pc+18108        ; R2=3
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+8796: (bf) r1 = r2                    ; R1=3 R2=3
+8797: (65) if r2 s> 0x1b goto pc+66   ; R2=3
+8798: (65) if r1 s> 0xd goto pc+92    ; R1=3
+8799: (65) if r1 s> 0x6 goto pc+159   ; R1=3
+8800: (65) if r1 s> 0x2 goto pc+239   ; R1=3
+9040: (65) if r1 s> 0x4 goto pc+247   ; R1=3
+9041: (15) if r1 == 0x3 goto pc+415   ; R1=3
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+9457: (b7) r8 = 2                     ; R8=2
+9458: (79) r2 = *(u64 *)(r10 -104)    ; R2=pkt(id=2,off=88,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R10=fp0 fp-104=pkt(id=2,off=88,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+9459: (07) r2 += 2                    ; R2=pkt(id=2,off=90,r=88,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+9460: (79) r1 = *(u64 *)(r10 -120)    ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+9461: (79) r4 = *(u64 *)(r10 -96)     ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+9462: (79) r5 = *(u64 *)(r10 -160)    ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+9463: (2d) if r2 > r4 goto pc-9300    ; R2=pkt(id=2,off=90,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R4=pkt_end()
+9464: (79) r2 = *(u64 *)(r10 -104)    ; R2=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R10=fp0 fp-104=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+; return ipv6_optlen((struct ipv6_opt_hdr *)vopt); @ proto_ipv6_eh.h:55
+9465: (71) r3 = *(u8 *)(r2 +1)        ; R2=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+9466: (67) r3 <<= 3                   ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=2040,var_off=(0x0; 0x7f8))
+9467: (0f) r3 += r2                   ; R2=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R3=pkt(id=3,off=88,r=0,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+9468: (07) r3 += 8                    ; R3=pkt(id=3,off=96,r=0,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+; if (*hlen < pnode->min_len) @ parser.xdp.h:110
+9469: (2d) if r3 > r4 goto pc-9306    ; R3=pkt(id=3,off=96,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R4=pkt_end()
+9470: (7b) *(u64 *)(r10 -160) = r5    ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+9471: (7b) *(u64 *)(r10 -120) = r1    ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+; XDP2_METADATA_TEMP_ipv6_eh(ipv6_eh_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:10
+9472: (79) r1 = *(u64 *)(r10 -104)    ; R1=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) R10=fp0 fp-104=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff))
+9473: (71) r1 = *(u8 *)(r1 +0)        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+9474: (79) r2 = *(u64 *)(r10 -176)    ; R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+9475: (73) *(u8 *)(r2 +0) = r1        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170)
+; switch (type) { @ parser.xdp.h:673
+9476: (65) if r1 s> 0x2e goto pc+795          ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=46,var_off=(0x0; 0x3f))
+9477: (65) if r1 s> 0x20 goto pc+1630         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=32,var_off=(0x0; 0x3f))
+9478: (65) if r1 s> 0x5 goto pc+2203          ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+9479: (15) if r1 == 0x0 goto pc+3215 12695: R0=map_value(map=ctx_map,ks=4,vs=232) R1=0 R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=3,off=96,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=2,off=88,r=90,smin=smin32=0,smax=umax=smax32=umax32=2168,var_off=(0x0; 0xfff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+12695: (b7) r1 = 3                    ; R1=3
+; ctx->next = CODE_ipv6_eh_node; @ parser.xdp.h:693
+12696: (79) r2 = *(u64 *)(r10 -152)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+12697: (63) *(u32 *)(r2 +0) = r1      ; R1=3 R2=map_value(map=ctx_map,ks=4,vs=232,off=4)
+12698: (b7) r4 = 0                    ; R4=0
+12699: (b7) r1 = 0                    ; R1=0
+12700: (7b) *(u64 *)(r10 -104) = r3   ; R3=pkt(id=3,off=96,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=3,off=96,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+12701: (b7) r2 = 3                    ; R2=3
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+12702: (55) if r4 != 0x0 goto pc+14201        ; R4=0
+12703: (05) goto pc+437
+13141: (15) if r2 == 0x39 goto pc+13762       ; R2=3
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+13142: (bf) r1 = r2                   ; R1=3 R2=3
+13143: (65) if r2 s> 0x1b goto pc+66          ; R2=3
+13144: (65) if r1 s> 0xd goto pc+92   ; R1=3
+13145: (65) if r1 s> 0x6 goto pc+159          ; R1=3
+13146: (65) if r1 s> 0x2 goto pc+239          ; R1=3
+13386: (65) if r1 s> 0x4 goto pc+247          ; R1=3
+13387: (15) if r1 == 0x3 goto pc+642          ; R1=3
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+14030: (b7) r8 = 2                    ; R8=2
+14031: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=3,off=96,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=3,off=96,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+14032: (07) r2 += 2                   ; R2=pkt(id=3,off=98,r=96,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+14033: (79) r1 = *(u64 *)(r10 -120)   ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+14034: (79) r4 = *(u64 *)(r10 -96)    ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+14035: (79) r5 = *(u64 *)(r10 -160)   ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+14036: (2d) if r2 > r4 goto pc-13873          ; R2=pkt(id=3,off=98,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R4=pkt_end()
+14037: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+; return ipv6_optlen((struct ipv6_opt_hdr *)vopt); @ proto_ipv6_eh.h:55
+14038: (71) r3 = *(u8 *)(r2 +1)       ; R2=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+14039: (67) r3 <<= 3                  ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=2040,var_off=(0x0; 0x7f8))
+14040: (0f) r3 += r2                  ; R2=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R3=pkt(id=4,off=96,r=0,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+14041: (07) r3 += 8                   ; R3=pkt(id=4,off=104,r=0,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+; if (*hlen < pnode->min_len) @ parser.xdp.h:110
+14042: (2d) if r3 > r4 goto pc-13879          ; R3=pkt(id=4,off=104,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R4=pkt_end()
+14043: (7b) *(u64 *)(r10 -160) = r5   ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+14044: (7b) *(u64 *)(r10 -120) = r1   ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+; XDP2_METADATA_TEMP_ipv6_eh(ipv6_eh_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:10
+14045: (79) r1 = *(u64 *)(r10 -104)   ; R1=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff))
+14046: (71) r1 = *(u8 *)(r1 +0)       ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+14047: (79) r2 = *(u64 *)(r10 -176)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+14048: (73) *(u8 *)(r2 +0) = r1       ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170)
+; switch (type) { @ parser.xdp.h:673
+14049: (65) if r1 s> 0x2e goto pc+568         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=46,var_off=(0x0; 0x3f))
+14050: (65) if r1 s> 0x20 goto pc+1403        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=32,var_off=(0x0; 0x3f))
+14051: (65) if r1 s> 0x5 goto pc+1976         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+14052: (15) if r1 == 0x0 goto pc+2988 17041: R0=map_value(map=ctx_map,ks=4,vs=232) R1=0 R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=4,off=104,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=3,off=96,r=98,smin=smin32=0,smax=umax=smax32=umax32=4208,var_off=(0x0; 0x1fff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+17041: (b7) r1 = 3                    ; R1=3
+; ctx->next = CODE_ipv6_eh_node; @ parser.xdp.h:693
+17042: (79) r2 = *(u64 *)(r10 -152)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+17043: (63) *(u32 *)(r2 +0) = r1      ; R1=3 R2=map_value(map=ctx_map,ks=4,vs=232,off=4)
+17044: (b7) r4 = 0                    ; R4=0
+17045: (b7) r1 = 0                    ; R1=0
+17046: (7b) *(u64 *)(r10 -104) = r3   ; R3=pkt(id=4,off=104,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=4,off=104,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+17047: (b7) r2 = 3                    ; R2=3
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+17048: (55) if r4 != 0x0 goto pc+9855         ; R4=0
+17049: (05) goto pc+437
+17487: (15) if r2 == 0x39 goto pc+9416        ; R2=3
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+17488: (bf) r1 = r2                   ; R1=3 R2=3
+17489: (65) if r2 s> 0x1b goto pc+66          ; R2=3
+17490: (65) if r1 s> 0xd goto pc+92   ; R1=3
+17491: (65) if r1 s> 0x6 goto pc+159          ; R1=3
+17492: (65) if r1 s> 0x2 goto pc+239          ; R1=3
+17732: (65) if r1 s> 0x4 goto pc+279          ; R1=3
+17733: (15) if r1 == 0x3 goto pc+670          ; R1=3
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+18404: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=4,off=104,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=4,off=104,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+18405: (07) r2 += 2                   ; R2=pkt(id=4,off=106,r=104,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+18406: (b7) r8 = 2                    ; R8=2
+18407: (79) r1 = *(u64 *)(r10 -120)   ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+18408: (79) r4 = *(u64 *)(r10 -96)    ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+18409: (79) r5 = *(u64 *)(r10 -160)   ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+18410: (2d) if r2 > r4 goto pc-18247          ; R2=pkt(id=4,off=106,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R4=pkt_end()
+18411: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+; return ipv6_optlen((struct ipv6_opt_hdr *)vopt); @ proto_ipv6_eh.h:55
+18412: (71) r3 = *(u8 *)(r2 +1)       ; R2=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+18413: (67) r3 <<= 3                  ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=2040,var_off=(0x0; 0x7f8))
+18414: (0f) r3 += r2                  ; R2=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R3=pkt(id=5,off=104,r=0,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+18415: (07) r3 += 8                   ; R3=pkt(id=5,off=112,r=0,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+; if (*hlen < pnode->min_len) @ parser.xdp.h:110
+18416: (2d) if r3 > r4 goto pc-18253          ; R3=pkt(id=5,off=112,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R4=pkt_end()
+18417: (7b) *(u64 *)(r10 -160) = r5   ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+18418: (7b) *(u64 *)(r10 -120) = r1   ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+; XDP2_METADATA_TEMP_ipv6_eh(ipv6_eh_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:10
+18419: (79) r1 = *(u64 *)(r10 -104)   ; R1=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) R10=fp0 fp-104=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff))
+18420: (71) r1 = *(u8 *)(r1 +0)       ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+18421: (79) r2 = *(u64 *)(r10 -176)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+18422: (73) *(u8 *)(r2 +0) = r1       ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170)
+; switch (type) { @ parser.xdp.h:673
+18423: (65) if r1 s> 0x2e goto pc+550         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=46,var_off=(0x0; 0x3f))
+18424: (65) if r1 s> 0x20 goto pc+1385        ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=32,var_off=(0x0; 0x3f))
+18425: (65) if r1 s> 0x5 goto pc+1958         ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=5,var_off=(0x0; 0x7))
+18426: (15) if r1 == 0x0 goto pc+2970 21397: R0=map_value(map=ctx_map,ks=4,vs=232) R1=0 R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=5,off=112,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=4,off=104,r=106,smin=smin32=0,smax=umax=smax32=umax32=6248,var_off=(0x0; 0x1fff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+21397: (b7) r1 = 3                    ; R1=3
+; ctx->next = CODE_ipv6_eh_node; @ parser.xdp.h:693
+21398: (79) r2 = *(u64 *)(r10 -152)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+21399: (63) *(u32 *)(r2 +0) = r1      ; R1=3 R2=map_value(map=ctx_map,ks=4,vs=232,off=4)
+21400: (b7) r4 = 0                    ; R4=0
+21401: (b7) r1 = 0                    ; R1=0
+21402: (7b) *(u64 *)(r10 -104) = r3   ; R3=pkt(id=5,off=112,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=5,off=112,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+21403: (b7) r2 = 3                    ; R2=3
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+21404: (55) if r4 != 0x0 goto pc+5499         ; R4=0
+21405: (05) goto pc+437
+21843: (15) if r2 == 0x39 goto pc+5060        ; R2=3
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+21844: (bf) r1 = r2                   ; R1=3 R2=3
+21845: (65) if r2 s> 0x1b goto pc+66          ; R2=3
+21846: (65) if r1 s> 0xd goto pc+92   ; R1=3
+21847: (65) if r1 s> 0x6 goto pc+159          ; R1=3
+21848: (65) if r1 s> 0x2 goto pc+239          ; R1=3
+22088: (65) if r1 s> 0x4 goto pc+279          ; R1=3
+22089: (15) if r1 == 0x3 goto pc+650          ; R1=3
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+22740: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=5,off=112,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=5,off=112,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+22741: (07) r2 += 2                   ; R2=pkt(id=5,off=114,r=112,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+22742: (b7) r8 = 2                    ; R8=2
+22743: (79) r1 = *(u64 *)(r10 -120)   ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+22744: (79) r4 = *(u64 *)(r10 -96)    ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+22745: (79) r5 = *(u64 *)(r10 -160)   ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+22746: (2d) if r2 > r4 goto pc-22583          ; R2=pkt(id=5,off=114,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R4=pkt_end()
+22747: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+; return ipv6_optlen((struct ipv6_opt_hdr *)vopt); @ proto_ipv6_eh.h:55
+22748: (71) r3 = *(u8 *)(r2 +1)       ; R2=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+22749: (67) r3 <<= 3                  ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=2040,var_off=(0x0; 0x7f8))
+22750: (0f) r3 += r2                  ; R2=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R3=pkt(id=6,off=112,r=0,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+22751: (07) r3 += 8                   ; R3=pkt(id=6,off=120,r=0,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+; if (*hlen < pnode->min_len) @ parser.xdp.h:110
+22752: (2d) if r3 > r4 goto pc-22589          ; R3=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R4=pkt_end()
+22753: (7b) *(u64 *)(r10 -160) = r5   ; R5=pkt_end() R10=fp0 fp-160=pkt_end()
+22754: (7b) *(u64 *)(r10 -120) = r1   ; R1=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+; XDP2_METADATA_TEMP_ipv6_eh(ipv6_eh_metadata, xdp2_metadata_all) @ flow_dissector_metadata.h:10
+22755: (79) r1 = *(u64 *)(r10 -104)   ; R1=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff))
+22756: (71) r1 = *(u8 *)(r1 +0)       ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff))
+22757: (79) r2 = *(u64 *)(r10 -176)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R10=fp0 fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170)
+22758: (73) *(u8 *)(r2 +0) = r1       ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170)
+; switch (type) { @ parser.xdp.h:673
+22759: (65) if r1 s> 0x2e goto pc+557 23317: R0=map_value(map=ctx_map,ks=4,vs=232) R1=scalar(smin=umin=smin32=umin32=47,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; switch (type) { @ parser.xdp.h:673
+23317: (65) if r1 s> 0x3b goto pc+360         ; R1=scalar(smin=umin=smin32=umin32=47,smax=umax=smax32=umax32=59,var_off=(0x20; 0x1f))
+23318: (65) if r1 s> 0x32 goto pc+1437 24756: R0=map_value(map=ctx_map,ks=4,vs=232) R1=scalar(smin=umin=smin32=umin32=51,smax=umax=smax32=umax32=59,var_off=(0x30; 0xf)) R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=5,off=112,r=114,smin=smin32=0,smax=umax=smax32=umax32=8288,var_off=(0x0; 0x3fff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+; switch (type) { @ parser.xdp.h:673
+24756: (15) if r1 == 0x33 goto pc+1102        ; R1=scalar(smin=umin=smin32=umin32=52,smax=umax=smax32=umax32=59,var_off=(0x30; 0xf))
+24757: (7b) *(u64 *)(r10 -104) = r3   ; R3=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+24758: (79) r0 = *(u64 *)(r10 -120)   ; R0=map_value(map=ctx_map,ks=4,vs=232) R10=fp0 fp-120=map_value(map=ctx_map,ks=4,vs=232)
+24759: (79) r4 = *(u64 *)(r10 -96)    ; R4=pkt_end() R10=fp0 fp-96=pkt_end()
+24760: (15) if r1 == 0x3a goto pc+1 24762: R0=map_value(map=ctx_map,ks=4,vs=232) R1=58 R2=map_value(map=ctx_map,ks=4,vs=232,off=170) R3=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R4=pkt_end() R5=pkt_end() R6=flow_keys() R7=map_value(map=ctx_map,ks=4,vs=232,off=196) R8=2 R9=pkt(r=0) R10=fp0 fp-88=????1 fp-96=pkt_end() fp-104=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) fp-112=map_value(map=ctx_map,ks=4,vs=232,off=32) fp-120=map_value(map=ctx_map,ks=4,vs=232) fp-128=map_value(map=ctx_map,ks=4,vs=232,off=172) fp-136=map_value(map=ctx_map,ks=4,vs=232,off=33) fp-144=map_value(map=ctx_map,ks=4,vs=232,off=196) fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4) fp-160=pkt_end() fp-168=map_value(map=ctx_map,ks=4,vs=232,off=188) fp-176=map_value(map=ctx_map,ks=4,vs=232,off=170) fp-184=map_value(map=ctx_map,ks=4,vs=232,off=111) fp-192=map_value(map=ctx_map,ks=4,vs=232,off=105) fp-200=map_value(map=ctx_map,ks=4,vs=232,off=34)
+24762: (b7) r1 = 7                    ; R1=7
+; ctx->next = CODE_icmpv6_node; @ parser.xdp.h:690
+24763: (79) r2 = *(u64 *)(r10 -152)   ; R2=map_value(map=ctx_map,ks=4,vs=232,off=4) R10=fp0 fp-152=map_value(map=ctx_map,ks=4,vs=232,off=4)
+24764: (63) *(u32 *)(r2 +0) = r1      ; R1=7 R2=map_value(map=ctx_map,ks=4,vs=232,off=4)
+24765: (b7) r4 = 0                    ; R4=0
+24766: (b7) r1 = 0                    ; R1=0
+24767: (7b) *(u64 *)(r10 -104) = r3   ; R3=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+24768: (b7) r2 = 7                    ; R2=7
+; if (ctx->next == CODE_IGNORE || ret != XDP2_OKAY) @ parser.xdp.h:3791
+24769: (55) if r4 != 0x0 goto pc+2134         ; R4=0
+24770: (05) goto pc+1415
+26186: (15) if r2 == 0x39 goto pc+717         ; R2=7
+; else if (ctx->next == CODE_ip_check_node) @ parser.xdp.h:3793
+26187: (bf) r1 = r2                   ; R1=7 R2=7
+26188: (65) if r2 s> 0x1b goto pc+53          ; R2=7
+26189: (65) if r1 s> 0xd goto pc+79   ; R1=7
+26190: (65) if r1 s> 0x6 goto pc+123          ; R1=7
+26314: (65) if r1 s> 0x9 goto pc+196          ; R1=7
+26315: (15) if r1 == 0x7 goto pc+539          ; R1=7
+; if (xdp2_bpf_check_pkt(hdr, *hlen, hdr_end)) @ parser.xdp.h:103
+26855: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=6,off=120,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+26856: (07) r2 += 8                   ; R2=pkt(id=6,off=128,r=120,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+26857: (18) r1 = 0xfffffff3           ; R1=0xfffffff3
+26859: (79) r3 = *(u64 *)(r10 -96)    ; R3=pkt_end() R10=fp0 fp-96=pkt_end()
+26860: (2d) if r2 > r3 goto pc+43     ; R2=pkt(id=6,off=128,r=128,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R3=pkt_end()
+26861: (79) r4 = *(u64 *)(r10 -160)   ; R4=pkt_end() R10=fp0 fp-160=pkt_end()
+26862: (79) r1 = *(u64 *)(r10 -104)   ; R1=pkt(id=6,off=120,r=128,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=6,off=120,r=128,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+26863: (1f) r4 -= r1                  ; R1=pkt(id=6,off=120,r=128,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R4=scalar()
+26864: (b7) r2 = 0                    ; R2=0
+26865: (18) r1 = 0xfffffff3           ; R1=0xfffffff3
+26867: (bf) r3 = r4                   ; R3=scalar(id=9) R4=scalar(id=9)
+26868: (6d) if r2 s> r4 goto pc+35    ; R2=0 R3=scalar(id=9,smin=0,umax=0x7fffffffffffffff,var_off=(0x0; 0x7fffffffffffffff)) R4=scalar(id=9,smin=0,umax=0x7fffffffffffffff,var_off=(0x0; 0x7fffffffffffffff))
+26869: (b7) r2 = 8                    ; R2=8
+; if (*hlen < pnode->min_len) @ parser.xdp.h:110
+26870: (2d) if r2 > r3 goto pc+33     ; R2=8 R3=scalar(id=9,smin=umin=8,umax=0x7fffffffffffffff,var_off=(0x0; 0x7fffffffffffffff))
+26871: (79) r2 = *(u64 *)(r10 -104)   ; R2=pkt(id=6,off=120,r=128,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff)) R10=fp0 fp-104=pkt(id=6,off=120,r=128,smin=smin32=0,smax=umax=smax32=umax32=10328,var_off=(0x0; 0x3fff))
+26872: (0f) r2 += r3
+math between pkt pointer and register with unbounded min value is not allowed
+processed 1996 insns (limit 1000000) max_states_per_insn 9 total_states 149 peak_states 139 mark_read 0
+-- END PROG LOAD LOG --
+libbpf: prog '_dissect': failed to load: -EINVAL
+libbpf: failed to load object '/nix/store/pf0sm1fbjz9bbvnbpzpxyp6qxy0vfr39-xdp2-flow-dissector-matrix-artifacts-0.1.0/lib/xdp2-flow-dissector-matrix/flow_dissector.bpf.o'
+Failed to load BPF object: /nix/store/pf0sm1fbjz9bbvnbpzpxyp6qxy0vfr39-xdp2-flow-dissector-matrix-artifacts-0.1.0/lib/xdp2-flow-dissector-matrix/flow_dissector.bpf.o (err=-22)
+Failed to load BPF flow dissector
+--- C matrix: xdp2-flow-ebpf fast (fast_flow.bpf.o) ---
+=== BPF Flow Dissector Benchmark ===
+Packets: 499995
+PCAP: /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+BPF program: /nix/store/pf0sm1fbjz9bbvnbpzpxyp6qxy0vfr39-xdp2-flow-dissector-matrix-artifacts-0.1.0/lib/xdp2-flow-dissector-matrix/fast_flow.bpf.o
+
+--- Performance (499995 packets x 1000 BPF_PROG_TEST_RUN repeats) ---
+xdp2-flow-ebpf fast: 17 ns/pkt,  58 Mpps
+Packets measured: 499995 / 499995
+
+--- xdp2-bench --mode graph ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust graph    : 289 ns/pkt,  3 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode graph-enum ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust graph-enum: 12 ns/pkt,  81 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode mono ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust mono     : 51 ns/pkt,  20 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode mono-x4 ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust mono-x4  : 55 ns/pkt,  18 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode compiled ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust compiled : 48 ns/pkt,  21 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode simd ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust simd     : 60 ns/pkt,  17 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode template ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust template : 51 ns/pkt,  19 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+--- xdp2-bench --mode template-simd ---
+Loaded 499995 packets from /tmp/xdp2-matrix-unified-A9Ss/filtered.pcap
+Filtered: 499995/499995 packets parseable (100.0%)
+--- Performance (499995 packets x 100 iterations, 146172 template-matched) ---
+Rust template-simd: 56 ns/pkt,  18 Mpps
+Correctness: graph ok=499995/499995, mono ok=499995/499995, compiled ok=499993/499995, template ok=146172/499995
+
+=================================================================
+      Unified xdp2-rs vs C-matrix Comparison (same pcap)
+=================================================================
+
+Mode                             | ns/pkt             | Mpps     
+---------------------------------+--------------------+----------
+C kernel flowdis (usp)           | 162 ns/pkt         | 6 Mpps   
+C XDP2 parser (usp)              | 232 ns/pkt         | 4 Mpps   
+C XDP2 parse-only (usp)          | 220 ns/pkt         | 4 Mpps   
+C kernel BPF flowdis             | 88 ns/pkt          | 11 Mpps  
+C XDP2 BPF parser                | N/A                | N/A      
+C xdp2-flow-ebpf fast (BPF)      | 17 ns/pkt          | 58 Mpps  
+---------------------------------+--------------------+----------
+Rust graph (dyn dispatch)        | 289 ns/pkt         | 3 Mpps   
+Rust graph-enum (enum match)     | 12 ns/pkt          | 81 Mpps  
+Rust mono (hand-rolled)          | 51 ns/pkt          | 20 Mpps  
+Rust mono-x4 (sw-pipelined)      | 55 ns/pkt          | 18 Mpps  
+Rust compiled (monomorphized)    | 48 ns/pkt          | 21 Mpps  
+Rust simd (AVX2 batch)           | 60 ns/pkt          | 17 Mpps  
+Rust template (fixed-offset)     | 51 ns/pkt          | 19 Mpps  
+Rust template-simd (AVX2)        | 56 ns/pkt          | 18 Mpps  
+
+Notes:
+  - All rows measure the SAME filtered pcap (xdp2-bench pre-filter).
+  - C usp: clock_gettime(CLOCK_MONOTONIC_RAW) around userspace loops.
+  - C BPF: BPF_PROG_TEST_RUN with repeat=1000, kernel reports avg ns.
+  - Rust:  timed with rdtsc-derived nanoseconds across 100 iterations.
+  - Rust 'template' mode still runs select_template_id() per packet;
+    the hardware-classified equivalent is --mode af-xdp-template
+    (see docs/ntuple-template-bench.md).

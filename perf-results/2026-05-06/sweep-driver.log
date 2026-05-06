@@ -1,0 +1,417 @@
+=== Phase 12 driver started at 2026-05-05T21:22:19-07:00 ===
+Results root: /home/das/Downloads/xdp2/perf-results/2026-05-06
+Reps:         5
+PCAPs:        tcp_ipv4|/root/xdp2/data/pcaps/tcp_ipv4.pcap mixed-real|/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap https-web|/nix/store/0xfinngfaw6mlzprvqb0da8crmq9ldi3-xdp2-workload-https-web-pcap/https-web.pcap combo|/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap 
+
+
+=== [1] 2026-05-05T21:22:19-07:00 rep=1 pcap=tcp_ipv4 ===
+    XDP2_MATRIX_PCAP=/root/xdp2/data/pcaps/tcp_ipv4.pcap
+these 2 derivations will be built:
+  /nix/store/1hfm3qix83j8rvb2ashnnfkdvmnwvwwp-flow-dissector-matrix-aggregate.drv
+  /nix/store/yp0z9qnpdbcglzyq7qnamg379ffk96pn-flow-dissector-matrix-run.drv
+building '/nix/store/1hfm3qix83j8rvb2ashnnfkdvmnwvwwp-flow-dissector-matrix-aggregate.drv'...
+building '/nix/store/yp0z9qnpdbcglzyq7qnamg379ffk96pn-flow-dissector-matrix-run.drv'...
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042221Z.log)
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042221Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       371s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042221Z
+hp5           flow-dissector-matrix-unified       375s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042221Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 378s
+    elapsed: 378s
+
+=== [2] 2026-05-05T21:28:37-07:00 rep=1 pcap=mixed-real ===
+    XDP2_MATRIX_PCAP=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042837Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042837Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042837Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042837Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 1s
+    elapsed: 379s
+
+=== [3] 2026-05-05T21:28:38-07:00 rep=1 pcap=https-web ===
+    XDP2_MATRIX_PCAP=/nix/store/0xfinngfaw6mlzprvqb0da8crmq9ldi3-xdp2-workload-https-web-pcap/https-web.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042839Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042839Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042839Z
+hp5           flow-dissector-matrix-unified         6s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042839Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 8s
+    elapsed: 387s
+
+=== [4] 2026-05-05T21:28:46-07:00 rep=1 pcap=combo ===
+    XDP2_MATRIX_PCAP=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042846Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042846Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       128s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T042846Z
+hp5           flow-dissector-matrix-unified       131s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T042846Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 131s
+    elapsed: 518s
+
+=== [5] 2026-05-05T21:30:57-07:00 rep=2 pcap=tcp_ipv4 ===
+    XDP2_MATRIX_PCAP=/root/xdp2/data/pcaps/tcp_ipv4.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043057Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043057Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043057Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043057Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 2s
+    elapsed: 520s
+
+=== [6] 2026-05-05T21:30:59-07:00 rep=2 pcap=mixed-real ===
+    XDP2_MATRIX_PCAP=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043059Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043059Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043059Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043059Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 1s
+    elapsed: 521s
+
+=== [7] 2026-05-05T21:31:00-07:00 rep=2 pcap=https-web ===
+    XDP2_MATRIX_PCAP=/nix/store/0xfinngfaw6mlzprvqb0da8crmq9ldi3-xdp2-workload-https-web-pcap/https-web.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043101Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043101Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043101Z
+hp5           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043101Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 8s
+    elapsed: 529s
+
+=== [8] 2026-05-05T21:31:08-07:00 rep=2 pcap=combo ===
+    XDP2_MATRIX_PCAP=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043108Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043108Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       128s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043108Z
+hp5           flow-dissector-matrix-unified       130s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043108Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 131s
+    elapsed: 660s
+
+=== [9] 2026-05-05T21:33:19-07:00 rep=3 pcap=tcp_ipv4 ===
+    XDP2_MATRIX_PCAP=/root/xdp2/data/pcaps/tcp_ipv4.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043319Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043319Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043319Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043319Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 1s
+    elapsed: 661s
+
+=== [10] 2026-05-05T21:33:20-07:00 rep=3 pcap=mixed-real ===
+    XDP2_MATRIX_PCAP=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043321Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043321Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043321Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043321Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 2s
+    elapsed: 663s
+
+=== [11] 2026-05-05T21:33:22-07:00 rep=3 pcap=https-web ===
+    XDP2_MATRIX_PCAP=/nix/store/0xfinngfaw6mlzprvqb0da8crmq9ldi3-xdp2-workload-https-web-pcap/https-web.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043322Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043322Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043322Z
+hp5           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043322Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 7s
+    elapsed: 670s
+
+=== [12] 2026-05-05T21:33:29-07:00 rep=3 pcap=combo ===
+    XDP2_MATRIX_PCAP=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043330Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043330Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       128s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043330Z
+hp5           flow-dissector-matrix-unified       128s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043330Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 129s
+    elapsed: 799s
+
+=== [13] 2026-05-05T21:35:38-07:00 rep=4 pcap=tcp_ipv4 ===
+    XDP2_MATRIX_PCAP=/root/xdp2/data/pcaps/tcp_ipv4.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043539Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043539Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043539Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043539Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 2s
+    elapsed: 801s
+
+=== [14] 2026-05-05T21:35:40-07:00 rep=4 pcap=mixed-real ===
+    XDP2_MATRIX_PCAP=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043540Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043540Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043540Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043540Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 2s
+    elapsed: 803s
+
+=== [15] 2026-05-05T21:35:42-07:00 rep=4 pcap=https-web ===
+    XDP2_MATRIX_PCAP=/nix/store/0xfinngfaw6mlzprvqb0da8crmq9ldi3-xdp2-workload-https-web-pcap/https-web.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043542Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043542Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043542Z
+hp5           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043542Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 7s
+    elapsed: 810s
+
+=== [16] 2026-05-05T21:35:49-07:00 rep=4 pcap=combo ===
+    XDP2_MATRIX_PCAP=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043550Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043550Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       126s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043550Z
+hp5           flow-dissector-matrix-unified       128s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043550Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 130s
+    elapsed: 940s
+
+=== [17] 2026-05-05T21:37:59-07:00 rep=5 pcap=tcp_ipv4 ===
+    XDP2_MATRIX_PCAP=/root/xdp2/data/pcaps/tcp_ipv4.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043800Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043800Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043800Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043800Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 3s
+    elapsed: 943s
+
+=== [18] 2026-05-05T21:38:02-07:00 rep=5 pcap=mixed-real ===
+    XDP2_MATRIX_PCAP=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043802Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043802Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043802Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043802Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 1s
+    elapsed: 944s
+
+=== [19] 2026-05-05T21:38:03-07:00 rep=5 pcap=https-web ===
+    XDP2_MATRIX_PCAP=/nix/store/0xfinngfaw6mlzprvqb0da8crmq9ldi3-xdp2-workload-https-web-pcap/https-web.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043804Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043804Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         7s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043804Z
+hp5           flow-dissector-matrix-unified         6s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043804Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 8s
+    elapsed: 952s
+
+=== [20] 2026-05-05T21:38:11-07:00 rep=5 pcap=combo ===
+    XDP2_MATRIX_PCAP=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+[matrix-run] testbed=testbeds/hp2-hp5-x710.toml results=/home/das/Downloads/xdp2/perf-results/2026-05-06 smoke=0
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043811Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043811Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       127s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T043811Z
+hp5           flow-dissector-matrix-unified       131s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T043811Z
+[matrix-run] aggregating /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+[matrix-run] done. summary at /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
+    wall: 131s
+    elapsed: 1083s
+
+=== Phase 12 driver complete at 2026-05-05T21:40:22-07:00 ===
+Total wall: 1083s (0h18m)
+Total invocations: 20
+Failed:            0
+[driver] final aggregate over /home/das/Downloads/xdp2/perf-results/2026-05-06
+wrote /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.csv and /home/das/Downloads/xdp2/perf-results/2026-05-06/summary.md
