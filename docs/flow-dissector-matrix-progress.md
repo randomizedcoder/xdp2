@@ -25,6 +25,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 8     | AF_XDP live (Phase E)                                    | done           | 2026-05-04  | 2026-05-04  | `86fece4` |
 | 9     | Second NIC branch (mlx5_core / tc-flower)                | done           | 2026-05-04  | 2026-05-04  | `438fbf3` |
 | 10    | In-tree fixes for live campaign (JSON wiring + 14 modes) | done           | 2026-05-05  | 2026-05-05  | `683c12b` |
+| 11    | Phase A — pre-flight + smoke (live hp2/hp5)              | done           | 2026-05-05  | 2026-05-05  | `989f734` |
 
 ## Branch
 
@@ -917,6 +918,113 @@ $ jq '.ns_per_pkt' /tmp/m10-cells/combo.pcap/rust-graph-enum.json
   with `?` markers) still rejects-only against the new 14-mode tree —
   the aggregator's "baseline incomplete" rejection is unchanged. Phase 12
   promotes the live sweep over the placeholder.
+
+## Phase 11 — Phase A: pre-flight + smoke
+
+**Status:** done
+
+**Goal:** validate Phase 10's wiring works end-to-end on real hardware
+before committing to Phase 12's overnight sweep. Map onto Phase A of
+`docs/flow-dissector-benchmark-plan.md` (smoke test).
+
+**Files landed:**
+- `perf-results/2026-05-05/preflight.txt` — captured pre-flight against
+  benchmark plan §2.2 on both hosts. Output is byte-identical between
+  hp2 and hp5 across every checklist item (hostname/MAC excepted).
+
+**Findings:**
+- Both hp2 and hp5 reachable via `ssh root@$host` with the existing
+  ed25519 key (no password prompt).
+- Real interface names verified: `enp1s0f0np0` and `enp1s0f1np1` on
+  both hosts. Surfaced and fixed a TOML bug (commit `38e6188`):
+  `testbeds/hp2-hp5-x710.toml` had `dut_iface = "enp1s0f0"` (no
+  suffix), which would have left Phase 15 AF_XDP unable to attach.
+- Kernel cmdline matches `docs/physical-testbed.md` §7 exactly:
+  `mitigations=off`, `isolcpus=2,3,4,5,6,7`, `nohz_full=2-7`,
+  `rcu_nocbs=2-7`, `hugepages=1024`, `transparent_hugepage=never`.
+- NIC tuning: ring 4096/4096, combined queues = 6 (matching
+  isolated-CPU count), GRO/GSO/TSO off, LRO `[fixed]`
+  (hardware-disabled by i40e).
+- BPF JIT enabled, `perf_event_paranoid=0`, no noisy services
+  (docker / lldpd / avahi all inactive).
+- Kernel 7.0.1 on both hosts (matches §4 "26.05.20260418" baseline).
+
+**Smoke run (Phase 11.2):**
+
+```bash
+SMOKE_DIR=$(mktemp -d -t xdp2-smoke-XXXX)
+XDP2_RESULTS_ROOT="$SMOKE_DIR" \
+  nix run .#flow-dissector-matrix-run -- \
+    --testbed testbeds/hp2-hp5-x710.toml --smoke
+```
+
+End-to-end pipeline pass:
+- rsync to both hosts ✓
+- `nix run` forced via `--exec` flag ✓ (Phase 10 wiring)
+- `XDP2_MATRIX_JSON_OUT` propagated over ssh ✓
+- 14 mode JSONs per host (28 total) ✓
+- Aggregator consumed the new tree shape, produced summary.md with both
+  hp2 and hp5 columns ✓
+- Wall time: hp2=374s, hp5=381s (parallel) ≈ 6 min total ✓
+
+Cross-host variance vs design's H6 (<5% target) — all 13 measured cells:
+
+| Mode               | hp2 ns/pkt | hp5 ns/pkt | Δ% |
+|--------------------|-----------:|-----------:|---:|
+| c-bpf-fast         | 24         | 23         | 4.35% |
+| c-bpf-flowdis      | 119        | 115        | 3.48% |
+| c-flowdis-usp      | 118        | 121        | 2.48% |
+| c-xdp2-parse-only  | 181        | 185        | 2.16% |
+| c-xdp2-usp         | 191        | 196        | 2.55% |
+| rust-compiled      | 81         | 82         | 1.22% |
+| rust-graph         | 257        | 262        | 1.91% |
+| rust-graph-enum    | 78         | 79         | 1.27% |
+| rust-mono          | 81         | 81         | 0.00% |
+| rust-mono-x4       | 84         | 85         | 1.18% |
+| rust-simd          | 42         | 41         | 2.44% |
+| rust-template      | 76         | 78         | 2.56% |
+| rust-template-simd | 72         | 73         | 1.37% |
+
+Mean Δ ≈ 2.1%; max 4.35%; all under 5% — H6 pre-confirmed at smoke
+scale. `c-bpf-xdp2` is null on both hosts as expected (kernel verifier
+rejection on 7.x — the documented Way 5 N/A).
+
+**Sanity vs 2026-05-02 reference (unified-matrix on filtered subset
+column from `perf-results/2026-05-02-physical-testbed-summary.md`
+"Phase B unified" table):**
+
+| Mode             | 2026-05-02 hp5 | 2026-05-05 smoke hp5 |
+|------------------|---------------:|---------------------:|
+| c-flowdis-usp    | 120 ns         | 121 ns |
+| c-xdp2-usp       | 192 ns         | 196 ns |
+| c-xdp2-parse-only | 181 ns        | 185 ns |
+| c-bpf-flowdis    | 119 ns         | 115 ns |
+| c-bpf-fast       | 23 ns          | 23 ns |
+| rust-graph       | 263 ns         | 262 ns |
+| rust-mono        | 83 ns          | 81 ns |
+| rust-compiled    | 82 ns          | 82 ns |
+| rust-template    | 78 ns          | 78 ns |
+
+Match within ±5 ns (≤4%) on every cell. The smoke pcap is `https-web`
+(20K packets) vs the 2026-05-02 unified subset which was filtered
+combo (~20K) — both are small same-shape filtered sets, so similar
+working-set behavior.
+
+`rust-graph-enum` reads 78-79 ns/pkt on this filtered https-web
+subset. The 12 ns/pkt headline from the 2026-05-02 summary doc came
+from a separate `xdp2-bench --mode graph-enum --perf` run on the
+**full** combo.pcap (500k packets × 200 iter), not the unified
+matrix; Phase 12 reproduces that headline via the new pipeline by
+sweeping all four full PCAPs.
+
+**Notes:**
+- Smoke results are in `/tmp/xdp2-smoke-Vmjc/` (ephemeral, not
+  committed). Phase 12's full sweep produces the canonical tree under
+  `perf-results/<sweep-date>/`.
+- `--smoke` flag in `flow-dissector-matrix-run` currently sets
+  `XDP2_MATRIX_SMOKE=1` but the matrix runner doesn't yet consume it —
+  the smoke path is functionally just "default 100 iter on
+  https-web". Phase 12 uses the same 100-iter default.
 
 ## Cross-Phase Notes
 
