@@ -7,20 +7,20 @@ win = CI-disjoint ns/pkt; otherwise = noise.
 
 | Mode | hp2 | hp5 |
 |---|---|---|
-| c-flowdis-usp | 160 ns/pkt (6 Mpps) | 162 ns/pkt (6 Mpps) |
-| c-xdp2-usp | 229 ns/pkt (4 Mpps) | 232 ns/pkt (4 Mpps) |
-| c-xdp2-parse-only | 217 ns/pkt (4 Mpps) | 221 ns/pkt (4 Mpps) |
-| c-bpf-flowdis | 87 ns/pkt (11 Mpps) | 91 ns/pkt (10 Mpps) |
+| c-flowdis-usp | 160.0 ns/pkt (6.0 Mpps) (parity-fail, 4358958) | 162.0 ns/pkt (6.0 Mpps) (parity-fail, 4358958) |
+| c-xdp2-usp | 228.0 ns/pkt (4.0 Mpps) (parity-fail, 4358958) | 232.0 ns/pkt (4.0 Mpps) (parity-fail, 4358958) |
+| c-xdp2-parse-only | 217.0 ns/pkt (4.0 Mpps) (parity-fail, 4358958) | 221.0 ns/pkt (4.0 Mpps) (parity-fail, 4358958) |
+| c-bpf-flowdis | 87.0 ns/pkt (11.0 Mpps) (parity-fail, 4358958) | 90.0 ns/pkt (10.5 Mpps) (parity-fail, 4358958) |
 | c-bpf-xdp2 | — | — |
-| c-bpf-fast | 18 ns/pkt (55 Mpps) | 18 ns/pkt (55 Mpps) |
-| rust-graph | 287 ns/pkt (3 Mpps) | 289 ns/pkt (3 Mpps) |
-| rust-graph-enum | 12 ns/pkt (83 Mpps) | 12 ns/pkt (81 Mpps) |
-| rust-mono | 49 ns/pkt (20 Mpps) | 50 ns/pkt (20 Mpps) |
-| rust-mono-x4 | 54 ns/pkt (18 Mpps) | 55 ns/pkt (18 Mpps) |
-| rust-compiled | 47 ns/pkt (21 Mpps) | 47 ns/pkt (21 Mpps) |
-| rust-simd | 55 ns/pkt (18 Mpps) | 57 ns/pkt (18 Mpps) |
-| rust-template | 50 ns/pkt (20 Mpps) | 51 ns/pkt (20 Mpps) |
-| rust-template-simd | 55 ns/pkt (18 Mpps) | 56 ns/pkt (18 Mpps) |
+| c-bpf-fast | 18.0 ns/pkt (55.0 Mpps) (parity-fail, 4358958) | 18.0 ns/pkt (55.0 Mpps) (parity-fail, 4358958) |
+| rust-graph | 287.5 ns/pkt (3.0 Mpps) (parity-fail, 4358958) | 293.5 ns/pkt (3.0 Mpps) (parity-fail, 4358958) |
+| rust-graph-enum | 16.5 ns/pkt (65.0 Mpps) (parity-fail, 4358958) | 17.0 ns/pkt (63.0 Mpps) (parity-fail, 4358958) |
+| rust-mono | 50.0 ns/pkt (20.0 Mpps) (parity-fail, 4358958) | 51.0 ns/pkt (20.0 Mpps) (parity-fail, 4358958) |
+| rust-mono-x4 | 54.0 ns/pkt (18.0 Mpps) (parity-fail, 4358958) | 55.0 ns/pkt (18.0 Mpps) (parity-fail, 4358958) |
+| rust-compiled | 46.5 ns/pkt (21.0 Mpps) (parity-fail, 4358958) | 47.0 ns/pkt (21.0 Mpps) (parity-fail, 4358958) |
+| rust-simd | 55.0 ns/pkt (18.0 Mpps) (parity-fail, 4358958) | 56.0 ns/pkt (18.0 Mpps) (parity-fail, 4358958) |
+| rust-template | 49.0 ns/pkt (20.0 Mpps) (parity-fail, 4358958) | 50.0 ns/pkt (20.0 Mpps) (parity-fail, 4358958) |
+| rust-template-simd | 54.5 ns/pkt (18.0 Mpps) (parity-fail, 4358958) | 56.0 ns/pkt (18.0 Mpps) (parity-fail, 4358958) |
 
 ## hp2-hp5-x710 — `https-web.pcap`
 
@@ -45,36 +45,36 @@ win = CI-disjoint ns/pkt; otherwise = noise.
 
 | Mode | hp2 | hp5 |
 |---|---|---|
-| c-flowdis-usp | 76 ns/pkt (13 Mpps) | 67 ns/pkt (14 Mpps) |
-| c-xdp2-usp | 215 ns/pkt (4 Mpps) | 189 ns/pkt (5 Mpps) |
-| c-xdp2-parse-only | 200 ns/pkt (5 Mpps) | 177 ns/pkt (5 Mpps) |
-| c-bpf-flowdis | 113 ns/pkt (8 Mpps) | 99 ns/pkt (10 Mpps) |
+| c-flowdis-usp | 76.0 ns/pkt (13.0 Mpps) (parity-fail, 1765) | 67.5 ns/pkt (14.0 Mpps) (parity-fail, 1765) |
+| c-xdp2-usp | 214.5 ns/pkt (4.0 Mpps) (parity-fail, 1765) | 189.5 ns/pkt (5.0 Mpps) (parity-fail, 1765) |
+| c-xdp2-parse-only | 200.0 ns/pkt (5.0 Mpps) (parity-fail, 1765) | 177.0 ns/pkt (5.0 Mpps) (parity-fail, 1765) |
+| c-bpf-flowdis | 111.0 ns/pkt (9.0 Mpps) (parity-fail, 1765) | 99.5 ns/pkt (10.0 Mpps) (parity-fail, 1765) |
 | c-bpf-xdp2 | — | — |
-| c-bpf-fast | 22 ns/pkt (45 Mpps) | 21 ns/pkt (47 Mpps) |
-| rust-graph | 523 ns/pkt (2 Mpps) | 464 ns/pkt (2 Mpps) |
-| rust-graph-enum | 21 ns/pkt (47 Mpps) | 18 ns/pkt (53 Mpps) |
-| rust-mono | 55 ns/pkt (18 Mpps) | 48 ns/pkt (21 Mpps) |
-| rust-mono-x4 | 58 ns/pkt (17 Mpps) | 52 ns/pkt (19 Mpps) |
-| rust-compiled | 58 ns/pkt (17 Mpps) | 53 ns/pkt (19 Mpps) |
-| rust-simd | 72 ns/pkt (14 Mpps) | 65 ns/pkt (15 Mpps) |
-| rust-template | 23 ns/pkt (42 Mpps) | 21 ns/pkt (47 Mpps) |
-| rust-template-simd | 21 ns/pkt (46 Mpps) | 19 ns/pkt (52 Mpps) |
+| c-bpf-fast | 22.0 ns/pkt (45.0 Mpps) (parity-fail, 1765) | 20.0 ns/pkt (50.0 Mpps) (parity-fail, 1765) |
+| rust-graph | 524.0 ns/pkt (2.0 Mpps) (parity-fail, 1765) | 473.0 ns/pkt (2.0 Mpps) (parity-fail, 1765) |
+| rust-graph-enum | 27.0 ns/pkt (38.0 Mpps) (parity-fail, 1765) | 25.5 ns/pkt (40.5 Mpps) (parity-fail, 1765) |
+| rust-mono | 55.0 ns/pkt (18.0 Mpps) (parity-fail, 1765) | 49.0 ns/pkt (20.0 Mpps) (parity-fail, 1765) |
+| rust-mono-x4 | 58.0 ns/pkt (17.0 Mpps) (parity-fail, 1765) | 52.0 ns/pkt (19.0 Mpps) (parity-fail, 1765) |
+| rust-compiled | 58.5 ns/pkt (17.0 Mpps) (parity-fail, 1765) | 53.0 ns/pkt (19.0 Mpps) (parity-fail, 1765) |
+| rust-simd | 72.5 ns/pkt (14.0 Mpps) (parity-fail, 1765) | 65.5 ns/pkt (15.0 Mpps) (parity-fail, 1765) |
+| rust-template | 23.0 ns/pkt (42.5 Mpps) (parity-fail, 1765) | 21.0 ns/pkt (46.5 Mpps) (parity-fail, 1765) |
+| rust-template-simd | 21.0 ns/pkt (46.0 Mpps) (parity-fail, 1765) | 19.0 ns/pkt (52.0 Mpps) (parity-fail, 1765) |
 
 ## hp2-hp5-x710 — `tcp_ipv4.pcap`
 
 | Mode | hp2 | hp5 |
 |---|---|---|
-| c-flowdis-usp | 30 ns/pkt (33 Mpps) | 26 ns/pkt (38 Mpps) |
-| c-xdp2-usp | 94 ns/pkt (10 Mpps) | 93 ns/pkt (10 Mpps) |
-| c-xdp2-parse-only | 80 ns/pkt (12 Mpps) | 72 ns/pkt (13 Mpps) |
-| c-bpf-flowdis | 93 ns/pkt (10 Mpps) | 85 ns/pkt (11 Mpps) |
+| c-flowdis-usp | 29.5 ns/pkt (33.5 Mpps) | 26.0 ns/pkt (38.0 Mpps) |
+| c-xdp2-usp | 96.5 ns/pkt (10.0 Mpps) | 91.5 ns/pkt (10.0 Mpps) |
+| c-xdp2-parse-only | 79.5 ns/pkt (12.0 Mpps) | 70.5 ns/pkt (14.0 Mpps) |
+| c-bpf-flowdis | 91.5 ns/pkt (10.5 Mpps) | 83.0 ns/pkt (12.0 Mpps) |
 | c-bpf-xdp2 | — | — |
-| c-bpf-fast | 26 ns/pkt (38 Mpps) | 24 ns/pkt (41 Mpps) |
-| rust-graph | 237 ns/pkt (4 Mpps) | 218 ns/pkt (5 Mpps) |
-| rust-graph-enum | 24 ns/pkt (42 Mpps) | 22 ns/pkt (45 Mpps) |
-| rust-mono | 27 ns/pkt (37 Mpps) | 24 ns/pkt (40 Mpps) |
-| rust-mono-x4 | 29 ns/pkt (34 Mpps) | 27 ns/pkt (37 Mpps) |
-| rust-compiled | 24 ns/pkt (40 Mpps) | 22 ns/pkt (45 Mpps) |
-| rust-simd | 33 ns/pkt (30 Mpps) | 29 ns/pkt (34 Mpps) |
-| rust-template | 19 ns/pkt (50 Mpps) | 17 ns/pkt (56 Mpps) |
-| rust-template-simd | 21 ns/pkt (47 Mpps) | 19 ns/pkt (52 Mpps) |
+| c-bpf-fast | 27.5 ns/pkt (36.0 Mpps) | 25.0 ns/pkt (40.0 Mpps) |
+| rust-graph | 240.5 ns/pkt (4.0 Mpps) | 214.5 ns/pkt (5.0 Mpps) |
+| rust-graph-enum | 46.0 ns/pkt (22.5 Mpps) | 37.5 ns/pkt (29.0 Mpps) |
+| rust-mono | 27.0 ns/pkt (36.0 Mpps) | 24.0 ns/pkt (41.0 Mpps) |
+| rust-mono-x4 | 29.0 ns/pkt (34.0 Mpps) | 27.0 ns/pkt (36.5 Mpps) |
+| rust-compiled | 25.0 ns/pkt (40.0 Mpps) | 22.0 ns/pkt (45.0 Mpps) |
+| rust-simd | 32.0 ns/pkt (31.0 Mpps) | 29.0 ns/pkt (34.0 Mpps) |
+| rust-template | 19.0 ns/pkt (50.0 Mpps) | 18.0 ns/pkt (55.0 Mpps) |
+| rust-template-simd | 21.0 ns/pkt (47.0 Mpps) | 19.0 ns/pkt (52.0 Mpps) |

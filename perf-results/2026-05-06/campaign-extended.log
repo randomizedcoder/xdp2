@@ -1,0 +1,218 @@
+[campaign-ext] 2026-05-06T13:46:28-07:00: pre-building pcap derivations on hp2 + hp5
+[campaign-ext] hp5: combo=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap mixed=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap
+[campaign-ext] hp2: combo=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap mixed=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap
+[campaign-ext] starting at 2026-05-06T13:46:36-07:00, XDP2_MATRIX_PARITY=1
+[campaign-ext] === pcap=combo path=/nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap ===
+[campaign-ext] combo replicate 1/5 at 2026-05-06T13:46:36-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T204638Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T204638Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       436s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T204638Z
+hp5           flow-dissector-matrix-unified       447s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T204638Z
+[campaign-ext] combo r1 OK
+[campaign-ext] combo replicate 2/5 at 2026-05-06T13:54:05-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T205405Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T205405Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       437s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T205405Z
+hp5           flow-dissector-matrix-unified       444s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T205405Z
+[campaign-ext] combo r2 OK
+[campaign-ext] combo replicate 3/5 at 2026-05-06T14:01:30-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T210130Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T210130Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       435s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T210130Z
+hp5           flow-dissector-matrix-unified       443s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T210130Z
+[campaign-ext] combo r3 OK
+[campaign-ext] combo replicate 4/5 at 2026-05-06T14:08:53-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T210853Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T210853Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       437s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T210853Z
+hp5           flow-dissector-matrix-unified       442s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T210853Z
+[campaign-ext] combo r4 OK
+[campaign-ext] combo replicate 5/5 at 2026-05-06T14:16:15-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T211615Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T211615Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified       437s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T211615Z
+hp5           flow-dissector-matrix-unified       444s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T211615Z
+[campaign-ext] combo r5 OK
+[campaign-ext] === pcap=tcp_ipv4 path=data/pcaps/tcp_ipv4.pcap ===
+[campaign-ext] tcp_ipv4 replicate 1/5 at 2026-05-06T14:23:39-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212339Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212339Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212339Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212339Z
+[campaign-ext] tcp_ipv4 r1 OK
+[campaign-ext] tcp_ipv4 replicate 2/5 at 2026-05-06T14:23:40-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212341Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212341Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212341Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212341Z
+[campaign-ext] tcp_ipv4 r2 OK
+[campaign-ext] tcp_ipv4 replicate 3/5 at 2026-05-06T14:23:42-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212342Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212342Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212342Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212342Z
+[campaign-ext] tcp_ipv4 r3 OK
+[campaign-ext] tcp_ipv4 replicate 4/5 at 2026-05-06T14:23:44-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212344Z.log)
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212344Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212344Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212344Z
+[campaign-ext] tcp_ipv4 r4 OK
+[campaign-ext] tcp_ipv4 replicate 5/5 at 2026-05-06T14:23:45-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212346Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212346Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212346Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212346Z
+[campaign-ext] tcp_ipv4 r5 OK
+[campaign-ext] === pcap=mixed path=/nix/store/smj5j8xfg1qhbf6qm613lsjlx74mbwdq-xdp2-mixed-pcap/mixed-real.pcap ===
+[campaign-ext] mixed replicate 1/5 at 2026-05-06T14:23:47-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212347Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212347Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212347Z
+hp5           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212347Z
+[campaign-ext] mixed r1 OK
+[campaign-ext] mixed replicate 2/5 at 2026-05-06T14:23:49-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212350Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212350Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212350Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212350Z
+[campaign-ext] mixed r2 OK
+[campaign-ext] mixed replicate 3/5 at 2026-05-06T14:23:51-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212352Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212352Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212352Z
+hp5           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212352Z
+[campaign-ext] mixed r3 OK
+[campaign-ext] mixed replicate 4/5 at 2026-05-06T14:23:54-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212354Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212354Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212354Z
+hp5           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212354Z
+[campaign-ext] mixed r4 OK
+[campaign-ext] mixed replicate 5/5 at 2026-05-06T14:23:56-07:00
+warning: Git tree '/home/das/Downloads/xdp2' is dirty
+[testbed] hp2-hp5-x710: dut=hp5 gen=hp2
+[hp5] rsync -> root@hp5:~/xdp2/
+[hp2] rsync -> root@hp2:~/xdp2/
+[hp5] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212357Z.log)
+[hp2] -> flow-dissector-matrix-unified  (log: /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212357Z.log)
+
+===================== xdp2-run-on-host summary =====================
+HOST          TARGET                              WALL  EXIT  RESULT
+----          ------                              ----  ----  ------
+hp2           flow-dissector-matrix-unified         2s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp2/flow-dissector-matrix-unified-20260506T212357Z
+hp5           flow-dissector-matrix-unified         1s     0  /home/das/Downloads/xdp2/perf-results/2026-05-06/hp2-hp5-x710/hp5/flow-dissector-matrix-unified-20260506T212357Z
+[campaign-ext] mixed r5 OK
+[campaign-ext] done at 2026-05-06T14:23:59-07:00
