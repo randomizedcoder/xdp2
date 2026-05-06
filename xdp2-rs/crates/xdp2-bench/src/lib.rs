@@ -3,6 +3,7 @@
 pub mod extractors;
 pub mod flow_meta;
 pub mod graph;
+pub mod parity;
 pub mod graph_compiled;
 #[cfg(feature = "graph-enum")]
 pub mod graph_enum;

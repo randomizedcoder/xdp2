@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "doc": "Canonical parity schema for flow-dissector parsers. Every dump-meta emitter and the Python comparator (nix/scripts/parity-compare.py) read this file as the single source of truth for: (a) the canonical field name set, (b) the type of each field, and (c) which fields each parser is expected to populate. Adding a field or extending a parser's scope is a contract change tracked here; the parity-gate flake check enforces consistency.",
+
+  "field_definitions": {
+    "addr_type":        {"type": "enum", "values": ["null", "ipv4", "ipv6", "tipc", "sunh"]},
+    "ip_proto":         {"type": "u8",   "doc": "IPv4 protocol or IPv6 next-header byte"},
+    "ipv4_src":         {"type": "ipv4", "doc": "Dotted-quad string; null when addr_type != ipv4"},
+    "ipv4_dst":         {"type": "ipv4"},
+    "ipv6_src":         {"type": "ipv6", "doc": "Lowercase, double-colon-compressed; null when addr_type != ipv6"},
+    "ipv6_dst":         {"type": "ipv6"},
+    "tipc_key":         {"type": "u32",  "doc": "Only when addr_type == tipc"},
+    "sport":            {"type": "u16"},
+    "dport":            {"type": "u16"},
+    "thoff":            {"type": "u16",  "doc": "Transport-layer offset within frame"},
+    "is_frag":          {"type": "bool"},
+    "is_first_frag":    {"type": "bool"},
+    "flow_label":       {"type": "u32",  "doc": "IPv6 flow label; 0 for IPv4"},
+    "eth_proto":        {"type": "u16"},
+    "eth_dst":          {"type": "mac",  "doc": "Lowercase aa:bb:cc:dd:ee:ff"},
+    "eth_src":          {"type": "mac"},
+    "ip_tos":           {"type": "u8",   "doc": "IPv4 TOS / IPv6 traffic class"},
+    "ip_ttl":           {"type": "u8",   "doc": "IPv4 TTL / IPv6 hop limit"},
+    "tcp_flags":        {"type": "u8",   "doc": "TCP flags byte (URG/ACK/PSH/RST/SYN/FIN)"},
+    "vlan":             {"type": "array", "items": {"tci": "u16", "tpid": "u16", "vid": "u16"}, "doc": "0..2 VLAN tags in stack order"},
+    "mpls":             {"type": "array", "items": {"label": "u32", "tc": "u8", "s": "bool", "ttl": "u8"}, "doc": "MPLS label stack"},
+    "arp_sip":          {"type": "ipv4"},
+    "arp_tip":          {"type": "ipv4"},
+    "arp_op":           {"type": "u16"},
+    "gre_proto":        {"type": "u16"},
+    "gre_keyid":        {"type": "u32",  "doc": "GRE key/keepalive ID; doubles as bare keyid in kernel-flowdis"},
+    "esp_spi":          {"type": "u32"},
+    "ah_spi":           {"type": "u32"},
+    "l2tp_session_id":  {"type": "u32"},
+    "icmp_type":        {"type": "u8"},
+    "icmp_code":        {"type": "u8"},
+    "icmp_id":          {"type": "u16"},
+    "icmp_seq":         {"type": "u16"},
+    "l2_off":           {"type": "u16"},
+    "l3_off":           {"type": "u16"},
+    "l4_off":           {"type": "u16"}
+  },
+
+  "tiers": {
+    "doc": "Reusable scope sets. Each parser's scope is a tier name plus optional per-parser overrides.",
+    "bpf_flow_keys": [
+      "addr_type", "ip_proto", "ipv4_src", "ipv4_dst", "ipv6_src", "ipv6_dst",
+      "sport", "dport", "thoff", "is_frag", "is_first_frag", "flow_label"
+    ],
+    "kernel_flowdis_extras": [
+      "tipc_key", "arp_sip", "arp_tip", "arp_op", "gre_keyid"
+    ],
+    "full_flowmeta_extras": [
+      "eth_proto", "eth_dst", "eth_src",
+      "ip_tos", "ip_ttl", "tcp_flags",
+      "vlan", "mpls",
+      "gre_proto",
+      "esp_spi", "ah_spi", "l2tp_session_id",
+      "icmp_type", "icmp_code", "icmp_id", "icmp_seq",
+      "l2_off", "l3_off", "l4_off"
+    ]
+  },
+
+  "scopes": {
+    "c-flowdis-usp": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras"],
+      "kind": "c",
+      "source": "samples/flow_dissector/benchmark.c:104-159 (struct parsed_result)",
+      "doc": "Linux kernel userspace flowdis (libflowdis) — bpf_flow_keys equivalent + ARP + TIPC + GRE keyid"
+    },
+    "c-xdp2-usp": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "c",
+      "source": "src/include/xdp2/parser_metadata.h (struct xdp2_metadata_all)",
+      "doc": "XDP2 C userspace parser — full FlowMeta-equivalent"
+    },
+    "c-xdp2-parse-only": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "c",
+      "source": "Same as c-xdp2-usp; -P flag skips per-packet 200B memset",
+      "doc": "Identical scope to c-xdp2-usp; perf-only variant"
+    },
+    "c-bpf-flowdis": {
+      "tiers": ["bpf_flow_keys"],
+      "kind": "bpf",
+      "source": "samples/flow_dissector/bpf_flow.kern.o (vendored Linux selftest)",
+      "doc": "Kernel BPF flow dissector"
+    },
+    "c-bpf-xdp2": {
+      "tiers": ["bpf_flow_keys"],
+      "kind": "bpf",
+      "source": "samples/flow_dissector/flow_dissector.bpf.o (xdp2-compiler-generated BPF)",
+      "doc": "XDP2 BPF parser. **Verifier-rejected on kernel 7.x** — every record will have accepted=false, reject_reason=verifier"
+    },
+    "c-bpf-fast": {
+      "tiers": ["bpf_flow_keys"],
+      "kind": "bpf-with-fallback",
+      "source": "samples/flow_dissector/fast_bpf/fast_flow.bpf.c",
+      "doc": "xdp2-flow-ebpf top-N tail-call. Returns BPF_FLOW_DISSECTOR_CONTINUE on packets outside its 7 fast-path chains; record sets accept_path=slow when fall-through occurs."
+    },
+    "rust-graph": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust",
+      "source": "xdp2-rs/crates/xdp2-bench/src/graph.rs",
+      "doc": "Trait-object dynamic dispatch parser, full FlowMeta"
+    },
+    "rust-graph-enum": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust",
+      "source": "xdp2-rs/crates/xdp2-bench/src/graph.rs (graph-enum feature)",
+      "doc": "Static-dispatch enum match, full FlowMeta"
+    },
+    "rust-mono": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust",
+      "source": "xdp2-rs/crates/xdp2-bench/src/graph_mono.rs"
+    },
+    "rust-mono-x4": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust",
+      "source": "xdp2-rs/crates/xdp2-bench/src/graph_mono.rs (sw-pipelined wrapper)"
+    },
+    "rust-compiled": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust",
+      "source": "xdp2-rs/crates/xdp2-bench/src/graph_compiled.rs (xdp2-compiler-generated)"
+    },
+    "rust-simd": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust",
+      "source": "xdp2-rs/crates/xdp2-bench/src/simd_batch.rs",
+      "doc": "AVX2 batch parser; on non-AVX2 hosts (e.g. Zen 1) every record will have accepted=false, reject_reason=no-avx2"
+    },
+    "rust-template": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust-with-fallback",
+      "source": "xdp2-rs/crates/xdp2-bench/src/template.rs",
+      "doc": "Hardware-template fixed-offset extractor. On template miss, accepted=false, reject_reason=no-template (or accept_path=fallback if fall-through to compiled is enabled — TBD in 17.B)."
+    },
+    "rust-template-simd": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "rust-with-fallback",
+      "source": "xdp2-rs/crates/xdp2-bench/src/template_simd.rs",
+      "doc": "AVX2 batch + fixed-offset template; same fallback semantics as rust-template, plus no-avx2 on non-AVX2 hosts"
+    }
+  },
+
+  "expected_divergences": [
+    {
+      "id": "verifier-rejection-bpf-xdp2",
+      "parser": "c-bpf-xdp2",
+      "applies_to": "all_packets",
+      "reject_reason": "verifier",
+      "doc": "Kernel BPF verifier rejects flow_dissector.bpf.o on 7.x with 'math between pkt pointer and register with unbounded min value'. Documented Way-5 N/A in docs/flow-dissector-benchmark-plan.md §8."
+    },
+    {
+      "id": "fast-path-fall-through",
+      "parser": "c-bpf-fast",
+      "applies_to": "packets_outside_7_fast_chains",
+      "reject_reason": "no-fast-path-chain",
+      "doc": "fast_flow.bpf.c lines 60-79 enumerate the 7 supported chains: ETH/IPv4/{TCP,UDP,ICMP}, ETH/IPv6/{TCP,UDP}, ETH/VLAN/IPv4/{TCP,UDP}. Anything else returns BPF_FLOW_DISSECTOR_CONTINUE."
+    },
+    {
+      "id": "no-avx2",
+      "parsers": ["rust-simd", "rust-template-simd"],
+      "applies_to": "non_avx2_hosts",
+      "reject_reason": "no-avx2",
+      "doc": "AVX2 detection at runtime. Zen 1 emits 'warning: AVX2 not available'; xdp2-bench/src/bench.rs maps to N/A."
+    },
+    {
+      "id": "no-template",
+      "parsers": ["rust-template", "rust-template-simd"],
+      "applies_to": "packets_with_no_matching_template",
+      "reject_reason": "no-template",
+      "doc": "Template selector returns None when packet shape doesn't match any of the 63 registered templates; rust-template returns Err. The bench.rs template-with-fallback variant is TBD in Phase 17.B."
+    },
+    {
+      "id": "mac-out-of-scope-for-flowdis",
+      "parsers": ["c-flowdis-usp", "c-bpf-flowdis", "c-bpf-xdp2", "c-bpf-fast"],
+      "applies_to": "fields:eth_dst,eth_src",
+      "doc": "kernel flowdis and BPF flow_dissector populate bpf_flow_keys, which has no eth_addrs. The comparator masks eth_dst/eth_src when comparing these against full-FlowMeta parsers."
+    },
+    {
+      "id": "tcp-flags-tos-ttl-out-of-scope-for-bpf",
+      "parsers": ["c-bpf-flowdis", "c-bpf-xdp2", "c-bpf-fast"],
+      "applies_to": "fields:tcp_flags,ip_tos,ip_ttl",
+      "doc": "BPF flow dissector path doesn't extract these. They're optional even in kernel-flowdis-usp (only set when packet hit specific paths)."
+    }
+  ]
+}
