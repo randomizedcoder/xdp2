@@ -183,14 +183,21 @@ pkgs.writeShellApplication {
     echo "[afxdp-live] testbed=$TESTBED_NAME dut=$DUT gen=$GEN iface=$IFC duration=''${DURATION}s loads=$LOADS_CSV link_gbps=''${LINK_GBPS:-?}" >&2
     echo "[afxdp-live] results -> $OUT" >&2
 
-    # Cap loads against link capacity (rough: 1500-byte frames at line rate
-    # = link_gbps * 1e9 / (1500 * 8) pps; round down). If we can't parse
-    # link_speed_gbps, skip the cap and proceed.
+    # Cap loads against link capacity. The cap is small-frame line rate
+    # (84-byte frame including preamble + IFG + FCS):
+    #   Mpps_max = link_gbps * 1e9 / (84 * 8) / 1e6 = link_gbps * 125 / 84.
+    # For 10 Gbps: ~14.88 Mpps (matches the 2026-04-25 D1 measurement
+    # where pktgen at 64B + burst=32 + queue_map reached 14.39 Mpps =
+    # ~10 GbE line rate at 64-byte frames). Larger-frame workloads may
+    # legitimately fall below this cap; the cap is only a sanity bound,
+    # not a frame-size-aware constraint. The previous formula assumed
+    # 1500-byte frames (~0.83 Mpps cap) and integer-truncated to 0,
+    # silently clamping every requested load to 0 pps.
     cap_mpps=""
     if [ -n "$LINK_GBPS" ]; then
       case "$LINK_GBPS" in
         '''|*[!0-9]*) ;;  # non-numeric, skip
-        *) cap_mpps=$(( LINK_GBPS * 1000 / (1500 * 8) )) ;;
+        *) cap_mpps=$(( LINK_GBPS * 125 / 84 )) ;;
       esac
     fi
 
@@ -219,19 +226,54 @@ pkgs.writeShellApplication {
           "$DUT" "$GEN" \
           > "$log" 2>&1 || bench_status=$?
 
-      # Best-effort extraction. The bench script's stdout format is not
-      # a stable contract, so we grep for the documented summary lines
-      # and fall back to nulls. Downstream consumers (aggregator, CI)
-      # check for nulls and report low-quality data without failing.
-      pps_rx=$(grep -oE 'pps_received[: =]+[0-9]+' "$log" 2>/dev/null | tail -1 | grep -oE '[0-9]+$' || true)
-      drops=$(grep -oE 'drops?[: =]+[0-9]+' "$log" 2>/dev/null | tail -1 | grep -oE '[0-9]+$' || true)
-      qutil=$(grep -oE 'queue_util[: =]+[0-9.]+' "$log" 2>/dev/null | tail -1 | grep -oE '[0-9.]+$' || true)
-      zc=$(grep -oE 'zerocopy[: =]+(true|false|on|off|1|0)' "$log" 2>/dev/null | tail -1 | awk -F'[: =]+' '{print $NF}' || true)
-
-      drops_pct="null"
-      if [ -n "$pps_rx" ] && [ -n "$drops" ] && [ "$pps_rx" -gt 0 ]; then
-        drops_pct=$(awk -v d="$drops" -v r="$pps_rx" 'BEGIN { printf "%.4f", (d / (d + r)) * 100 }')
+      # Best-effort extraction from the bench's per-queue table:
+      #
+      #   queue    | template                    |     packets |  bytes | ns/pkt |  Mpps
+      #   1        | EthIpv4Udp                  |    26333552 | …      |   1139 |  0.88
+      #
+      # Stdout format is not a stable contract, so a missing field
+      # resolves to null — downstream consumers (aggregator, CI) skip
+      # null cells without failing the whole run.
+      queue_line=$(grep -E '^[[:space:]]*[0-9]+[[:space:]]*\|' "$log" 2>/dev/null | grep -v '^queue ' | tail -1 || true)
+      packets_rx=""
+      mpps_rx=""
+      if [ -n "$queue_line" ]; then
+        packets_rx=$(awk -F'|' '{gsub(/[[:space:]]/, "", $3); print $3}' <<< "$queue_line")
+        mpps_rx=$(awk -F'|' '{gsub(/[[:space:]]/, "", $6); print $6}' <<< "$queue_line")
+        # Sanity: numeric.
+        [[ "$packets_rx" =~ ^[0-9]+$ ]] || packets_rx=""
+        [[ "$mpps_rx" =~ ^[0-9.]+$ ]] || mpps_rx=""
       fi
+      pps_rx=""
+      if [ -n "$packets_rx" ] && [ "$DURATION" -gt 0 ]; then
+        pps_rx=$(( packets_rx / DURATION ))
+      fi
+
+      # Drops: offered - received. Offered = $eff Mpps × duration × 1e6.
+      drops=""
+      drops_pct="null"
+      if [ -n "$packets_rx" ]; then
+        offered_pkts=$(( eff * 1000000 * DURATION ))
+        if [ "$offered_pkts" -gt "$packets_rx" ]; then
+          drops=$(( offered_pkts - packets_rx ))
+          drops_pct=$(awk -v d="$drops" -v o="$offered_pkts" 'BEGIN { printf "%.4f", d / o * 100 }')
+        else
+          drops=0
+          drops_pct="0.0000"
+        fi
+      fi
+
+      # Zerocopy: presence of "AF_XDP: registered in XSKMAP" + native
+      # attach mode (xdpdrv, not xdpgeneric) in the log signals zero-copy.
+      zc=""
+      if grep -q 'XDP_MODE=xdpdrv' "$log" 2>/dev/null \
+         && grep -q 'registered in XSKMAP' "$log" 2>/dev/null; then
+        zc="zerocopy"
+      elif grep -q 'XDP_MODE=xdpgeneric' "$log" 2>/dev/null; then
+        zc="copy"
+      fi
+
+      qutil=$(grep -oE 'queue_util[: =]+[0-9.]+' "$log" 2>/dev/null | tail -1 | grep -oE '[0-9.]+$' || true)
 
       jq -n \
         --arg testbed "$TESTBED_NAME" \

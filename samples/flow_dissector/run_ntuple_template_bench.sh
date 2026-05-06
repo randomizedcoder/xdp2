@@ -228,11 +228,23 @@ fi
 
 echo ""
 echo "--- Pre-flight: xdp2-bench on $TARGET ---"
+# Resolution order on the target host:
+#   1. xdp2-bench on PATH (NixOS systemPackages)
+#   2. ~/xdp2/xdp2-rs/target/release/xdp2-bench (cargo build --release)
+#   3. nix build .#xdp2-rs → result/bin/xdp2-bench (the canonical Nix
+#      path; works as long as ~/xdp2 has a flake.nix and the host has
+#      Nix). This is the path that hp2/hp5 actually carry post-rsync.
 BENCH_PATH=$(ssh "root@$TARGET" \
-    'command -v xdp2-bench 2>/dev/null || ls ~/xdp2/xdp2-rs/target/release/xdp2-bench 2>/dev/null || true')
+    'command -v xdp2-bench 2>/dev/null \
+     || ls ~/xdp2/xdp2-rs/target/release/xdp2-bench 2>/dev/null \
+     || ( cd ~/xdp2 && p=$(nix build --no-link --print-out-paths .#xdp2-rs 2>/dev/null) && [ -x "$p/bin/xdp2-bench" ] && echo "$p/bin/xdp2-bench" ) \
+     || true')
 if [[ -z "$BENCH_PATH" ]]; then
     echo "ERROR: xdp2-bench not found on $TARGET." >&2
-    echo "       Build with: cd ~/xdp2/xdp2-rs && cargo build --release -p xdp2-bench" >&2
+    echo "       Tried: PATH, ~/xdp2/xdp2-rs/target/release/, nix build .#xdp2-rs" >&2
+    echo "       Build with one of:" >&2
+    echo "         (target) cd ~/xdp2/xdp2-rs && cargo build --release -p xdp2-bench" >&2
+    echo "         (target) cd ~/xdp2 && nix build .#xdp2-rs" >&2
     exit 4
 fi
 echo "xdp2-bench: $BENCH_PATH"
