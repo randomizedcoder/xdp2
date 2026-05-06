@@ -26,23 +26,61 @@ let
   # to keep the gate fast. Interpolated as strings so Nix auto-adds
   # them to the derivation's closure (toString-based coercion does
   # not).
-  # Initial corpus (Phase 17.C.3): only PCAPs where all 11 included
-  # parsers agree cleanly. Two known-divergence classes are deferred
-  # to Phase 17.D's expected-divergence catalog before the corpus
-  # can be expanded:
-  #   1. rust-graph-enum doesn't parse IPv6 (rejects every packet
-  #      in tcp_ipv6.pcap, icmp_ipv6.pcap, vlan_icmp.pcap with
-  #      reject_reason="parse-error"). This is an unscope'd bug
-  #      surfaced by the gate; see docs/flow-dissector-parity.md
-  #      "Phase 17.C findings".
-  #   2. kernel-flowdis stops at the OUTER 5-tuple on tunneled
-  #      packets (GRE, VXLAN, Geneve), while XDP2 (C) and xdp2-rs
-  #      follow the tunnel into the inner flow (per
-  #      benchmark.c:264-277). By design — but not yet in
-  #      parity_scope.json:expected_divergences.
+  # Phase 17.D.3 corpus: 21 PCAPs where all 11 included parsers
+  # agree cleanly under the tunnel-aware mask + ipv4-only-aware
+  # acceptance gate landed in 17.D.1 + 17.D.2.
+  #
+  # Categories covered:
+  #   - Plain IPv4 / IPv6: tcp_ipv4, tcp_ipv6, icmp_ipv4, icmp_ipv6,
+  #     plain-ipv6-64, ipv4frags, ipv6-udp-fragmented, protobuf_in_udp.
+  #   - L2 tagging: QinQ (double-tagged 802.1Q).
+  #   - Tunnels (kernel-flowdis-vs-XDP2 inner-vs-outer mask handles
+  #     these): 6in4, l7_l2tp.
+  #   - SRv6 variants (9): all the srv6-end_*-64 + srv6-t_*-64 files.
+  #   - Unusual: can-2003-0003, zlip-1/2/3.
+  #
+  # Excluded as separate Phase 17.D.5 triage items (each has a
+  # specific real finding the gate caught — none are false-positives;
+  # see docs/flow-dissector-parity.md "Phase 17.D findings"):
+  #   - 6to4.pcap (6 disagreements)
+  #   - gre-pptp.pcap (144 — PPTP-style GRE, special handling)
+  #   - gre-sample.pcap (88 — 8 packets XDP2 strict-rejects)
+  #   - gre-within-gre.pcap (628 — deeper nesting)
+  #   - ipip.pcap (10)
+  #   - l2tp.pcap (38 — raw L2TP, vs clean l7_l2tp)
+  #   - tcp_sack.pcap (133 — SACK option parsing differs)
+  #   - vlan_icmp.pcap (1 — single-packet edge)
+  #   - vxlan.pcap (700 — VXLAN inner-flow not in tunnel mask scope)
   corpusPcaps = [
+    # IPv4 / IPv6 plain
     "${../../data/pcaps/tcp_ipv4.pcap}"
+    "${../../data/pcaps/tcp_ipv6.pcap}"
     "${../../data/pcaps/icmp_ipv4.pcap}"
+    "${../../data/pcaps/icmp_ipv6.pcap}"
+    "${../../data/pcaps/plain-ipv6-64.pcap}"
+    "${../../data/pcaps/ipv4frags.pcap}"
+    "${../../data/pcaps/ipv6-udp-fragmented.pcap}"
+    "${../../data/pcaps/protobuf_in_udp.pcap}"
+    # L2 tagging
+    "${../../data/pcaps/QinQ.pcap}"
+    # Tunnels — tunnel mask handles
+    "${../../data/pcaps/6in4.pcap}"
+    "${../../data/pcaps/l7_l2tp.pcap}"
+    # SRv6 family
+    "${../../data/pcaps/srv6-end-64.pcap}"
+    "${../../data/pcaps/srv6-end_dt6-64.pcap}"
+    "${../../data/pcaps/srv6-end_dx2-64.pcap}"
+    "${../../data/pcaps/srv6-end_dx6-64.pcap}"
+    "${../../data/pcaps/srv6-end_t-64.pcap}"
+    "${../../data/pcaps/srv6-end_x-64.pcap}"
+    "${../../data/pcaps/srv6-t_encaps_l2-64.pcap}"
+    "${../../data/pcaps/srv6-t_encaps_v6-64.pcap}"
+    "${../../data/pcaps/srv6-t_insert_v6-64.pcap}"
+    # Unusual / regression archive
+    "${../../data/pcaps/can-2003-0003.pcap}"
+    "${../../data/pcaps/zlip-1.pcap}"
+    "${../../data/pcaps/zlip-2.pcap}"
+    "${../../data/pcaps/zlip-3.pcap}"
   ];
 
   # 11 of 14 parsers — skip c-bpf-flowdis, c-bpf-fast (CAP_BPF).
