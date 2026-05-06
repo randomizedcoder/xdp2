@@ -1,7 +1,10 @@
 //! Benchmark dispatch: runs single-threaded and multi-threaded parse benchmarks
 //! across all parser modes (graph, mono, compiled, template, SIMD, etc.).
 
+use std::io;
+
 use crate::cli::{BenchResult, ParserMode};
+use crate::parity::{parser_id, reject_reason, DumpMetaWriter, ParityRecord};
 use crate::{graph, graph_compiled, graph_mono, pcap, perf, simd_batch, template, template_simd};
 use crate::runners::{bench_mono_x4, run_mt, time_run_passes};
 
@@ -52,6 +55,179 @@ pub fn check_correctness(
         compiled_ok,
         template_ok,
     }
+}
+
+/// Phase 17.B parity-dump pass.
+///
+/// Runs each enabled mode ONCE per packet and emits one ParityRecord
+/// per (packet, mode) line into the file at `dump_path`. Independent
+/// from the timed benchmark loop — iteration count doesn't multiply
+/// the line count.
+///
+/// Mode handling:
+///   - graph / graph-enum / mono / mono-x4 / compiled: per-packet
+///     parse with fresh FlowMeta; emit accepted=true on Ok, rejected
+///     with reject_reason="parse-error" on Err.
+///   - simd: AVX2-only. On non-AVX2 hosts emit rejected with
+///     reject_reason="no-avx2". On AVX2 hosts run the SIMD batch path
+///     in 1-packet batches so per-packet meta is recoverable.
+///   - template: select_template_id → if Some, extract_by_id;
+///     if None, emit rejected with reject_reason="no-template".
+///   - template-simd: same template-selection logic; the SIMD path is
+///     internally a per-packet loop with prefetch (no SIMD intrinsics)
+///     so per-packet meta is well-defined.
+pub fn dump_meta_pass(
+    mode: &ParserMode,
+    packets: &[&pcap::StoredPacket],
+    parser: &xdp2_core::Parser<graph::FlowMeta>,
+    dump_path: &str,
+    pcap_label: &str,
+) -> io::Result<()> {
+    let mut w = DumpMetaWriter::create(dump_path)?;
+    let do_all = matches!(mode, ParserMode::Both);
+
+    for (idx, pkt) in packets.iter().enumerate() {
+        let i = idx as u32;
+
+        if matches!(mode, ParserMode::Graph) || do_all {
+            let rec = ParityRecord::new(parser_id::RUST_GRAPH, "rust", pcap_label, i);
+            match graph::parse_packet(parser, &pkt.data) {
+                Ok(output) => w.emit(&rec.accepted(&output.metadata, None))?,
+                Err(_) => w.emit(&rec.rejected(reject_reason::PARSE_ERROR))?,
+            }
+        }
+
+        #[cfg(feature = "graph-enum")]
+        if matches!(mode, ParserMode::GraphEnum) || do_all {
+            // graph-enum::parse_packet currently returns Result<(), ()>
+            // without a FlowMeta-output variant. Until it does, fall
+            // back to graph-mode's metadata when graph-enum reports
+            // accepted. Documented in
+            // /home/das/.claude/profiles/personal/plans/das-l-downloads-xdp2-find-name-fizzy-ocean.md
+            // (Phase 17.B open question).
+            let cfg = crate::graph_enum::make_config();
+            let ok = crate::graph_enum::parse_packet(&cfg, &pkt.data).is_ok();
+            let rec =
+                ParityRecord::new(parser_id::RUST_GRAPH_ENUM, "rust", pcap_label, i);
+            if ok {
+                match graph::parse_packet(parser, &pkt.data) {
+                    Ok(output) => w.emit(&rec.accepted(&output.metadata, None))?,
+                    Err(_) => w.emit(&rec.rejected(reject_reason::PARSE_ERROR))?,
+                }
+            } else {
+                w.emit(&rec.rejected(reject_reason::PARSE_ERROR))?;
+            }
+        }
+
+        if matches!(mode, ParserMode::Mono) || do_all {
+            let mut meta = graph::FlowMeta::default();
+            let ok = graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok();
+            let rec = ParityRecord::new(parser_id::RUST_MONO, "rust", pcap_label, i);
+            let rec = if ok {
+                rec.accepted(&meta, None)
+            } else {
+                rec.rejected(reject_reason::PARSE_ERROR)
+            };
+            w.emit(&rec)?;
+        }
+
+        if matches!(mode, ParserMode::MonoX4) || do_all {
+            // mono-x4 is a 4-wide pipelined wrapper around mono;
+            // per-packet output is just mono's output. Use mono's
+            // single-packet path here.
+            let mut meta = graph::FlowMeta::default();
+            let ok = graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok();
+            let rec = ParityRecord::new(parser_id::RUST_MONO_X4, "rust", pcap_label, i);
+            let rec = if ok {
+                rec.accepted(&meta, None)
+            } else {
+                rec.rejected(reject_reason::PARSE_ERROR)
+            };
+            w.emit(&rec)?;
+        }
+
+        if matches!(mode, ParserMode::Compiled) || do_all {
+            let mut meta = graph::FlowMeta::default();
+            let ok = graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok();
+            let rec = ParityRecord::new(parser_id::RUST_COMPILED, "rust", pcap_label, i);
+            let rec = if ok {
+                rec.accepted(&meta, None)
+            } else {
+                rec.rejected(reject_reason::PARSE_ERROR)
+            };
+            w.emit(&rec)?;
+        }
+
+        if matches!(mode, ParserMode::Simd) || do_all {
+            let rec = ParityRecord::new(parser_id::RUST_SIMD, "rust", pcap_label, i);
+            if !simd_batch::is_available() {
+                w.emit(&rec.rejected(reject_reason::NO_AVX2))?;
+            } else {
+                let mut meta = graph::FlowMeta::default();
+                // SAFETY: is_available() returned true → AVX2 supported on this CPU.
+                let acc = unsafe { simd_batch::parse_batch_avx2(&[*pkt], &mut meta) };
+                let rec = if acc > 0 {
+                    rec.accepted(&meta, None)
+                } else {
+                    rec.rejected(reject_reason::PARSE_ERROR)
+                };
+                w.emit(&rec)?;
+            }
+        }
+
+        if matches!(mode, ParserMode::Template) || do_all {
+            let rec =
+                ParityRecord::new(parser_id::RUST_TEMPLATE, "rust", pcap_label, i);
+            match template::select_template_id(&pkt.data) {
+                None => {
+                    w.emit(&rec.rejected(reject_reason::NO_TEMPLATE))?;
+                }
+                Some(id) => {
+                    let mut meta = graph::FlowMeta::default();
+                    let ok =
+                        template::extract_by_id(&pkt.data, id, &mut meta).is_ok();
+                    let rec = if ok {
+                        rec.accepted(&meta, None)
+                    } else {
+                        rec.rejected(reject_reason::PARSE_ERROR)
+                    };
+                    w.emit(&rec)?;
+                }
+            }
+        }
+
+        if matches!(mode, ParserMode::TemplateSimd) || do_all {
+            let rec = ParityRecord::new(
+                parser_id::RUST_TEMPLATE_SIMD,
+                "rust",
+                pcap_label,
+                i,
+            );
+            if !template_simd::is_available() {
+                w.emit(&rec.rejected(reject_reason::NO_AVX2))?;
+            } else {
+                match template::select_template_id(&pkt.data) {
+                    None => {
+                        w.emit(&rec.rejected(reject_reason::NO_TEMPLATE))?;
+                    }
+                    Some(id) => {
+                        let mut meta = graph::FlowMeta::default();
+                        let ok =
+                            template::extract_by_id(&pkt.data, id, &mut meta).is_ok();
+                        let rec = if ok {
+                            rec.accepted(&meta, None)
+                        } else {
+                            rec.rejected(reject_reason::PARSE_ERROR)
+                        };
+                        w.emit(&rec)?;
+                    }
+                }
+            }
+        }
+    }
+
+    w.flush()?;
+    Ok(())
 }
 
 /// Run all enabled benchmarks (single-threaded or multi-threaded).

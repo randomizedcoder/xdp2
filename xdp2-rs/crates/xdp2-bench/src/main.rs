@@ -38,6 +38,7 @@ mod chain_histogram;
 mod cli;
 mod extractors;
 mod flow_meta;
+mod parity;
 mod graph;
 mod graph_compiled;
 #[cfg(feature = "graph-enum")]
@@ -188,6 +189,38 @@ fn main() {
 
     // Correctness & anti-DCE: count successful parses across one full sweep.
     let cc = bench::check_correctness(&packets, &parser);
+
+    // ── Parity dump (Phase 17.B) ──
+    // When --dump-meta <path> is set, run each enabled mode once per
+    // packet and emit one ParityRecord per packet per mode. Done as a
+    // separate pass before the timed benchmark so iteration count
+    // doesn't multiply the JSONL line count.
+    if let Some(ref dump_path) = cli.dump_meta {
+        let pcap_label = cli
+            .dump_meta_pcap
+            .clone()
+            .unwrap_or_else(|| {
+                std::path::Path::new(&pcap_path)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("?")
+                    .to_string()
+            });
+        if let Err(e) = bench::dump_meta_pass(
+            &cli.mode,
+            &packets,
+            &parser,
+            dump_path,
+            &pcap_label,
+        ) {
+            eprintln!("error: dump-meta pass failed: {e}");
+            process::exit(1);
+        }
+        eprintln!("[dump-meta] wrote {} ({} packets)", dump_path, npkts);
+        if cli.dump_meta_only {
+            return;
+        }
+    }
 
     if !cli.report {
         println!(

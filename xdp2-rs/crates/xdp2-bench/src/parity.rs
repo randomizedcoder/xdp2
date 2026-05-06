@@ -33,6 +33,7 @@ pub mod parser_id {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Fast/Slow/Fallback wired up by Phase 17.B.BPF for c-bpf-fast.
 pub enum AcceptPath {
     Fast,
     Slow,
@@ -51,6 +52,7 @@ impl AcceptPath {
 
 /// Reasons the schema documents for accepted=false. Keep in sync with
 /// `parity_scope.json:expected_divergences`.
+#[allow(dead_code)] // VERIFIER and NO_FAST_PATH_CHAIN wired up by Phase 17.B.BPF.
 pub mod reject_reason {
     pub const VERIFIER: &str = "verifier";
     pub const NO_AVX2: &str = "no-avx2";

@@ -192,6 +192,26 @@ pub(crate) struct Cli {
     /// Top-N cutoff for `--chain-histogram`.
     #[arg(long, default_value_t = 20)]
     pub top: usize,
+
+    /// Dump per-packet ParityRecord JSONL to this path. Each enabled
+    /// parser mode writes one record per packet. Used by the
+    /// flow-dissector parity gate (Phase 17). Schema documented in
+    /// `samples/flow_dissector/parity_scope.json`. When set,
+    /// xdp2-bench runs a separate "dump pass" before the timed
+    /// benchmark loop so the JSONL contains one record per packet
+    /// per mode (NOT per packet × iteration).
+    #[arg(long)]
+    pub dump_meta: Option<String>,
+
+    /// PCAP label written into each ParityRecord's `pcap` field.
+    /// Defaults to the basename of `--pcap`.
+    #[arg(long)]
+    pub dump_meta_pcap: Option<String>,
+
+    /// Skip the timed benchmark loop; emit ParityRecords only. Useful
+    /// for parity-gate runs that don't need ns/pkt or perf counters.
+    #[arg(long)]
+    pub dump_meta_only: bool,
 }
 
 /// Collected result from one benchmark run.
