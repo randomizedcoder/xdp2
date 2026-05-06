@@ -28,6 +28,8 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 11    | Phase A — pre-flight + smoke (live hp2/hp5)              | done           | 2026-05-05  | 2026-05-05  | `989f734` |
 | 12    | Phase B — full sweep + baseline promotion                | done           | 2026-05-05  | 2026-05-05  | `a4f196a` |
 | 13    | Phase C — perf-sweep + PMU breakdown (T5 / D4)           | done           | 2026-05-05  | 2026-05-05  | `6b7ef6d` |
+| 14    | Phase D — tuned-vs-untuned (lowJitter sensitivity)       | deferred       | —           | —           | —         |
+| 15    | Phase E — AF_XDP live load sweep                         | done           | 2026-05-05  | 2026-05-05  | `c070ca9` |
 
 ## Branch
 
@@ -1218,6 +1220,95 @@ D4 from `docs/flow-dissector-benchmark-plan.md` §9).
   Internally consistent across the 42 cells. If a future deliverable
   wants the lower ratio, change the denominator in
   `/tmp/phase13-extract-t5.py:cell_stats`.
+
+## Phase 14 — Phase D: tuned-vs-untuned sensitivity
+
+**Status:** deferred
+
+The `lowJitter` toggle requires a NixOS rebuild on hp5 (turbo boost
+off, NMI watchdog off). hp5's NixOS config lives **outside** this repo
+at `~/nixos/hp/hp5/configuration.nix` on the developer workstation
+(per `docs/physical-testbed.md` §5). Toggling
+`xdp2.testbed.lowJitter = true;` there + `nixos-rebuild switch` is a
+user action that this implementation session can't perform on its own.
+
+When the user is ready to land the toggle:
+
+1. Edit `~/nixos/hp/hp5/configuration.nix`, set
+   `xdp2.testbed.lowJitter = true;`.
+2. `make sync && ssh hp5 'cd ~/nixos/hp/hp5 && make'` (per
+   `docs/physical-testbed.md` §5 "Updating a host's NixOS
+   configuration").
+3. Re-run the Phase 12 sweep with `XDP2_RESULTS_ROOT=...lowjitter`
+   for the toggle-on tree.
+4. Aggregate with `--baseline testbeds/hp2-hp5-x710.baseline.csv
+   --threshold-pct 1` to surface every cell delta as T3.
+5. Toggle back to `lowJitter=false`, rebuild, switch (restore default).
+
+Until then, T3 (deliverable D3) is recorded as **deferred** in the
+2026-05-06 narrative summary. H7 (Rust larger code footprint = more
+turbo-sensitive) remains an open hypothesis.
+
+## Phase 15 — Phase E: AF_XDP live load sweep
+
+**Status:** done
+
+**Goal:** drive AF_XDP zerocopy traffic from hp2 (kernel pktgen) to
+hp5 (xdp2-bench --mode af-xdp-template) across an offered-load sweep,
+producing T-afxdp (deliverable E from `flow-dissector-benchmark-plan.md`
+§12).
+
+**Files landed (commit `c070ca9`):**
+- `nix/flow-dissector-afxdp-live.nix` — two bug fixes during the
+  first live run:
+  - **Cap formula**: was `LINK_GBPS * 1000 / (1500 * 8)`,
+    integer-truncated to 0 Mpps for 10 GbE (max pps with 1500B frames
+    is 0.83 Mpps). Every requested load clamped to 0, bench failed
+    exit=4. Fixed: `LINK_GBPS * 125 / 84` (small-frame line rate ≈
+    14.88 Mpps for 10 GbE), matching the 2026-04-25 D1 ceiling.
+  - **JSON extraction**: regex matched a non-existent `pps_received: N`
+    format. Updated to parse the bench's actual queue-table format
+    (`queue | template | packets | bytes | ns/pkt | Mpps`), compute
+    `drops = offered_pkts - packets_rx`, and detect zerocopy from
+    `XDP_MODE=xdpdrv` + `registered in XSKMAP` log markers.
+- `samples/flow_dissector/run_ntuple_template_bench.sh` — extended
+  the xdp2-bench resolution from 2 lookups to 3, adding a third
+  fallback that runs `nix build --no-link --print-out-paths .#xdp2-rs`
+  on the target host and resolves `<store>/bin/xdp2-bench`. Required
+  because the lab hosts only have Nix-managed binaries (no
+  `cargo build --release` artifact, no PATH-installed `xdp2-bench`).
+- `perf-results/2026-05-06/2026-05-05/hp2-hp5-x710/afxdp/<load>mpps.{json,log}` — 4 per-load
+  JSONs (1, 2, 5, 10 Mpps) + bench logs.
+- `perf-results/2026-05-06/T-afxdp.md` — narrative summary table.
+
+**Headline:**
+
+| Offered | Received pps | Mpps | Drops % | Zerocopy |
+|--------:|-------------:|-----:|--------:|----------|
+| 1 Mpps  | 877 786      | 0.88 | 12.22 % | yes      |
+| 2 Mpps  | 877 789      | 0.88 | 56.11 % | yes      |
+| 5 Mpps  | 877 804      | 0.88 | 82.44 % | yes      |
+| 10 Mpps | 877 806      | 0.88 | 91.22 % | yes      |
+
+**Key finding:** the AF_XDP receiver caps at ~877 K pps regardless
+of offered load. This is the documented **D3 RX-drop issue** (see
+`docs/physical-testbed.md` §"Per-experiment matrix"): default fill
+ring 2048 + frame count 4096 are too tight at ≥1 Mpps with busy-poll.
+The D3 experiments (`xdp2-exp-afxdp-rings-large`, etc.) explore
+tunable fixes but were not re-run as part of this phase.
+
+**Plan §15 DoD vs reality:**
+- Per-load JSONs under `<results>/<date>/<testbed>/afxdp/` ✅
+- AF_XDP zerocopy detected on every cell ✅
+- "Drops < 0.1 % at 1 Mpps offered" ❌ — drops 12.22 %, the
+  documented receiver ceiling, not a wrapper issue. Tuning is
+  follow-up work blocked on D3.
+
+**Pktgen-side caveat:** pktgen drove default `burst=1` (~1.48 Mpps TX
+ceiling per the 2026-04-25 D1 baseline). The afxdp-live wrapper
+doesn't currently expose `PKTGEN_BURST` / `PKTGEN_QUEUE_MAP_MODE` env
+vars; future revisions can add them so offered loads above 1.5 Mpps
+actually hit the wire.
 
 ## Cross-Phase Notes
 
