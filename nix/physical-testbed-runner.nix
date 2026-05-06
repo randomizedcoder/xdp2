@@ -307,9 +307,17 @@ pkgs.writeShellApplication {
             fi
           done
 
+          # XDP2_MATRIX_JSON_OUT — flow-dissector-matrix-unified writes
+          #   per-cell JSONs at $XDP2_MATRIX_JSON_OUT/<pcap>/<mode>.json.
+          # XDP2_PERF_SWEEP_OUT  — perf-sweep-{tcp,mixed,combo} writes
+          #   their report JSONs at $XDP2_PERF_SWEEP_OUT/<pcap>/<file>.json.
+          # Both root at $PWD/result so the existing result/ rsync-back
+          # carries the data into the per-host result tree without
+          # per-target wrapper code.
           if $SSH_CMD "$sshto" \
                 "cd ~/$remote_path && rm -rf result && mkdir -p result && \
-                 XDP2_MATRIX_JSON_OUT=\"\$PWD/result\"$env_prefix \
+                 XDP2_MATRIX_JSON_OUT=\"\$PWD/result\" \
+                 XDP2_PERF_SWEEP_OUT=\"\$PWD/result\"$env_prefix \
                  nix run .#$target --print-build-logs" \
                 >"$logfile" 2>&1; then
             exit_code=0

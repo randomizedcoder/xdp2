@@ -107,11 +107,19 @@ in
     workload-pcap-k8s-microservices;
 
   # ── Sweep: tcp_ipv4.pcap (baseline, fast) ────────────────────────
+  #
+  # OUTDIR resolution:
+  #   1. positional arg #1
+  #   2. ${XDP2_PERF_SWEEP_OUT}/tcp_ipv4 — orchestrator path; the
+  #      Phase-13 runner (xdp2-run-on-host --exec) sets
+  #      XDP2_PERF_SWEEP_OUT=$PWD/result so JSONs ride back via the
+  #      existing result/ rsync.
+  #   3. perf-results/tcp_ipv4 — local-default fallback.
   sweep-tcp = pkgs.writeShellApplication {
     name = "xdp2-perf-sweep-tcp";
     runtimeInputs = sweepInputs;
     text = ''
-      OUTDIR="''${1:-perf-results/tcp_ipv4}"
+      OUTDIR="''${1:-''${XDP2_PERF_SWEEP_OUT:-perf-results}/tcp_ipv4}"
       export BENCH="xdp2-bench"
       exec ${sweepScript} "${../data/pcaps/tcp_ipv4.pcap}" 500 "$OUTDIR"
     '';
@@ -122,7 +130,7 @@ in
     name = "xdp2-perf-sweep-mixed";
     runtimeInputs = sweepInputs;
     text = ''
-      OUTDIR="''${1:-perf-results/mixed-real}"
+      OUTDIR="''${1:-''${XDP2_PERF_SWEEP_OUT:-perf-results}/mixed-real}"
       export BENCH="xdp2-bench"
       exec ${sweepScript} "${mixed-pcap}/mixed-real.pcap" 500 "$OUTDIR"
     '';
@@ -133,7 +141,7 @@ in
     name = "xdp2-perf-sweep-combo";
     runtimeInputs = sweepInputs;
     text = ''
-      OUTDIR="''${1:-perf-results/combo}"
+      OUTDIR="''${1:-''${XDP2_PERF_SWEEP_OUT:-perf-results}/combo}"
       export BENCH="xdp2-bench"
       exec ${sweepScript} "${test-pcap}/combo.pcap" 200 "$OUTDIR"
     '';
