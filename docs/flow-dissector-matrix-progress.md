@@ -35,7 +35,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 17.B  | Parity gate — `--dump-meta` across all 14 parsers        | done           | 2026-05-06  | 2026-05-06  | `b390289`, `9c7d5a1`, `334fe69` |
 | 17.C  | Parity gate — comparator + driver + `parity-gate` check  | done           | 2026-05-06  | 2026-05-06  | `e0dc2d8`, `ca95c4d`, `9063704` |
 | 17.D  | Parity baseline + tunnel-mask + ipv4-only + 24-pcap corpus | done         | 2026-05-06  | 2026-05-06  | `f0492e5`, `2ffc74b`, `a30ffb6` |
-| 17.E  | Parity integration into matrix-runner per-cell JSON      | deferred       | —           | —           | —         |
+| 17.E  | Parity integration into matrix-runner per-cell JSON      | done           | 2026-05-06  | 2026-05-06  | (pending) |
 
 ## Branch
 
@@ -1568,38 +1568,80 @@ $ for p in data/pcaps/{tcp_ipv6,gre-pptp,vxlan,srv6-end-64}.pcap; do
   field-mask doesn't yet apply on UDP-tunnel packets the same way
   it does on ip_proto-tunnel packets). Phase 17.D.5 follow-up.
 
-## Phase 17.E — deferred (rationale)
+## Phase 17.E — wire parity into matrix-runner per-cell JSON
 
-**Original scope:** wire `XDP2_MATRIX_PARITY=1` env-fallback through
-the matrix runner so each per-cell JSON gains `parity_ok: bool` +
-`parity_disagreements: int` alongside `ns_per_pkt` / `mpps`. The
-matrix-runner-json-shape and aggregate-results flake checks were to
-be extended with the new fields.
+**Status:** done (2026-05-06).
 
-**Why deferred:**
+**What landed:**
 
-1. The parity gate already runs on every `nix flake check`
-   invocation. Coupling it to the matrix runner adds redundancy
-   (every cell of a pcap would carry the same parity_ok value)
-   without adding signal — if parity drifts, the gate fails CI on
-   the same change.
-2. The matrix runner runs on the remote testbed (hp2/hp5) over
-   ssh; the parity gate runs locally with the full 11-parser tree.
-   Running both worlds' parity checks per matrix-cell would
-   require either building the parity-check binary on the remote
-   (and dealing with CAP_BPF limitations there) or duplicating
-   work locally.
-3. The plan's open question §17 noted "ParityRecord allocation
-   cost" — 14 × 1 MB transient JSONL per matrix invocation. Per-pcap
-   (rather than per-cell) attestation is the obvious optimisation,
-   but at that point we're back to "the gate already covers it."
+- `nix/xdp2-rs-matrix.nix` — `parityCheck` runtime input, new
+  `XDP2_MATRIX_PARITY` env-fallback, post-sweep parity hook that
+  invokes `flow-dissector-parity-check` and stamps every
+  per-cell JSON with `parity_ok` + `parity_disagreements` via
+  `jq`. Per-pcap values (each pcap's cells share the same pair).
+- `samples/flow_dissector/xdp2_rs_matrix.sh` — same hook, opt-in,
+  best-effort (skips silently when `flow-dissector-parity-check`
+  or `jq` are not on PATH).
+- `flake.nix` — wires `flowDissectorParityCheck` into
+  `flowDissectorMatrixUnified` via the new `parityCheck` arg.
+- `nix/physical-testbed-runner.nix` — propagates
+  `XDP2_MATRIX_PARITY` over ssh in the `--exec` env-prefix so
+  the orchestrator can drive it on hp2/hp5 testbeds.
+- `nix/scripts/aggregate-results.py` — reads `parity_ok` /
+  `parity_disagreements` from per-cell JSON, includes them as
+  CSV columns, annotates `(parity-fail, N)` in `summary.md` per
+  cell, treats `parity_ok` flip true→false as a regression in
+  `regressions.md` (independent of perf delta).
+- `nix/checks/matrix-runner-json-shape.nix` — extended
+  `expectedKeys` and `printfTemplate` with the new fields; the
+  source-drift grep also catches divergence in either runner.
+- `nix/checks/aggregate-results-test.nix` — fixture extended
+  with parity-bearing cells (hp5/combo=false, hp2/combo=true,
+  hp5/tcp_ipv4=null), baseline now carries `parity_ok=true` for
+  hp5, and assertions verify the parity columns survive CSV
+  round-trip + the parity-flip regression fires independently
+  of the perf check.
 
-**If 17.E becomes useful later:** the natural shape is a sibling
-`<results>/<pcap>/parity-summary.json` written by the matrix runner
-once per pcap (not per cell), read by the aggregator and surfaced
-as a single `parity_ok` column in summary.csv. The implementation is
-~50 LoC + a flake check fixture extension; not a load-bearing
-delivery for the parity gate's purpose.
+**Schema (per-cell JSON, post-17.E):**
+
+```json
+{
+  "mode": "rust-graph-enum",
+  "pcap": "tcp_ipv4.pcap",
+  "ns_per_pkt": 37,
+  "mpps": 27,
+  "iterations": 5,
+  "build_hash": "/nix/store/.../bin/xdp2-bench",
+  "kernel": "6.18.26",
+  "nic_driver": "",
+  "nic_firmware": "",
+  "parity_ok": true,
+  "parity_disagreements": 0
+}
+```
+
+`parity_ok` and `parity_disagreements` are `null` by default;
+populated only when `XDP2_MATRIX_PARITY=1` is set.
+
+**Verification (live):**
+
+```bash
+$ XDP2_MATRIX_PARITY=1 nix run .#flow-dissector-matrix-unified -- \
+    -j /tmp/p -n 5 data/pcaps/tcp_ipv4.pcap 2>&1 | grep parity
+[parity] tcp_ipv4.pcap: parity_ok=true parity_disagreements=0
+
+$ XDP2_MATRIX_PARITY=1 nix run .#flow-dissector-matrix-unified -- \
+    -j /tmp/p -n 5 data/pcaps/gre-pptp.pcap 2>&1 | grep parity
+[parity] gre-pptp.pcap: parity_ok=false parity_disagreements=170
+```
+
+Both runs land the parity pair in every per-cell JSON for that
+pcap (verified with `jq '. | {parity_ok, parity_disagreements}'`
+on multiple modes).
+
+**All 6 flake checks remain green:** parity-gate, aggregate-results,
+matrix-runner-json-shape, matrix-check-smoke, afxdp-live-smoke,
+nic-tuning-eval.
 
 ## Cross-Phase Notes
 

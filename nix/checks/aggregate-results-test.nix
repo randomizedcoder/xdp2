@@ -30,17 +30,25 @@ pkgs.runCommand "aggregate-results-test"
   mkdir -p "$HOST5" "$HOST2" "$HOST5B"
 
   cell() {
+    # cell <path> <mode> <pcap> <ns> <mpps> <iter> [parity_ok] [parity_d]
     local path=$1 mode=$2 pcap=$3 ns=$4 mpps=$5 iter=$6
+    local parity_ok="''${7:-null}"
+    local parity_d="''${8:-null}"
     cat > "$path/$mode.json" <<JSON
-  {"mode":"$mode","pcap":"$pcap","ns_per_pkt":$ns,"mpps":$mpps,"iterations":$iter,"build_hash":"x","kernel":"6.18.22","nic_driver":"i40e","nic_firmware":""}
+  {"mode":"$mode","pcap":"$pcap","ns_per_pkt":$ns,"mpps":$mpps,"iterations":$iter,"build_hash":"x","kernel":"6.18.22","nic_driver":"i40e","nic_firmware":"","parity_ok":$parity_ok,"parity_disagreements":$parity_d}
   JSON
   }
 
-  cell "$HOST5"  rust-graph         combo.pcap    316 3   100
-  cell "$HOST5"  rust-graph-enum    combo.pcap     12 80  100
-  cell "$HOST5"  rust-mono          combo.pcap     50 19  100
-  cell "$HOST5"  c-flowdis-usp      combo.pcap    120 8   100
-  cell "$HOST2"  rust-graph-enum    combo.pcap     13 79  100
+  # Phase 17.E fixture: hp5/combo.pcap cells carry parity_ok=false (the
+  # parity check fails on this synthetic pcap), hp2/combo.pcap carries
+  # parity_ok=true, hp5/tcp_ipv4.pcap carries no parity (Phase-pre-17.E
+  # path). The baseline below has hp2/combo.pcap parity_ok=true so the
+  # hp5/combo cells flip true→false → flagged as parity regressions.
+  cell "$HOST5"  rust-graph         combo.pcap    316 3   100  false 5
+  cell "$HOST5"  rust-graph-enum    combo.pcap     12 80  100  false 5
+  cell "$HOST5"  rust-mono          combo.pcap     50 19  100  false 5
+  cell "$HOST5"  c-flowdis-usp      combo.pcap    120 8   100  false 5
+  cell "$HOST2"  rust-graph-enum    combo.pcap     13 79  100  true  0
   cell "$HOST5B" rust-graph-enum    tcp_ipv4.pcap  21 47  100
 
   flow-dissector-matrix-aggregate --results "$ROOT"
@@ -50,9 +58,10 @@ pkgs.runCommand "aggregate-results-test"
 
   # CSV must parse and contain at least 6 data rows (5 hp5 + 1 hp2 +
   # 1 hp5/tcp_ipv4 = 6 cells, but rust-graph and rust-graph-enum are
-  # distinct rows on hp5/combo.pcap so the count is 6).
+  # distinct rows on hp5/combo.pcap so the count is 6). Also assert
+  # the Phase 17.E parity columns are present and populated correctly.
   python3 - <<'PY'
-  import csv, sys
+  import csv
   rows = list(csv.DictReader(open("results/summary.csv")))
   assert len(rows) == 6, f"expected 6 rows, got {len(rows)}: {rows}"
   hosts = {r["host"] for r in rows}
@@ -60,6 +69,18 @@ pkgs.runCommand "aggregate-results-test"
   modes = {r["mode"] for r in rows}
   for required in ("rust-graph", "rust-graph-enum", "rust-mono", "c-flowdis-usp"):
       assert required in modes, f"missing mode {required!r}: {modes}"
+  # Phase 17.E: parity columns present.
+  for col in ("parity_ok", "parity_disagreements"):
+      assert col in rows[0], f"missing column {col!r}: {list(rows[0])}"
+  hp5_combo = [r for r in rows if r["host"]=="hp5" and r["pcap"]=="combo.pcap"]
+  assert hp5_combo and all(r["parity_ok"]=="false" for r in hp5_combo), \
+      f"expected hp5/combo cells to be parity_ok=false: {hp5_combo}"
+  hp2_combo = [r for r in rows if r["host"]=="hp2" and r["pcap"]=="combo.pcap"]
+  assert hp2_combo and all(r["parity_ok"]=="true" for r in hp2_combo), \
+      f"expected hp2/combo cells to be parity_ok=true: {hp2_combo}"
+  hp5_tcp = [r for r in rows if r["host"]=="hp5" and r["pcap"]=="tcp_ipv4.pcap"]
+  assert hp5_tcp and all(r["parity_ok"]=="" for r in hp5_tcp), \
+      f"expected hp5/tcp_ipv4 cells to have empty parity_ok: {hp5_tcp}"
   print("csv parse ok:", len(rows), "rows")
   PY
 
@@ -68,21 +89,30 @@ pkgs.runCommand "aggregate-results-test"
   grep -q 'rust-graph'   "$ROOT/summary.md"      || { echo "rust-graph mode missing from summary.md"; exit 1; }
   grep -q 'rust-graph-enum' "$ROOT/summary.md"   || { echo "rust-graph-enum mode missing from summary.md"; exit 1; }
 
-  # Build a baseline that agrees with hp5/rust-graph-enum but disagrees
-  # massively on hp2/rust-graph-enum (claim 1 ns/pkt baseline; new is 13).
+  # Build a baseline that agrees with hp5/rust-graph-enum on perf
+  # (perf-clean) but disagrees massively on hp2/rust-graph-enum (claim
+  # 1 ns/pkt baseline; new is 13). Additionally, set parity_ok=true for
+  # the hp5/rust-graph-enum cell — the new run reports parity_ok=false
+  # so the parity-flip regression check should fire on top of the
+  # perf-clean ns/pkt match.
   cat > baseline.csv <<'CSV'
-  testbed,host,pcap,mode,n_iter,n_replicates,ns_per_pkt_mean,ns_per_pkt_median,ns_per_pkt_p95,ns_per_pkt_ci95_lo,ns_per_pkt_ci95_hi,mpps_median,build_hash,kernel,nic_driver,nic_firmware
-  hp2-hp5-x710,hp5,combo.pcap,rust-graph-enum,100,1,12,12,12,11,13,80,x,6.18.22,i40e,
-  hp2-hp5-x710,hp2,combo.pcap,rust-graph-enum,100,1,1,1,1,0.5,1.5,80,x,6.18.22,i40e,
+  testbed,host,pcap,mode,n_iter,n_replicates,ns_per_pkt_mean,ns_per_pkt_median,ns_per_pkt_p95,ns_per_pkt_ci95_lo,ns_per_pkt_ci95_hi,mpps_median,parity_ok,parity_disagreements,build_hash,kernel,nic_driver,nic_firmware
+  hp2-hp5-x710,hp5,combo.pcap,rust-graph-enum,100,1,12,12,12,11,13,80,true,0,x,6.18.22,i40e,
+  hp2-hp5-x710,hp2,combo.pcap,rust-graph-enum,100,1,1,1,1,0.5,1.5,80,true,0,x,6.18.22,i40e,
   CSV
 
   flow-dissector-matrix-aggregate --results "$ROOT" --baseline baseline.csv
   test -f "$ROOT/regressions.md" || { echo "regressions.md missing"; exit 1; }
-  grep -q '^| hp2-hp5-x710 | hp2 |' "$ROOT/regressions.md" \
-    || { echo "expected hp2 regression row in regressions.md"; cat "$ROOT/regressions.md"; exit 1; }
-  # hp5/rust-graph-enum must NOT regress (matches baseline).
-  if grep -q '^| hp2-hp5-x710 | hp5 | combo.pcap | rust-graph-enum' "$ROOT/regressions.md"; then
-    echo "false positive: hp5/rust-graph-enum flagged as regression"
+  # Perf regression on hp2 should still fire.
+  grep -q '^| perf | hp2-hp5-x710 | hp2 |' "$ROOT/regressions.md" \
+    || { echo "expected hp2 perf regression row in regressions.md"; cat "$ROOT/regressions.md"; exit 1; }
+  # Phase 17.E: parity-flip true→false on hp5/rust-graph-enum must be
+  # flagged independently of the (zero) perf delta.
+  grep -q '^| parity | hp2-hp5-x710 | hp5 | combo.pcap | rust-graph-enum' "$ROOT/regressions.md" \
+    || { echo "expected hp5/rust-graph-enum parity regression row"; cat "$ROOT/regressions.md"; exit 1; }
+  # hp5/rust-graph-enum must NOT show a perf regression (matches baseline).
+  if grep -q '^| perf | hp2-hp5-x710 | hp5 | combo.pcap | rust-graph-enum' "$ROOT/regressions.md"; then
+    echo "false positive: hp5/rust-graph-enum flagged as perf regression"
     cat "$ROOT/regressions.md"
     exit 1
   fi

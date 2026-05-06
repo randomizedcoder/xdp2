@@ -29,6 +29,7 @@
 , xdp2Rs                        # xdp2-rs crate bundle — provides xdp2-bench
 , flowDissectorMatrix           # C matrix artifacts — provides benchmark, benchmark_bpf, *.bpf.o
 , workloadPcapHttpsWeb          # cached https-web workload PCAP derivation
+, parityCheck                   # flow-dissector-parity-check (Phase 17.E hook)
 }:
 
 let
@@ -43,8 +44,10 @@ pkgs.writeShellApplication {
     pkgs.coreutils
     pkgs.gnugrep
     pkgs.gawk
+    pkgs.jq                     # rewriting per-cell JSON with parity fields
     xdp2Rs.build                # provides xdp2-bench
     artifacts                   # provides benchmark, benchmark_bpf
+    parityCheck                 # provides flow-dissector-parity-check
   ];
 
   text = ''
@@ -80,6 +83,13 @@ pkgs.writeShellApplication {
     # JSON without needing -j forwarded through xdp2-run-on-host. The
     # explicit -j flag still wins when both are present.
     JSON_OUT="''${XDP2_MATRIX_JSON_OUT:-}"
+    # XDP2_MATRIX_PARITY=1 enables the Phase 17.E hook: after the
+    # matrix sweep finishes, the wrapper invokes
+    # flow-dissector-parity-check on the same pcap and stamps every
+    # per-cell JSON with parity_ok + parity_disagreements. Per-pcap
+    # values (each pcap's cells share the same pair). Off by default
+    # so the matrix runner stays cheap.
+    PARITY_ENABLED="''${XDP2_MATRIX_PARITY:-0}"
 
     while getopts "n:N:c:j:h" opt; do
       case $opt in
@@ -128,7 +138,10 @@ pkgs.writeShellApplication {
       local mpps_num="''${mpps%% *}"
       [[ "$nspkt_num" =~ ^[0-9]+$ ]] || nspkt_num="null"
       [[ "$mpps_num"  =~ ^[0-9]+$ ]] || mpps_num="null"
-      printf '{"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s"}\n' \
+      # parity_ok / parity_disagreements default null until the post-sweep
+      # parity hook (Phase 17.E) overwrites them. Always present so
+      # downstream consumers can rely on the schema being uniform.
+      printf '{"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s","parity_ok":null,"parity_disagreements":null}\n' \
         "$mode" "$PCAP_BASENAME" "$nspkt_num" "$mpps_num" "$ITER" \
         "$BUILD_HASH" "$KERNEL_RELEASE" "$NIC_DRIVER" "$NIC_FIRMWARE" \
         > "$JSON_OUT/$PCAP_BASENAME/$mode.json"
@@ -291,6 +304,57 @@ pkgs.writeShellApplication {
     run_rust simd          SIMD_NSPKT       SIMD_MPPS
     run_rust template      TEMPLATE_NSPKT   TEMPLATE_MPPS
     run_rust template-simd TSIMD_NSPKT      TSIMD_MPPS
+
+    # ─── Step 5: parity hook (XDP2_MATRIX_PARITY=1) ─────────────────
+    # When set, runs flow-dissector-parity-check on the SAME pcap and
+    # stamps parity_ok + parity_disagreements into every per-cell JSON.
+    # The values are per-pcap (every cell of one pcap shares them) — by
+    # design, so per-cell readers can answer "did the parsers agree on
+    # this packet set?" without joining against a sibling parity file.
+    if [[ "$PARITY_ENABLED" == "1" ]]; then
+      if [[ -z "$JSON_OUT" ]]; then
+        echo "[parity] XDP2_MATRIX_PARITY=1 set but no --json-out / XDP2_MATRIX_JSON_OUT — skipping" >&2
+      else
+        echo "--- Running parity check on $PCAP_BASENAME ---"
+        PARITY_OUT="$TMPDIR/parity"
+        mkdir -p "$PARITY_OUT"
+        # Skip BPF parsers — they need CAP_BPF and aren't load-able in
+        # most matrix-runner contexts (sandboxed Nix, non-root testbed
+        # users). The 11 non-BPF parsers cover all the modes the
+        # comparator can verify cross-language. c-bpf-xdp2 is included
+        # because the driver synthesises its 100%-rejected JSONL.
+        PARITY_PARSERS="c-flowdis-usp,c-xdp2-usp,c-xdp2-parse-only,c-bpf-xdp2,rust-graph,rust-graph-enum,rust-mono,rust-mono-x4,rust-compiled,rust-simd,rust-template,rust-template-simd"
+        if flow-dissector-parity-check \
+            --pcap "$INPUT_PCAP" \
+            --out  "$PARITY_OUT" \
+            --parsers "$PARITY_PARSERS" \
+            > "$PARITY_OUT/driver.log" 2>&1; then
+          PARITY_OK="true"
+        else
+          PARITY_OK="false"
+        fi
+        # parity-report.csv has one header row + one row per pairwise
+        # disagreement (acceptance + field). Disagreement count = lines
+        # minus header.  Missing report ⇒ harness error ⇒ count=null.
+        PARITY_DISAGREEMENTS="null"
+        if [[ -f "$PARITY_OUT/parity-report.csv" ]]; then
+          local_lines=$(wc -l < "$PARITY_OUT/parity-report.csv")
+          if [[ "$local_lines" =~ ^[0-9]+$ ]] && [[ "$local_lines" -ge 1 ]]; then
+            PARITY_DISAGREEMENTS=$((local_lines - 1))
+          else
+            PARITY_DISAGREEMENTS="0"
+          fi
+        fi
+        echo "[parity] $PCAP_BASENAME: parity_ok=$PARITY_OK parity_disagreements=$PARITY_DISAGREEMENTS"
+        # Stamp every per-cell JSON for this pcap.
+        for cell in "$JSON_OUT/$PCAP_BASENAME"/*.json; do
+          [[ -f "$cell" ]] || continue
+          jq --argjson ok "$PARITY_OK" --argjson d "$PARITY_DISAGREEMENTS" \
+            '. + {parity_ok: $ok, parity_disagreements: $d}' \
+            "$cell" > "$cell.tmp" && mv "$cell.tmp" "$cell"
+        done
+      fi
+    fi
 
     # ─── Unified table ──────────────────────────────────────────────
     echo "================================================================="

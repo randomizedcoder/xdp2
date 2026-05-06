@@ -56,6 +56,9 @@ CSV_COLUMNS = [
     "ns_per_pkt_mean", "ns_per_pkt_median", "ns_per_pkt_p95",
     "ns_per_pkt_ci95_lo", "ns_per_pkt_ci95_hi",
     "mpps_median",
+    # Phase 17.E: per-pcap parity attestation (every cell of one pcap
+    # carries the same pair). null when XDP2_MATRIX_PARITY=0.
+    "parity_ok", "parity_disagreements",
     "build_hash", "kernel", "nic_driver", "nic_firmware",
 ]
 
@@ -133,6 +136,21 @@ def cell_stats(records: list[dict]) -> dict:
     ]
     n_iter = max((r.get("iterations", 0) or 0) for r in records) if records else 0
 
+    # Parity is per-pcap (every cell of one pcap shares the same pair),
+    # so picking the first non-null value across replicates is correct.
+    # If a record predates Phase 17.E, the field is missing → None.
+    parity_ok = None
+    parity_disagreements = None
+    for r in records:
+        v = r.get("parity_ok")
+        if v is not None and parity_ok is None:
+            parity_ok = bool(v)
+        v = r.get("parity_disagreements")
+        if v is not None and parity_disagreements is None and isinstance(v, int):
+            parity_disagreements = v
+        if parity_ok is not None and parity_disagreements is not None:
+            break
+
     out = {
         "n_iter": n_iter,
         "n_replicates": len(nspkts),
@@ -142,6 +160,8 @@ def cell_stats(records: list[dict]) -> dict:
         "ns_per_pkt_ci95_lo": None,
         "ns_per_pkt_ci95_hi": None,
         "mpps_median": statistics.median(mppss) if mppss else None,
+        "parity_ok": parity_ok,
+        "parity_disagreements": parity_disagreements,
     }
     if not nspkts:
         return out
@@ -188,6 +208,18 @@ def write_csv(out_path: Path, grouped: dict, stats_by_cell: dict) -> None:
         testbed, host, pcap, mode = key
         s = stats_by_cell[key]
         sample = records[0]
+        # parity_ok renders as "true"/"false"/"" (not "—"/"None") so it
+        # round-trips cleanly through csv.DictReader on the regression path.
+        if s["parity_ok"] is True:
+            parity_ok_str = "true"
+        elif s["parity_ok"] is False:
+            parity_ok_str = "false"
+        else:
+            parity_ok_str = ""
+        if isinstance(s["parity_disagreements"], int):
+            parity_d_str = str(s["parity_disagreements"])
+        else:
+            parity_d_str = ""
         rows.append({
             "testbed": testbed,
             "host": host,
@@ -201,6 +233,8 @@ def write_csv(out_path: Path, grouped: dict, stats_by_cell: dict) -> None:
             "ns_per_pkt_ci95_lo": fmt_num(s["ns_per_pkt_ci95_lo"], 2),
             "ns_per_pkt_ci95_hi": fmt_num(s["ns_per_pkt_ci95_hi"], 2),
             "mpps_median": fmt_num(s["mpps_median"], 2),
+            "parity_ok": parity_ok_str,
+            "parity_disagreements": parity_d_str,
             "build_hash": sample.get("build_hash", ""),
             "kernel": sample.get("kernel", ""),
             "nic_driver": sample.get("nic_driver", ""),
@@ -263,6 +297,9 @@ def write_md(out_path: Path, grouped: dict, stats_by_cell: dict, min_iter: int) 
                 tag = ""
                 if s["n_iter"] and s["n_iter"] < min_iter:
                     tag = " (low-N)"
+                if s.get("parity_ok") is False:
+                    d = s.get("parity_disagreements")
+                    tag += f" (parity-fail{f', {d}' if isinstance(d, int) else ''})"
                 row.append(f"{ns} ns/pkt ({mpps} Mpps){tag}")
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
@@ -287,10 +324,21 @@ def parse_baseline(path: Path) -> dict:
                     "summary.csv before invoking --baseline."
                 )
             key = (r["testbed"], r["host"], r["pcap"], r["mode"])
+            # parity_ok: "true"/"false"/"" — None means "baseline pre-dates
+            # Phase 17.E or parity was off"; only an explicit true→false
+            # flip is a regression.
+            parity_raw = r.get("parity_ok", "")
+            if parity_raw == "true":
+                parity_ok = True
+            elif parity_raw == "false":
+                parity_ok = False
+            else:
+                parity_ok = None
             rows[key] = {
                 "median": med,
                 "ci95_lo": lo if math.isfinite(lo) else None,
                 "ci95_hi": hi if math.isfinite(hi) else None,
+                "parity_ok": parity_ok,
             }
     return rows
 
@@ -301,49 +349,74 @@ def write_regressions(
     baseline: dict,
     threshold_pct: float,
 ) -> int:
-    regressions = []
+    """Return total regression count (perf + parity).
+
+    Two independent regression checks per cell:
+      1. ns/pkt: magnitude > threshold AND CI-disjoint.
+      2. parity: baseline=True → new=False (only that direction; None on
+         either side is "no signal" — pre-Phase-17.E baselines never
+         flag).
+
+    Both kinds are emitted into the same regressions.md table with a
+    `kind` column so a maintainer reading the report can see which
+    half tripped.
+    """
+    perf_regressions = []
+    parity_regressions = []
     n_compared = 0
     for key, s in stats_by_cell.items():
         b = baseline.get(key)
-        if b is None or s["ns_per_pkt_median"] is None:
+        if b is None:
             continue
         n_compared += 1
-        new_med = s["ns_per_pkt_median"]
-        base_med = b["median"]
-        if base_med <= 0:
-            continue
-        delta_pct = (new_med - base_med) / base_med * 100.0
-        # Magnitude gate.
-        if delta_pct <= threshold_pct:
-            continue
-        # CI-disjoint gate (only when both have CIs).
-        new_lo = s["ns_per_pkt_ci95_lo"]
-        base_hi = b["ci95_hi"]
-        if new_lo is not None and base_hi is not None and new_lo <= base_hi:
-            continue
-        regressions.append((key, new_med, base_med, delta_pct))
+        # ── perf regression ──────────────────────────────────────
+        if s["ns_per_pkt_median"] is not None:
+            new_med = s["ns_per_pkt_median"]
+            base_med = b["median"]
+            if base_med > 0:
+                delta_pct = (new_med - base_med) / base_med * 100.0
+                if delta_pct > threshold_pct:
+                    new_lo = s["ns_per_pkt_ci95_lo"]
+                    base_hi = b["ci95_hi"]
+                    if not (new_lo is not None and base_hi is not None and new_lo <= base_hi):
+                        perf_regressions.append((key, new_med, base_med, delta_pct))
+        # ── parity regression ────────────────────────────────────
+        # Only flag the explicit true→false flip. None on either side
+        # is silent (baseline pre-dates Phase 17.E, or parity was off
+        # for this run).
+        if b.get("parity_ok") is True and s.get("parity_ok") is False:
+            parity_regressions.append((key, s.get("parity_disagreements")))
+
+    total = len(perf_regressions) + len(parity_regressions)
 
     lines = ["# Regressions", ""]
-    if not regressions:
+    if total == 0:
         lines.append(
             f"No regressions detected (threshold={threshold_pct}%, N={n_compared})."
         )
     else:
         lines.append(
-            f"⚠ {len(regressions)} REGRESSION(s) detected "
-            f"(threshold={threshold_pct}%, N={n_compared})."
+            f"⚠ {total} REGRESSION(s) detected "
+            f"(threshold={threshold_pct}%, N={n_compared}; "
+            f"{len(perf_regressions)} perf, {len(parity_regressions)} parity)."
         )
         lines.append("")
-        lines.append("| Testbed | Host | PCAP | Mode | New ns/pkt | Baseline | Δ% |")
-        lines.append("|---|---|---|---|---|---|---|")
-        for key, new_med, base_med, delta_pct in regressions:
+        lines.append("| Kind | Testbed | Host | PCAP | Mode | New ns/pkt | Baseline | Δ% / disagreements |")
+        lines.append("|---|---|---|---|---|---|---|---|")
+        for key, new_med, base_med, delta_pct in perf_regressions:
             t, h, p, m = key
             lines.append(
-                f"| {t} | {h} | {p} | {m} | {fmt_num(new_med, 2)} | "
+                f"| perf | {t} | {h} | {p} | {m} | {fmt_num(new_med, 2)} | "
                 f"{fmt_num(base_med, 2)} | {fmt_num(delta_pct, 1)} |"
             )
+        for key, disagreements in parity_regressions:
+            t, h, p, m = key
+            d_str = str(disagreements) if isinstance(disagreements, int) else "—"
+            lines.append(
+                f"| parity | {t} | {h} | {p} | {m} | — | — | {d_str} |"
+            )
     out_path.write_text("\n".join(lines) + "\n")
-    return len(regressions)
+    return total
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -29,6 +29,11 @@ let
     "kernel"
     "nic_driver"
     "nic_firmware"
+    # Phase 17.E: parity columns are always present in per-cell JSON.
+    # null when XDP2_MATRIX_PARITY=0 (default) — the post-sweep hook
+    # rewrites them when enabled.
+    "parity_ok"
+    "parity_disagreements"
   ];
 
   jqExpr =
@@ -39,7 +44,7 @@ let
   # diffs this against the live sources so the check author cannot
   # silently drift the schema either.
   printfTemplate = ''
-    {"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s"}
+    {"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s","parity_ok":null,"parity_disagreements":null}
   '';
 in
 pkgs.runCommand "matrix-runner-json-shape"

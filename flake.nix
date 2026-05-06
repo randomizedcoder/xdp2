@@ -182,6 +182,10 @@
         flowDissectorMatrixUnified = import ./nix/xdp2-rs-matrix.nix {
           inherit pkgs xdp2Rs flowDissectorMatrix;
           workloadPcapHttpsWeb = perfAnalysis.workload-pcap-https-web;
+          # Phase 17.E: when XDP2_MATRIX_PARITY=1, the runner invokes
+          # this binary on the same pcap and stamps parity_ok +
+          # parity_disagreements into every per-cell JSON.
+          parityCheck = flowDissectorParityCheck;
         };
 
         # Aggregator over Phase-5 per-cell JSONs. Walks a result tree

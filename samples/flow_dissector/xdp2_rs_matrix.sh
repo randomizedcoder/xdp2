@@ -31,6 +31,11 @@ CORE_PIN=""
 # composed Nix pipeline can drive per-cell JSON without forwarding -j through
 # xdp2-run-on-host. Explicit -j still wins.
 JSON_OUT="${XDP2_MATRIX_JSON_OUT:-}"
+# XDP2_MATRIX_PARITY=1 enables the Phase 17.E hook (runs
+# flow-dissector-parity-check after the sweep, stamps parity_ok +
+# parity_disagreements into every per-cell JSON). The standalone path
+# requires the binary on PATH; the Nix wrapper has it via runtimeInputs.
+PARITY_ENABLED="${XDP2_MATRIX_PARITY:-0}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BPF_OBJ="$SCRIPT_DIR/bpf_flow.kern.o"
 XDP2_BPF_OBJ="$SCRIPT_DIR/flow_dissector.bpf.o"
@@ -115,7 +120,10 @@ emit_cell_json() {
     local mpps_num="${mpps%% *}"
     [[ "$nspkt_num" =~ ^[0-9]+$ ]] || nspkt_num="null"
     [[ "$mpps_num"  =~ ^[0-9]+$ ]] || mpps_num="null"
-    printf '{"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s"}\n' \
+    # parity_ok / parity_disagreements default null until the post-sweep
+    # parity hook (Phase 17.E) overwrites them. Always present so the
+    # schema stays uniform.
+    printf '{"mode":"%s","pcap":"%s","ns_per_pkt":%s,"mpps":%s,"iterations":%s,"build_hash":"%s","kernel":"%s","nic_driver":"%s","nic_firmware":"%s","parity_ok":null,"parity_disagreements":null}\n' \
         "$mode" "$PCAP_BASENAME" "$nspkt_num" "$mpps_num" "$ITER" \
         "$BUILD_HASH" "$KERNEL_RELEASE" "$NIC_DRIVER" "$NIC_FIRMWARE" \
         > "$JSON_OUT/$PCAP_BASENAME/$mode.json"
@@ -233,6 +241,51 @@ emit_cell_json "rust-simd"          "$SIMD_NSPKT"       "$SIMD_MPPS"
 emit_cell_json "rust-template"      "$TEMPLATE_NSPKT"   "$TEMPLATE_MPPS"
 emit_cell_json "rust-template-simd" "$TSIMD_NSPKT"      "$TSIMD_MPPS"
 echo ""
+
+# ─── Phase 17.E parity hook ──────────────────────────────────────
+# Standalone-script equivalent of nix/xdp2-rs-matrix.nix's parity
+# hook. Skips silently if jq or flow-dissector-parity-check are
+# missing — this script's contract is "drive the matrix without
+# Nix"; parity is opt-in.
+if [[ "$PARITY_ENABLED" == "1" ]]; then
+    if [[ -z "$JSON_OUT" ]]; then
+        echo "[parity] XDP2_MATRIX_PARITY=1 set but no -j / XDP2_MATRIX_JSON_OUT — skipping" >&2
+    elif ! command -v flow-dissector-parity-check >/dev/null 2>&1; then
+        echo "[parity] flow-dissector-parity-check not on PATH — skipping (use the Nix wrapper, or 'nix run .#flow-dissector-parity-check')" >&2
+    elif ! command -v jq >/dev/null 2>&1; then
+        echo "[parity] jq not on PATH — skipping" >&2
+    else
+        echo "--- Running parity check on $PCAP_BASENAME ---"
+        PARITY_OUT="$TMPDIR/parity"
+        mkdir -p "$PARITY_OUT"
+        PARITY_PARSERS="c-flowdis-usp,c-xdp2-usp,c-xdp2-parse-only,c-bpf-xdp2,rust-graph,rust-graph-enum,rust-mono,rust-mono-x4,rust-compiled,rust-simd,rust-template,rust-template-simd"
+        if flow-dissector-parity-check \
+                --pcap "$INPUT_PCAP" \
+                --out  "$PARITY_OUT" \
+                --parsers "$PARITY_PARSERS" \
+                > "$PARITY_OUT/driver.log" 2>&1; then
+            PARITY_OK="true"
+        else
+            PARITY_OK="false"
+        fi
+        PARITY_DISAGREEMENTS="null"
+        if [[ -f "$PARITY_OUT/parity-report.csv" ]]; then
+            local_lines=$(wc -l < "$PARITY_OUT/parity-report.csv")
+            if [[ "$local_lines" =~ ^[0-9]+$ ]] && [[ "$local_lines" -ge 1 ]]; then
+                PARITY_DISAGREEMENTS=$((local_lines - 1))
+            else
+                PARITY_DISAGREEMENTS="0"
+            fi
+        fi
+        echo "[parity] $PCAP_BASENAME: parity_ok=$PARITY_OK parity_disagreements=$PARITY_DISAGREEMENTS"
+        for cell in "$JSON_OUT/$PCAP_BASENAME"/*.json; do
+            [[ -f "$cell" ]] || continue
+            jq --argjson ok "$PARITY_OK" --argjson d "$PARITY_DISAGREEMENTS" \
+                '. + {parity_ok: $ok, parity_disagreements: $d}' \
+                "$cell" > "$cell.tmp" && mv "$cell.tmp" "$cell"
+        done
+    fi
+fi
 
 # ─── Unified table ───────────────────────────────────────────────
 echo "================================================================="

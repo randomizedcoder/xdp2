@@ -60,8 +60,9 @@ pkgs.writeShellApplication {
                       XDP2_MATRIX_JSON_OUT). Without --exec, `nix build`
                       succeeds and the target never executes. Also
                       propagates XDP2_MATRIX_PCAP / XDP2_MATRIX_SMOKE /
-                      XDP2_NIC_DRIVER / XDP2_NIC_FIRMWARE from the local
-                      env over ssh, and sets XDP2_MATRIX_JSON_OUT to
+                      XDP2_NIC_DRIVER / XDP2_NIC_FIRMWARE /
+                      XDP2_MATRIX_PARITY from the local env over ssh,
+                      and sets XDP2_MATRIX_JSON_OUT to
                       ~/<remote_path>/result/cells/ so JSONs ride back
                       via the existing result/ rsync.
       HOST            SSH-reachable host (e.g. hp2, hp5, root@1.2.3.4).
@@ -299,7 +300,7 @@ pkgs.writeShellApplication {
           # JSON_OUT is the rsync-back root, not a `cells/` subdir.
           local env_prefix=""
           local var val
-          for var in XDP2_MATRIX_PCAP XDP2_MATRIX_SMOKE XDP2_NIC_DRIVER XDP2_NIC_FIRMWARE; do
+          for var in XDP2_MATRIX_PCAP XDP2_MATRIX_SMOKE XDP2_NIC_DRIVER XDP2_NIC_FIRMWARE XDP2_MATRIX_PARITY; do
             val="''${!var:-}"
             if [ -n "$val" ]; then
               # printf %q for safety against spaces/special chars in val.
