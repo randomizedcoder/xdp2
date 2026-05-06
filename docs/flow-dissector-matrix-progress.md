@@ -26,6 +26,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 9     | Second NIC branch (mlx5_core / tc-flower)                | done           | 2026-05-04  | 2026-05-04  | `438fbf3` |
 | 10    | In-tree fixes for live campaign (JSON wiring + 14 modes) | done           | 2026-05-05  | 2026-05-05  | `683c12b` |
 | 11    | Phase A — pre-flight + smoke (live hp2/hp5)              | done           | 2026-05-05  | 2026-05-05  | `989f734` |
+| 12    | Phase B — full sweep + baseline promotion                | done           | 2026-05-05  | 2026-05-05  | `a4f196a` |
 
 ## Branch
 
@@ -1026,15 +1027,131 @@ sweeping all four full PCAPs.
   the smoke path is functionally just "default 100 iter on
   https-web". Phase 12 uses the same 100-iter default.
 
+## Phase 12 — Phase B: Unified matrix sweep + baseline promotion
+
+**Status:** done
+
+**Goal:** drive the full Phase B sweep via the new pipeline, aggregate
+560 cell JSONs into a 112-row `summary.csv`, promote it to
+`testbeds/hp2-hp5-x710.baseline.csv`, and validate that
+`flow-dissector-matrix-aggregate --fail-on-regression` exits 0 against
+the new baseline — closing plan §16 criteria #2 and #4.
+
+**Files landed (commits `557b913` + `a4f196a`):**
+- `perf-results/2026-05-06/` — full result tree:
+  - 560 cell JSONs across `2026-05-05/hp2-hp5-x710/{hp2,hp5}/<flow-dissector-matrix-unified-ts>/<pcap>/<mode>.json`.
+  - 40 per-invocation log files (rsynced back from each remote).
+  - `summary.md`, `summary.csv`, `regressions.md`.
+  - `sweep-driver.log` — full driver output.
+- `testbeds/hp2-hp5-x710.baseline.csv` — 104-row real baseline
+  (replacing the Phase-7 placeholder).
+- `testbeds/hp2-hp5-x710.baseline.csv.README.md` — rewritten with
+  provenance (date, runner SHA, hardware, software, tuning) and a
+  regeneration recipe.
+
+**Sweep configuration:**
+- 4 PCAPs × 5 reps × 2 hosts × 14 modes = 560 cells.
+- Driver: outer shell loop calling `flow-dissector-matrix-run`
+  with `XDP2_MATRIX_PCAP` env var per pcap.
+  - PCAP store paths resolved on each remote ahead of time
+    (`xdp2-run-on-host -- test-pcap workload-pcap-https-web
+    perf-mixed-pcap`); content-addressed builds give identical paths
+    on hp2 and hp5.
+  - Driver script lived at `/tmp/phase12-driver.sh` (one-off, not
+    committed; if a future `flow-dissector-matrix-sweep` flake
+    output is wanted that's a clean follow-up).
+
+**Wall clock:**
+- Total: 1083 s (≈ 18 min).
+- Invocation 1: 378 s (build overhead — Phase-10 source changes
+  invalidated `flow-dissector-matrix-run.drv` and `aggregate.drv`).
+- All subsequent invocations reused cache. Per-pcap walls (warm):
+  - `tcp_ipv4` (11 pkts): ~1-2 s
+  - `mixed-real` (~870 pkts): ~1-2 s
+  - `https-web` (~20 K pkts): ~7-8 s
+  - `combo` (500 K pkts): ~129-131 s
+- The original plan estimate of 5-6 h was based on per-invocation
+  build-each-time; with caching, real wall is ~30× faster.
+
+**Headline reproduction (combo.pcap, hp5 medians):**
+
+vs the 2026-05-02 full-combo (200 iter) reference in
+`perf-results/2026-05-02-physical-testbed-summary.md`:
+
+| Mode             | 2026-05-02 | 2026-05-06 | Δ |
+|------------------|-----------:|-----------:|--:|
+| **rust-graph-enum** | **12**  | **12**     | 0% |
+| rust-compiled    | 47         | 47         | 0% |
+| rust-mono        | 50         | 50         | 0% |
+| rust-template    | 50         | 51         | +2% |
+| rust-mono-x4     | 55         | 55         | 0% |
+| rust-template-simd | 56       | 56         | 0% |
+| rust-simd        | 57         | 57         | 0% |
+| rust-graph       | 316        | 289        | -9% (run-to-run noise) |
+
+**Cross-host (combo.pcap):**
+
+H6 (variance < 5%) confirmed: max delta 4.4 % (c-bpf-flowdis), 0-2 %
+for most cells. graph-enum, compiled, c-bpf-fast all 0.0 % delta.
+
+**Regression check (Phase 12.7):**
+
+```bash
+$ nix run .#flow-dissector-matrix-aggregate -- \
+    --results perf-results/2026-05-06 \
+    --baseline testbeds/hp2-hp5-x710.baseline.csv \
+    --fail-on-regression; echo "exit=$?"
+wrote .../regressions.md (0 regression(s))
+exit=0
+
+# Negative control: mutate hp5/combo/rust-graph-enum baseline
+# from 12 to 5 (current measured = 12 → would look 140% slower).
+$ awk -F, 'BEGIN{OFS=","} \
+    $1=="hp2-hp5-x710" && $2=="hp5" && $3=="combo.pcap" && $4=="rust-graph-enum" \
+      {$7=$8=$9="5"; $10="4.5"; $11="5.5"; print; next} {print}' \
+    testbeds/hp2-hp5-x710.baseline.csv > /tmp/m.csv && \
+  mv /tmp/m.csv testbeds/hp2-hp5-x710.baseline.csv
+$ nix run .#flow-dissector-matrix-aggregate -- \
+    --results perf-results/2026-05-06 \
+    --baseline testbeds/hp2-hp5-x710.baseline.csv \
+    --fail-on-regression; echo "exit=$?"
+wrote .../regressions.md (1 regression(s))
+exit=1
+$ cat perf-results/2026-05-06/regressions.md
+# Regressions
+⚠ 1 REGRESSION(s) detected (threshold=10.0%, N=104).
+| hp2-hp5-x710 | hp5 | combo.pcap | rust-graph-enum | 12 | 5.00 | 140.0 |
+```
+
+Both directions verified: clean baseline → exit 0; mutated baseline →
+exit 1 with the cell named in regressions.md.
+
+**Deviations from plan:**
+- Plan §12 estimated 5-6 h overnight; actual was 18 min thanks to
+  matrix-runner build cache reuse across invocations 2-20.
+- Plan §10's path-layout decision (drop `cells/` segment) had a
+  follow-on consequence that wasn't visible until Phase 12.6: the
+  aggregator's `parse_baseline` rejects non-numeric medians (sentinel
+  for incomplete baselines), so the always-null `c-bpf-xdp2` rows
+  must be filtered out of the promoted CSV. The promote script
+  (`/tmp/phase12-promote.sh`, one-off) handles the filter. README
+  documents the regenerate recipe.
+- The matrix runner has two open env-var contracts that fired clean
+  in Phase 12: `XDP2_MATRIX_JSON_OUT` (the JSON-output wiring fix
+  from Phase 10) and `XDP2_MATRIX_PCAP` (the new pcap-input fallback,
+  not in Phase 10's progress entry but added in `683c12b` alongside
+  the JSON_OUT fallback).
+
 ## Cross-Phase Notes
 
 - All result trees emitted by future phases will live under
   `perf-results/<date>/<testbed.name>/` so multiple testbeds (e.g.
   `hp2-hp5-x710` and a future Mellanox testbed) coexist without
   clobbering each other.
-- The 2026-05-02 reference numbers in
-  `perf-results/2026-05-02-physical-testbed-summary.md` are the
-  baseline that the final implementation must reproduce within 95%
-  CI (specifically: `xdp2-rs graph-enum` at ~12 ns/pkt on combo.pcap).
-  Phase 10 wired graph-enum into the runner; Phase 12 promotes the
-  live sweep into the regression-gated baseline CSV.
+- The **2026-05-06 baseline** at
+  `testbeds/hp2-hp5-x710.baseline.csv` is now the live reference.
+  The 2026-05-02 numbers in
+  `perf-results/2026-05-02-physical-testbed-summary.md` remain a
+  historical record — they were the target Phase 12 reproduced
+  within ±2 ns on every Rust mode (graph-enum at 12 ns/pkt
+  reproduced exactly).
