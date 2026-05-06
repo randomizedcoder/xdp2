@@ -1,0 +1,79 @@
+=== Pre-flight on hp5 (DUT) ===
+=== hp5 at 2026-05-05T21:07:39-07:00 ===
+--- 1. CPU isolation ---
+isolcpus=2,3,4,5,6,7
+nohz_full=2,3,4,5,6,7
+rcu_nocbs=2,3,4,5,6,7
+mitigations=off
+--- 2. CPU governor (unique values) ---
+performance
+--- 3. THP ---
+always madvise [never]
+--- 4a. NIC ring sizes (enp1s0f0np0) ---
+RX:			8160
+TX:			8160
+RX:			4096
+TX:			4096
+--- 4b. NIC queue count (enp1s0f0np0) ---
+Combined:	8
+Current hardware settings:
+--
+Combined:	6
+--- 4c. NIC offloads off (enp1s0f0np0) ---
+tcp-segmentation-offload: off
+generic-segmentation-offload: off
+generic-receive-offload: off
+large-receive-offload: off [fixed]
+--- 5. BPF JIT ---
+net.core.bpf_jit_enable = 1
+--- 6. Noisy services ---
+inactive
+inactive
+inactive
+--- 7. Kernel + uname ---
+Linux 7.0.1 x86_64
+--- 8. perf_event_paranoid (needed for --perf) ---
+kernel.perf_event_paranoid = 0
+--- 9. xdp2 working tree state (~/xdp2) ---
+bash: line 27: git: command not found
+  (HEAD: no-git )
+
+=== Pre-flight on hp2 (generator) ===
+=== hp2 at 2026-05-05T21:07:39-07:00 ===
+--- 1. CPU isolation ---
+isolcpus=2,3,4,5,6,7
+nohz_full=2,3,4,5,6,7
+rcu_nocbs=2,3,4,5,6,7
+mitigations=off
+--- 2. CPU governor (unique values) ---
+performance
+--- 3. THP ---
+always madvise [never]
+--- 4a. NIC ring sizes (enp1s0f0np0) ---
+RX:			8160
+TX:			8160
+RX:			4096
+TX:			4096
+--- 4b. NIC queue count (enp1s0f0np0) ---
+Combined:	8
+Current hardware settings:
+--
+Combined:	6
+--- 4c. NIC offloads off (enp1s0f0np0) ---
+tcp-segmentation-offload: off
+generic-segmentation-offload: off
+generic-receive-offload: off
+large-receive-offload: off [fixed]
+--- 5. BPF JIT ---
+net.core.bpf_jit_enable = 1
+--- 6. Noisy services ---
+inactive
+inactive
+inactive
+--- 7. Kernel + uname ---
+Linux 7.0.1 x86_64
+--- 8. perf_event_paranoid (needed for --perf) ---
+kernel.perf_event_paranoid = 0
+--- 9. xdp2 working tree state (~/xdp2) ---
+bash: line 27: git: command not found
+  (HEAD: no-git )
