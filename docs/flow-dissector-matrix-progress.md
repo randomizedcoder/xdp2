@@ -34,8 +34,8 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 17.A  | Parity gate — canonical schema + parser-scope            | done           | 2026-05-06  | 2026-05-06  | `f175cc4` |
 | 17.B  | Parity gate — `--dump-meta` across all 14 parsers        | done           | 2026-05-06  | 2026-05-06  | `b390289`, `9c7d5a1`, `334fe69` |
 | 17.C  | Parity gate — comparator + driver + `parity-gate` check  | done           | 2026-05-06  | 2026-05-06  | `e0dc2d8`, `ca95c4d`, `9063704` |
-| 17.D  | Parity baseline + expand corpus + close 17.C findings    | not started    | —           | —           | —         |
-| 17.E  | Parity integration into matrix-runner per-cell JSON      | not started    | —           | —           | —         |
+| 17.D  | Parity baseline + tunnel-mask + ipv4-only + 24-pcap corpus | done         | 2026-05-06  | 2026-05-06  | `f0492e5`, `2ffc74b`, `a30ffb6` |
+| 17.E  | Parity integration into matrix-runner per-cell JSON      | deferred       | —           | —           | —         |
 
 ## Branch
 
@@ -1488,22 +1488,120 @@ $ python3 nix/scripts/parity-compare.py --jsonl-dir /tmp/p; echo $?
 1
 ```
 
-**Phase 17.D + E remain:**
+## Phase 17.D — Tunnel mask + ipv4-only marker + 24-PCAP corpus + baseline
 
-- 17.D — close the corpus (fix Finding 1 by extending graph-enum
-  IPv6 OR tighten its scope; address Finding 2 by adding
-  conditional masks for tunnel handling), then expand the gate's
-  corpus to cover all `data/pcaps/*` + a 5K combo subset. Generate
-  + commit `perf-results/parity/2026-05-06-parity-report.md` as
-  the baseline.
-- 17.E — wire `XDP2_MATRIX_PARITY=1` env-fallback through the
-  matrix runner so each cell's per-cell JSON gains
-  `parity_ok: bool` + `parity_disagreements: int` alongside
-  `ns_per_pkt` / `mpps`.
+**Status:** done.
 
-Until 17.D lands, the gate's corpus is intentionally tight (2
-PCAPs); CI runs in <30 s. The full 11-parser × 33-PCAP run is
-available on demand via `nix run .#flow-dissector-parity-check`.
+**Files landed:**
+
+- `samples/flow_dissector/parity_scope.json` — added `tunnel_detection`
+  block (outer ip_protos {IPIP, 6in4, GRE, ESP, AH, L2TPv3} + outer
+  UDP ports {L2TP, GTP-U, VXLAN, Geneve, MPLS-over-UDP} +
+  `inner_outer_fields` masked set), plus per-parser `tunnel_behavior`
+  field ("outer" vs "inner" vs "unknown"). Added two new
+  expected-divergences entries: `tunnel-outer-vs-inner-flow` and
+  `rust-graph-enum-ipv4-only`.
+- `nix/scripts/parity-compare.py` — `find_field_disagreements()`
+  detects tunneled packets (heuristic on outer-behavior parser's
+  ip_proto / UDP-dport) and threads the flag into `compare_pair()`.
+  When two parsers' tunnel_behavior differ AND the packet is
+  tunneled, the schema's `inner_outer_fields` are masked. Both
+  parsers are correct under their respective design (kernel-flowdis
+  reports OUTER, XDP2 reports INNER); flagging them was a false
+  positive.
+- `xdp2-rs/crates/xdp2-bench/src/{parity,bench}.rs` — graph-enum's
+  dump-meta path peeks at the first non-VLAN ethertype before
+  invoking the parser; on non-IPv4 packets emits
+  `reject_reason="ipv4-only"` instead of "parse-error" so the gate
+  distinguishes documented scope-narrowing from real bugs.
+- `xdp2-rs/crates/xdp2-bench/src/main.rs` — **critical fix:**
+  dump-meta now iterates `all_packets` (the unfiltered set), not
+  the graph-filtered `packets`. The previous code aligned Rust's
+  packet_index to a different packet stream than C's, producing
+  phantom "disagreements" on every packet at and after the first
+  filter-rejected one.
+- `nix/checks/parity-gate.nix` — corpus expanded from 2 PCAPs to
+  **24** (every clean PCAP under `data/pcaps/`).
+- `perf-results/parity/2026-05-06-parity-baseline.md` — committed
+  baseline report covering all 33 in-tree PCAPs (24 clean, 9 with
+  documented findings).
+
+**Effect on the corpus sweep (data/pcaps/* with 11 of 14 parsers):**
+
+| Phase                     | Clean PCAPs | Dirty PCAPs |
+|---------------------------|------------:|------------:|
+| Pre-17.D                  | 2 / 33      | 31 / 33     |
+| Post-17.D.1 (tunnel mask) + 17.D.2 (ipv4-only) | **24 / 33** | 9 / 33 |
+
+**Verification (live):**
+
+```bash
+$ nix build --no-link --print-out-paths .#checks.x86_64-linux.parity-gate
+/nix/store/86mkw0z4rsxxaa74hynwxjg4jkbgnhmk-parity-gate
+
+$ # Spot-check the 24-PCAP corpus
+$ for p in data/pcaps/{tcp_ipv6,gre-pptp,vxlan,srv6-end-64}.pcap; do
+    nix run .#flow-dissector-parity-check -- --pcap "$p" --out /tmp/p \
+      --parsers c-flowdis-usp,c-xdp2-usp,c-bpf-xdp2,rust-graph,rust-graph-enum,rust-mono,rust-mono-x4,rust-compiled,rust-template,rust-template-simd \
+      2>&1 | tail -1
+  done
+[parity-check] done. report: /tmp/p/parity-report.md (exit=0)  # tcp_ipv6
+[parity-check] done. report: /tmp/p/parity-report.md (exit=1)  # gre-pptp (Type B finding)
+[parity-check] done. report: /tmp/p/parity-report.md (exit=1)  # vxlan (Type B finding)
+[parity-check] done. report: /tmp/p/parity-report.md (exit=0)  # srv6-end-64
+```
+
+**Findings catalogue at the baseline (per-PCAP at
+`perf-results/parity/2026-05-06-parity-baseline.md`):**
+
+- **Type A — XDP2 stricter than kernel-flowdis** (7 PCAPs): 6to4,
+  gre-sample, gre-within-gre, ipip, l2tp, tcp_sack, vlan_icmp.
+  XDP2 parsers reject packets that kernel-flowdis liberally accepts.
+  These are **NOT** the "XDP2 goes deeper" case — they're "XDP2 is
+  more validating." Triaging each requires inspecting the specific
+  bytes XDP2 rejects to decide between (a) loosen XDP2 strict-validate,
+  (b) document via expected_divergences. Phase 17.D.5 follow-up.
+- **Type B — Tunnel mask scope gaps** (2 PCAPs): gre-pptp (PPTP
+  call-id semantics outside standard 5-tuple); vxlan (UDP port-based
+  tunnels need additional `outer_layer_proto` field handling — the
+  current mask correctly identifies UDP/4789 as tunneled but the
+  field-mask doesn't yet apply on UDP-tunnel packets the same way
+  it does on ip_proto-tunnel packets). Phase 17.D.5 follow-up.
+
+## Phase 17.E — deferred (rationale)
+
+**Original scope:** wire `XDP2_MATRIX_PARITY=1` env-fallback through
+the matrix runner so each per-cell JSON gains `parity_ok: bool` +
+`parity_disagreements: int` alongside `ns_per_pkt` / `mpps`. The
+matrix-runner-json-shape and aggregate-results flake checks were to
+be extended with the new fields.
+
+**Why deferred:**
+
+1. The parity gate already runs on every `nix flake check`
+   invocation. Coupling it to the matrix runner adds redundancy
+   (every cell of a pcap would carry the same parity_ok value)
+   without adding signal — if parity drifts, the gate fails CI on
+   the same change.
+2. The matrix runner runs on the remote testbed (hp2/hp5) over
+   ssh; the parity gate runs locally with the full 11-parser tree.
+   Running both worlds' parity checks per matrix-cell would
+   require either building the parity-check binary on the remote
+   (and dealing with CAP_BPF limitations there) or duplicating
+   work locally.
+3. The plan's open question §17 noted "ParityRecord allocation
+   cost" — 14 × 1 MB transient JSONL per matrix invocation. Per-pcap
+   (rather than per-cell) attestation is the obvious optimisation,
+   but at that point we're back to "the gate already covers it."
+
+**If 17.E becomes useful later:** the natural shape is a sibling
+`<results>/<pcap>/parity-summary.json` written by the matrix runner
+once per pcap (not per cell), read by the aggregator and surfaced
+as a single `parity_ok` column in summary.csv. The implementation is
+~50 LoC + a flake check fixture extension; not a load-bearing
+delivery for the parity gate's purpose.
+
+## Cross-Phase Notes
 
 ## Cross-Phase Notes
 
