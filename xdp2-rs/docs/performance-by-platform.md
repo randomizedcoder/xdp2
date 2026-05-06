@@ -90,6 +90,66 @@ per-thread workloads are sub-optimal. Re-measure with larger PCAPs for
 production sizing. Previous pre-parity measurements showed near-linear
 scaling to 16 threads; expect similar shape with lower per-thread throughput.
 
+### AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t)
+
+Measured 2026-05-06 on the dedicated `hp2-hp5-x710` lab testbed
+(2× Ryzen 5 PRO 2400G hosts, Intel X710 10 GbE, NixOS 26.05 / kernel
+7.0.1, `mitigations=off` + `isolcpus=2-7` + `nohz_full=2-7`). Full
+narrative: `perf-results/2026-05-06-physical-testbed-summary.md`.
+Regression-gated baseline:
+[`testbeds/hp2-hp5-x710.baseline.csv`](../../testbeds/hp2-hp5-x710.baseline.csv).
+
+**Single-threaded headline (combo.pcap, 500K mixed-protocol packets,
+matrix runner with 100 iterations × 5 reps), hp5 medians:**
+
+| Mode | ns/pkt | Mpps | IPC | branch-miss% |
+|------|-------:|-----:|----:|-------------:|
+| **graph-enum** | **12** | **81** | 2.55* | 0.4%* |
+| compiled       | 47     | 21    | 1.22  | 6.19% |
+| mono           | 50     | 20    | 1.28  | 5.91% |
+| template       | 51     | 20    | 1.09  | 6.50% |
+| mono-x4        | 55     | 18    | 1.16  | 6.16% |
+| template-simd  | 56     | 18    | 0.84  | 7.98% |
+| simd           | 57     | 18    | 1.18  | 6.62% |
+| graph          | 289    | 3     | 1.31  | 3.89% |
+
+\* graph-enum's PMU breakdown is from a separate `xdp2-bench --mode
+graph-enum --perf` run captured 2026-05-02 (perf-sweep's `--mode both`
+doesn't iterate graph-enum); the 12 ns/pkt headline is independently
+reproduced by the matrix runner (Phase 12, c070ca9 baseline).
+
+**Cross-pcap (hp5 medians, ns/pkt; smallest = winner per row):**
+
+| Mode               | tcp_ipv4 (11) | https-web (20K) | mixed-real (~870) | combo (500K) |
+|--------------------|--------------:|----------------:|------------------:|-------------:|
+| **graph-enum**     | **22**        | 78              | **18**            | **12**       |
+| compiled           | 22            | 82              | 53                | 47           |
+| mono               | 24            | 82              | 48                | 50           |
+| template           | **17**        | 77              | 21                | 51           |
+| template-simd      | 19            | **74**          | 19                | 56           |
+| simd               | 29            | 42              | 65                | 57           |
+| graph (vtable)     | 218           | 266             | 464               | 289          |
+| c-bpf-fast         | 24            | 23              | 21                | **18**       |
+| c-flowdis-usp      | 26            | 122             | 67                | 162          |
+
+graph-enum is the **strongest mode on heterogeneous traffic**
+(combo, mixed-real); template variants win on small or single-stack
+pcaps where match rate approaches 100 %. graph (trait-object dynamic
+dispatch) is 6× slower than graph-enum across the board — vtable
+overhead is a significant tax that enum-tag dispatch removes.
+
+**Cross-host reproducibility (combo.pcap, hp2 vs hp5):**
+mean delta 1.6 %, max 4.4 % (c-bpf-flowdis); graph-enum, compiled,
+c-bpf-fast all read **identical** between the two hosts.
+
+**Comparison vs Threadripper Zen 2:** the 2026-05-06 Zen 1 data
+isn't directly comparable to the Zen 2 numbers above because the
+2026-04-14 Zen 2 sweep used per-mode `xdp2-bench` invocations on a
+different filtered pcap (the 89%-acceptance pre-22d3448 filter
+left ~445K packets), while the 2026-05-06 matrix uses 100% of
+combo.pcap (post-22d3448). For directly-comparable Zen 1 vs Zen 2,
+re-run the matrix on the Zen 2 host with the same pipeline.
+
 ### (placeholder) AMD EPYC
 
 _Not yet measured._
