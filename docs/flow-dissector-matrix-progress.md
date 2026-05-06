@@ -31,6 +31,11 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 14    | Phase D — tuned-vs-untuned (lowJitter sensitivity)       | deferred       | —           | —           | —         |
 | 15    | Phase E — AF_XDP live load sweep                         | done           | 2026-05-05  | 2026-05-05  | `c070ca9` |
 | 16    | Deliverables D1-D7 + 2026-05-06 narrative + archive      | done           | 2026-05-05  | 2026-05-05  | `32bf8d8` |
+| 17.A  | Parity gate — canonical schema + parser-scope            | done           | 2026-05-06  | 2026-05-06  | `f175cc4` |
+| 17.B  | Parity gate — `--dump-meta` across all 14 parsers        | done           | 2026-05-06  | 2026-05-06  | `b390289`, `9c7d5a1`, `334fe69` |
+| 17.C  | Parity gate — comparator + driver + `parity-gate` check  | done           | 2026-05-06  | 2026-05-06  | `e0dc2d8`, `ca95c4d`, `9063704` |
+| 17.D  | Parity baseline + expand corpus + close 17.C findings    | not started    | —           | —           | —         |
+| 17.E  | Parity integration into matrix-runner per-cell JSON      | not started    | —           | —           | —         |
 
 ## Branch
 
@@ -1381,6 +1386,124 @@ work (open questions tracked in `2026-05-06-physical-testbed-summary.md`):
   `xdp2-bench --mode graph-enum --perf` per (host, pcap) to extend T5.
 - Mellanox live: `testbeds/example-mellanox-cx4.toml` + nic-tuning
   mlx5_core branch are ready; needs Mellanox hardware.
+
+## Phase 17 — Cross-parser parity gate (sub-phases A through C done)
+
+**Status:** A, B, C done; D, E pending.
+
+**Goal:** add a second-level verification — a parity gate — that
+proves every flow-dissector implementation produces identical
+extracted output for every packet, complementing the matrix
+campaign's `ns/pkt`/`Mpps` measurements. See `docs/flow-dissector-parity.md`
+for the full design + the live "Phase 17.C findings" catalog.
+
+**What landed (commits in chronological order):**
+
+- `f175cc4` (17.A) — canonical schema:
+  `samples/flow_dissector/parity_scope.json` (36 fields, 14 parsers,
+  6 expected-divergence entries), `parity_schema.h` (C side, 36-bit
+  field-presence + JSONL emitter), `xdp2-rs/crates/xdp2-bench/src/parity.rs`
+  (Rust side, 4 unit tests pass), `nix/scripts/parity-compare.py`
+  (skeleton + 13 unit tests pass).
+- `b390289` (17.B.Rust) — `--dump-meta <path>` and
+  `--dump-meta-only` flags in xdp2-bench. Each of the 8 Rust modes
+  emits one ParityRecord per packet via `bench::dump_meta_pass`.
+  Smoke on `tcp_ipv4.pcap`: graph + compiled + template all agree
+  byte-for-byte (zero disagreements across 11 packets × 3 pairs).
+- `9c7d5a1` (17.B.C) — `-D <path>` flag in `benchmark.c`. Runs
+  kernel-flowdis + XDP2 C + XDP2 C parse-only per packet. Surfaced
+  the **`thoff` vs `l*_off` reference-frame issue** on first run
+  (C parser invoked at etype offset reports relative offsets;
+  Rust reports absolute). Fixed by translating absolute offsets
+  in `parity_fill_from_metadata` — zero disagreements after the
+  fix across 6 parsers × 11 packets × 15 pairs (165 comparisons).
+- `334fe69` (17.B.BPF) — `-D <path>` and `-P <parser-id>` flags in
+  `benchmark_bpf.c`. Detects `BPF_FLOW_DISSECTOR_CONTINUE` for
+  `c-bpf-fast` and emits `accept_path="slow"` +
+  `reject_reason="no-fast-path-chain"` (per `parity_scope.json`'s
+  expected divergence). Local smoke skipped (CAP_BPF unavailable);
+  build verified clean.
+- `e0dc2d8` (17.C.1) — full symmetric all-vs-all comparator with
+  cluster reporting. Emits `parity-report.{md,csv}` with acceptance
+  matrix, pairwise field-disagreement counts, sample rows, and
+  rejection-reason distribution flagging documented vs unexpected.
+  Negative control: mutating one parser's dport in 6 packets →
+  comparator flags 30 disagreements (5 pairs × 6 packets), exit 1.
+- `ca95c4d` (17.C.2) — `flow-dissector-parity-check` driver
+  (`writeShellApplication` at `nix/flow-dissector-parity-check.nix`).
+  For each parser_id, dispatches to xdp2-bench / benchmark /
+  benchmark_bpf with the right flags, then runs the comparator over
+  the resulting JSONL tree. Includes `nix/parity-compare.nix`
+  (vendored-scope wrapper) and `nix/scripts/pcap-count.py` (used
+  to size synthesized records for verifier-rejected `c-bpf-xdp2`).
+- `9063704` (17.C.3) — `nix/checks/parity-gate.nix` flake check
+  wired into `nix flake check`. Initial corpus: `tcp_ipv4.pcap` +
+  `icmp_ipv4.pcap`. 11 of 14 parsers (BPF parsers excluded — Nix
+  sandbox doesn't grant CAP_BPF). Asserts zero unexpected
+  disagreements; tripping the gate means a parser's extracted
+  FlowMeta drifted.
+
+**Phase 17.C findings** — three real issues the gate caught while
+ramping up. All three are documented in
+`docs/flow-dissector-parity.md` "Phase 17.C findings":
+
+1. `rust-graph-enum` rejects every IPv6 packet (parse-error). The
+   2026-05-02 12 ns/pkt headline came from combo.pcap (IPv4-
+   dominant); IPv6 corpus exposes graph-enum's table doesn't
+   cover IPv6. Schema scope claims full FlowMeta — provably wrong
+   today.
+2. Kernel-flowdis stops at OUTER 5-tuple on tunnel-encapsulated
+   packets (GRE, VXLAN, Geneve), while XDP2 + xdp2-rs follow the
+   tunnel. By design (`benchmark.c:264-277`) but not in
+   `parity_scope.json:expected_divergences`. Adding the per-packet
+   conditional mask is Phase 17.D follow-up.
+3. (Caught + fixed during 17.B.C) `thoff` reference-frame
+   mismatch.
+
+**Verification:**
+
+```bash
+# All 6 flake checks pass at HEAD
+$ nix build --no-link --print-out-paths \
+    .#checks.x86_64-linux.{nic-tuning-eval,matrix-runner-json-shape,
+                          aggregate-results,matrix-check-smoke,
+                          afxdp-live-smoke,parity-gate}
+/nix/store/<hash>-nic-tuning-eval-ok
+/nix/store/<hash>-matrix-runner-json-shape
+/nix/store/<hash>-aggregate-results-test
+/nix/store/<hash>-matrix-check-smoke
+/nix/store/<hash>-afxdp-live-smoke
+/nix/store/<hash>-parity-gate
+
+# Full single-pcap parity check (any host)
+$ nix run .#flow-dissector-parity-check -- \
+    --pcap data/pcaps/tcp_ipv4.pcap --out /tmp/p
+[parity-check] done. report: /tmp/p/parity-report.md (exit=0)
+$ jq '.records, .field_diffs, .accept_diffs' </tmp/p/parity-report.csv
+# 121 records, 0 field, 0 accept
+
+# Negative control
+$ sed -i 's/"dport":43/"dport":9999/' /tmp/p/rust-graph.jsonl
+$ python3 nix/scripts/parity-compare.py --jsonl-dir /tmp/p; echo $?
+1
+```
+
+**Phase 17.D + E remain:**
+
+- 17.D — close the corpus (fix Finding 1 by extending graph-enum
+  IPv6 OR tighten its scope; address Finding 2 by adding
+  conditional masks for tunnel handling), then expand the gate's
+  corpus to cover all `data/pcaps/*` + a 5K combo subset. Generate
+  + commit `perf-results/parity/2026-05-06-parity-report.md` as
+  the baseline.
+- 17.E — wire `XDP2_MATRIX_PARITY=1` env-fallback through the
+  matrix runner so each cell's per-cell JSON gains
+  `parity_ok: bool` + `parity_disagreements: int` alongside
+  `ns_per_pkt` / `mpps`.
+
+Until 17.D lands, the gate's corpus is intentionally tight (2
+PCAPs); CI runs in <30 s. The full 11-parser × 33-PCAP run is
+available on demand via `nix run .#flow-dissector-parity-check`.
 
 ## Cross-Phase Notes
 
