@@ -35,7 +35,7 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 17.B  | Parity gate — `--dump-meta` across all 14 parsers        | done           | 2026-05-06  | 2026-05-06  | `b390289`, `9c7d5a1`, `334fe69` |
 | 17.C  | Parity gate — comparator + driver + `parity-gate` check  | done           | 2026-05-06  | 2026-05-06  | `e0dc2d8`, `ca95c4d`, `9063704` |
 | 17.D  | Parity baseline + tunnel-mask + ipv4-only + 24-pcap corpus | done         | 2026-05-06  | 2026-05-06  | `f0492e5`, `2ffc74b`, `a30ffb6` |
-| 17.E  | Parity integration into matrix-runner per-cell JSON      | done           | 2026-05-06  | 2026-05-06  | (pending) |
+| 17.E  | Parity integration into matrix-runner per-cell JSON      | done           | 2026-05-06  | 2026-05-06  | `3cad958` |
 
 ## Branch
 
