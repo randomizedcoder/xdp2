@@ -672,6 +672,11 @@
           # ===================================================================
           flow-dissector-parity-check = flowDissectorParityCheck;
           parity-compare = parityCompare;
+          # Note: the existing `xdp2-rs-golden` flake output (defined at
+          # line 920) is the natural place to alias to
+          # flow-dissector-parity-check; that's a follow-up refactor
+          # (Phase 17.D housekeeping) since it requires also updating
+          # nix/xdp2-rs.nix's golden target definition.
 
           # ===================================================================
           # flow-dissector-ntuple-template-bench — live X710 Flow Director
@@ -1332,6 +1337,19 @@
           afxdp-live-smoke = import ./nix/checks/afxdp-live-smoke.nix {
             inherit pkgs lib;
             afxdpLive = flowDissectorAfxdpLive;
+          };
+
+          # Phase 17 cross-parser parity gate: runs flow-dissector-parity-check
+          # against a small synthetic corpus (4 protocol-specific PCAPs)
+          # with 12 of 14 parsers — c-bpf-flowdis and c-bpf-fast are
+          # excluded because Nix's sandbox doesn't grant CAP_BPF for
+          # BPF_PROG_TEST_RUN. c-bpf-xdp2 is included (synthesised as
+          # all-rejected per its documented verifier-rejection
+          # divergence). Asserts zero unexpected disagreements;
+          # tripping the gate means a parser's extracted FlowMeta drifted.
+          parity-gate = import ./nix/checks/parity-gate.nix {
+            inherit pkgs lib;
+            parityCheck = flowDissectorParityCheck;
           };
         };
       }) // (
