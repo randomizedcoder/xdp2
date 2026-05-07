@@ -39,6 +39,21 @@ pub(crate) enum ParserMode {
     /// --queue-template <QID>=<NAME>. See docs/ntuple-template-bench.md.
     #[value(name = "af-xdp-template")]
     AfXdpTemplateHw,
+    /// AF_XDP live capture, dispatching through the hand-rolled
+    /// monomorphic parser (`graph_mono::parse_packet_mono`). Same rx
+    /// loop as `--mode af-xdp` but the per-packet body calls the
+    /// hand-rolled parser instead of the compiler-codegen'd
+    /// `graph_compiled::parse_packet`. Phase L2.A live-wire
+    /// equivalent of `--mode mono`.
+    #[value(name = "af-xdp-mono")]
+    AfXdpMono,
+    /// AF_XDP live capture, dispatching through the enum-dispatch
+    /// graph parser (`graph_enum::parse_packet`). Same rx loop as
+    /// `--mode af-xdp`. Phase L2.B live-wire equivalent of
+    /// `--mode graph-enum`.
+    #[cfg(feature = "graph-enum")]
+    #[value(name = "af-xdp-graph-enum")]
+    AfXdpGraphEnum,
 }
 
 /// Template selection for AF_XDP template extraction mode.

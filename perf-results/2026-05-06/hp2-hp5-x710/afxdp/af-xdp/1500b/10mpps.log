@@ -1,0 +1,90 @@
+=== Live Ntuple + AF_XDP + Template Bench ===
+Target:      hp5 (runs xdp2-bench on enp1s0f0np0)
+Peer:        hp2 (runs kernel pktgen)
+Duration:    30s
+Rule:        UDP/443 -> q1 (eth-ipv4-udp)
+Mode:        af-xdp
+Frame size:  1400 B
+Result dir:  perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp/1500b/10mpps-bench
+
+--- Pre-flight: Flow Director rules on hp5 ---
+6 RX rings available
+Total 1 rules
+
+Filter: 0
+	Rule Type: UDP over IPv4
+	Src IP addr: 0.0.0.0 mask: 255.255.255.255
+	Dest IP addr: 0.0.0.0 mask: 255.255.255.255
+	TOS: 0x0 mask: 0xff
+	Src port: 0 mask: 0xffff
+	Dest port: 443 mask: 0x0
+	Action: Direct to queue 1
+
+--- Pre-flight: xdp2-bench on hp5 ---
+xdp2-bench: /nix/store/wmlnlzrg4a3hh3m5fvwfw8q180gfc8kh-xdp2-rs-0.1.0/bin/xdp2-bench
+
+--- Pre-flight: af_xdp_parser.xdp.o ---
+Local XDP object: /nix/store/62y5r0a7lxvmx1wfbh5mmvs5qgmrxgy1-xdp2-samples-0.1.0/lib/xdp/af_xdp_parser.xdp.o
+Staging to hp5:/tmp/xdp2-af-xdp-parser.xdp.o ...
+Loading XDP program on hp5:enp1s0f0np0 ...
+libbpf: elf: skipping relo section(7) .rel.rodata for section(6) .rodata
+libbpf: elf: skipping relo section(9) .rel.data for section(8) .data
+XDP_MODE=xdpdrv (native — i40e ndo_bpf path)
+XDP program loaded; xsks_map pinned at /sys/fs/bpf/xsks_map.
+--- Live XDP attach mode on hp5:enp1s0f0np0 ---
+xdp
+
+Target IP/MAC on enp1s0f0np0: 10.10.0.5 / f8:f2:1e:38:ab:80
+
+--- Staging pktgen driver on hp2 ---
+
+--- Launching kernel pktgen on hp2 ---
+=== pktgen config ===
+  interface:  enp1s0f0np0
+  dst:        10.10.0.5 (mac f8:f2:1e:38:ab:80)
+  dport:      443 (IPv4/UDP)
+  pkt_size:   1400
+  threads:    2
+  rate:       0 pps (delay=0ns)
+  burst:      1
+  clone_skb:  100000
+  queue_map:  none
+  cpu_pin:    none (offset=2)
+
+binding thread kpktgend_0 -> enp1s0f0np0@0
+binding thread kpktgend_1 -> enp1s0f0np0@1
+
+Starting pktgen... (run "/tmp/xdp2-pktgen-ntuple-template.sh stop" to halt)
+pktgen started on enp1s0f0np0 with 2 threads.
+Monitor with: /tmp/xdp2-pktgen-ntuple-template.sh status
+pktgen running on hp2; warming up 2s...
+
+--- Running xdp2-bench on hp5 (30s) ---
+AF_XDP: registered in XSKMAP at /sys/fs/bpf/xsks_map
+AF_XDP: busy-poll enabled (50us timeout)
+AF_XDP: receiving on enp1s0f0np0 queue 1 for 30s (batch=64)...
+AF_XDP Results (enp1s0f0np0 queue 1, parser=compiled):
+  Packets:  26333632
+  Duration: 30.00s
+  1139 ns/pkt,  0.9 Mpps
+  36867.1 MB received
+
+--- Capturing pktgen final counters on hp2 ---
+
+==================================================================
+          Live Ntuple + AF_XDP + Template Bench Summary
+==================================================================
+AF_XDP: receiving on enp1s0f0np0 queue 1 for 30s (batch=64)...
+AF_XDP Results (enp1s0f0np0 queue 1, parser=compiled):
+
+Artifacts saved in perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp/1500b/10mpps-bench:
+ntuple-rules.txt
+pktgen-final-status.log
+pktgen-start.log
+xdp2-bench-af-xdp-template.txt
+
+Reminder: pktgen is open-loop UDP — no handshakes, no ACKs. The
+Flow Director rule (UDP/443 -> q1) steers every pktgen
+packet to AF_XDP; nothing touches the kernel UDP stack.
+See docs/ntuple-template-bench.md for the measurement model.
+pktgen stopped, all devices removed

@@ -1,0 +1,44 @@
+=== pktgen control ===
+Packet Generator for packet performance testing. Version: 2.75
+
+=== threads ===
+--- kpktgend_0 ---
+Running: enp1s0f0np0@0 
+Stopped: 
+Result: OK: add_device=enp1s0f0np0@0
+--- kpktgend_1 ---
+Running: enp1s0f0np0@1 
+Stopped: 
+Result: OK: add_device=enp1s0f0np0@1
+--- kpktgend_2 ---
+Running: 
+Stopped: 
+Result: OK: rem_device_all
+--- kpktgend_3 ---
+Running: 
+Stopped: 
+Result: OK: rem_device_all
+--- kpktgend_4 ---
+Running: 
+Stopped: 
+Result: OK: rem_device_all
+--- kpktgend_5 ---
+Running: 
+Stopped: 
+Result: OK: rem_device_all
+--- kpktgend_6 ---
+Running: 
+Stopped: 
+Result: OK: rem_device_all
+--- kpktgend_7 ---
+Running: 
+Stopped: 
+Result: OK: rem_device_all
+
+=== per-device counters ===
+--- enp1s0f0np0@0 ---
+     pkts-sofar: 14226044  errors: 0
+Result: Starting
+--- enp1s0f0np0@1 ---
+     pkts-sofar: 14223417  errors: 0
+Result: Starting

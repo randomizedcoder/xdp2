@@ -1,0 +1,9 @@
+testbed,target,mode,frame_size_b,offered_mpps,pps_received,mpps_received,ns_per_pkt,drops_pct,zerocopy,bench_log
+hp2-hp5-x710,hp5,af-xdp,64,10,877802,0.9,1139,91.222,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp/64b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp,1500,10,877787,0.9,1139,91.2221,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp/1500b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp-graph-enum,64,10,877800,0.9,1139,91.222,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp-graph-enum/64b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp-graph-enum,1500,10,877800,0.9,1139,91.222,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp-graph-enum/1500b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp-mono,64,10,877785,0.9,1139,91.2221,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp-mono/64b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp-mono,1500,10,877782,0.9,1139,91.2222,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp-mono/1500b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp-template,64,10,877790,0.88,1139,91.2221,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp-template/64b/10mpps.log
+hp2-hp5-x710,hp5,af-xdp-template,1500,10,877778,0.88,1139,91.2222,zerocopy,perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp-template/1500b/10mpps.log

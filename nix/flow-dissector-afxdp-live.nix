@@ -48,25 +48,42 @@ pkgs.writeShellApplication {
       flow-dissector-afxdp-live --testbed PATH [OPTIONS]
 
     Options:
-      --testbed PATH    testbed-config TOML (required; schema:
-                        nix/testbed-config.nix). Resolves DUT, generator,
-                        and the data-plane interface.
-      --duration N      Per-load bench duration in seconds (default: 30).
-      --loads CSV       Comma-separated offered loads in Mpps
-                        (default: "1,2,5,10"). Loads above the testbed's
-                        [nic].link_speed_gbps capacity are clamped with
-                        a warning.
-      --results DIR     Result tree root. Default: $XDP2_RESULTS_ROOT
-                        or ./perf-results.
-      -h, --help        Show this help.
+      --testbed PATH      testbed-config TOML (required; schema:
+                          nix/testbed-config.nix). Resolves DUT, generator,
+                          and the data-plane interface.
+      --duration N        Per-cell bench duration in seconds (default: 30).
+      --loads CSV         Comma-separated offered loads in Mpps
+                          (default: "1,2,5,10"). Loads above the testbed's
+                          [nic].link_speed_gbps capacity are clamped with
+                          a warning.
+      --modes CSV         Comma-separated parser modes to sweep (default:
+                          "af-xdp-template"). Each mode is passed to the
+                          underlying bench via MODE env var. Supported:
+                          af-xdp-template (default; per-queue hardware-
+                          classified template), af-xdp (generic rx loop +
+                          compiled parser), af-xdp-mono (Phase L2.A),
+                          af-xdp-graph-enum (Phase L2.B).
+      --frame-sizes CSV   Comma-separated pktgen frame sizes in bytes
+                          (default: "1500"). Each value is passed via
+                          PKTGEN_PKT_SIZE env to the underlying bench.
+      --results DIR       Result tree root. Default: $XDP2_RESULTS_ROOT
+                          or ./perf-results.
+      -h, --help          Show this help.
 
     What this command does:
-      For each offered load L in --loads:
+      For each (mode, frame_size, load) cell in the cross-product:
         1. Invokes flow-dissector-ntuple-template-bench against the
-           testbed's DUT and generator with PKTGEN_RATE=$((L * 1e6)).
+           testbed's DUT and generator with MODE, PKTGEN_PKT_SIZE,
+           and PKTGEN_RATE set per cell.
         2. Captures the bench output and writes
-           <results>/<date>/<testbed>/afxdp/<L>mpps.json with
-           pps_received, drops, drops_pct, queue_util, zerocopy mode.
+           <results>/<date>/<testbed>/afxdp/<mode>/<size>b/<L>mpps.json
+           with pps_received, drops, drops_pct, queue_util, zerocopy
+           mode, plus mode + frame_size_b stamps for downstream
+           aggregation.
+
+    Defaults preserve the original Phase 8 single-mode/single-size
+    load sweep; supplying --modes or --frame-sizes expands the matrix
+    accordingly.
 
     Live multi-host orchestration requires ssh access to the hosts
     named in the testbed-config TOML and hardware able to drive the
@@ -78,6 +95,8 @@ pkgs.writeShellApplication {
     TESTBED=""
     DURATION=30
     LOADS_CSV="1,2,5,10"
+    MODES_CSV="af-xdp-template"
+    FRAME_SIZES_CSV="1500"
     RESULTS=""
 
     while [ $# -gt 0 ]; do
@@ -92,6 +111,12 @@ pkgs.writeShellApplication {
         --loads)
           [ $# -ge 2 ] || { echo "flow-dissector-afxdp-live: --loads requires CSV" >&2; exit 2; }
           LOADS_CSV="$2"; shift 2 ;;
+        --modes)
+          [ $# -ge 2 ] || { echo "flow-dissector-afxdp-live: --modes requires CSV" >&2; exit 2; }
+          MODES_CSV="$2"; shift 2 ;;
+        --frame-sizes)
+          [ $# -ge 2 ] || { echo "flow-dissector-afxdp-live: --frame-sizes requires CSV" >&2; exit 2; }
+          FRAME_SIZES_CSV="$2"; shift 2 ;;
         --results)
           [ $# -ge 2 ] || { echo "flow-dissector-afxdp-live: --results requires DIR" >&2; exit 2; }
           RESULTS="$2"; shift 2 ;;
@@ -119,6 +144,20 @@ pkgs.writeShellApplication {
     # Validate --loads is a CSV of positive integers.
     if ! echo "$LOADS_CSV" | grep -qE '^[1-9][0-9]*(,[1-9][0-9]*)*$'; then
       echo "flow-dissector-afxdp-live: --loads must be a comma-separated list of positive integers (got '$LOADS_CSV')" >&2
+      exit 2
+    fi
+
+    # Validate --frame-sizes is a CSV of positive integers (bytes).
+    if ! echo "$FRAME_SIZES_CSV" | grep -qE '^[1-9][0-9]*(,[1-9][0-9]*)*$'; then
+      echo "flow-dissector-afxdp-live: --frame-sizes must be a comma-separated list of positive integers (got '$FRAME_SIZES_CSV')" >&2
+      exit 2
+    fi
+
+    # Validate --modes is a CSV of recognized modes. The underlying bench
+    # script also rejects unknown values; checking here keeps the error
+    # close to the user's invocation.
+    if ! echo "$MODES_CSV" | grep -qE '^[a-z0-9-]+(,[a-z0-9-]+)*$'; then
+      echo "flow-dissector-afxdp-live: --modes must be a comma-separated list of mode names (got '$MODES_CSV')" >&2
       exit 2
     fi
 
@@ -203,28 +242,41 @@ pkgs.writeShellApplication {
 
     overall=0
     IFS=',' read -ra LOADS <<< "$LOADS_CSV"
-    for L in "''${LOADS[@]}"; do
-      eff="$L"
-      if [ -n "$cap_mpps" ] && [ "$L" -gt "$cap_mpps" ]; then
-        echo "[afxdp-live] WARN: load ''${L}Mpps exceeds link cap ''${cap_mpps}Mpps; clamping" >&2
-        eff="$cap_mpps"
-      fi
+    IFS=',' read -ra MODES <<< "$MODES_CSV"
+    IFS=',' read -ra FRAME_SIZES <<< "$FRAME_SIZES_CSV"
 
-      pps=$(( eff * 1000000 ))
-      log="$OUT/''${L}mpps.log"
-      json="$OUT/''${L}mpps.json"
-      echo "[afxdp-live] -> ''${L}Mpps (pktgen rate=$pps pps), logging to $log" >&2
+    for MODE in "''${MODES[@]}"; do
+     for FRAME_SIZE in "''${FRAME_SIZES[@]}"; do
+      # Per-cell directory: <out>/<mode>/<size>b/. The load loop emits
+      # one JSON per offered load inside that directory. The aggregator
+      # walks afxdp/<mode>/<size>b/<L>mpps.json to roll up.
+      cell_dir="$OUT/$MODE/''${FRAME_SIZE}b"
+      mkdir -p "$cell_dir"
+      echo "[afxdp-live] === mode=$MODE frame_size=''${FRAME_SIZE}B ===" >&2
+      for L in "''${LOADS[@]}"; do
+       eff="$L"
+       if [ -n "$cap_mpps" ] && [ "$L" -gt "$cap_mpps" ]; then
+         echo "[afxdp-live] WARN: load ''${L}Mpps exceeds link cap ''${cap_mpps}Mpps; clamping" >&2
+         eff="$cap_mpps"
+       fi
 
-      bench_status=0
-      RESULT_DIR="$OUT/''${L}mpps-bench" \
-      PKTGEN_RATE="$pps" \
-      DPORT=443 \
-      QUEUE=1 \
-      TEMPLATE="eth-ipv4-udp" \
-        xdp2-flow-dissector-ntuple-template-bench \
-          -d "$DURATION" -i "$IFC" \
-          "$DUT" "$GEN" \
-          > "$log" 2>&1 || bench_status=$?
+       pps=$(( eff * 1000000 ))
+       log="$cell_dir/''${L}mpps.log"
+       json="$cell_dir/''${L}mpps.json"
+       echo "[afxdp-live] -> $MODE @ ''${FRAME_SIZE}B / ''${L}Mpps (pktgen rate=$pps pps), logging to $log" >&2
+
+       bench_status=0
+       RESULT_DIR="$cell_dir/''${L}mpps-bench" \
+       PKTGEN_RATE="$pps" \
+       PKTGEN_PKT_SIZE="$FRAME_SIZE" \
+       MODE="$MODE" \
+       DPORT=443 \
+       QUEUE=1 \
+       TEMPLATE="eth-ipv4-udp" \
+         xdp2-flow-dissector-ntuple-template-bench \
+           -d "$DURATION" -i "$IFC" \
+           "$DUT" "$GEN" \
+           > "$log" 2>&1 || bench_status=$?
 
       # Best-effort extraction from the bench's per-queue table:
       #
@@ -278,6 +330,8 @@ pkgs.writeShellApplication {
       jq -n \
         --arg testbed "$TESTBED_NAME" \
         --arg target "$DUT" --arg peer "$GEN" --arg iface "$IFC" \
+        --arg mode "$MODE" \
+        --argjson frame_size "$FRAME_SIZE" \
         --argjson offered "$L" \
         --argjson duration "$DURATION" \
         --argjson exit "$bench_status" \
@@ -290,6 +344,7 @@ pkgs.writeShellApplication {
         '{
           testbed: $testbed,
           target: $target, peer: $peer, interface: $iface,
+          mode: $mode, frame_size_b: $frame_size,
           offered_mpps: $offered, duration_s: $duration,
           bench_exit: $exit,
           pps_received: ($pps_rx | if . == "" then null else tonumber end),
@@ -300,11 +355,13 @@ pkgs.writeShellApplication {
           bench_log: $log
         }' > "$json"
 
-      if [ "$bench_status" -ne 0 ]; then
-        echo "[afxdp-live] ''${L}Mpps FAILED (exit=$bench_status, see $log)" >&2
-        overall=1
-      fi
-    done
+       if [ "$bench_status" -ne 0 ]; then
+         echo "[afxdp-live] $MODE @ ''${FRAME_SIZE}B / ''${L}Mpps FAILED (exit=$bench_status, see $log)" >&2
+         overall=1
+       fi
+      done   # end load loop
+     done    # end frame_size loop
+    done     # end mode loop
 
     echo "[afxdp-live] done. JSONs in $OUT" >&2
     exit "$overall"

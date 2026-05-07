@@ -1,0 +1,19 @@
+{
+  "testbed": "hp2-hp5-x710",
+  "target": "hp5",
+  "peer": "hp2",
+  "interface": "enp1s0f0np0",
+  "mode": "af-xdp",
+  "frame_size_b": 64,
+  "offered_mpps": 10,
+  "duration_s": 30,
+  "bench_exit": 0,
+  "pps_received": 877802,
+  "drops": 273665937,
+  "drops_pct": 91.222,
+  "queue_util": null,
+  "zerocopy": "zerocopy",
+  "bench_log": "perf-results/2026-05-06/hp2-hp5-x710/afxdp/af-xdp/64b/10mpps.log",
+  "mpps_received": 0.9,
+  "ns_per_pkt": 1139
+}

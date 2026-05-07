@@ -76,7 +76,15 @@ fn main() {
     }
 
     // AF_XDP mode: live packet capture from NIC (exits after run).
-    if matches!(cli.mode, ParserMode::AfXdp) {
+    // af-xdp / af-xdp-mono / af-xdp-graph-enum all share the rx loop;
+    // they differ only in the per-packet parser invoked by the
+    // dispatch closure inside run_af_xdp.
+    if matches!(cli.mode, ParserMode::AfXdp | ParserMode::AfXdpMono) {
+        run_af_xdp(&cli);
+        return;
+    }
+    #[cfg(feature = "graph-enum")]
+    if matches!(cli.mode, ParserMode::AfXdpGraphEnum) {
         run_af_xdp(&cli);
         return;
     }
@@ -375,36 +383,74 @@ fn run_af_xdp(cli: &Cli) {
         }
     };
 
-    let tmpl = &cli.af_xdp_template;
+    // Parser selection. The default is `--mode af-xdp`, which dispatches
+    // through graph_compiled (or a template if --af-xdp-template is set).
+    // Phase L2 modes (AfXdpMono, AfXdpGraphEnum) override the parser
+    // unconditionally — the template selection is only honored on AfXdp.
+    let mode = cli.mode;
+    let tmpl = cli.af_xdp_template.clone();
+
+    // Build the parser-selection enum once outside the closure so the
+    // dispatch is a single match on a small enum (cheaper than re-checking
+    // ParserMode every packet, and lets the compiler hoist the
+    // graph_enum config setup ONCE).
+    enum AfXdpDispatch {
+        CompiledOrTemplate(Option<AfXdpTemplate>),
+        Mono,
+        #[cfg(feature = "graph-enum")]
+        GraphEnum(std::sync::Arc<xdp2_core::ParserConfig<graph::FlowMeta>>),
+    }
+    let dispatch = match mode {
+        ParserMode::AfXdpMono => AfXdpDispatch::Mono,
+        #[cfg(feature = "graph-enum")]
+        ParserMode::AfXdpGraphEnum => {
+            AfXdpDispatch::GraphEnum(std::sync::Arc::new(graph_enum::make_config()))
+        }
+        // AfXdp (or anything else that gets here) honors --af-xdp-template.
+        _ => AfXdpDispatch::CompiledOrTemplate(tmpl.clone()),
+    };
+
     let process = move |pkt: &[u8]| {
         let mut meta = graph::FlowMeta::default();
-        match tmpl {
-            Some(AfXdpTemplate::EthIpv4Tcp) => {
+        match &dispatch {
+            AfXdpDispatch::CompiledOrTemplate(Some(AfXdpTemplate::EthIpv4Tcp)) => {
                 let _ = template::extract_eth_ipv4_tcp(pkt, &mut meta);
             }
-            Some(AfXdpTemplate::EthIpv4Udp) => {
+            AfXdpDispatch::CompiledOrTemplate(Some(AfXdpTemplate::EthIpv4Udp)) => {
                 let _ = template::extract_eth_ipv4_udp(pkt, &mut meta);
             }
-            Some(AfXdpTemplate::EthIpv6Tcp) => {
+            AfXdpDispatch::CompiledOrTemplate(Some(AfXdpTemplate::EthIpv6Tcp)) => {
                 let _ = template::extract_eth_ipv6_tcp(pkt, &mut meta);
             }
-            Some(AfXdpTemplate::Auto) => {
+            AfXdpDispatch::CompiledOrTemplate(Some(AfXdpTemplate::Auto)) => {
                 if let Some(id) = template::select_template_id(pkt) {
                     let _ = template::extract_by_id(pkt, id, &mut meta);
                 } else {
                     let _ = graph_compiled::parse_packet(pkt, &mut meta);
                 }
             }
-            None => {
+            AfXdpDispatch::CompiledOrTemplate(None) => {
                 let _ = graph_compiled::parse_packet(pkt, &mut meta);
+            }
+            AfXdpDispatch::Mono => {
+                let _ = graph_mono::parse_packet_mono(pkt, &mut meta);
+            }
+            #[cfg(feature = "graph-enum")]
+            AfXdpDispatch::GraphEnum(cfg) => {
+                let _ = graph_enum::parse_packet(cfg, pkt);
             }
         }
         std::hint::black_box(&meta);
     };
 
-    let parser_label = match &cli.af_xdp_template {
-        Some(t) => format!("template:{t:?}"),
-        None => "compiled".to_string(),
+    let parser_label = match mode {
+        ParserMode::AfXdpMono => "mono".to_string(),
+        #[cfg(feature = "graph-enum")]
+        ParserMode::AfXdpGraphEnum => "graph-enum".to_string(),
+        _ => match &tmpl {
+            Some(t) => format!("template:{t:?}"),
+            None => "compiled".to_string(),
+        },
     };
 
     let mut bind_flags: u16 = 0;

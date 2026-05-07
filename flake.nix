@@ -194,6 +194,14 @@
         flowDissectorMatrixAggregate =
           import ./nix/aggregate-results.nix { inherit pkgs; };
 
+        # Phase L4: live-wire AF_XDP campaign aggregator. Walks
+        # <results>/<date>/<testbed>/afxdp/<mode>/<size>b/*.json and
+        # emits summary-afxdp.{md,csv}. Separate from the matrix
+        # aggregator because the two campaigns measure different
+        # things (per-pcap PCAP replay vs. per-cell live-wire).
+        flowDissectorAfxdpAggregate =
+          import ./nix/aggregate-afxdp.nix { inherit pkgs; };
+
         # Phase 7: composed runner (orchestrator + aggregator).
         # nix run .#flow-dissector-matrix-run -- --testbed PATH
         flowDissectorMatrixRun =
@@ -633,6 +641,15 @@
           # Run:    nix run .#flow-dissector-matrix-aggregate -- --results <dir>
           # ===================================================================
           flow-dissector-matrix-aggregate = flowDissectorMatrixAggregate;
+
+          # ===================================================================
+          # flow-dissector-afxdp-aggregate — Phase L4. Walks afxdp/<mode>/<size>b/
+          # cell tree and emits summary-afxdp.{md,csv}. Separate from the matrix
+          # aggregator because the two campaigns measure different things.
+          # Build:  nix build .#flow-dissector-afxdp-aggregate
+          # Run:    nix run .#flow-dissector-afxdp-aggregate -- --results <dir>
+          # ===================================================================
+          flow-dissector-afxdp-aggregate = flowDissectorAfxdpAggregate;
 
           # ===================================================================
           # flow-dissector-matrix-run — Phase 7 composed runner.

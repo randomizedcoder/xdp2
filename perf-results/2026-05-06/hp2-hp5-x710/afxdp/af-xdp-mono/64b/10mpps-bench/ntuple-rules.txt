@@ -1,0 +1,11 @@
+6 RX rings available
+Total 1 rules
+
+Filter: 0
+	Rule Type: UDP over IPv4
+	Src IP addr: 0.0.0.0 mask: 255.255.255.255
+	Dest IP addr: 0.0.0.0 mask: 255.255.255.255
+	TOS: 0x0 mask: 0xff
+	Src port: 0 mask: 0xffff
+	Dest port: 443 mask: 0x0
+	Action: Direct to queue 1

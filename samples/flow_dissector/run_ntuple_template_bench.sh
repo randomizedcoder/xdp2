@@ -32,6 +32,16 @@ INTERFACE="enp1s0f0np0"
 DPORT=443
 QUEUE=1
 TEMPLATE="eth-ipv4-udp"
+# MODE selects the xdp2-bench parser dispatch:
+#   af-xdp-template  — per-queue hardware-classified template extractor
+#                      (default; matches the original deliverable).
+#   af-xdp           — generic AF_XDP rx loop dispatching through a
+#                      software-selected parser. Pair with --af-xdp-* flags
+#                      on xdp2-bench to choose compiled / mono / etc.
+#   af-xdp-mono / af-xdp-graph-enum / etc. — direct parser-mode passthrough
+#                      (added in Phase L2; xdp2-bench dispatches to the
+#                      named parser via the same closure).
+MODE="${MODE:-af-xdp-template}"
 # pktgen (kernel) on the peer. Blasts open-loop UDP at ~line rate; no
 # ACKs needed (that's why we ditched wrk2 -- it stalled when bulk data
 # got redirected away from nginx).
@@ -197,6 +207,8 @@ echo "Target:      $TARGET (runs xdp2-bench on $INTERFACE)"
 echo "Peer:        $PEER (runs kernel pktgen)"
 echo "Duration:    ${DURATION}s"
 echo "Rule:        UDP/$DPORT -> q$QUEUE ($TEMPLATE)"
+echo "Mode:        $MODE"
+echo "Frame size:  ${PKTGEN_PKT_SIZE} B"
 echo "Result dir:  $RESULT_DIR"
 echo ""
 
@@ -462,8 +474,27 @@ echo ""
 echo "--- Running xdp2-bench on $TARGET (${DURATION}s) ---"
 # Build as a bash array so the flags pass through to ssh as separate
 # argv items. No shell-command string means no SC2029 concern.
-BENCH_ARGS=(--mode af-xdp-template --interface "$INTERFACE" --duration "$DURATION")
-BENCH_ARGS+=(--queue-template "$QUEUE=$TEMPLATE")
+#
+# MODE drives parser dispatch. Default is af-xdp-template (per-queue
+# hardware-classified extractor); other modes use the generic
+# af-xdp rx loop with software parser selection.
+BENCH_ARGS=(--mode "$MODE" --interface "$INTERFACE" --duration "$DURATION")
+case "$MODE" in
+    af-xdp-template)
+        BENCH_ARGS+=(--queue-template "$QUEUE=$TEMPLATE")
+        ;;
+    af-xdp|af-xdp-mono|af-xdp-graph-enum)
+        # Generic AF_XDP rx loop bound to a single queue. The
+        # underlying socket binds to (interface, $QUEUE), so the FD
+        # rule (UDP/$DPORT -> q$QUEUE) still steers traffic to the
+        # right place even though we're not using --queue-template.
+        BENCH_ARGS+=(--queue "$QUEUE" --queues 1)
+        ;;
+    *)
+        echo "ERROR: unsupported MODE='$MODE' (expected af-xdp-template / af-xdp / af-xdp-mono / af-xdp-graph-enum)" >&2
+        exit 2
+        ;;
+esac
 [[ -n "$CORE_PIN" ]] && BENCH_ARGS+=(--core-pin "$CORE_PIN")
 # Without --zero-copy / --need-wakeup / --busy-poll the bench runs
 # pure interrupt + copy mode AF_XDP, which caps at <1 Mpps on this
