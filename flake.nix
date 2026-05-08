@@ -202,6 +202,15 @@
         flowDissectorAfxdpAggregate =
           import ./nix/aggregate-afxdp.nix { inherit pkgs; };
 
+        # Phase A1 (assembly-level analysis): bundles dump-asm.sh with
+        # binutils + llvm so `objdump` and `llvm-objdump` are on PATH.
+        # Drives per-impl asm extraction across 14 implementations
+        # (8 Rust + 3 C + 3 BPF).
+        flowDissectorDumpAsm =
+          import ./nix/dump-asm.nix {
+            inherit pkgs xdp2Rs flowDissectorMatrix;
+          };
+
         # Phase 7: composed runner (orchestrator + aggregator).
         # nix run .#flow-dissector-matrix-run -- --testbed PATH
         flowDissectorMatrixRun =
@@ -650,6 +659,15 @@
           # Run:    nix run .#flow-dissector-afxdp-aggregate -- --results <dir>
           # ===================================================================
           flow-dissector-afxdp-aggregate = flowDissectorAfxdpAggregate;
+
+          # ===================================================================
+          # flow-dissector-dump-asm — Phase A1. Per-impl asm extraction
+          # across 8 Rust + 3 C + 3 BPF implementations. Output tree at
+          # perf-results/asm/<date>/<impl>/disasm.asm + INDEX.md.
+          # Build:  nix build .#flow-dissector-dump-asm
+          # Run:    nix run .#flow-dissector-dump-asm -- [--out DIR] [--with-bpf-jit]
+          # ===================================================================
+          flow-dissector-dump-asm = flowDissectorDumpAsm;
 
           # ===================================================================
           # flow-dissector-matrix-run — Phase 7 composed runner.
