@@ -224,6 +224,108 @@ to ~25 ns on https-web** — kernel-flowdis parity. Stretch: 18 ns
 - **Rust `graph-enum`** + `graph_compiled`: existing examples of
   what the static-dispatched form looks like in the Rust codebase.
 
+## Phases S1–S3 — realised wins (2026-05-09, commits a6c37e0 / 30998d9 / 5ad9440)
+
+The structural plan landed three of the four phases:
+
+### S1 — switch C benchmark default to `_opt` variant (commit `a6c37e0`)
+
+Verified the `_opt` variant produced by xdp2-compiler skips both
+`lookup_node()` and the function-pointer dispatch via
+`proto_def->ops.X`. Just had to flip the benchmark default:
+
+  **Local Zen 1, https-web.pcap, 100 iter:**
+  | Mode | Before (-S, generic) | After (default, _opt) | Δ |
+  |---|---:|---:|---:|
+  | `XDP2 parser` | 62 ns/pkt | **38 ns/pkt** | -24 (-39%) |
+  | Kernel flowdis | 27-29 ns/pkt | 27-29 ns/pkt | unchanged |
+
+The C-side gap to kernel flowdis dropped from ~2.3× to ~1.3×.
+Existing codegen, single-line change. Parity gate green.
+
+### S2 — reorder `ipv6_table` (commit `30998d9`)
+
+`parser_big.c` and `parser_simple_hash.c` had their `ipv6_table`
+with extension headers at indices 0-3, TCP/UDP at 4-5. The generic
+`__xdp2_parse` engine's linear `lookup_node()` walk was hitting
+TCP/UDP only after 4 EH iterations. Reordered TCP/UDP to indices
+0/1.
+
+`flow_dissector_tables.h` already had the optimal order, so the
+matrix benchmark itself doesn't see this win. The change benefits
+parsers that use the generic engine (parse_dump, simple_router,
+sample tuple parsers) on IPv6/TCP traffic.
+
+Estimate: 3-6 ns/pkt on IPv6-heavy generic-engine workloads.
+Parity gate green.
+
+### S3 — drop dport-leaf nested match in `graph_compiled` + `graph_mono` (commit `5ad9440`)
+
+The original plan called for a full xdp2-compiler codegen rewrite
+to a flat state machine. In practice, the codegen at
+`xdp2-rs/crates/xdp2-compiler/src/codegen.rs:183` emits a different
+shape than the checked-in `graph_compiled.rs` (no FlowMeta
+extraction; signature mismatch). Regenerating from codegen would
+have lost functionality.
+
+Pivoted to a focused hand-edit targeting the ONLY true 2-level
+nesting in the file: the dport leaf-only match inside the TCP arm
+(35 leaf arms) and inside the UDP arm (30+ leaf arms). Kept all
+encapsulation arms (vxlan/geneve/gtpu).
+
+  **Local Zen 1, combo.pcap, 50 iter (500K pkts):**
+  | Mode | Before | After | Δ |
+  |---|---:|---:|---:|
+  | `rust-compiled` | 47 ns/pkt | **33 ns/pkt** | -14 (-30%) |
+  | `rust-mono` | 51 ns/pkt | **36 ns/pkt** | -15 (-29%) |
+  | `rust-graph-enum` (target) | 17 ns/pkt | 17 ns/pkt | (unchanged, the comparison) |
+
+Closes the gap from 2.7-3× to 1.9-2.1× vs graph-enum. Doesn't reach
+full parity because graph-enum has a fundamentally smaller
+protocol surface (5 nodes vs 28+ ethertypes + 13 IP protos).
+
+What's preserved: all extracted flow info (src/dst ports, ip_proto,
+addrs, tcp_flags, addr_type, l3_off, l4_off) and tunnel
+encapsulation parsing.
+
+What's removed: per-app-protocol minimum-length stubs that did
+length-only checks without populating metadata. Application
+identification was always the consumer's job, not the
+graph-walker's. Parity gate green.
+
+### Summary table — full optimisation campaign cumulative wins
+
+(Local Zen 1; numbers from each commit's smoke test on the same
+machine. https-web.pcap unless noted.)
+
+| Mode | Original baseline (combo) | Post-O1+O5 (https-web) | Post-S1+S3 (mixed) | Total Δ |
+|---|---:|---:|---:|---:|
+| `c-xdp2-usp` | 232 ns | 181 (https-web) | **38** (https-web, _opt) | **-194 ns / 84%** |
+| `rust-compiled` | 47 ns | 47 (no change from O1+O5) | **33** (combo, S3) | **-14 ns / 30%** |
+| `rust-mono` | 51 ns | 51 | **36** (combo, S3) | **-15 ns / 29%** |
+| `rust-graph-enum` | 17 ns | 17 | 17 | unchanged (was already optimal) |
+| `c-bpf-fast` | 18 ns | 18 | 18 | unchanged (kernel BPF JIT) |
+
+**Honest framing:** the 84% win on `c-xdp2-usp` is mostly the
+pre-existing `_opt` codegen finally being used by default. The
+real new engineering was S2 + S3. The Rust 30% wins are
+material. None of this closes the gap to kernel flowdis on full
+parses — that's a deeper engineering effort (per the "fix shape
+A/B/C" section above).
+
+### What's still pending (deferred)
+
+- **Full xdp2-compiler codegen rewrite** to emit graph_compiled
+  from a structured IR (with FlowMeta extraction). The current
+  codegen lacks that surface. Real engineering: ~1-2 weeks.
+- **Closing the kernel-flowdis gap on full parses** (38 → 25 ns).
+  Would require either inlining `_opt`'s per-node helpers (LTO
+  may already do this — verify with disasm) or a fundamental
+  change to the per-node-call boundary.
+- **hp5 hardware re-measure** of S1+S2+S3 cumulative numbers via
+  the matrix campaign. Local Zen 1 numbers are equivalent enough
+  for the trend; canonical hp5 numbers are a small follow-up.
+
 ## See also
 
 - `xdp2-rs/docs/fast-path-dispatch.md` — Rust dyn-vs-enum dispatch story
