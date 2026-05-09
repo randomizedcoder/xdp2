@@ -292,6 +292,53 @@ Cross-referencing `xdp2-rs/docs/performance-next-steps.md`:
   rx pipeline cost is so large that parser-side instruction-count
   differences don't appear.
 
+## Realised vs Projected (Phase O1+O5 — landed 2026-05-08)
+
+First-pass optimisations from the plan have shipped in commit `8e8c6f5`.
+Single-run re-measure on hp5 (https-web.pcap, 100 iter, 2,200 packets)
+vs the post-17.E baseline:
+
+| Impl | Baseline | Realised | Δ ns | Source |
+|---|---:|---:|---:|---|
+| `c-xdp2-usp` | 195 | **181** | **−14** | O1.A memset-hoist + O1.B static-link |
+| `c-xdp2-parse-only` | 183 | 180 | −3 | O1.B static-link only (O1.A N/A) |
+| `c-flowdis-usp` | 121 | 123 | noise | doesn't go through libxdp2 |
+| `rust-mono` | 82 | **76** | **−6** | O5 FlowMeta::reset_for_parse |
+| `rust-compiled` | 82 | **77** | **−5** | O5 |
+| `rust-template` | 77 | **69** | **−8** | O5 |
+| `rust-simd` | 42 | 42 | no change | (no per-packet meta reset) |
+| `rust-graph-enum` | 78.5 | 106 | +27 | likely single-run variance — graph-enum doesn't use the per-packet FlowMeta reset path; multi-replicate re-run needed to confirm |
+
+**Wins delivered:**
+- **O1.A** — memset hoist saves ~10 ns/pkt on `c-xdp2-usp`. Per-packet
+  full 200 B zero replaced by a 3-bit accumulator reset; the rest of
+  the FlowMeta struct is unconditionally overwritten by the parser
+  when it sees the relevant protocol.
+- **O1.B** — static-link `libxdp2.a` into the benchmark binary saves
+  another ~3-5 ns/pkt (LTO inlines `lookup_node()` and per-protocol
+  next_proto across what was the .so boundary).
+- **O5** — `FlowMeta::reset_for_parse()` saves ~5-8 ns/pkt on the
+  Rust modes that previously did `meta = FlowMeta::default()`
+  per packet (mono, compiled, template; graph-enum doesn't use this
+  path).
+- **O1.D investigated, reverted** — `xdp2_parse_fast` is rejected by
+  the verifier check because the benchmark's parser uses post-handlers
+  + exit nodes. Future work would refactor the parse graph to satisfy
+  `xdp2_parse_validate_fast` (parser.c:893-918).
+
+**Cumulative on c-xdp2-usp (the headline target):**
+- post-17.E baseline (combo.pcap): 232 ns/pkt
+- post-17.E baseline (https-web.pcap): 195 ns/pkt
+- post-O1+O5 (https-web.pcap): **181 ns/pkt** (−14, ~7%)
+
+**Pending in plan (deferred to next session):**
+- O3 — flatten Rust nested-match dispatch via xdp2-compiler generator
+  (target: 5% → 2-3% branch-miss on compiled/mono; ~10-15 ns/pkt)
+- O4 — Rust PGO build (target: 5-10% IPC across compiled/mono/template)
+- O1.C — reorder ipv4_table to put TCP/UDP first (~2-5 ns/pkt)
+- O2 — C hardcoded fast-path entry point (target: ~80 ns/pkt — biggest
+  remaining C-side win)
+
 ## Files
 
 - `INDEX.md` — what got dumped + sizes
