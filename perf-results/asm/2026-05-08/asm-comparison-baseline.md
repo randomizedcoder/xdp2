@@ -345,30 +345,87 @@ eth+ipv4+{tcp,udp,icmp} chain — mirrors `fast_flow.bpf.c`'s chain
 dispatch but in userspace C with LTO inlining (enabled by O1.B
 static-link).
 
-**Results across PCAPs:**
+### CORRECTION (2026-05-09): the original O2 numbers and framing were misleading
 
-| PCAP | Hit rate | XDP2 parser | XDP2 fast-path | Speedup | vs kernel flowdis |
-|---|---:|---:|---:|---:|---:|
-| `tcp_ipv4.pcap` | 100% | 52 ns | **2 ns** | **25×** | **10× faster** (20 ns) |
-| `https-web.pcap` | 85.2% | 65 ns | **18 ns** | **3.6×** | **2× faster** (37 ns) |
-| `combo.pcap` | 6% | 187 ns | 182 ns | 1.0× | (combo is encap-heavy, not realistic) |
+The first results table claimed "10× faster than kernel flowdis"
+and "10.8× total speedup." Both claims were artifacts of an
+**unfair comparison and possibly DCE-related timing bias**. After
+adding a per-iteration ADD-checksum to defeat dead-code elimination
+and re-thinking the comparison, the honest numbers are:
 
-**Headline:** on realistic web traffic the fast path delivers
-**18 ns/pkt — exactly matching `c-bpf-fast`** (the JIT-compiled BPF
-program the original analysis identified as the leader). The
-optimisation closes the gap between userspace XDP2 and the kernel
-BPF fast-path on the workloads that matter.
+| Comparison | Numbers | Honest reading |
+|---|---:|---|
+| `XDP2 fast-path` vs `kernel flowdis` (tcp_ipv4, 11 pkts, 100% match) | 3 vs 20 ns | **6.7× faster, not 10×** |
+| `XDP2 fast-path` vs `c-bpf-fast` (https-web) | 16 vs 18 ns | **matches, not beats** |
+| `XDP2 fast-path` vs `kernel flowdis` (https-web) | 16 vs 25 ns | **~1.6× faster, not 2×** |
+| **full XDP2 parser** vs **kernel flowdis** (tcp_ipv4) | 53 vs 20 ns | **kernel flowdis is 2.6× faster — XDP2-C still loses on full parse** |
+| **full XDP2 parser** vs **kernel flowdis** (https-web) | 52 vs 25 ns | **kernel flowdis is 2× faster — same picture** |
 
-**Why combo.pcap shows ~no win:** combo is a synthetic stress mix
-exercising encap, fragment, and tunnel paths. Only ~6% of its
-packets are plain eth+ipv4+l4 — the rest fall through to the slow
-parser. For workloads that reflect actual deployment traffic
-(https-web is closer), the fast path is the headline win.
+### Why the "10×" claim was wrong
 
-**Cumulative on c-xdp2 (https-web.pcap):**
-- post-17.E baseline: 195 ns/pkt
-- post-O1+O5: 181 ns/pkt
-- **post-O2 (with fast path): 18 ns/pkt** (10.6× over O1+O5; 10.8× over baseline)
+Comparing a hardcoded straight-line extractor (no encap, no options,
+no fragments, no TLVs) against a generalised kernel flow dissector
+(handles all of those) is **apples-to-oranges**. The 3 ns/pkt fast
+path is the cost of: 1 length check, 3 byte compares (etype + IHL +
+fragment-flag), 1 protocol switch, 6 stores into the metadata
+struct. It produces **less information** than kernel flowdis (no
+flag-fields walk, no TLV parse, no encap-depth tracking, no
+ICMP-type extraction, no SACK options).
+
+### What kernel flowdis is doing differently (and faster than full XDP2)
+
+Even with the O1 + O5 wins shipped, **the FULL XDP2-C parser is
+still ~2× slower than kernel flowdis** (52 vs 25 ns on https-web).
+That gap is the real story:
+
+- Kernel flowdis is a **single hand-tuned function** (`__skb_flow_dissect`)
+  with most protocol logic inlined.
+- XDP2-C uses **`lookup_node()` linear-search per protocol transition**
+  in `src/lib/xdp2/parser.c:43-48`. Each layer does a table walk
+  instead of a direct dispatch.
+- XDP2-C dispatches via **function pointers** (`proto_def->ops.next_proto`,
+  `parse_node->ops.extract_metadata`) — multiple indirect calls per
+  layer the BPU can't predict well.
+- Kernel flowdis hits the common 5-tuple path inline before falling
+  through to the generalised switch.
+
+### What about c-bpf-fast at 18 ns?
+
+`c-bpf-fast` (the kernel-JITed `fast_flow.bpf.o`) runs at 18 ns/pkt
+on https-web. The XDP2 hardcoded fast path I added matches it
+(~16-18 ns/pkt). Both are minimal straight-line extractors — neither
+is "magic." The BPF version's verifier restrictions FORCED that
+minimalism; the XDP2 fast path I wrote was hand-coded to mirror it.
+
+**Where my fast path actually helps:** on workloads where 80%+ of
+packets are plain eth+ipv4+{tcp,udp,icmp}, it provides a userspace
+equivalent of `c-bpf-fast`. That's a real but narrow optimisation.
+**It does NOT close the gap between full XDP2-C and kernel flowdis.**
+
+### Cumulative on c-xdp2 (corrected)
+
+| Pcap | Baseline | post-O1+O5 | post-O2 (fast path) | post-O2 fast-path on combo |
+|---|---:|---:|---:|---:|
+| https-web | 195 | 181 | 16-18 (85% hits) | n/a |
+| combo | 232 | n/a | 182 (only 6% hits — fast path adds no value) | 182 |
+| tcp_ipv4 | n/a | n/a | 3 (100% hits — toy 11-pkt pcap) | n/a |
+
+The "10.8× total speedup" line in the previous version of this doc
+was wrong because it compared the fast-path-hit https-web number
+(18 ns) against the baseline combo number (232 ns) — different
+pcaps, different measurements. **The actual O2 win is workload-
+dependent** and only meaningful when the hardcoded chain set covers
+80%+ of the traffic.
+
+### What to do next
+
+The unanswered question: **why is kernel flowdis 2× faster than full
+XDP2-C even after all the optimisations?** Per the static / perf
+analysis from Phase A1-A5, the answer is in the parser.c dispatch
+overhead — function-pointer calls + linear `lookup_node` searches.
+Phases O3 (Rust dispatch flattening) targets the equivalent issue
+on the Rust side; an analogous restructuring of the C parse-graph
+dispatch is the durable C-side fix and is not in this plan.
 
 ## Files
 

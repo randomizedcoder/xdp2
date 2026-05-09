@@ -125,7 +125,7 @@ static __always_inline int xdp2_eth_ipv4_l4_fast(
 	switch (ip_proto) {
 	case 6:   /* TCP */
 	case 17:  /* UDP */
-		memcpy(&meta->ports, p + 22, 4);  /* src+dst ports */
+		memcpy(&meta->port16, p + 22, 4);  /* src+dst ports */
 		return XDP2_OKAY;
 	case 1:   /* ICMP — no ports, but still a successful parse */
 		return XDP2_OKAY;
@@ -1042,6 +1042,12 @@ int main(int argc, char *argv[])
 		 */
 		long long xdp2_fastpath_ns;
 		long long xdp2_fastpath_hits = 0;
+		/* DCE-defeat: accumulate a per-iteration checksum of the
+		 * metadata fields the fast path writes, so the compiler
+		 * can't elide the stores as dead. The accumulator is
+		 * declared volatile and printed after the loop.
+		 */
+		volatile unsigned long long fastpath_checksum = 0;
 		memset(&metadata, 0, sizeof(metadata));
 		memset(&ctrl, 0, sizeof(ctrl));
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t_start);
@@ -1066,6 +1072,22 @@ int main(int argc, char *argv[])
 				if (xdp2_eth_ipv4_l4_fast(etype_data, etype_len,
 							  &metadata) == XDP2_OKAY) {
 					xdp2_fastpath_hits++;
+					/* Force the stores to be live by
+					 * mixing them into a checksum.
+					 */
+					/* ADD (not XOR) so duplicate-packet
+					 * iterations don't cancel to zero. */
+					fastpath_checksum +=
+						(unsigned long long)
+						metadata.addrs.v4_addrs[0]
+					       + ((unsigned long long)
+						  metadata.addrs.v4_addrs[1])
+					       + ((unsigned long long)
+						  metadata.port16[0])
+					       + ((unsigned long long)
+						  metadata.port16[1])
+					       + ((unsigned long long)
+						  metadata.ip_proto);
 					continue;
 				}
 				/* Fall through to general parser. */
@@ -1106,9 +1128,10 @@ int main(int argc, char *argv[])
 		printf("XDP2 fast-path: %lld ns/pkt", avg);
 		if (avg > 0)
 			printf(",  %lld Mpps", 1000 / avg);
-		printf(" (hits=%lld/%lld = %.1f%%)\n",
+		printf(" (hits=%lld/%lld = %.1f%%, checksum=0x%llx)\n",
 		       xdp2_fastpath_hits, total_pkts,
-		       100.0 * xdp2_fastpath_hits / total_pkts);
+		       100.0 * xdp2_fastpath_hits / total_pkts,
+		       fastpath_checksum);
 
 		if (xdp2_ns > 0 && flowdis_ns > 0) {
 			printf("Speedup:        %.1fx",
