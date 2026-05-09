@@ -417,15 +417,95 @@ pcaps, different measurements. **The actual O2 win is workload-
 dependent** and only meaningful when the hardcoded chain set covers
 80%+ of the traffic.
 
-### What to do next
+### Where the kernel-flowdis / full-XDP2 gap actually comes from
 
-The unanswered question: **why is kernel flowdis 2× faster than full
-XDP2-C even after all the optimisations?** Per the static / perf
-analysis from Phase A1-A5, the answer is in the parser.c dispatch
-overhead — function-pointer calls + linear `lookup_node` searches.
-Phases O3 (Rust dispatch flattening) targets the equivalent issue
-on the Rust side; an analogous restructuring of the C parse-graph
-dispatch is the durable C-side fix and is not in this plan.
+**Direct asm comparison (post-O1+O5 build, 2026-05-09):**
+
+```
+__xdp2_parse                 (libxdp2.a, statically linked into benchmark)
+  size:           494 lines of asm
+  total calls:    visible in dump
+  indirect calls: 9 (`call *%rax` / `call *%rdx`)
+```
+
+```
+__skb_flow_dissect_err       (libflowdis.so)
+  size:           1540 lines of asm — 3× bigger
+  total calls:    14 (visible in inner loop)
+  indirect calls: 0 in the main parse path
+                  (only direct calls to __skb_flow_get_ports,
+                   __siphash_aligned, memcmp, rand, etc.)
+```
+
+**The structural difference:**
+
+- **Kernel flowdis** is ONE giant hand-tuned function with most
+  protocol logic inlined. It's bigger, but the BPU learns its direct
+  calls well and the ICache stays hot for the common path. ~14 direct
+  calls per parse, all to specific helpers the predictor can track.
+
+- **XDP2 `__xdp2_parse`** is a generic graph dispatcher. It walks
+  `parse_node->proto_table`, calls `proto_def->ops.next_proto(hdr)`
+  via function pointer, looks up the next node, calls
+  `parse_node->ops.extract_metadata(...)` via another function
+  pointer, etc. Each protocol layer hits ~3 indirect calls. For the
+  common eth+ipv4+tcp chain that's **6-9 indirect calls per packet**
+  the BPU has to learn for every (protocol, node) pair.
+
+**Per-packet ns breakdown for https-web.pcap on hp5 (post-O1+O5):**
+
+| Path | ns/pkt | Why |
+|---|---:|---|
+| `c-bpf-fast` (kernel BPF JIT) | 18 | 7-chain hardcoded, JITed, no dispatch |
+| `xdp2_eth_ipv4_l4_fast` (this commit) | 16 | Same shape; userspace inlined |
+| `__skb_flow_dissect_err` (kernel C) | 25 | Hand-tuned, direct calls, predictable |
+| `__xdp2_parse` (XDP2-C, full) | 52 | 6-9 indirect calls/pkt, lookup_node linear search |
+
+**The headline:**
+
+The gap between kernel flowdis (25 ns) and full XDP2-C (52 ns) is
+**not algorithmic** — both parsers do similar work. It's the
+**generic-graph dispatcher tax** XDP2-C pays for being extensible:
+
+- **9 indirect calls per packet** vs flowdis's 0 indirect in the hot path.
+- **Linear `lookup_node()`** in `src/lib/xdp2/parser.c:43-48` per
+  protocol transition vs flowdis's inline switch.
+- **Function-pointer dispatch** vs flowdis's direct calls.
+
+This is the SAME story as Rust's graph (dyn dispatch) vs graph-enum
+(static match) — see `xdp2-rs/docs/fast-path-dispatch.md`. graph-enum
+closed 80% of that gap on the Rust side. The equivalent C-side fix
+would be:
+
+1. Replace `lookup_node()` linear search with a generated jump-table
+   (one per parse_node, indexed by the `next_proto` return).
+2. Inline `proto_def->ops.next_proto(hdr)` for the common protocols
+   (eth/ipv4/ipv6/tcp/udp) at the call-site so the call becomes
+   direct.
+3. Optionally: emit a specialised `__xdp2_parse` per parser graph
+   (like `graph_compiled.rs` is auto-generated for Rust) so the
+   common-path dispatch doesn't go through the generic engine.
+
+That's a real engineering effort — not in this plan's scope. But
+it's where the next ~20-25 ns/pkt (full XDP2-C → kernel-flowdis
+parity) would come from. Without it, the **C-side will continue
+to lose to kernel flowdis on full parses** even with O1.A + O1.B
++ O5 stacked.
+
+### Honest summary
+
+After O1.A (memset hoist) + O1.B (static-link) + O5 (Rust meta
+reset) + O2 (hardcoded fast path):
+
+1. **For workloads where 80%+ of packets are plain eth+ipv4+l4**:
+   the fast path matches `c-bpf-fast` at ~16-18 ns/pkt. Real
+   improvement, real workload. **Closes the BPF-JIT vs userspace gap.**
+2. **For full-parse workloads with mixed protocols**:
+   XDP2-C is still ~2× slower than kernel flowdis. **Not closed.**
+   Would require restructuring the parse-graph dispatcher.
+3. **The parser-architecture choice (extensible function-pointer
+   graph vs hand-tuned monolith) is the design tax.** Kernel flowdis
+   is faster because it's not extensible the way XDP2 is.
 
 ## Files
 
