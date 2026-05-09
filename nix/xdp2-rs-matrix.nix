@@ -203,7 +203,11 @@ pkgs.writeShellApplication {
 
     # ─── Step 2: C userspace (ways 1-3) on filtered pcap ────────────
     echo "--- C matrix: userspace (ways 1-3) on filtered pcap ---"
-    if ! USP_OUT=$("$BENCHMARK" -p -n "$ITER" "$FILTERED" 2>&1); then
+    # -F selects xdp2_parse_fast (skips debug + post-handlers + exit-node
+    # bookkeeping — see src/lib/xdp2/parser.c:703-814). Phase O1.D win:
+    # ~10-30 ns/pkt on c-xdp2-usp / c-xdp2-parse-only vs the slow path
+    # (which is the design-time default, not the benchmark default).
+    if ! USP_OUT=$("$BENCHMARK" -p -F -n "$ITER" "$FILTERED" 2>&1); then
       echo "Error: userspace benchmark failed" >&2
       echo "$USP_OUT" >&2
       exit 1

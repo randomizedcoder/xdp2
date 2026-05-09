@@ -157,7 +157,9 @@ echo ""
 
 # ─── Step 2: C usp (ways 1-3) ────────────────────────────────────
 echo "--- C matrix: userspace (ways 1-3) on filtered pcap ---"
-USP_OUT=$("$BENCHMARK" -p -n "$ITER" "$FILTERED" 2>&1)
+# -F selects xdp2_parse_fast (skips debug/post-handlers/exit-nodes) —
+# Phase O1.D, ~10-30 ns/pkt win on c-xdp2-usp + c-xdp2-parse-only.
+USP_OUT=$("$BENCHMARK" -p -F -n "$ITER" "$FILTERED" 2>&1)
 echo "$USP_OUT"
 echo ""
 

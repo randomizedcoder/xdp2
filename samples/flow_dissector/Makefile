@@ -70,9 +70,17 @@ flow_dissector.bpf.o: flow_dissector.bpf.c parser.xdp.h common.h
 		$(XCFLAGS) $(XLDFLAGS) -c -o $@ $<
 
 # Userspace benchmark: links xdp2 parser + kernel flowdis
+#
+# Phase O1.B optimisation (2026-05-08): link libxdp2 STATICALLY so
+# LTO can inline lookup_node() and the per-protocol node next_proto()
+# calls across what was the .so boundary. Net win on Zen 1: ~20-30
+# ns/pkt vs the previous shared-link form per
+# perf-results/asm/2026-05-08/asm-comparison-baseline.md Phase O1.B.
+# libcli, libflowdis, libsiphash stay shared (out of hot path).
 benchmark: benchmark.c parser.p.c common.h pcap_loader.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ benchmark.c parser.p.c \
-		-lpcap -lxdp2 -lcli -lflowdis -lsiphash
+		-lpcap -Wl,-Bstatic -lxdp2 -Wl,-Bdynamic \
+		-lcli -lflowdis -lsiphash
 
 # Kernel BPF flow dissector (vendored from linux selftests)
 # NIX_HARDENING_ENABLE= disables Nix cc-wrapper hardening flags that are

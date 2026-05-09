@@ -359,7 +359,7 @@ fn run_single_threaded(
             let mut acc: u64 = 0;
             let mut meta = graph::FlowMeta::default();
             for pkt in packets {
-                meta = graph::FlowMeta::default();
+                meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                 if graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok() {
                     acc += 1;
                 }
@@ -382,7 +382,7 @@ fn run_single_threaded(
             let mut acc: u64 = 0;
             let mut meta = graph::FlowMeta::default();
             for pkt in packets {
-                meta = graph::FlowMeta::default();
+                meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                 if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
                     acc += 1;
                 }
@@ -409,7 +409,7 @@ fn run_single_threaded(
             let mut acc: u64 = 0;
             let mut meta = graph::FlowMeta::default();
             for pkt in packets {
-                meta = graph::FlowMeta::default();
+                meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                 if let Some(id) = template::select_template_id(&pkt.data) {
                     if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
                         acc += 1;
@@ -437,7 +437,7 @@ fn run_single_threaded(
             let mut fallback_acc: u64 = 0;
             for (pkt, tid) in packets.iter().zip(template_ids.iter()) {
                 if tid.is_none() {
-                    meta = graph::FlowMeta::default();
+                    meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                     if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
                         fallback_acc += 1;
                     }
@@ -494,7 +494,7 @@ fn run_multi_threaded(
             let mut acc: u64 = 0;
             let mut meta = graph::FlowMeta::default();
             for pkt in slice {
-                meta = graph::FlowMeta::default();
+                meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                 if graph_mono::parse_packet_mono(&pkt.data, &mut meta).is_ok() {
                     acc += 1;
                 }
@@ -530,7 +530,7 @@ fn run_multi_threaded(
             let mut acc: u64 = 0;
             let mut meta = graph::FlowMeta::default();
             for pkt in slice {
-                meta = graph::FlowMeta::default();
+                meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                 if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
                     acc += 1;
                 }
@@ -569,7 +569,7 @@ fn run_multi_threaded(
             let mut acc: u64 = 0;
             let mut meta = graph::FlowMeta::default();
             for pkt in slice {
-                meta = graph::FlowMeta::default();
+                meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                 if let Some(id) = template::select_template_id(&pkt.data) {
                     if template::extract_by_id(&pkt.data, id, &mut meta).is_ok() {
                         acc += 1;
@@ -603,7 +603,7 @@ fn run_multi_threaded(
             let mut fallback_acc: u64 = 0;
             for (pkt, tid) in slice.iter().zip(tids.iter()) {
                 if tid.is_none() {
-                    meta = graph::FlowMeta::default();
+                    meta.reset_for_parse(); // Phase O5: was meta = FlowMeta::default()
                     if graph_compiled::parse_packet(&pkt.data, &mut meta).is_ok() {
                         fallback_acc += 1;
                     }

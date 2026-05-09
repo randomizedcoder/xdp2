@@ -122,3 +122,47 @@ pub struct FlowMeta {
     pub icmp: IcmpMeta,
     pub addrs: AddrsMeta,
 }
+
+impl FlowMeta {
+    /// Reset only the accumulator fields (counts and bool flags) to
+    /// their zero state, leaving the larger byte-arrays / address /
+    /// protocol-tag fields untouched.
+    ///
+    /// **Phase O5 optimisation (2026-05-08):** the bench inner loops
+    /// previously did `meta = FlowMeta::default()` per packet — a
+    /// full ~176 B zero. Most of that struct is unconditionally
+    /// overwritten by the parser when it sees the relevant protocol
+    /// (eth_addrs by eth, addrs/ports/ip_proto by ip+l4, etc.) so
+    /// pre-zeroing isn't strictly required.
+    ///
+    /// The fields that DO need per-packet reset are the accumulator
+    /// counters and conditional-write flags — `vlan_count`,
+    /// `is_fragment`, `first_frag`, plus the conditional structs
+    /// (mpls, arp, gre, icmp) that the parser only touches for those
+    /// specific protocols. Reset just those; let the rest carry stale
+    /// values that the parser will overwrite if it cares.
+    ///
+    /// Saves ~5-10 ins/pkt on Zen 1 vs the full-default approach.
+    /// Documented in
+    /// `perf-results/asm/2026-05-08/asm-comparison-baseline.md`
+    /// Phase O5.
+    #[inline(always)]
+    pub fn reset_for_parse(&mut self) {
+        self.vlan_count = 0;
+        self.is_fragment = false;
+        self.first_frag = false;
+        // Conditional-write substructs the parser only touches for
+        // their specific protocols. Zero them so a packet without
+        // (e.g.) MPLS doesn't see a previous packet's MPLS data.
+        self.mpls = MplsMeta::default();
+        self.arp = ArpMeta::default();
+        self.gre = GreMeta::default();
+        self.gre_pptp = GrePptpMeta::default();
+        self.icmp = IcmpMeta::default();
+        // Other fields (eth_addrs, addrs, ports, eth_proto, ip_proto,
+        // l*_off, flow_label, vlan, keyid, esp_spi, ah_spi,
+        // l2tp_session_id, addr_type) are unconditionally overwritten
+        // by the parser when their protocol is reached, so leaving
+        // stale values is safe.
+    }
+}
