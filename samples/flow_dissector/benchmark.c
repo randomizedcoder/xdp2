@@ -41,8 +41,9 @@
  *   -c  Correctness only (compare outputs, no timing)
  *   -p  Performance only (timing, no comparison)
  *   -v  Verbose (print every packet's results)
- *   -O  Use optimized xdp2 parser
- *   -F  Use fast xdp2 parser (xdp2_parse_fast)
+ *   -O  Use optimized xdp2 parser (XDP2_OPTIMIZED dispatch) — default since Phase S1
+ *   -S  Use slow/generic xdp2 parser (__xdp2_parse engine) — diagnostic
+ *   -F  Use fast xdp2 parser (xdp2_parse_fast) — requires fast-path-compatible parser graph
  *   -n  Number of iterations for performance measurement (default: 100)
  */
 
@@ -704,13 +705,14 @@ static int compare_results(unsigned int pktnum,
 static void usage(const char *prog)
 {
 	fprintf(stderr,
-		"Usage: %s [-c] [-p] [-v] [-O] [-F] [-n <repeat>] <pcap_file>\n"
+		"Usage: %s [-c] [-p] [-v] [-O|-S] [-F] [-n <repeat>] <pcap_file>\n"
 		"\n"
 		"  -c  Correctness only\n"
 		"  -p  Performance only\n"
 		"  -v  Verbose output\n"
-		"  -O  Use optimized xdp2 parser\n"
-		"  -F  Use fast xdp2 parser (xdp2_parse_fast)\n"
+		"  -O  Use optimized xdp2 parser (XDP2_OPTIMIZED dispatch — default)\n"
+		"  -S  Use slow / generic xdp2 parser (__xdp2_parse engine; diagnostic)\n"
+		"  -F  Use fast xdp2 parser (xdp2_parse_fast — requires fast-path-compatible parser graph)\n"
 		"  -n  Iterations for performance (default: 100)\n",
 		prog);
 	exit(1);
@@ -719,7 +721,19 @@ static void usage(const char *prog)
 int main(int argc, char *argv[])
 {
 	int do_correctness = 1, do_performance = 1;
-	int verbose = 0, opt_parser = 0, fast_parser = 0;
+	/* Phase S1: default to the OPTIMISED parser variant
+	 * (xdp2_parser_flow_dissector_l2_opt). The optimised variant
+	 * uses XDP2_OPTIMIZED dispatch (parser->parser_entry_point),
+	 * skipping the generic __xdp2_parse engine's per-layer
+	 * indirect calls and lookup_node linear walks. Saves ~16 ns/pkt
+	 * on https-web (65 → 49 ns) by routing through the
+	 * compiler-generated switch-based dispatch in
+	 * samples/flow_dissector/parser.p.c:9586-9670.
+	 *
+	 * Use -S to revert to the generic engine for diagnostic
+	 * comparison. -O still works as an explicit "use opt" toggle
+	 * for symmetry with old scripts that pass it. */
+	int verbose = 0, opt_parser = 1, fast_parser = 0;
 	const struct xdp2_parser *l2_parser, *l3_parser;
 	struct stored_packet *packets;
 	struct flowdis_state fstate;
@@ -728,7 +742,7 @@ int main(int argc, char *argv[])
 	int c;
 	const char *dump_meta_path = NULL;  /* -D <path>: parity dump (Phase 17.B.C) */
 
-	while ((c = getopt(argc, argv, "cpvOFn:D:")) != -1) {
+	while ((c = getopt(argc, argv, "cpvOSFn:D:")) != -1) {
 		switch (c) {
 		case 'c':
 			do_correctness = 1;
@@ -742,7 +756,10 @@ int main(int argc, char *argv[])
 			verbose = 1;
 			break;
 		case 'O':
-			opt_parser = 1;
+			opt_parser = 1;  /* now the default; kept for back-compat */
+			break;
+		case 'S':
+			opt_parser = 0;  /* slow / generic engine */
 			break;
 		case 'F':
 			fast_parser = 1;
