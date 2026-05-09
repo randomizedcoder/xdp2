@@ -308,52 +308,14 @@ fn parse_ipv4(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
 fn dispatch_ipv4(next: i32, rest: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     match next {
         6 => {
-            // TCP with dport dispatch
-            let tcp_hlen = hdr_len(&TcpOps, rest)?;
+            // TCP — Phase S3: dport-leaf dispatch removed. See
+            // graph_compiled.rs for rationale; same change applied
+            // here to keep the two parsers behaviourally identical.
+            let _tcp_hlen = hdr_len(&TcpOps, rest)?;
             meta.ports.src_port = u16::from_be_bytes([rest[0], rest[1]]);
             meta.ports.dst_port = u16::from_be_bytes([rest[2], rest[3]]);
             meta.tcp_flags = rest[13]; // SYN/ACK/FIN/RST/PSH/URG
-            let payload = &rest[tcp_hlen..];
-            match meta.ports.dst_port {
-                3260 => leaf(payload, 48),  // iSCSI
-                4420 => leaf(payload, 8),   // NVMe/TCP
-                7471 => leaf(payload, 18),  // STT
-                53 => leaf(payload, 12),    // DNS
-                80 => leaf(payload, 1),     // HTTP
-                443 => leaf(payload, 5),    // TLS
-                8080 => leaf(payload, 9),   // HTTP/2
-                22 => leaf(payload, 1),     // SSH
-                23 => leaf(payload, 1),     // Telnet
-                21 => leaf(payload, 1),     // FTP
-                25 => leaf(payload, 1),     // SMTP
-                143 => leaf(payload, 1),    // IMAP
-                179 => leaf(payload, 19),   // BGP
-                646 => leaf(payload, 10),   // LDP
-                639 => leaf(payload, 3),    // MSDP
-                389 => leaf(payload, 1),    // LDAP
-                88 => leaf(payload, 4),     // Kerberos
-                49 => leaf(payload, 12),    // TACACS+
-                111 => leaf(payload, 24),   // ONC-RPC
-                2049 => leaf(payload, 4),   // NFS
-                445 => leaf(payload, 4),    // SMB
-                6379 => leaf(payload, 1),   // Redis
-                9092 => leaf(payload, 12),  // Kafka
-                1883 => leaf(payload, 2),   // MQTT
-                5672 => leaf(payload, 8),   // AMQP
-                11211 => leaf(payload, 1),  // Memcached
-                5555 => leaf(payload, 1),   // ZeroMQ
-                502 => leaf(payload, 7),    // Modbus/TCP
-                20000 => leaf(payload, 10), // DNP3
-                44818 => leaf(payload, 24), // EtherNet/IP
-                4840 => leaf(payload, 8),   // OPC-UA
-                3868 => leaf(payload, 20),  // Diameter
-                554 => leaf(payload, 1),    // RTSP
-                2000 => leaf(payload, 8),   // Skinny/SCCP
-                1723 => leaf(payload, 12),  // PPTP
-                6653 => leaf(payload, 8),   // OpenFlow
-                4500 => leaf(payload, 28),  // IKEv2/TCP
-                _ => Ok(()),               // stop-leaf
-            }
+            Ok(())
         }
         17 => parse_udp_tunnel(rest, meta),
         1 => {
@@ -668,65 +630,13 @@ fn parse_udp_tunnel(pkt: &[u8], meta: &mut FlowMeta) -> Result<(), ParseError> {
     meta.ports.dst_port = u16::from_be_bytes([pkt[2], pkt[3]]);
     let dport = meta.ports.dst_port;
     let rest = &pkt[hlen..];
+    // Phase S3: dport leaf-only dispatch removed. Same rationale as
+    // graph_compiled.rs parse_udp_tunnel: kept the 2 ENCAP arms
+    // (vxlan/geneve), dropped the 30+ no-op length-check leaves.
     match dport {
-        // ── Tunnels (inner dispatch) ──
         4789 => parse_vxlan(rest, meta),
         6081 => parse_geneve(rest, meta),
-        // ── Tunnel leaves ──
-        2152 => leaf(rest, 8),   // GTP-U
-        2123 => leaf(rest, 8),   // GTPv2-C
-        4790 => leaf(rest, 8),   // VXLAN-GPE
-        3544 => leaf(rest, 4),   // Teredo
-        4341 => leaf(rest, 8),   // LISP
-        5247 => leaf(rest, 4),   // CAPWAP
-        6080 => leaf(rest, 4),   // GUE
-        37008 => leaf(rest, 4),  // TZSP
-        // ── DNS / naming ──
-        53 => leaf(rest, 12),    // DNS
-        137 => leaf(rest, 12),   // NBNS
-        5353 => leaf(rest, 12),  // mDNS
-        5355 => leaf(rest, 12),  // LLMNR
-        // ── DHCP ──
-        67 | 68 => leaf(rest, 236),   // DHCP
-        546 | 547 => leaf(rest, 4),   // DHCPv6
-        // ── NTP / SNMP / TFTP / Syslog ──
-        123 => leaf(rest, 48),   // NTP
-        161 | 162 => leaf(rest, 2), // SNMP
-        69 => leaf(rest, 4),     // TFTP
-        514 => leaf(rest, 1),    // Syslog
-        // ── Routing ──
-        520 => leaf(rest, 4),    // RIP
-        521 => leaf(rest, 4),    // RIPng
-        // ── Security / VPN ──
-        500 => leaf(rest, 28),   // IKEv2
-        4500 => leaf(rest, 28),  // IKEv2/NAT-T
-        51820 => leaf(rest, 4),  // WireGuard
-        4433 => leaf(rest, 13),  // DTLS
-        // ── AAA / FHRP ──
-        1812 | 1813 => leaf(rest, 20), // RADIUS
-        1985 => leaf(rest, 8),   // HSRP
-        3222 => leaf(rest, 4),   // GLBP
-        // ── Voice / media ──
-        5060 => leaf(rest, 1),   // SIP
-        5004 => leaf(rest, 12),  // RTP
-        5005 => leaf(rest, 8),   // RTCP
-        2427 => leaf(rest, 1),   // MGCP
-        // ── Telemetry / monitoring ──
-        5683 => leaf(rest, 4),   // CoAP
-        3784 => leaf(rest, 24),  // BFD
-        3478 => leaf(rest, 20),  // STUN
-        862 => leaf(rest, 16),   // TWAMP
-        8805 => leaf(rest, 8),   // PFCP
-        6343 => leaf(rest, 4),   // sFlow
-        2055 => leaf(rest, 4),   // CFLOW
-        4739 => leaf(rest, 16),  // IPFIX
-        // ── Application / misc ──
-        443 => leaf(rest, 1),    // QUIC
-        9 => leaf(rest, 6),      // WOL
-        47808 => leaf(rest, 4),  // BACnet
-        1935 => leaf(rest, 16),  // SRT
-        1234 => leaf(rest, 4),   // MPEG-TS
-        _ => Ok(()), // stop-leaf: non-tunnel UDP succeeds
+        _ => Ok(()), // non-tunnel UDP — stop after ports extracted
     }
 }
 
