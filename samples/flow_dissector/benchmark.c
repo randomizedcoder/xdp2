@@ -62,6 +62,78 @@
 #define IPPROTO_L2TP 115
 #endif
 
+/*
+ * Phase O2 — hardcoded eth+ipv4+l4 fast path for the common-case
+ * 5-tuple chain. Mirrors fast_flow.bpf.c's hardcoded chain dispatch
+ * but in userspace C; intended to measure the upper-bound speed XDP2
+ * could deliver if the parse-graph dispatch overhead were eliminated.
+ *
+ * Caller passes `etype_data` — same input the L2 parser sees: pointer
+ * at the ethertype field (NOT the eth header). Layout:
+ *   offset 0:  ethertype (2 bytes BE)
+ *   offset 2:  IPv4 header (20 bytes for IHL=5)
+ *      offset 2:  version+IHL (expect 0x45)
+ *      offset 11: ip_proto
+ *      offset 14: source IP (4 bytes)
+ *      offset 18: dest IP (4 bytes)
+ *   offset 22: L4 (TCP/UDP src/dst ports at +0/+2)
+ *
+ * On match, populates the relevant FlowMeta fields and returns
+ * XDP2_OKAY. On any deviation (non-IPv4 ethertype, options, fragments,
+ * non-TCP/UDP/ICMP), returns XDP2_STOP_FAIL — caller falls through to
+ * the general parser. ICMP is a successful match with no L4 ports
+ * (matches what the general parser does for ICMP).
+ *
+ * No bounds checks beyond the initial length gate: by the time we
+ * reach offsets 22+8=30 we've validated len >= 30 up front.
+ */
+static __always_inline int xdp2_eth_ipv4_l4_fast(
+		const void *etype_data, size_t etype_len,
+		struct xdp2_metadata_all *meta)
+{
+	const unsigned char *p = etype_data;
+
+	/* Need: etype(2) + ipv4(20) + l4 min(8 for udp ports). */
+	if (etype_len < 30)
+		return XDP2_STOP_FAIL;
+
+	/* Ethertype expected: IPv4 (0x0800 in network order). */
+	if (p[0] != 0x08 || p[1] != 0x00)
+		return XDP2_STOP_FAIL;
+
+	/* IPv4 version+IHL byte: expect 0x45 (v4, IHL=5, no options). */
+	if (p[2] != 0x45)
+		return XDP2_STOP_FAIL;
+
+	/* Reject fragments — first_frag/is_fragment + reassembly path is
+	 * not reproduced here. p[8..9] is fragment-offset+flags BE. The
+	 * MF bit (0x2000) and any nonzero offset means fragmented.
+	 */
+	if ((p[8] & 0x3f) || p[9] || (p[8] & 0x20))
+		return XDP2_STOP_FAIL;
+
+	unsigned char ip_proto = p[11];
+
+	meta->addr_type = XDP2_ADDR_TYPE_IPV4;
+	meta->ip_proto = ip_proto;
+	meta->l3_off = 2;
+	meta->l4_off = 22;
+
+	memcpy(&meta->addrs.v4_addrs[0], p + 14, 4);
+	memcpy(&meta->addrs.v4_addrs[1], p + 18, 4);
+
+	switch (ip_proto) {
+	case 6:   /* TCP */
+	case 17:  /* UDP */
+		memcpy(&meta->ports, p + 22, 4);  /* src+dst ports */
+		return XDP2_OKAY;
+	case 1:   /* ICMP — no ports, but still a successful parse */
+		return XDP2_OKAY;
+	default:
+		return XDP2_STOP_FAIL;
+	}
+}
+
 /* XDP2 parser extern declarations */
 XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector);
 XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector_opt);
@@ -963,6 +1035,53 @@ int main(int argc, char *argv[])
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t_end);
 		xdp2_nomemset_ns = timespec_diff_ns(&t_start, &t_end);
 
+		/* Benchmark xdp2 hardcoded fast-path (Phase O2):
+		 * eth+ipv4+{tcp,udp,icmp} chain inlined in this TU.
+		 * Falls through to xdp2_parse for non-matching packets so
+		 * the bench is honest (every packet still gets parsed).
+		 */
+		long long xdp2_fastpath_ns;
+		long long xdp2_fastpath_hits = 0;
+		memset(&metadata, 0, sizeof(metadata));
+		memset(&ctrl, 0, sizeof(ctrl));
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t_start);
+		for (int r = 0; r < repeat; r++) {
+			for (int i = 0; i < npkts; i++) {
+				void *etype_data;
+				size_t etype_len;
+
+				if (!packets[i].l3_off ||
+				    packets[i].l3_off < 2)
+					continue;
+				etype_data = packets[i].data +
+					     packets[i].l3_off - 2;
+				etype_len = packets[i].len -
+					    packets[i].l3_off + 2;
+
+				/* O1.A minimal accumulator reset. */
+				metadata.vlan_count = 0;
+				metadata.is_fragment = 0;
+				metadata.first_frag = 0;
+
+				if (xdp2_eth_ipv4_l4_fast(etype_data, etype_len,
+							  &metadata) == XDP2_OKAY) {
+					xdp2_fastpath_hits++;
+					continue;
+				}
+				/* Fall through to general parser. */
+				ctrl.var.encaps = 0;
+				ctrl.var.node_cnt = 0;
+				ctrl.var.ret_code = 0;
+				ctrl.pkt.packet = etype_data;
+				ctrl.pkt.start = etype_data;
+				ctrl.pkt.pkt_len = etype_len;
+				xdp2_parse(l2_parser, etype_data, etype_len,
+					   &metadata, &ctrl, 0);
+			}
+		}
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t_end);
+		xdp2_fastpath_ns = timespec_diff_ns(&t_start, &t_end);
+
 		long long total_pkts = (long long)npkts * repeat;
 
 		avg = flowdis_ns / total_pkts;
@@ -983,11 +1102,20 @@ int main(int argc, char *argv[])
 			printf(",  %lld Mpps", 1000 / avg);
 		printf("\n");
 
+		avg = xdp2_fastpath_ns / total_pkts;
+		printf("XDP2 fast-path: %lld ns/pkt", avg);
+		if (avg > 0)
+			printf(",  %lld Mpps", 1000 / avg);
+		printf(" (hits=%lld/%lld = %.1f%%)\n",
+		       xdp2_fastpath_hits, total_pkts,
+		       100.0 * xdp2_fastpath_hits / total_pkts);
+
 		if (xdp2_ns > 0 && flowdis_ns > 0) {
 			printf("Speedup:        %.1fx",
 			       (double)flowdis_ns / xdp2_ns);
-			printf(" (parse-only: %.1fx)\n",
-			       (double)flowdis_ns / xdp2_nomemset_ns);
+			printf(" (parse-only: %.1fx,  fast-path: %.1fx)\n",
+			       (double)flowdis_ns / xdp2_nomemset_ns,
+			       (double)flowdis_ns / xdp2_fastpath_ns);
 		}
 		printf("\n");
 	}
