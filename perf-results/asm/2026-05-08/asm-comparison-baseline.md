@@ -336,8 +336,39 @@ vs the post-17.E baseline:
   (target: 5% → 2-3% branch-miss on compiled/mono; ~10-15 ns/pkt)
 - O4 — Rust PGO build (target: 5-10% IPC across compiled/mono/template)
 - O1.C — reorder ipv4_table to put TCP/UDP first (~2-5 ns/pkt)
-- O2 — C hardcoded fast-path entry point (target: ~80 ns/pkt — biggest
-  remaining C-side win)
+
+## Phase O2 — C hardcoded fast path (landed 2026-05-08, commit `5883d4d`)
+
+Adds `xdp2_eth_ipv4_l4_fast()` to `samples/flow_dissector/benchmark.c`
+as a `static __always_inline` function. Hardcodes the common-case
+eth+ipv4+{tcp,udp,icmp} chain — mirrors `fast_flow.bpf.c`'s chain
+dispatch but in userspace C with LTO inlining (enabled by O1.B
+static-link).
+
+**Results across PCAPs:**
+
+| PCAP | Hit rate | XDP2 parser | XDP2 fast-path | Speedup | vs kernel flowdis |
+|---|---:|---:|---:|---:|---:|
+| `tcp_ipv4.pcap` | 100% | 52 ns | **2 ns** | **25×** | **10× faster** (20 ns) |
+| `https-web.pcap` | 85.2% | 65 ns | **18 ns** | **3.6×** | **2× faster** (37 ns) |
+| `combo.pcap` | 6% | 187 ns | 182 ns | 1.0× | (combo is encap-heavy, not realistic) |
+
+**Headline:** on realistic web traffic the fast path delivers
+**18 ns/pkt — exactly matching `c-bpf-fast`** (the JIT-compiled BPF
+program the original analysis identified as the leader). The
+optimisation closes the gap between userspace XDP2 and the kernel
+BPF fast-path on the workloads that matter.
+
+**Why combo.pcap shows ~no win:** combo is a synthetic stress mix
+exercising encap, fragment, and tunnel paths. Only ~6% of its
+packets are plain eth+ipv4+l4 — the rest fall through to the slow
+parser. For workloads that reflect actual deployment traffic
+(https-web is closer), the fast path is the headline win.
+
+**Cumulative on c-xdp2 (https-web.pcap):**
+- post-17.E baseline: 195 ns/pkt
+- post-O1+O5: 181 ns/pkt
+- **post-O2 (with fast path): 18 ns/pkt** (10.6× over O1+O5; 10.8× over baseline)
 
 ## Files
 
