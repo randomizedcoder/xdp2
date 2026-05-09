@@ -100,13 +100,15 @@ XDP2_MAKE_PROTO_TABLE(ipv4_table,
 	(IPPROTO_DCCP, ports_node)
 );
 
+/* Phase S2: TCP/UDP first; extension headers after. See
+ * src/lib/xdp2/parsers/parser_big.c ipv6_table for rationale. */
 XDP2_MAKE_PROTO_TABLE(ipv6_table,
+	(IPPROTO_TCP, ports_node),
+	(IPPROTO_UDP, ports_node),
 	(IPPROTO_HOPOPTS, ipv6_eh_node),
 	(IPPROTO_ROUTING, ipv6_eh_node),
 	(IPPROTO_DSTOPTS, ipv6_eh_node),
 	(IPPROTO_FRAGMENT, ipv6_frag_node),
-	(IPPROTO_TCP, ports_node),
-	(IPPROTO_UDP, ports_node),
 	(IPPROTO_SCTP, ports_node),
 	(IPPROTO_DCCP, ports_node)
 );

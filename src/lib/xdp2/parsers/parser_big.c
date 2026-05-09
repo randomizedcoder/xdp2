@@ -325,13 +325,33 @@ XDP2_MAKE_PROTO_TABLE(ipv4_table,
 	(97, etherip_node)  /* IPPROTO_ETHERIP */
 );
 
+/* Phase S2: TCP/UDP first; extension headers after.
+ *
+ * For IPv6 packets WITHOUT extension headers (the typical case),
+ * the IPv6 next-header field points directly to TCP/UDP. The
+ * generic xdp2 engine's lookup_node() walks the table linearly,
+ * so putting TCP/UDP at index 0/1 cuts the common-case lookup
+ * from a 4-iteration walk past HOPOPTS/ROUTING/DSTOPTS/FRAGMENT
+ * to a 1-iteration hit.
+ *
+ * Extension headers (HOPOPTS etc) are legal but less common in
+ * real-world web/CDN/datacentre traffic; their lookup cost rises
+ * by 2 iterations (now searched after TCP/UDP) — acceptable since
+ * EHs already pay the additional ipv6_eh_node parse cost.
+ *
+ * The XDP2_OPTIMIZED variant (default since Phase S1) lowers
+ * proto_table to a switch and is unaffected by table order.
+ * This change benefits the generic __xdp2_parse engine, used by
+ * parsers that don't qualify for OPTIMIZED (those with
+ * post-handlers / okay/fail/atencap nodes / counters / keys).
+ */
 XDP2_MAKE_PROTO_TABLE(ipv6_table,
+	(IPPROTO_TCP, tcp_node),
+	(IPPROTO_UDP, ports_node),
 	(IPPROTO_HOPOPTS, ipv6_eh_node),
 	(IPPROTO_ROUTING, ipv6_eh_node),
 	(IPPROTO_DSTOPTS, ipv6_eh_node),
 	(IPPROTO_FRAGMENT, ipv6_frag_node),
-	(IPPROTO_TCP, tcp_node),
-	(IPPROTO_UDP, ports_node),
 	(IPPROTO_SCTP, ports_node),
 	(IPPROTO_DCCP, ports_node),
 	(IPPROTO_GRE, gre_base_node),
