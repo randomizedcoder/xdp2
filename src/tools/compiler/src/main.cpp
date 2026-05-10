@@ -47,6 +47,7 @@
 
 // XDP2
 #include "xdp2gen/graph.h"
+#include "xdp2gen/mono_eligibility.h"
 #include "xdp2gen/python_generators.h"
 #include "xdp2gen/processing_utilities.h"
 #include "xdp2gen/llvm/llvm_graph.h"

@@ -367,11 +367,16 @@ auto make_python_object(graph_t const &graph, vertex_descriptor_t const &vertex)
     /* 	  next_proto_info.set("bit_mask", 0); */
     /* 	  next_proto_info.set("multiplier", 0); */
     /* }	   */
+    /* R2.2: expose all 5 metadata_transfer variants to the Python
+     * template. Mono codegen needs every kind to emit direct stores
+     * inline. Each dict carries a `kind` discriminator the template
+     * dispatches on. */
     python::list metadata_transfers;
     for (auto &&m : v.metadata_transfers) {
         python::dict transfer;
         if (auto p =
                 std::get_if<xdp2gen::llvm::metadata_transfer>(&m.transfer)) {
+            transfer.set("kind", std::string{ "copy" });
             transfer.set("dst_off", static_cast<int>(p->dst_bit_offset));
             transfer.set("name", m.name);
             transfer.set("src_off", static_cast<int>(p->src_bit_offset));
@@ -379,10 +384,36 @@ auto make_python_object(graph_t const &graph, vertex_descriptor_t const &vertex)
         } else if (auto p =
                        std::get_if<xdp2gen::llvm::metadata_write_constant>(
                            &m.transfer)) {
+            transfer.set("kind", std::string{ "constant" });
             transfer.set("value", static_cast<int>(p->value));
             transfer.set("name", m.name);
             transfer.set("dst_off", static_cast<int>(p->dst_bit_offset));
             transfer.set("length", static_cast<int>(p->bit_size));
+        } else if (auto p =
+                       std::get_if<xdp2gen::llvm::metadata_write_header_offset>(
+                           &m.transfer)) {
+            transfer.set("kind", std::string{ "hdr_off" });
+            transfer.set("name", m.name);
+            transfer.set("dst_off", static_cast<int>(p->dst_bit_offset));
+            transfer.set("src_off", static_cast<int>(p->src_bit_offset));
+            transfer.set("length", static_cast<int>(p->bit_size));
+        } else if (auto p =
+                       std::get_if<xdp2gen::llvm::metadata_write_header_length>(
+                           &m.transfer)) {
+            transfer.set("kind", std::string{ "hdr_len" });
+            transfer.set("name", m.name);
+            transfer.set("dst_off", static_cast<int>(p->dst_bit_offset));
+            transfer.set("src_off", static_cast<int>(p->src_bit_offset));
+            transfer.set("length", static_cast<int>(p->bit_size));
+        } else if (auto p =
+                       std::get_if<xdp2gen::llvm::metadata_value_transfer>(
+                           &m.transfer)) {
+            transfer.set("kind", std::string{ "value" });
+            transfer.set("name", m.name);
+            transfer.set("dst_off", static_cast<int>(p->dst_bit_offset));
+            transfer.set("src_off", static_cast<int>(p->src_bit_offset));
+            transfer.set("length", static_cast<int>(p->bit_size));
+            transfer.set("type", p->type);
         }
         metadata_transfers.append(std::move(transfer));
     }
