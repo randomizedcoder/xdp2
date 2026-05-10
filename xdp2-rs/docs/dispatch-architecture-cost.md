@@ -425,6 +425,213 @@ devirt) becomes higher-priority. The plan's overall direction is
 right; the per-phase ns budgets need re-allocation after R1.1
 data lands.
 
+### R1.2-R1.3 — measured baseline on GENERIC engine + kernel flowdis (2026-05-10)
+
+Wired up a focused `perf-record-c-xdp2-r1` nix target (commit
+TBD) — runs `perf record -F 999 -g` on the C benchmark binary,
+extracts perf-annotate for the hot entry function. Categorised
+each non-zero-sample instruction with
+`nix/scripts/r1-attribute-cycles.sh`.
+
+**Pre-S1 generic-engine baseline (combo.pcap, `__xdp2_parse`):**
+
+| Component | % of cycles | ns / pkt | Notes |
+|---|---:|---:|---|
+| compute (test/cmp/and/cmovg…) | 44.83 | 104.4 | Most of this is the `lookup_node()` linear-search compare loop |
+| branch_dense (conditional jumps) | 30.08 | 70.1 | Loop back-edge + flag checks; the 17.05% single hot instr at `jne 1ee70` is the proto-table miss path |
+| load | 9.83 | 22.9 | Walking proto_table entries + struct field loads |
+| regshuffle (reg-to-reg mov) | 5.21 | 12.1 | Argument prep before indirect calls |
+| indirect_call | 4.04 | 9.4 | `ops.next_proto` + `ops.extract_metadata` + `ops.handler` dispatches |
+| frame_indirect (stack spills) | 2.32 | 5.4 | Small function — most state stays in regs |
+| store (productive field writes) | 0.58 | 1.4 | Almost no useful work — extraction is in callbacks |
+| direct_call | 0.00 | 0.0 | LTO inlined everything on the common path |
+| **TOTAL** | 99.21 | 233.0 | Matches measured `XDP2 parser: 233 ns/pkt` |
+
+**Kernel flowdis baseline (combo.pcap, `__skb_flow_dissect_err`):**
+
+| Component | % of cycles | ns / pkt | Notes |
+|---|---:|---:|---|
+| compute | 29.54 | 48.2 | Big switch arm comparisons + length/version checks |
+| branch_dense | 22.71 | 37.0 | `goto proto_again` / `goto ip_proto_again` state-machine |
+| frame_indirect | 18.17 | 29.6 | Much bigger function (1540 lines) — more local state |
+| store (productive field writes) | 18.13 | 29.5 | **The productive work — direct stores to `flow_keys`** |
+| prologue (push/pop/ret/nop) | 4.55 | 7.4 | Single-function prologue/epilogue |
+| load | 4.55 | 7.4 | Packet+struct loads |
+| regshuffle | 2.27 | 3.7 | Reg-to-reg shuffling |
+| indirect_call | 0.00 | 0.0 | **Zero indirect dispatch — all direct** |
+| direct_call | 0.00 | 0.0 | Helpers like `__skb_flow_get_ports` show as separate symbols below |
+| **TOTAL** | 99.92 | 163.0 | Matches measured `Kernel flowdis: 163 ns/pkt` |
+
+**Per-component delta (XDP2 generic – kernel flowdis):**
+
+| Category | XDP2 ns | flowdis ns | delta | Interpretation |
+|---|---:|---:|---:|---|
+| compute | 104.4 | 48.2 | **+56.3** | XDP2 wastes cycles on `lookup_node()` linear search |
+| branch_dense | 70.1 | 37.0 | **+33.1** | Proto-table iteration + per-layer flag/encap checks |
+| load | 22.9 | 7.4 | +15.5 | Proto-table struct loads (table entry, type, node ptr) |
+| regshuffle | 12.1 | 3.7 | +8.4 | Calling-convention arg-prep across the 3 indirect calls |
+| indirect_call | 9.4 | 0.0 | +9.4 | The 3 ops dispatches — `next_proto` + `extract_metadata` + `handler` |
+| branch_uncond | 1.4 | 0.0 | +1.4 | jmp branches between proto-table cases |
+| frame_indirect | 5.4 | 29.6 | -24.2 | Flowdis has more locals (TCP options state); XDP2 spills less |
+| prologue | 2.7 | 7.4 | -4.7 | Flowdis is one big function — bigger prologue |
+| store | 1.4 | 29.6 | **-28.2** | **Flowdis does 22× more productive work per cycle** |
+| direct_call | 0.0 | 0.0 | 0.0 | Both inlined on common path |
+| **TOTAL** | 233.0 | 163.0 | **+70.0** | The dispatch tax (pre-S1 baseline) |
+
+**Key insight from the delta table:** the `store` line is the
+inverse-tell. Flowdis spends 22× more time writing fields to
+`flow_keys` than XDP2 spends on its `metadata` struct, even
+though they extract the same information. The reason: XDP2's
+extraction happens inside callback functions invoked via
+indirect calls, and the callbacks share helper utilities that
+dilute the per-instruction sample density. The "real work" is
+hidden in the +9.4 ns indirect-call bucket plus the helper
+functions (`ipv4_metadata`/`ipv6_metadata`/`ports_metadata`/
+`tcp_len`/`ip_proto`) which show up as separate symbols
+totaling ~94 samples vs ~44 for `__skb_flow_dissect_err` and
+~14 for `__skb_flow_get_ports`.
+
+The `compute` + `branch_dense` + `load` triplet sums to **+105 ns**
+in XDP2 — that's the price of the `lookup_node()` linear-search +
+proto-table walking. S1 (switching to `_opt`) eliminates most of
+this; the post-S _opt path measured at 38 ns on https-web
+(13 ns gap vs flowdis 25 ns) is consistent with the
+generic-engine 233 ns minus the ~190 ns of lookup-loop overhead.
+
+### R1.1 — measured baseline on post-S `_opt` path (combo.pcap)
+
+Fresh perf-record on hp5 (200 iter × 500 000 pkt × 3 impls,
+benchmark binary built post-S1, parser=optimized,
+`/nix/store/...-xdp2-flow-dissector-matrix-artifacts-0.1.0/bin/benchmark`,
+47 033 cpu/cycles/P samples at -F 999):
+
+```
+Kernel flowdis: 172 ns/pkt
+XDP2 parser:    188 ns/pkt   ← post-S _opt path
+XDP2 parse-only:186 ns/pkt
+```
+
+**Gap: 16 ns/pkt** (XDP2-C 188 vs flowdis 172). Different
+absolute numbers than https-web — combo.pcap has deeper encap +
+TCP options + more protocol diversity, so both impls do more
+work. The gap is similar in magnitude to the 13 ns from
+https-web measurements.
+
+### R1.0 correction — per-node helpers are NOT all inlined
+
+R1.0 incorrectly concluded "only 1 text symbol exists" and that
+LTO had inlined everything. Direct binary inspection shows the
+opposite:
+
+```
+$ objdump --disassemble=xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node benchmark | grep -cE "call.*<"
+12   # 12 DIRECT calls from entry into per-node helpers
+$ objdump --disassemble=xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node benchmark | grep -cE "call.*\*"
+2    # 2 INDIRECT calls remain in entry (with ~0% samples on common path)
+```
+
+The `__xdp2_parser_flow_dissector_*_node_xdp2_parse.isra.0`
+per-node helpers exist as separate functions called via direct
+`call <addr>` from the entry function. They are:
+ipv4_node, tcp_node, udp_node, ipv6_node, batman, trill, hsr,
+e8021Q, pbb, e8021AD, pppoe, nsh, snap, edsa, ipv6_eh,
+ah_ipv6, ether_inner, gre_v0, ipv6_frag. ~16 separate functions
+on the common-path tree.
+
+R1.0's error was in the `grep flow_dissector_l2 | wc -l` — that
+filter only matched the entry symbol (which has `_l2` in its
+name). The per-node helpers are named without `_l2`. The actual
+inlining structure: each helper is its own function with
+prologue/epilogue and direct-call boundaries to its successor
+node.
+
+### R1.2 — per-symbol component attribution (post-S _opt)
+
+Used `nix/scripts/r1-attribute-cycles.sh` with the fresh
+F999 perf-record data (3090 samples across the 5 hot symbols
+on the eth+ipv4/v6+tcp/udp path). Attribution weighted by
+sample share:
+
+| Component | XDP2 ns | flowdis ns | delta ns | Notes |
+|---|---:|---:|---:|---|
+| compute | 57.8 | 48.3 | **+9.6** | Per-node length/version/IHL checks (mostly in helpers) |
+| branch_dense | 50.8 | 33.5 | **+17.2** | Big switch in entry + per-node conditionals in helpers |
+| prologue (push/pop/ret/nop) | 20.6 | 8.9 | **+11.7** | Per-helper function-call boundary overhead (15 helpers × ~1-2 ns each) |
+| regshuffle (reg-to-reg mov) | 20.0 | 9.0 | **+11.0** | Argument-marshalling before each direct call |
+| store (metadata writes) | 26.0 | 19.8 | +6.3 | XDP2 actually stores more metadata than flowdis here |
+| load (packet/struct reads) | 5.4 | 19.7 | **-14.3** | Flowdis re-reads packet header bytes more |
+| frame_indirect (stack spills) | 0.2 | 21.5 | **-21.3** | Flowdis has deep local state (TCP options walker etc.) |
+| branch_uncond (jmp) | 2.8 | 2.3 | +0.5 | Mostly the same |
+| direct_call | 0.2 | 1.9 | -1.8 | Flowdis calls `__skb_flow_get_ports`/`memcmp`/etc. |
+| indirect_call | **0.0** | **0.0** | 0.0 | **Both: zero on hot path. R5 saves nothing here.** |
+| other (movdqu / SIMD) | 3.0 | 6.1 | -3.1 | flowdis has more `movups %xmm0,...` zeroing instructions |
+| **TOTAL** | **188.0** | **172.0** | **+16.0** | Matches measured gap exactly |
+
+### R1.3 — what the 16 ns gap actually composes
+
+Boiled down:
+
+| Sub-gap | ns | Phase target | Estimated win |
+|---|---:|---|---:|
+| **Function-call boundaries** (prologue + regshuffle) | +22.7 | **R3 (mono codegen)** — inlining all per-node helpers into a single function with goto-state transitions | **up to ~22 ns** (most of this gap) |
+| **Big-switch + per-node conditionals** | +17.2 | **R3 + R2** — flatter dispatch tree, hot-edge ordering | ~3-8 ns (modest — gcc already optimises the switch) |
+| **Per-node validation** (compute) | +9.6 | hard to remove without skipping safety | minimal |
+| **Metadata stores** (store) | +6.3 | already productive work; R3 can't reduce | n/a |
+| **Stack/load overhead diff** (frame_indirect + load) | -35.6 | flowdis does more — XDP2 already ahead here | none |
+| **Indirect-call overhead** | 0.0 | **R5 saves NOTHING on this path** | 0 ns |
+| **Net** | +16 | | up to ~25 ns improvement (188 → 163 ns) |
+
+### R1.4 — revised R-phase priority and ns budgets
+
+The R1.0 conclusions need correction; the actual data points
+to a very different cost composition:
+
+1. **R3 (monolithic codegen) is the highest-leverage phase
+   — projected ~22 ns win** by eliminating the per-helper
+   function-call boundaries (prologue + regshuffle). This
+   makes R3 the centerpiece of the rebuild, as originally
+   planned in the R1-R8 doc, but for a different
+   reason than the plan said (it's not about *adding* inlining
+   — the helpers are already inlined into the parse tree
+   structure conceptually; it's about *flattening* the 15
+   separate-function tree into one function with goto
+   transitions).
+2. **R5 (devirtualise ops callbacks) saves nothing.** The
+   common eth+ipv4/v6+tcp/udp path has 0% indirect_call
+   samples in the perf data. The 2 indirect calls still
+   present in the entry function are reached only by rare
+   parse paths (encap depth limit, exit-node fallback, etc.).
+   *Drop R5 from the urgent list; keep it as cleanup later
+   if the indirect-call-fallback paths matter for adversarial
+   workloads.*
+3. **R6 (encap / frame management cleanup) is also low-value
+   here.** Frame_indirect is ALREADY tiny on XDP2 (0.2 ns vs
+   flowdis 21.5 ns) — flowdis has more stack usage, not less.
+   The encap-bookkeeping overhead the plan called out lives
+   elsewhere (probably in the per-node helpers' prologue,
+   which R3 absorbs).
+4. **R4 (refactor 6 parsers) is still needed** as a
+   prerequisite for R3 to apply broadly. Without R4, only
+   the simpler parsers can be re-emitted via the mono
+   codegen.
+
+**Updated phase ns budget:**
+
+| Phase | Was modeled | Revised by R1 data |
+|---|---:|---:|
+| R3 (mono codegen) | ~11 ns | **~22 ns** ← the big win |
+| R5 (devirt callbacks) | ~12 cycles / 3.8 ns | ~0 ns ← drop urgency |
+| R6 (encap cleanup) | ~8 cycles / 2.5 ns | ~0 ns ← drop urgency |
+| Branch / compute restructuring (part of R3) | ? | ~3-8 ns |
+| **Net achievable** | ~16 ns | **~25 ns (188 → 163 ns, parity with flowdis)** |
+
+The rebuild is still worth doing — the architectural thesis
+("flatten the per-node tree into a single function with
+goto-state transitions, like flowdis") is correct. But the
+cost composition has shifted from "indirect dispatch tax" to
+"per-helper function-call boundary tax". This changes which
+sub-tasks within R3 are highest priority.
+
 ## See also
 
 - `xdp2-rs/docs/fast-path-dispatch.md` — Rust dyn-vs-enum dispatch story

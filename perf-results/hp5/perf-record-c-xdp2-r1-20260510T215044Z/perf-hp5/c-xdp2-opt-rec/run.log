@@ -1,0 +1,12 @@
+=== Flow Dissector Benchmark ===
+Packets: 500000
+PCAP: /nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap
+Parser: optimized
+
+--- Performance (500000 packets x 200 iterations) ---
+Kernel flowdis: 172 ns/pkt,  5 Mpps
+XDP2 parser:    188 ns/pkt,  5 Mpps
+XDP2 parse-only:186 ns/pkt,  5 Mpps
+XDP2 fast-path: 175 ns/pkt,  5 Mpps (hits=5961200/100000000 = 6.0%, checksum=0x5ad0894a93c430)
+Speedup:        0.9x (parse-only: 0.9x,  fast-path: 1.0x)
+

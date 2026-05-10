@@ -1,0 +1,16 @@
+
+ Performance counter stats for '/nix/store/jn6lsqa7szcs8x3mq0kayf4pxd6aj1kx-xdp2-flow-dissector-matrix-artifacts-0.1.0/bin/benchmark -p -n 200 /nix/store/pfw64fa1yqbqhw4k9iy6gkyl23xjrw43-xdp2-test-pcap/combo.pcap':
+
+   262,060,485,760      cycles                                                                
+    79,722,437,847      instructions                                                          
+    16,905,438,495      branches                                                              
+     1,077,555,675      branch-misses                                                         
+    38,628,431,813      L1-dcache-loads                                                       
+     1,097,286,390      L1-dcache-load-misses                                                 
+
+      73.176191437 seconds time elapsed
+
+      72.058413000 seconds user
+       0.732924000 seconds sys
+
+

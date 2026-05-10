@@ -354,6 +354,16 @@
           inherit pkgs;
         };
 
+        # R1.1 — focused perf-record on the post-S _opt path of the
+        # flow-dissector benchmark. Outputs land in result/perf-hp5/
+        # so the run-on-host orchestrator's result rsync carries them
+        # home. Defined late because it depends on
+        # flowDissectorMatrix.artifacts (assigned further down).
+        perfRecordR1 = import ./nix/perf-record-c-xdp2-r1.nix {
+          inherit pkgs test-pcap;
+          flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -1008,6 +1018,9 @@
           # runs cargo test + bench + flamegraph for graph / graph-enum / compiled
           # on tcp_ipv4.pcap. Output: perf-results/graph-enum/
           perf-graph-enum-compare = perfAnalysis.graph-enum-compare;
+          # R1.1 — focused perf-record + annotate on c-xdp2-usp's _opt
+          # vs _generic path. Invoked via run-on-host on hp5.
+          perf-record-c-xdp2-r1 = perfRecordR1;
           # Chain-signature histogram probe (fast-path exploration, step 1).
           # Single PCAP: nix run .#chain-histogram -- <pcap> [top-n]
           # All 3 refs:  nix run .#chain-histogram-all

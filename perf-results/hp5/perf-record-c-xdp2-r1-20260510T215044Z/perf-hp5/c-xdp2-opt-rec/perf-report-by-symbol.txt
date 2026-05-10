@@ -1,0 +1,555 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 63K of event 'cpu/cycles/P'
+# Event count (approx.): 229551491637
+#
+#     Self  Symbol                                                                      IPC   [IPC Coverage]
+# ........  ..........................................................................  ....................
+#
+    73.56%  [.] main                                                                    -      -            
+            |          
+            |--73.56%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          
+             --25.75%--main
+                       |          
+                       |--19.47%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                       |          |          
+                       |          |--3.35%--__xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0
+                       |          |          
+                       |          |--2.63%--__xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+                       |          |          
+                       |          |--2.59%--__xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0
+                       |          |          
+                       |          |--2.36%--__xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+                       |          |          
+                       |           --1.36%--__xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0
+                       |          
+                       |--3.34%--__skb_flow_dissect_err
+                       |          
+                       |--0.93%--asm_exc_page_fault
+                       |          |          
+                       |           --0.78%--exc_page_fault
+                       |                     |          
+                       |                      --0.75%--do_user_addr_fault
+                       |                                |          
+                       |                                 --0.70%--handle_mm_fault
+                       |                                           |          
+                       |                                            --0.66%--__handle_mm_fault
+                       |                                                      |          
+                       |                                                       --0.63%--do_anonymous_page
+                       |          
+                        --0.89%--__skb_flow_get_ports
+
+     5.66%  [.] xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node            -      -            
+            |          
+            |--14.42%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+            |          |          
+            |          |--3.35%--__xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0
+            |          |          
+            |          |--2.63%--__xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+            |          |          
+            |          |--2.59%--__xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0
+            |          |          
+            |          |--2.36%--__xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+            |          |          
+            |           --1.36%--__xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0
+            |          
+             --5.66%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       |          
+                       |--5.05%--main
+                       |          xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                       |          
+                        --0.60%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+
+     3.39%  [.] __xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0                -      -            
+            |          
+             --3.39%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       |          
+                        --3.33%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                                  __xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0
+
+     3.38%  [.] __skb_flow_dissect_err                                                  -      -            
+            |          
+             --3.38%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       |          
+                        --3.33%--main
+                                  __skb_flow_dissect_err
+
+     2.64%  [.] __xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0                -      -            
+            |          
+             --2.64%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       |          
+                        --2.56%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                                  __xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0
+
+     2.63%  [.] __xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0                 -      -            
+            |          
+             --2.63%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       |          
+                        --2.61%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                                  __xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+
+     2.40%  [.] __xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0                 -      -            
+            |          
+             --2.40%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       |          
+                        --2.35%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                                  __xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+
+     1.38%  [.] __xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0             -      -            
+            |          
+             --1.38%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       |          
+                        --1.35%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+                                  __xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0
+
+     0.89%  [.] __skb_flow_get_ports                                                    -      -            
+            |          
+             --0.89%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       __skb_flow_get_ports
+
+     0.48%  [.] __xdp2_parser_flow_dissector_ah_ipv6_node_xdp2_parse.isra.0             -      -            
+     0.37%  [.] __xdp2_parser_flow_dissector_ether_inner_node_xdp2_parse.isra.0         -      -            
+     0.33%  [.] __xdp2_parser_flow_dissector_gre_v0_node_xdp2_parse.constprop.0.isra.0  -      -            
+     0.31%  [.] __xdp2_parser_flow_dissector_pppoe_node_xdp2_parse.isra.0               -      -            
+     0.28%  [k] kernel_init_pages                                                       -      -            
+     0.24%  [.] __xdp2_parser_flow_dissector_ipv6_frag_node_xdp2_parse.isra.0           -      -            
+     0.11%  [.] __xdp2_parser_flow_dissector_pbb_node_xdp2_parse.isra.0                 -      -            
+     0.11%  [.] __xdp2_parser_flow_dissector_trill_node_xdp2_parse.isra.0               -      -            
+     0.09%  [.] asm_exc_page_fault                                                      -      -            
+            |          
+             --0.86%--asm_exc_page_fault
+                       |          
+                        --0.79%--exc_page_fault
+                                  |          
+                                   --0.76%--do_user_addr_fault
+                                             |          
+                                              --0.71%--handle_mm_fault
+                                                        |          
+                                                         --0.67%--__handle_mm_fault
+                                                                   |          
+                                                                    --0.64%--do_anonymous_page
+
+     0.09%  [.] __xdp2_parser_flow_dissector_nsh_node_xdp2_parse.isra.0                 -      -            
+     0.08%  [.] __xdp2_parser_flow_dissector_batman_node_xdp2_parse.isra.0              -      -            
+     0.06%  [.] __xdp2_parser_flow_dissector_hsr_node_xdp2_parse.isra.0                 -      -            
+     0.05%  [k] asm_sysvec_apic_timer_interrupt                                         -      -            
+            |          
+             --0.57%--asm_sysvec_apic_timer_interrupt
+
+     0.05%  [k] native_sched_clock                                                      -      -            
+     0.04%  [k] __rmqueue_pcplist                                                       -      -            
+     0.04%  [k] __free_one_page                                                         -      -            
+     0.03%  [k] native_write_msr                                                        -      -            
+     0.03%  [k] sync_regs                                                               -      -            
+     0.03%  [.] __xdp2_parser_flow_dissector_snap_node_xdp2_parse.constprop.0.isra.0    -      -            
+     0.03%  [k] __update_load_avg_cfs_rq                                                -      -            
+     0.03%  [k] mas_walk                                                                -      -            
+     0.03%  [k] __update_load_avg_se                                                    -      -            
+     0.03%  [.] irqentry_exit                                                           -      -            
+     0.03%  [k] unmap_page_range                                                        -      -            
+     0.02%  [k] __list_del_entry_valid_or_report                                        -      -            
+     0.02%  [k] native_read_msr                                                         -      -            
+     0.02%  [k] ct_kernel_exit_state                                                    -      -            
+     0.02%  [.] __handle_mm_fault                                                       -      -            
+            |          
+             --0.65%--__handle_mm_fault
+                       |          
+                        --0.64%--do_anonymous_page
+
+     0.02%  [.] mod_memcg_lruvec_state                                                  -      -            
+     0.02%  [.] __alloc_frozen_pages_noprof                                             -      -            
+     0.02%  [k] read_tsc                                                                -      -            
+     0.02%  [k] _raw_spin_lock_irqsave                                                  -      -            
+     0.02%  [.] perf_adjust_freq_unthr_context                                          -      -            
+     0.02%  [k] __rcu_read_lock                                                         -      -            
+     0.02%  [.] handle_mm_fault                                                         -      -            
+            |          
+             --0.69%--handle_mm_fault
+                       |          
+                        --0.67%--__handle_mm_fault
+                                  |          
+                                   --0.64%--do_anonymous_page
+
+     0.02%  [k] lru_add                                                                 -      -            
+     0.02%  [.] do_anonymous_page                                                       -      -            
+            |          
+             --0.63%--do_anonymous_page
+
+     0.02%  [k] update_se                                                               -      -            
+     0.02%  [.] exc_page_fault                                                          -      -            
+            |          
+             --0.77%--exc_page_fault
+                       |          
+                        --0.76%--do_user_addr_fault
+                                  |          
+                                   --0.71%--handle_mm_fault
+                                             |          
+                                              --0.67%--__handle_mm_fault
+                                                        |          
+                                                         --0.64%--do_anonymous_page
+
+     0.02%  [k] _raw_spin_lock                                                          -      -            
+     0.02%  [k] __rcu_read_unlock                                                       -      -            
+     0.02%  [k] blk_cgroup_congested                                                    -      -            
+     0.02%  [k] lru_gen_del_folio.constprop.0                                           -      -            
+     0.02%  [.] _IO_file_xsgetn                                                         -      -            
+     0.01%  [k] lock_vma_under_rcu                                                      -      -            
+     0.01%  [k] folios_put_refs                                                         -      -            
+     0.01%  [k] __pgalloc_tag_sub                                                       -      -            
+     0.01%  [.] pcap_next_packet                                                        -      -            
+     0.01%  [k] __const_udelay                                                          -      -            
+     0.01%  [.] update_curr                                                             -      -            
+     0.01%  [.] __irq_exit_rcu                                                          -      -            
+     0.01%  [k] account_user_time                                                       -      -            
+     0.01%  [.] lruvec_stat_mod_folio                                                   -      -            
+     0.01%  [k] css_rstat_updated                                                       -      -            
+     0.01%  [k] __pgalloc_tag_add                                                       -      -            
+     0.01%  [.] __page_cache_release.part.0                                             -      -            
+     0.01%  [.] __schedule                                                              -      -            
+     0.01%  [k] update_cfs_group                                                        -      -            
+     0.01%  [.] irqentry_enter                                                          -      -            
+     0.01%  [k] rep_movs_alternative                                                    -      -            
+     0.01%  [.] vma_alloc_folio_noprof                                                  -      -            
+     0.01%  [.] free_unref_folios                                                       -      -            
+     0.01%  [.] __memmove_avx_unaligned_erms                                            -      -            
+     0.01%  [.] get_mem_cgroup_from_mm                                                  -      -            
+     0.01%  [.] __memmove_avx_unaligned                                                 -      -            
+     0.01%  [.] get_page_from_freelist                                                  -      -            
+     0.01%  [.] lru_gen_add_folio                                                       -      -            
+     0.01%  [k] _raw_spin_trylock                                                       -      -            
+     0.01%  [k] count_memcg_events                                                      -      -            
+     0.01%  [k] irq_enter_rcu                                                           -      -            
+     0.01%  [k] mod_node_page_state                                                     -      -            
+     0.01%  [k] rcu_nocb_flush_deferred_wakeup                                          -      -            
+     0.01%  [k] psi_account_irqtime                                                     -      -            
+     0.01%  [k] ktime_get                                                               -      -            
+     0.01%  [.] task_tick_fair                                                          -      -            
+     0.01%  [k] folio_add_lru                                                           -      -            
+     0.01%  [k] get_vma_policy                                                          -      -            
+     0.01%  [k] __list_add_valid_or_report                                              -      -            
+     0.01%  [k] page_ext_get                                                            -      -            
+     0.01%  [.] x86_pmu_disable_all                                                     -      -            
+     0.01%  [.] pcapint_offline_read                                                    -      -            
+     0.01%  [k] housekeeping_test_cpu                                                   -      -            
+     0.01%  [.] post_alloc_hook                                                         -      -            
+     0.01%  [k] dl_server_update                                                        -      -            
+     0.01%  [k] __mod_zone_page_state                                                   -      -            
+     0.01%  [k] update_irq_load_avg                                                     -      -            
+     0.01%  [k] __walk_groups_from                                                      -      -            
+     0.01%  [k] rcu_sched_clock_irq                                                     -      -            
+     0.01%  [.] __fread_chk                                                             -      -            
+     0.01%  [k] pte_offset_map_rw_nolock                                                -      -            
+     0.01%  [.] pte_offset_map_lock                                                     -      -            
+     0.01%  [k] restore_fpregs_from_fpstate                                             -      -            
+     0.01%  [.] free_frozen_page_commit.isra.0                                          -      -            
+     0.01%  [k] folio_add_new_anon_rmap                                                 -      -            
+     0.01%  [k] try_charge_memcg                                                        -      -            
+     0.01%  [k] __enqueue_entity                                                        -      -            
+     0.00%  [k] kthread_blkcg                                                           -      -            
+     0.00%  [k] percpu_counter_add_batch                                                -      -            
+     0.00%  [.] folio_remove_rmap_ptes                                                  -      -            
+     0.00%  [.] __ct_user_enter                                                         -      -            
+     0.00%  [k] ktime_get_update_offsets_now                                            -      -            
+     0.00%  [.] pick_task_fair                                                          -      -            
+     0.00%  [k] get_jiffies_update                                                      -      -            
+     0.00%  [k] record_times                                                            -      -            
+     0.00%  [.] free_pages_and_swap_cache                                               -      -            
+     0.00%  [.] _IO_fread                                                               -      -            
+     0.00%  [k] error_entry                                                             -      -            
+     0.00%  [.] amd_pmu_check_overflow                                                  -      -            
+     0.00%  [k] error_return                                                            -      -            
+     0.00%  [.] sched_clock                                                             -      -            
+     0.00%  [k] fpregs_assert_state_consistent                                          -      -            
+     0.00%  [k] update_deadline                                                         -      -            
+     0.00%  [.] __hrtimer_run_queues                                                    -      -            
+     0.00%  [k] amd_pmu_test_overflow_topbit                                            -      -            
+     0.00%  [k] rb_next                                                                 -      -            
+     0.00%  [.] __folio_batch_add_and_move                                              -      -            
+     0.00%  [k] __vmf_anon_prepare                                                      -      -            
+     0.00%  [.] __pick_eevdf                                                            -      -            
+     0.00%  [.] __pte_offset_map                                                        -      -            
+     0.00%  [.] update_curr_dl_se                                                       -      -            
+     0.00%  [.] free_pcppages_bulk                                                      -      -            
+     0.00%  [k] __dequeue_entity                                                        -      -            
+     0.00%  [k] policy_nodemask                                                         -      -            
+     0.00%  [k] folio_lruvec_lock_irqsave                                               -      -            
+     0.00%  [k] __cgroup_account_cputime_field                                          -      -            
+     0.00%  [k] psi_task_switch                                                         -      -            
+     0.00%  [k] _raw_spin_unlock_irqrestore                                             -      -            
+     0.00%  [k] hrtimer_update_next_event                                               -      -            
+     0.00%  [.] tick_nohz_handler                                                       -      -            
+     0.00%  [k] __irqentry_text_end                                                     -      -            
+     0.00%  [k] cpuacct_charge                                                          -      -            
+     0.00%  [k] tmigr_requires_handle_remote                                            -      -            
+     0.00%  [k] __memcg_kmem_charge_page                                                -      -            
+     0.00%  [.] __sysvec_apic_timer_interrupt                                           -      -            
+     0.00%  [.] folio_prealloc                                                          -      -            
+     0.00%  [k] set_ptes.isra.0                                                         -      -            
+     0.00%  [.] perf_event_task_tick                                                    -      -            
+     0.00%  [.] sched_tick                                                              -      -            
+     0.00%  [.] vtime_user_exit                                                         -      -            
+     0.00%  [.] folio_batch_move_lru                                                    -      -            
+     0.00%  [k] irq_work_tick                                                           -      -            
+     0.00%  [.] do_syscall_64                                                           -      -            
+     0.00%  [k] pfn_pte                                                                 -      -            
+     0.00%  [.] do_user_addr_fault                                                      -      -            
+            |          
+             --0.75%--do_user_addr_fault
+                       |          
+                        --0.71%--handle_mm_fault
+                                  |          
+                                   --0.67%--__handle_mm_fault
+                                             |          
+                                              --0.64%--do_anonymous_page
+
+     0.00%  [.] alloc_pages_mpol                                                        -      -            
+     0.00%  [k] _raw_spin_unlock                                                        -      -            
+     0.00%  [.] __underflow                                                             -      -            
+     0.00%  [.] copy_page_to_iter                                                       -      -            
+     0.00%  [.] pcap_next                                                               -      -            
+     0.00%  [k] native_set_pte                                                          -      -            
+     0.00%  [.] get_vtime_delta                                                         -      -            
+     0.00%  [.] max_snaplen_for_dlt                                                     -      -            
+     0.00%  [k] free_swap_cache                                                         -      -            
+     0.00%  [.] vtime_user_enter                                                        -      -            
+     0.00%  [k] __tick_nohz_full_update_tick                                            -      -            
+     0.00%  [k] update_load_avg                                                         -      -            
+     0.00%  [k] __set_next_task_fair.part.0                                             -      -            
+     0.00%  [k] native_irq_return_iret                                                  -      -            
+     0.00%  [.] sched_clock_cpu                                                         -      -            
+     0.00%  [.] put_prev_entity                                                         -      -            
+     0.00%  [k] static_key_count                                                        -      -            
+     0.00%  [.] uncharge_folio                                                          -      -            
+     0.00%  [k] __hrtimer_next_event_base                                               -      -            
+     0.00%  [k] vm_normal_page                                                          -      -            
+     0.00%  [.] hrtimer_interrupt                                                       -      -            
+     0.00%  [.] update_rq_clock                                                         -      -            
+     0.00%  [.] fread@plt                                                               -      -            
+     0.00%  [.] __mem_cgroup_charge                                                     -      -            
+     0.00%  [.] irqtime_account_irq                                                     -      -            
+     0.00%  [.] ct_kernel_enter.isra.0                                                  -      -            
+     0.00%  [.] fpregs_restore_userregs                                                 -      -            
+     0.00%  [k] page_counter_uncharge                                                   -      -            
+     0.00%  [k] access_error                                                            -      -            
+     0.00%  [k] rcu_preempt_deferred_qs                                                 -      -            
+     0.00%  [k] folio_mapping                                                           -      -            
+     0.00%  [k] sched_core_idle_cpu                                                     -      -            
+     0.00%  [.] update_cfs_rq_load_avg                                                  -      -            
+     0.00%  [k] page_ext_put                                                            -      -            
+     0.00%  [k] tick_nohz_dep_clear_cpu                                                 -      -            
+     0.00%  [.] clockevents_program_event                                               -      -            
+     0.00%  [k] native_queued_spin_lock_slowpath                                        -      -            
+     0.00%  [k] cpumask_any_and_distribute                                              -      -            
+     0.00%  [.] hrtimer_start_range_ns                                                  -      -            
+     0.00%  [k] irq_exit_rcu                                                            -      -            
+     0.00%  [.] charge_memcg                                                            -      -            
+     0.00%  [k] __cgroup_account_cputime                                                -      -            
+     0.00%  [.] schedule                                                                -      -            
+     0.00%  [k] acct_account_cputime                                                    -      -            
+     0.00%  [k] mem_cgroup_from_task                                                    -      -            
+     0.00%  [k] calc_global_load_tick                                                   -      -            
+     0.00%  [.] __del_page_from_free_list                                               -      -            
+     0.00%  [k] page_counter_try_charge                                                 -      -            
+     0.00%  [k] vruntime_eligible                                                       -      -            
+     0.00%  [.] __skb_flow_get_ports@plt                                                -      -            
+     0.00%  [.] __perf_event_task_sched_out                                             -      -            
+     0.00%  [k] xas_load                                                                -      -            
+     0.00%  [.] __pte_alloc                                                             -      -            
+     0.00%  [.] sysvec_apic_timer_interrupt                                             -      -            
+     0.00%  [.] pick_next_task_fair                                                     -      -            
+     0.00%  [.] _IO_file_underflow@@GLIBC_2.2.5                                         -      -            
+     0.00%  [.] __ct_user_exit                                                          -      -            
+     0.00%  [.] __folio_mod_stat                                                        -      -            
+     0.00%  [.] __folio_throttle_swaprate                                               -      -            
+     0.00%  [.] __internal_syscall_cancel                                               -      -            
+     0.00%  [.] __libc_start_call_main                                                  -      -            
+            |
+            ---__libc_start_call_main
+               |          
+               |--99.32%--main
+               |          |          
+               |          |--19.47%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+               |          |          |          
+               |          |          |--3.35%--__xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.63%--__xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.59%--__xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.36%--__xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |           --1.36%--__xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0
+               |          |          
+               |          |--3.34%--__skb_flow_dissect_err
+               |          |          
+               |          |--0.93%--asm_exc_page_fault
+               |          |          |          
+               |          |           --0.78%--exc_page_fault
+               |          |                     |          
+               |          |                      --0.75%--do_user_addr_fault
+               |          |                                |          
+               |          |                                 --0.70%--handle_mm_fault
+               |          |                                           |          
+               |          |                                            --0.66%--__handle_mm_fault
+               |          |                                                      |          
+               |          |                                                       --0.63%--do_anonymous_page
+               |          |          
+               |           --0.89%--__skb_flow_get_ports
+               |          
+                --0.61%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+
+     0.00%  [.] __libc_start_main@@GLIBC_2.34                                           -      -            
+            |
+            ---__libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               |          
+               |--99.32%--main
+               |          |          
+               |          |--19.47%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+               |          |          |          
+               |          |          |--3.35%--__xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.63%--__xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.59%--__xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.36%--__xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |           --1.36%--__xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0
+               |          |          
+               |          |--3.34%--__skb_flow_dissect_err
+               |          |          
+               |          |--0.93%--asm_exc_page_fault
+               |          |          |          
+               |          |           --0.78%--exc_page_fault
+               |          |                     |          
+               |          |                      --0.75%--do_user_addr_fault
+               |          |                                |          
+               |          |                                 --0.70%--handle_mm_fault
+               |          |                                           |          
+               |          |                                            --0.66%--__handle_mm_fault
+               |          |                                                      |          
+               |          |                                                       --0.63%--do_anonymous_page
+               |          |          
+               |           --0.89%--__skb_flow_get_ports
+               |          
+                --0.61%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+
+     0.00%  [.] __mem_cgroup_uncharge_folios                                            -      -            
+     0.00%  [.] __munmap                                                                -      -            
+     0.00%  [.] __syscall_cancel                                                        -      -            
+     0.00%  [.] __tlb_batch_free_encoded_pages                                          -      -            
+     0.00%  [.] __vm_munmap                                                             -      -            
+     0.00%  [.] __x64_sys_execve                                                        -      -            
+     0.00%  [.] __x64_sys_munmap                                                        -      -            
+     0.00%  [.] _copy_to_iter                                                           -      -            
+     0.00%  [.] _start                                                                  -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               |          
+               |--99.32%--main
+               |          |          
+               |          |--19.47%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+               |          |          |          
+               |          |          |--3.35%--__xdp2_parser_flow_dissector_ipv6_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.63%--__xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.59%--__xdp2_parser_flow_dissector_ipv4_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |          |--2.36%--__xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+               |          |          |          
+               |          |           --1.36%--__xdp2_parser_flow_dissector_ipv6_eh_node_xdp2_parse.isra.0
+               |          |          
+               |          |--3.34%--__skb_flow_dissect_err
+               |          |          
+               |          |--0.93%--asm_exc_page_fault
+               |          |          |          
+               |          |           --0.78%--exc_page_fault
+               |          |                     |          
+               |          |                      --0.75%--do_user_addr_fault
+               |          |                                |          
+               |          |                                 --0.70%--handle_mm_fault
+               |          |                                           |          
+               |          |                                            --0.66%--__handle_mm_fault
+               |          |                                                      |          
+               |          |                                                       --0.63%--do_anonymous_page
+               |          |          
+               |           --0.89%--__skb_flow_get_ports
+               |          
+                --0.61%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node
+
+     0.00%  [.] alloc_pages_noprof                                                      -      -            
+     0.00%  [.] amd_pmu_disable_all                                                     -      -            
+     0.00%  [.] anon_vma_interval_tree_remove                                           -      -            
+     0.00%  [.] begin_new_exec                                                          -      -            
+     0.00%  [.] bprm_execve                                                             -      -            
+     0.00%  [.] ct_kernel_exit.isra.0                                                   -      -            
+     0.00%  [.] do_execveat_common.isra.0                                               -      -            
+     0.00%  [.] do_vmi_align_munmap                                                     -      -            
+     0.00%  [.] do_vmi_munmap                                                           -      -            
+     0.00%  [.] entry_SYSCALL_64_after_hwframe                                          -      -            
+     0.00%  [.] expand_downwards                                                        -      -            
+     0.00%  [.] filemap_get_pages                                                       -      -            
+     0.00%  [.] filemap_get_read_batch                                                  -      -            
+     0.00%  [.] filemap_read                                                            -      -            
+     0.00%  [.] get_nohz_timer_target                                                   -      -            
+     0.00%  [.] housekeeping_any_cpu                                                    -      -            
+     0.00%  [.] ksys_read                                                               -      -            
+     0.00%  [.] load_elf_binary                                                         -      -            
+     0.00%  [.] mod_lruvec_state                                                        -      -            
+     0.00%  [.] perf_ctx_disable                                                        -      -            
+     0.00%  [.] perf_event_exec                                                         -      -            
+     0.00%  [.] pte_alloc_one                                                           -      -            
+     0.00%  [.] raw_spin_rq_lock_nested                                                 -      -            
+     0.00%  [.] read                                                                    -      -            
+     0.00%  [.] sched_numa_find_closest                                                 -      -            
+     0.00%  [.] set_next_entity                                                         -      -            
+     0.00%  [.] setup_arg_pages                                                         -      -            
+     0.00%  [.] start_dl_timer                                                          -      -            
+     0.00%  [.] tick_nohz_irq_exit                                                      -      -            
+     0.00%  [.] timerqueue_del                                                          -      -            
+     0.00%  [.] tlb_flush_mmu                                                           -      -            
+     0.00%  [.] uncharge_batch                                                          -      -            
+     0.00%  [.] unmap_region                                                            -      -            
+     0.00%  [.] unmap_vmas                                                              -      -            
+     0.00%  [.] update_process_times                                                    -      -            
+     0.00%  [.] vfs_read                                                                -      -            
+     0.00%  [.] vms_complete_munmap_vmas                                                -      -            
+     0.00%  [k] 0x00007205738eeedb                                                      -      -            
+
+
+#
+# (Tip: Treat branches as callchains: perf record -b ... ; perf report --branch-history)
+#
