@@ -326,6 +326,105 @@ A/B/C" section above).
   the matrix campaign. Local Zen 1 numbers are equivalent enough
   for the trend; canonical hp5 numbers are a small follow-up.
 
+## Phase R1 — Measured asm baseline (2026-05-10)
+
+**Critical finding: the original cost model was wrong about
+function-call inlining.** Direct disasm inspection of the
+benchmark binary (post-S1+S2+S3 build,
+`/nix/store/...-xdp2-flow-dissector-matrix-artifacts-0.1.0/bin/benchmark`)
+shows:
+
+### What the binary actually contains
+
+```
+$ nm benchmark | awk '$2 ~ /^[Tt]$/' | grep flow_dissector_l2 | wc -l
+1
+```
+
+**Only ONE per-node text symbol exists on the
+eth+ipv4+tcp common path** —
+`xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node`.
+gcc + LTO has fully inlined ~50 per-node helper functions into
+this single entry. The function is 655 asm lines.
+
+There ARE direct calls to ~10 encap nodes (vlan/vxlan/pbb/pppoe/
+nsh/etc) but **these are not on the common eth+ipv4+tcp path** —
+they're invoked only for the rare ethertypes.
+
+### Indirect calls on the common path
+
+```
+$ objdump --disassemble=...etype_dispatch_node | grep -cE 'call.*\*'
+2
+```
+
+Two indirect calls remain. Looking at the context, they're at:
+- `call *%r9` after setting up args (rdx, rcx, etc.)
+- `call *%rax` immediately after, with similar arg setup
+
+These are the `proto_def->ops.extract_metadata` and
+`proto_def->ops.handler` callback pointers. gcc + LTO does NOT
+devirtualize them because the function pointers live in a
+`const struct xdp2_proto_def` that's referenced via a chain of
+indirections gcc can't trace at compile time.
+
+### Revised 13 ns gap model
+
+The Phase-1 cost model said function-call boundaries cost
+~24 cycles (7.5 ns) of the gap. **That component is roughly zero**
+in the actual binary — gcc inlined everything on the common path.
+
+Updated cost attribution (subject to confirmation by perf record
+on hp5):
+
+| Component | Cycles | ns | Notes |
+|---|---:|---:|---|
+| ~~Per-node function-call boundaries~~ | ~~24~~ | ~~7.5~~ | **Zero — gcc inlined them** |
+| Indirect ops callbacks (extract_metadata + handler) × 2 | ~12 | 3.8 | Confirmed in disasm; ~6 cycles each on Zen 1 |
+| Per-node boilerplate inside the inlined body | ~? | ~? | The 655-line function still contains per-node prologues/epilogues even when inlined; needs perf record to attribute |
+| Frame-pointer indirection | ~6 | 1.9 | Confirmed by `mov ...,-0x38(%rbp)` register-spill pattern in the disasm |
+| Branch mispredicts (large switch with 28 ethertype + 13 ipproto arms) | ~? | ~? | The big switch table + nested switches likely cost more than the ops callbacks; perf record should confirm |
+
+**The architectural rebuild thesis is still correct** — kernel
+flowdis avoids ALL of this by being a single hand-tuned function
+with goto-state-transitions and direct stores. But the specific
+fix priority changes:
+
+1. **Devirtualise the ops callbacks** (R5) — confirmed 12
+   cycles on the table; this is the highest-leverage target.
+2. **Eliminate the per-node boilerplate inside the inlined
+   body** (part of R3 + R5) — even when inlined, each node's
+   "extract_metadata-NULL-check, handler-NULL-check, encap-flag-
+   check, last_node-update" boilerplate is in the hot path.
+3. **Restructure the big switch** (part of R3) — gcc may already
+   emit a jump table; if not, R3's mono codegen with explicit
+   goto-state would help. But this might be a smaller win than
+   originally modelled.
+
+### Implication for R3 priority
+
+R3's centerpiece (mono codegen) was modelled as worth ~24 cycles
+of function-boundary elimination + ~12 of devirtualisation = ~36
+cycles. Reality is more like 0 + 12 + boilerplate-savings + branch-
+prediction-improvement. The total 13 ns gap is real but its
+composition is different. R3 + R5 + R6 collectively still get us
+there, but in different proportions.
+
+**R1 next sub-tasks (deferred to next session):**
+
+- R1.1: perf record on hp5 with high sample rate, attribute
+  cycles per instruction in the entry function. This will pin
+  down where the boilerplate + branch-mispredict cost actually
+  lives.
+- R1.2-R1.4: same exercise for kernel flowdis; build the diff.
+
+For now the takeaway: **the binary is already half of what we
+hoped for from R3 (per-node helpers ARE inlined post-LTO)**. R3's
+delta is probably smaller than the plan estimated. R5 (callback
+devirt) becomes higher-priority. The plan's overall direction is
+right; the per-phase ns budgets need re-allocation after R1.1
+data lands.
+
 ## See also
 
 - `xdp2-rs/docs/fast-path-dispatch.md` — Rust dyn-vs-enum dispatch story
