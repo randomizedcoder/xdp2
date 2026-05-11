@@ -156,3 +156,12 @@
 
 /* === Parser declarations === */
 #include "flow_dissector_parsers.h"
+
+/* === R3 — monolithic-codegen reference parser (userspace only) ===
+ *
+ * Hand-written single-function form of the L2 flow_dissector graph.
+ * Provides a ground-truth reference for the R3 codegen template.
+ * See xdp2-rs/docs/dispatch-architecture-cost.md for R-phase plan. */
+#ifndef XDP2_XDP_BUILD
+#include "flow_dissector_mono.h"
+#endif

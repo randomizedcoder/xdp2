@@ -632,6 +632,64 @@ cost composition has shifted from "indirect dispatch tax" to
 "per-helper function-call boundary tax". This changes which
 sub-tasks within R3 are highest priority.
 
+## Phase R3 phase 1 — hand-written mono reference (2026-05-10)
+
+Implemented the R3 scaffolding and a hand-written mono parser
+covering the eth → ipv4/v6 → tcp/udp/icmp common path
+(`samples/flow_dissector/flow_dissector_mono.h`):
+
+- New `XDP2_MONOLITHIC` parser_type and `XDP2_PARSER_MONO()` macro.
+- xdp2_parse() routes XDP2_MONOLITHIC through the same direct
+  entry-function dispatch as XDP2_OPTIMIZED — at the dispatch
+  boundary they're identical; the difference is in the SHAPE of the
+  generated function (one goto-state function vs N per-node helpers).
+- `-M` flag in `samples/flow_dissector/benchmark.c` selects the mono
+  variant for performance + correctness testing.
+
+**Measured speedups on x86_64 (local — not the hp5 testbed):**
+
+| PCAP | mono ns/pkt | opt ns/pkt | flowdis ns/pkt | correctness |
+|---|---:|---:|---:|---|
+| tcp_ipv4.pcap (11 pkts) | **5** | 15 | 20 | 11/11 ✓ |
+| icmp_ipv4.pcap (6 pkts) | **7** | 15 | 23 | 6/6 ✓ |
+| https-web.pcap (20 000 pkts) | **12** | 42 | 30 | 20 000/20 000 ✓ |
+
+**Headline:** on https-web (realistic web-server traffic mix, no
+encap), mono runs at 12 ns/pkt vs opt 42 vs kernel flowdis 30 with
+100% metadata parity against kernel flowdis. **mono is 3.5× faster
+than _opt** and **2.5× faster than kernel flowdis** with bit-exact
+correctness across 20 000 packets.
+
+This confirms the R1.4 model: the post-S _opt path's 188 ns gap
+*is* the per-helper function-call boundary tax, and flattening to a
+single goto-state function eliminates most of it. mono on https-web
+runs in ~38 cycles/pkt — comparable to what the BPF-JIT-compiled
+`fast_flow.bpf.o` reaches (15 ns/pkt with 85% common-case hits).
+
+**Phase 1 coverage gaps (deferred to R3 phase 2):**
+
+The hand-written reference only covers eth + ipv4 + ipv6 (no
+extension headers) + tcp + udp + icmp/icmpv6. PCAPs with the
+following return STOP_OKAY without metadata extraction:
+
+- vlan / qinq (works by accident: benchmark's L2 entry skips MAC,
+  test PCAP happens to land at the inner ethertype)
+- mpls, gre + variants, ipip / 6in4 / 6to4, srv6, l2tp v3, ipv6
+  extension headers
+
+Each is a localised addition to the goto-state machine. R3 phase 2:
+extend the hand-written reference to feature parity with _opt for
+the full flow_dissector_l2 graph (~300-500 LoC more).
+
+**Phase 1 → phase 2 → phase 3 trajectory:**
+
+| Phase | Deliverable | State |
+|---|---|---|
+| R3.1 | Macro + dispatch + minimal mono reference | **DONE** — commit pending |
+| R3.2 | Extend reference to full _opt feature parity | not started |
+| R3.3 | Replace hand-written reference with template-generated codegen (`mono_parser.template.c`) consuming the R2 IR | not started |
+| R3.4 | Hardcoded eth+ipv4+l4 fast-path emitted by template (R3.5 in plan) | not started — the existing benchmark.c O2 path covers this manually |
+
 ## See also
 
 - `xdp2-rs/docs/fast-path-dispatch.md` — Rust dyn-vs-enum dispatch story

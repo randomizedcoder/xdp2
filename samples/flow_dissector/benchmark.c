@@ -140,6 +140,7 @@ XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector);
 XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector_opt);
 XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector_l2);
 XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector_l2_opt);
+XDP2_PARSER_EXTERN(xdp2_parser_flow_dissector_l2_mono);
 
 /* Initialize flowdis (kernel flow dissector port) */
 struct flowdis_state {
@@ -733,7 +734,7 @@ int main(int argc, char *argv[])
 	 * Use -S to revert to the generic engine for diagnostic
 	 * comparison. -O still works as an explicit "use opt" toggle
 	 * for symmetry with old scripts that pass it. */
-	int verbose = 0, opt_parser = 1, fast_parser = 0;
+	int verbose = 0, opt_parser = 1, fast_parser = 0, mono_parser = 0;
 	const struct xdp2_parser *l2_parser, *l3_parser;
 	struct stored_packet *packets;
 	struct flowdis_state fstate;
@@ -742,7 +743,7 @@ int main(int argc, char *argv[])
 	int c;
 	const char *dump_meta_path = NULL;  /* -D <path>: parity dump (Phase 17.B.C) */
 
-	while ((c = getopt(argc, argv, "cpvOSFn:D:")) != -1) {
+	while ((c = getopt(argc, argv, "cpvOSFMn:D:")) != -1) {
 		switch (c) {
 		case 'c':
 			do_correctness = 1;
@@ -764,6 +765,11 @@ int main(int argc, char *argv[])
 		case 'F':
 			fast_parser = 1;
 			break;
+		case 'M':
+			/* R3 — monolithic codegen reference. Routes through
+			 * the hand-written single-function L2 mono parser. */
+			mono_parser = 1;
+			break;
 		case 'n':
 			repeat = atoi(optarg);
 			if (repeat < 1)
@@ -783,11 +789,16 @@ int main(int argc, char *argv[])
 	/* Initialize kernel flowdis */
 	flowdis_state_init(&fstate);
 
-	/* Select xdp2 parsers */
+	/* Select xdp2 parsers. Precedence: -M (mono) > -O (opt) > -S
+	 * (generic). The L3 parser stays on the opt/standard tier
+	 * since mono only applies to L2 right now (R3 phase 1). */
 	l3_parser = opt_parser ? xdp2_parser_flow_dissector_opt :
 				  xdp2_parser_flow_dissector;
-	l2_parser = opt_parser ? xdp2_parser_flow_dissector_l2_opt :
-				  xdp2_parser_flow_dissector_l2;
+	if (mono_parser)
+		l2_parser = xdp2_parser_flow_dissector_l2_mono;
+	else
+		l2_parser = opt_parser ? xdp2_parser_flow_dissector_l2_opt :
+					  xdp2_parser_flow_dissector_l2;
 
 	/* Validate fast parser compatibility if requested */
 	if (fast_parser) {
@@ -813,7 +824,8 @@ int main(int argc, char *argv[])
 	printf("Packets: %d\n", npkts);
 	printf("PCAP: %s\n", argv[optind]);
 	printf("Parser: %s%s\n",
-	       opt_parser ? "optimized" : "standard",
+	       mono_parser ? "monolithic" :
+	         (opt_parser ? "optimized" : "standard"),
 	       fast_parser ? " (fast)" : "");
 	printf("\n");
 

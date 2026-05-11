@@ -149,6 +149,15 @@ static inline const char *xdp2_get_text_code(int code)
 	__XDP2_PARSER(PARSER, XDP2_OPTIMIZED, NAME, ROOT_NODE,		\
 		      FUNC, CONFIG,)					\
 
+/* Helper to create a monolithic-codegen parser variant. Same shape
+ * as XDP2_PARSER_OPT — FUNC is a single specialised function with
+ * goto-state transitions instead of an N-per-node function tree.
+ * R3-phase target; see xdp2-rs/docs/dispatch-architecture-cost.md.
+ */
+#define XDP2_PARSER_MONO(PARSER, NAME, ROOT_NODE, FUNC, CONFIG)		\
+	__XDP2_PARSER(PARSER, XDP2_MONOLITHIC, NAME, ROOT_NODE,		\
+		      FUNC, CONFIG,)					\
+
 /* Helper to create an XDP parser variant */
 #define XDP2_PARSER_XDP(PARSER, NAME, ROOT_NODE, FUNC, CONFIG)		\
 	__XDP2_PARSER(PARSER, XDP2_XDP, NAME, ROOT_NODE,		\
@@ -315,6 +324,13 @@ static inline int xdp2_parse(const struct xdp2_parser *parser,
 		return __xdp2_parse(parser, hdr, len, metadata,
 				    ctrl, flags);
 	case XDP2_OPTIMIZED:
+	case XDP2_MONOLITHIC:
+		/* MONOLITHIC uses the same entry-point dispatch as
+		 * OPTIMIZED — the difference is in the SHAPE of the
+		 * generated function (one specialised goto-state
+		 * function vs N per-node static-inlines). At the
+		 * dispatch boundary the two look identical.
+		 */
 		return (parser->parser_entry_point)(parser, hdr, len,
 						    metadata, ctrl, flags);
 	default:

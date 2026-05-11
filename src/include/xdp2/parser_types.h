@@ -102,6 +102,11 @@ enum xdp2_parser_type {
 	XDP2_OPTIMIZED,
 	/* XDP parser */
 	XDP2_XDP,
+	/* Monolithic parser: a single specialised function with
+	 * goto-state transitions, kernel-flowdis shape. The
+	 * parser_entry_point is the only function called. R3-phase.
+	 */
+	XDP2_MONOLITHIC,
 };
 
 /* Parse and protocol defintion types */
