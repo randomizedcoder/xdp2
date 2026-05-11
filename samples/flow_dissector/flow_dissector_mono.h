@@ -33,6 +33,7 @@
 #include "xdp2/parser_metadata.h"
 #include "xdp2/proto_defs/ip/proto_ipv4.h"  /* ip_is_fragment(), IP_OFFSET */
 #include "xdp2/proto_defs/ip/proto_ipv6.h"  /* ip6_flowlabel(), IPV6_FLOWLABEL_MASK */
+#include "xdp2/proto_defs/ip/proto_icmp.h"  /* icmp_has_id() */
 
 #ifndef IPPROTO_ICMPV6
 #define IPPROTO_ICMPV6 58
@@ -99,11 +100,16 @@ static inline int xdp2_parser_flow_dissector_l2_mono_entry(
 	(void)ctrl;
 	(void)flags;
 
-	/* etype_dispatch_node: read 2-byte ethertype */
+	/* etype_dispatch_node: read 2-byte ethertype.
+	 * Note: c-xdp2-usp's etype_dispatch_node only reads for dispatch
+	 * and doesn't set eth_proto; we match that behavior so the parity
+	 * comparator sees identical outputs. eth_proto IS set by encap
+	 * paths (vlan / mpls / pppoe) on the way down, which is the same
+	 * place the OPT path sets it via the proto-specific metadata
+	 * extractors. */
 	if (__builtin_expect(len < 2, 0))
 		return XDP2_STOP_LENGTH;
 	etype = *(const __be16 *)p;
-	_meta->eth_proto = etype;
 	p += 2;
 	len -= 2;
 
@@ -140,11 +146,9 @@ parse_pppoe: {
 	switch (ppp_proto) {
 	case XDP2_MONO_PPP_IP:
 		etype = __cpu_to_be16(ETH_P_IP);
-		_meta->eth_proto = etype;
 		goto parse_ipv4;
 	case XDP2_MONO_PPP_IPV6:
 		etype = __cpu_to_be16(ETH_P_IPV6);
-		_meta->eth_proto = etype;
 		goto parse_ipv6;
 	default:
 		return XDP2_STOP_OKAY;
@@ -175,7 +179,6 @@ parse_vlan: {
 	vlan_count++;
 
 	etype = vlan->h_vlan_encapsulated_proto;
-	_meta->eth_proto = etype;
 	p += sizeof(struct vlan_hdr);
 	len -= sizeof(struct vlan_hdr);
 	goto dispatch_etype;
@@ -217,12 +220,10 @@ parse_mpls: {
 		return XDP2_STOP_OKAY;
 	if ((p[0] >> 4) == 4) {
 		etype = __cpu_to_be16(ETH_P_IP);
-		_meta->eth_proto = etype;
 		goto parse_ipv4;
 	}
 	if ((p[0] >> 4) == 6) {
 		etype = __cpu_to_be16(ETH_P_IPV6);
-		_meta->eth_proto = etype;
 		goto parse_ipv6;
 	}
 	return XDP2_STOP_OKAY;
@@ -240,6 +241,7 @@ parse_ipv4: {
 	if (__builtin_expect(ihl < sizeof(struct iphdr) || len < ihl, 0))
 		return XDP2_STOP_LENGTH;
 
+	_meta->l3_off = (__u16)((const __u8 *)iph - (const __u8 *)hdr);
 	_meta->addr_type = XDP2_ADDR_TYPE_IPV4;
 	_meta->addrs.v4.saddr = iph->saddr;
 	_meta->addrs.v4.daddr = iph->daddr;
@@ -268,6 +270,7 @@ parse_ipv6: {
 	if (__builtin_expect(len < sizeof(struct ipv6hdr), 0))
 		return XDP2_STOP_LENGTH;
 
+	_meta->l3_off = (__u16)((const __u8 *)ip6h - (const __u8 *)hdr);
 	_meta->addr_type = XDP2_ADDR_TYPE_IPV6;
 	_meta->addrs.v6.saddr = ip6h->saddr;
 	_meta->addrs.v6.daddr = ip6h->daddr;
@@ -398,7 +401,6 @@ parse_gre: {
 	p += gre_len;
 	len -= gre_len;
 	etype = proto;
-	_meta->eth_proto = etype;
 	goto dispatch_etype;
 }
 
@@ -427,6 +429,18 @@ parse_icmp:
 		return XDP2_STOP_LENGTH;
 	_meta->icmp.type = p[0];
 	_meta->icmp.code = p[1];
+	/* Match XDP2_METADATA_TEMP_icmp: for types that have id/seq
+	 * (echo/echo-reply/timestamp/etc.), capture id (or 1 sentinel
+	 * if id == 0). For other types, leave id at zero.
+	 *
+	 * The metadata field is stored in NETWORK byte order (matches
+	 * `frame->icmp.id = icmp->un.echo.id` in parser_metadata.h:693
+	 * — un.echo.id is __be16 stored verbatim). The parity dump
+	 * applies ntohs() before emitting JSON. */
+	if (icmp_has_id(p[0])) {
+		__be16 id_be = *(const __be16 *)(p + 4);
+		_meta->icmp.id = id_be ? id_be : htons(1);
+	}
 	return XDP2_STOP_OKAY;
 }
 

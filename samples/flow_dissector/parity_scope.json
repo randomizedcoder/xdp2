@@ -109,6 +109,13 @@
       "source": "Same as c-xdp2-usp; -P flag skips per-packet 200B memset",
       "doc": "Identical scope to c-xdp2-usp; perf-only variant"
     },
+    "c-xdp2-mono": {
+      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "kind": "c",
+      "tunnel_behavior": "inner",
+      "source": "samples/flow_dissector/flow_dissector_mono.h (R3 monolithic-codegen reference)",
+      "doc": "XDP2 C monolithic single-function parser — R3 architectural-rebuild reference. Same scope as c-xdp2-usp / c-xdp2-parse-only (full FlowMeta + inner-tunnel behavior). Implemented as one function with goto-state transitions instead of a per-node function tree; produces identical metadata to c-xdp2-usp on the covered protocols (30/33 in-tree PCAPs). See xdp2-rs/docs/dispatch-architecture-cost.md §R3."
+    },
     "c-bpf-flowdis": {
       "tiers": ["bpf_flow_keys"],
       "kind": "bpf",

@@ -6,7 +6,7 @@
 # (Phase 17 plan).
 #
 # What it does:
-#   For each requested parser_id (default: all 14 from
+#   For each requested parser_id (default: all 15 from
 #   samples/flow_dissector/parity_scope.json), invoke the appropriate
 #   binary on the given pcap with --dump-meta / -D, capture per-packet
 #   ParityRecord JSONL into <out>/<parser_id>.jsonl, then run
@@ -51,7 +51,7 @@ pkgs.writeShellApplication {
       --out DIR             Output directory for per-parser JSONL +
                             parity-report.{md,csv}. Default: a temp dir.
       --parsers CSV         Comma-separated parser_ids to include.
-                            Default: all 14 (c-flowdis-usp, c-xdp2-usp,
+                            Default: all 15 (c-flowdis-usp, c-xdp2-usp,
                             c-xdp2-parse-only, c-bpf-flowdis, c-bpf-xdp2,
                             c-bpf-fast, rust-graph, rust-graph-enum,
                             rust-mono, rust-mono-x4, rust-compiled,
@@ -76,7 +76,7 @@ pkgs.writeShellApplication {
 
     PCAP=""
     OUT=""
-    PARSERS_CSV="c-flowdis-usp,c-xdp2-usp,c-xdp2-parse-only,c-bpf-flowdis,c-bpf-xdp2,c-bpf-fast,rust-graph,rust-graph-enum,rust-mono,rust-mono-x4,rust-compiled,rust-simd,rust-template,rust-template-simd"
+    PARSERS_CSV="c-flowdis-usp,c-xdp2-usp,c-xdp2-parse-only,c-xdp2-mono,c-bpf-flowdis,c-bpf-xdp2,c-bpf-fast,rust-graph,rust-graph-enum,rust-mono,rust-mono-x4,rust-compiled,rust-simd,rust-template,rust-template-simd"
     SCOPE_PATH=""
 
     while [ $# -gt 0 ]; do
@@ -136,14 +136,16 @@ pkgs.writeShellApplication {
       echo "[parity-check] $pid → $out_file" >&2
 
       case "$pid" in
-        c-flowdis-usp|c-xdp2-usp|c-xdp2-parse-only)
+        c-flowdis-usp|c-xdp2-usp|c-xdp2-parse-only|c-xdp2-mono)
           if [ "$C_USERSPACE_DONE" -eq 0 ]; then
             # benchmark.c -D writes c-flowdis-usp + c-xdp2-usp +
-            # c-xdp2-parse-only into one file. Split by parser_id.
+            # c-xdp2-parse-only + c-xdp2-mono into one file. Split
+            # by parser_id. c-xdp2-mono is the R3 monolithic-codegen
+            # reference parser (samples/flow_dissector/flow_dissector_mono.h).
             tmpfile=$(mktemp)
             "${artifacts}/bin/benchmark" -c -D "$tmpfile" "$PCAP" \
                 >/dev/null 2>&1 || true
-            for sub in c-flowdis-usp c-xdp2-usp c-xdp2-parse-only; do
+            for sub in c-flowdis-usp c-xdp2-usp c-xdp2-parse-only c-xdp2-mono; do
               grep "\"parser_id\":\"$sub\"" "$tmpfile" > "$OUT/$sub.jsonl" || true
             done
             rm -f "$tmpfile"
@@ -211,7 +213,7 @@ pkgs.writeShellApplication {
 
   meta = {
     description =
-      "Cross-parser parity check: run all 14 flow-dissector parsers, compare extracted FlowMeta";
+      "Cross-parser parity check: run all 15 flow-dissector parsers, compare extracted FlowMeta";
     mainProgram = "flow-dissector-parity-check";
   };
 }

@@ -514,14 +514,43 @@ static int dump_meta_pass(const char *out_path,
 							   "parse-error");
 			}
 			parity_record_emit_jsonl(fp, &rec);
+
+			/* c-xdp2-mono — runs the R3 monolithic single-function
+			 * parser on the same packet. Recorded under its own
+			 * parser_id so the comparator can validate it
+			 * independently of the existing _opt path. */
+			memset(&metadata, 0, sizeof(metadata));
+			memset(&ctrl, 0, sizeof(ctrl));
+			XDP2_CTRL_SET_BASIC_PKT_DATA(&ctrl, etype_data,
+						     etype_data, etype_len, 0);
+			rc = xdp2_parse(xdp2_parser_flow_dissector_l2_mono,
+					etype_data, etype_len,
+					&metadata, &ctrl, 0);
+			int mono_ok = (rc == XDP2_OKAY ||
+				       rc == XDP2_STOP_OKAY ||
+				       rc == XDP2_STOP_UNKNOWN_PROTO ||
+				       rc == XDP2_STOP_ENCAP_DEPTH);
+			parity_record_init(&rec, "c-xdp2-mono", "c",
+					   pcap_label, i);
+			if (mono_ok) {
+				parity_record_set_accepted(&rec, true, NULL);
+				parity_fill_from_metadata(&rec, &metadata,
+							  packets[i].l3_off - 2);
+			} else {
+				parity_record_set_accepted(&rec, false,
+							   "parse-error");
+			}
+			parity_record_emit_jsonl(fp, &rec);
 		} else {
 			/* Packet too short for L3; report as parse-error
-			 * for the XDP2 parsers. */
-			for (const char *pid = "c-xdp2-usp";
-			     pid != NULL;
-			     pid = strcmp(pid, "c-xdp2-usp") == 0
-				    ? "c-xdp2-parse-only" : NULL) {
-				parity_record_init(&rec, pid, "c",
+			 * for the XDP2 parsers (all three c-xdp2 variants). */
+			static const char *short_pids[] = {
+				"c-xdp2-usp", "c-xdp2-parse-only", "c-xdp2-mono"
+			};
+			for (size_t pi = 0;
+			     pi < sizeof(short_pids) / sizeof(short_pids[0]);
+			     pi++) {
+				parity_record_init(&rec, short_pids[pi], "c",
 						   pcap_label, i);
 				parity_record_set_accepted(&rec, false,
 							   "parse-error");
@@ -531,7 +560,8 @@ static int dump_meta_pass(const char *out_path,
 	}
 
 	fclose(fp);
-	fprintf(stderr, "[dump-meta] wrote %s (%d packets × 3 modes)\n",
+	fprintf(stderr, "[dump-meta] wrote %s (%d packets × 4 modes: "
+		"c-flowdis-usp, c-xdp2-usp, c-xdp2-parse-only, c-xdp2-mono)\n",
 		out_path, npkts);
 	return 0;
 }
