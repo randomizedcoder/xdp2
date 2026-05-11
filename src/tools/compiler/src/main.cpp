@@ -438,6 +438,31 @@ int main(int argc, char *argv[])
                     output.substr(std::max(output.size() - 4, 0ul));
                 plog::log(std::cout) << "Generating dot file..." << std::endl;
                 xdp2gen::dotify(graph, output, roots[0].root, back_edges);
+            } else if (output.size() >= 7 &&
+                       output.substr(output.size() - 7) == ".mono.c") {
+                /* R3.3 monolithic codegen — single function with
+                 * goto-state transitions per parser. See
+                 * src/templates/xdp2/mono_def.template.c. The .mono.c
+                 * suffix must be checked BEFORE the .c suffix below
+                 * since .mono.c matches both patterns. */
+                output_basename = output.substr(output.size() - 7);
+                plog::log(std::cout) << "Generating mono C parser..."
+                                     << std::endl;
+                try {
+                    auto res = xdp2gen::python::generate_root_parser_mono_c(
+                        filename, output, graph, roots, record);
+
+                    if (res != 0) {
+                        plog::log(std::cout)
+                            << "failed mono python gen?" << std::endl;
+                        return res;
+                    }
+                } catch (const std::exception &e) {
+                    plog::log(std::cerr) << "Failed to generate "
+                                         << output << ": " << e.what()
+                                         << std::endl;
+                    return 1;
+                }
             } else if (output.substr(std::max(output.size() - 2, 0ul)) ==
                        ".c") {
                 output_basename =

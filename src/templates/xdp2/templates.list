@@ -3,4 +3,5 @@
 # extension.
 c_def
 xdp_def
+mono_def
 common_parser

@@ -43,6 +43,7 @@ extern const char *template_gen;
 extern const char *common_parser_template_str;
 extern const char *c_def_template_str;
 extern const char *xdp_def_template_str;
+extern const char *mono_def_template_str;
 
 namespace xdp2gen::python
 {
@@ -612,6 +613,71 @@ int generate_root_parser_c(std::string filename, std::string output,
      * the rest when the process exits.
      */
 
+    return 0;
+}
+
+/* R3.3 — Generate a plain C MONOLITHIC parser. Single function with
+ * goto-state transitions per node, kernel-flowdis-shape output.
+ * See src/templates/xdp2/mono_def.template.c.
+ *
+ * Note: mono_def.template.c does NOT use the macros defined in
+ * common_parser.template.c — it emits its own goto-state form. We
+ * still pass common_parser_template_str to the template engine so
+ * any shared utility macros (e.g. generate_xdp2_parse_tlv_function)
+ * stay available for future phases. */
+int generate_root_parser_mono_c(std::string filename, std::string output,
+                                graph_t graph,
+                                std::vector<parser<graph_t>> roots,
+                                clang_ast::metadata_record record)
+{
+    {
+        auto ptr = [](auto *p) { PyMem_RawFree(p); };
+        auto program_name = decode_locale("main.py", NULL);
+        auto template_str = std::string(common_parser_template_str) +
+                            std::string(mono_def_template_str);
+
+        PyStatus status;
+        PyConfig config;
+        PyConfig_InitPythonConfig(&config);
+
+        status = PyConfig_SetString(&config, &config.program_name,
+				    program_name.get());
+        if (PyStatus_Exception(status)) {
+            plog::log(std::cerr)
+                << "Error running mono generation template" << std::endl;
+	    return 120;
+        }
+
+        status = Py_InitializeFromConfig(&config);
+        if (PyStatus_Exception(status)) {
+            plog::log(std::cerr)
+                << "Error running mono generation template" << std::endl;
+	    return 120;
+        }
+
+        auto checker = error_checker{};
+
+        PyRun_SimpleString(pyratempsrc);
+        PyRun_SimpleString(template_gen);
+
+        auto generate_parser_entry_function =
+            make_python_object(ensure_not_null(
+                PyObject_GetAttrString(PyImport_AddModule("__main__"),
+                                       "generate_parser_function"),
+                std::string{ "Failed to get 'generate_parser_function'" }));
+
+        {
+            auto py_graph = make_python_object(graph);
+            auto py_roots = make_python_object(graph, roots);
+            auto py_metadata_record = make_python_object(record);
+
+            call_function(generate_parser_entry_function, filename, output,
+                          py_graph.get(), py_roots.get(),
+                          py_metadata_record.get(), template_str.c_str());
+        }
+    }
+
+    /* Skip Py_FinalizeEx() — see comment in generate_root_parser_c() */
     return 0;
 }
 
