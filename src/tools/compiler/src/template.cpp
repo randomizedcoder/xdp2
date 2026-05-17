@@ -1250,12 +1250,19 @@ def generate_parser_function(
     metadata_record,
     template_str: str
 ):
-  # Debug: print graph vertex info
+  # Debug + R3.3.4 preprocessing: stash mt_all_copy per-vertex so the
+  # template's restricted-eval can use it (pyratemp's safe_builtins
+  # exclude all(), so generator-expr predicates must be precomputed).
   print(f"[Python template] Graph has {len(graph)} vertices", file=sys.stderr)
   for name, vertex in graph.items():
     out_edges = vertex.get('out_edges', [])
     next_proto_info = vertex.get('next_proto_info', {})
-    print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}", file=sys.stderr)
+    mts = vertex.get('metadata_transfers', [])
+    mt_all_copy = len(mts) > 0 and all(t.get('kind') == 'copy' for t in mts)
+    vertex['mt_all_copy'] = mt_all_copy
+    print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}, metadata_transfers={len(mts)}, mt_all_copy={mt_all_copy}", file=sys.stderr)
+    for t in mts:
+      print(f"[Python template]     mt kind={t.get('kind','?')} dst_off={t.get('dst_off','?')} src_off={t.get('src_off','?')} length={t.get('length','?')} name={t.get('name','?')}", file=sys.stderr)
     if out_edges:
       for edge in out_edges:
         print(f"[Python template]     -> {edge.get('target', 'unknown')} key={edge.get('macro_name', 'N/A')}", file=sys.stderr)

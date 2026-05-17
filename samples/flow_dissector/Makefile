@@ -34,8 +34,8 @@ LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR)
 TARGETS= flow_dissector.bpf.o benchmark
 BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf \
 	     fast_bpf/parity_test
-TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.mono.c parser.o \
-	  parser_xdp.o fast_bpf/fast_flow.bpf.o fast_bpf/parity_test
+TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.mono.c parser.mono.ll \
+	  parser.o parser_xdp.o fast_bpf/fast_flow.bpf.o fast_bpf/parity_test
 
 # Header fragments included by parser.c (must trigger rebuild on change)
 PARSER_HDRS= flow_dissector_metadata.h flow_dissector_proto_defs.h \
@@ -58,14 +58,26 @@ parser.xdp.h: parser_xdp.c parser.c $(PARSER_HDRS) parser_xdp.o
 parser.p.c: parser.c $(PARSER_HDRS) parser.o
 	$(BINDIR)/xdp2-compiler -I$(INCDIR) -i $< -o $@
 
+# LLVM IR for parser.c. xdp2-compiler's metadata_transfers / next_proto_info
+# analysis (R2) walks this IR to extract per-vertex bit-offsets and
+# extract_metadata layouts. Without -l, those per-vertex IR fields stay
+# empty and the mono template falls back to indirect calls. Always
+# uses -DUSE_GENERATED_MONO so the IR matches the .mono.c view of
+# parser.c (mono.h excluded).
+parser.mono.ll: parser.c $(PARSER_HDRS)
+	$(CC) $(CFLAGS) -DUSE_GENERATED_MONO=1 -emit-llvm -S -o $@ $<
+
 # XDP2 compiler: generate monolithic userspace parser (R3.3).
 # -DUSE_GENERATED_MONO=1 tells xdp2-compiler's clang front-end to skip
 # the include of flow_dissector_mono.h while building the IR, so the
 # generated mono parser does not collide with the hand-written
 # reference's same-named XDP2_PARSER_MONO declaration.
-parser.mono.c: parser.c $(PARSER_HDRS) parser.o
+# -l parser.mono.ll feeds the LLVM IR pass (R2) so per-vertex
+# metadata_transfers / next_proto_info populate; the template then
+# inlines extract_metadata (R3.3.4) and next_proto (R3.3.5).
+parser.mono.c: parser.c parser.mono.ll $(PARSER_HDRS) parser.o
 	$(BINDIR)/xdp2-compiler -I$(INCDIR) -DUSE_GENERATED_MONO=1 \
-		-i $< -o $@
+		-l parser.mono.ll -i $< -o $@
 
 # BPF flow dissector object (xdp2-compiler-generated slow path).
 # Needs the same NIX_HARDENING_ENABLE= + -D__x86_64__ workaround as

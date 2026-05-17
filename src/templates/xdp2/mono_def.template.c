@@ -100,9 +100,18 @@ label_@!node!@: {
 	if (ret != XDP2_OKAY)
 		return ret;
 
+		<!--(if graph[node]['mt_all_copy'])-->
+			<!--(for t in graph[node]['metadata_transfers'])-->
+	/* R3.3.4 devirt: @!t['name']!@ */
+	memcpy((char *)metadata + @!t['dst_off']!@ / 8,
+	       (const char *)hdr + @!t['src_off']!@ / 8,
+	       @!t['length']!@ / 8);
+			<!--(end)-->
+		<!--(else)-->
 	if (parse_node->ops.extract_metadata)
 		parse_node->ops.extract_metadata(hdr, hlen, metadata,
 						 frame, ctrl);
+		<!--(end)-->
 
 	if (parse_node->ops.handler) {
 		ret = parse_node->ops.handler(hdr, hlen, metadata,
