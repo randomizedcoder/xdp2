@@ -132,14 +132,18 @@ label_@!node!@: {
 	}
 
 		<!--(if len(graph[node]['out_edges']) != 0)-->
-	/* R3.3.5 inline next_proto disabled — same IR-coverage caveat
-	 * as the metadata case above. The next_proto_info dict
-	 * describes the LLVM-analysed load but doesn't certify it
-	 * matches the ops.next_proto function's complete return value
-	 * (e.g. nodes with keyin lookups, masked combinations, or
-	 * conditional branches yield partial info). Keep the indirect
-	 * call until an IR-coverage gate confirms the simple-load
-	 * fully reproduces what ops.next_proto returns. */
+			<!--(if graph[node]['npi_simple'])-->
+	/* R3.3.5 devirt: inline next_proto load.
+	 * Eligibility (precomputed as npi_simple in template.cpp): the
+	 * LLVM IR analysis described a byte-aligned full-mask 8/16/32-
+	 * bit load with no scaled offset. That shape is the entire
+	 * computation a hand-coded simple ops.next_proto would do (e.g.
+	 * `return iph->protocol;` is exactly byte 9 of the IP header).
+	 * Anything more complex — partial mask, shift, keyin lookup,
+	 * conditional branch — leaves npi_simple=False and falls back
+	 * to the indirect call below. */
+	type = @!graph[node]['npi_expr']!@;
+			<!--(else)-->
 	type = proto_def->ops.next_proto_keyin ?
 		proto_def->ops.next_proto_keyin(hdr,
 				ctrl->key.keys[parse_node->key_sel]) :
@@ -147,6 +151,7 @@ label_@!node!@: {
 
 	if (type < 0)
 		return type;
+			<!--(end)-->
 
 	if (!proto_def->overlay) {
 		hdr = (char *)hdr + hlen;
