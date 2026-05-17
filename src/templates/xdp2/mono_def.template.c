@@ -111,7 +111,7 @@ label_@!node!@: {
 			return ret;
 	}
 
-	<!--(if len(graph[node]['out_edges']) != 0)-->
+		<!--(if len(graph[node]['out_edges']) != 0)-->
 	type = proto_def->ops.next_proto_keyin ?
 		proto_def->ops.next_proto_keyin(hdr,
 				ctrl->key.keys[parse_node->key_sel]) :
@@ -126,27 +126,27 @@ label_@!node!@: {
 	}
 
 	switch (type) {
-		<!--(for edge_target in graph[node]['out_edges'])-->
+			<!--(for edge_target in graph[node]['out_edges'])-->
 	case @!edge_target['macro_name']!@:
 		goto label_@!edge_target['target']!@;
-		<!--(end)-->
+			<!--(end)-->
 	}
-		<!--(if len(graph[node]['wildcard_proto_node']) != 0)-->
+			<!--(if len(graph[node]['wildcard_proto_node']) != 0)-->
 	goto label_@!graph[node]['wildcard_proto_node']!@;
-		<!--(else)-->
+			<!--(else)-->
 	return parse_node->unknown_ret;
-		<!--(end)-->
-	<!--(else)-->
-		<!--(if len(graph[node]['wildcard_proto_node']) != 0)-->
+			<!--(end)-->
+		<!--(else)-->
+			<!--(if len(graph[node]['wildcard_proto_node']) != 0)-->
 	if (!proto_def->overlay) {
 		hdr = (char *)hdr + hlen;
 		len -= hlen;
 	}
 	goto label_@!graph[node]['wildcard_proto_node']!@;
-		<!--(else)-->
+			<!--(else)-->
 	return XDP2_STOP_OKAY;
+			<!--(end)-->
 		<!--(end)-->
-	<!--(end)-->
 }
 	<!--(end)-->
 }
