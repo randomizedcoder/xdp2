@@ -446,11 +446,40 @@ int main(int argc, char *argv[])
                  * suffix must be checked BEFORE the .c suffix below
                  * since .mono.c matches both patterns. */
                 output_basename = output.substr(output.size() - 7);
-                plog::log(std::cout) << "Generating mono C parser..."
-                                     << std::endl;
+
+                /* R3.3.2: filter roots through check_mono_eligibility().
+                 * Mono codegen emits a goto-state function per parser
+                 * root; non-eligible roots are skipped with a reason
+                 * logged. If no root is eligible we abort — there is no
+                 * point producing an empty .mono.c. */
+                std::vector<xdp2gen::parser<xdp2gen::graph_t>>
+                    eligible_roots;
+                for (auto &r : roots) {
+                    auto reason = xdp2gen::check_mono_eligibility(graph, r);
+                    if (reason) {
+                        plog::log(std::cout)
+                            << "mono rejected: " << r.parser_name
+                            << " — " << *reason << std::endl;
+                    } else {
+                        plog::log(std::cout) << "mono eligible: "
+                                             << r.parser_name << std::endl;
+                        eligible_roots.push_back(r);
+                    }
+                }
+                if (eligible_roots.empty()) {
+                    plog::log(std::cerr)
+                        << "no mono-eligible parsers in " << filename
+                        << "; .mono.c not generated" << std::endl;
+                    return 1;
+                }
+
+                plog::log(std::cout) << "Generating mono C parser ("
+                                     << eligible_roots.size() << "/"
+                                     << roots.size()
+                                     << " roots eligible)..." << std::endl;
                 try {
                     auto res = xdp2gen::python::generate_root_parser_mono_c(
-                        filename, output, graph, roots, record);
+                        filename, output, graph, eligible_roots, record);
 
                     if (res != 0) {
                         plog::log(std::cout)

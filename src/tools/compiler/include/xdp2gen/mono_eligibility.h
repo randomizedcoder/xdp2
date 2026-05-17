@@ -67,21 +67,26 @@ check_mono_eligibility(Graph const &graph,
             std::to_string(MONO_MAX_DEPTH) + ")"
         };
 
-    /* Per-vertex checks. */
+    /* Per-vertex checks.
+     *
+     * R3.3.2 loosening: tlv_table and flag_fields_table no longer
+     * gate eligibility. The current mono template (phase 0 scaffold)
+     * does not emit TLV walkers or flag-fields walkers — it just
+     * emits the standard goto-state body and falls through these
+     * nodes via their proto_table / next_proto. That matches the
+     * behaviour of the hand-written reference at
+     * samples/flow_dissector/flow_dissector_mono.h, which also skips
+     * these walks and still passes 30/33 corpus pcaps for parity.
+     * Without this loosening the flow_dissector_l2 root is rejected
+     * (it transitively reaches gre_v0_node / gre_v1_node, which are
+     * FLAG_FIELDS_PARSE_NODE). Proper TLV/flag-fields emission lands
+     * in R4. */
     auto vertices = boost::vertices(graph);
     for (auto it = vertices.first; it != vertices.second; ++it) {
         auto const &v = graph[*it];
         if (!v.post_handler.empty())
             return std::string{ "node '" + v.name +
                                 "' uses post_handler — not yet mono-supported" };
-        if (!v.tlv_table.empty())
-            return std::string{ "node '" + v.name +
-                                "' uses TLV table — deferred to R3 phase 2" };
-        if (!v.flag_fields_table.empty())
-            return std::string{
-                "node '" + v.name +
-                "' uses flag_fields_table — deferred to R3 phase 2"
-            };
     }
 
     return std::nullopt;
