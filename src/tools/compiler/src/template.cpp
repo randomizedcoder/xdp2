@@ -1250,9 +1250,14 @@ def generate_parser_function(
     metadata_record,
     template_str: str
 ):
-  # Debug + R3.3.4 preprocessing: stash mt_all_copy per-vertex so the
-  # template's restricted-eval can use it (pyratemp's safe_builtins
-  # exclude all(), so generator-expr predicates must be precomputed).
+  # Debug + per-vertex preprocessing:
+  #   R3.3.4: mt_all_copy — whether every metadata_transfer is kind=copy
+  #     (so the template can emit inline memcpy() per transfer).
+  #   R3.3.5: npi_simple / npi_expr — whether next_proto_info describes
+  #     a simple byte-aligned full-mask load (8/16/32-bit) the template
+  #     can emit inline in place of proto_def->ops.next_proto().
+  # Both are precomputed here because pyratemp's restricted eval has
+  # no all() / no arithmetic-expression evaluation in template bodies.
   print(f"[Python template] Graph has {len(graph)} vertices", file=sys.stderr)
   for name, vertex in graph.items():
     out_edges = vertex.get('out_edges', [])
@@ -1260,7 +1265,32 @@ def generate_parser_function(
     mts = vertex.get('metadata_transfers', [])
     mt_all_copy = len(mts) > 0 and all(t.get('kind') == 'copy' for t in mts)
     vertex['mt_all_copy'] = mt_all_copy
-    print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}, metadata_transfers={len(mts)}, mt_all_copy={mt_all_copy}", file=sys.stderr)
+
+    # next_proto inline-emit eligibility
+    npi_simple = False
+    npi_expr = ''
+    if next_proto_info:
+      bit_off = int(next_proto_info.get('bit_offset', -1))
+      bit_size = int(next_proto_info.get('bit_size', 0))
+      bit_mask = int(next_proto_info.get('bit_mask', 0))
+      multiplier = int(next_proto_info.get('multiplier', 0))
+      full_mask = (1 << bit_size) - 1 if bit_size > 0 else 0
+      if bit_off >= 0 and bit_off % 8 == 0 and bit_size in (8, 16, 32) \
+          and bit_mask == full_mask and multiplier == 0:
+        byte_off = bit_off // 8
+        if bit_size == 8:
+          npi_expr = f'(int)(*(const unsigned char *)((const char *)hdr + {byte_off}))'
+        elif bit_size == 16:
+          npi_expr = f'(int)__builtin_bswap16(*(const unsigned short *)((const char *)hdr + {byte_off}))'
+        elif bit_size == 32:
+          npi_expr = f'(int)__builtin_bswap32(*(const unsigned int *)((const char *)hdr + {byte_off}))'
+        npi_simple = True
+    vertex['npi_simple'] = npi_simple
+    vertex['npi_expr'] = npi_expr
+
+    print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}, metadata_transfers={len(mts)}, mt_all_copy={mt_all_copy}, npi_simple={npi_simple}", file=sys.stderr)
+    if next_proto_info:
+      print(f"[Python template]     npi {dict(next_proto_info)}", file=sys.stderr)
     for t in mts:
       print(f"[Python template]     mt kind={t.get('kind','?')} dst_off={t.get('dst_off','?')} src_off={t.get('src_off','?')} length={t.get('length','?')} name={t.get('name','?')}", file=sys.stderr)
     if out_edges:

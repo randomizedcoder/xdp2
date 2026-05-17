@@ -121,6 +121,10 @@ label_@!node!@: {
 	}
 
 		<!--(if len(graph[node]['out_edges']) != 0)-->
+			<!--(if graph[node]['npi_simple'])-->
+	/* R3.3.5 devirt: inline next_proto load */
+	type = @!graph[node]['npi_expr']!@;
+			<!--(else)-->
 	type = proto_def->ops.next_proto_keyin ?
 		proto_def->ops.next_proto_keyin(hdr,
 				ctrl->key.keys[parse_node->key_sel]) :
@@ -128,6 +132,7 @@ label_@!node!@: {
 
 	if (type < 0)
 		return type;
+			<!--(end)-->
 
 	if (!proto_def->overlay) {
 		hdr = (char *)hdr + hlen;
