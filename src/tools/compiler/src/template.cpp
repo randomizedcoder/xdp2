@@ -1265,6 +1265,16 @@ def generate_parser_function(
     mts = vertex.get('metadata_transfers', [])
     mt_all_copy = len(mts) > 0 and all(t.get('kind') == 'copy' for t in mts)
     vertex['mt_all_copy'] = mt_all_copy
+    # R3.3.4b: IR-coverage gate. Compare the count of LLVM-IR-derived
+    # transfers to the count of leaf fields the metadata_record
+    # declares. Only inline-emit when the IR analysis fully covers
+    # the C extract_metadata function's output — otherwise inline
+    # would silently drop fields the analysis missed and break
+    # parity. metadata_record_field_count comes from a C++-side
+    # recursive walk in python_generators.h.
+    field_count = int(vertex.get('metadata_record_field_count', 0))
+    mt_full_coverage = mt_all_copy and len(mts) >= field_count and field_count > 0
+    vertex['mt_full_coverage'] = mt_full_coverage
 
     # next_proto inline-emit eligibility
     npi_simple = False
@@ -1288,7 +1298,7 @@ def generate_parser_function(
     vertex['npi_simple'] = npi_simple
     vertex['npi_expr'] = npi_expr
 
-    print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}, metadata_transfers={len(mts)}, mt_all_copy={mt_all_copy}, npi_simple={npi_simple}", file=sys.stderr)
+    print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}, metadata_transfers={len(mts)}/{field_count}, mt_all_copy={mt_all_copy}, mt_full_coverage={mt_full_coverage}, npi_simple={npi_simple}", file=sys.stderr)
     if next_proto_info:
       print(f"[Python template]     npi {dict(next_proto_info)}", file=sys.stderr)
     for t in mts:

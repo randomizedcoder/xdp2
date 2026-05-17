@@ -111,21 +111,18 @@ label_@!node!@: {
 	if (ret != XDP2_OKAY)
 		return ret;
 
-	/* R3.3.4 inline emit disabled — the LLVM IR analysis underlying
-	 * metadata_transfers can MISS fields that the C extract_metadata
-	 * function actually writes (e.g. ipv4_metadata sets 6 fields:
-	 * is_fragment, first_frag, l3_off, addr_type, ip_proto,
-	 * addrs.v4_addrs; the IR analysis only captures the 2 simple
-	 * copies). Replacing the indirect call with inline emit alone
-	 * silently drops the 4 IR-invisible fields → parity failure on
-	 * tcp_ipv4 (0/11 matches observed in R3.3.6 verification). The
-	 * preprocessing infrastructure (mt_all_copy, npi_simple) stays
-	 * in place so a follow-up commit can re-enable inline emit once
-	 * an IR-coverage check is in place (e.g. compare transfer count
-	 * vs metadata_record field count). */
+		<!--(if graph[node]['mt_full_coverage'])-->
+			<!--(for t in graph[node]['metadata_transfers'])-->
+	/* R3.3.4 devirt: @!t['name']!@ */
+	memcpy((char *)metadata + @!t['dst_off']!@ / 8,
+	       (const char *)hdr + @!t['src_off']!@ / 8,
+	       @!t['length']!@ / 8);
+			<!--(end)-->
+		<!--(else)-->
 	if (parse_node->ops.extract_metadata)
 		parse_node->ops.extract_metadata(hdr, hlen, metadata,
 						 frame, ctrl);
+		<!--(end)-->
 
 	if (parse_node->ops.handler) {
 		ret = parse_node->ops.handler(hdr, hlen, metadata,

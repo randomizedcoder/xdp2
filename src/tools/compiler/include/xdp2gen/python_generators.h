@@ -31,6 +31,7 @@
 #ifndef XDP2GEN_PYTHON_GENERATORS_H
 #define XDP2GEN_PYTHON_GENERATORS_H
 
+#include <functional>
 #include <vector>
 
 #include <Python.h>
@@ -419,6 +420,32 @@ auto make_python_object(graph_t const &graph, vertex_descriptor_t const &vertex)
         metadata_transfers.append(std::move(transfer));
     }
     obj.set("metadata_transfers", std::move(metadata_transfers));
+    /* R3.3.4b IR-coverage gate: count the leaf fields declared in the
+     * vertex's metadata_record so the template can compare against
+     * len(metadata_transfers). If transfers fully cover declared
+     * fields, the LLVM IR analysis was complete and the template
+     * can safely emit inline copies in place of the indirect
+     * ops.extract_metadata call. Otherwise the inline emit would
+     * silently drop fields the IR analysis missed → parity failure. */
+    int field_count = 0;
+    std::function<void(clang_ast::metadata_record const &)> count_fields;
+    count_fields = [&](clang_ast::metadata_record const &r) {
+        for (auto &&f : r.fields) {
+            if (auto p = std::get_if<clang_ast::metadata_record>(&f.type)) {
+                count_fields(*p);
+            } else if (auto p = std::get_if<clang_ast::metadata_array>(&f.type)) {
+                if (auto pr = std::get_if<clang_ast::metadata_record>(&p->type)) {
+                    count_fields(*pr);
+                } else {
+                    field_count++;
+                }
+            } else {
+                field_count++;
+            }
+        }
+    };
+    count_fields(v.metadata_record);
+    obj.set("metadata_record_field_count", field_count);
     obj.set("next_proto_info", std::move(next_proto_info));
     obj.set("tlv_nodes", std::move(tlv_nodes));
     obj.set("flag_fields_nodes", std::move(flag_fields_nodes));
