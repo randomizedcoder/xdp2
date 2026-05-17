@@ -203,11 +203,16 @@ pkgs.writeShellApplication {
 
     # ─── Step 2: C userspace (ways 1-3) on filtered pcap ────────────
     echo "--- C matrix: userspace (ways 1-3) on filtered pcap ---"
-    # -F selects xdp2_parse_fast (skips debug + post-handlers + exit-node
-    # bookkeeping — see src/lib/xdp2/parser.c:703-814). Phase O1.D win:
-    # ~10-30 ns/pkt on c-xdp2-usp / c-xdp2-parse-only vs the slow path
-    # (which is the design-time default, not the benchmark default).
-    if ! USP_OUT=$("$BENCHMARK" -p -F -n "$ITER" "$FILTERED" 2>&1); then
+    # Phase O1.D investigation: the -F fast-path flag requires the parser
+    # to satisfy xdp2_parse_validate_fast (parser.c:893-918) — no
+    # post-handlers, no okay/fail/atencap exit nodes, no counters, no
+    # keys. The benchmark's `l2_parser` uses post-handlers for the L4
+    # extraction so -F is rejected with "Parser not compatible with
+    # fast path" at runtime. Reverted O1.D; making the parser
+    # fast-path-compatible is a separate effort (would require
+    # restructuring the parse graph to put L4 extraction into in-line
+    # nodes instead of post-handlers).
+    if ! USP_OUT=$("$BENCHMARK" -p -n "$ITER" "$FILTERED" 2>&1); then
       echo "Error: userspace benchmark failed" >&2
       echo "$USP_OUT" >&2
       exit 1
@@ -226,9 +231,28 @@ pkgs.writeShellApplication {
     XDP2_PO_NSPKT=$(extract_nspkt "$XDP2_PO_LINE")
     XDP2_PO_MPPS=$(extract_mpps "$XDP2_PO_LINE")
 
+    # R3.3.6: second benchmark invocation with -M (monolithic codegen).
+    # Same binary, USE_GENERATED_MONO=1 at build time per
+    # nix/flow-dissector-matrix.nix routes -M to the compiler-emitted
+    # xdp2_parser_flow_dissector_l2_mono (parser.mono.c). Reads the
+    # XDP2 parser line out of -M's output to populate c-xdp2-mono.
+    if ! MONO_OUT=$("$BENCHMARK" -M -p -n "$ITER" "$FILTERED" 2>&1); then
+      echo "Warning: c-xdp2-mono benchmark failed; continuing" >&2
+      echo "$MONO_OUT" >&2
+      XDP2_MONO_NSPKT="N/A"
+      XDP2_MONO_MPPS="N/A"
+    else
+      echo "$MONO_OUT"
+      echo ""
+      XDP2_MONO_LINE=$(echo "$MONO_OUT" | grep "^XDP2 parser:" || true)
+      XDP2_MONO_NSPKT=$(extract_nspkt "$XDP2_MONO_LINE")
+      XDP2_MONO_MPPS=$(extract_mpps "$XDP2_MONO_LINE")
+    fi
+
     emit_cell_json "c-flowdis-usp"     "$FLOWDIS_NSPKT"  "$FLOWDIS_MPPS"
     emit_cell_json "c-xdp2-usp"        "$XDP2_NSPKT"     "$XDP2_MPPS"
     emit_cell_json "c-xdp2-parse-only" "$XDP2_PO_NSPKT"  "$XDP2_PO_MPPS"
+    emit_cell_json "c-xdp2-mono"       "$XDP2_MONO_NSPKT" "$XDP2_MONO_MPPS"
 
     # ─── Step 3: C BPF (ways 4-6) ───────────────────────────────────
     run_bpf() {
@@ -370,6 +394,7 @@ pkgs.writeShellApplication {
     printf "%-32s | %-18s | %-9s\n" "C kernel flowdis (usp)"     "$FLOWDIS_NSPKT" "$FLOWDIS_MPPS"
     printf "%-32s | %-18s | %-9s\n" "C XDP2 parser (usp)"        "$XDP2_NSPKT" "$XDP2_MPPS"
     printf "%-32s | %-18s | %-9s\n" "C XDP2 parse-only (usp)"    "$XDP2_PO_NSPKT" "$XDP2_PO_MPPS"
+    printf "%-32s | %-18s | %-9s\n" "C XDP2 monolithic (usp)"    "$XDP2_MONO_NSPKT" "$XDP2_MONO_MPPS"
     printf "%-32s | %-18s | %-9s\n" "C kernel BPF flowdis"       "$BPF_NSPKT" "$BPF_MPPS"
     printf "%-32s | %-18s | %-9s\n" "C XDP2 BPF parser"          "$XDP2_BPF_NSPKT" "$XDP2_BPF_MPPS"
     printf "%-32s | %-18s | %-9s\n" "C xdp2-flow-ebpf fast (BPF)" "$FAST_BPF_NSPKT" "$FAST_BPF_MPPS"

@@ -157,9 +157,11 @@ echo ""
 
 # ─── Step 2: C usp (ways 1-3) ────────────────────────────────────
 echo "--- C matrix: userspace (ways 1-3) on filtered pcap ---"
-# -F selects xdp2_parse_fast (skips debug/post-handlers/exit-nodes) —
-# Phase O1.D, ~10-30 ns/pkt win on c-xdp2-usp + c-xdp2-parse-only.
-USP_OUT=$("$BENCHMARK" -p -F -n "$ITER" "$FILTERED" 2>&1)
+# Phase O1.D investigation: -F requires fast-path-compatible parser
+# graph (no post-handlers / exit nodes / counters / keys) per
+# parser.c:893-918 — benchmark's l2_parser doesn't satisfy this.
+# Reverted; future O1.D follow-up would refactor the parse graph.
+USP_OUT=$("$BENCHMARK" -p -n "$ITER" "$FILTERED" 2>&1)
 echo "$USP_OUT"
 echo ""
 
@@ -171,9 +173,20 @@ FLOWDIS_NSPKT=$(extract_nspkt "$FLOWDIS_LINE"); FLOWDIS_MPPS=$(extract_mpps "$FL
 XDP2_NSPKT=$(extract_nspkt "$XDP2_LINE");       XDP2_MPPS=$(extract_mpps "$XDP2_LINE")
 XDP2_PO_NSPKT=$(extract_nspkt "$XDP2_PO_LINE"); XDP2_PO_MPPS=$(extract_mpps "$XDP2_PO_LINE")
 
+# R3.3.6: also benchmark the monolithic-codegen parser (-M). Same
+# binary, second invocation; benchmark.c's -M switches l2_parser to
+# the generated xdp2_parser_flow_dissector_l2_mono (via -DUSE_GENERATED_MONO=1
+# at build time per nix/flow-dissector-matrix.nix).
+MONO_OUT=$("$BENCHMARK" -M -p -n "$ITER" "$FILTERED" 2>&1)
+echo "$MONO_OUT"
+echo ""
+XDP2_MONO_LINE=$(echo "$MONO_OUT" | grep "^XDP2 parser:" || true)
+XDP2_MONO_NSPKT=$(extract_nspkt "$XDP2_MONO_LINE"); XDP2_MONO_MPPS=$(extract_mpps "$XDP2_MONO_LINE")
+
 emit_cell_json "c-flowdis-usp"     "$FLOWDIS_NSPKT"  "$FLOWDIS_MPPS"
 emit_cell_json "c-xdp2-usp"        "$XDP2_NSPKT"     "$XDP2_MPPS"
 emit_cell_json "c-xdp2-parse-only" "$XDP2_PO_NSPKT"  "$XDP2_PO_MPPS"
+emit_cell_json "c-xdp2-mono"       "$XDP2_MONO_NSPKT" "$XDP2_MONO_MPPS"
 
 # ─── Step 3: C BPF (ways 4-6) ────────────────────────────────────
 run_bpf() {
@@ -299,6 +312,7 @@ printf -- "---------------------------------+--------------------+----------\n"
 printf "%-32s | %-18s | %-9s\n" "C kernel flowdis (usp)"       "$FLOWDIS_NSPKT"   "$FLOWDIS_MPPS"
 printf "%-32s | %-18s | %-9s\n" "C XDP2 parser (usp)"          "$XDP2_NSPKT"      "$XDP2_MPPS"
 printf "%-32s | %-18s | %-9s\n" "C XDP2 parse-only (usp)"      "$XDP2_PO_NSPKT"   "$XDP2_PO_MPPS"
+printf "%-32s | %-18s | %-9s\n" "C XDP2 monolithic (usp)"      "$XDP2_MONO_NSPKT" "$XDP2_MONO_MPPS"
 printf "%-32s | %-18s | %-9s\n" "C kernel BPF flowdis"         "$BPF_NSPKT"       "$BPF_MPPS"
 printf "%-32s | %-18s | %-9s\n" "C XDP2 BPF parser"            "$XDP2_BPF_NSPKT"  "$XDP2_BPF_MPPS"
 printf "%-32s | %-18s | %-9s\n" "C xdp2-flow-ebpf fast (BPF)"  "$FAST_BPF_NSPKT"  "$FAST_BPF_MPPS"

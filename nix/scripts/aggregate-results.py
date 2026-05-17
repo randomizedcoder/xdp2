@@ -37,6 +37,7 @@ CANONICAL_MODES = [
     "c-flowdis-usp",
     "c-xdp2-usp",
     "c-xdp2-parse-only",
+    "c-xdp2-mono",
     "c-bpf-flowdis",
     "c-bpf-xdp2",
     "c-bpf-fast",
