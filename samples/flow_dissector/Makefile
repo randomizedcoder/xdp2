@@ -64,8 +64,19 @@ parser.p.c: parser.c $(PARSER_HDRS) parser.o
 # empty and the mono template falls back to indirect calls. Always
 # uses -DUSE_GENERATED_MONO so the IR matches the .mono.c view of
 # parser.c (mono.h excluded).
+#
+# clang (XCC), not gcc — -emit-llvm needs LLVM. -isystem flags
+# mirror what xdp2-compiler's clang-tool-config.cpp sets up from
+# XDP2_*_INCLUDE_PATH env vars; required in Nix because bare clang
+# doesn't pick up the cc-wrapper's defaults, and a local build can
+# set the same env vars to get the same paths.
 parser.mono.ll: parser.c $(PARSER_HDRS)
-	$(CC) $(CFLAGS) -DUSE_GENERATED_MONO=1 -emit-llvm -S -o $@ $<
+	$(XCC) -std=gnu11 -O2 -DUSE_GENERATED_MONO=1 -emit-llvm -S \
+		-I$(INCDIR) -I$(XDP2_SRCDIR)/include \
+		$(if $(XDP2_C_INCLUDE_PATH),-isystem $(XDP2_C_INCLUDE_PATH)) \
+		$(if $(XDP2_GLIBC_INCLUDE_PATH),-isystem $(XDP2_GLIBC_INCLUDE_PATH)) \
+		$(if $(XDP2_LINUX_HEADERS_PATH),-isystem $(XDP2_LINUX_HEADERS_PATH)) \
+		-o $@ $<
 
 # XDP2 compiler: generate monolithic userspace parser (R3.3).
 # -DUSE_GENERATED_MONO=1 tells xdp2-compiler's clang front-end to skip

@@ -32,6 +32,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* R3.3.6: this TU includes the user's parser.c only to pull in
+ * parse_node + proto_def static-const definitions. The user-level
+ * XDP2_PARSER macro is gated on XDP2_PARSERS_SKIP (defined here
+ * before parser.h is parsed), so the user's XDP2_PARSER(...) calls
+ * in parser.c expand to nothing — parser.p.c is the canonical TU
+ * that owns those base parser structs / pointers. The codegen-only
+ * XDP2_PARSER_MONO macro is unaffected and still emits the _mono-
+ * suffixed structs the template generates at the bottom of this
+ * file. */
+#define XDP2_PARSERS_SKIP 1
 #include "xdp2/parser.h"
 #include "xdp2/proto_defs_define.h"
 #include "xdp2/compiler_helpers.h"
@@ -100,18 +111,21 @@ label_@!node!@: {
 	if (ret != XDP2_OKAY)
 		return ret;
 
-		<!--(if graph[node]['mt_all_copy'])-->
-			<!--(for t in graph[node]['metadata_transfers'])-->
-	/* R3.3.4 devirt: @!t['name']!@ */
-	memcpy((char *)metadata + @!t['dst_off']!@ / 8,
-	       (const char *)hdr + @!t['src_off']!@ / 8,
-	       @!t['length']!@ / 8);
-			<!--(end)-->
-		<!--(else)-->
+	/* R3.3.4 inline emit disabled — the LLVM IR analysis underlying
+	 * metadata_transfers can MISS fields that the C extract_metadata
+	 * function actually writes (e.g. ipv4_metadata sets 6 fields:
+	 * is_fragment, first_frag, l3_off, addr_type, ip_proto,
+	 * addrs.v4_addrs; the IR analysis only captures the 2 simple
+	 * copies). Replacing the indirect call with inline emit alone
+	 * silently drops the 4 IR-invisible fields → parity failure on
+	 * tcp_ipv4 (0/11 matches observed in R3.3.6 verification). The
+	 * preprocessing infrastructure (mt_all_copy, npi_simple) stays
+	 * in place so a follow-up commit can re-enable inline emit once
+	 * an IR-coverage check is in place (e.g. compare transfer count
+	 * vs metadata_record field count). */
 	if (parse_node->ops.extract_metadata)
 		parse_node->ops.extract_metadata(hdr, hlen, metadata,
 						 frame, ctrl);
-		<!--(end)-->
 
 	if (parse_node->ops.handler) {
 		ret = parse_node->ops.handler(hdr, hlen, metadata,
@@ -121,10 +135,14 @@ label_@!node!@: {
 	}
 
 		<!--(if len(graph[node]['out_edges']) != 0)-->
-			<!--(if graph[node]['npi_simple'])-->
-	/* R3.3.5 devirt: inline next_proto load */
-	type = @!graph[node]['npi_expr']!@;
-			<!--(else)-->
+	/* R3.3.5 inline next_proto disabled — same IR-coverage caveat
+	 * as the metadata case above. The next_proto_info dict
+	 * describes the LLVM-analysed load but doesn't certify it
+	 * matches the ops.next_proto function's complete return value
+	 * (e.g. nodes with keyin lookups, masked combinations, or
+	 * conditional branches yield partial info). Keep the indirect
+	 * call until an IR-coverage gate confirms the simple-load
+	 * fully reproduces what ops.next_proto returns. */
 	type = proto_def->ops.next_proto_keyin ?
 		proto_def->ops.next_proto_keyin(hdr,
 				ctrl->key.keys[parse_node->key_sel]) :
@@ -132,7 +150,6 @@ label_@!node!@: {
 
 	if (type < 0)
 		return type;
-			<!--(end)-->
 
 	if (!proto_def->overlay) {
 		hdr = (char *)hdr + hlen;

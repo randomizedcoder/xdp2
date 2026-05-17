@@ -129,9 +129,24 @@ static inline const char *xdp2_get_text_code(int code)
 	STATIC const struct xdp2_parser *PARSER __unused() =		\
 					&XDP2_JOIN2(__, PARSER);
 
-/* Helper function to create an XDP2 parser */
+/* Helper function to create an XDP2 parser.
+ *
+ * R3.3.6: define XDP2_PARSERS_SKIP before including this header to
+ * make the user-facing XDP2_PARSER macro a no-op for this TU. Used
+ * by the compiler-emitted parser.mono.c, which #includes the user's
+ * parser.c only to gain access to parse_node / proto_def static-
+ * const definitions and does NOT want its own duplicate copy of the
+ * base xdp2_parser_X structs / pointers (parser.p.c is canonical).
+ * The codegen-only macros XDP2_PARSER_OPT / XDP2_PARSER_MONO /
+ * XDP2_PARSER_XDP are unaffected — they always emit their parser
+ * definitions regardless of the guard. */
+#ifdef XDP2_PARSERS_SKIP
+#define XDP2_PARSER(PARSER, NAME, ROOT_NODE, CONFIG)			\
+	/* XDP2_PARSERS_SKIP: user parser definition suppressed */
+#else
 #define XDP2_PARSER(PARSER, NAME, ROOT_NODE, CONFIG)			\
 	__XDP2_PARSER(PARSER, XDP2_GENERIC, NAME, ROOT_NODE, NULL, CONFIG,)
+#endif
 
 /* Helper function to create an XDP2 parser that is declared to be static */
 #define XDP2_PARSER_STATIC(PARSER, NAME, ROOT_NODE, CONFIG)		\

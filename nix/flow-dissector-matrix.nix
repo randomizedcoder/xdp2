@@ -99,9 +99,15 @@ let
 
       export PATH="${xdp2}/bin:$PATH"
 
-      # Userspace benchmark + BPF test-runner
+      # R3.3.6: USE_GENERATED_MONO=1 swaps the c-xdp2-mono binding
+      # from the hand-written reference at
+      # samples/flow_dissector/flow_dissector_mono.h to the
+      # compiler-emitted parser.mono.c. The Makefile recipes for
+      # parser.mono.ll + parser.mono.c handle .ll generation +
+      # xdp2-compiler invocation under that flag.
       make XDP2DIR=${xdp2} \
            XDP2_SRCDIR=${xdp2} \
+           USE_GENERATED_MONO=1 \
            benchmark benchmark_bpf
 
       # All four BPF objects via the `bpf` meta-target (minus the one
