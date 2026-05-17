@@ -31,6 +31,10 @@ public:
                 boost::program_options::value<std::vector<std::string>>()
                     ->multitoken(),
                 "Additional include directories to use")(
+                "define,D",
+                boost::program_options::value<std::vector<std::string>>()
+                    ->multitoken(),
+                "Preprocessor defines forwarded to clang as -D<name>[=<value>]")(
                 "resource-path", boost::program_options::value<std::string>(), "CLANG's resource path");
 
             boost::program_options::store(

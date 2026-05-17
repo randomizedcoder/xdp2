@@ -161,7 +161,13 @@
  *
  * Hand-written single-function form of the L2 flow_dissector graph.
  * Provides a ground-truth reference for the R3 codegen template.
- * See xdp2-rs/docs/dispatch-architecture-cost.md for R-phase plan. */
-#ifndef XDP2_XDP_BUILD
+ * See xdp2-rs/docs/dispatch-architecture-cost.md for R-phase plan.
+ *
+ * R3.3.3: when USE_GENERATED_MONO is defined, the generated
+ * parser.mono.c provides xdp2_parser_flow_dissector_l2_mono and we
+ * skip the hand-written reference to avoid the duplicate-definition
+ * clash. Retired entirely in R3.3.7 once generated matches the
+ * reference on parity AND perf. */
+#if !defined(XDP2_XDP_BUILD) && !defined(USE_GENERATED_MONO)
 #include "flow_dissector_mono.h"
 #endif

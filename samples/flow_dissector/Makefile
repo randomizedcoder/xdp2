@@ -34,8 +34,8 @@ LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR)
 TARGETS= flow_dissector.bpf.o benchmark
 BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf \
 	     fast_bpf/parity_test
-TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.o parser_xdp.o \
-	  fast_bpf/fast_flow.bpf.o fast_bpf/parity_test
+TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.mono.c parser.o \
+	  parser_xdp.o fast_bpf/fast_flow.bpf.o fast_bpf/parity_test
 
 # Header fragments included by parser.c (must trigger rebuild on change)
 PARSER_HDRS= flow_dissector_metadata.h flow_dissector_proto_defs.h \
@@ -58,6 +58,15 @@ parser.xdp.h: parser_xdp.c parser.c $(PARSER_HDRS) parser_xdp.o
 parser.p.c: parser.c $(PARSER_HDRS) parser.o
 	$(BINDIR)/xdp2-compiler -I$(INCDIR) -i $< -o $@
 
+# XDP2 compiler: generate monolithic userspace parser (R3.3).
+# -DUSE_GENERATED_MONO=1 tells xdp2-compiler's clang front-end to skip
+# the include of flow_dissector_mono.h while building the IR, so the
+# generated mono parser does not collide with the hand-written
+# reference's same-named XDP2_PARSER_MONO declaration.
+parser.mono.c: parser.c $(PARSER_HDRS) parser.o
+	$(BINDIR)/xdp2-compiler -I$(INCDIR) -DUSE_GENERATED_MONO=1 \
+		-i $< -o $@
+
 # BPF flow dissector object (xdp2-compiler-generated slow path).
 # Needs the same NIX_HARDENING_ENABLE= + -D__x86_64__ workaround as
 # the bpf_flow.kern.o / fast_flow.bpf.o recipes below, otherwise Nix's
@@ -77,10 +86,24 @@ flow_dissector.bpf.o: flow_dissector.bpf.c parser.xdp.h common.h
 # ns/pkt vs the previous shared-link form per
 # perf-results/asm/2026-05-08/asm-comparison-baseline.md Phase O1.B.
 # libcli, libflowdis, libsiphash stay shared (out of hot path).
+#
+# R3.3.3: USE_GENERATED_MONO=1 swaps the hand-written reference for
+# the compiler-emitted parser.mono.c. The conditional include in
+# parser.c keys off the same macro, so both TUs (benchmark.c and the
+# parser.mono.c include of parser.c) agree on which mono definition
+# is live. Retired in R3.3.7.
+ifdef USE_GENERATED_MONO
+CFLAGS += -DUSE_GENERATED_MONO=1
+benchmark: benchmark.c parser.p.c parser.mono.c common.h pcap_loader.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ benchmark.c parser.p.c parser.mono.c \
+		-lpcap -Wl,-Bstatic -lxdp2 -Wl,-Bdynamic \
+		-lcli -lflowdis -lsiphash
+else
 benchmark: benchmark.c parser.p.c common.h pcap_loader.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ benchmark.c parser.p.c \
 		-lpcap -Wl,-Bstatic -lxdp2 -Wl,-Bdynamic \
 		-lcli -lflowdis -lsiphash
+endif
 
 # Kernel BPF flow dissector (vendored from linux selftests)
 # NIX_HARDENING_ENABLE= disables Nix cc-wrapper hardening flags that are

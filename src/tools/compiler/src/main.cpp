@@ -376,6 +376,23 @@ int main(int argc, char *argv[])
         compiler_args.push_back(cstr);
     }
 
+    /* Forward -D NAME[=VALUE] flags to clang as --extra-arg=-D...
+     * Used by R3.3.3 to define USE_GENERATED_MONO so xdp2-compiler's
+     * IR excludes the hand-written reference at flow_dissector_mono.h
+     * when generating parser.mono.c. */
+    auto define_args =
+        xdp2gen_input_handler.get_flag_value<std::vector<std::string>>(
+            "define");
+    if (define_args.has_value()) {
+        for (auto &item : define_args.value()) {
+            std::string arg = "--extra-arg=-D" + item;
+            char *cstr = new char[arg.size() + 1];
+            std::strcpy(cstr, arg.c_str());
+            compiler_args.push_back(cstr);
+            plog::log(std::cout) << "define " << item << std::endl;
+        }
+    }
+
     compiler_args.push_back(filename.c_str());
     compiler_args.push_back(temp.c_str());
 
