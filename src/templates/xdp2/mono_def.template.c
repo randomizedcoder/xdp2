@@ -170,6 +170,47 @@ static __unused() __attribute__((always_inline)) int
 				return XDP2_STOP_OKAY;
 			}
 		}
+		/* R3.4.5b: eth+8021Q+ipv4+{tcp,udp,icmp}. Single VLAN tag
+		 * (4-byte 8021Q header at +2). VLAN metadata uses the
+		 * XDP2_METADATA_TEMP_vlan_set_tpid shape from
+		 * parser_metadata.h:660 — vlan[0].id, .priority, .tpid,
+		 * and vlan_count++. Inner ethertype must be ETH_P_IP; IPv4
+		 * logic mirrors R3.4.1 with offsets +4 to skip the VLAN tag. */
+		if (len >= 34 && p[0] == 0x81 && p[1] == 0x00 &&
+		    p[4] == 0x08 && p[5] == 0x00 && p[6] == 0x45 &&
+		    (p[12] & 0x3f) == 0 && p[13] == 0 && (p[12] & 0x20) == 0) {
+			unsigned char ip_proto = p[15];
+			if (ip_proto == 6 || ip_proto == 17 || ip_proto == 1) {
+				struct xdp2_metadata_all *_meta = metadata;
+				/* VLAN metadata. TCI in network byte order:
+				 * p[2] = priority(3)|dei(1)|VID_hi(4),
+				 * p[3] = VID_lo(8). Slow path does
+				 * ntohs(tci) & VLAN_VID_MASK for .id and
+				 * (ntohs(tci) >> 13) for .priority. */
+				unsigned short tci = (p[2] << 8) | p[3];
+				_meta->vlan[0].id = tci & 0x0FFF;
+				_meta->vlan[0].priority = tci >> 13;
+				_meta->vlan[0].tpid = 0x8100;  /* ETH_P_8021Q */
+				_meta->vlan_count = 1;
+				/* IPv4 metadata (R3.4.1 logic, offsets +4). */
+				_meta->addr_type = XDP2_ADDR_TYPE_IPV4;
+				_meta->l3_off = 6;  /* etype(2) + vlan(4) */
+				_meta->ip_proto = ip_proto;
+				memcpy(&_meta->addrs.v4_addrs[0], p + 18, 4);
+				memcpy(&_meta->addrs.v4_addrs[1], p + 22, 4);
+				if (ip_proto == 1) {
+					_meta->icmp.type = p[26];
+					_meta->icmp.code = p[27];
+					if (icmp_has_id(p[26])) {
+						__be16 id_be = *(const __be16 *)(p + 30);
+						_meta->icmp.id = id_be ? id_be : htons(1);
+					}
+				} else {
+					memcpy(&_meta->port16[0], p + 26, 4);
+				}
+				return XDP2_STOP_OKAY;
+			}
+		}
 	}
 	/* Fast-path miss — fall through to the standard graph body. */
 	<!--(end)-->
