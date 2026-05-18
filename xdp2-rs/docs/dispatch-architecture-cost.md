@@ -1053,6 +1053,82 @@ for the matched-chain branch.
   highest-leverage addition for general traffic.
 - **Hot-edge ordering** (R2 gap #3, plan §H1-H3). Smaller +2-5%
   on top of R3.4.1; runs next in the plan's sequencing.
+
+## Phase H1+H2+H3 — hot-edge ordering (2026-05-17, commit `cb3ad30`)
+
+Plan §H1+H2: sort each vertex's `out_edges` descending by
+hit-priority in `template.cpp`'s Python preprocessor, so generated
+switch arms emit TCP/UDP/ICMP/IP/IPv6 first, then VLAN/MPLS, then
+encap and rare protocols. R2 gap #3.
+
+Generated `parser.mono.c` switch arm order (verified):
+
+  label_ipv4_node:                label_etype_dispatch_node:
+    case 0x6  (TCP)                 case 0x8    (IP)
+    case 0x11 (UDP)                 case 0xdd86 (IPv6)
+    case 0x1  (ICMP)                case 0xa888 (8021AD)
+    case 0x2f (GRE)                 case 0x81   (8021Q)
+    ...                              ...
+
+H3 hp5 sprint (`perf-results/2026-05-17-hot-edge/summary.md`):
+
+| Mode | R3.4.1 hp5 | +hot-edge hp5 |
+|---|---:|---:|
+| `c-xdp2-mono` | 76 | 75 |
+| `c-xdp2-usp` | 131 | 132 |
+| `c-flowdis-usp` | 119 | 118 |
+
+**Hot-edge moves c-xdp2-mono by -1 ns on hp5 — within
+single-replicate measurement noise.** Expected: R3.4.1's fast-path
+already handles the bulk of TCP/IPv4 packets on https-web, so the
+graph-dispatch path only runs on fast-path misses (rare on this
+workload). Hot-edge only matters for those rare packets, and the
+miss-path is a small fraction of the total cost.
+
+The work is still useful as forward-looking infrastructure:
+
+- For workloads with **low fast-path hit rate** (IPv6-heavy,
+  encap-heavy, VLAN-heavy without VLAN-fast-path), the graph
+  dispatch IS the hot path and hot-edge wins matter.
+- For the **fast-path-miss tail** even on https-web — the
+  branch-predictor benefit applies to whichever ipproto follows
+  TCP/UDP in declaration order; with hot-edge it's deterministic.
+- gcc's jump-table emission and predictor heuristics consider
+  source order; future toolchain updates / different compilers
+  may benefit from explicit ordering more than gcc 15 does.
+
+### Detail subtlety the first H1 implementation missed
+
+`edge['macro_name']` is the hex-string representation of the
+proto constant (`"0x6"` for `IPPROTO_TCP`), not the source name
+`"IPPROTO_TCP"`. The lookup table must key on `macro_name_value`
+(int) instead. Additionally, ethertypes are stored byte-swapped on
+little-endian builds (`ETH_P_IP=0x0800` → stored `0x0008`), so the
+priority table includes both byte orders.
+
+### Headline picture after H1+H2+H3
+
+| Mode | hp5 ns/pkt | rank |
+|---|---:|---:|
+| `c-bpf-fast` | 24 | 1 |
+| `rust-simd` | 42 | 2 |
+| `rust-template` | 69 | 3 |
+| `rust-mono` | 72 | 4 |
+| `rust-compiled` | 73 | 4 |
+| `rust-template-simd` | 74 | 6 |
+| **`c-xdp2-mono`** | **75** | **7** |
+| `rust-mono-x4` | 83 | 8 |
+| `rust-graph-enum` | 109 | 9 |
+| `c-flowdis-usp` | 118 | 10 |
+| `c-bpf-flowdis` | 120 | 11 |
+| `c-xdp2-usp` | 132 | 12 |
+| `rust-graph` | 271 | 13 |
+
+`c-xdp2-mono` is now the **7th-fastest parser overall on hp5
+https-web** — ahead of rust-mono-x4 and the rust-graph-enum
+headline, within 3 ns of rust-compiled / rust-mono, and the
+**fastest C-side parser by a wide margin** (next-best C is
+`c-flowdis-usp` at 118 ns, ~57% slower).
 - **TLV / flag_fields walkers** in generated code — needed for
   `gre-pptp` (PPTP-version-1) and `srv6-end_dx2` parity. R4.
 - **Wider IR coverage** so more `extract_metadata` functions
