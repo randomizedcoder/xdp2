@@ -118,6 +118,7 @@ pattern_match_factory const metadata_patterns{
     metadata_pattern_transfer_lhs_bswap_load_rhs_arg,
     metadata_pattern_transfer_memcpy_lhs_gep_rhs_gep,
     metadata_pattern_const,
+    metadata_pattern_const_no_gep,
     metadata_pattern_hdr_off,
     metadata_pattern_hdr_len,
     metadata_pattern_value_transfer_lhs_load_gep_rhs_gep,

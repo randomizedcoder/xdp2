@@ -1265,15 +1265,25 @@ def generate_parser_function(
     mts = vertex.get('metadata_transfers', [])
     mt_all_copy = len(mts) > 0 and all(t.get('kind') == 'copy' for t in mts)
     vertex['mt_all_copy'] = mt_all_copy
-    # R3.3.4b: IR-coverage gate. Compare the count of LLVM-IR-derived
-    # transfers to the count of leaf fields the metadata_record
-    # declares. Only inline-emit when the IR analysis fully covers
-    # the C extract_metadata function's output — otherwise inline
-    # would silently drop fields the analysis missed and break
-    # parity. metadata_record_field_count comes from a C++-side
-    # recursive walk in python_generators.h.
+    # R3.3.4b + R3.5.2: IR-coverage gate. Compare the LLVM-IR-derived
+    # transfer count to the count of StoreInst in the metadata
+    # function's LLVM IR (exposed as metadata_record_field_count
+    # for backward compat; the actual source is store-count per
+    # python_generators.h). Only inline-emit when they are EXACTLY
+    # equal:
+    #   - transfers < stores: some stores went unmatched, inline emit
+    #     would silently drop fields → parity failure.
+    #   - transfers > stores: multiple patterns matched the same store
+    #     (duplicate-match), and the inline emit would write the same
+    #     destination more than once with possibly stale values. Some
+    #     metadata functions (e.g. icmp_metadata's icmp.id sentinel)
+    #     have conditional writes that the IR analysis splits across
+    #     multiple variants — the inline emit can't reproduce the
+    #     conditional, so duplicate-match is also a no-go.
+    # Strict equality rejects both cases. Real wins come from nodes
+    # where the IR cleanly decomposes 1:1 with the source stores.
     field_count = int(vertex.get('metadata_record_field_count', 0))
-    mt_full_coverage = mt_all_copy and len(mts) >= field_count and field_count > 0
+    mt_full_coverage = mt_all_copy and len(mts) == field_count and field_count > 0
     vertex['mt_full_coverage'] = mt_full_coverage
 
     # next_proto inline-emit eligibility

@@ -1914,6 +1914,21 @@ int extract_struct_constants(
                         Tool, graph[vd].metadata, graph[vd].metadata_record,
                         metadata_record);
 
+                    /* R3.5.2: count StoreInst in the metadata function
+                     * to drive the IR-coverage gate (R3.3.4b). One
+                     * decomposed metadata_transfer per LLVM store means
+                     * the template's inline emit faithfully reproduces
+                     * the runtime behavior. */
+                    int store_count = 0;
+                    for (auto &&block : *metadata) {
+                        for (auto &inst : block) {
+                            if (::llvm::isa<::llvm::StoreInst>(inst)) {
+                                store_count++;
+                            }
+                        }
+                    }
+                    graph[vd].metadata_ir_store_count = store_count;
+
                     plog::log(std::cout)
                         << "metadata record " << graph[vd].metadata_record
                         << std::endl;

@@ -1226,6 +1226,49 @@ metadata_pattern_const: match_type = match {
         return arg && ((arg*).getArgNo() == 3 || (arg*).getArgNo() == 4) ;
     });
 };
+// write constant (no GEP)
+/* R3.5.2: same as metadata_pattern_const, but the constant is stored
+ * DIRECTLY into the argument pointer (no intermediate GEP). LLVM
+ * generates this shape when the destination field lives at offset 0
+ * of the metadata struct — e.g. xdp2_metadata_all.is_fragment_bits
+ * (bit 0) where the addr_type byte at offset 0 is set by
+ * ipv4_metadata's `_meta->addr_type = XDP2_ADDR_TYPE_IPV4;`.
+ *
+ * This pattern would match the following LLVM block:
+ *
+ * `store i8 1, ptr %3, align 8, !tbaa !28`
+ *
+ * Where %3 is the 4th argument (the metadata pointer). Without this
+ * pattern, the simple offset-0 constant assignment is silently
+ * dropped from the IR transfers list, which makes the
+ * R3.3.4b mt_full_coverage gate fall back to the indirect call.
+ */
+metadata_pattern_const_no_gep: match_type = match {
+    (store)->[0](constant);
+    (store)->[1](argument);
+
+    (store: {
+        return ::llvm::isa<::llvm::StoreInst>(store);
+    }; {
+        const_store := ::llvm::dyn_cast<::llvm::Constant>(constant);
+        const_value := (const_store*).getUniqueInteger().getZExtValue();
+        const_size := xdp2gen::llvm::get_integer_size(const_store);
+
+        arg := ::llvm::dyn_cast<::llvm::Argument>(argument);
+        is_frame := (arg*).getArgNo() == 4;
+
+        return xdp2gen::llvm::metadata_write_constant(
+            const_value, const_size, 0, is_frame, std::nullopt, std::nullopt, std::nullopt
+        );
+    });
+    (constant: {
+        return ::llvm::isa<::llvm::Constant>(constant);
+    });
+    (argument: {
+        arg := ::llvm::dyn_cast<::llvm::Argument>(argument);
+        return arg && ((arg*).getArgNo() == 3 || (arg*).getArgNo() == 4) ;
+    });
+};
 // write header offset
 /* The following pattern matches an operation of metadata write header offset
  * that is performed by just storing the third argument of the function into a

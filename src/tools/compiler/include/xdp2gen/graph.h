@@ -201,6 +201,18 @@ struct vertex_property {
 
     clang_ast::metadata_record metadata_record;
 
+    /* R3.5.2: number of StoreInst instructions in the metadata
+     * function's LLVM IR. The R3.3.4b IR-coverage gate compares this
+     * to the count of decomposed metadata_transfers — when the IR
+     * analysis captures one transfer per store, inline emit is safe.
+     * Counting STORES (not source-level fields) handles cases where
+     * one logical field is written via multiple conditional stores
+     * (e.g., ipv4_metadata's is_fragment / first_frag pair), each of
+     * which must be reproducible by an inline transfer or the gate
+     * correctly falls back. Populated by main.cpp after walking the
+     * function. Zero when no LLVM IR is available (no `-l` flag). */
+    int metadata_ir_store_count = 0;
+
     std::optional<bool> overlay;
     std::optional<bool> encap;
 
