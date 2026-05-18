@@ -37,7 +37,17 @@ struct vxlanhdr {
 
 static inline int vxlan_proto(const void *vxlan)
 {
-	return ETH_P_TEB;
+	/* Return the __be16 form so the value matches vxlan_inner_table's
+	 * __cpu_to_be16(ETH_P_TEB) key in flow_dissector_tables.h. The
+	 * codebase's convention for ethertype-shaped next_proto returns is
+	 * "network-byte-order u16 cast to int" — same as ether_proto returning
+	 * ethhdr->h_proto (a __be16 field). Previously this returned the
+	 * host-order constant ETH_P_TEB = 0x6558, which never matched the
+	 * 0x5865 table key on little-endian hosts. The lookup silently
+	 * returned NULL and every C parser (xdp2-usp/parse-only/mono) stopped
+	 * at the outer UDP header instead of walking into the VXLAN inner
+	 * Ethernet frame. (Discovered via vxlan.pcap parity-check 2026-05-18.) */
+	return __cpu_to_be16(ETH_P_TEB);
 }
 
 #endif /* __XDP2_PROTO_VXLAN_H__ */

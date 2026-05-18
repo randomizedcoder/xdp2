@@ -114,7 +114,15 @@ static __unused() __attribute__((always_inline)) int
 		    p[0] == 0x08 && p[1] == 0x00 && p[2] == 0x45 &&
 		    (p[8] & 0x3f) == 0 && p[9] == 0 && (p[8] & 0x20) == 0) {
 			unsigned char ip_proto = p[11];
-			if (ip_proto == 6 || ip_proto == 17 || ip_proto == 1) {
+			/* TCP + ICMP only. UDP would fast-path on tunnel
+			 * dports (4789=VXLAN, 6081=Geneve, 2152=GTP-U,
+			 * etc.) where the slow-path graph walks into the
+			 * inner frame; short-circuiting at outer UDP loses
+			 * the inner 5-tuple. ICMP/TCP have no in-tree
+			 * dport-dispatched tunnels in this parser so they
+			 * are safe to fast-path. (R3.4 tunnel triage
+			 * 2026-05-18: discovered via vxlan.pcap.) */
+			if (ip_proto == 6 || ip_proto == 1) {
 				struct xdp2_metadata_all *_meta = metadata;
 				_meta->addr_type = XDP2_ADDR_TYPE_IPV4;
 				_meta->l3_off = 2;
@@ -141,7 +149,9 @@ static __unused() __attribute__((always_inline)) int
 		if (len >= 62 && p[0] == 0x86 && p[1] == 0xDD &&
 		    (p[2] >> 4) == 6) {
 			unsigned char nexthdr = p[8];
-			if (nexthdr == 6 || nexthdr == 17 || nexthdr == 58) {
+			/* TCP + ICMPv6 only — UDP excluded per R3.4.1's
+			 * comment above (IPv6 has the same tunnel ports). */
+			if (nexthdr == 6 || nexthdr == 58) {
 				struct xdp2_metadata_all *_meta = metadata;
 				_meta->addr_type = XDP2_ADDR_TYPE_IPV6;
 				_meta->l3_off = 2;
@@ -180,7 +190,15 @@ static __unused() __attribute__((always_inline)) int
 		    p[4] == 0x08 && p[5] == 0x00 && p[6] == 0x45 &&
 		    (p[12] & 0x3f) == 0 && p[13] == 0 && (p[12] & 0x20) == 0) {
 			unsigned char ip_proto = p[15];
-			if (ip_proto == 6 || ip_proto == 17 || ip_proto == 1) {
+			/* TCP + ICMP only. UDP would fast-path on tunnel
+			 * dports (4789=VXLAN, 6081=Geneve, 2152=GTP-U,
+			 * etc.) where the slow-path graph walks into the
+			 * inner frame; short-circuiting at outer UDP loses
+			 * the inner 5-tuple. ICMP/TCP have no in-tree
+			 * dport-dispatched tunnels in this parser so they
+			 * are safe to fast-path. (R3.4 tunnel triage
+			 * 2026-05-18: discovered via vxlan.pcap.) */
+			if (ip_proto == 6 || ip_proto == 1) {
 				struct xdp2_metadata_all *_meta = metadata;
 				/* VLAN metadata. TCI in network byte order:
 				 * p[2] = priority(3)|dei(1)|VID_hi(4),
@@ -218,7 +236,9 @@ static __unused() __attribute__((always_inline)) int
 		if (len >= 66 && p[0] == 0x81 && p[1] == 0x00 &&
 		    p[4] == 0x86 && p[5] == 0xDD && (p[6] >> 4) == 6) {
 			unsigned char nexthdr = p[12];
-			if (nexthdr == 6 || nexthdr == 17 || nexthdr == 58) {
+			/* TCP + ICMPv6 only — UDP excluded per R3.4.1
+			 * tunnel-dport rationale. */
+			if (nexthdr == 6 || nexthdr == 58) {
 				struct xdp2_metadata_all *_meta = metadata;
 				/* VLAN metadata (same as R3.4.5b). */
 				unsigned short tci = (p[2] << 8) | p[3];
