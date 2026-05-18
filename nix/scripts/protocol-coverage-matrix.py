@@ -167,38 +167,39 @@ def build_cells(
 
         for parser in parsers:
             recs = per_parser_recs.get(parser, [])
+            expected = expectation_for(expectations, proto, parser)
             if not recs:
                 # Two empty-cell sub-cases:
                 #   - file missing entirely → parser not requested → N/A
                 #   - file present but empty → driver tried & failed →
                 #     treat as a rejected cell with reject_reason
-                #     "bench-failed" so the matrix counts it.
+                #     "bench-failed" so the matrix counts it. Fall
+                #     through to the classification logic below so the
+                #     expectation schema applies.
                 jl = proto_dir / f"{parser}.jsonl"
-                if jl.exists():
-                    classification = "REJ-undeclared"
-                    reject_reason = "bench-failed"
-                else:
-                    classification = "N/A"
-                    reject_reason = None
-                cells.append(Cell(
-                    protocol=proto, parser=parser,
-                    accepted=False, n_packets=0, n_accepted=0,
-                    reject_reason=reject_reason,
-                    field_disagreements=0,
-                    expected=expectation_for(expectations, proto, parser),
-                    classification=classification,
-                ))
-                continue
-
-            n_packets = len(recs)
-            n_accepted = sum(1 for r in recs if r.accepted)
-            accepted = n_accepted > 0
-            reject_reason = next(
-                (r.reject_reason for r in recs if not r.accepted and r.reject_reason),
-                None,
-            )
-            field_d = disag_count.get(parser, 0)
-            expected = expectation_for(expectations, proto, parser)
+                if not jl.exists():
+                    cells.append(Cell(
+                        protocol=proto, parser=parser,
+                        accepted=False, n_packets=0, n_accepted=0,
+                        reject_reason=None, field_disagreements=0,
+                        expected=expected, classification="N/A",
+                    ))
+                    continue
+                n_packets = 0
+                n_accepted = 0
+                accepted = False
+                reject_reason = "bench-failed"
+                field_d = 0
+            else:
+                n_packets = len(recs)
+                n_accepted = sum(1 for r in recs if r.accepted)
+                accepted = n_accepted > 0
+                reject_reason = next(
+                    (r.reject_reason for r in recs
+                     if not r.accepted and r.reject_reason),
+                    None,
+                )
+                field_d = disag_count.get(parser, 0)
 
             # Classify the cell.
             if accepted:

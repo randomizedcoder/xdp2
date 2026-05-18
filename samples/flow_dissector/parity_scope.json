@@ -1,74 +1,200 @@
 {
   "schema_version": 1,
   "doc": "Canonical parity schema for flow-dissector parsers. Every dump-meta emitter and the Python comparator (nix/scripts/parity-compare.py) read this file as the single source of truth for: (a) the canonical field name set, (b) the type of each field, and (c) which fields each parser is expected to populate. Adding a field or extending a parser's scope is a contract change tracked here; the parity-gate flake check enforces consistency.",
-
   "field_definitions": {
-    "addr_type":        {"type": "enum", "values": ["null", "ipv4", "ipv6", "tipc", "sunh"]},
-    "ip_proto":         {"type": "u8",   "doc": "IPv4 protocol or IPv6 next-header byte"},
-    "ipv4_src":         {"type": "ipv4", "doc": "Dotted-quad string; null when addr_type != ipv4"},
-    "ipv4_dst":         {"type": "ipv4"},
-    "ipv6_src":         {"type": "ipv6", "doc": "Lowercase, double-colon-compressed; null when addr_type != ipv6"},
-    "ipv6_dst":         {"type": "ipv6"},
-    "tipc_key":         {"type": "u32",  "doc": "Only when addr_type == tipc"},
-    "sport":            {"type": "u16"},
-    "dport":            {"type": "u16"},
-    "thoff":            {"type": "u16",  "doc": "Transport-layer offset within frame"},
-    "is_frag":          {"type": "bool"},
-    "is_first_frag":    {"type": "bool"},
-    "flow_label":       {"type": "u32",  "doc": "IPv6 flow label; 0 for IPv4"},
-    "eth_proto":        {"type": "u16"},
-    "eth_dst":          {"type": "mac",  "doc": "Lowercase aa:bb:cc:dd:ee:ff"},
-    "eth_src":          {"type": "mac"},
-    "ip_tos":           {"type": "u8",   "doc": "IPv4 TOS / IPv6 traffic class"},
-    "ip_ttl":           {"type": "u8",   "doc": "IPv4 TTL / IPv6 hop limit"},
-    "tcp_flags":        {"type": "u8",   "doc": "TCP flags byte (URG/ACK/PSH/RST/SYN/FIN)"},
-    "vlan":             {"type": "array", "items": {"tci": "u16", "tpid": "u16", "vid": "u16"}, "doc": "0..2 VLAN tags in stack order"},
-    "mpls":             {"type": "array", "items": {"label": "u32", "tc": "u8", "s": "bool", "ttl": "u8"}, "doc": "MPLS label stack"},
-    "arp_sip":          {"type": "ipv4"},
-    "arp_tip":          {"type": "ipv4"},
-    "arp_op":           {"type": "u16"},
-    "gre_proto":        {"type": "u16"},
-    "gre_keyid":        {"type": "u32",  "doc": "GRE key/keepalive ID; doubles as bare keyid in kernel-flowdis"},
-    "esp_spi":          {"type": "u32"},
-    "ah_spi":           {"type": "u32"},
-    "l2tp_session_id":  {"type": "u32"},
-    "icmp_type":        {"type": "u8"},
-    "icmp_code":        {"type": "u8"},
-    "icmp_id":          {"type": "u16"},
-    "icmp_seq":         {"type": "u16"},
-    "l2_off":           {"type": "u16"},
-    "l3_off":           {"type": "u16"},
-    "l4_off":           {"type": "u16"}
+    "addr_type": {
+      "type": "enum",
+      "values": [
+        "null",
+        "ipv4",
+        "ipv6",
+        "tipc",
+        "sunh"
+      ]
+    },
+    "ip_proto": {
+      "type": "u8",
+      "doc": "IPv4 protocol or IPv6 next-header byte"
+    },
+    "ipv4_src": {
+      "type": "ipv4",
+      "doc": "Dotted-quad string; null when addr_type != ipv4"
+    },
+    "ipv4_dst": {
+      "type": "ipv4"
+    },
+    "ipv6_src": {
+      "type": "ipv6",
+      "doc": "Lowercase, double-colon-compressed; null when addr_type != ipv6"
+    },
+    "ipv6_dst": {
+      "type": "ipv6"
+    },
+    "tipc_key": {
+      "type": "u32",
+      "doc": "Only when addr_type == tipc"
+    },
+    "sport": {
+      "type": "u16"
+    },
+    "dport": {
+      "type": "u16"
+    },
+    "thoff": {
+      "type": "u16",
+      "doc": "Transport-layer offset within frame"
+    },
+    "is_frag": {
+      "type": "bool"
+    },
+    "is_first_frag": {
+      "type": "bool"
+    },
+    "flow_label": {
+      "type": "u32",
+      "doc": "IPv6 flow label; 0 for IPv4"
+    },
+    "eth_proto": {
+      "type": "u16"
+    },
+    "eth_dst": {
+      "type": "mac",
+      "doc": "Lowercase aa:bb:cc:dd:ee:ff"
+    },
+    "eth_src": {
+      "type": "mac"
+    },
+    "ip_tos": {
+      "type": "u8",
+      "doc": "IPv4 TOS / IPv6 traffic class"
+    },
+    "ip_ttl": {
+      "type": "u8",
+      "doc": "IPv4 TTL / IPv6 hop limit"
+    },
+    "tcp_flags": {
+      "type": "u8",
+      "doc": "TCP flags byte (URG/ACK/PSH/RST/SYN/FIN)"
+    },
+    "vlan": {
+      "type": "array",
+      "items": {
+        "tci": "u16",
+        "tpid": "u16",
+        "vid": "u16"
+      },
+      "doc": "0..2 VLAN tags in stack order"
+    },
+    "mpls": {
+      "type": "array",
+      "items": {
+        "label": "u32",
+        "tc": "u8",
+        "s": "bool",
+        "ttl": "u8"
+      },
+      "doc": "MPLS label stack"
+    },
+    "arp_sip": {
+      "type": "ipv4"
+    },
+    "arp_tip": {
+      "type": "ipv4"
+    },
+    "arp_op": {
+      "type": "u16"
+    },
+    "gre_proto": {
+      "type": "u16"
+    },
+    "gre_keyid": {
+      "type": "u32",
+      "doc": "GRE key/keepalive ID; doubles as bare keyid in kernel-flowdis"
+    },
+    "esp_spi": {
+      "type": "u32"
+    },
+    "ah_spi": {
+      "type": "u32"
+    },
+    "l2tp_session_id": {
+      "type": "u32"
+    },
+    "icmp_type": {
+      "type": "u8"
+    },
+    "icmp_code": {
+      "type": "u8"
+    },
+    "icmp_id": {
+      "type": "u16"
+    },
+    "icmp_seq": {
+      "type": "u16"
+    },
+    "l2_off": {
+      "type": "u16"
+    },
+    "l3_off": {
+      "type": "u16"
+    },
+    "l4_off": {
+      "type": "u16"
+    }
   },
-
   "tiers": {
     "doc": "Reusable scope sets. Each parser's scope is a tier name plus optional per-parser overrides.",
     "bpf_flow_keys": [
-      "addr_type", "ip_proto", "ipv4_src", "ipv4_dst", "ipv6_src", "ipv6_dst",
-      "sport", "dport", "thoff", "is_frag", "is_first_frag", "flow_label"
+      "addr_type",
+      "ip_proto",
+      "ipv4_src",
+      "ipv4_dst",
+      "ipv6_src",
+      "ipv6_dst",
+      "sport",
+      "dport",
+      "thoff",
+      "is_frag",
+      "is_first_frag",
+      "flow_label"
     ],
     "kernel_flowdis_extras": [
-      "tipc_key", "arp_sip", "arp_tip", "arp_op", "gre_keyid"
+      "tipc_key",
+      "arp_sip",
+      "arp_tip",
+      "arp_op",
+      "gre_keyid"
     ],
     "full_flowmeta_extras": [
-      "eth_proto", "eth_dst", "eth_src",
-      "ip_tos", "ip_ttl", "tcp_flags",
-      "vlan", "mpls",
+      "eth_proto",
+      "eth_dst",
+      "eth_src",
+      "ip_tos",
+      "ip_ttl",
+      "tcp_flags",
+      "vlan",
+      "mpls",
       "gre_proto",
-      "esp_spi", "ah_spi", "l2tp_session_id",
-      "icmp_type", "icmp_code", "icmp_id", "icmp_seq",
-      "l2_off", "l3_off", "l4_off"
+      "esp_spi",
+      "ah_spi",
+      "l2tp_session_id",
+      "icmp_type",
+      "icmp_code",
+      "icmp_id",
+      "icmp_seq",
+      "l2_off",
+      "l3_off",
+      "l4_off"
     ]
   },
-
   "tunnel_detection": {
-    "doc": "On packets that contain a tunnel header (the outer parser reports a tunnel-protocol indicator), the inner-flow 5-tuple fields legitimately differ between OUTER-behavior parsers (kernel-flowdis-style) and INNER-behavior parsers (XDP2/xdp2-rs, which follow the tunnel). The comparator masks `inner_outer_fields` when comparing across mismatched tunnel_behavior. This is the structurally-richer XDP2 design — XDP2 reports the actual flow inside the tunnel; kernel-flowdis stops at the tunnel header. See benchmark.c:264-277 and docs/flow-dissector-parity.md 'Phase 17.C findings → Finding 2'.",
+    "doc": "On packets that contain a tunnel header (the outer parser reports a tunnel-protocol indicator), the inner-flow 5-tuple fields legitimately differ between OUTER-behavior parsers (kernel-flowdis-style) and INNER-behavior parsers (XDP2/xdp2-rs, which follow the tunnel). The comparator masks `inner_outer_fields` when comparing across mismatched tunnel_behavior. This is the structurally-richer XDP2 design \u2014 XDP2 reports the actual flow inside the tunnel; kernel-flowdis stops at the tunnel header. See benchmark.c:264-277 and docs/flow-dissector-parity.md 'Phase 17.C findings \u2192 Finding 2'.",
     "outer_ip_protos": {
-      "4":   "IP-in-IP (IPIP)",
-      "41":  "IPv6-in-IPv4 (6in4)",
-      "47":  "GRE",
-      "50":  "ESP",
-      "51":  "AH",
+      "4": "IP-in-IP (IPIP)",
+      "41": "IPv6-in-IPv4 (6in4)",
+      "47": "GRE",
+      "50": "ESP",
+      "51": "AH",
       "115": "L2TPv3"
     },
     "outer_udp_ports": {
@@ -79,126 +205,185 @@
       "6635": "MPLS-over-UDP"
     },
     "inner_outer_fields": [
-      "addr_type", "ip_proto",
-      "ipv4_src", "ipv4_dst", "ipv6_src", "ipv6_dst",
-      "sport", "dport", "thoff",
-      "tipc_key", "flow_label",
-      "l3_off", "l4_off"
+      "addr_type",
+      "ip_proto",
+      "ipv4_src",
+      "ipv4_dst",
+      "ipv6_src",
+      "ipv6_dst",
+      "sport",
+      "dport",
+      "thoff",
+      "tipc_key",
+      "flow_label",
+      "l3_off",
+      "l4_off"
     ]
   },
-
   "scopes": {
     "c-flowdis-usp": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras"
+      ],
       "kind": "c",
       "tunnel_behavior": "outer",
       "source": "samples/flow_dissector/benchmark.c:104-159 (struct parsed_result)",
-      "doc": "Linux kernel userspace flowdis (libflowdis) — bpf_flow_keys equivalent + ARP + TIPC + GRE keyid. Stops at the OUTER 5-tuple on tunnel-encapsulated packets (does NOT follow GRE/VXLAN/Geneve/etc. into the inner flow)."
+      "doc": "Linux kernel userspace flowdis (libflowdis) \u2014 bpf_flow_keys equivalent + ARP + TIPC + GRE keyid. Stops at the OUTER 5-tuple on tunnel-encapsulated packets (does NOT follow GRE/VXLAN/Geneve/etc. into the inner flow)."
     },
     "c-xdp2-usp": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "c",
       "tunnel_behavior": "inner",
       "source": "src/include/xdp2/parser_metadata.h (struct xdp2_metadata_all)",
-      "doc": "XDP2 C userspace parser — full FlowMeta-equivalent. Follows tunnels (GRE, IPIP, VXLAN, Geneve, etc.) and reports the INNER 5-tuple. Slower than kernel-flowdis on tunneled traffic, but produces a richer flow signature; see benchmark.c:264-277."
+      "doc": "XDP2 C userspace parser \u2014 full FlowMeta-equivalent. Follows tunnels (GRE, IPIP, VXLAN, Geneve, etc.) and reports the INNER 5-tuple. Slower than kernel-flowdis on tunneled traffic, but produces a richer flow signature; see benchmark.c:264-277."
     },
     "c-xdp2-parse-only": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "c",
       "tunnel_behavior": "inner",
       "source": "Same as c-xdp2-usp; -P flag skips per-packet 200B memset",
       "doc": "Identical scope to c-xdp2-usp; perf-only variant"
     },
     "c-xdp2-mono": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "c",
       "tunnel_behavior": "inner",
       "source": "samples/flow_dissector/flow_dissector_mono.h (R3 monolithic-codegen reference)",
-      "doc": "XDP2 C monolithic single-function parser — R3 architectural-rebuild reference. Same scope as c-xdp2-usp / c-xdp2-parse-only (full FlowMeta + inner-tunnel behavior). Implemented as one function with goto-state transitions instead of a per-node function tree; produces identical metadata to c-xdp2-usp on the covered protocols (30/33 in-tree PCAPs). See xdp2-rs/docs/dispatch-architecture-cost.md §R3."
+      "doc": "XDP2 C monolithic single-function parser \u2014 R3 architectural-rebuild reference. Same scope as c-xdp2-usp / c-xdp2-parse-only (full FlowMeta + inner-tunnel behavior). Implemented as one function with goto-state transitions instead of a per-node function tree; produces identical metadata to c-xdp2-usp on the covered protocols (30/33 in-tree PCAPs). See xdp2-rs/docs/dispatch-architecture-cost.md \u00a7R3."
     },
     "c-bpf-flowdis": {
-      "tiers": ["bpf_flow_keys"],
+      "tiers": [
+        "bpf_flow_keys"
+      ],
       "kind": "bpf",
       "tunnel_behavior": "outer",
       "source": "samples/flow_dissector/bpf_flow.kern.o (vendored Linux selftest)",
       "doc": "Kernel BPF flow dissector. Same outer-stop behavior as c-flowdis-usp."
     },
     "c-bpf-xdp2": {
-      "tiers": ["bpf_flow_keys"],
+      "tiers": [
+        "bpf_flow_keys"
+      ],
       "kind": "bpf",
       "tunnel_behavior": "inner",
       "source": "samples/flow_dissector/flow_dissector.bpf.o (xdp2-compiler-generated BPF)",
-      "doc": "XDP2 BPF parser. **Verifier-rejected on kernel 7.x** — every record will have accepted=false, reject_reason=verifier"
+      "doc": "XDP2 BPF parser. **Verifier-rejected on kernel 7.x** \u2014 every record will have accepted=false, reject_reason=verifier"
     },
     "c-bpf-fast": {
-      "tiers": ["bpf_flow_keys"],
+      "tiers": [
+        "bpf_flow_keys"
+      ],
       "kind": "bpf-with-fallback",
       "tunnel_behavior": "outer",
       "source": "samples/flow_dissector/fast_bpf/fast_flow.bpf.c",
       "doc": "xdp2-flow-ebpf top-N tail-call. Doesn't follow tunnels itself; returns BPF_FLOW_DISSECTOR_CONTINUE on tunnel packets so the kernel's slow path (also outer-only) takes over."
     },
     "rust-graph": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph.rs",
       "doc": "Trait-object dynamic dispatch parser, full FlowMeta. Follows tunnels."
     },
     "rust-graph-enum": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph.rs (graph-enum feature)",
-      "doc": "Static-dispatch enum match. Currently table covers Ether/IPv4/{TCP,UDP,ICMP} only — emits reject_reason=ipv4-only on non-IPv4 packets per parity_scope.json:expected_divergences/rust-graph-enum-ipv4-only."
+      "doc": "Static-dispatch enum match. Currently table covers Ether/IPv4/{TCP,UDP,ICMP} only \u2014 emits reject_reason=ipv4-only on non-IPv4 packets per parity_scope.json:expected_divergences/rust-graph-enum-ipv4-only."
     },
     "rust-mono": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph_mono.rs"
     },
     "rust-mono-x4": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph_mono.rs (sw-pipelined wrapper)"
     },
     "rust-compiled": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/graph_compiled.rs (xdp2-compiler-generated)"
     },
     "rust-simd": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/simd_batch.rs",
       "doc": "AVX2 batch parser; on non-AVX2 hosts (e.g. Zen 1) every record will have accepted=false, reject_reason=no-avx2"
     },
     "rust-template": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust-with-fallback",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/template.rs",
-      "doc": "Hardware-template fixed-offset extractor. On template miss, accepted=false, reject_reason=no-template (or accept_path=fallback if fall-through to compiled is enabled — TBD in 17.B)."
+      "doc": "Hardware-template fixed-offset extractor. On template miss, accepted=false, reject_reason=no-template (or accept_path=fallback if fall-through to compiled is enabled \u2014 TBD in 17.B)."
     },
     "rust-template-simd": {
-      "tiers": ["bpf_flow_keys", "kernel_flowdis_extras", "full_flowmeta_extras"],
+      "tiers": [
+        "bpf_flow_keys",
+        "kernel_flowdis_extras",
+        "full_flowmeta_extras"
+      ],
       "kind": "rust-with-fallback",
       "tunnel_behavior": "inner",
       "source": "xdp2-rs/crates/xdp2-bench/src/template_simd.rs",
       "doc": "AVX2 batch + fixed-offset template; same fallback semantics as rust-template, plus no-avx2 on non-AVX2 hosts"
     }
   },
-
   "expected_divergences": [
     {
       "id": "verifier-rejection-bpf-xdp2",
       "parser": "c-bpf-xdp2",
       "applies_to": "all_packets",
       "reject_reason": "verifier",
-      "doc": "Kernel BPF verifier rejects flow_dissector.bpf.o on 7.x with 'math between pkt pointer and register with unbounded min value'. Documented Way-5 N/A in docs/flow-dissector-benchmark-plan.md §8."
+      "doc": "Kernel BPF verifier rejects flow_dissector.bpf.o on 7.x with 'math between pkt pointer and register with unbounded min value'. Documented Way-5 N/A in docs/flow-dissector-benchmark-plan.md \u00a78."
     },
     {
       "id": "fast-path-fall-through",
@@ -209,41 +394,3766 @@
     },
     {
       "id": "no-avx2",
-      "parsers": ["rust-simd", "rust-template-simd"],
+      "parsers": [
+        "rust-simd",
+        "rust-template-simd"
+      ],
       "applies_to": "non_avx2_hosts",
       "reject_reason": "no-avx2",
       "doc": "AVX2 detection at runtime. Zen 1 emits 'warning: AVX2 not available'; xdp2-bench/src/bench.rs maps to N/A."
     },
     {
       "id": "no-template",
-      "parsers": ["rust-template", "rust-template-simd"],
+      "parsers": [
+        "rust-template",
+        "rust-template-simd"
+      ],
       "applies_to": "packets_with_no_matching_template",
       "reject_reason": "no-template",
       "doc": "Template selector returns None when packet shape doesn't match any of the 63 registered templates; rust-template returns Err. The bench.rs template-with-fallback variant is TBD in Phase 17.B."
     },
     {
       "id": "mac-out-of-scope-for-flowdis",
-      "parsers": ["c-flowdis-usp", "c-bpf-flowdis", "c-bpf-xdp2", "c-bpf-fast"],
+      "parsers": [
+        "c-flowdis-usp",
+        "c-bpf-flowdis",
+        "c-bpf-xdp2",
+        "c-bpf-fast"
+      ],
       "applies_to": "fields:eth_dst,eth_src",
       "doc": "kernel flowdis and BPF flow_dissector populate bpf_flow_keys, which has no eth_addrs. The comparator masks eth_dst/eth_src when comparing these against full-FlowMeta parsers."
     },
     {
       "id": "tcp-flags-tos-ttl-out-of-scope-for-bpf",
-      "parsers": ["c-bpf-flowdis", "c-bpf-xdp2", "c-bpf-fast"],
+      "parsers": [
+        "c-bpf-flowdis",
+        "c-bpf-xdp2",
+        "c-bpf-fast"
+      ],
       "applies_to": "fields:tcp_flags,ip_tos,ip_ttl",
       "doc": "BPF flow dissector path doesn't extract these. They're optional even in kernel-flowdis-usp (only set when packet hit specific paths)."
     },
     {
       "id": "tunnel-outer-vs-inner-flow",
       "applies_to": "tunnel-encapsulated packets where one parser has tunnel_behavior='outer' and the other has 'inner'",
-      "doc": "On packets where the outer parser reports an ip_proto in tunnel_detection.outer_ip_protos OR a UDP dport in tunnel_detection.outer_udp_ports, the comparator masks tunnel_detection.inner_outer_fields between the two behaviors. The XDP2 / xdp2-rs parsers report the INNER 5-tuple by following the tunnel; the kernel-flowdis variants stop at the OUTER 5-tuple. Both are correct under their respective design; XDP2's behavior is structurally richer but slower on tunneled traffic. This is intentional, not a bug. See docs/flow-dissector-parity.md 'Phase 17.C findings → Finding 2'."
+      "doc": "On packets where the outer parser reports an ip_proto in tunnel_detection.outer_ip_protos OR a UDP dport in tunnel_detection.outer_udp_ports, the comparator masks tunnel_detection.inner_outer_fields between the two behaviors. The XDP2 / xdp2-rs parsers report the INNER 5-tuple by following the tunnel; the kernel-flowdis variants stop at the OUTER 5-tuple. Both are correct under their respective design; XDP2's behavior is structurally richer but slower on tunneled traffic. This is intentional, not a bug. See docs/flow-dissector-parity.md 'Phase 17.C findings \u2192 Finding 2'."
     },
     {
       "id": "rust-graph-enum-ipv4-only",
-      "parsers": ["rust-graph-enum"],
+      "parsers": [
+        "rust-graph-enum"
+      ],
       "applies_to": "packets where ethertype != IPv4",
       "reject_reason": "ipv4-only",
       "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). On packets whose ethertype isn't IPv4 (IPv6, ARP, MPLS, etc.), rust-graph-enum's dump-meta emits reject_reason=ipv4-only. This is a known scope gap (the 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4-dominant); extending the enum table to IPv6/VLAN is tracked as a follow-up. Until then, the parity gate treats this rejection as expected."
     }
-  ]
+  ],
+  "expected_protocol_acceptance": {
+    "doc": "Per-protocol-template expected acceptance \u2014 Phase 3 of the protocol-coverage-matrix plan. Bootstrapped 2026-05-18 from a full 378-pcap run of `nix run .#protocol-coverage-matrix -- --bootstrap-expectations`. Each protocol entry has a 'default' (applied to all parsers) and per-parser 'overrides'. Override vocabulary: 'accept', 'reject:<reject_reason>'. Cells diverging from these expectations are flagged as REJ-unexpected by the aggregator. Known disagreements outside this schema: 4 OK!N cells on icmpv4 (9-10 field disagreements per parser) and vxlan (5-6); both tracked separately as Phase 6 bug-triage. Bench-failed overrides on the rust parsers (e.g. ah, arp, appletalk) reflect packet shapes xdp2-bench doesn't yet handle \u2014 REMOVE the override once xdp2-bench is fixed and the cell should become OK. See nix/scripts/protocol-coverage-matrix.py.",
+    "protocols": {
+      "ah": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "amqp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "amt": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "aoe": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "appletalk": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "arp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ata_d2h_fis": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ata_h2d_fis": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "avtp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ayiya": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "babel": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "bacnet": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "batman": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "bfd": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "bgp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ble_ll": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "bmp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "bt_att": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "bt_bnep": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "bt_smp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "can": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "can_xl": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "capwap": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "carp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "cassandra": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "cdp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "cflow": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "cfm": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "chargen": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "cifs": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "cmp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "cnp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "coap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "collectd": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "cops": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "daytime": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dccp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "dhcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dhcp_option": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dhcpv6": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "dhcpv6_option": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "diameter": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "discard": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dnp3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dns": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dns_tcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "doh": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "doip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dot": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dtls": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "dtls_13": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "eap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "eapol": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "echo": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ecpri": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "edsa": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "eigrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "elasticsearch": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "enip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "erf": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "erspan_v3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "esp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "esp_null": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ethercat": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "etherip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ethernet": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ethertype_tsn": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "falcon_base_ack": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "falcon_ext_ack": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "falcon_nack": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "falcon_pull_data": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "falcon_pull_request": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "falcon_push_data": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "falcon_resync": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "fc": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "fc_ct_hdr": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_adisc": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_flogi": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_logo": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_ls_acc": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_ls_rjt": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_prli": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_rscn": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_els_scr": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_ns_gid_ft": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fc_ns_gpn_ft_rsp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fcoe_init": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fcp_cmnd": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fcp_rsp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fcp_rsp_ext": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fcp_srr": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fcp_txrdy": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "fddi": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "fip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ftp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "geneve": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "geneve_opt": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "glbp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gnmi": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gnoi": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gptp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "gre": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "gre6": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "gre_cisco": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "gre_pptp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "gre_wccpv2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "grpc": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gtp_c": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gtp_u": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "accept",
+          "c-xdp2-usp": "accept",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "gtp_v0": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gtpv2_c": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "gvrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "h323": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "hci": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "hci_acl": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "hci_cmd": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "hci_event": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "hci_iso": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "hci_sco": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "homeplug_av": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "hsr": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "accept",
+          "c-xdp2-usp": "accept",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "hsrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "http": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "http2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ib_lrh": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "icmpv4": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "icmpv6": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "iec_104": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iec_goose": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "accept",
+          "rust-graph": "accept",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "iec_mms": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iec_sv": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "accept",
+          "rust-graph": "accept",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ieee802.11": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ieee802154": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "igmp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "igmpv3_query": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "igmpv3_report": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ikev1": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ikev2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "imap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ip_in_ip": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ipcomp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ipfix": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ipv4": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ipv6": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ipv6_destopts": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ipv6_eh": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ipv6_fragment": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ipv6_hopbyhop": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ipv6_nd": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "ipv6_routing": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ipv6_rpl": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ipx": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "irc": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_async": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_data_in": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_data_out": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_login_req": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_login_rsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_logout": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_logout_rsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_nop_in": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_nop_out": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_r2t": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_reject": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_scsi_cmd": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_scsi_rsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_text": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_text_rsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_tmf": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "iscsi_tmf_rsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "isis": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "kafka": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "kerberos": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "l2cap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "l2tp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "l2tpv3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "lacp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "accept",
+          "rust-graph": "accept",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ldap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ldp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error"
+        }
+      },
+      "lisp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "lisp_control": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "llc": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "lldp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "lldp_cdp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "llmnr": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "lltd": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "lmp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "lwapp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "m2pa": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "m3ua": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "mac_control": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "macsec": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "marker": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "mdns": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "megaco": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "memcache": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "mgcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mgcp_ncs": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mld": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "mld_report_v1": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "mldv2_query": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "mldv2_report": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "mmrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "modbus_tcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mongodb": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mpeg_ts": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "mpls": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "mpls_echo": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mpls_oam": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mpls_tp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "mqtt": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "msdp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "msdp_sa": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "mstp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "mvrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "mysql": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nats": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nbns": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nc_si": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "netconf": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "netflow_v5": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "netflow_v9": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nfs": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "nfsv4": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ngap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "nntp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nsh": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ntlmssp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ntp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nts": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nvgre": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_rdma_cm_rej": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_rdma_cm_rep": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_rdma_cm_req": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_tcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "nvme_tcp_data": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_tcp_icreq": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_tcp_icresp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_tcp_r2t": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "nvme_tcp_rsp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "oam_lbm": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "oam_ltm": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ocsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "onc_rpc": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "opc_ua": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "openflow": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ospf": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "ospfv3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "owamp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "pbb": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "pcep": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "pcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "pfcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "pgm": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "pim": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "pim_assert": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "pim_bsr": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "pimv6": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "pop3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "postgresql": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ppp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ppp_ccp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ppp_chap": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ppp_ipcp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ppp_ipv6cp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ppp_lcp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ppp_pap": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "pppoe": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "pppoed": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "pptp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "profinet_dcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ptp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ptp_v1": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "pvst": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "qinq": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "quic": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "quic_initial": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "quic_retry": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "radiotap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "radius": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "radius_acct": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "radius_coa": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rarp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "redis": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ripng": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rocev2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rpki_rtr": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rstp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "rsvp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "rtcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtcp_sr": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtmp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtp_h264": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtp_h265": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtp_mpeg": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtp_opus": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "rtsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "s1ap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "s7comm": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "sas_identify": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "sctp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "sctp_chunk": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "sctp_data": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "sctp_init": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "sctp_sack": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "sdp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "sflow": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "sflow_v5": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "sip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "skinny": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "sll": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "sll2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "slow_protocols": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "accept",
+          "rust-graph": "accept",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "smb": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "smb2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "smtp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "snap": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "snmp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "snmp_trap": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "snmpv3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "socks": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "some_ip": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "srp_cmd": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_cred_req": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_cred_rsp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_i_logout": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_login_rej": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_login_req": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_login_rsp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_rsp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_t_logout": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srp_tsk_mgmt": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "srt": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "srv6": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "ssh": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "ssp_command_iu": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ssp_frame_hdr": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ssp_response_iu": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ssp_tmf_iu": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "ssp_xfer_rdy": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "stp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "stun": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "sua": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "syslog": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "t38": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "tacacs": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "tcp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "telnet": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "tftp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "time": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "tipc": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "tls": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "tplink_smarthome": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "trill": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "twamp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "tzsp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "tzsp_v2": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "udp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "udplite": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "vlan": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "vrrp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "vrrp3": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:parse-error"
+        }
+      },
+      "vrrp_ipv6": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "rust-graph-enum": "reject:ipv4-only"
+        }
+      },
+      "vxlan": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "vxlan_gbp": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "accept",
+          "c-xdp2-usp": "accept",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "vxlan_gpb": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "accept",
+          "c-xdp2-usp": "accept",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "vxlan_gpe": {
+        "default": "reject:undeclared",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "accept",
+          "c-xdp2-mono": "accept",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
+          "rust-compiled": "reject:bench-failed",
+          "rust-graph": "reject:bench-failed",
+          "rust-graph-enum": "reject:bench-failed",
+          "rust-mono": "reject:bench-failed",
+          "rust-mono-x4": "reject:bench-failed",
+          "rust-simd": "reject:bench-failed",
+          "rust-template": "reject:bench-failed",
+          "rust-template-simd": "reject:bench-failed"
+        }
+      },
+      "whois": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "wireguard": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "wol": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "wpa_eapol_key": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "xmpp": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      },
+      "y1731": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier",
+          "c-flowdis-usp": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
+        }
+      },
+      "zeromq": {
+        "default": "accept",
+        "overrides": {
+          "c-bpf-xdp2": "reject:verifier"
+        }
+      }
+    }
+  }
 }

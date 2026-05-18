@@ -188,8 +188,11 @@ pkgs.writeShellApplication {
     export OUT PARSERS
 
     if [ "$JOBS" -gt 1 ]; then
+      # -I{} implies -n 1 in xargs; pass just -I to avoid the
+      # "options --max-args and --replace/-I are mutually exclusive"
+      # warning.
       printf '%s\n' "''${pcaps[@]}" \
-        | xargs -P "$JOBS" -n 1 -I{} bash -c 'run_one "$@"' _ {}
+        | xargs -P "$JOBS" -I{} bash -c 'run_one "$@"' _ {}
     else
       for pcap in "''${pcaps[@]}"; do
         run_one "$pcap"
