@@ -21,73 +21,28 @@
 { pkgs, parityCheck, lib }:
 
 let
-  # Corpus: known-protocol synthetic PCAPs that every (non-BPF)
-  # parser should handle cleanly. Each pcap is small and homogeneous
-  # to keep the gate fast. Interpolated as strings so Nix auto-adds
-  # them to the derivation's closure (toString-based coercion does
-  # not).
-  # Phase 17.D.3 corpus: 21 PCAPs where all 11 included parsers
-  # agree cleanly under the tunnel-aware mask + ipv4-only-aware
-  # acceptance gate landed in 17.D.1 + 17.D.2.
+  # PCAP corpus is declared in data/pcap-manifest.toml — single
+  # source of truth for which pcaps are gated vs which are
+  # documented-and-excluded. See `pcap-manifest.toml` for rationale
+  # on each excluded pcap (Phase 17.D findings: 6to4, gre-*,
+  # ipip, l2tp, tcp_sack, vlan_icmp, vxlan, ipv6-udp-fragmented,
+  # srv6-end_dx2-64) and the broader categorisation.
   #
-  # Categories covered:
-  #   - Plain IPv4 / IPv6: tcp_ipv4, tcp_ipv6, icmp_ipv4, icmp_ipv6,
-  #     plain-ipv6-64, ipv4frags, ipv6-udp-fragmented, protobuf_in_udp.
-  #   - L2 tagging: QinQ (double-tagged 802.1Q).
-  #   - Tunnels (kernel-flowdis-vs-XDP2 inner-vs-outer mask handles
-  #     these): 6in4, l7_l2tp.
-  #   - SRv6 variants (9): all the srv6-end_*-64 + srv6-t_*-64 files.
-  #   - Unusual: can-2003-0003, zlip-1/2/3.
-  #
-  # Excluded as separate Phase 17.D.5 triage items (each has a
-  # specific real finding the gate caught — none are false-positives;
-  # see docs/flow-dissector-parity.md "Phase 17.D findings"):
-  #   - 6to4.pcap (6 disagreements)
-  #   - gre-pptp.pcap (144 — PPTP-style GRE, special handling)
-  #   - gre-sample.pcap (88 — 8 packets XDP2 strict-rejects)
-  #   - gre-within-gre.pcap (628 — deeper nesting)
-  #   - ipip.pcap (10)
-  #   - l2tp.pcap (38 — raw L2TP, vs clean l7_l2tp)
-  #   - tcp_sack.pcap (133 — SACK option parsing differs)
-  #   - vlan_icmp.pcap (1 — single-packet edge)
-  #   - vxlan.pcap (700 — VXLAN inner-flow not in tunnel mask scope)
-  corpusPcaps = [
-    # IPv4 / IPv6 plain
-    "${../../data/pcaps/tcp_ipv4.pcap}"
-    "${../../data/pcaps/tcp_ipv6.pcap}"
-    "${../../data/pcaps/icmp_ipv4.pcap}"
-    "${../../data/pcaps/icmp_ipv6.pcap}"
-    "${../../data/pcaps/plain-ipv6-64.pcap}"
-    "${../../data/pcaps/ipv4frags.pcap}"
-    # ipv6-udp-fragmented.pcap excluded: c-xdp2-mono (R3 reference) keeps
-    # the outer IPv6 addrs on non-first-fragment packets while the
-    # OPT/generic paths follow a flowdis-style addr-reset quirk for
-    # fragments. Tracked as R3.2 phase 3 follow-up (xdp2-rs/docs/
-    # dispatch-architecture-cost.md).
-    "${../../data/pcaps/protobuf_in_udp.pcap}"
-    # L2 tagging
-    "${../../data/pcaps/QinQ.pcap}"
-    # Tunnels — tunnel mask handles
-    "${../../data/pcaps/6in4.pcap}"
-    "${../../data/pcaps/l7_l2tp.pcap}"
-    # SRv6 family
-    "${../../data/pcaps/srv6-end-64.pcap}"
-    "${../../data/pcaps/srv6-end_dt6-64.pcap}"
-    # srv6-end_dx2-64.pcap excluded: SRv6 End.DX2 inner-L2-xconnect
-    # variant — c-xdp2-mono (R3 reference) doesn't yet implement the
-    # End.DX2 flag-bit dispatch. Tracked as an R3.2 follow-up.
-    "${../../data/pcaps/srv6-end_dx6-64.pcap}"
-    "${../../data/pcaps/srv6-end_t-64.pcap}"
-    "${../../data/pcaps/srv6-end_x-64.pcap}"
-    "${../../data/pcaps/srv6-t_encaps_l2-64.pcap}"
-    "${../../data/pcaps/srv6-t_encaps_v6-64.pcap}"
-    "${../../data/pcaps/srv6-t_insert_v6-64.pcap}"
-    # Unusual / regression archive
-    "${../../data/pcaps/can-2003-0003.pcap}"
-    "${../../data/pcaps/zlip-1.pcap}"
-    "${../../data/pcaps/zlip-2.pcap}"
-    "${../../data/pcaps/zlip-3.pcap}"
-  ];
+  # Loaded at eval time via builtins.fromTOML, no IFD, no runtime
+  # dep. Adding/removing a pcap is a one-line edit in the manifest;
+  # this Nix file does not change.
+  repoRoot = ../..;
+  manifest = builtins.fromTOML (builtins.readFile (repoRoot + "/data/pcap-manifest.toml"));
+  # Filter to pcaps whose `included_in` includes "parity_gate".
+  gateEntries = lib.filterAttrs
+    (_: e: builtins.elem "parity_gate" (e.included_in or []))
+    manifest.pcap;
+  # Resolve each manifest path (repo-rooted, e.g. "data/pcaps/tcp_ipv4.pcap")
+  # to a Nix store path. Interpolate as string so the file is
+  # auto-copied into the derivation's closure.
+  corpusPcaps = lib.mapAttrsToList
+    (_: e: "${repoRoot + "/${e.path}"}")
+    gateEntries;
 
   # 12 of 15 parsers — skip c-bpf-flowdis, c-bpf-fast (CAP_BPF).
   # c-bpf-xdp2 included because the driver synthesises rejected
