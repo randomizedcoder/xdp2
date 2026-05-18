@@ -1250,6 +1250,49 @@ def generate_parser_function(
     metadata_record,
     template_str: str
 ):
+  # Hot-edge ordering (R2 gap #3, plan §H1). Sort each vertex's
+  # out_edges descending by hit-priority so the generator emits TCP /
+  # UDP / IP / etc. switch arms before encap / rare-proto arms. gcc
+  # emits jump tables for these switches; arm order affects branch
+  # prediction (the predictor learns the first cases best). Hard-coded
+  # priority table; profile-guided alternative is a follow-up.
+  #
+  # Note: edge['macro_name'] is the hex string of the proto constant
+  # (e.g. "0x6" for IPPROTO_TCP), not the macro name itself, so we
+  # key the priority table on numeric values via macro_name_value.
+  HOT_PRIORITY = {
+      # IP protocols (in ipv4 / ipv6 next-proto dispatch)
+      6:   100,  # IPPROTO_TCP
+      17:  100,  # IPPROTO_UDP
+      1:    80,  # IPPROTO_ICMP
+      58:   80,  # IPPROTO_ICMPV6
+      47:   40,  # IPPROTO_GRE
+      41:   40,  # IPPROTO_IPV6
+      4:    40,  # IPPROTO_IPIP
+      50:   20,  # IPPROTO_ESP
+      51:   20,  # IPPROTO_AH
+      115:  20,  # IPPROTO_L2TP
+      # Ethertypes (in etype dispatch). Both byte orders included:
+      # IR analysis stores network-order (BE) constants byte-swapped
+      # on little-endian builds (e.g. 0x0800 -> 0x0008). The
+      # source-order key catches LE-native builds if/when they
+      # exist; both forms together work everywhere.
+      0x0800: 100, 0x0008: 100,  # ETH_P_IP
+      0x86DD: 100, 0xDD86: 100,  # ETH_P_IPV6
+      0x8100:  80, 0x0081:  80,  # ETH_P_8021Q
+      0x88A8:  80, 0xA888:  80,  # ETH_P_8021AD
+      0x0806:  40, 0x0608:  40,  # ETH_P_ARP
+      0x8847:  40, 0x4788:  40,  # ETH_P_MPLS_UC
+      0x8848:  40, 0x4888:  40,  # ETH_P_MPLS_MC
+      0x8864:  40, 0x6488:  40,  # ETH_P_PPP_SES
+      0x8035:  20, 0x3580:  20,  # ETH_P_RARP
+  }
+  def hot_pri(edge):
+      try:
+          return HOT_PRIORITY.get(int(edge.get('macro_name_value', 0)), 0)
+      except (TypeError, ValueError):
+          return 0
+
   # Debug + per-vertex preprocessing:
   #   R3.3.4: mt_all_copy — whether every metadata_transfer is kind=copy
   #     (so the template can emit inline memcpy() per transfer).
@@ -1260,7 +1303,13 @@ def generate_parser_function(
   # no all() / no arithmetic-expression evaluation in template bodies.
   print(f"[Python template] Graph has {len(graph)} vertices", file=sys.stderr)
   for name, vertex in graph.items():
-    out_edges = vertex.get('out_edges', [])
+    # Hot-edge sort (R2 gap #3 / plan §H1). Stable sort by descending
+    # hot_priority: TCP / UDP first; rare protocols last. In-place
+    # replacement so the existing template loop over
+    # graph[node]['out_edges'] picks up the sorted order with no
+    # template-side change.
+    out_edges = sorted(vertex.get('out_edges', []), key=hot_pri, reverse=True)
+    vertex['out_edges'] = out_edges
     next_proto_info = vertex.get('next_proto_info', {})
     mts = vertex.get('metadata_transfers', [])
     mt_all_copy = len(mts) > 0 and all(t.get('kind') == 'copy' for t in mts)
