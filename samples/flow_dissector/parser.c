@@ -157,17 +157,11 @@
 /* === Parser declarations === */
 #include "flow_dissector_parsers.h"
 
-/* === R3 — monolithic-codegen reference parser (userspace only) ===
+/* === R3.3 — monolithic-codegen parser (userspace only) ===
  *
- * Hand-written single-function form of the L2 flow_dissector graph.
- * Provides a ground-truth reference for the R3 codegen template.
- * See xdp2-rs/docs/dispatch-architecture-cost.md for R-phase plan.
- *
- * R3.3.3: when USE_GENERATED_MONO is defined, the generated
- * parser.mono.c provides xdp2_parser_flow_dissector_l2_mono and we
- * skip the hand-written reference to avoid the duplicate-definition
- * clash. Retired entirely in R3.3.7 once generated matches the
- * reference on parity AND perf. */
-#if !defined(XDP2_XDP_BUILD) && !defined(USE_GENERATED_MONO)
-#include "flow_dissector_mono.h"
-#endif
+ * The compiler-emitted parser.mono.c (one specialised goto-state
+ * function per parser root) is linked as a sibling TU by the
+ * Makefile's benchmark recipe. The hand-written reference that
+ * once lived in flow_dissector_mono.h was retired in R3.3.7 once
+ * the generator matched it on parity AND perf. See
+ * xdp2-rs/docs/dispatch-architecture-cost.md §R3.3 for history. */

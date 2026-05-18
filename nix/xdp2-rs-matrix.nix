@@ -232,8 +232,7 @@ pkgs.writeShellApplication {
     XDP2_PO_MPPS=$(extract_mpps "$XDP2_PO_LINE")
 
     # R3.3.6: second benchmark invocation with -M (monolithic codegen).
-    # Same binary, USE_GENERATED_MONO=1 at build time per
-    # nix/flow-dissector-matrix.nix routes -M to the compiler-emitted
+    # Same binary, -M switches l2_parser to the compiler-emitted
     # xdp2_parser_flow_dissector_l2_mono (parser.mono.c). Reads the
     # XDP2 parser line out of -M's output to populate c-xdp2-mono.
     if ! MONO_OUT=$("$BENCHMARK" -M -p -n "$ITER" "$FILTERED" 2>&1); then

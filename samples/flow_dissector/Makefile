@@ -61,9 +61,7 @@ parser.p.c: parser.c $(PARSER_HDRS) parser.o
 # LLVM IR for parser.c. xdp2-compiler's metadata_transfers / next_proto_info
 # analysis (R2) walks this IR to extract per-vertex bit-offsets and
 # extract_metadata layouts. Without -l, those per-vertex IR fields stay
-# empty and the mono template falls back to indirect calls. Always
-# uses -DUSE_GENERATED_MONO so the IR matches the .mono.c view of
-# parser.c (mono.h excluded).
+# empty and the mono template falls back to indirect calls.
 #
 # clang (XCC), not gcc — -emit-llvm needs LLVM. -isystem flags
 # mirror what xdp2-compiler's clang-tool-config.cpp sets up from
@@ -71,7 +69,7 @@ parser.p.c: parser.c $(PARSER_HDRS) parser.o
 # doesn't pick up the cc-wrapper's defaults, and a local build can
 # set the same env vars to get the same paths.
 parser.mono.ll: parser.c $(PARSER_HDRS)
-	$(XCC) -std=gnu11 -O2 -DUSE_GENERATED_MONO=1 -emit-llvm -S \
+	$(XCC) -std=gnu11 -O2 -emit-llvm -S \
 		-I$(INCDIR) -I$(XDP2_SRCDIR)/include \
 		$(if $(XDP2_C_INCLUDE_PATH),-isystem $(XDP2_C_INCLUDE_PATH)) \
 		$(if $(XDP2_GLIBC_INCLUDE_PATH),-isystem $(XDP2_GLIBC_INCLUDE_PATH)) \
@@ -79,16 +77,12 @@ parser.mono.ll: parser.c $(PARSER_HDRS)
 		-o $@ $<
 
 # XDP2 compiler: generate monolithic userspace parser (R3.3).
-# -DUSE_GENERATED_MONO=1 tells xdp2-compiler's clang front-end to skip
-# the include of flow_dissector_mono.h while building the IR, so the
-# generated mono parser does not collide with the hand-written
-# reference's same-named XDP2_PARSER_MONO declaration.
 # -l parser.mono.ll feeds the LLVM IR pass (R2) so per-vertex
 # metadata_transfers / next_proto_info populate; the template then
-# inlines extract_metadata (R3.3.4) and next_proto (R3.3.5).
+# inlines extract_metadata (R3.3.4b, IR-coverage gated) and
+# next_proto (R3.3.5b).
 parser.mono.c: parser.c parser.mono.ll $(PARSER_HDRS) parser.o
-	$(BINDIR)/xdp2-compiler -I$(INCDIR) -DUSE_GENERATED_MONO=1 \
-		-l parser.mono.ll -i $< -o $@
+	$(BINDIR)/xdp2-compiler -I$(INCDIR) -l parser.mono.ll -i $< -o $@
 
 # BPF flow dissector object (xdp2-compiler-generated slow path).
 # Needs the same NIX_HARDENING_ENABLE= + -D__x86_64__ workaround as
@@ -110,23 +104,17 @@ flow_dissector.bpf.o: flow_dissector.bpf.c parser.xdp.h common.h
 # perf-results/asm/2026-05-08/asm-comparison-baseline.md Phase O1.B.
 # libcli, libflowdis, libsiphash stay shared (out of hot path).
 #
-# R3.3.3: USE_GENERATED_MONO=1 swaps the hand-written reference for
-# the compiler-emitted parser.mono.c. The conditional include in
-# parser.c keys off the same macro, so both TUs (benchmark.c and the
-# parser.mono.c include of parser.c) agree on which mono definition
-# is live. Retired in R3.3.7.
-ifdef USE_GENERATED_MONO
-CFLAGS += -DUSE_GENERATED_MONO=1
+# R3.3.7: parser.mono.c is the canonical mono parser (R3 codegen
+# template output, gated on R3.3.4b's IR-coverage check). The
+# hand-written reference at flow_dissector_mono.h was retired
+# once the generator matched it on parity AND perf. parser.c's
+# XDP2_PARSER calls are suppressed in the parser.mono.c TU via
+# XDP2_PARSERS_SKIP (src/include/xdp2/parser.h) so the two TUs
+# don't collide on the base xdp2_parser_X pointers.
 benchmark: benchmark.c parser.p.c parser.mono.c common.h pcap_loader.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ benchmark.c parser.p.c parser.mono.c \
 		-lpcap -Wl,-Bstatic -lxdp2 -Wl,-Bdynamic \
 		-lcli -lflowdis -lsiphash
-else
-benchmark: benchmark.c parser.p.c common.h pcap_loader.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ benchmark.c parser.p.c \
-		-lpcap -Wl,-Bstatic -lxdp2 -Wl,-Bdynamic \
-		-lcli -lflowdis -lsiphash
-endif
 
 # Kernel BPF flow dissector (vendored from linux selftests)
 # NIX_HARDENING_ENABLE= disables Nix cc-wrapper hardening flags that are

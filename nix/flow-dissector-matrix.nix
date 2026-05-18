@@ -99,15 +99,14 @@ let
 
       export PATH="${xdp2}/bin:$PATH"
 
-      # R3.3.6: USE_GENERATED_MONO=1 swaps the c-xdp2-mono binding
-      # from the hand-written reference at
-      # samples/flow_dissector/flow_dissector_mono.h to the
-      # compiler-emitted parser.mono.c. The Makefile recipes for
+      # R3.3.7: parser.mono.c (the R3 codegen template output) is the
+      # only mono parser now — the hand-written reference at
+      # flow_dissector_mono.h was retired once the generator
+      # matched it on parity AND perf. The Makefile recipes for
       # parser.mono.ll + parser.mono.c handle .ll generation +
-      # xdp2-compiler invocation under that flag.
+      # xdp2-compiler invocation unconditionally.
       make XDP2DIR=${xdp2} \
            XDP2_SRCDIR=${xdp2} \
-           USE_GENERATED_MONO=1 \
            benchmark benchmark_bpf
 
       # All four BPF objects via the `bpf` meta-target (minus the one

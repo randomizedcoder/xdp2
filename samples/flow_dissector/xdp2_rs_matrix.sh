@@ -175,8 +175,7 @@ XDP2_PO_NSPKT=$(extract_nspkt "$XDP2_PO_LINE"); XDP2_PO_MPPS=$(extract_mpps "$XD
 
 # R3.3.6: also benchmark the monolithic-codegen parser (-M). Same
 # binary, second invocation; benchmark.c's -M switches l2_parser to
-# the generated xdp2_parser_flow_dissector_l2_mono (via -DUSE_GENERATED_MONO=1
-# at build time per nix/flow-dissector-matrix.nix).
+# the compiler-emitted xdp2_parser_flow_dissector_l2_mono.
 MONO_OUT=$("$BENCHMARK" -M -p -n "$ITER" "$FILTERED" 2>&1)
 echo "$MONO_OUT"
 echo ""

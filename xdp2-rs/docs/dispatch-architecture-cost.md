@@ -736,10 +736,10 @@ later pass.
 |---|---|---|
 | R3.1 | Macro + dispatch + minimal mono reference (eth/ipv4/ipv6/tcp/udp/icmp) | **DONE** |
 | R3.2 | Extended encap coverage (vlan / qinq / mpls / pppoe / ipv6 EH / gre / ipip / 6in4 / 6to4) | **DONE** — 30/33 PCAPs at 100% |
-| R3.3 | Replace hand-written reference with template-generated codegen (`mono_parser.template.c`) consuming the R2 IR | not started |
+| R3.3 | Replace hand-written reference with template-generated codegen consuming the R2 IR | **DONE** — see §R3.3 below |
 | R3.4 | Hardcoded eth+ipv4+l4 fast-path emitted by template (R3.5 in plan) | not started — the existing benchmark.c O2 path covers this manually |
 
-**Remaining R3.2 follow-ups:**
+**Remaining R3.2 follow-ups (inherited by R3.3 codegen):**
 
 - PPTP-style GRE (version 1) — adds key/seq/ack fields, currently
   mono bails. Would extract `_meta->gre_pptp` like the OPT path.
@@ -749,10 +749,142 @@ later pass.
   trailing address bytes; mono keeps the outer addrs verbatim. Needs
   closer inspection of the flowdis semantics.
 
-These are not blockers for R3.3 (template codegen) — they're
-localised additions to the goto-state machine that the codegen
-template can emit once the IR carries the right per-protocol
-shape.
+## Phase R3.3 — compiler-driven mono codegen (2026-05-17)
+
+R3.3 took mono from a hand-written reference to a compiler-emitted
+parser shipped as the canonical `c-xdp2-mono` implementation. Eight
+shippable commits on `merge/matrix-physical-testbed`:
+
+| Commit | Sub-phase | Scope |
+|---|---|---|
+| `1d818f2` | R3.3.1 | Fix pyratemp `TemplateSyntaxError` in `mono_def.template.c` — nested `<!--(if)-->` block tags at the same tab indent as the outer `<!--(for)-->` parsed as siblings. Indent fix; xdp2-compiler now emits 2.4 MB of valid C. |
+| `5bb82e5` | R3.3.2 | Wire `check_mono_eligibility()` per-root in `main.cpp`; drop TLV/flag_fields gates (scaffold template skips those walks anyway, matching the hand-written reference). 15/15 flow_dissector roots pass eligibility. |
+| `523fade` | R3.3.3 | Add `parser.mono.c` Makefile rule; introduce `xdp2-compiler -D` flag (forwards to clang as `--extra-arg=-D`); `USE_GENERATED_MONO=1` build flag swaps the c-xdp2-mono binding. |
+| `20a60dc` | R3.3.4 | Template: inline `memcpy` per `metadata_transfer` (gated on `mt_all_copy`). Shipped with latent parity bug — IR analysis can miss fields. |
+| `2f9e7c6` | R3.3.5 | Template: inline `next_proto` load (gated on `npi_simple`). Same latent bug. |
+| `be2df7e` | R3.3.6 | Nix derivation passes `USE_GENERATED_MONO=1`; introduce `XDP2_PARSERS_SKIP` guard in `src/include/xdp2/parser.h` so the dual-TU build (`parser.p.c` + `parser.mono.c` both `#include "parser.c"`) doesn't collide on the base `xdp2_parser_X` globals; R3.3.4/.5 inline emits temporarily disabled to restore parity. |
+| `65bae62` | R3.3.4b | IR-coverage gate: `mt_full_coverage = mt_all_copy AND transfers >= leaf_fields`. Compares LLVM-IR-derived transfer count against the metadata_record's declared leaf field count; only inline-emit when the IR pass captured every field the C extract_metadata function writes. Restores R3.3.4 inline emit safely. |
+| `fb586f1` | R3.3.5b | Re-enable R3.3.5 inline `next_proto`. The `npi_simple` gate (byte-aligned full-mask 8/16/32-bit load, no scaled offset) is structurally sufficient — no separate coverage check needed. |
+| `5135e3e` | (tooling) | `flow-dissector-matrix-unified` runs the benchmark twice (`-O` and `-M`); aggregator recognises `c-xdp2-mono`. First end-to-end matrix-sprint row for the generated parser. |
+| (this commit) | R3.3.7 | Delete `flow_dissector_mono.h` (460 lines). Generator is canonical. |
+
+### The IR-coverage bug
+
+R3.3.4 originally landed unconditional inline emit and shipped with
+a parity failure that compile-only verification didn't catch: the
+LLVM IR analysis underlying `metadata_transfers` can emit FEWER
+transfers than the C `extract_metadata` function actually writes.
+E.g. `ipv4_metadata` writes 6 fields (`is_fragment`, `first_frag`,
+`l3_off`, `addr_type`, `ip_proto`, `addrs.v4_addrs`) but the IR
+analysis captured only 2 simple copies. Replacing the indirect
+call with inline emit alone silently dropped the 4 IR-invisible
+fields — 0/11 matches on tcp_ipv4 against kernel flowdis.
+
+R3.3.4b's fix: precompute a per-vertex `mt_full_coverage` flag in
+the template Python preprocessing as `mt_all_copy AND len(transfers)
+>= metadata_record_field_count AND field_count > 0`. The leaf-field
+count comes from a C++-side recursive walk over the vertex's
+`metadata_record` (`python_generators.h`, R3.3.4b commit), exposed
+to the Python preprocessor as a single int. When the gate fails,
+fall back to the indirect call — correctness preserved.
+
+The lesson: **compile-only verification is the failure mode**.
+Every future template-edit phase should run `nix build
+.#checks.parity-gate` as part of its verification, not just `gcc -c`.
+
+### Headline perf — first matrix-sprint with generated mono
+
+`perf-results/2026-05-17-r3.3-mono-v3/summary.md`, hp2-hp5-x710
+testbed, `https-web.pcap`, 100 iter, single replicate:
+
+| Mode | hp2 ns/pkt | hp5 ns/pkt |
+|---|---:|---:|
+| `c-bpf-fast` | 23 | 23 |
+| `rust-simd` | 40 | 40 |
+| `rust-template` | 68 | 68 |
+| `rust-compiled` | 72 | 73 |
+| `rust-mono` (hand-written) | 77 | 72 |
+| `rust-mono-x4` | 83 | 83 |
+| `rust-graph-enum` | 104 | 105 |
+| `c-bpf-flowdis` | 113 | 114 |
+| **`c-xdp2-mono`** | **115** | **114** |
+| `c-flowdis-usp` | 116 | 117 |
+| `c-xdp2-usp` (_opt) | 131 | 134 |
+| `c-xdp2-parse-only` | 131 | 138 |
+| `rust-graph` (dyn) | 267 | 272 |
+
+**The R3 architectural-rebuild target is met**: an extensible
+parse-graph parser (XDP2-C with mono codegen) now matches a
+hand-tuned monolithic parser (kernel flowdis) on realistic mixed
+traffic, while remaining graph-extensible.
+
+c-xdp2-mono lands at kernel-flowdis parity on full https-web —
+~15% faster than the c-xdp2-usp function-pointer-tree variant,
+statistically indistinguishable from c-flowdis-usp and
+c-bpf-flowdis. The gap to `c-bpf-fast` (23 ns) is the "no dispatch
+at all" tax of running a parse graph; the gap to `rust-simd`
+(40 ns) is what SIMD ntuple matching buys vs. a goto-state machine.
+
+The win is smaller on https-web (~15%) than on simple synthetic
+pcaps because https-web exercises many nodes whose
+`extract_metadata` is not IR-decomposable (R3.3.4b's coverage gate
+falls back to indirect for those), so the bulk of packets still
+hit some indirect-call cost. Simple-pcap snapshot (local dev box,
+artifact from R3.3.5b):
+
+| pcap | c-xdp2-mono | c-xdp2-usp | mono delta |
+|---|---:|---:|---:|
+| tcp_ipv4 (11 pkts) | 9 ns | 14 ns | −36% |
+| tcp_ipv6 | 11 ns | 16 ns | −31% |
+| icmp_ipv4 | 10 ns | 14 ns | −29% |
+| 6in4 | 7 ns | 22 ns | −68% |
+| gre-sample | 10 ns | 24 ns | −58% |
+| srv6-end-64 | 28 ns | 41 ns | −32% |
+| QinQ | 23 ns | 23 ns | 0% |
+| vlan_icmp | 22 ns | 20 ns | +10% ⚠️ |
+
+vlan_icmp regresses ~10% — likely goto-state body icache pressure
+on a deep VLAN chain where `_opt` benefits from per-node LTO
+inlining. Worth investigating in a follow-up; not a R3.3 blocker.
+
+### R3.3 deviations from plan
+
+1. **R3.3.1 "segfault"** was actually a pyratemp `TemplateSyntaxError`
+   from sibling-indent block tags. The CLI segfault the R3.3 phase 0
+   commit message referenced was a separate pre-existing issue —
+   missing `XDP2_*_INCLUDE_PATH` env vars outside Nix.
+2. **R3.3.2 loosening** dropped TLV / flag_fields gates entirely
+   (plan called for a "per-vertex descendant walk Option A"). The
+   scaffold template doesn't emit walkers for those anyway.
+3. **`XDP2_PARSERS_SKIP` guard** (added in R3.3.6) was not in the
+   plan. The dual-TU duplicate-symbol issue the plan called
+   "acceptable rodata duplication" turned out to be a hard link
+   error.
+4. **R3.3.4 / R3.3.5 latent parity bug** forced an R3.3.4b/.5b
+   split. Future template-edit phases should run the parity gate
+   in their verification.
+5. **Hot-edge ordering** (R2 gap #3, planned as part of R3.3.5)
+   deferred. The structural inline-load win is the bigger of the
+   two.
+
+### What R3.3 leaves open
+
+- **Perf-ceiling guard in parity-gate** (planned for R3.3.7): not
+  shipped this commit. Needs benchmark JSON ingestion +
+  `c-xdp2-mono` ns/pkt threshold vs `c-bpf-fast`. Reasonable
+  follow-up (~30 LoC in `nix/checks/parity-gate.nix`).
+- **vlan_icmp +10% regression**: icache / inlining hypothesis.
+  Needs perf-record on hp5 with `-e iTLB-load-misses,L1-icache-misses`
+  to confirm.
+- **R3.4 fast-path emit** from the template (vs. the manual
+  `xdp2_eth_ipv4_l4_fast()` in benchmark.c). Optional.
+- **TLV / flag_fields walkers** in generated code — needed for
+  `gre-pptp` (PPTP-version-1) and `srv6-end_dx2` parity. R4.
+- **Wider IR coverage** so more `extract_metadata` functions
+  qualify for inline emit on https-web (driving the +15% win
+  closer to the +50% seen on simple pcaps). Investigate which
+  metadata patterns the LLVM analysis trips on and extend the
+  matcher.
 
 ## See also
 

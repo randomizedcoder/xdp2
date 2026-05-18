@@ -36,6 +36,18 @@ Naming hygiene applies: `xdp2-rs` (Rust), `XDP2 (C)` (C/C++ parser),
 | 17.C  | Parity gate — comparator + driver + `parity-gate` check  | done           | 2026-05-06  | 2026-05-06  | `e0dc2d8`, `ca95c4d`, `9063704` |
 | 17.D  | Parity baseline + tunnel-mask + ipv4-only + 24-pcap corpus | done         | 2026-05-06  | 2026-05-06  | `f0492e5`, `2ffc74b`, `a30ffb6` |
 | 17.E  | Parity integration into matrix-runner per-cell JSON      | done           | 2026-05-06  | 2026-05-06  | `3cad958` |
+| R3.3.1 | Mono codegen template indent fix (pyratemp syntax)      | done           | 2026-05-17  | 2026-05-17  | `1d818f2` |
+| R3.3.2 | `check_mono_eligibility()` wired per-root + loosened    | done           | 2026-05-17  | 2026-05-17  | `5bb82e5` |
+| R3.3.3 | Makefile + `USE_GENERATED_MONO=1` + xdp2-compiler `-D`  | done           | 2026-05-17  | 2026-05-17  | `523fade` |
+| R3.3.4/4b | Inline `extract_metadata` + IR-coverage gate        | done           | 2026-05-17  | 2026-05-17  | `20a60dc`, `65bae62` |
+| R3.3.5/5b | Inline `next_proto` load + `npi_simple` gate        | done           | 2026-05-17  | 2026-05-17  | `2f9e7c6`, `fb586f1` |
+| R3.3.6 | Nix derivation default-on + `XDP2_PARSERS_SKIP` guard   | done           | 2026-05-17  | 2026-05-17  | `be2df7e` |
+| R3.3.x | Matrix runner exercises `c-xdp2-mono` (2× benchmark)    | done           | 2026-05-17  | 2026-05-17  | `5135e3e` |
+| R3.3.7 | Retire `flow_dissector_mono.h` (460 lines)              | done           | 2026-05-17  | 2026-05-17  | (this commit) |
+
+See `xdp2-rs/docs/dispatch-architecture-cost.md` §R3.3 for the
+narrative — IR-coverage bug, perf headline (c-xdp2-mono at
+kernel-flowdis parity on https-web), open follow-ups.
 
 ## Branch
 

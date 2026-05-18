@@ -1,5 +1,14 @@
 # Cross-Implementation Assembly + Microarchitectural Baseline — 2026-05-08
 
+> **NOTE (2026-05-17):** this baseline predates `c-xdp2-mono` shipping
+> as a compiler-emitted parser (R3.3). The 14-impl ranking below is
+> still accurate for the snapshot date but doesn't include the
+> generated mono parser. Latest matrix-sprint with mono in scope:
+> `perf-results/2026-05-17-r3.3-mono-v3/summary.md`. Narrative + IR-
+> coverage story: `xdp2-rs/docs/dispatch-architecture-cost.md` §R3.3.
+> Headline: `c-xdp2-mono` ≈ `c-flowdis-usp` on hp5 https-web (114 ns
+> vs 117 ns), beating `c-xdp2-usp` (134 ns) by ~15%.
+
 First end-to-end assembly + microarchitectural comparison across 14
 flow-dissector implementations. Closes the gap the user identified:
 the PCAP-replay matrix told us *which* implementations are faster;
