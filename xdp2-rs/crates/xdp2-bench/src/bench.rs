@@ -5,10 +5,9 @@ use std::io;
 
 use crate::cli::{BenchResult, ParserMode};
 use crate::parity::{
-    first_ethertype, parser_id, reject_reason, DumpMetaWriter, ParityRecord,
+    parser_id, reject_reason, DumpMetaWriter, ParityRecord,
 };
 
-const ETH_P_IP: u16 = 0x0800;
 use crate::{graph, graph_compiled, graph_mono, pcap, perf, simd_batch, template, template_simd};
 use crate::runners::{bench_mono_x4, run_mt, time_run_passes};
 
@@ -104,9 +103,19 @@ pub fn dump_meta_pass(
         #[cfg(feature = "graph-enum")]
         if matches!(mode, ParserMode::GraphEnum) || do_all {
             // graph-enum's table currently covers Ether/IPv4/{TCP,UDP,
-            // ICMP} only (see cli.rs:12-13). On non-IPv4 packets we
-            // emit reject_reason="ipv4-only" so the parity gate
-            // distinguishes a documented scope gap from a parser bug.
+            // ICMP} only (see cli.rs:12-13). EVERY rejection is by
+            // definition a scope-gap, not a parser bug: this parser
+            // simply doesn't have nodes for other L2/L3/L4 shapes —
+            // GRE-in-IPv4, IPv4-in-IPv4, ESP, IPv6, ARP, MPLS, etc.
+            // Uniformly emitting "ipv4-only" lets the parity scope
+            // declare ONE expected_divergence for this parser and have
+            // it match every rejection, regardless of whether the
+            // outer ethertype is IPv4 or something else. (Previously
+            // we tried to distinguish "non-IPv4 ethertype" → ipv4-only
+            // vs "IPv4 but unsupported L4" → parse-error, but the
+            // latter is conceptually identical scope-gap; flagging it
+            // as parse-error caused false-positive gate failures on
+            // gre/ipip/l2tp pcaps.)
             // graph-enum::parse_packet returns Result<(), ()> without
             // a FlowMeta-output variant; when accepted, fall back to
             // graph-mode's metadata for parity purposes.
@@ -117,14 +126,10 @@ pub fn dump_meta_pass(
             if ok {
                 match graph::parse_packet(parser, &pkt.data) {
                     Ok(output) => w.emit(&rec.accepted(&output.metadata, None))?,
-                    Err(_) => w.emit(&rec.rejected(reject_reason::PARSE_ERROR))?,
+                    Err(_) => w.emit(&rec.rejected(reject_reason::IPV4_ONLY))?,
                 }
             } else {
-                let reason = match first_ethertype(&pkt.data) {
-                    Some(et) if et != ETH_P_IP => reject_reason::IPV4_ONLY,
-                    _ => reject_reason::PARSE_ERROR,
-                };
-                w.emit(&rec.rejected(reason))?;
+                w.emit(&rec.rejected(reject_reason::IPV4_ONLY))?;
             }
         }
 

@@ -66,10 +66,13 @@ pub mod reject_reason {
 }
 
 /// Pull the first non-VLAN ethertype out of a packet header. Returns
-/// `None` if the packet is too short. Used by graph-enum's dump-meta
-/// path to distinguish "non-IPv4 packet I don't support" from "IPv4
-/// packet I should have parsed but didn't" — the former is documented
-/// scope-narrowing, the latter is a real parse-error.
+/// `None` if the packet is too short. Previously used by graph-enum's
+/// dump-meta path; superseded 2026-05-18 when graph-enum's reject
+/// reason was unified to "ipv4-only" for every rejection (see
+/// bench.rs and parity_scope.json:expected_divergences/
+/// rust-graph-enum-ipv4-only). Kept as a public helper since future
+/// per-parser scope checks may want a fast Ethernet/VLAN walker.
+#[allow(dead_code)]
 pub fn first_ethertype(data: &[u8]) -> Option<u16> {
     if data.len() < 14 {
         return None;

@@ -56,12 +56,12 @@ class TestManifest(unittest.TestCase):
                 )
 
     def test_parity_gate_count(self):
-        # Today's parity-gate corpus is exactly 22 pcaps. Changes to
+        # Today's parity-gate corpus is exactly 27 pcaps. Changes to
         # this count are a contract change that should be reviewed.
         inc = loader.included(self.entries, "parity_gate")
         self.assertEqual(
-            len(inc), 22,
-            f"parity_gate count drifted: {len(inc)} != 22. "
+            len(inc), 27,
+            f"parity_gate count drifted: {len(inc)} != 27. "
             "Update this test only if intentionally changing the gate."
         )
 
@@ -81,7 +81,7 @@ class TestManifestCli(unittest.TestCase):
         )
         self.assertEqual(cp.returncode, 0, cp.stderr)
         lines = [l for l in cp.stdout.splitlines() if l]
-        self.assertEqual(len(lines), 22)
+        self.assertEqual(len(lines), 27)
         for l in lines:
             self.assertTrue(l.endswith(".pcap"), l)
 
@@ -92,7 +92,7 @@ class TestManifestCli(unittest.TestCase):
         )
         self.assertEqual(cp.returncode, 0, cp.stderr)
         rows = json.loads(cp.stdout)
-        self.assertEqual(len(rows), 22)
+        self.assertEqual(len(rows), 27)
         self.assertTrue(all("key" in r and "path" in r for r in rows))
 
     def test_validate_fails_on_missing_path(self):

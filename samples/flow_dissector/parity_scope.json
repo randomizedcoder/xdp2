@@ -443,9 +443,9 @@
       "parsers": [
         "rust-graph-enum"
       ],
-      "applies_to": "packets where ethertype != IPv4",
+      "applies_to": "any packet rust-graph-enum cannot handle (non-IPv4 ethertype OR IPv4 with unsupported L4 such as GRE, IPIP, ESP, AH, OSPF, etc.)",
       "reject_reason": "ipv4-only",
-      "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). On packets whose ethertype isn't IPv4 (IPv6, ARP, MPLS, etc.), rust-graph-enum's dump-meta emits reject_reason=ipv4-only. This is a known scope gap (the 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4-dominant); extending the enum table to IPv6/VLAN is tracked as a follow-up. Until then, the parity gate treats this rejection as expected."
+      "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). EVERY rejection from this parser is conceptually a scope gap — it has no nodes for other L2/L3/L4 shapes. The bench emits reject_reason=ipv4-only uniformly (xdp2-bench/src/bench.rs:~110), so the parity gate accepts these rejections regardless of whether the outer ethertype is non-IPv4 (IPv6, ARP, MPLS) or IPv4 with an unsupported L4 (GRE-tunneled, ESP, IPIP). Extending the enum table to wider scope is tracked as a follow-up; until then, the gate treats every rust-graph-enum rejection as expected. The 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4+TCP/UDP/ICMP-dominant."
     }
   ],
   "expected_protocol_acceptance": {

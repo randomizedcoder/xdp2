@@ -73,8 +73,13 @@ included_in = ["parity_gate"]
 [pcap."ipv6-udp-fragmented"]
 path = "data/pcaps/ipv6-udp-fragmented.pcap"
 category = "ipv6-fragments"
-excluded_from = ["parity_gate"]
-excluded_reason = "c-xdp2-mono keeps outer IPv6 addrs on non-first-fragment packets while OPT/generic follow a flowdis-style addr-reset quirk. Tracked as R3.2 phase 3 follow-up."
+included_in = ["parity_gate"]
+# Previously excluded: c-xdp2-mono kept outer IPv6 addrs on
+# non-first-fragment packets while OPT/generic followed a flowdis-
+# style addr-reset quirk. Resolved 2026-05-18 by the npi_simple
+# bswap fix (commit 3ad4ac4): mono's gre-style next_proto dispatch
+# was silently dropping out, so it appeared to "keep outer addrs"
+# when really it just stopped early.
 
 # ────────────────────────────────────────────────────────────────
 # L2 tagging
@@ -88,8 +93,13 @@ included_in = ["parity_gate"]
 [pcap.vlan_icmp]
 path = "data/pcaps/vlan_icmp.pcap"
 category = "vlan"
-excluded_from = ["parity_gate"]
-excluded_reason = "Single-packet edge — at n=100 the ~10μs is dominated by clock overhead. Apparent regressions on this pcap are measurement noise."
+included_in = ["parity_gate"]
+# Single-packet pcap (IPv6 ICMP behind 802.1Q). Previously excluded
+# under measurement-noise reasoning, but the rust-graph-enum bswap
+# fix + uniform ipv4-only rejection (commits 3ad4ac4, this branch)
+# bring the disagreement count to 0. Note: perf measurements on
+# this single-packet file remain dominated by clock overhead;
+# parity gates correctness only, not perf.
 
 # ────────────────────────────────────────────────────────────────
 # Tunnels
@@ -109,43 +119,51 @@ included_in = ["parity_gate"]
 path = "data/pcaps/6to4.pcap"
 category = "tunnel"
 excluded_from = ["parity_gate"]
-excluded_reason = "6 disagreements — Phase 17.D.5 triage."
+excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 1 packet rejected by 8 non-flowdis parsers (every XDP2 + Rust parser strict-rejects, only c-flowdis-usp accepts). Cross-implementation strictness mismatch — not a per-parser bug. Tracked separately."
 
 [pcap.ipip]
 path = "data/pcaps/ipip.pcap"
 category = "tunnel"
-excluded_from = ["parity_gate"]
-excluded_reason = "10 disagreements — Phase 17.D.5 triage."
+included_in = ["parity_gate"]
+# Previously 10 disagreements. Resolved 2026-05-18 by the
+# npi_simple bswap fix (mono's outer-IP-then-stop bug on the
+# IPv4-in-IPv4 chain) plus rust-graph-enum's unified "ipv4-only"
+# rejection (IPIP outer is IPv4 but L4=IPPROTO_IPIP is outside the
+# enum table). 0 field + 0 accept disagreements verified.
 
 [pcap.l2tp]
 path = "data/pcaps/l2tp.pcap"
 category = "tunnel"
 excluded_from = ["parity_gate"]
-excluded_reason = "38 disagreements — raw L2TP. Use l7_l2tp instead for the gate. Phase 17.D.5 triage."
+excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 7 packets rejected by c-flowdis-usp while every other parser accepts. The kernel-flowdis port is failing on raw L2TP framing that XDP2 + Rust handle. Use l7_l2tp.pcap for L2TP gate coverage."
 
 [pcap."gre-pptp"]
 path = "data/pcaps/gre-pptp.pcap"
 category = "tunnel-gre"
 excluded_from = ["parity_gate"]
-excluded_reason = "144 disagreements — PPTP-style GRE, special handling. Phase 17.D.5 triage."
+excluded_reason = "Post-fix (2026-05-18): 212 field disagreements remain (slightly up from 144 because mono now actually enters GRE and disagrees more visibly). Real bug — PPTP-style GRE v1 metadata extraction differs across parsers. Needs targeted fix."
 
 [pcap."gre-sample"]
 path = "data/pcaps/gre-sample.pcap"
 category = "tunnel-gre"
 excluded_from = ["parity_gate"]
-excluded_reason = "88 disagreements — 8 packets XDP2 strict-rejects. Phase 17.D.5 triage."
+excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 8 packets are accepted only by c-flowdis-usp and rejected by every XDP2 + rust-graph parser. Cross-implementation strictness mismatch (c-flowdis-usp is permissive on malformed GRE)."
 
 [pcap."gre-within-gre"]
 path = "data/pcaps/gre-within-gre.pcap"
 category = "tunnel-gre"
-excluded_from = ["parity_gate"]
-excluded_reason = "628 disagreements — deeper nesting. Phase 17.D.5 triage."
+included_in = ["parity_gate"]
+# Previously 628 disagreements. The "deeper nesting" diagnosis was
+# wrong: the actual cause was mono's npi_simple bswap (it never
+# entered GRE at all) plus rust-graph-enum's split parse-error /
+# ipv4-only reject reasons. Resolved 2026-05-18 (commits in this
+# branch). 0 field + 0 accept disagreements verified end-to-end.
 
 [pcap.vxlan]
 path = "data/pcaps/vxlan.pcap"
 category = "tunnel-vxlan"
 excluded_from = ["parity_gate"]
-excluded_reason = "700 disagreements — VXLAN inner-flow not in tunnel mask scope. Phase 17.D.5 triage."
+excluded_reason = "Post-fix (2026-05-18): 984 field disagreements (up from 700 because mono now actually walks VXLAN→inner Ethernet but disagrees with the slow path on inner field placement). Real bug — VXLAN inner-Ethernet metadata extraction differs across parsers."
 
 # ────────────────────────────────────────────────────────────────
 # SRv6 family
@@ -194,8 +212,11 @@ included_in = ["parity_gate"]
 [pcap."srv6-end_dx2-64"]
 path = "data/pcaps/srv6-end_dx2-64.pcap"
 category = "srv6"
-excluded_from = ["parity_gate"]
-excluded_reason = "SRv6 End.DX2 inner-L2-xconnect — c-xdp2-mono doesn't yet implement End.DX2 flag-bit dispatch. R3.2 follow-up."
+included_in = ["parity_gate"]
+# Previously excluded under the assumption mono didn't implement
+# End.DX2 flag-bit dispatch. Resolved 2026-05-18 by the npi_simple
+# bswap fix (commit 3ad4ac4): mono now follows the SRv6 chain
+# correctly. 0 field + 0 acceptance disagreements verified.
 
 # ────────────────────────────────────────────────────────────────
 # Unusual / regression archive
@@ -225,7 +246,7 @@ included_in = ["parity_gate"]
 path = "data/pcaps/tcp_sack.pcap"
 category = "regression"
 excluded_from = ["parity_gate"]
-excluded_reason = "133 disagreements — SACK option parsing differs across parsers. Phase 17.D.5 triage."
+excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 19 packets are accepted by rust-graph-enum / c-flowdis-usp / c-bpf-xdp2 (the permissive set) and rejected by rust-graph + c-xdp2 family. Cross-implementation strictness mismatch on TCP SACK option layout."
 
 [pcap."broad-coverage"]
 path = "data/pcaps/broad-coverage.pcap"
