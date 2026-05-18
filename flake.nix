@@ -254,6 +254,18 @@
             inherit pkgs xdp2Rs flowDissectorMatrix parityCompare;
           };
 
+        # Phase 2 of the protocol-coverage-matrix plan: runs the
+        # parity-check driver against every per-protocol pcap
+        # template under samples/proto_audit/pcap_templates/ and
+        # aggregates the resulting JSONLs into a (protocol × parser)
+        # matrix. Report-only by default; --require-expectations
+        # turns it into a gate. See nix/protocol-coverage-matrix.nix.
+        protocolCoverageMatrix =
+          import ./nix/protocol-coverage-matrix.nix {
+            inherit pkgs lib;
+            parityCheck = flowDissectorParityCheck;
+          };
+
         # Peer-side kernel pktgen driver, shellchecked + packaged as a
         # standalone writeShellApplication. The orchestrator below scp's
         # this to the peer at runtime.
@@ -721,6 +733,18 @@
           # ===================================================================
           flow-dissector-parity-check = flowDissectorParityCheck;
           parity-compare = parityCompare;
+
+          # ===================================================================
+          # protocol-coverage-matrix — Phase 2 of the protocol coverage plan.
+          # Runs flow-dissector-parity-check once per per-protocol pcap
+          # template under samples/proto_audit/pcap_templates/ (378 single-
+          # packet shapes) and aggregates the JSONL output into a
+          # (protocol × parser) markdown + CSV matrix.
+          # Run:  nix run .#protocol-coverage-matrix -- [--out DIR]
+          # See:  nix/protocol-coverage-matrix.nix,
+          #       nix/scripts/protocol-coverage-matrix.py
+          # ===================================================================
+          protocol-coverage-matrix = protocolCoverageMatrix;
           # Note: the existing `xdp2-rs-golden` flake output (defined at
           # line 920) is the natural place to alias to
           # flow-dissector-parity-check; that's a follow-up refactor
