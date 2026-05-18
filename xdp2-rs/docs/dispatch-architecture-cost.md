@@ -1129,6 +1129,97 @@ https-web** — ahead of rust-mono-x4 and the rust-graph-enum
 headline, within 3 ns of rust-compiled / rust-mono, and the
 **fastest C-side parser by a wide margin** (next-best C is
 `c-flowdis-usp` at 118 ns, ~57% slower).
+
+## Phase R3.4.5a — IPv6 fast-path (2026-05-17, commit `9272a97`)
+
+Plan §R3.4.5: lifted ahead of R3.4.4's `XDP2_FAST_PATH_CHAIN`
+annotation work because IPv6 is the highest-leverage chain
+addition for general traffic.
+
+Added eth+ipv6+{tcp,udp,icmpv6} as a second `if` block inside the
+existing parser-name gate. Chain check: len ≥ 62, etype = 0x86DD,
+IPv6 version=6, next_header ∈ {6, 17, 58}. Excludes EH chains by
+construction (next_header values 0/43/44/60 etc. fall through).
+Writes addr_type, l3_off, ip_proto, flow_label (via
+`ntohl(*be32) & 0x000FFFFF` matching parser_metadata.h:428),
+addrs.v6_addrs (32B), ports or ICMPv6 type/code/id-with-sentinel.
+
+R3.4.5a hp5 sprint
+(`perf-results/2026-05-17-r3.4.5a/summary.md`):
+
+| Mode | post-hot-edge hp5 | R3.4.5a hp5 | delta |
+|---|---:|---:|---:|
+| **`c-xdp2-mono`** | **75** | **71** | **−5%** |
+| `c-xdp2-usp` | 132 | 135 | noise |
+| `c-flowdis-usp` | 118 | 119 | noise |
+
+Local simple-pcap snapshot:
+
+| pcap | pre-R3.4.5a | post-R3.4.5a | delta |
+|---|---:|---:|---:|
+| tcp_ipv4 | 6 | 5 | (within noise) |
+| tcp_ipv6 | 10 | **6** | **−40%** |
+| icmp_ipv6 | (~) | 6 | new fast-path hit |
+| plain-ipv6-64 | (~) | 7 | new fast-path hit |
+
+### Headline picture after R3.4.5a
+
+| Mode | hp5 ns/pkt | rank |
+|---|---:|---:|
+| `c-bpf-fast` | 23 | 1 |
+| `rust-simd` | 42 | 2 |
+| `rust-template` | 68 | 3 |
+| **`c-xdp2-mono`** | **71** | **4** ← was 75 |
+| `rust-mono` | 72 | 5 |
+| `rust-compiled` | 73 | 6 |
+| `rust-template-simd` | 75 | 7 |
+| `rust-mono-x4` | 83 | 8 |
+| `rust-graph-enum` | 106 | 9 |
+| `c-flowdis-usp` | 119 | 10 |
+| `c-bpf-flowdis` | 120 | 11 |
+| `c-xdp2-usp` | 135 | 12 |
+| `rust-graph` | 274 | 13 |
+
+**`c-xdp2-mono` is now the 4th-fastest parser overall on hp5
+https-web — ahead of every Rust parser except rust-simd /
+rust-template, and within 3 ns of the rust-template "fastest
+non-SIMD Rust mode" mark.**
+
+Compared against `c-flowdis-usp` (the kernel's hand-tuned C
+parser): c-xdp2-mono runs at **60% of its time** on the same
+workload (71 vs 119) while remaining a generic extensible parse
+graph.
+
+Compared against `c-bpf-fast` (23 ns): c-xdp2-mono is 3.1× — the
+remaining gap is the fraction of https-web packets that miss the
+fast-path (anything with VLAN, encap, IPv6 EH, fragmentation, or
+IHL≠5 falls through to the graph). Adding more fast-path chain
+shapes (R3.4.5 remainder) is what closes it further.
+
+### R3.4 / R3.5 / hot-edge series — running total
+
+| Phase | hp5 c-xdp2-mono | cumulative delta |
+|---|---:|---:|
+| Pre-R3.3 (slow `c-xdp2-usp` baseline) | 134 | 0% |
+| R3.3.7 (hand-written-mono retired, generator canonical) | 114 | −15% |
+| R3.5.2 (wider IR coverage) | 116 | (no change; gcc LTO does the work) |
+| **R3.4.1** (IPv4 fast-path) | **76** | **−43%** |
+| H1-H3 (hot-edge ordering) | 75 | (within noise on this workload) |
+| **R3.4.5a** (IPv6 fast-path) | **71** | **−47%** |
+
+### What R3.4.5a leaves for follow-ups
+
+- **R3.4.4 — `XDP2_FAST_PATH_CHAIN(...)` annotation**. Replace
+  the hardcoded parser-name gate with an explicit
+  user-declaration. Enables fast-paths on other parsers (the L3
+  parser, future parsers).
+- **R3.4.5 remainder — 5 more chain shapes**:
+  eth+vlan+ipv{4,6}+tcp/udp (most-common VLAN traffic),
+  eth+pppoe+... (consumer ISP). Each new chain captures more of
+  the workload-dependent miss tail.
+- **Profile-guided hot-edge priorities**. Already covered as a
+  deferred follow-up; lower priority now that the fast-path
+  captures most TCP/UDP traffic.
 - **TLV / flag_fields walkers** in generated code — needed for
   `gre-pptp` (PPTP-version-1) and `srv6-end_dx2` parity. R4.
 - **Wider IR coverage** so more `extract_metadata` functions
