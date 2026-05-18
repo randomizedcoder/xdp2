@@ -966,6 +966,93 @@ audience:
 - Conditional-bit-op decomposition (is_fragment / first_frag).
 - Multi-store deduplication for icmp_id-style conditional writes
   (would let the gate accept some `transfers > stores` cases).
+
+## Phase R3.4.1 — template fast-path lands (2026-05-17, commit `0f7668e`)
+
+Hardcoded eth+ipv4+{tcp,udp,icmp} straight-line extractor at the
+top of the generated mono entry function, gated on
+`parser_name == 'xdp2_parser_flow_dissector_l2'`. Sidesteps the
+parse graph entirely on a chain match; falls through to the
+goto-state body on miss. Plan: `docs/r3.4-and-hot-edge-plan.md`
+§R3.4.
+
+### Headline — fast-path moves c-xdp2-mono into Rust territory
+
+`perf-results/2026-05-17-r3.4.1/summary.md`, hp2-hp5-x710,
+https-web.pcap:
+
+| Mode | pre-R3.4.1 hp5 | R3.4.1 hp5 | delta |
+|---|---:|---:|---:|
+| **`c-xdp2-mono`** | **116 ns** | **76 ns** | **−34%** |
+| `c-xdp2-usp` | 130 | 131 | noise |
+| `c-flowdis-usp` | 117 | 119 | noise |
+| `c-bpf-flowdis` | 113 | 120 | noise |
+| `c-bpf-fast` (BPF JIT floor) | 23 | 23 | unchanged |
+
+For context the R3.4.1-era hp5 ranking is:
+
+| Mode | hp5 ns/pkt |
+|---|---:|
+| `c-bpf-fast` | 23 |
+| `rust-simd` | 40 |
+| `rust-template` | 68 |
+| `rust-compiled` | 72 |
+| `rust-mono` (hand-written) | 72 |
+| **`c-xdp2-mono`** | **76** ← new architectural headline |
+| `rust-template-simd` | 75 |
+| `rust-mono-x4` | 83 |
+| `rust-graph-enum` | 106 |
+| `c-bpf-flowdis` | 120 |
+| `c-flowdis-usp` | 119 |
+| `c-xdp2-usp` | 131 |
+| `c-xdp2-parse-only` | 131 |
+| `rust-graph` (dyn) | 274 |
+
+`c-xdp2-mono` now beats **every kernel-flowdis variant** (USP, BPF
+JIT) by ~35%, beats `c-xdp2-usp` by 42%, and is within 5% of
+`rust-mono` / `rust-compiled` — the Rust modes that used to be the
+"fastest non-SIMD parsers in tree." The R3 architectural-rebuild
+target ("an extensible C parser at kernel-flowdis parity") is
+substantially exceeded; the new target is closing the 76 → 23 ns
+gap to `c-bpf-fast` (the no-graph-dispatch-at-all BPF JIT floor).
+
+### Local simple-pcap snapshot (auto-scaled iter, ≥100K parses)
+
+| pcap | pre-R3.4.1 mono | post-R3.4.1 mono | delta |
+|---|---:|---:|---:|
+| tcp_ipv4 | 9 ns | **6 ns** | −33% |
+| icmp_ipv4 | 8 ns | **6 ns** | −25% |
+
+Parity: 22/22 ok on the corpus. The chain check (etype + ihl + frag
++ ipproto) costs ~3 cycles on Zen 1 — even on chain-miss workloads
+the overhead is well under noise.
+
+### Where the win comes from
+
+The fast-path skips:
+- The first goto-label dispatch (etype_dispatch_node)
+- Length checks in each parse_node prologue
+- Per-node ops-table indirection
+- next_proto load + switch table
+- `lookup_node()` walk inside `__xdp2_parse` (still indirect-called
+  by the C ABI when crossing parsers)
+
+For an eth+ipv4+tcp packet that all collapses to: 5 byte
+comparisons + 3 stores + 1 memcpy. LLVM at -O2 emits ~12 x86 insns
+for the matched-chain branch.
+
+### What R3.4.1 leaves for follow-ups
+
+- **R3.4.4 — generalise via `XDP2_FAST_PATH_CHAIN(...)` annotation**.
+  Hardcoded parser-name gate is OK for one parser; multi-parser /
+  per-shape chain emission needs an explicit declaration grammar.
+  Plan §R3.4.4 has the design sketch.
+- **R3.4.5 — add the remaining 6 chain shapes** (`c-bpf-fast`'s
+  eth+ipv4+udp, eth+ipv4+icmp, eth+ipv6+tcp, eth+ipv6+udp,
+  eth+ipv6+icmp, eth+vlan+ipv4+tcp). IPv6 fast-path is the
+  highest-leverage addition for general traffic.
+- **Hot-edge ordering** (R2 gap #3, plan §H1-H3). Smaller +2-5%
+  on top of R3.4.1; runs next in the plan's sequencing.
 - **TLV / flag_fields walkers** in generated code — needed for
   `gre-pptp` (PPTP-version-1) and `srv6-end_dx2` parity. R4.
 - **Wider IR coverage** so more `extract_metadata` functions
