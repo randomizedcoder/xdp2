@@ -97,21 +97,21 @@ static __unused() __attribute__((always_inline)) int
 	(void)frame;
 
 	<!--(if root['parser_name'] == 'xdp2_parser_flow_dissector_l2')-->
-	/* R3.4.1 fast-path: eth+ipv4+{tcp,udp,icmp} straight-line
-	 * extractor. Inlined at the top of the mono entry function for
-	 * parsers whose graph contains this common chain. Sidesteps the
-	 * graph dispatch entirely on a chain match; on miss, falls
-	 * through to the goto-state body below. Mirrors the metadata
-	 * writes produced by the slow-path ipv4_metadata + ports_metadata
-	 * + icmp_metadata functions so c-xdp2-mono stays parity-identical
-	 * to c-xdp2-usp on chain hits. Hardcoded to the L2 parser for
-	 * the first iteration; R3.4.4 generalises via XDP2_FAST_PATH_CHAIN. */
-	if (len >= 30) {
+	/* R3.4.1 + R3.4.5 fast-path: straight-line extractors for the
+	 * common eth+ipv{4,6}+{tcp,udp,icmp,icmpv6} chains. Inlined at
+	 * the top of the mono entry function. Sidesteps the parse graph
+	 * entirely on a chain match; on miss, falls through to the
+	 * goto-state body below. Each chain mirrors the metadata writes
+	 * produced by the slow-path *_metadata functions so c-xdp2-mono
+	 * stays parity-identical to c-xdp2-usp on chain hits.
+	 *
+	 * Hardcoded to the L2 parser; R3.4.4 will generalise via a
+	 * XDP2_FAST_PATH_CHAIN annotation in the parser source. */
+	{
 		const unsigned char *p = (const unsigned char *)hdr;
-		/* etype = ETH_P_IP (0x0800 BE) */
-		/* ipv4 byte 0 = 0x45 (v4, IHL=5, no options) */
-		/* frag_off (BE): no MF (0x20 in hi), no offset bits */
-		if (p[0] == 0x08 && p[1] == 0x00 && p[2] == 0x45 &&
+		/* R3.4.1: eth+ipv4+{tcp,udp,icmp} */
+		if (len >= 30 &&
+		    p[0] == 0x08 && p[1] == 0x00 && p[2] == 0x45 &&
 		    (p[8] & 0x3f) == 0 && p[9] == 0 && (p[8] & 0x20) == 0) {
 			unsigned char ip_proto = p[11];
 			if (ip_proto == 6 || ip_proto == 17 || ip_proto == 1) {
@@ -122,9 +122,6 @@ static __unused() __attribute__((always_inline)) int
 				memcpy(&_meta->addrs.v4_addrs[0], p + 14, 4);
 				memcpy(&_meta->addrs.v4_addrs[1], p + 18, 4);
 				if (ip_proto == 1) {
-					/* ICMP: type + code; id conditional on
-					 * echo-style messages (icmp_has_id), with
-					 * htons(1) sentinel for zero ids. */
 					_meta->icmp.type = p[22];
 					_meta->icmp.code = p[23];
 					if (icmp_has_id(p[22])) {
@@ -132,8 +129,43 @@ static __unused() __attribute__((always_inline)) int
 						_meta->icmp.id = id_be ? id_be : htons(1);
 					}
 				} else {
-					/* TCP/UDP: 32-bit copy of src+dst ports. */
 					memcpy(&_meta->port16[0], p + 22, 4);
+				}
+				return XDP2_STOP_OKAY;
+			}
+		}
+		/* R3.4.5: eth+ipv6+{tcp,udp,icmpv6}. IPv6 header is 40
+		 * bytes (fixed); extension-header chains bail because the
+		 * next_proto check below excludes them. p[2..3] = version+TC,
+		 * p[8] = next_header (= L4 proto when no EH). */
+		if (len >= 62 && p[0] == 0x86 && p[1] == 0xDD &&
+		    (p[2] >> 4) == 6) {
+			unsigned char nexthdr = p[8];
+			if (nexthdr == 6 || nexthdr == 17 || nexthdr == 58) {
+				struct xdp2_metadata_all *_meta = metadata;
+				_meta->addr_type = XDP2_ADDR_TYPE_IPV6;
+				_meta->l3_off = 2;
+				_meta->ip_proto = nexthdr;
+				/* flow_label = bottom 20 bits of the first
+				 * 32-bit word (matches ip6_flowlabel +
+				 * ntohl in parser_metadata.h). */
+				__be32 flow_word = *(const __be32 *)(p + 2);
+				_meta->flow_label = ntohl(flow_word) & 0x000FFFFF;
+				memcpy(&_meta->addrs.v6_addrs[0], p + 10, 16);
+				memcpy(&_meta->addrs.v6_addrs[1], p + 26, 16);
+				if (nexthdr == 58) {
+					/* ICMPv6 — same icmp_has_id sentinel
+					 * shape as ICMPv4; id_be at +46 (ICMPv6
+					 * header byte 4-5). */
+					_meta->icmp.type = p[42];
+					_meta->icmp.code = p[43];
+					if (icmp_has_id(p[42])) {
+						__be16 id_be = *(const __be16 *)(p + 46);
+						_meta->icmp.id = id_be ? id_be : htons(1);
+					}
+				} else {
+					/* TCP/UDP: src+dst ports at L4 offset 0. */
+					memcpy(&_meta->port16[0], p + 42, 4);
 				}
 				return XDP2_STOP_OKAY;
 			}
