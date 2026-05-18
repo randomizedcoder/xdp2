@@ -211,6 +211,45 @@ static __unused() __attribute__((always_inline)) int
 				return XDP2_STOP_OKAY;
 			}
 		}
+		/* R3.4.5c: eth+8021Q+ipv6+{tcp,udp,icmpv6}. Mirrors R3.4.5b's
+		 * VLAN handling and R3.4.5a's IPv6 handling, with IPv6 offsets
+		 * shifted by +4 to skip the VLAN tag. Min len = 14 + 4 + 40 +
+		 * 4 = 62 (eth + vlan + ipv6 + L4 ports/icmp). */
+		if (len >= 66 && p[0] == 0x81 && p[1] == 0x00 &&
+		    p[4] == 0x86 && p[5] == 0xDD && (p[6] >> 4) == 6) {
+			unsigned char nexthdr = p[12];
+			if (nexthdr == 6 || nexthdr == 17 || nexthdr == 58) {
+				struct xdp2_metadata_all *_meta = metadata;
+				/* VLAN metadata (same as R3.4.5b). */
+				unsigned short tci = (p[2] << 8) | p[3];
+				_meta->vlan[0].id = tci & 0x0FFF;
+				_meta->vlan[0].priority = tci >> 13;
+				_meta->vlan[0].tpid = 0x8100;  /* ETH_P_8021Q */
+				_meta->vlan_count = 1;
+				/* IPv6 metadata (R3.4.5a logic, offsets +4). */
+				_meta->addr_type = XDP2_ADDR_TYPE_IPV6;
+				_meta->l3_off = 6;  /* etype(2) + vlan(4) */
+				_meta->ip_proto = nexthdr;
+				__be32 flow_word = *(const __be32 *)(p + 6);
+				_meta->flow_label = ntohl(flow_word) & 0x000FFFFF;
+				memcpy(&_meta->addrs.v6_addrs[0], p + 14, 16);
+				memcpy(&_meta->addrs.v6_addrs[1], p + 30, 16);
+				if (nexthdr == 58) {
+					/* ICMPv6 — same id-sentinel as ICMPv4;
+					 * type/code at +46, id at +50. */
+					_meta->icmp.type = p[46];
+					_meta->icmp.code = p[47];
+					if (icmp_has_id(p[46])) {
+						__be16 id_be = *(const __be16 *)(p + 50);
+						_meta->icmp.id = id_be ? id_be : htons(1);
+					}
+				} else {
+					/* TCP/UDP: src+dst ports at L4 offset 0. */
+					memcpy(&_meta->port16[0], p + 46, 4);
+				}
+				return XDP2_STOP_OKAY;
+			}
+		}
 	}
 	/* Fast-path miss — fall through to the standard graph body. */
 	<!--(end)-->
