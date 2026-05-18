@@ -830,22 +830,29 @@ pcaps because https-web exercises many nodes whose
 `extract_metadata` is not IR-decomposable (R3.3.4b's coverage gate
 falls back to indirect for those), so the bulk of packets still
 hit some indirect-call cost. Simple-pcap snapshot (local dev box,
-artifact from R3.3.5b):
+artifact from R3.3.5b/R3.3.7, auto-scaled iter so each measurement
+spans ≥100 K total parses):
 
-| pcap | c-xdp2-mono | c-xdp2-usp | mono delta |
-|---|---:|---:|---:|
-| tcp_ipv4 (11 pkts) | 9 ns | 14 ns | −36% |
-| tcp_ipv6 | 11 ns | 16 ns | −31% |
-| icmp_ipv4 | 10 ns | 14 ns | −29% |
-| 6in4 | 7 ns | 22 ns | −68% |
-| gre-sample | 10 ns | 24 ns | −58% |
-| srv6-end-64 | 28 ns | 41 ns | −32% |
-| QinQ | 23 ns | 23 ns | 0% |
-| vlan_icmp | 22 ns | 20 ns | +10% ⚠️ |
+| pcap | pkts | iter | c-xdp2-mono | c-xdp2-usp | mono delta |
+|---|---:|---:|---:|---:|---:|
+| tcp_ipv4 | 11 | 9 090 | 9 ns | 14 ns | −36% |
+| tcp_ipv6 | 12 | 8 333 | 9 ns | 14 ns | −36% |
+| icmp_ipv4 | 6 | 16 666 | 8 ns | 11 ns | −27% |
+| vlan_icmp | 1 | 100 000 | 9 ns | 12 ns | −25% |
+| QinQ | 2 | 50 000 | 8 ns | 9 ns | −11% |
+| 6in4 | 20 | 5 000 | 6 ns | 20 ns | −70% |
+| gre-sample | 40 | 2 500 | 10 ns | 23 ns | −57% |
+| srv6-end-64 | 1 | 100 000 | 12 ns | 20 ns | −40% |
 
-vlan_icmp regresses ~10% — likely goto-state body icache pressure
-on a deep VLAN chain where `_opt` benefits from per-node LTO
-inlining. Worth investigating in a follow-up; not a R3.3 blocker.
+Mono wins on every probed pcap; range −11% (QinQ) to −70% (6in4).
+
+A previous snapshot of this table at `-n 100` on the same pcaps
+suggested a +10% vlan_icmp "regression"; that was measurement noise
+— vlan_icmp.pcap is a single packet, so `-n 100` totals ~10 µs of
+wall-time per cell, dominated by `clock_gettime` overhead and
+one-time JIT/branch-predictor warm-up costs. At ≥100 K total parses
+the picture is clean. Lesson: per-pcap perf snapshots need
+iteration counts auto-scaled to packet count.
 
 ### R3.3 deviations from plan
 
@@ -873,9 +880,6 @@ inlining. Worth investigating in a follow-up; not a R3.3 blocker.
   shipped this commit. Needs benchmark JSON ingestion +
   `c-xdp2-mono` ns/pkt threshold vs `c-bpf-fast`. Reasonable
   follow-up (~30 LoC in `nix/checks/parity-gate.nix`).
-- **vlan_icmp +10% regression**: icache / inlining hypothesis.
-  Needs perf-record on hp5 with `-e iTLB-load-misses,L1-icache-misses`
-  to confirm.
 - **R3.4 fast-path emit** from the template (vs. the manual
   `xdp2_eth_ipv4_l4_fast()` in benchmark.c). Optional.
 - **TLV / flag_fields walkers** in generated code — needed for
