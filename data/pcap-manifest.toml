@@ -141,7 +141,7 @@ excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 7 packets re
 path = "data/pcaps/gre-pptp.pcap"
 category = "tunnel-gre"
 excluded_from = ["parity_gate"]
-excluded_reason = "Post-fix (2026-05-18): 212 field disagreements remain (slightly up from 144 because mono now actually enters GRE and disagrees more visibly). Real bug — PPTP-style GRE v1 metadata extraction differs across parsers. Needs targeted fix."
+excluded_reason = "Post-triage (2026-05-18): 2 packets, ~212 total disagreement records once all 13 parsers run. Root cause is rust-side: rust-mono/graph/compiled don't walk GRE v1 (PPTP) inner — they stop at outer IPv4 with ip_proto=47. c-flowdis-usp and the c-xdp2-* family all walk to the inner DNS-over-UDP correctly. Both rust and c-xdp2 declare tunnel_behavior=inner so the tunnel mask doesn't fire. Either implement PPTP in rust's parser or add a per-pcap scope exception."
 
 [pcap."gre-sample"]
 path = "data/pcaps/gre-sample.pcap"
@@ -162,8 +162,16 @@ included_in = ["parity_gate"]
 [pcap.vxlan]
 path = "data/pcaps/vxlan.pcap"
 category = "tunnel-vxlan"
-excluded_from = ["parity_gate"]
-excluded_reason = "Post-fix (2026-05-18): 984 field disagreements (up from 700 because mono now actually walks VXLAN→inner Ethernet but disagrees with the slow path on inner field placement). Real bug — VXLAN inner-Ethernet metadata extraction differs across parsers."
+included_in = ["parity_gate"]
+# Was previously 984 disagreements. Resolved 2026-05-18 by:
+# (1) proto_vxlan.h: vxlan_proto returns __cpu_to_be16(ETH_P_TEB)
+#     so the table lookup matches.
+# (2) mono_def.template.c: dropped UDP from R3.4 fast-paths so
+#     mono walks into the tunnel via the slow path.
+# (3) parity_scope.json: rust-template{,-simd} declared as
+#     tunnel_behavior=outer (templates are fixed-offset, can't
+#     follow tunnels); eth_{src,dst,proto} added to
+#     inner_outer_fields so the tunnel mask catches them.
 
 # ────────────────────────────────────────────────────────────────
 # SRv6 family

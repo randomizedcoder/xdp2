@@ -217,7 +217,10 @@
       "tipc_key",
       "flow_label",
       "l3_off",
-      "l4_off"
+      "l4_off",
+      "eth_src",
+      "eth_dst",
+      "eth_proto"
     ]
   },
   "scopes": {
@@ -361,9 +364,9 @@
         "full_flowmeta_extras"
       ],
       "kind": "rust-with-fallback",
-      "tunnel_behavior": "inner",
+      "tunnel_behavior": "outer",
       "source": "xdp2-rs/crates/xdp2-bench/src/template.rs",
-      "doc": "Hardware-template fixed-offset extractor. On template miss, accepted=false, reject_reason=no-template (or accept_path=fallback if fall-through to compiled is enabled \u2014 TBD in 17.B)."
+      "doc": "Hardware-template fixed-offset extractor. On template miss, accepted=false, reject_reason=no-template (or accept_path=fallback if fall-through to compiled is enabled \u2014 TBD in 17.B). tunnel_behavior=outer: templates are fixed-offset extractors that cannot follow tunnels \u2014 on VXLAN/Geneve/GRE/etc. the template matches the OUTER 5-tuple only. (Updated 2026-05-18: was inner.)"
     },
     "rust-template-simd": {
       "tiers": [
@@ -372,9 +375,9 @@
         "full_flowmeta_extras"
       ],
       "kind": "rust-with-fallback",
-      "tunnel_behavior": "inner",
+      "tunnel_behavior": "outer",
       "source": "xdp2-rs/crates/xdp2-bench/src/template_simd.rs",
-      "doc": "AVX2 batch + fixed-offset template; same fallback semantics as rust-template, plus no-avx2 on non-AVX2 hosts"
+      "doc": "AVX2 batch + fixed-offset template; same fallback semantics as rust-template, plus no-avx2 on non-AVX2 hosts. tunnel_behavior=outer per same rationale as rust-template."
     }
   },
   "expected_divergences": [
@@ -445,11 +448,11 @@
       ],
       "applies_to": "any packet rust-graph-enum cannot handle (non-IPv4 ethertype OR IPv4 with unsupported L4 such as GRE, IPIP, ESP, AH, OSPF, etc.)",
       "reject_reason": "ipv4-only",
-      "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). EVERY rejection from this parser is conceptually a scope gap — it has no nodes for other L2/L3/L4 shapes. The bench emits reject_reason=ipv4-only uniformly (xdp2-bench/src/bench.rs:~110), so the parity gate accepts these rejections regardless of whether the outer ethertype is non-IPv4 (IPv6, ARP, MPLS) or IPv4 with an unsupported L4 (GRE-tunneled, ESP, IPIP). Extending the enum table to wider scope is tracked as a follow-up; until then, the gate treats every rust-graph-enum rejection as expected. The 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4+TCP/UDP/ICMP-dominant."
+      "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). EVERY rejection from this parser is conceptually a scope gap \u2014 it has no nodes for other L2/L3/L4 shapes. The bench emits reject_reason=ipv4-only uniformly (xdp2-bench/src/bench.rs:~110), so the parity gate accepts these rejections regardless of whether the outer ethertype is non-IPv4 (IPv6, ARP, MPLS) or IPv4 with an unsupported L4 (GRE-tunneled, ESP, IPIP). Extending the enum table to wider scope is tracked as a follow-up; until then, the gate treats every rust-graph-enum rejection as expected. The 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4+TCP/UDP/ICMP-dominant."
     }
   ],
   "expected_protocol_acceptance": {
-    "doc": "Per-protocol-template expected acceptance \u2014 Phase 3 of the protocol-coverage-matrix plan. Bootstrapped 2026-05-18 from a full 378-pcap run of `nix run .#protocol-coverage-matrix -- --bootstrap-expectations`. Each protocol entry has a 'default' (applied to all parsers) and per-parser 'overrides'. Override vocabulary: 'accept', 'reject:<reject_reason>'. Cells diverging from these expectations are flagged as REJ-unexpected by the aggregator. Known disagreements outside this schema: 4 OK!N cells on icmpv4 (9-10 field disagreements per parser) and vxlan (5-6); both tracked separately as Phase 6 bug-triage. Bench-failed overrides on the rust parsers (e.g. ah, arp, appletalk) reflect packet shapes xdp2-bench doesn't yet handle \u2014 REMOVE the override once xdp2-bench is fixed and the cell should become OK. See nix/scripts/protocol-coverage-matrix.py.",
+    "doc": "Per-protocol-template expected acceptance \u2014 Phase 3 of the protocol-coverage-matrix plan. Bootstrapped 2026-05-18 from a full 378-pcap run of `nix run .#protocol-coverage-matrix -- --bootstrap-expectations`. Each protocol entry has a 'default' (applied to all parsers) and per-parser 'overrides'. Override vocabulary: 'accept', 'reject:<reject_reason>'. Cells diverging from these expectations are flagged as REJ-unexpected by the aggregator. Known disagreements outside this schema: 4 OK!N cells on icmpv4 (9-10 field disagreements per parser) and vxlan (5-6); both tracked separately as Phase 6 bug-triage. Bench-failed overrides on the rust parsers (e.g. ah, arp, appletalk) reflect packet shapes xdp2-bench doesn't yet handle \u2014 REMOVE the override once xdp2-bench is fixed and the cell should become OK. See nix/scripts/protocol-coverage-matrix.py. Re-bootstrapped 2026-05-18 after vxlan_proto fix + UDP fast-path drop + rust-graph-enum reject-reason unification.",
     "protocols": {
       "ah": {
         "default": "reject:undeclared",
@@ -700,7 +703,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
+          "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
@@ -717,7 +720,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "cassandra": {
@@ -804,7 +807,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "dhcp": {
@@ -942,7 +945,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "elasticsearch": {
@@ -980,7 +983,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "rust-graph-enum": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
           "rust-template": "reject:no-template",
           "rust-template-simd": "reject:no-template"
         }
@@ -989,14 +992,14 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "esp_null": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ethercat": {
@@ -1013,7 +1016,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ethernet": {
@@ -1473,7 +1476,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "rust-graph-enum": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
           "rust-template": "reject:no-template",
           "rust-template-simd": "reject:no-template"
         }
@@ -1483,7 +1486,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "c-xdp2-mono": "accept",
+          "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
@@ -1501,7 +1504,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "rust-graph-enum": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
           "rust-template": "reject:no-template",
           "rust-template-simd": "reject:no-template"
         }
@@ -1511,7 +1514,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "rust-graph-enum": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
           "rust-template": "reject:no-template",
           "rust-template-simd": "reject:no-template"
         }
@@ -1521,7 +1524,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "rust-graph-enum": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
           "rust-template": "reject:no-template",
           "rust-template-simd": "reject:no-template"
         }
@@ -1852,21 +1855,21 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "igmpv3_query": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "igmpv3_report": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ikev1": {
@@ -1909,7 +1912,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ipfix": {
@@ -1922,7 +1925,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ipv6": {
@@ -2026,7 +2029,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ipx": {
@@ -2189,14 +2192,14 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "l2tpv3": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "lacp": {
@@ -2305,14 +2308,14 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "m3ua": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "mac_control": {
@@ -2600,7 +2603,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "nntp": {
@@ -2646,7 +2649,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "c-xdp2-mono": "accept",
+          "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
@@ -2861,7 +2864,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "ospfv3": {
@@ -2917,28 +2920,28 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "pim": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "pim_assert": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "pim_bsr": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "pimv6": {
@@ -3286,7 +3289,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "rtcp": {
@@ -3347,7 +3350,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "s7comm": {
@@ -3378,35 +3381,35 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "sctp_chunk": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "sctp_data": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "sctp_init": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "sctp_sack": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "sdp": {
@@ -3874,7 +3877,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "syslog": {
@@ -3963,7 +3966,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
+          "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
@@ -3998,7 +4001,7 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "vlan": {
@@ -4023,14 +4026,14 @@
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "vrrp3": {
         "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "rust-graph-enum": "reject:parse-error"
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "vrrp_ipv6": {
@@ -4051,9 +4054,9 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
-          "c-xdp2-parse-only": "accept",
-          "c-xdp2-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
           "rust-graph": "reject:bench-failed",
           "rust-graph-enum": "reject:bench-failed",
@@ -4069,9 +4072,9 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
-          "c-xdp2-parse-only": "accept",
-          "c-xdp2-usp": "accept",
+          "c-xdp2-mono": "reject:parse-error",
+          "c-xdp2-parse-only": "reject:parse-error",
+          "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
           "rust-graph": "reject:bench-failed",
           "rust-graph-enum": "reject:bench-failed",
@@ -4087,7 +4090,7 @@
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
+          "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
           "rust-compiled": "reject:bench-failed",
