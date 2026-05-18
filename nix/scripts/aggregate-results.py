@@ -344,6 +344,88 @@ def parse_baseline(path: Path) -> dict:
     return rows
 
 
+def write_mono_perf_ceiling(
+    out_path: Path,
+    stats_by_cell: dict,
+    ceiling_pct: float,
+    reference_mode: str = "c-xdp2-usp",
+    target_mode: str = "c-xdp2-mono",
+) -> int:
+    """Intra-run ceiling check: c-xdp2-mono should not be slower than
+    c-xdp2-usp on the same (testbed, host, pcap). R3.3.8.
+
+    Compares the compiler-emitted mono parser (R3 codegen) against
+    the function-pointer-tree _opt parser on the same cell. Mono's
+    purpose is to BEAT _opt — if it regresses, the IR-coverage gate
+    or the inline-emit template is producing slower code than the
+    indirect-call fallback for that workload. Flag for investigation.
+
+    Default ceiling: mono <= opt × (1 + ceiling_pct/100). With
+    ceiling_pct=10, mono is allowed to be 10% slower than opt before
+    the gate trips — a noise tolerance, not an aspirational target.
+
+    Returns the count of cells where the ceiling is violated.
+    """
+    cells_compared = 0
+    violations = []
+    # Index by (testbed, host, pcap) for cross-mode lookups.
+    by_cell: dict = defaultdict(dict)
+    for (t, h, p, m), s in stats_by_cell.items():
+        by_cell[(t, h, p)][m] = s
+
+    for cell_key, modes in sorted(by_cell.items()):
+        mono = modes.get(target_mode)
+        ref = modes.get(reference_mode)
+        if mono is None or ref is None:
+            continue
+        mono_med = mono.get("ns_per_pkt_median")
+        ref_med = ref.get("ns_per_pkt_median")
+        if mono_med is None or ref_med is None or ref_med <= 0:
+            continue
+        cells_compared += 1
+        # ratio > 1 means mono is SLOWER than reference (regression).
+        ratio = mono_med / ref_med
+        ceiling = 1.0 + ceiling_pct / 100.0
+        if ratio > ceiling:
+            violations.append((cell_key, mono_med, ref_med, (ratio - 1.0) * 100.0))
+
+    lines = ["# Mono perf ceiling", ""]
+    lines.append(
+        f"Gate: `{target_mode}` ns/pkt ≤ `{reference_mode}` ns/pkt × "
+        f"{1 + ceiling_pct/100:.2f} (ceiling_pct={ceiling_pct}%)."
+    )
+    lines.append("")
+    if cells_compared == 0:
+        lines.append(
+            f"No cells had both `{target_mode}` and `{reference_mode}` — "
+            "ceiling check skipped."
+        )
+    elif not violations:
+        lines.append(
+            f"OK — {cells_compared} cell(s) compared, "
+            f"no `{target_mode}` ceiling violations."
+        )
+    else:
+        lines.append(
+            f"⚠ {len(violations)} of {cells_compared} cell(s) violate the "
+            f"`{target_mode}` ≤ `{reference_mode}` × {1 + ceiling_pct/100:.2f} "
+            "ceiling:"
+        )
+        lines.append("")
+        lines.append(
+            f"| Testbed | Host | PCAP | {target_mode} ns/pkt | "
+            f"{reference_mode} ns/pkt | Δ% |"
+        )
+        lines.append("|---|---|---|---|---|---|")
+        for (t, h, p), mono_med, ref_med, delta_pct in violations:
+            lines.append(
+                f"| {t} | {h} | {p} | {fmt_num(mono_med, 2)} | "
+                f"{fmt_num(ref_med, 2)} | {fmt_num(delta_pct, 1)} |"
+            )
+    out_path.write_text("\n".join(lines) + "\n")
+    return len(violations)
+
+
 def write_regressions(
     out_path: Path,
     stats_by_cell: dict,
@@ -436,6 +518,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="annotate cells with iterations < N as (low-N)")
     parser.add_argument("--fail-on-regression", action="store_true",
                         help="exit non-zero when regressions are detected")
+    parser.add_argument("--mono-perf-ceiling-pct", type=float, default=10.0,
+                        help=("intra-run ceiling on c-xdp2-mono vs c-xdp2-usp "
+                              "ns/pkt (default: 10, meaning mono must be at "
+                              "most 1.10× opt). R3.3.8."))
+    parser.add_argument("--fail-on-mono-perf-ceiling", action="store_true",
+                        help="exit non-zero when the mono perf ceiling is violated")
     args = parser.parse_args(argv)
 
     results_root = args.results.resolve()
@@ -455,6 +543,18 @@ def main(argv: list[str] | None = None) -> int:
     write_csv(out_dir / "summary.csv", grouped, stats_by_cell)
     write_md(out_dir / "summary.md", grouped, stats_by_cell, args.min_iterations)
     print(f"wrote {out_dir/'summary.csv'} and {out_dir/'summary.md'}")
+
+    # R3.3.8: intra-run perf ceiling for c-xdp2-mono. Runs unconditionally
+    # so summary tooling always carries the gate status. Only fails the
+    # process when --fail-on-mono-perf-ceiling is passed.
+    n_mono_violations = write_mono_perf_ceiling(
+        out_dir / "mono-perf.md",
+        stats_by_cell,
+        args.mono_perf_ceiling_pct,
+    )
+    print(f"wrote {out_dir/'mono-perf.md'} ({n_mono_violations} violation(s))")
+    if args.fail_on_mono_perf_ceiling and n_mono_violations > 0:
+        return 1
 
     n_regressions = 0
     if args.baseline:
