@@ -92,6 +92,9 @@ pkgs.writeShellApplication {
       --jobs N               Run N pcaps in parallel. Default: 1.
       --limit N              Only process the first N pcaps (sorted
                              alphabetically). Useful for smoke runs.
+      --protocols CSV        Comma-separated protocol stems. Only
+                             those pcaps are processed. Useful for
+                             the smoke gate.
       -h, --help             Show this help.
 
     Output:
@@ -109,6 +112,7 @@ pkgs.writeShellApplication {
     REQUIRE_EXPECT=0
     JOBS=1
     LIMIT=0
+    PROTOCOLS_CSV=""
 
     while [ $# -gt 0 ]; do
       case "$1" in
@@ -127,6 +131,9 @@ pkgs.writeShellApplication {
         --limit)
           [ $# -ge 2 ] || { echo "protocol-coverage-matrix: --limit requires N" >&2; exit 2; }
           LIMIT="$2"; shift 2 ;;
+        --protocols)
+          [ $# -ge 2 ] || { echo "protocol-coverage-matrix: --protocols requires CSV" >&2; exit 2; }
+          PROTOCOLS_CSV="$2"; shift 2 ;;
         *) echo "protocol-coverage-matrix: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
       esac
     done
@@ -152,7 +159,27 @@ pkgs.writeShellApplication {
     echo "[coverage] out=$OUT jobs=$JOBS" >&2
 
     # Build list of (protocol, pcap) pairs.
-    mapfile -t pcaps < <(find "$PCAP_DIR" -maxdepth 1 -name '*.pcap' | sort)
+    if [ -n "$PROTOCOLS_CSV" ]; then
+      # Resolve CSV to one $PCAP_DIR/<proto>.pcap path each.
+      # Missing-name → fail loudly so the smoke gate catches typos.
+      IFS=',' read -ra PROTO_LIST <<< "$PROTOCOLS_CSV"
+      pcaps=()
+      missing=()
+      for proto in "''${PROTO_LIST[@]}"; do
+        cand="$PCAP_DIR/$proto.pcap"
+        if [ -f "$cand" ]; then
+          pcaps+=( "$cand" )
+        else
+          missing+=( "$proto" )
+        fi
+      done
+      if [ "''${#missing[@]}" -gt 0 ]; then
+        echo "protocol-coverage-matrix: --protocols includes unknown pcap stems: ''${missing[*]}" >&2
+        exit 2
+      fi
+    else
+      mapfile -t pcaps < <(find "$PCAP_DIR" -maxdepth 1 -name '*.pcap' | sort)
+    fi
     if [ "$LIMIT" -gt 0 ]; then
       pcaps=( "''${pcaps[@]:0:$LIMIT}" )
     fi

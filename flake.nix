@@ -1427,6 +1427,20 @@
             inherit pkgs lib;
             parityCheck = flowDissectorParityCheck;
           };
+
+          # Phase 4 of the protocol-coverage-matrix plan: gates flake
+          # check on a curated 33-protocol subset of
+          # samples/proto_audit/pcap_templates. Subset is declared in
+          # parity_scope.json (`protocol_coverage_smoke_subset`) and
+          # exercised via the protocol-coverage-matrix Nix driver with
+          # --require-expectations. Today's matrix has zero
+          # REJ-unexpected cells on the subset; a future regression
+          # (parser silently changes its acceptance for any subset
+          # protocol) fails this check.
+          protocol-coverage-smoke = import ./nix/checks/protocol-coverage-smoke.nix {
+            inherit pkgs lib;
+            coverageMatrix = protocolCoverageMatrix;
+          };
         };
       }) // (
         let

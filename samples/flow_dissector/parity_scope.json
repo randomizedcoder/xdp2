@@ -4155,5 +4155,43 @@
         }
       }
     }
+  },
+  "protocol_coverage_smoke_subset": {
+    "doc": "Curated subset of proto_audit pcap templates exercised by the nix/checks/protocol-coverage-smoke.nix flake check. Picks 33 widely-deployed L4/L7 protocols where every cell is OK or REJ-expected under the current expected_protocol_acceptance schema. Adding a protocol here gates `nix flake check` on its cross-parser parity \u2014 only add protocols whose row is fully clean. See Phase 4 of the protocol-coverage-matrix plan.",
+    "protocols": [
+      "amqp",
+      "bgp",
+      "bfd",
+      "cifs",
+      "coap",
+      "dhcp",
+      "dns",
+      "dns_tcp",
+      "doh",
+      "dot",
+      "dtls",
+      "ftp",
+      "geneve",
+      "grpc",
+      "gtp_c",
+      "http",
+      "http2",
+      "kafka",
+      "ldap",
+      "mqtt",
+      "netflow_v5",
+      "nfs",
+      "ntp",
+      "quic",
+      "radius",
+      "sip",
+      "smb",
+      "smb2",
+      "snmp",
+      "ssh",
+      "syslog",
+      "telnet",
+      "tftp"
+    ]
   }
 }
