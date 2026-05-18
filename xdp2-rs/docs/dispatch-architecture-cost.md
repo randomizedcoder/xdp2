@@ -882,6 +882,90 @@ iteration counts auto-scaled to packet count.
   follow-up (~30 LoC in `nix/checks/parity-gate.nix`).
 - **R3.4 fast-path emit** from the template (vs. the manual
   `xdp2_eth_ipv4_l4_fast()` in benchmark.c). Optional.
+
+## Phase R3.5.2 — wider IR coverage (2026-05-17, commit `594f0cb`)
+
+Pushed three coupled changes to extend the R3.3.4b inline
+`extract_metadata` emit beyond its initial coverage:
+
+1. **New pattern `metadata_pattern_const_no_gep`** matches
+   `store iN <const>, ptr %3` (offset-0 direct constant store, no
+   intermediate GEP — LLVM's shape for `_meta->addr_type = X` and
+   similar). Adds 3 transfers across the parser graph.
+2. **Fixed the R3.3.4b coverage gate** that had been silently
+   disabling the inline emit since `65bae62`. The gate compared
+   per-vertex transfer-count to `metadata_record_field_count` —
+   computed from `v.metadata_record`, which holds the FULL 64-leaf
+   `xdp2_metadata_all` struct for every vertex. The threshold was
+   always 64; transfers rarely reached that; the gate rejected
+   everything; `c-xdp2-mono` ran entirely on indirect calls.
+3. **Tightened the gate from `>=` to `==`** so duplicate-match
+   cases (e.g. `icmp_metadata`'s conditional `icmp.id` write that
+   the IR analysis splits into multiple variants) don't fire
+   inline-emit with mismatched sources.
+
+After the fix:
+
+  Per-node coverage (in `samples/flow_dissector/parser.c`):
+    9 nodes mt_full_coverage=True (was 0)
+      tcp, udp, ports, ether_inner, ipv6_eh, l2tp, esp,
+      ah_ipv4, ah_ipv6
+
+  Per-parser-root × vertex inline emissions in parser.mono.c:
+    R3.3.4 inline memcpy:       154 (was 0)
+    R3.3.5 inline next_proto:   378 (unchanged)
+
+  Parity: 22/22 ok on the standing corpus.
+
+### Surprising perf result — the inline emit doesn't move the headline
+
+hp5 `https-web.pcap` matrix sprint
+(`perf-results/2026-05-17-r3.5.2/summary.md`):
+
+| Mode | pre-R3.5.2 hp5 | R3.5.2 hp5 |
+|---|---:|---:|
+| `c-xdp2-mono` | 114 ns | 116 ns |
+| `c-xdp2-usp` | 134 ns | 130 ns |
+| `c-flowdis-usp` | 117 ns | 119 ns |
+
+The `c-xdp2-mono` headline barely moves (114 → 116 within
+single-replicate noise). The 9 inline-emit nodes ARE on the
+https-web hot path (especially `tcp_node`, `udp_node`,
+`ports_node`), but the perf is unchanged.
+
+**Why**: gcc + LTO was already inlining the `extract_metadata`
+function-pointer call effectively at -O2. The R3.3 win (15% vs
+`_opt`) came almost entirely from the goto-state body shape
+(eliminating per-node function-call boundaries) and from
+R3.3.5's inline `next_proto` (which devirtualises a call that
+LTO genuinely couldn't inline because the function pointer
+crosses the parse-graph dispatcher). R3.3.4's inline emit, even
+when working, just re-produces what LTO was already doing.
+
+This shifts the priority of the remaining R3 follow-ups:
+
+- **R3.4 (hardcoded fast-path emit)** moves up. It sidesteps the
+  parse graph entirely for the eth+ipv4+l4 chain, which would
+  give the mono parser the `c-bpf-fast` (23 ns) floor on
+  workloads where ≥80% of packets fit the chain. This is the
+  remaining-large headroom.
+- **R3.5 (wider IR coverage)** moves down. The infrastructure
+  works (R3.5.2 proves it) but further coverage gives at most
+  marginal perf wins on top of LTO's existing inlining. Still
+  useful as a correctness foundation for a future BPF-target
+  mono codegen (where LTO doesn't apply).
+- **Hot-edge ordering** (R2 gap #3) is still on the table —
+  reordering switch arms by hit-frequency affects branch
+  prediction, which LTO doesn't influence. Likely the second-best
+  perf knob after R3.4.
+
+R3.5 pattern follow-ups deferred to that future-BPF-target
+audience:
+- hdr_off pattern variant for ptr-diff-derived offsets (l3_off
+  in ipv4/ipv6_metadata).
+- Conditional-bit-op decomposition (is_fragment / first_frag).
+- Multi-store deduplication for icmp_id-style conditional writes
+  (would let the gate accept some `transfers > stores` cases).
 - **TLV / flag_fields walkers** in generated code — needed for
   `gre-pptp` (PPTP-version-1) and `srv6-end_dx2` parity. R4.
 - **Wider IR coverage** so more `extract_metadata` functions
