@@ -1347,12 +1347,23 @@ def generate_parser_function(
       if bit_off >= 0 and bit_off % 8 == 0 and bit_size in (8, 16, 32) \
           and bit_mask == full_mask and multiplier == 0:
         byte_off = bit_off // 8
+        # Switch case keys come from XDP2_MAKE_PROTO_TABLE entries as
+        # the raw u8/u16/u32 stored in memory — for ETH_P_* / PPP_* /
+        # similar, that's the __cpu_to_be16(...) form (e.g. 0x0008 for
+        # ETH_P_IP, not 0x0800). The matching ops.next_proto for a
+        # simple `return field` (npi_simple) returns the same raw
+        # value with NO bswap (e.g. gre_v0_proto returns the __be16
+        # field cast to int = 0x0008 when the wire shows 08 00).
+        # Therefore the inlined npi_expr must ALSO read raw — adding a
+        # bswap would land on values that none of the emitted cases
+        # match and silently fall through to unknown_ret. (R3.4 GRE
+        # divergence triage 2026-05-18.)
         if bit_size == 8:
           npi_expr = f'(int)(*(const unsigned char *)((const char *)hdr + {byte_off}))'
         elif bit_size == 16:
-          npi_expr = f'(int)__builtin_bswap16(*(const unsigned short *)((const char *)hdr + {byte_off}))'
+          npi_expr = f'(int)(*(const unsigned short *)((const char *)hdr + {byte_off}))'
         elif bit_size == 32:
-          npi_expr = f'(int)__builtin_bswap32(*(const unsigned int *)((const char *)hdr + {byte_off}))'
+          npi_expr = f'(int)(*(const unsigned int *)((const char *)hdr + {byte_off}))'
         npi_simple = True
     vertex['npi_simple'] = npi_simple
     vertex['npi_expr'] = npi_expr
