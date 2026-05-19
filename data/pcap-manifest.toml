@@ -118,8 +118,11 @@ included_in = ["parity_gate"]
 [pcap."6to4"]
 path = "data/pcaps/6to4.pcap"
 category = "tunnel"
-excluded_from = ["parity_gate"]
-excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 1 packet rejected by 8 non-flowdis parsers (every XDP2 + Rust parser strict-rejects, only c-flowdis-usp accepts). Cross-implementation strictness mismatch — not a per-parser bug. Tracked separately."
+included_in = ["parity_gate"]
+# Was excluded due to 1 strict-reject packet where every XDP2 + Rust
+# parser rejects but c-flowdis-usp permissively accepts. Resolved
+# 2026-05-18 by adding the pcap-scoped "6to4-xdp2-strict"
+# expected_divergence in parity_scope.json.
 
 [pcap.ipip]
 path = "data/pcaps/ipip.pcap"
@@ -134,8 +137,12 @@ included_in = ["parity_gate"]
 [pcap.l2tp]
 path = "data/pcaps/l2tp.pcap"
 category = "tunnel"
-excluded_from = ["parity_gate"]
-excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 7 packets rejected by c-flowdis-usp while every other parser accepts. The kernel-flowdis port is failing on raw L2TP framing that XDP2 + Rust handle. Use l7_l2tp.pcap for L2TP gate coverage."
+included_in = ["parity_gate"]
+# Was excluded due to 7 c-flowdis-usp parse-error packets (raw L2TP
+# framing trips libflowdis; designed for L2TP-over-UDP). Resolved
+# 2026-05-18 by adding the pcap-scoped "l2tp-flowdis-strict"
+# expected_divergence in parity_scope.json. l7_l2tp.pcap remains
+# in the gate as the canonical L2TP coverage.
 
 [pcap."gre-pptp"]
 path = "data/pcaps/gre-pptp.pcap"
@@ -146,8 +153,11 @@ excluded_reason = "Post-triage (2026-05-18): 2 packets, ~212 total disagreement 
 [pcap."gre-sample"]
 path = "data/pcaps/gre-sample.pcap"
 category = "tunnel-gre"
-excluded_from = ["parity_gate"]
-excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 8 packets are accepted only by c-flowdis-usp and rejected by every XDP2 + rust-graph parser. Cross-implementation strictness mismatch (c-flowdis-usp is permissive on malformed GRE)."
+included_in = ["parity_gate"]
+# Was excluded due to 8 malformed-GRE packets c-flowdis-usp
+# permissively accepts and XDP2/rust-graph strict-reject.
+# Resolved 2026-05-18 by adding the pcap-scoped
+# "gre-sample-xdp2-strict" expected_divergence in parity_scope.json.
 
 [pcap."gre-within-gre"]
 path = "data/pcaps/gre-within-gre.pcap"
@@ -253,8 +263,14 @@ included_in = ["parity_gate"]
 [pcap.tcp_sack]
 path = "data/pcaps/tcp_sack.pcap"
 category = "regression"
-excluded_from = ["parity_gate"]
-excluded_reason = "Post-fix (2026-05-18): 0 field disagreements but 19 packets are accepted by rust-graph-enum / c-flowdis-usp / c-bpf-xdp2 (the permissive set) and rejected by rust-graph + c-xdp2 family. Cross-implementation strictness mismatch on TCP SACK option layout."
+included_in = ["parity_gate"]
+# Was excluded due to 19 packets where TCP SACK option layout
+# trips XDP2 generic engine's strict-TLV walker (c-xdp2-usp,
+# c-xdp2-parse-only) and rust-graph; c-flowdis-usp, c-bpf-xdp2,
+# c-xdp2-mono (fast-path short-circuit), and rust-graph-enum
+# permissively accept. Resolved 2026-05-18 by adding the
+# pcap-scoped "tcp_sack-xdp2-strict" expected_divergence in
+# parity_scope.json.
 
 [pcap."broad-coverage"]
 path = "data/pcaps/broad-coverage.pcap"

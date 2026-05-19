@@ -449,6 +449,38 @@
       "applies_to": "any packet rust-graph-enum cannot handle (non-IPv4 ethertype OR IPv4 with unsupported L4 such as GRE, IPIP, ESP, AH, OSPF, etc.)",
       "reject_reason": "ipv4-only",
       "doc": "rust-graph-enum's enum-dispatch table currently covers Ether/IPv4/{TCP,UDP,ICMP} only (cli.rs:12-13). EVERY rejection from this parser is conceptually a scope gap \u2014 it has no nodes for other L2/L3/L4 shapes. The bench emits reject_reason=ipv4-only uniformly (xdp2-bench/src/bench.rs:~110), so the parity gate accepts these rejections regardless of whether the outer ethertype is non-IPv4 (IPv6, ARP, MPLS) or IPv4 with an unsupported L4 (GRE-tunneled, ESP, IPIP). Extending the enum table to wider scope is tracked as a follow-up; until then, the gate treats every rust-graph-enum rejection as expected. The 2026-05-02 12 ns/pkt headline came from combo.pcap which is IPv4+TCP/UDP/ICMP-dominant."
+    },
+    {
+      "id": "gre-sample-xdp2-strict",
+      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "c-xdp2-mono", "rust-graph"],
+      "reject_reason": "parse-error",
+      "pcap": "gre-sample.pcap",
+      "applies_to": "8 of 40 packets in gre-sample.pcap that XDP2's strict GRE parser and rust-graph reject; c-flowdis-usp permissively accepts",
+      "doc": "Strictness gap: kernel-flowdis (c-flowdis-usp) tolerates some malformed GRE shapes (invalid flag combinations, etc.) that the XDP2 strict GRE walker and rust-graph reject. The kernel's permissive behavior is the outlier; XDP2's strict-reject is correct. Scoped to gre-sample.pcap so the divergence doesn't suppress real bugs elsewhere."
+    },
+    {
+      "id": "6to4-xdp2-strict",
+      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "c-xdp2-mono", "rust-graph", "rust-mono", "rust-mono-x4", "rust-compiled", "rust-simd"],
+      "reject_reason": "parse-error",
+      "pcap": "6to4.pcap",
+      "applies_to": "1 packet in 6to4.pcap (IPv6-in-IPv4 RFC 3056) that XDP2 + Rust strict-reject; c-flowdis-usp permissively accepts",
+      "doc": "Strictness gap: a single malformed 6to4 packet where every XDP2 + Rust parser strict-rejects while only c-flowdis-usp permissively accepts. The kernel's behavior is the outlier. Other 6to4 packets in the same pcap all-parsers-accept correctly."
+    },
+    {
+      "id": "l2tp-flowdis-strict",
+      "parsers": ["c-flowdis-usp"],
+      "reject_reason": "parse-error",
+      "pcap": "l2tp.pcap",
+      "applies_to": "7 packets in l2tp.pcap (raw L2TP framing) that c-flowdis-usp rejects; every XDP2 + Rust parser accepts",
+      "doc": "OPPOSITE strictness gap from gre-sample/6to4: here c-flowdis-usp is the strict one. The Linux kernel flowdis port (libflowdis) was designed primarily for L2TP-over-UDP (l7_l2tp). Raw L2TP framing trips its parser. XDP2 + Rust handle these packets correctly. Scoped to l2tp.pcap; for the gate's L2TP coverage we use l7_l2tp.pcap (which all parsers handle cleanly)."
+    },
+    {
+      "id": "tcp_sack-xdp2-strict",
+      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "rust-graph"],
+      "reject_reason": "parse-error",
+      "pcap": "tcp_sack.pcap",
+      "applies_to": "19 packets in tcp_sack.pcap where TCP SACK option layout trips XDP2 generic engine's strict-TLV walker and rust-graph's equivalent; c-flowdis-usp, c-bpf-xdp2, c-xdp2-mono (via R3.4 fast-path), and rust-graph-enum all permissively accept",
+      "doc": "Strictness gap on TCP SACK option parsing. XDP2's generic-engine TCP options walker (c-xdp2-usp / c-xdp2-parse-only) strict-rejects these 19 packets, as does rust-graph. c-xdp2-mono is in the permissive set ONLY because the R3.4 fast-path for TCP short-circuits before reaching the options walker. Once R3.4.4's annotation-driven fast-path lands and mono can disable the fast-path for SACK-bearing packets, c-xdp2-mono will join the strict set. Treated as expected divergence until then."
     }
   ],
   "expected_protocol_acceptance": {

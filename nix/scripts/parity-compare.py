@@ -291,17 +291,48 @@ class AcceptanceDisagreement:
     reject_reason: str | None
 
 
+def _normalize_pcap_name(pcap: str | None) -> str | None:
+    """Strip nix-store hash prefix from a pcap basename.
+
+    When a pcap is referenced through the Nix store its basename
+    looks like "dfxy8wk28xir1p2w58pwvzjwnvyb7n1s-6to4.pcap" — the
+    32-char base32 hash plus a dash plus the source name. Strip
+    that prefix so divergence rules can match on the human name
+    ("6to4.pcap"). No-op when the prefix isn't present.
+    """
+    if not pcap:
+        return pcap
+    import re
+    m = re.match(r"^[a-z0-9]{32}-(.+\.pcap)$", pcap)
+    return m.group(1) if m else pcap
+
+
 def is_expected_rejection(
-    schema: Schema, parser_id: str, reject_reason: str | None
+    schema: Schema, parser_id: str, reject_reason: str | None,
+    pcap: str | None = None,
 ) -> bool:
-    """Match a (parser, reject_reason) pair against
-    parity_scope.json:expected_divergences."""
+    """Match a (parser, reject_reason[, pcap]) tuple against
+    parity_scope.json:expected_divergences.
+
+    A divergence entry without a 'pcap' field matches any pcap
+    (broad expectation). A divergence with a 'pcap' field only
+    matches records from that pcap (narrow exception — used for
+    cross-implementation strictness mismatches that are real but
+    pcap-specific, e.g. tcp_sack option parsing variants).
+    """
     if reject_reason is None:
         return False
+    pcap_norm = _normalize_pcap_name(pcap)
     for div in schema.expected_divergences:
         ds = div.get("parsers") or [div.get("parser")]
-        if parser_id in ds and div.get("reject_reason") == reject_reason:
-            return True
+        if parser_id not in ds:
+            continue
+        if div.get("reject_reason") != reject_reason:
+            continue
+        div_pcap = div.get("pcap")
+        if div_pcap is not None and div_pcap != pcap_norm:
+            continue
+        return True
     return False
 
 
@@ -317,7 +348,7 @@ def find_acceptance_disagreements(
     for r in recs:
         if r.accepted:
             continue
-        if is_expected_rejection(schema, r.parser_id, r.reject_reason):
+        if is_expected_rejection(schema, r.parser_id, r.reject_reason, r.pcap):
             continue
         # Find one accepted parser to anchor the report.
         out.append(AcceptanceDisagreement(
