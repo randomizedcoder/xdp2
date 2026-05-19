@@ -187,6 +187,21 @@
       "l4_off"
     ]
   },
+  "tunnel_behavior_pcap_overrides": {
+    "doc": "Per-(pcap, parser) tunnel_behavior overrides. A parser may declare tunnel_behavior=inner globally but lack a walker for a specific tunnel type, so on those pcaps it behaves as outer. The comparator uses the override (in compare_pair) so the existing inner-vs-outer mask correctly fires on these pcaps.",
+    "gre-pptp.pcap": {
+      "rust-mono": "outer",
+      "rust-mono-x4": "outer",
+      "rust-graph": "outer",
+      "rust-compiled": "outer",
+      "rust-simd": "outer",
+      "doc": "rust-* parsers don't implement GRE v1 (PPTP) inner walking. They accept the packet at outer IPv4 with ip_proto=47. c-flowdis-usp + c-xdp2-* walk into PPTP correctly. Treating rust-* as outer here lets the existing tunnel mask suppress the legitimate inner-vs-outer 5-tuple disagreement."
+    },
+    "ah.pcap": {
+      "c-flowdis-usp": "inner",
+      "doc": "c-flowdis-usp walks the AH header and reports thoff post-AH (= 42 for the standard template). rust-template{,-simd} are fixed-offset extractors that don't walk AH and report thoff at AH start (= 34). Treating flowdis as inner here (it's declared outer globally) makes the existing tunnel mask suppress the thoff disagreement against the outer-default rust-template parsers."
+    }
+  },
   "tunnel_detection": {
     "doc": "On packets that contain a tunnel header (the outer parser reports a tunnel-protocol indicator), the inner-flow 5-tuple fields legitimately differ between OUTER-behavior parsers (kernel-flowdis-style) and INNER-behavior parsers (XDP2/xdp2-rs, which follow the tunnel). The comparator masks `inner_outer_fields` when comparing across mismatched tunnel_behavior. This is the structurally-richer XDP2 design \u2014 XDP2 reports the actual flow inside the tunnel; kernel-flowdis stops at the tunnel header. See benchmark.c:264-277 and docs/flow-dissector-parity.md 'Phase 17.C findings \u2192 Finding 2'.",
     "outer_ip_protos": {
@@ -489,6 +504,14 @@
       "pcap": "l2tp.pcap",
       "applies_to": "7 packets in l2tp.pcap (raw L2TP framing) that c-flowdis-usp rejects; every XDP2 + Rust parser accepts",
       "doc": "OPPOSITE strictness gap from gre-sample/6to4: here c-flowdis-usp is the strict one. The Linux kernel flowdis port (libflowdis) was designed primarily for L2TP-over-UDP (l7_l2tp). Raw L2TP framing trips its parser. XDP2 + Rust handle these packets correctly. Scoped to l2tp.pcap; for the gate's L2TP coverage we use l7_l2tp.pcap (which all parsers handle cleanly)."
+    },
+    {
+      "id": "ah-non-flowdis-reject",
+      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "c-xdp2-mono", "rust-mono", "rust-mono-x4", "rust-graph", "rust-compiled", "rust-simd"],
+      "reject_reason": "parse-error",
+      "pcap": "ah.pcap",
+      "applies_to": "AH (IPsec Authentication Header, ip_proto=51) single-packet template",
+      "doc": "AH packets are accepted by c-flowdis-usp (which walks AH) and rust-template{,-simd} (fixed-offset templates that emit raw IPv4 fields without walking). All other XDP2 + Rust parsers strict-reject — none implement AH header walking. The combination is documented as expected. Combined with the c-flowdis-usp tunnel_behavior_pcap_override on ah.pcap (declares flowdis as inner so the tunnel mask suppresses the thoff disagreement against the outer-default rust-template), ah.pcap now passes the gate."
     },
     {
       "id": "tcp_sack-xdp2-strict",

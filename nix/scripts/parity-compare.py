@@ -61,6 +61,14 @@ class Schema:
     field_names: frozenset[str]
     parsers: dict[str, ParserScope]
     expected_divergences: list[dict]
+    # Per-(pcap, parser) tunnel_behavior overrides. Used when a
+    # parser's declared behavior is "inner" globally but it stops
+    # at the outer header on a specific pcap because it lacks the
+    # walker for that tunnel type. Example: rust-mono/graph/compiled
+    # declare tunnel_behavior=inner but don't implement GRE v1
+    # (PPTP) — on gre-pptp.pcap they behave as outer. Key shape:
+    # {pcap_basename: {parser_id: "outer"|"inner"}}.
+    tunnel_behavior_pcap_overrides: dict
     tunnel: TunnelDetection
 
 
@@ -111,6 +119,7 @@ def load_schema(scope_path: Path) -> Schema:
         field_names=field_names,
         parsers=parsers,
         expected_divergences=raw.get("expected_divergences", []),
+        tunnel_behavior_pcap_overrides=raw.get("tunnel_behavior_pcap_overrides", {}) or {},
         tunnel=tunnel,
     )
 
@@ -244,15 +253,25 @@ def compare_pair(
         raise ValueError(f"unknown parser_id: {rec_a.parser_id} or {rec_b.parser_id}")
     intersect = scope_a.fields & scope_b.fields
 
+    # Resolve effective tunnel_behavior per (pcap, parser). The
+    # per-pcap override lets a parser declare itself inner globally
+    # but admit behaving as outer on a specific pcap whose tunnel
+    # type its graph doesn't walk (e.g. rust-* on gre-pptp.pcap).
+    pcap_key = _normalize_pcap_name(rec_a.pcap)
+    pcap_overrides = schema.tunnel_behavior_pcap_overrides.get(pcap_key, {}) \
+        if pcap_key else {}
+    eff_behavior_a = pcap_overrides.get(rec_a.parser_id, scope_a.tunnel_behavior)
+    eff_behavior_b = pcap_overrides.get(rec_b.parser_id, scope_b.tunnel_behavior)
+
     # Apply tunnel mask: when comparing an outer-behavior parser
     # against an inner-behavior parser on a tunneled packet, the
     # inner_outer_fields are out-of-scope (each parser reports a
     # different layer's 5-tuple, both correct).
     if (
         tunneled
-        and scope_a.tunnel_behavior != "unknown"
-        and scope_b.tunnel_behavior != "unknown"
-        and scope_a.tunnel_behavior != scope_b.tunnel_behavior
+        and eff_behavior_a != "unknown"
+        and eff_behavior_b != "unknown"
+        and eff_behavior_a != eff_behavior_b
     ):
         intersect = intersect - schema.tunnel.inner_outer_fields
 
