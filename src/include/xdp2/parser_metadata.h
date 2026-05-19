@@ -690,7 +690,11 @@ static void NAME(const void *vicmp, size_t hdr_len, void *imetadata,	\
 	frame->icmp.type = icmp->type;					\
 	frame->icmp.code = icmp->code;					\
 	if (icmp_has_id(icmp->type))					\
-		frame->icmp.id = icmp->un.echo.id ? : 1;		\
+		/* Store as __be16 (wire byte order) so the bench's	\
+		 * ntohs() on emit yields host 1. Using host-order 1	\
+		 * would surface as 256 on little-endian. Discovered	\
+		 * 2026-05-18 via icmpv4.pcap parity. */		\
+		frame->icmp.id = icmp->un.echo.id ? : htons(1);		\
 	else								\
 		frame->icmp.id = 0;					\
 }

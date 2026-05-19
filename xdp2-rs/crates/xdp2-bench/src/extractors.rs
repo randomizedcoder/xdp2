@@ -126,7 +126,12 @@ pub(crate) fn extract_icmp_metadata(
     // Echo request/reply: v4 type 0/8, v6 type 128/129
     let t = hdr[0];
     if t == 0 || t == 8 || t == 128 || t == 129 {
-        meta.icmp.id = u16::from_be_bytes([hdr[4], hdr[5]]);
+        // Sentinel: wire id=0 → 1, matching the C path's
+        // `icmp->un.echo.id ? : htons(1)` (parser_metadata.h
+        // XDP2_METADATA_TEMP_icmp). Lets downstream consumers
+        // distinguish "no id key" from "valid echo with id 0".
+        let id_val = u16::from_be_bytes([hdr[4], hdr[5]]);
+        meta.icmp.id = if id_val == 0 { 1 } else { id_val };
     }
 }
 

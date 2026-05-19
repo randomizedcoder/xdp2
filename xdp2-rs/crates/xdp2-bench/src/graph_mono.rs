@@ -325,7 +325,9 @@ fn dispatch_ipv4(next: i32, rest: &[u8], meta: &mut FlowMeta) -> Result<(), Pars
             meta.icmp.code = rest[1];
             let t = rest[0];
             if t == 0 || t == 8 {
-                meta.icmp.id = u16::from_be_bytes([rest[4], rest[5]]);
+                // Sentinel: wire id=0 → 1 (see extractors.rs).
+                let id_val = u16::from_be_bytes([rest[4], rest[5]]);
+                meta.icmp.id = if id_val == 0 { 1 } else { id_val };
             }
             Ok(())
         }
@@ -475,7 +477,9 @@ fn dispatch_ipv6(
                 meta.icmp.code = rest[1];
                 let t = rest[0];
                 if t == 128 || t == 129 {
-                    meta.icmp.id = u16::from_be_bytes([rest[4], rest[5]]);
+                    // Sentinel: wire id=0 → 1 (see extractors.rs).
+                let id_val = u16::from_be_bytes([rest[4], rest[5]]);
+                meta.icmp.id = if id_val == 0 { 1 } else { id_val };
                 }
                 return Ok(());
             }

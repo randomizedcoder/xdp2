@@ -689,7 +689,9 @@ switch_ip_proto:
 		metadata->icmp.type = icmph->type;
 		metadata->icmp.code = icmph->code;
 		if (icmp_has_id(icmph->type))
-			metadata->icmp.id = icmph->un.echo.id ? : 1;
+			/* htons sentinel — see comment in
+			 * parser_metadata.h:XDP2_METADATA_TEMP_icmp. */
+			metadata->icmp.id = icmph->un.echo.id ? : htons(1);
 		else
 			metadata->icmp.id = 0;
 

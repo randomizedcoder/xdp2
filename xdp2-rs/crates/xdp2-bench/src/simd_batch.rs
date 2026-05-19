@@ -116,7 +116,9 @@ fn extract_fast_path_meta(ptr: *const u8, len: usize, protocol: u8, meta: &mut F
                 meta.icmp.code = *l4.add(1);
                 let t = *l4;
                 if t == 0 || t == 8 {
-                    meta.icmp.id = u16::from_be_bytes([*l4.add(4), *l4.add(5)]);
+                    // Sentinel: wire id=0 → 1 (see extractors.rs).
+                    let id_val = u16::from_be_bytes([*l4.add(4), *l4.add(5)]);
+                    meta.icmp.id = if id_val == 0 { 1 } else { id_val };
                 }
             }
             _ => {}
