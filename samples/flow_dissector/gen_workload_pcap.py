@@ -36,6 +36,8 @@ try:
     from scapy.all import (
         Ether, IP, IPv6, TCP, UDP, ICMP, ICMPv6EchoRequest, ARP, Raw, wrpcap,
     )
+    from scapy.layers.l2 import Dot1Q
+    from scapy.layers.ppp import PPPoE, PPP
 except ImportError:
     print("Error: scapy is required (pip install scapy)", file=sys.stderr)
     sys.exit(1)
@@ -173,6 +175,90 @@ def build_eth_arp():
                 hwsrc=rand_mac()))
 
 
+# ── VLAN 802.1Q (R3.4.5b/c fast-paths) ───────────────────────────
+#
+# Single 802.1Q tag, carrier-ethernet style. Random VID for spread
+# across the mod-4096 VID space; PCP=0 (best-effort) to keep
+# packets typical. Matches the c-xdp2-mono fast-path matcher in
+# src/templates/xdp2/mono_def.template.c (R3.4.5b/c blocks).
+
+def build_eth_vlan_ipv4_tcp(dport=443, server_side=True):
+    """Eth/VLAN/IPv4/TCP — hits R3.4.5b fast-path."""
+    if server_side:
+        sport, dport = dport, rand_ephemeral_port()
+    else:
+        sport, dport = rand_ephemeral_port(), dport
+    return (Ether(src=rand_mac(), dst=rand_mac()) /
+            Dot1Q(vlan=random.randint(1, 4094)) /
+            IP(src=rand_public_ipv4(), dst=rand_public_ipv4()) /
+            TCP(sport=sport, dport=dport, flags="A") /
+            rand_payload(bimodal_payload_len()))
+
+def build_eth_vlan_ipv6_tcp(dport=443, server_side=True):
+    """Eth/VLAN/IPv6/TCP — hits R3.4.5c fast-path."""
+    if server_side:
+        sport, dport = dport, rand_ephemeral_port()
+    else:
+        sport, dport = rand_ephemeral_port(), dport
+    return (Ether(src=rand_mac(), dst=rand_mac()) /
+            Dot1Q(vlan=random.randint(1, 4094)) /
+            IPv6(src=rand_ipv6_global(), dst=rand_ipv6_global()) /
+            TCP(sport=sport, dport=dport, flags="A") /
+            rand_payload(bimodal_payload_len()))
+
+def build_eth_vlan_ipv4_icmp():
+    """Eth/VLAN/IPv4/ICMP — hits R3.4.5b fast-path."""
+    return (Ether(src=rand_mac(), dst=rand_mac()) /
+            Dot1Q(vlan=random.randint(1, 4094)) /
+            IP(src=rand_rfc1918(), dst=rand_rfc1918()) /
+            ICMP(type=8) /
+            rand_payload(random.randint(32, 64)))
+
+
+# ── PPPoE (R3.4.5d/e fast-paths) ─────────────────────────────────
+#
+# Consumer-ISP-style traffic: every frame carries a PPPoE session
+# header (8 bytes including the trailing PPP protocol field).
+# Sessions are short-lived in real life; we sample a random
+# session-id per packet for spread.
+
+def build_eth_pppoe_ipv4_tcp(dport=443, server_side=True):
+    """Eth/PPPoE/PPP/IPv4/TCP — hits R3.4.5d fast-path."""
+    if server_side:
+        sport, dport = dport, rand_ephemeral_port()
+    else:
+        sport, dport = rand_ephemeral_port(), dport
+    # PPP protocol 0x0021 = IPv4 (handled by the inner PPP layer).
+    return (Ether(src=rand_mac(), dst=rand_mac()) /
+            PPPoE(sessionid=random.randint(1, 0xFFFF)) /
+            PPP(proto=0x0021) /
+            IP(src=rand_public_ipv4(), dst=rand_public_ipv4()) /
+            TCP(sport=sport, dport=dport, flags="A") /
+            rand_payload(bimodal_payload_len()))
+
+def build_eth_pppoe_ipv6_tcp(dport=443, server_side=True):
+    """Eth/PPPoE/PPP/IPv6/TCP — hits R3.4.5e fast-path."""
+    if server_side:
+        sport, dport = dport, rand_ephemeral_port()
+    else:
+        sport, dport = rand_ephemeral_port(), dport
+    return (Ether(src=rand_mac(), dst=rand_mac()) /
+            PPPoE(sessionid=random.randint(1, 0xFFFF)) /
+            PPP(proto=0x0057) /
+            IPv6(src=rand_ipv6_global(), dst=rand_ipv6_global()) /
+            TCP(sport=sport, dport=dport, flags="A") /
+            rand_payload(bimodal_payload_len()))
+
+def build_eth_pppoe_ipv4_icmp():
+    """Eth/PPPoE/PPP/IPv4/ICMP — hits R3.4.5d fast-path."""
+    return (Ether(src=rand_mac(), dst=rand_mac()) /
+            PPPoE(sessionid=random.randint(1, 0xFFFF)) /
+            PPP(proto=0x0021) /
+            IP(src=rand_rfc1918(), dst=rand_rfc1918()) /
+            ICMP(type=8) /
+            rand_payload(random.randint(32, 64)))
+
+
 # ── VXLAN / IPIP tunneling (K8s overlay) ─────────────────────────
 
 def wrap_vxlan(inner, vni=None):
@@ -272,6 +358,46 @@ WORKLOADS = {
         ( 5, lambda: build_eth_ipv6_tcp(dport=9090, server_side=True)),
         ( 4, lambda: build_eth_ipv4_tcp_internal(dport=443, server_side=True)),
         ( 3, lambda: build_eth_arp()),
+    ],
+
+    # Carrier-ethernet / metro link — every frame carries a single
+    # 802.1Q VLAN tag. Mix mirrors https-web's L3/L4 ratios so
+    # vlan-tcp-mix vs https-web comparison isolates the VLAN cost.
+    # Exercises R3.4.5b (eth+vlan+ipv4+TCP/ICMP) and R3.4.5c
+    # (eth+vlan+ipv6+TCP) fast-paths.
+    "vlan-tcp-mix": [
+        (45, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=True)),
+        (25, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=False)),
+        (10, lambda: build_eth_vlan_ipv6_tcp(dport=443, server_side=True)),
+        ( 6, lambda: build_eth_vlan_ipv4_tcp(dport=80, server_side=True)),
+        ( 4, lambda: build_eth_vlan_ipv4_tcp(dport=22, server_side=True)),
+        ( 4, lambda: build_eth_vlan_ipv4_icmp()),
+        ( 6, lambda: build_eth_vlan_ipv6_tcp(dport=22, server_side=True)),
+    ],
+
+    # Consumer ISP PPPoE access — every frame is PPPoE-encapped
+    # (PPP_IP for IPv4, PPP_IPV6 for IPv6). Exercises R3.4.5d
+    # (eth+PPPoE+ipv4+TCP/ICMP) and R3.4.5e (eth+PPPoE+ipv6+TCP).
+    "pppoe-isp": [
+        (50, lambda: build_eth_pppoe_ipv4_tcp(dport=443, server_side=True)),
+        (20, lambda: build_eth_pppoe_ipv4_tcp(dport=443, server_side=False)),
+        (10, lambda: build_eth_pppoe_ipv6_tcp(dport=443, server_side=True)),
+        ( 8, lambda: build_eth_pppoe_ipv4_tcp(dport=80, server_side=True)),
+        ( 5, lambda: build_eth_pppoe_ipv4_icmp()),
+        ( 4, lambda: build_eth_pppoe_ipv4_tcp(dport=22, server_side=True)),
+        ( 3, lambda: build_eth_pppoe_ipv6_tcp(dport=80, server_side=True)),
+    ],
+
+    # All-VXLAN (no plain bypass). Forces every packet through the
+    # slow-path tunnel walk so the perf number isolates the
+    # post-R3.4.5b UDP-fast-path-drop cost (mono now correctly
+    # walks into the inner Ethernet + IP + L4 instead of
+    # short-circuiting at outer UDP).
+    "vxlan-k8s-pure": [
+        (60, build_k8s_vxlan_grpc),
+        (25, build_k8s_vxlan_kafka),
+        (10, build_k8s_vxlan_icmp),
+        ( 5, build_k8s_liveness_probe),
     ],
 }
 

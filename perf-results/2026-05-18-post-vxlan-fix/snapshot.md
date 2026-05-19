@@ -13,11 +13,29 @@ This snapshot captures perf after the following commits in
 
 ## Numbers (`benchmark -p -n 100000`)
 
+Existing data/pcaps (sampled 2026-05-18 after the vxlan-fix series):
+
 | pcap | flowdis | xdp2-opt | xdp2-mono | mono Mpps | mono vs flowdis |
 |---|---:|---:|---:|---:|---:|
 | tcp_ipv4 | 20 ns | 15 ns | **5 ns** | 200 | 4.0× |
 | tcp_ipv6 | 20 ns | 14 ns | **6 ns** | 166 | 3.3× |
 | vxlan    | 19 ns | 21 ns | **16 ns** | 62 | 1.2× |
+
+New gen_workload_pcap.py workloads (sampled 2026-05-19 after
+the R3.4.5d/e + R3.4.4 series + new workload generators landed):
+
+| pcap | flowdis | xdp2-mono | mono Mpps | mono vs flowdis | fast-path |
+|---|---:|---:|---:|---:|---|
+| vlan-tcp-mix | 24 ns | **6 ns** | 166 | 4.0× | R3.4.5b/c hit |
+| pppoe-isp | 22 ns | **7 ns** | 142 | 2.9× | R3.4.5d/e hit |
+| vxlan-k8s-pure | 20 ns | 19 ns | 52 | 1.0× | slow-path inner walk |
+
+The first two confirm the new chain fast-paths fire end-to-end
+at roughly the same per-packet cost as the plain TCP fast-path
+(VLAN adds ~1 ns, PPPoE ~2 ns). The third confirms mono's
+slow-path tunnel walk after dropping UDP from the fast-path
+remains competitive with the generic engine (mono 19 vs opt
+21 from the 2026-05-18 column above).
 
 ## What moved vs the pre-fix state
 
