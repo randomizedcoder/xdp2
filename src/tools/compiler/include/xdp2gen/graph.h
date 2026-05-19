@@ -790,6 +790,9 @@ struct parser {
     int frame_size = 256;
     int num_counters = 255;
     int num_keys = 255;
+    /* R3.4.4: per-parser opt-in for the mono template's
+     * straight-line fast-path emission. See parser_types.h. */
+    int enable_fast_paths = 0;
 
     friend inline std::ostream &operator<<(std::ostream &os, parser &p)
     {

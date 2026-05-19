@@ -311,6 +311,14 @@ struct xdp2_parser_config {
 	size_t frame_size;
 	__u8 num_counters;
 	__u8 num_keys;
+	/* R3.4.4: when 1, the xdp2-compiler emits straight-line fast-
+	 * path extractors at the top of the mono entry function for the
+	 * common eth+(vlan|pppoe)+ip+L4 chains. The flag has no runtime
+	 * effect — it's read only at compile time by xdp2-compiler
+	 * (graph_consumer.h) and surfaced to the mono template via the
+	 * python IR dict. Replaces the previously-hardcoded
+	 * parser_name == 'xdp2_parser_flow_dissector_l2' gate. */
+	__u8 enable_fast_paths;
 	const struct xdp2_parse_node *okay_node;
 	const struct xdp2_parse_node *fail_node;
 	const struct xdp2_parse_node *atencap_node;

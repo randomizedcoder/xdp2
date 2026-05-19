@@ -273,6 +273,7 @@ auto make_python_object(graph_t const &graph, std::vector<R> const &roots)
 	l.set("frame_size", r.frame_size);
 	l.set("num_counters", r.num_counters);
 	l.set("num_keys", r.num_keys);
+	l.set("enable_fast_paths", r.enable_fast_paths);
 	l.set("okay_node", r.okay_target_set ?
 	      graph[r.okay_target].name : "");
 	l.set("fail_node", r.fail_target_set ?

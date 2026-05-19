@@ -443,6 +443,14 @@ private:
 			    plog::log(std::cout)
 				<< "  literal_value: " << v->getZExtValue()
 				<< std::endl;
+			} else if (field_name == "enable_fast_paths") {
+			    node.enable_fast_paths = v->getZExtValue();
+			    plog::log(std::cout)
+				<< "  bit width: " << v->getBitWidth()
+				<< std::endl;
+			    plog::log(std::cout)
+				<< "  literal_value: " << v->getZExtValue()
+				<< std::endl;
 			}
 		    }
 		}

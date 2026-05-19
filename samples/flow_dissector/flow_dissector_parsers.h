@@ -28,7 +28,11 @@ XDP2_PARSER(xdp2_parser_flow_dissector_l2,
 	    etype_dispatch_node,
 	    (.metameta_size = 0,
 	     .frame_size = sizeof(struct xdp2_metadata_all),
-	     .max_frames = 0
+	     .max_frames = 0,
+	     /* R3.4.4: opt into the mono codegen's straight-line
+	      * fast-paths for eth+(vlan|pppoe)+ip+L4. See
+	      * src/templates/xdp2/mono_def.template.c. */
+	     .enable_fast_paths = 1
 	    )
 );
 

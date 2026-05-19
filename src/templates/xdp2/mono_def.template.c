@@ -96,17 +96,20 @@ static __unused() __attribute__((always_inline)) int
 	(void)flags;
 	(void)frame;
 
-	<!--(if root['parser_name'] == 'xdp2_parser_flow_dissector_l2')-->
+	<!--(if root['enable_fast_paths'])-->
 	/* R3.4.1 + R3.4.5 fast-path: straight-line extractors for the
-	 * common eth+ipv{4,6}+{tcp,udp,icmp,icmpv6} chains. Inlined at
-	 * the top of the mono entry function. Sidesteps the parse graph
-	 * entirely on a chain match; on miss, falls through to the
-	 * goto-state body below. Each chain mirrors the metadata writes
-	 * produced by the slow-path *_metadata functions so c-xdp2-mono
-	 * stays parity-identical to c-xdp2-usp on chain hits.
+	 * common eth+ipv{4,6}+{tcp,icmp,icmpv6}, vlan variants, and
+	 * PPPoE variants. Inlined at the top of the mono entry function.
+	 * Sidesteps the parse graph entirely on a chain match; on miss,
+	 * falls through to the goto-state body below. Each chain mirrors
+	 * the metadata writes produced by the slow-path *_metadata
+	 * functions so c-xdp2-mono stays parity-identical to c-xdp2-usp
+	 * on chain hits.
 	 *
-	 * Hardcoded to the L2 parser; R3.4.4 will generalise via a
-	 * XDP2_FAST_PATH_CHAIN annotation in the parser source. */
+	 * R3.4.4: gated on the per-parser config.enable_fast_paths flag
+	 * (parser_types.h). Parsers opting in inherit the full chain set;
+	 * parsers without the flag fall through directly to the graph
+	 * body. */
 	{
 		const unsigned char *p = (const unsigned char *)hdr;
 		/* R3.4.1: eth+ipv4+{tcp,udp,icmp} */
