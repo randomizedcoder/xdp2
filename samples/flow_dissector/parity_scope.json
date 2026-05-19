@@ -452,7 +452,12 @@
     },
     {
       "id": "gre-sample-xdp2-strict",
-      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "c-xdp2-mono", "rust-graph"],
+      "parsers": [
+        "c-xdp2-usp",
+        "c-xdp2-parse-only",
+        "c-xdp2-mono",
+        "rust-graph"
+      ],
       "reject_reason": "parse-error",
       "pcap": "gre-sample.pcap",
       "applies_to": "8 of 40 packets in gre-sample.pcap that XDP2's strict GRE parser and rust-graph reject; c-flowdis-usp permissively accepts",
@@ -460,7 +465,16 @@
     },
     {
       "id": "6to4-xdp2-strict",
-      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "c-xdp2-mono", "rust-graph", "rust-mono", "rust-mono-x4", "rust-compiled", "rust-simd"],
+      "parsers": [
+        "c-xdp2-usp",
+        "c-xdp2-parse-only",
+        "c-xdp2-mono",
+        "rust-graph",
+        "rust-mono",
+        "rust-mono-x4",
+        "rust-compiled",
+        "rust-simd"
+      ],
       "reject_reason": "parse-error",
       "pcap": "6to4.pcap",
       "applies_to": "1 packet in 6to4.pcap (IPv6-in-IPv4 RFC 3056) that XDP2 + Rust strict-reject; c-flowdis-usp permissively accepts",
@@ -468,7 +482,9 @@
     },
     {
       "id": "l2tp-flowdis-strict",
-      "parsers": ["c-flowdis-usp"],
+      "parsers": [
+        "c-flowdis-usp"
+      ],
       "reject_reason": "parse-error",
       "pcap": "l2tp.pcap",
       "applies_to": "7 packets in l2tp.pcap (raw L2TP framing) that c-flowdis-usp rejects; every XDP2 + Rust parser accepts",
@@ -476,7 +492,11 @@
     },
     {
       "id": "tcp_sack-xdp2-strict",
-      "parsers": ["c-xdp2-usp", "c-xdp2-parse-only", "rust-graph"],
+      "parsers": [
+        "c-xdp2-usp",
+        "c-xdp2-parse-only",
+        "rust-graph"
+      ],
       "reject_reason": "parse-error",
       "pcap": "tcp_sack.pcap",
       "applies_to": "19 packets in tcp_sack.pcap where TCP SACK option layout trips XDP2 generic engine's strict-TLV walker and rust-graph's equivalent; c-flowdis-usp, c-bpf-xdp2, c-xdp2-mono (via R3.4 fast-path), and rust-graph-enum all permissively accept",
@@ -484,7 +504,7 @@
     }
   ],
   "expected_protocol_acceptance": {
-    "doc": "Per-protocol-template expected acceptance \u2014 Phase 3 of the protocol-coverage-matrix plan. Bootstrapped 2026-05-18 from a full 378-pcap run of `nix run .#protocol-coverage-matrix -- --bootstrap-expectations`. Each protocol entry has a 'default' (applied to all parsers) and per-parser 'overrides'. Override vocabulary: 'accept', 'reject:<reject_reason>'. Cells diverging from these expectations are flagged as REJ-unexpected by the aggregator. Known disagreements outside this schema: 4 OK!N cells on icmpv4 (9-10 field disagreements per parser) and vxlan (5-6); both tracked separately as Phase 6 bug-triage. Bench-failed overrides on the rust parsers (e.g. ah, arp, appletalk) reflect packet shapes xdp2-bench doesn't yet handle \u2014 REMOVE the override once xdp2-bench is fixed and the cell should become OK. See nix/scripts/protocol-coverage-matrix.py. Re-bootstrapped 2026-05-18 after vxlan_proto fix + UDP fast-path drop + rust-graph-enum reject-reason unification.",
+    "doc": "Per-protocol-template expected acceptance \u2014 Phase 3 of the protocol-coverage-matrix plan. Bootstrapped 2026-05-18 from a full 378-pcap run of `nix run .#protocol-coverage-matrix -- --bootstrap-expectations`. Each protocol entry has a 'default' (applied to all parsers) and per-parser 'overrides'. Override vocabulary: 'accept', 'reject:<reject_reason>'. Cells diverging from these expectations are flagged as REJ-unexpected by the aggregator. Known disagreements outside this schema: 4 OK!N cells on icmpv4 (9-10 field disagreements per parser) and vxlan (5-6); both tracked separately as Phase 6 bug-triage. Bench-failed overrides on the rust parsers (e.g. ah, arp, appletalk) reflect packet shapes xdp2-bench doesn't yet handle \u2014 REMOVE the override once xdp2-bench is fixed and the cell should become OK. See nix/scripts/protocol-coverage-matrix.py. Re-bootstrapped 2026-05-18 after vxlan_proto fix + UDP fast-path drop + rust-graph-enum reject-reason unification. Re-bootstrapped 2026-05-18 after rust dump-meta-only filter bypass + icmp_id sentinel fix.",
     "protocols": {
       "ah": {
         "default": "reject:undeclared",
@@ -494,14 +514,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "accept",
+          "rust-template-simd": "accept"
         }
       },
       "amqp": {
@@ -544,14 +564,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ata_d2h_fis": {
@@ -562,14 +582,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ata_h2d_fis": {
@@ -580,14 +600,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "avtp": {
@@ -626,14 +646,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "bfd": {
@@ -702,14 +722,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "can_xl": {
@@ -720,32 +740,25 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "capwap": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "carp": {
@@ -1000,14 +1013,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "erspan_v3": {
@@ -1059,14 +1072,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ethertype_tsn": {
@@ -1139,14 +1152,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_adisc": {
@@ -1157,14 +1170,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_flogi": {
@@ -1175,14 +1188,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_logo": {
@@ -1193,14 +1206,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_ls_acc": {
@@ -1211,14 +1224,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_ls_rjt": {
@@ -1229,14 +1242,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_prli": {
@@ -1247,14 +1260,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_rscn": {
@@ -1265,14 +1278,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_els_scr": {
@@ -1283,14 +1296,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_ns_gid_ft": {
@@ -1301,14 +1314,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fc_ns_gpn_ft_rsp": {
@@ -1319,14 +1332,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fcoe_init": {
@@ -1337,14 +1350,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fcp_cmnd": {
@@ -1355,14 +1368,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fcp_rsp": {
@@ -1373,14 +1386,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fcp_rsp_ext": {
@@ -1391,14 +1404,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fcp_srr": {
@@ -1409,14 +1422,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fcp_txrdy": {
@@ -1427,14 +1440,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "fddi": {
@@ -1521,14 +1534,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "accept",
+          "rust-template-simd": "accept"
         }
       },
       "gre_cisco": {
@@ -1574,21 +1587,13 @@
         }
       },
       "gtp_u": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
-          "c-xdp2-parse-only": "accept",
-          "c-xdp2-usp": "accept",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-simd": "reject:parse-error"
         }
       },
       "gtp_v0": {
@@ -1627,14 +1632,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "hci_acl": {
@@ -1645,14 +1650,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "hci_cmd": {
@@ -1663,14 +1668,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "hci_event": {
@@ -1681,14 +1686,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "hci_iso": {
@@ -1699,14 +1704,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "hci_sco": {
@@ -1717,14 +1722,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "homeplug_av": {
@@ -1738,21 +1743,14 @@
         }
       },
       "hsr": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
           "c-flowdis-usp": "reject:parse-error",
-          "c-xdp2-mono": "accept",
-          "c-xdp2-parse-only": "accept",
-          "c-xdp2-usp": "accept",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "hsrp": {
@@ -1797,14 +1795,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:parse-error",
+          "rust-template-simd": "reject:parse-error"
         }
       },
       "iec_104": {
@@ -1873,14 +1871,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "igmp": {
@@ -1930,14 +1928,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ipcomp": {
@@ -1968,14 +1966,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ipv6_destopts": {
@@ -1986,14 +1984,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ipv6_eh": {
@@ -2004,14 +2002,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ipv6_fragment": {
@@ -2031,14 +2029,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ipv6_nd": {
@@ -2393,21 +2391,13 @@
         }
       },
       "memcache": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "mgcp": {
@@ -2490,14 +2480,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "mpls_echo": {
@@ -2684,14 +2674,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "nvme_rdma_cm_rej": {
@@ -2702,14 +2692,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "nvme_rdma_cm_rep": {
@@ -2720,14 +2710,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "nvme_rdma_cm_req": {
@@ -2738,14 +2728,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "nvme_tcp": {
@@ -2755,93 +2745,53 @@
         }
       },
       "nvme_tcp_data": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "nvme_tcp_icreq": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "nvme_tcp_icresp": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "nvme_tcp_r2t": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "nvme_tcp_rsp": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
-          "c-xdp2-mono": "accept",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "oam_lbm": {
@@ -2920,14 +2870,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "pcep": {
@@ -3003,14 +2953,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ppp_ccp": {
@@ -3021,14 +2971,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ppp_chap": {
@@ -3039,14 +2989,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ppp_ipcp": {
@@ -3057,14 +3007,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ppp_ipv6cp": {
@@ -3075,14 +3025,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ppp_lcp": {
@@ -3093,14 +3043,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ppp_pap": {
@@ -3111,14 +3061,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "pppoe": {
@@ -3129,14 +3079,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "pppoed": {
@@ -3203,14 +3153,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "quic": {
@@ -3267,14 +3217,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "redis": {
@@ -3399,14 +3349,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "sctp": {
@@ -3452,14 +3402,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "sflow": {
@@ -3494,14 +3444,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "sll2": {
@@ -3558,14 +3508,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "snmp": {
@@ -3606,14 +3556,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_cred_req": {
@@ -3624,14 +3574,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_cred_rsp": {
@@ -3642,14 +3592,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_i_logout": {
@@ -3660,14 +3610,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_login_rej": {
@@ -3678,14 +3628,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_login_req": {
@@ -3696,14 +3646,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_login_rsp": {
@@ -3714,14 +3664,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_rsp": {
@@ -3732,14 +3682,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_t_logout": {
@@ -3750,14 +3700,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srp_tsk_mgmt": {
@@ -3768,14 +3718,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "srt": {
@@ -3807,14 +3757,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ssp_frame_hdr": {
@@ -3825,14 +3775,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ssp_response_iu": {
@@ -3843,14 +3793,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ssp_tmf_iu": {
@@ -3861,14 +3811,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "ssp_xfer_rdy": {
@@ -3879,14 +3829,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "stp": {
@@ -3983,32 +3933,25 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "twamp": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "tzsp": {
@@ -4044,14 +3987,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "accept",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "accept",
+          "rust-mono-x4": "accept",
+          "rust-simd": "accept",
+          "rust-template": "reject:no-template",
+          "rust-template-simd": "reject:no-template"
         }
       },
       "vrrp": {
@@ -4089,14 +4032,14 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "accept",
+          "rust-template-simd": "accept"
         }
       },
       "vxlan_gpb": {
@@ -4107,32 +4050,25 @@
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-compiled": "reject:parse-error",
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only",
+          "rust-mono": "reject:parse-error",
+          "rust-mono-x4": "reject:parse-error",
+          "rust-simd": "reject:parse-error",
+          "rust-template": "accept",
+          "rust-template-simd": "accept"
         }
       },
       "vxlan_gpe": {
-        "default": "reject:undeclared",
+        "default": "accept",
         "overrides": {
           "c-bpf-xdp2": "reject:verifier",
-          "c-flowdis-usp": "accept",
           "c-xdp2-mono": "reject:parse-error",
           "c-xdp2-parse-only": "reject:parse-error",
           "c-xdp2-usp": "reject:parse-error",
-          "rust-compiled": "reject:bench-failed",
-          "rust-graph": "reject:bench-failed",
-          "rust-graph-enum": "reject:bench-failed",
-          "rust-mono": "reject:bench-failed",
-          "rust-mono-x4": "reject:bench-failed",
-          "rust-simd": "reject:bench-failed",
-          "rust-template": "reject:bench-failed",
-          "rust-template-simd": "reject:bench-failed"
+          "rust-graph": "reject:parse-error",
+          "rust-graph-enum": "reject:ipv4-only"
         }
       },
       "whois": {

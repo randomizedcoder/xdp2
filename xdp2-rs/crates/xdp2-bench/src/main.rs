@@ -126,6 +126,43 @@ fn main() {
 
     let parser = graph::make_parser();
 
+    // ── Early dump-meta-only exit ──
+    // When the caller wants per-packet metadata records (parity-check
+    // mode), run the dump pass on the UNFILTERED packets and exit
+    // before the parse-filter / perf-bench machinery. This lets the
+    // parity gate get rejection records (accepted=false,
+    // reject_reason=parse-error) for packet shapes the rust parser
+    // doesn't handle, instead of the bench exiting with "no packets
+    // passed the parse filter" and producing an empty JSONL — which
+    // the matrix tool then has to classify as bench-failed.
+    if cli.dump_meta_only {
+        if let Some(ref dump_path) = cli.dump_meta {
+            let pcap_label = cli
+                .dump_meta_pcap
+                .clone()
+                .unwrap_or_else(|| {
+                    std::path::Path::new(&pcap_path)
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("?")
+                        .to_string()
+                });
+            let all_refs: Vec<&pcap::StoredPacket> = all_packets.iter().collect();
+            if let Err(e) = bench::dump_meta_pass(
+                &cli.mode,
+                &all_refs,
+                &parser,
+                dump_path,
+                &pcap_label,
+            ) {
+                eprintln!("error: dump-meta pass failed: {e}");
+                process::exit(1);
+            }
+            eprintln!("[dump-meta] wrote {} ({} packets)", dump_path, all_packets.len());
+            return;
+        }
+    }
+
     // ── Filter: keep only packets the Rust parser handles ──
     let packets: Vec<&pcap::StoredPacket> = all_packets
         .iter()
