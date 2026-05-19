@@ -148,7 +148,7 @@ included_in = ["parity_gate"]
 path = "data/pcaps/gre-pptp.pcap"
 category = "tunnel-gre"
 excluded_from = ["parity_gate"]
-excluded_reason = "Post-triage (2026-05-18): 2 packets, ~212 total disagreement records once all 13 parsers run. Root cause is rust-side: rust-mono/graph/compiled don't walk GRE v1 (PPTP) inner — they stop at outer IPv4 with ip_proto=47. c-flowdis-usp and the c-xdp2-* family all walk to the inner DNS-over-UDP correctly. Both rust and c-xdp2 declare tunnel_behavior=inner so the tunnel mask doesn't fire. Either implement PPTP in rust's parser or add a per-pcap scope exception."
+excluded_reason = "Multi-layer encap (Eth/VLAN/IPv6/IPv4/GRE-PPTP/PPP/IPv4/UDP/DNS) where each parser stops at a different valid layer: c-flowdis-usp + c-xdp2-* walk all the way to inner DNS; rust-mono/graph/compiled stop at the IPv4-in-IPv6 layer; rust-template/template-simd stop at outermost IPv6. Each is correct under its declared scope, but the tunnel_behavior_pcap_overrides mechanism (added 2026-05-18) only models 2 levels (inner/outer), not the 3+ levels this pcap exercises. With the rust-* outer override applied, disagreements drop 212 -> 86 (-60%); closing the remainder would need depth-aware tunnel behavior in the schema. Tracked as a follow-up."
 
 [pcap."gre-sample"]
 path = "data/pcaps/gre-sample.pcap"
