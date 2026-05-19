@@ -270,6 +270,71 @@ static __unused() __attribute__((always_inline)) int
 				return XDP2_STOP_OKAY;
 			}
 		}
+		/* R3.4.5d: eth+PPPoE+ipv4+{tcp,icmp}. PPPoE is an 8-byte
+		 * header (ver/type, code, sid, length, PPP-proto) at offset
+		 * +2 — the PPP protocol selector is at the trailing 2 bytes
+		 * (p[8..9]). PPP_IP = 0x0021 = bytes 00 21. UDP is excluded
+		 * per the R3.4.1 tunnel-dport rationale (UDP-over-PPPoE
+		 * could carry inner tunnel payload). Min len = 14 + 8 + 20
+		 * + 20 = 62 (eth + pppoe + ipv4 + tcp_min). */
+		if (len >= 50 && p[0] == 0x88 && p[1] == 0x64 &&
+		    p[8] == 0x00 && p[9] == 0x21 && p[10] == 0x45 &&
+		    (p[16] & 0x3f) == 0 && p[17] == 0 && (p[16] & 0x20) == 0) {
+			unsigned char ip_proto = p[19];
+			if (ip_proto == 6 || ip_proto == 1) {
+				struct xdp2_metadata_all *_meta = metadata;
+				/* IPv4 metadata (R3.4.1 logic, offsets +8 to
+				 * skip the PPPoE header). l3_off = 2 (etype)
+				 * + 8 (PPPoE) = 10 — matches the slow-path
+				 * sequence eth→pppoe→ip_check→ipv4. PPPoE
+				 * itself adds no metadata in flow_dissector. */
+				_meta->addr_type = XDP2_ADDR_TYPE_IPV4;
+				_meta->l3_off = 10;
+				_meta->ip_proto = ip_proto;
+				memcpy(&_meta->addrs.v4_addrs[0], p + 22, 4);
+				memcpy(&_meta->addrs.v4_addrs[1], p + 26, 4);
+				if (ip_proto == 1) {
+					_meta->icmp.type = p[30];
+					_meta->icmp.code = p[31];
+					if (icmp_has_id(p[30])) {
+						__be16 id_be = *(const __be16 *)(p + 34);
+						_meta->icmp.id = id_be ? id_be : htons(1);
+					}
+				} else {
+					memcpy(&_meta->port16[0], p + 30, 4);
+				}
+				return XDP2_STOP_OKAY;
+			}
+		}
+		/* R3.4.5e: eth+PPPoE+ipv6+{tcp,icmpv6}. Mirrors R3.4.5d's
+		 * PPPoE handling and R3.4.5a's IPv6 handling, IPv6 offsets
+		 * shifted by +8 for the PPPoE header. PPP_IPV6 = 0x0057.
+		 * Min len = 14 + 8 + 40 + 20 = 82. */
+		if (len >= 70 && p[0] == 0x88 && p[1] == 0x64 &&
+		    p[8] == 0x00 && p[9] == 0x57 && (p[10] >> 4) == 6) {
+			unsigned char nexthdr = p[16];
+			if (nexthdr == 6 || nexthdr == 58) {
+				struct xdp2_metadata_all *_meta = metadata;
+				_meta->addr_type = XDP2_ADDR_TYPE_IPV6;
+				_meta->l3_off = 10;  /* etype(2) + pppoe(8) */
+				_meta->ip_proto = nexthdr;
+				__be32 flow_word = *(const __be32 *)(p + 10);
+				_meta->flow_label = ntohl(flow_word) & 0x000FFFFF;
+				memcpy(&_meta->addrs.v6_addrs[0], p + 18, 16);
+				memcpy(&_meta->addrs.v6_addrs[1], p + 34, 16);
+				if (nexthdr == 58) {
+					_meta->icmp.type = p[50];
+					_meta->icmp.code = p[51];
+					if (icmp_has_id(p[50])) {
+						__be16 id_be = *(const __be16 *)(p + 54);
+						_meta->icmp.id = id_be ? id_be : htons(1);
+					}
+				} else {
+					memcpy(&_meta->port16[0], p + 50, 4);
+				}
+				return XDP2_STOP_OKAY;
+			}
+		}
 	}
 	/* Fast-path miss — fall through to the standard graph body. */
 	<!--(end)-->
