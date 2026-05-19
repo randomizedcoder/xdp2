@@ -1071,6 +1071,10 @@
           workload-pcap-https-web        = perfAnalysis.workload-pcap-https-web;
           workload-pcap-nfs-server       = perfAnalysis.workload-pcap-nfs-server;
           workload-pcap-k8s-microservices = perfAnalysis.workload-pcap-k8s-microservices;
+          # Post-R3.4 (2026-05-19) — see docs/r3.4-hp5-perf-targets.md.
+          workload-pcap-vlan-tcp-mix     = perfAnalysis.workload-pcap-vlan-tcp-mix;
+          workload-pcap-pppoe-isp        = perfAnalysis.workload-pcap-pppoe-isp;
+          workload-pcap-vxlan-k8s-pure   = perfAnalysis.workload-pcap-vxlan-k8s-pure;
           gen-workload-pcap              = perfAnalysis.gen-workload-pcap;
           chain-histogram-workloads      = perfAnalysis.chain-histogram-workloads;
           sweep-workload-https-web       = perfAnalysis.sweep-workload-https-web;

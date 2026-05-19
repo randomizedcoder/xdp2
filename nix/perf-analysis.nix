@@ -60,6 +60,11 @@ let
   workload-pcap-https-web        = workloadPcap { name = "https-web"; };
   workload-pcap-nfs-server       = workloadPcap { name = "nfs-server"; };
   workload-pcap-k8s-microservices = workloadPcap { name = "k8s-microservices"; };
+  # Post-R3.4 workloads (2026-05-19). Each exercises a new mono
+  # fast-path chain set landed since the R3.4.5a hp5 baseline.
+  workload-pcap-vlan-tcp-mix     = workloadPcap { name = "vlan-tcp-mix"; };
+  workload-pcap-pppoe-isp        = workloadPcap { name = "pppoe-isp"; };
+  workload-pcap-vxlan-k8s-pure   = workloadPcap { name = "vxlan-k8s-pure"; };
 
   # ── Cached: merged mixed-protocol PCAP from real captures ──────────
   mixed-pcap = pkgs.runCommand "xdp2-mixed-pcap" {
@@ -104,7 +109,10 @@ in
   inherit mixed-pcap
     workload-pcap-https-web
     workload-pcap-nfs-server
-    workload-pcap-k8s-microservices;
+    workload-pcap-k8s-microservices
+    workload-pcap-vlan-tcp-mix
+    workload-pcap-pppoe-isp
+    workload-pcap-vxlan-k8s-pure;
 
   # ── Sweep: tcp_ipv4.pcap (baseline, fast) ────────────────────────
   #
