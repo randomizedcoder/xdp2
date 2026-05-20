@@ -730,6 +730,24 @@ private:
 			    << "  variable name: " << function_name
 			    << std::endl;
 		    }
+
+		    /* R5.C: capture proto_def->ops.next_proto_keyin and
+		     * proto_def->ops.len presence. The mono template uses
+		     * these to skip emitting the runtime ternary /
+		     * indirect call when the slot is NULL in the user's
+		     * proto_def. Default in graph.h is true (= keep the
+		     * runtime check) so an extraction miss is safe. */
+		    else if (field_name == "next_proto_keyin") {
+			node.proto_has_next_proto_keyin = true;
+			plog::log(std::cout)
+			    << "  has next_proto_keyin: "
+			    << function->getNameAsString() << std::endl;
+		    } else if (field_name == "len") {
+			node.proto_has_len_op = true;
+			plog::log(std::cout)
+			    << "  has ops.len: "
+			    << function->getNameAsString() << std::endl;
+		    }
 		} else if (value->isIntegerConstantExpr(
 			       cur_record->getASTContext())) {
 		    auto v = value->getIntegerConstantExpr(
@@ -745,6 +763,19 @@ private:
 			    plog::log(std::cout)
 				<< "	! NOT ABLE TO EVALUATE INTEGRAL LITERAL"
 				<< std::endl;
+			}
+		    }
+		    /* R5.C: capture proto_def->overlay literal. .overlay = 1
+		     * means the proto is an overlay (doesn't advance hdr);
+		     * any other value (or absence — default 0) means the
+		     * mono template can skip the runtime `if (!overlay)`
+		     * check and emit the unconditional advance. */
+		    else if (field_name == "overlay") {
+			if (v) {
+			    node.overlay = (v->getExtValue() != 0);
+			    plog::log(std::cout)
+				<< "  proto_def.overlay = "
+				<< *node.overlay << std::endl;
 			}
 		    }
 		}

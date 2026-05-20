@@ -402,19 +402,29 @@ label_@!node!@: {
 	 * to the indirect call below. */
 	type = @!graph[node]['npi_expr']!@;
 			<!--(else)-->
-	type = proto_def->ops.next_proto_keyin ?
-		proto_def->ops.next_proto_keyin(hdr,
-				ctrl->key.keys[parse_node->key_sel]) :
-		proto_def->ops.next_proto(hdr);
+				<!--(if graph[node]['proto_has_next_proto_keyin'])-->
+	/* R5.C: proto_def->ops.next_proto_keyin is statically non-NULL. */
+	type = proto_def->ops.next_proto_keyin(hdr,
+			ctrl->key.keys[parse_node->key_sel]);
+				<!--(else)-->
+	/* R5.C: proto_def->ops.next_proto_keyin is NULL per IR; emit a
+	 * direct ops.next_proto() call, skip the runtime ternary. */
+	type = proto_def->ops.next_proto(hdr);
+				<!--(end)-->
 
 	if (type < 0)
 		return type;
 			<!--(end)-->
 
-	if (!proto_def->overlay) {
-		hdr = (char *)hdr + hlen;
-		len -= hlen;
-	}
+			<!--(if graph[node]['proto_overlay'])-->
+	/* R5.C: proto_def->overlay = 1 per IR; skip the hdr/len
+	 * advance (overlay protos don't consume bytes). */
+			<!--(else)-->
+	/* R5.C: proto_def->overlay = 0 per IR; emit the unconditional
+	 * advance, skip the runtime `if (!overlay)` check. */
+	hdr = (char *)hdr + hlen;
+	len -= hlen;
+			<!--(end)-->
 
 	switch (type) {
 			<!--(for edge_target in graph[node]['out_edges'])-->
@@ -429,10 +439,11 @@ label_@!node!@: {
 			<!--(end)-->
 		<!--(else)-->
 			<!--(if len(graph[node]['wildcard_proto_node']) != 0)-->
-	if (!proto_def->overlay) {
-		hdr = (char *)hdr + hlen;
-		len -= hlen;
-	}
+				<!--(if not graph[node]['proto_overlay'])-->
+	/* R5.C: proto_overlay=false; unconditional advance. */
+	hdr = (char *)hdr + hlen;
+	len -= hlen;
+				<!--(end)-->
 	goto label_@!graph[node]['wildcard_proto_node']!@;
 			<!--(else)-->
 	return XDP2_STOP_OKAY;

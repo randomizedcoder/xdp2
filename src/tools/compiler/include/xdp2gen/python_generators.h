@@ -345,6 +345,12 @@ auto make_python_object(graph_t const &graph, vertex_descriptor_t const &vertex)
     obj.set("parser_node", v.parser_node);
     obj.set("metadata", v.metadata);
     obj.set("handler", v.handler);
+    /* R5.C: surface proto_def static fields to the mono template
+     * so it can omit per-node bookkeeping when statically known. */
+    obj.set("proto_overlay",
+            v.overlay.has_value() ? v.overlay.value() : false);
+    obj.set("proto_has_next_proto_keyin", v.proto_has_next_proto_keyin);
+    obj.set("proto_has_len_op", v.proto_has_len_op);
     obj.set("table", v.table);
     obj.set("tlv_table", v.table);
     obj.set("flag_fields_table", v.flag_fields_table);

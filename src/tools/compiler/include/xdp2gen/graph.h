@@ -213,8 +213,35 @@ struct vertex_property {
      * function. Zero when no LLVM IR is available (no `-l` flag). */
     int metadata_ir_store_count = 0;
 
+    /* R5.C: proto_def static fields captured from the user's
+     * parser.c via graph_consumer.h. The mono template gates
+     * per-node bookkeeping emission on these:
+     *
+     *   overlay → std::optional<bool>; AST sets it from the
+     *     `.overlay = N` integer literal in proto_def. If unset
+     *     (nullopt) we treat as false = emit the unconditional
+     *     hdr/len advance. If overlay=true, the mono template
+     *     emits no advance (overlay proto_defs don't consume bytes).
+     *   proto_has_next_proto_keyin → defaults FALSE; AST sets
+     *     TRUE when `.ops.next_proto_keyin = X` is present.
+     *     When false the template emits a direct ops.next_proto()
+     *     call without the runtime keyin-NULL ternary.
+     *   proto_has_len_op → defaults FALSE; AST sets TRUE when
+     *     `.ops.len = X` is present. When false the per-node
+     *     length check uses only proto_def->min_len (no indirect
+     *     `ops.len(hdr, len)` call).
+     *
+     * Risk mitigation: a missed AST extraction (e.g. an unusual
+     * init-list layout the walker skips) would emit the trimmed
+     * form when the runtime check WAS needed — silent incorrect
+     * code. The matrix-coverage gate (4914 cells) catches any
+     * resulting behaviour drift as REJ-unexpected / OK!N cells.
+     * Pre-R5 matrix is 100% clean; post-R5 must stay clean.
+     */
     std::optional<bool> overlay;
     std::optional<bool> encap;
+    bool proto_has_next_proto_keyin = false;
+    bool proto_has_len_op = false;
 
     std::optional<size_t> proto_min_len;
     std::optional<std::string> proto_decl_name, proto_name, proto_len,
