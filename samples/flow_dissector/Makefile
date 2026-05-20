@@ -22,14 +22,37 @@ LIBDIR= $(XDP2DIR)/lib
 BINDIR= $(XDP2DIR)/bin
 
 XCC= clang
+# XCFLAGS — clang flags for BPF object files. Stays at -O2 because the
+# kernel BPF verifier + JIT have specific instruction-shape expectations
+# that aggressive flags like -O3 / -march=native can break.
 XCFLAGS= -I$(INCDIR)
 XCFLAGS+= -std=gnu11 -g -O2
 XLDFLAGS=
 
 CC= gcc
+# CFLAGS — gcc flags for the userspace benchmark and the
+# parser.{p,mono}.c TUs. Aggressive optimisation here because this is the
+# hot parsing loop measured on the perf matrix:
+#   -O3            full inliner + vectoriser + loop unroller
+#   -march=native  use the host's full ISA (Zen 1 on hp2/hp5: BMI2,
+#                  AVX, etc.). Build runs on the target host via the
+#                  matrix-runner rsync-then-build flow, so native is
+#                  safe — each host gets its own binary.
+#   -flto          cross-TU inlining; benchmark.c can inline through
+#                  parser.p.c + parser.mono.c. Already paired with
+#                  the static-link of libxdp2 (-Wl,-Bstatic -lxdp2)
+#                  per the Phase O1.B note below.
+#   -fno-plt       drop PLT indirection for external calls (libpcap,
+#                  libflowdis). Small but measurable on parsing-
+#                  heavy code.
+# Investigation 2026-05-19 ("perf-results/2026-05-19-r3.4-complete/
+# investigation-mono-vs-rust.md") identified the prior `-O2` vs rust's
+# `release + lto=fat + codegen-units=1 + target-cpu=native` asymmetry as
+# the dominant cause of the 50 ns c-xdp2-mono vs rust-mono gap on
+# tunnel-heavy workloads.
 CFLAGS= -I$(INCDIR) -I$(XDP2_SRCDIR)/include
-CFLAGS+= -std=gnu11 -g -O2
-LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR)
+CFLAGS+= -std=gnu11 -g -O3 -march=native -flto -fno-plt
+LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR) -flto
 
 TARGETS= flow_dissector.bpf.o benchmark
 BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf \
