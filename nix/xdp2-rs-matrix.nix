@@ -212,7 +212,14 @@ pkgs.writeShellApplication {
     # fast-path-compatible is a separate effort (would require
     # restructuring the parse graph to put L4 extraction into in-line
     # nodes instead of post-handlers).
-    if ! USP_OUT=$("$BENCHMARK" -p -n "$ITER" "$FILTERED" 2>&1); then
+    # 2026-05-19: explicit -O to select the OPTIMISED parser
+    # (xdp2_parser_flow_dissector_l2_opt). The benchmark's default
+    # flipped to monolithic in commit c5cbaf4; without -O here the
+    # XDP2 parser / XDP2 parse-only lines below would also be mono,
+    # collapsing three matrix rows (c-xdp2-usp, c-xdp2-parse-only,
+    # c-xdp2-mono) into the same number. The -M invocation 30 lines
+    # down captures mono separately.
+    if ! USP_OUT=$("$BENCHMARK" -O -p -n "$ITER" "$FILTERED" 2>&1); then
       echo "Error: userspace benchmark failed" >&2
       echo "$USP_OUT" >&2
       exit 1
