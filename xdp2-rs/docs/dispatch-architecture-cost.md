@@ -1466,6 +1466,81 @@ baseline; the tunnel-walking c-xdp2-mono path now sits at
 at outer UDP — c-xdp2-mono pays 26 ns extra to extract the
 inner 5-tuple that flowdis omits).
 
+## Phase R7-B1 — Hot-edge `__builtin_expect` shortcut (2026-05-20)
+
+Following the R7-A perf-record investigation
+(`perf-results/2026-05-20-r7-a/findings.md`), which surfaced
+that c-xdp2-mono spends ~30 cycles/pkt in per-node
+`switch (type)` dispatches (compiled by gcc as binary-search
+trees over 20-49 sparse cases), R7-B1 prepends a hot-edge
+shortcut before each switch:
+
+```c
+/* mono_def.template.c:429 */
+if (__builtin_expect(type == HOT_VALUE, 1))
+    goto label_HOT_TARGET;
+switch (type) { /* full N≥4 case branches */ }
+```
+
+The "HOT_VALUE" is the FIRST entry in the proto_table's
+source order — by in-tree convention the most common protocol
+(ETH_P_IP first in ether_table, IPPROTO_TCP first in ipv4's
+next-proto table, etc.).
+
+`perf-results/2026-05-20-r7-b1/comparison.md`:
+
+| workload | host | R6 | R7-B1 | Δ |
+|---|---|---:|---:|---:|
+| https-web | hp5 | 73 | 72 | -1 (noise) |
+| **k8s-microservices** | hp5 | **136** | **132** | **-4** |
+| nfs-server | hp5 | 70 | 71 | +1 (noise) |
+| pppoe-isp | hp5 | 73 | 73 | 0 |
+| vlan-tcp-mix | hp5 | 71 | 72 | +1 (noise) |
+| **vxlan-k8s-pure** | hp5 | **139** | **135** | **-4** ✓ |
+| **vxlan-k8s-pure** | hp2 | **143** | **139** | **-4** |
+
+**First real ns/pkt win since R3.4.5a.** Three independent
+cells showing -3 to -4 ns on tunnel workloads (vxlan,
+k8s-microservices), across both hosts. R5 + R6 had been null
+on perf; R7-B1 finally moves the needle.
+
+The improvement is bounded to tunneled workloads because the
+R3.4 fast-path captures `eth + ipv4 + tcp/icmp` and friends
+at parser entry — flat workloads never reach the per-node
+slow-path switch. VXLAN's inner walk
+(eth → ipv4 → udp → vxlan → inner eth → inner ipv4 → tcp)
+doesn't fit any fast-path chain, so every per-node switch
+fires.
+
+For the 7-node VXLAN walk: 7 hot-edge hits per packet × ~2-3
+cycles saved each = ~14-21 cycles/pkt = **3.5-5 ns/pkt at
+4 GHz**. Measured: 4 ns. Within prediction.
+
+Codegen surface: 7-line addition to
+`src/templates/xdp2/mono_def.template.c`. No IR changes, no
+AST changes, no API changes. 700 hot-edge shortcuts emitted
+in the generated flow-dissector-l2 parser.
+
+Correctness: 4914-cell matrix 0/0/0, parity-gate 32/32 OK,
+mono-perf ceiling 0 violations.
+
+### Cross-impl ranking after R7-B1 (hp5)
+
+| workload | c-xdp2-mono | rust-mono | gap |
+|---|---:|---:|---:|
+| https-web | 72 | 72 | 0 (tied) |
+| **nfs-server** | **71** | 70 | **+1** (≈ tied) |
+| **pppoe-isp** | **73** | 81 | **−8** (mono ahead) |
+| **vlan-tcp-mix** | **72** | 88 | **−16** (mono way ahead) |
+| k8s-microservices | 132 | 84 | +48 (tunnel gap) |
+| vxlan-k8s-pure | 135 | 92 | **+43** (was +46, R7-B1 closed 7%) |
+
+Post-R7-B1: **c-xdp2-mono ties or beats rust-mono on 4 of 6
+workloads, and the remaining tunnel gap is +43 ns (down from
++46)**. Three R7-B follow-ups remain candidate (B2 per-protocol
+dispatch functions, B3 direct-store metadata extracts) which
+together could close another 16-20 ns/pkt of the tunnel gap.
+
 ### Cross-impl ranking after R6 (hp5, full sweep)
 
 c-xdp2-mono vs rust-mono on the same workloads:

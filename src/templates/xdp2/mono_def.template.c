@@ -426,6 +426,16 @@ label_@!node!@: {
 	len -= hlen;
 			<!--(end)-->
 
+			<!--(if len(graph[node]['out_edges']) >= 4)-->
+	/* R7-B1: hot-edge shortcut. The first entry of the
+	 * proto_table is conventionally the most common protocol
+	 * (e.g. ETH_P_IP for ether_node, IPPROTO_TCP for ipv4_node).
+	 * Match it via __builtin_expect before falling into gcc's
+	 * binary-search switch tree. Saves ~5 cycles on the hot
+	 * path when N≥4 sparse cases force a binary tree. */
+	if (__builtin_expect(type == @!graph[node]['out_edges'][0]['macro_name']!@, 1))
+		goto label_@!graph[node]['out_edges'][0]['target']!@;
+			<!--(end)-->
 	switch (type) {
 			<!--(for edge_target in graph[node]['out_edges'])-->
 	case @!edge_target['macro_name']!@:
