@@ -1402,17 +1402,21 @@ ip_proto + ports + addrs.v4. The pre-R6 layout used 4
 cachelines for the same set of writes (eth_addrs in CL0, the
 rest scattered across CL2-CL3).
 
-`perf-results/2026-05-19-r6-layout/comparison.md`:
+`perf-results/2026-05-19-r6-layout/full-sweep-analysis.md`
+(full 6-workload sweep, non-smoke, hp2 + hp5):
 
-| workload | host | R5 baseline | R6 | Δ |
+| workload | host | R5 | R6 (full) | Δ |
 |---|---|---:|---:|---:|
-| https-web | hp5 | 72 | 72 | 0 |
-| https-web | hp2 | 73 | 70 | -3 |
+| https-web | hp5 | 72 | 73 | +1 |
+| k8s-microservices | hp5 | ~137 | 136 | -1 |
+| nfs-server | hp5 | 69 | 70 | +1 |
+| pppoe-isp | hp5 | 73 | 73 | 0 |
+| vlan-tcp-mix | hp5 | 70 | 71 | +1 |
 | vxlan-k8s-pure | hp5 | 140 | 139 | -1 |
-| vxlan-k8s-pure | hp2 | 137 | 143 | +6 |
 
-**Null result on perf, like R5.** Smoke iter band is ±3 ns;
-every cell is within noise. Three layout/dispatch hypothesis
+**Null result on perf at full iteration count, just like R5
+and the smoke sweep.** Every hp5 cell is within ±1 ns of the
+R5 baseline. Three layout/dispatch hypothesis
 tests (R5 bookkeeping, R6 layout, compile flags) have now all
 yielded zero ns/pkt on Zen 1 because gcc was already producing
 near-optimal code on the pre-R6 layout.
@@ -1453,12 +1457,39 @@ that's less forgiving than Zen 1.
 | R3.4.5b-e + R3.4.4 (chains + generalisation) | 71 | (n/a) | (within noise) |
 | vxlan bug fix (a063bfc) | 71 | 141 | first correct vxlan walk |
 | R5 trim (bookkeeping) | 72 | 140 | null on perf, valid trim |
-| R6 layout | 72 | 139 | null on perf, struct now 192 B |
+| R6 layout | 73 | 139 | null on perf, struct now 192 B |
 
-**Net of all phases**: -38 % on https-web vs pre-R3.3
+**Net of all phases**: -37 % on https-web vs pre-R3.3
 baseline; the tunnel-walking c-xdp2-mono path now sits at
-139-143 ns/pkt with correct inner 5-tuple extraction (vs
-flowdis's 110-118 ns/pkt that stops at outer UDP).
+139 ns/pkt on hp5 (143 ns/pkt on hp2) with correct inner
+5-tuple extraction (vs flowdis's 113 ns/pkt on hp5 that stops
+at outer UDP — c-xdp2-mono pays 26 ns extra to extract the
+inner 5-tuple that flowdis omits).
+
+### Cross-impl ranking after R6 (hp5, full sweep)
+
+c-xdp2-mono vs rust-mono on the same workloads:
+
+| workload | c-xdp2-mono | rust-mono | gap |
+|---|---:|---:|---:|
+| https-web | 73 | 71 | +2 |
+| **nfs-server** | **70** | 71 | **−1** (mono ahead) |
+| **pppoe-isp** | **73** | 80 | **−7** (mono ahead) |
+| **vlan-tcp-mix** | **71** | 91 | **−20** (mono way ahead) |
+| k8s-microservices | 136 | 85 | +51 |
+| vxlan-k8s-pure | 139 | 93 | +46 |
+
+c-xdp2-mono matches or beats rust-mono on 4 of 6 workloads.
+The remaining gap exists only on the two tunneled workloads.
+The R3.4.5b/c VLAN fast-paths pay off as a 20 ns win on
+`vlan-tcp-mix`.
+
+c-xdp2-mono is now the **4th-fastest parser overall on
+https-web** (post c-bpf-fast, rust-simd, rust-template) and
+runs at **61% of c-flowdis-usp's time** on the same workload.
+The kernel's hand-tuned C flow_dissector is 65% slower than
+our generated mono parser on TCP/IPv4 — full numbers in
+`perf-results/2026-05-19-r6-layout/full-sweep-analysis.md`.
 
 ## See also
 
