@@ -239,6 +239,26 @@
             };
           };
 
+        # 2026-05-19 post-R3.4: icache / branch-miss / cycle counter
+        # sweep. Wraps `benchmark -p -<mode>` in `perf stat` for each
+        # (host, workload, parser-mode) cell. Output is a markdown
+        # table comparing parser modes on cache behavior — used to
+        # test code-size hypotheses (see
+        # perf-results/2026-05-19-O3-march-native-flto/comparison.md
+        # for the remaining c-xdp2-mono vs rust-mono gap analysis).
+        flowDissectorIcacheSweep =
+          import ./nix/flow-dissector-icache-sweep.nix {
+            inherit pkgs lib;
+            workloadPcaps = {
+              "https-web"         = perfAnalysis.workload-pcap-https-web;
+              "nfs-server"        = perfAnalysis.workload-pcap-nfs-server;
+              "k8s-microservices" = perfAnalysis.workload-pcap-k8s-microservices;
+              "vlan-tcp-mix"      = perfAnalysis.workload-pcap-vlan-tcp-mix;
+              "pppoe-isp"         = perfAnalysis.workload-pcap-pppoe-isp;
+              "vxlan-k8s-pure"    = perfAnalysis.workload-pcap-vxlan-k8s-pure;
+            };
+          };
+
         # Phase 7: smoke regression gate. Wraps -run --smoke with
         # the aggregator's --baseline / --fail-on-regression mode.
         flowDissectorMatrixCheck =
@@ -732,6 +752,20 @@
           # See:  docs/r3.4-hp5-perf-targets.md
           # ===================================================================
           flow-dissector-matrix-sweep = flowDissectorMatrixSweep;
+
+          # ===================================================================
+          # flow-dissector-icache-sweep — perf-counter sweep for code-
+          # size hypothesis investigation. Wraps `benchmark -p -<mode>`
+          # in `perf stat -e l1-icache-load-misses,instructions,cycles,
+          # branch-misses,iTLB-load-misses` for each (host, workload,
+          # parser-mode) cell. Emits a markdown table with IPC and
+          # miss/Mi columns. Requires perf_event_paranoid <= 1 or root.
+          # Run:  nix run .#flow-dissector-icache-sweep -- \
+          #         --testbed testbeds/<name>.toml [--workloads CSV] \
+          #         [--modes M,O,S] [--iters N]
+          # See:  perf-results/2026-05-19-O3-march-native-flto/comparison.md
+          # ===================================================================
+          flow-dissector-icache-sweep = flowDissectorIcacheSweep;
 
           # ===================================================================
           # flow-dissector-matrix-check — Phase 7 smoke regression gate.
