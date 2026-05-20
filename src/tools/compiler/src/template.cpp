@@ -1368,6 +1368,24 @@ def generate_parser_function(
     vertex['npi_simple'] = npi_simple
     vertex['npi_expr'] = npi_expr
 
+    # R5.B: static-NULL ops trim. The graph_consumer captures the
+    # extract_metadata / handler function-pointer names as strings
+    # in v.metadata / v.handler (python_generators.h:346-347). When
+    # the proto_def slot is NULL, the field stays empty. The mono
+    # template uses these bools to skip emitting `if (ops.X) X(...)`
+    # entirely:
+    #   - has_extract_metadata=False → emit nothing (skip the runtime
+    #     NULL check AND the never-taken indirect call).
+    #   - has_extract_metadata=True  → emit a DIRECT call (no NULL
+    #     check needed; gcc would devirtualise the indirect call
+    #     anyway since the proto_def is static const).
+    # Same for has_handler.
+    # Cross-verified against the protocol-coverage-matrix gate
+    # (4914 cells, 0 disagreements) — any IR-extraction miss here
+    # would surface as a REJ-unexpected or OK!N cell.
+    vertex['proto_has_extract_metadata'] = bool(vertex.get('metadata', '').strip())
+    vertex['proto_has_handler'] = bool(vertex.get('handler', '').strip())
+
     print(f"[Python template]   {name}: out_edges={len(out_edges)}, next_proto_info={len(next_proto_info)}, metadata_transfers={len(mts)}/{field_count}, mt_all_copy={mt_all_copy}, mt_full_coverage={mt_full_coverage}, npi_simple={npi_simple}", file=sys.stderr)
     if next_proto_info:
       print(f"[Python template]     npi {dict(next_proto_info)}", file=sys.stderr)

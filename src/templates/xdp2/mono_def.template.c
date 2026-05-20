@@ -370,17 +370,24 @@ label_@!node!@: {
 	       @!t['length']!@ / 8);
 			<!--(end)-->
 		<!--(else)-->
-	if (parse_node->ops.extract_metadata)
-		parse_node->ops.extract_metadata(hdr, hlen, metadata,
-						 frame, ctrl);
+			<!--(if graph[node]['proto_has_extract_metadata'])-->
+	/* R5.B: ops.extract_metadata is statically non-NULL per
+	 * graph_consumer's IR capture (node.metadata string is
+	 * non-empty). Emit a direct call, skip the runtime
+	 * `if (parse_node->ops.X)` check. */
+	parse_node->ops.extract_metadata(hdr, hlen, metadata,
+					 frame, ctrl);
+			<!--(end)-->
 		<!--(end)-->
 
-	if (parse_node->ops.handler) {
-		ret = parse_node->ops.handler(hdr, hlen, metadata,
-					      frame, ctrl);
-		if (ret != XDP2_OKAY)
-			return ret;
-	}
+		<!--(if graph[node]['proto_has_handler'])-->
+	/* R5.B: ops.handler is statically non-NULL per IR
+	 * (node.handler string is non-empty). */
+	ret = parse_node->ops.handler(hdr, hlen, metadata,
+				      frame, ctrl);
+	if (ret != XDP2_OKAY)
+		return ret;
+		<!--(end)-->
 
 		<!--(if len(graph[node]['out_edges']) != 0)-->
 			<!--(if graph[node]['npi_simple'])-->
