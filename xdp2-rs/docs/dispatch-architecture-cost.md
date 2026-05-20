@@ -1541,6 +1541,62 @@ workloads, and the remaining tunnel gap is +43 ns (down from
 dispatch functions, B3 direct-store metadata extracts) which
 together could close another 16-20 ns/pkt of the tunnel gap.
 
+## Phase R7-B3 — Typed-store metadata transfers (null, kept for clarity, 2026-05-20)
+
+R7-A's analysis identified `memcpy()`-based metadata transfer
+emit as a second optimisation candidate. R7-B3 replaces
+`memcpy(metadata + dst, hdr + src, N)` with typed
+`*(__u16/__u32/__u64 *)` stores for power-of-2 sizes.
+
+Generated `parser.mono.c` emit counts after B3:
+- 28 typed `__u16` stores
+- 196 typed `__u32` stores  
+- 60 `memcpy()` fallbacks (96-bit eth_addrs, 128/256-bit v6 addrs)
+
+`perf-results/2026-05-20-r7-b3/comparison.md`: **null on perf
+(±2 ns across all 12 cells)**. gcc `-O3 -march=native -flto`
+was already lowering `memcpy(dst, src, SMALL_CONSTANT)` to
+typed mov instructions. The R3.3.4 inline-memcpy emit
+(replacing the indirect `ops.extract_metadata` call) was the
+win that mattered; the copy SHAPE (memcpy vs typed) is
+gcc-equivalent at -O3.
+
+R7-B3 kept anyway because the generated `parser.mono.c` is
+more readable (typed-field copies vs opaque memcpy) and
+structurally aligns with rust-mono's direct field-store
+idiom. Correctness-clean (4914-cell matrix 0/0/0, parity 32/32,
+mono-perf 0 violations).
+
+## Phase R7-B4 — Inline `__mono_check_pkt_len` per-node (attempted, reverted)
+
+R7-A also flagged per-node `__mono_check_pkt_len(hdr, proto_def,
+len, &hlen)` calls as a cycle contributor — the `*hlen` pointer
+indirection might force gcc to spill the length to the stack.
+R7-B4 attempted to inline the length check per-node, gated on
+the existing `proto_has_len_op` IR field (captured but unused
+since R5.C).
+
+**Reverted** after the parity gate surfaced field disagreements
+on `srv6-end-64.pcap` (flow_label / ip_proto / ipv6_dst /
+ipv6_src). Root cause: the AST consumer in
+`src/tools/compiler/include/xdp2gen/ast-consumer/graph_consumer.h:745`
+captures `field_name == "len"` only when the field name
+literally matches in the walked init list, but in-tree
+proto_defs use nested designated initializers like
+`.ops.len = ipv6_length_check` which the walker presents
+differently than the flat `.ops = { .len = X }` form. Result:
+`proto_has_len_op` is incorrectly `false` for IPv6 / IPv6-EH /
+SRv6 nodes that DO have variable-length headers. The R7-B4
+template change then emitted `hlen = min_len` only — wrong
+for variable-length IPv6 EH chains.
+
+Proper fix is in the AST consumer (handle nested designated
+inits). That's a graph_consumer investigation, not a
+template change.
+
+R7-B4 reverted at commit (pending). The `proto_has_len_op` IR
+field stays in place for the future fix.
+
 ### Cross-impl ranking after R6 (hp5, full sweep)
 
 c-xdp2-mono vs rust-mono on the same workloads:
