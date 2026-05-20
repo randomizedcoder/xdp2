@@ -220,6 +220,25 @@
             aggregate = flowDissectorMatrixAggregate;
           };
 
+        # 2026-05-19 post-R3.4: multi-workload sweep harness that
+        # pre-scps cached workload-pcap-* derivations to each host
+        # in the testbed and loops calling matrix-run for each.
+        # Used to reproduce perf-results/2026-05-19-* runs.
+        flowDissectorMatrixSweep =
+          import ./nix/flow-dissector-matrix-sweep.nix {
+            inherit pkgs lib;
+            matrixRun = flowDissectorMatrixRun;
+            matrixAggregate = flowDissectorMatrixAggregate;
+            workloadPcaps = {
+              "https-web"         = perfAnalysis.workload-pcap-https-web;
+              "nfs-server"        = perfAnalysis.workload-pcap-nfs-server;
+              "k8s-microservices" = perfAnalysis.workload-pcap-k8s-microservices;
+              "vlan-tcp-mix"      = perfAnalysis.workload-pcap-vlan-tcp-mix;
+              "pppoe-isp"         = perfAnalysis.workload-pcap-pppoe-isp;
+              "vxlan-k8s-pure"    = perfAnalysis.workload-pcap-vxlan-k8s-pure;
+            };
+          };
+
         # Phase 7: smoke regression gate. Wraps -run --smoke with
         # the aggregator's --baseline / --fail-on-regression mode.
         flowDissectorMatrixCheck =
@@ -699,6 +718,20 @@
           #         --testbed testbeds/<name>.toml [--smoke] [--results <dir>]
           # ===================================================================
           flow-dissector-matrix-run = flowDissectorMatrixRun;
+
+          # ===================================================================
+          # flow-dissector-matrix-sweep — multi-workload reproducibility
+          # harness for the 2026-05-19 post-R3.4 sweep. Pre-scps each
+          # cached workload-pcap-* derivation to every host in the
+          # testbed TOML, loops calling matrix-run for each, and
+          # aggregates at the end. Default workload list is all 6:
+          #   https-web, nfs-server, k8s-microservices,
+          #   vlan-tcp-mix, pppoe-isp, vxlan-k8s-pure.
+          # Run:  nix run .#flow-dissector-matrix-sweep -- \
+          #         --testbed testbeds/<name>.toml [--smoke]
+          # See:  docs/r3.4-hp5-perf-targets.md
+          # ===================================================================
+          flow-dissector-matrix-sweep = flowDissectorMatrixSweep;
 
           # ===================================================================
           # flow-dissector-matrix-check — Phase 7 smoke regression gate.

@@ -741,7 +741,8 @@ static void usage(const char *prog)
 		"  -c  Correctness only\n"
 		"  -p  Performance only\n"
 		"  -v  Verbose output\n"
-		"  -O  Use optimized xdp2 parser (XDP2_OPTIMIZED dispatch — default)\n"
+		"  -M  Use monolithic xdp2 parser (R3.4 fast-path + goto-state, default since 2026-05-19)\n"
+		"  -O  Use optimized xdp2 parser (XDP2_OPTIMIZED dispatch)\n"
 		"  -S  Use slow / generic xdp2 parser (__xdp2_parse engine; diagnostic)\n"
 		"  -F  Use fast xdp2 parser (xdp2_parse_fast — requires fast-path-compatible parser graph)\n"
 		"  -n  Iterations for performance (default: 100)\n",
@@ -752,19 +753,22 @@ static void usage(const char *prog)
 int main(int argc, char *argv[])
 {
 	int do_correctness = 1, do_performance = 1;
-	/* Phase S1: default to the OPTIMISED parser variant
-	 * (xdp2_parser_flow_dissector_l2_opt). The optimised variant
-	 * uses XDP2_OPTIMIZED dispatch (parser->parser_entry_point),
-	 * skipping the generic __xdp2_parse engine's per-layer
-	 * indirect calls and lookup_node linear walks. Saves ~16 ns/pkt
-	 * on https-web (65 → 49 ns) by routing through the
-	 * compiler-generated switch-based dispatch in
-	 * samples/flow_dissector/parser.p.c:9586-9670.
+	/* 2026-05-19: default to the MONOLITHIC parser variant
+	 * (xdp2_parser_flow_dissector_l2_mono). The monolithic variant
+	 * is one specialised goto-state function emitted by the R3
+	 * codegen, with R3.4 straight-line fast-paths at the top for
+	 * the common eth + (vlan|pppoe) + ip + L4 chains. On hp5
+	 * (2026-05-19 sweep) it sits at ~70 ns/pkt on TCP-dominant
+	 * workloads vs ~135 ns/pkt for the OPTIMISED variant — the
+	 * fast-path captures most chain shapes; the slow-path goto-
+	 * state body handles everything else. Mono is the canonical
+	 * R3 reference and the future of the parser stack.
 	 *
-	 * Use -S to revert to the generic engine for diagnostic
-	 * comparison. -O still works as an explicit "use opt" toggle
-	 * for symmetry with old scripts that pass it. */
-	int verbose = 0, opt_parser = 1, fast_parser = 0, mono_parser = 0;
+	 * Phase S1's prior default (-O / optimised) is still available
+	 * via the explicit -O flag. -S reverts to the generic engine
+	 * for diagnostic comparison. -M is now redundant with the
+	 * default but kept for back-compat with old scripts. */
+	int verbose = 0, opt_parser = 0, fast_parser = 0, mono_parser = 1;
 	const struct xdp2_parser *l2_parser, *l3_parser;
 	struct stored_packet *packets;
 	struct flowdis_state fstate;
@@ -787,17 +791,24 @@ int main(int argc, char *argv[])
 			verbose = 1;
 			break;
 		case 'O':
-			opt_parser = 1;  /* now the default; kept for back-compat */
+			/* Explicit opt-in to the OPTIMISED parser variant.
+			 * Disables mono (now the default) so this flag works
+			 * as expected for back-compat scripts. */
+			mono_parser = 0;
+			opt_parser = 1;
 			break;
 		case 'S':
-			opt_parser = 0;  /* slow / generic engine */
+			/* Generic (__xdp2_parse) engine — disables mono +
+			 * opt explicitly. */
+			mono_parser = 0;
+			opt_parser = 0;
 			break;
 		case 'F':
 			fast_parser = 1;
 			break;
 		case 'M':
-			/* R3 — monolithic codegen reference. Routes through
-			 * the hand-written single-function L2 mono parser. */
+			/* Monolithic codegen (now default; flag kept for
+			 * back-compat with old scripts that pass -M). */
 			mono_parser = 1;
 			break;
 		case 'n':
