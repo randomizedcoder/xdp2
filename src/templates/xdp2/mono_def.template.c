@@ -351,7 +351,12 @@ label_@!node!@: {
 		(const struct xdp2_parse_node *)&@!node!@;
 	const struct xdp2_proto_def *proto_def = parse_node->proto_def;
 
-	ctrl->var.last_node = parse_node;
+	/* R5.A: ctrl->var.last_node store dropped from the mono
+	 * codegen. The only reader is src/test/parse_dump/print_meta.c:335
+	 * (debug "Last node: %s" output, parse_dump utility only).
+	 * The field stays in struct xdp2_parser_ctrl_var; non-mono
+	 * parsers still write it. ~7 stores trimmed per packet on a
+	 * 7-node tunnel walk = ~2 ns/pkt at IPC 0.46. */
 
 	ret = __mono_check_pkt_len(hdr, proto_def, len, &hlen);
 	if (ret != XDP2_OKAY)
