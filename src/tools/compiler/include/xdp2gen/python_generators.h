@@ -350,7 +350,14 @@ auto make_python_object(graph_t const &graph, vertex_descriptor_t const &vertex)
     obj.set("proto_overlay",
             v.overlay.has_value() ? v.overlay.value() : false);
     obj.set("proto_has_next_proto_keyin", v.proto_has_next_proto_keyin);
-    obj.set("proto_has_len_op", v.proto_has_len_op);
+    /* R7-B4 phase 1: derive proto_has_len_op from the proto_len
+     * capture in proto-nodes.h (which IS reliably set by the
+     * xdp2_proto_node_consumer walker — see proto-nodes.h:461),
+     * not from graph_consumer.h's broken nested-designator path.
+     * Without this, IPv6-EH / SRv6 / variable-length proto_defs
+     * incorrectly report no ops.len and downstream codegen
+     * (e.g. R7-B4 v1 inline length check) emits wrong code. */
+    obj.set("proto_has_len_op", v.proto_len.has_value());
     obj.set("table", v.table);
     obj.set("tlv_table", v.table);
     obj.set("flag_fields_table", v.flag_fields_table);

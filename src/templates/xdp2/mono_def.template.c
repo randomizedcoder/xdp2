@@ -358,9 +358,24 @@ label_@!node!@: {
 	 * parsers still write it. ~7 stores trimmed per packet on a
 	 * 7-node tunnel walk = ~2 ns/pkt at IPC 0.46. */
 
+		<!--(if graph[node]['proto_has_len_op'])-->
+	/* R7-B4 phase 1: proto_def->ops.len is non-NULL per IR
+	 * (proto-nodes.h captured the function reference). Keep the
+	 * helper-call path for variable-length headers (IPv4 IHL,
+	 * IPv6-EH chain, SRv6 segment list, etc.). */
 	ret = __mono_check_pkt_len(hdr, proto_def, len, &hlen);
 	if (ret != XDP2_OKAY)
 		return ret;
+		<!--(else)-->
+	/* R7-B4 phase 1: proto_def->ops.len is NULL per IR; emit the
+	 * length check inline so gcc keeps hlen in a register and
+	 * skips the `if (pnode->ops.len)` runtime branch entirely.
+	 * Most fixed-header nodes (eth, fixed-length L4, vlan, etc.)
+	 * fall through this path. */
+	hlen = proto_def->min_len;
+	if (__builtin_expect(len < (size_t)hlen, 0))
+		return XDP2_STOP_LENGTH;
+		<!--(end)-->
 
 		<!--(if graph[node]['mt_full_coverage'])-->
 			<!--(for t in graph[node]['metadata_transfers'])-->
