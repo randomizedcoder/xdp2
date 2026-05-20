@@ -1,0 +1,11 @@
+{
+  "host": "hp2",
+  "workload": "https-web",
+  "mode": "M",
+  "ns_per_pkt": 70,
+  "l1-icache-load-misses": 1420812,
+  "instructions": 892701531,
+  "cycles": 2506496295,
+  "branch-misses": 2656729,
+  "iTLB-load-misses": 234
+}

@@ -1,0 +1,11 @@
+{
+  "host": "hp5",
+  "workload": "vxlan-k8s-pure",
+  "mode": "O",
+  "ns_per_pkt": 160,
+  "l1-icache-load-misses": 1418035,
+  "instructions": 2125817044,
+  "cycles": 3662298462,
+  "branch-misses": 2897796,
+  "iTLB-load-misses": 272
+}

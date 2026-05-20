@@ -149,17 +149,28 @@ ${pcapMapEntries}
     IFS=',' read -ra WLIST <<< "$WORKLOADS"
     IFS=',' read -ra MLIST <<< "$MODES"
 
-    # Pre-stage pcaps + benchmark binary on every host.
+    # Pre-stage pcaps + benchmark binary on every host. The
+    # benchmark depends on libcli.so / libflowdis.so / libsiphash.so
+    # (Phase O1.B static-links libxdp2 but the rest are dynamic),
+    # so we must push the full closure with `nix copy`, not just the
+    # benchmark binary. nix-store paths are identical on every host
+    # in the testbed since they're content-addressed.
     BENCH_NIX_PATH=$(nix build --no-link --print-out-paths \
                        .#flow-dissector-matrix-artifacts 2>/dev/null \
                      | tail -1)
-    BENCH_BIN="$BENCH_NIX_PATH/bin/benchmark"
-    [ -x "$BENCH_BIN" ] || { echo "icache-sweep: benchmark not found at $BENCH_BIN" >&2; exit 2; }
+    BENCH_BIN_PATH="$BENCH_NIX_PATH/bin/benchmark"
+    [ -x "$BENCH_BIN_PATH" ] || {
+      echo "icache-sweep: benchmark not found at $BENCH_BIN_PATH" >&2
+      exit 2
+    }
 
     for h in "''${HOSTS[@]}"; do
-      echo "[stage] benchmark → root@$h:/tmp/benchmark"
-      scp -q -o BatchMode=yes "$BENCH_BIN" "root@$h:/tmp/benchmark"
-      ssh -o BatchMode=yes "root@$h" "chmod +x /tmp/benchmark"
+      echo "[stage] benchmark closure → root@$h via nix copy"
+      # --no-check-sigs: we're a trusted operator pushing a known-
+      # good store path; the receiving daemon's trusted-users
+      # config isn't set up for this. Equivalent to what
+      # xdp2-run-on-host does on its rsync-then-build path.
+      nix copy --to "ssh-ng://root@$h" --no-check-sigs "$BENCH_NIX_PATH"
       for w in "''${WLIST[@]}"; do
         src="''${PCAP_OF[$w]:-}"
         [ -n "$src" ] || { echo "icache-sweep: unknown workload '$w'" >&2; exit 2; }
@@ -185,9 +196,11 @@ ${pcapMapEntries}
           out="$OUT_ROOT/$h/icache/$w/$m.txt"
           echo "[run] $h / $w / -$m → $out"
           # 2>&1 because perf stat writes counters to stderr.
+          # Use the same nix-store path on the remote — `nix copy`
+          # placed the full closure there.
           ssh -o BatchMode=yes "root@$h" \
               "perf stat --field-separator=, -e $EVENTS \
-                /tmp/benchmark -p -$m -n $ITERS /tmp/$w.pcap" \
+                $BENCH_BIN_PATH -p -$m -n $ITERS /tmp/$w.pcap" \
               > "$out" 2>&1 || true
         done
       done

@@ -1,0 +1,17 @@
+=== Flow Dissector Benchmark ===
+Packets: 20000
+PCAP: /tmp/https-web.pcap
+Parser: standard
+
+--- Performance (20000 packets x 100 iterations) ---
+Kernel flowdis: 116 ns/pkt,  8 Mpps
+XDP2 parser:    176 ns/pkt,  5 Mpps
+XDP2 parse-only:174 ns/pkt,  5 Mpps
+XDP2 fast-path: 69 ns/pkt,  14 Mpps (hits=1703400/2000000 = 85.2%, checksum=0x1a009a80e5cbc8)
+Speedup:        0.7x (parse-only: 0.7x,  fast-path: 1.7x)
+
+1482928,,l1-icache-load-misses,1119171494,100.00,,
+2835480902,,instructions,1119171494,100.00,,
+4160279993,,cycles,1119171494,100.00,,
+6846758,,branch-misses,1119171494,100.00,,
+370,,iTLB-load-misses,1119171494,100.00,,

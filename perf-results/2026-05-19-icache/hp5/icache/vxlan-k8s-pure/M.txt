@@ -1,0 +1,17 @@
+=== Flow Dissector Benchmark ===
+Packets: 20000
+PCAP: /tmp/vxlan-k8s-pure.pcap
+Parser: monolithic
+
+--- Performance (20000 packets x 100 iterations) ---
+Kernel flowdis: 114 ns/pkt,  8 Mpps
+XDP2 parser:    140 ns/pkt,  7 Mpps
+XDP2 parse-only:140 ns/pkt,  7 Mpps
+XDP2 fast-path: 53 ns/pkt,  18 Mpps (hits=2000000/2000000 = 100.0%, checksum=0x1e6af6dfb61408)
+Speedup:        0.8x (parse-only: 0.8x,  fast-path: 2.1x)
+
+1409346,,l1-icache-load-misses,949769363,100.00,,
+1578004677,,instructions,949769363,100.00,,
+3406859106,,cycles,949769363,100.00,,
+2571444,,branch-misses,949769363,100.00,,
+280,,iTLB-load-misses,949769363,100.00,,
