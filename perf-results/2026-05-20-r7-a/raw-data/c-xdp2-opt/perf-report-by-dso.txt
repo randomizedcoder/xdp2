@@ -1,0 +1,75 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 19K of event 'cpu/cycles/P'
+# Event count (approx.): 7132670916
+#
+# Overhead  Shared Object       
+# ........  ....................
+#
+    95.18%  benchmark           
+            |          
+            |--81.62%--main
+            |          __libc_start_call_main
+            |          __libc_start_main@@GLIBC_2.34
+            |          _start
+            |          
+            |--6.23%--__xdp2_parser_flow_dissector_ip_check_node_xdp2_parse.isra.0
+            |          |          
+            |           --6.11%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node.lto_priv.0
+            |                     main
+            |                     __libc_start_call_main
+            |                     __libc_start_main@@GLIBC_2.34
+            |                     _start
+            |          
+            |--2.35%--__xdp2_parser_flow_dissector_tcp_node_xdp2_parse.isra.0
+            |          |          
+            |           --2.25%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node.lto_priv.0
+            |                     main
+            |                     __libc_start_call_main
+            |                     __libc_start_main@@GLIBC_2.34
+            |                     _start
+            |          
+            |--2.04%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node.lto_priv.0
+            |          |          
+            |           --1.60%--main
+            |                     __libc_start_call_main
+            |                     __libc_start_main@@GLIBC_2.34
+            |                     _start
+            |          
+            |--1.66%--__xdp2_parser_flow_dissector_udp_node_xdp2_parse.isra.0
+            |          |          
+            |           --1.43%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node.lto_priv.0
+            |                     main
+            |                     __libc_start_call_main
+            |                     __libc_start_main@@GLIBC_2.34
+            |                     _start
+            |          
+             --1.29%--__xdp2_parser_flow_dissector_ether_inner_node_xdp2_parse.isra.0
+                       |          
+                        --1.22%--xdp2_parser_flow_dissector_l2_xdp2_parse_etype_dispatch_node.lto_priv.0
+                                  main
+                                  __libc_start_call_main
+                                  __libc_start_main@@GLIBC_2.34
+                                  _start
+
+     2.67%  [kernel.kallsyms]   
+     1.97%  libflowdis.so       
+            |          
+             --1.57%--__skb_flow_dissect_err
+                       |          
+                        --1.33%--main
+                                  __libc_start_call_main
+                                  __libc_start_main@@GLIBC_2.34
+                                  _start
+
+     0.13%  libc.so.6           
+     0.04%  libpcap.so.1.10.6   
+     0.01%  ld-linux-x86-64.so.2
+
+
+#
+# (Tip: Order by the overhead of source file name and line number: perf report -s srcline)
+#

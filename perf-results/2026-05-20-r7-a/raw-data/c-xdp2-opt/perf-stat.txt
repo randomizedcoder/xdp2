@@ -1,0 +1,18 @@
+
+ Performance counter stats for '/nix/store/283a6x4b15rphmwy6p0dqwvwpdhjn9g6-xdp2-flow-dissector-matrix-artifacts-0.1.0/bin/benchmark -p -n 200 -O /nix/store/hc552w5rb3n7i75800n0mvmp3ay0dvjp-xdp2-workload-vxlan-k8s-pure-pcap/vxlan-k8s-pure.pcap':
+
+     7,122,318,808      cycles                                                                  (75.00%)
+     4,115,738,047      instructions                                                            (75.01%)
+       864,004,245      branches                                                                (75.00%)
+         5,470,554      branch-misses                                                           (75.00%)
+     1,722,973,739      L1-dcache-loads                                                         (75.00%)
+        44,774,172      L1-dcache-load-misses                                                   (75.00%)
+         1,847,768      L1-icache-load-misses                                                   (74.99%)
+               101      iTLB-load-misses                                                        (74.99%)
+
+       1.989850994 seconds time elapsed
+
+       1.944661000 seconds user
+       0.035135000 seconds sys
+
+

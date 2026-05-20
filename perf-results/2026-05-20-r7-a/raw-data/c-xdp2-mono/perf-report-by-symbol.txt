@@ -1,0 +1,149 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 18K of event 'cpu/cycles/P'
+# Event count (approx.): 6565166709
+#
+# Overhead  Symbol                                                        IPC   [IPC Coverage]
+# ........  ............................................................  ....................
+#
+    87.28%  [.] main                                                      -      -            
+            |
+            ---main
+               __libc_start_call_main
+               __libc_start_main@@GLIBC_2.34
+               _start
+
+     7.94%  [.] xdp2_parser_flow_dissector_l2_xdp2_parse_mono.lto_priv.0  -      -            
+            |
+            ---xdp2_parser_flow_dissector_l2_xdp2_parse_mono.lto_priv.0
+               |          
+               |--7.10%--main
+               |          __libc_start_call_main
+               |          __libc_start_main@@GLIBC_2.34
+               |          _start
+               |          
+                --0.84%--__libc_start_call_main
+                          __libc_start_main@@GLIBC_2.34
+                          _start
+
+     1.96%  [.] __skb_flow_dissect_err                                    -      -            
+            |
+            ---__skb_flow_dissect_err
+               |          
+                --1.75%--main
+                          __libc_start_call_main
+                          __libc_start_main@@GLIBC_2.34
+                          _start
+
+     0.54%  [.] __skb_flow_get_ports                                      -      -            
+            |
+            ---__skb_flow_get_ports
+               main
+               __libc_start_call_main
+               __libc_start_main@@GLIBC_2.34
+               _start
+
+     0.48%  [k] kernel_init_pages                                         -      -            
+     0.21%  [k] asm_exc_page_fault                                        -      -            
+     0.13%  [.] icmp_metadata.constprop.0                                 -      -            
+     0.09%  [k] rep_movs_alternative                                      -      -            
+     0.08%  [.] __memmove_avx_unaligned_erms                              -      -            
+     0.05%  [k] unmap_page_range                                          -      -            
+     0.05%  [k] native_sched_clock                                        -      -            
+     0.05%  [k] __rcu_read_lock                                           -      -            
+     0.04%  [k] __handle_mm_fault                                         -      -            
+     0.04%  [k] lock_vma_under_rcu                                        -      -            
+     0.04%  [k] sync_regs                                                 -      -            
+     0.03%  [.] __memmove_avx_unaligned                                   -      -            
+     0.03%  [k] __alloc_frozen_pages_noprof                               -      -            
+     0.03%  [k] __rcu_read_unlock                                         -      -            
+     0.03%  [.] _IO_file_xsgetn                                           -      -            
+     0.03%  [k] mod_memcg_lruvec_state                                    -      -            
+     0.03%  [.] pcap_next_packet                                          -      -            
+     0.03%  [k] page_ext_get                                              -      -            
+     0.03%  [k] get_page_from_freelist                                    -      -            
+     0.03%  [k] free_unref_folios                                         -      -            
+     0.03%  [k] lru_gen_del_folio.constprop.0                             -      -            
+     0.02%  [k] lru_add                                                   -      -            
+     0.02%  [k] lru_gen_add_folio                                         -      -            
+     0.02%  [k] error_entry                                               -      -            
+     0.02%  [k] handle_mm_fault                                           -      -            
+     0.02%  [k] vma_alloc_folio_noprof                                    -      -            
+     0.02%  [k] mas_walk                                                  -      -            
+     0.02%  [k] __pgalloc_tag_add                                         -      -            
+     0.02%  [k] lruvec_stat_mod_folio                                     -      -            
+     0.02%  [k] __mem_cgroup_charge                                       -      -            
+     0.02%  [k] do_user_addr_fault                                        -      -            
+     0.02%  [k] get_vma_policy                                            -      -            
+     0.02%  [k] irqentry_exit                                             -      -            
+     0.02%  [k] folio_batch_move_lru                                      -      -            
+     0.02%  [k] mksaveddirty_shift                                        -      -            
+     0.02%  [k] folios_put_refs                                           -      -            
+     0.02%  [k] free_frozen_page_commit.isra.0                            -      -            
+     0.02%  [k] filemap_get_read_batch                                    -      -            
+     0.01%  [k] __list_add_valid_or_report                                -      -            
+     0.01%  [k] try_charge_memcg                                          -      -            
+     0.01%  [k] _copy_to_iter                                             -      -            
+     0.01%  [k] error_return                                              -      -            
+     0.01%  [.] pcap_dispatch                                             -      -            
+     0.01%  [k] folio_prealloc                                            -      -            
+     0.01%  [k] policy_nodemask                                           -      -            
+     0.01%  [k] pfn_pte                                                   -      -            
+     0.01%  [k] _raw_spin_unlock                                          -      -            
+     0.01%  [k] css_rstat_updated                                         -      -            
+     0.01%  [k] alloc_pages_mpol                                          -      -            
+     0.01%  [k] __pte_offset_map                                          -      -            
+     0.01%  [k] get_mem_cgroup_from_mm                                    -      -            
+     0.01%  [k] set_ptes.isra.0                                           -      -            
+     0.01%  [k] folio_add_new_anon_rmap                                   -      -            
+     0.01%  [k] _raw_spin_trylock                                         -      -            
+     0.01%  [.] __fread_chk                                               -      -            
+     0.01%  [k] __mmap_region                                             -      -            
+     0.01%  [.] memmove                                                   -      -            
+     0.01%  [k] memcpy_orig                                               -      -            
+     0.01%  [.] strcmp                                                    -      -            
+     0.01%  [k] next_uptodate_folio                                       -      -            
+     0.01%  [k] _raw_spin_lock                                            -      -            
+     0.01%  [k] vtime_user_enter                                          -      -            
+     0.01%  [k] pte_mkwrite                                               -      -            
+     0.01%  [.] pcapint_oneshot                                           -      -            
+     0.01%  [k] __ct_user_enter                                           -      -            
+     0.01%  [k] ext4_file_read_iter                                       -      -            
+     0.01%  [k] access_error                                              -      -            
+     0.01%  [.] pcapint_offline_read                                      -      -            
+     0.01%  [.] __underflow                                               -      -            
+     0.01%  [k] __folio_batch_add_and_move                                -      -            
+     0.01%  [k] blk_cgroup_congested                                      -      -            
+     0.01%  [k] __memcg_kmem_charge_page                                  -      -            
+     0.01%  [k] get_vtime_delta                                           -      -            
+     0.01%  [k] folio_add_lru                                             -      -            
+     0.01%  [k] __vmf_anon_prepare                                        -      -            
+     0.01%  [k] __rmqueue_pcplist                                         -      -            
+     0.01%  [k] entry_SYSCALL_64                                          -      -            
+     0.01%  [k] vfs_read                                                  -      -            
+     0.01%  [k] static_key_count                                          -      -            
+     0.01%  [k] irqentry_enter                                            -      -            
+     0.01%  [k] __list_del_entry_valid_or_report                          -      -            
+     0.01%  [k] folio_remove_rmap_ptes                                    -      -            
+     0.01%  [k] percpu_counter_add_batch                                  -      -            
+     0.01%  [k] __mod_zone_page_state                                     -      -            
+     0.01%  [k] do_anonymous_page                                         -      -            
+     0.01%  [k] mod_node_page_state                                       -      -            
+     0.01%  [.] pcap_next                                                 -      -            
+     0.01%  [k] __tlb_remove_folio_pages                                  -      -            
+     0.01%  [.] _dl_fini                                                  -      -            
+     0.01%  [k] __page_cache_release.part.0                               -      -            
+     0.01%  [k] pte_offset_map_lock                                       -      -            
+     0.01%  [k] ct_kernel_exit_state                                      -      -            
+     0.01%  [k] free_pages_and_swap_cache                                 -      -            
+     0.00%  [k] kmem_cache_prefill_sheaf                                  -      -            
+     0.00%  [k] prot_commit_flush_ptes                                    -      -            
+     0.00%  [k] _raw_spin_lock_irqsave                                    -      -            
+
+
+#
+# (Tip: Treat branches as callchains: perf record -b ... ; perf report --branch-history)
+#

@@ -1,0 +1,45 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 4K of event 'cpu/cycles/P'
+# Event count (approx.): 1609734242
+#
+# Overhead  Shared Object       
+# ........  ....................
+#
+    96.07%  xdp2-bench          
+            |          
+            |--52.83%--xdp2_bench::bench::run_single_threaded
+            |          
+            |--12.01%--xdp2_bench::graph_mono::parse_ipv4
+            |          
+            |--7.09%--xdp2_bench::graph_mono::dispatch_ipv4
+            |          
+            |--6.59%--xdp2_bench::graph_mono::dispatch_ether
+            |          
+            |--5.88%--xdp2_bench::graph_mono::parse_udp_tunnel
+            |          
+            |--4.75%--xdp2_core::engine::parse
+            |          |          
+            |          |--2.47%--0x48
+            |          |          
+            |           --0.71%--0x1
+            |          
+            |--1.27%--xdp2_bench::extractors::extract_ether_metadata
+            |          0x1
+            |          
+             --0.62%--xdp2_bench::main
+
+     2.58%  [kernel.kallsyms]   
+     1.29%  libc.so.6           
+            |          
+             --0.74%--__memmove_avx_unaligned_erms
+
+     0.06%  ld-linux-x86-64.so.2
+
+
+#
+# (Tip: To compare scalability of two workload samples use perf diff -c ratio file1 file2)
+#

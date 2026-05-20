@@ -1,0 +1,14 @@
+=== Flow Dissector Benchmark ===
+Packets: 20000
+PCAP: /nix/store/hc552w5rb3n7i75800n0mvmp3ay0dvjp-xdp2-workload-vxlan-k8s-pure-pcap/vxlan-k8s-pure.pcap
+Parser: optimized
+
+--- Performance (20000 packets x 200 iterations) ---
+Kernel flowdis: 113 ns/pkt,  8 Mpps
+XDP2 parser:    161 ns/pkt,  6 Mpps
+XDP2 parse-only:161 ns/pkt,  6 Mpps
+XDP2 fast-path: 51 ns/pkt,  19 Mpps (hits=4000000/4000000 = 100.0%, checksum=0x3cd5edbf6c2810)
+Speedup:        0.7x (parse-only: 0.7x,  fast-path: 2.2x)
+
+[ perf record: Woken up 8 times to write data ]
+[ perf record: Captured and wrote 1.784 MB result/perf-r7/c-xdp2-opt/perf-record.data (19896 samples) ]

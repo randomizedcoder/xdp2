@@ -1,0 +1,145 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 4K of event 'cpu/cycles/P'
+# Event count (approx.): 1609734242
+#
+# Overhead  Symbol                                                                                                   IPC   [IPC Coverage]
+# ........  .......................................................................................................  ....................
+#
+    52.83%  [.] xdp2_bench::bench::run_single_threaded                                                               -      -            
+            |
+            ---xdp2_bench::bench::run_single_threaded
+
+    12.01%  [.] xdp2_bench::graph_mono::parse_ipv4                                                                   -      -            
+            |
+            ---xdp2_bench::graph_mono::parse_ipv4
+
+     7.09%  [.] xdp2_bench::graph_mono::dispatch_ipv4                                                                -      -            
+            |
+            ---xdp2_bench::graph_mono::dispatch_ipv4
+
+     6.59%  [.] xdp2_bench::graph_mono::dispatch_ether                                                               -      -            
+            |
+            ---xdp2_bench::graph_mono::dispatch_ether
+
+     5.88%  [.] xdp2_bench::graph_mono::parse_udp_tunnel                                                             -      -            
+            |
+            ---xdp2_bench::graph_mono::parse_udp_tunnel
+
+     4.75%  [.] xdp2_core::engine::parse                                                                             -      -            
+            |
+            ---xdp2_core::engine::parse
+               |          
+               |--2.47%--0x48
+               |          
+                --0.71%--0x1
+
+     1.27%  [.] xdp2_bench::extractors::extract_ether_metadata                                                       -      -            
+            |
+            ---xdp2_bench::extractors::extract_ether_metadata
+               0x1
+
+     0.74%  [.] __memmove_avx_unaligned_erms                                                                         -      -            
+            |
+            ---__memmove_avx_unaligned_erms
+
+     0.62%  [.] xdp2_bench::main                                                                                     -      -            
+            |
+            ---xdp2_bench::main
+
+     0.50%  [k] kernel_init_pages                                                                                    -      -            
+     0.45%  [.] xdp2_bench::extractors::extract_ipv4_metadata                                                        -      -            
+     0.40%  [k] asm_exc_page_fault                                                                                   -      -            
+     0.40%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::extract_metadata  -      -            
+     0.34%  [k] rep_movs_alternative                                                                                 -      -            
+     0.31%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::handler           -      -            
+     0.31%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::is_overlay        -      -            
+     0.29%  [.] xdp2_bench::template_classify::select_template_id                                                    -      -            
+     0.29%  [.] _int_free_create_chunk                                                                               -      -            
+     0.27%  [.] xdp2_bench::extractors::extract_ports_metadata                                                       -      -            
+     0.25%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::next_proto        -      -            
+     0.25%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::next_proto        -      -            
+     0.22%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::next_proto        -      -            
+     0.20%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::proto_table       -      -            
+     0.18%  [.] xdp2_bench::extractors::extract_vxlan_metadata                                                       -      -            
+     0.18%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::next_proto        -      -            
+     0.18%  [.] xdp2_core::parse_node::ParseNodeDyn::sub_parse                                                       -      -            
+     0.18%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::post_handler      -      -            
+     0.16%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::unknown_ret       -      -            
+     0.11%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::header_len        -      -            
+     0.11%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::header_len        -      -            
+     0.11%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::next_proto        -      -            
+     0.11%  [k] do_user_addr_fault                                                                                   -      -            
+     0.09%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::next_proto        -      -            
+     0.09%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::is_overlay        -      -            
+     0.09%  [k] do_anonymous_page                                                                                    -      -            
+     0.09%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::min_len           -      -            
+     0.09%  [.] xdp2_bench::graph_compiled::dispatch_ether                                                           -      -            
+     0.09%  [.] _int_malloc                                                                                          -      -            
+     0.09%  [k] mas_walk                                                                                             -      -            
+     0.07%  [k] __rcu_read_lock                                                                                      -      -            
+     0.07%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::wildcard_node     -      -            
+     0.07%  [k] lru_gen_add_folio                                                                                    -      -            
+     0.07%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::min_len           -      -            
+     0.07%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::header_len        -      -            
+     0.07%  [.] unlink_chunk.isra.0                                                                                  -      -            
+     0.07%  [.] xdp2_bench::graph_compiled::parse_udp_tunnel                                                         -      -            
+     0.05%  [k] filemap_get_read_batch                                                                               -      -            
+     0.05%  [k] filemap_read                                                                                         -      -            
+     0.04%  [.] _int_free_merge_chunk                                                                                -      -            
+     0.04%  [.] xdp2_bench::graph_compiled::parse_ipv4                                                               -      -            
+     0.04%  [.] __memmove_avx_unaligned                                                                              -      -            
+     0.04%  [.] xdp2_bench::template_classify::classify_ipv4                                                         -      -            
+     0.04%  [k] lruvec_stat_mod_folio                                                                                -      -            
+     0.04%  [k] step_into_slowpath                                                                                   -      -            
+     0.04%  [.] do_lookup_x                                                                                          -      -            
+     0.03%  [.] clap_builder::parser::arg_matcher::ArgMatcher::remove                                                -      -            
+     0.03%  [k] __pte_offset_map                                                                                     -      -            
+     0.03%  [k] handle_mm_fault                                                                                      -      -            
+     0.03%  [k] get_page_from_freelist                                                                               -      -            
+     0.02%  [k] __pgalloc_tag_add                                                                                    -      -            
+     0.02%  [k] rcu_sched_clock_irq                                                                                  -      -            
+     0.02%  [k] copy_page_to_iter                                                                                    -      -            
+     0.02%  [k] alloc_pages_mpol                                                                                     -      -            
+     0.02%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::header_len        -      -            
+     0.02%  [.] xdp2_bench::extractors::extract_tcp_metadata                                                         -      -            
+     0.02%  [k] __vmf_anon_prepare                                                                                   -      -            
+     0.02%  [k] mod_memcg_lruvec_state                                                                               -      -            
+     0.02%  [k] folio_remove_rmap_ptes                                                                               -      -            
+     0.02%  [k] native_sched_clock                                                                                   -      -            
+     0.02%  [k] get_vma_policy                                                                                       -      -            
+     0.02%  [.] xdp2_bench::graph_compiled::dispatch_ipv4                                                            -      -            
+     0.02%  [k] lock_vma_under_rcu                                                                                   -      -            
+     0.02%  [k] mod_node_page_state                                                                                  -      -            
+     0.02%  [k] ct_kernel_exit_state                                                                                 -      -            
+     0.02%  [k] __pgalloc_tag_sub                                                                                    -      -            
+     0.02%  [k] blk_cgroup_congested                                                                                 -      -            
+     0.02%  [k] vma_merge_new_range                                                                                  -      -            
+     0.02%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::min_len           -      -            
+     0.02%  [.] __libc_malloc2                                                                                       -      -            
+     0.02%  [k] __page_cache_release.part.0                                                                          -      -            
+     0.02%  [k] __radix_tree_lookup                                                                                  -      -            
+     0.02%  [k] __handle_mm_fault                                                                                    -      -            
+     0.02%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::min_len           -      -            
+     0.02%  [.] <xdp2_core::parse_node::ParseNode<M,P> as xdp2_core::parse_node::ParseNodeDyn<M>>::header_len        -      -            
+     0.02%  [k] sync_regs                                                                                            -      -            
+     0.02%  [k] lru_gen_del_folio.constprop.0                                                                        -      -            
+     0.02%  [k] count_memcg_events                                                                                   -      -            
+     0.02%  [k] uncharge_folio                                                                                       -      -            
+     0.02%  [k] folio_add_new_anon_rmap                                                                              -      -            
+     0.02%  [k] __rcu_read_unlock                                                                                    -      -            
+     0.02%  [k] up_read                                                                                              -      -            
+     0.02%  [k] xas_load                                                                                             -      -            
+     0.02%  [k] css_rstat_updated                                                                                    -      -            
+     0.02%  [k] lru_add                                                                                              -      -            
+     0.02%  [k] __alloc_frozen_pages_noprof                                                                          -      -            
+     0.02%  [.] handle_amd                                                                                           -      -            
+     0.00%  [k] perf_event_exec                                                                                      -      -            
+
+
+#
+# (Tip: To compare scalability of two workload samples use perf diff -c ratio file1 file2)
+#

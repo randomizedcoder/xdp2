@@ -415,6 +415,13 @@
           flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
         };
 
+        perfRecordR7MonoVsRust = import ./nix/perf-record-r7-mono-vs-rust.nix {
+          inherit pkgs;
+          flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
+          xdp2-rs = xdp2Rs.build;
+          workload-pcap-vxlan-k8s-pure = perfAnalysis.workload-pcap-vxlan-k8s-pure;
+        };
+
         # Common source flags for proto-audit commands
         protoAuditFlags = builtins.concatStringsSep " " [
           "--proto-defs-dir ${./src/include/xdp2/proto_defs}"
@@ -1112,6 +1119,7 @@
           # R1.1 — focused perf-record + annotate on c-xdp2-usp's _opt
           # vs _generic path. Invoked via run-on-host on hp5.
           perf-record-c-xdp2-r1 = perfRecordR1;
+          perf-record-r7-mono-vs-rust = perfRecordR7MonoVsRust;
           # Chain-signature histogram probe (fast-path exploration, step 1).
           # Single PCAP: nix run .#chain-histogram -- <pcap> [top-n]
           # All 3 refs:  nix run .#chain-histogram-all

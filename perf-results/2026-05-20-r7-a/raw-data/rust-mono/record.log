@@ -1,0 +1,8 @@
+Pinned to core 3
+Loaded 20000 packets from /nix/store/hc552w5rb3n7i75800n0mvmp3ay0dvjp-xdp2-workload-vxlan-k8s-pure-pcap/vxlan-k8s-pure.pcap
+Filtered: 19822/20000 packets parseable (99.1%)
+--- Performance (19822 packets x 200 iterations, 19822 template-matched) ---
+Rust mono     : 95 ns/pkt,  10 Mpps
+Correctness: graph ok=19822/19822, mono ok=19822/19822, compiled ok=19822/19822, template ok=19822/19822
+[ perf record: Woken up 2 times to write data ]
+[ perf record: Captured and wrote 0.322 MB result/perf-r7/rust-mono/perf-record.data (4492 samples) ]

@@ -1,0 +1,21 @@
+Pinned to core 3
+Loaded 20000 packets from /nix/store/hc552w5rb3n7i75800n0mvmp3ay0dvjp-xdp2-workload-vxlan-k8s-pure-pcap/vxlan-k8s-pure.pcap
+Filtered: 19822/20000 packets parseable (99.1%)
+
+ Performance counter stats for '/nix/store/1kknlzi4pfv3jigbhy3f52lmk0sivakp-xdp2-rs-0.1.0/bin/xdp2-bench --pcap /nix/store/hc552w5rb3n7i75800n0mvmp3ay0dvjp-xdp2-workload-vxlan-k8s-pure-pcap/vxlan-k8s-pure.pcap --iterations 200 --mode mono --core-pin 3':
+
+     1,587,600,826      cycles                                                                  (74.79%)
+     1,386,144,650      instructions                                                            (74.79%)
+       281,111,374      branches                                                                (74.90%)
+         3,172,942      branch-misses                                                           (75.13%)
+       555,112,821      L1-dcache-loads                                                         (75.24%)
+        20,375,770      L1-dcache-load-misses                                                   (75.23%)
+           404,610      L1-icache-load-misses                                                   (75.06%)
+               251      iTLB-load-misses                                                        (74.85%)
+
+       0.441110648 seconds time elapsed
+
+       0.429203000 seconds user
+       0.012856000 seconds sys
+
+
