@@ -1228,6 +1228,238 @@ shapes (R3.4.5 remainder) is what closes it further.
   metadata patterns the LLVM analysis trips on and extend the
   matcher.
 
+## Phase R3.4 remainder + R5 — completing the R3.4 plan (2026-05-18 → 2026-05-19)
+
+### R3.4 chain completion (commits `b8532a2`, `d687a6f`, `a1de445`, `ba26071`)
+
+R3.4.5b/c/d/e add the remaining chains the R3.4.5 plan called out:
+
+| chain | commit | shape |
+|---|---|---|
+| R3.4.5b | `b8532a2` | eth+8021Q+ipv4+{tcp,icmp} |
+| R3.4.5c | `d687a6f` | eth+8021Q+ipv6+{tcp,icmpv6} |
+| R3.4.5d | `a1de445` | eth+PPPoE+ipv4+{tcp,icmp} |
+| R3.4.5e | `a1de445` | eth+PPPoE+ipv6+{tcp,icmpv6} |
+| R3.4.4 (generalisation) | `ba26071` | `.enable_fast_paths = 1` per-parser config field replaces the hardcoded `parser_name == 'xdp2_parser_flow_dissector_l2'` template gate |
+
+UDP was intentionally **dropped** from every fast-path chain
+(`a063bfc`) for tunnel correctness: a UDP fast-path that short-
+circuits at outer UDP loses inner-5-tuple extraction on VXLAN /
+Geneve / GTP-U / MPLS-UDP / PPPoE-over-UDP. The graph walk
+correctly enters these tunnels via udp_node's dport dispatch;
+the fast-path would race ahead and emit outer-only metadata.
+TCP + ICMP have no in-tree tunnel ports so they stay in the
+fast-path.
+
+### Bug fix series surfaced by the protocol-coverage-matrix
+
+The broad-coverage discovery pcap + the new protocol-coverage-
+matrix tool (`nix run .#protocol-coverage-matrix`) surfaced four
+correctness bugs in the codegen that the original 22-pcap parity
+gate missed:
+
+1. **`npi_simple` bswap mismatch** (commit `3ad4ac4`). 16/32-bit
+   `next_proto` loads were `__builtin_bswap`ed inline but the
+   switch case constants were the raw `__cpu_to_be16()` table
+   keys. Result: 16-bit next_proto dispatches silently
+   `goto unknown_ret` on every match → mono silently dropped
+   out of GRE / inner-Ethernet / PPPoE dispatches. Discovered
+   when adding broad-coverage.pcap to the matrix surfaced 600
+   `c-xdp2-mono vs rust-*` `ip_proto` disagreements.
+2. **`vxlan_proto` convention** (commit `a063bfc`). `vxlan_proto`
+   returned host-order `ETH_P_TEB` but `vxlan_inner_table`
+   keyed by `__cpu_to_be16(ETH_P_TEB)`. Strict-equality lookup
+   never matched → all C parsers stopped at outer UDP on VXLAN.
+3. **`icmp_id` sentinel three-way alignment** (commit `eebe021`).
+   Slow path stored host `1`, mono fast-path stored `htons(1)`,
+   Rust never sentinelled at all. The bench's `ntohs` on emit
+   surfaced these as `1` / `256` / `0` for the same packet —
+   the icmpv4 OK!N cells in the matrix.
+4. **Per-(pcap, parser) `tunnel_behavior` overrides** (commit
+   `f0faceb`). A parser declared inner globally can be re-
+   declared outer on specific pcaps where its graph lacks the
+   tunnel walker (e.g. rust-template's fixed-offset extractor
+   on ah.pcap). New schema mechanism in parity_scope.json.
+
+Net result of these bug fixes: matrix coverage went from
+22 OK!N cells (icmpv4 + vxlan disagreements) to **0 OK!N, 0
+REJ-undeclared, 0 REJ-unexpected** across 378 protocols × 13
+parsers = 4914 cells. First time the matrix has zero pairwise
+field disagreements.
+
+### Aggressive compile flags (commit `cab4593`)
+
+C userspace CFLAGS flipped from `-O2 -g` to
+`-O3 -march=native -flto -fno-plt`. Validated on hp5 sweep:
+moved every cell by ≤3 ns (= measurement noise). The codebase
+was already at gcc -O2's local minimum for this code shape.
+
+The flags are kept anyway: they remove "build tuning" as a
+confounding variable in subsequent investigations.
+
+### Mono is now the benchmark default (commit `c5cbaf4`)
+
+`samples/flow_dissector/benchmark.c`: default parser flipped
+from OPTIMISED (-O) to MONOLITHIC (-M). Mono sits at ~70
+ns/pkt on TCP workloads (vs opt's ~135) on hp5 with R3.4
+fast-paths capturing the common chains automatically. Old
+`-O` flag still works as explicit opt-in; `-S` still selects
+generic engine.
+
+### The 50 ns gap to rust-mono on tunneled workloads —
+###   three hypotheses tested, all DISPROVED
+
+Post-R3.4 sweep showed `c-xdp2-mono` on `vxlan-k8s-pure.pcap`
+(20K-packet workload, slow-path tunnel walking) at **141 ns/pkt
+on hp5** vs `rust-mono` at **92 ns/pkt** — a 49 ns gap (35 %).
+
+The 2026-05-19 investigation ran three experiments to localize
+the cause:
+
+| hypothesis | experiment | result |
+|---|---|---|
+| Compile-flag asymmetry (rust LTO+native vs C -O2) | rebuild C at `-O3 -march=native -flto -fno-plt` | ±3 ns delta — DISPROVED (`perf-results/2026-05-19-O3-march-native-flto/`) |
+| Code-size / icache pressure (mono entry = 10K asm instr ≈ 62 KB, larger than 32 KB L1i) | `perf stat -e l1-icache-load-misses,...` sweep per parser-mode | similar miss counts across modes (1.4–1.6 M); ipc differs, miss/Mi differs — DISPROVED (`perf-results/2026-05-19-icache/`) |
+| Per-node bookkeeping overhead (`last_node` store, NULL-ops checks, overlay check, keyin ternary) | R5 trim — gate emission on IR-known statics | trims fired in mono.c (0 surviving NULL checks); 0 ns/pkt delta on hp5 — DISPROVED (`perf-results/2026-05-19-r5-trim/`) |
+
+The third disproof is interesting: gcc `-O3 -march=native -flto`
+was *already* folding the runtime branches we trimmed. The mono
+template is at gcc's local optimisation minimum on Zen 1; the
+R5 trims make the template source match what the compiled
+binary already produced.
+
+### What the 50 ns gap actually is — pending investigation
+
+The icache sweep measured `mono` at 789 instructions/packet on
+vxlan vs `rust-mono`'s inferred ~510. That's a real 280 instr/pkt
+difference. Now that bookkeeping is eliminated as the cause,
+the leading candidates for the remaining gap are in the
+**data path**, not dispatch shape:
+
+- **Metadata struct layout**: `xdp2_metadata_all` is ~200 B
+  (3 cachelines); rust's `FlowMeta` is ~100 B. Mono writes
+  more bytes per packet — each store is one instruction at
+  the same IPC.
+- **Inline `memcpy()` emit for metadata_transfers** (R3.3.4
+  IR-coverage devirt). The pattern `memcpy(dst, src, N)` per
+  transfer generates 1-3 instructions depending on N; rust-
+  mono's direct field stores collapse better.
+- **TLV / flag_fields walker overhead**. The mono-eligibility
+  loosening in commit `a47d2ad` lets flag_fields nodes through
+  without walker emission, but the proto_table dispatch into
+  them still costs cycles.
+
+R6 (metadata struct re-layout) is the next phase. Estimated
+500+ LoC, ~2-3 day effort with real struct-design tradeoffs.
+
+### Headline picture after R5
+
+`c-xdp2-mono` on hp5:
+
+| workload | pre-R3.4 | post-R3.4 | post-R5 | flowdis on same |
+|---|---:|---:|---:|---:|
+| https-web (TCP) | 116 | 71 | 72 | 119 |
+| nfs-server (TCP) | (~115) | 69 | 69 | 115 |
+| vlan-tcp-mix (VLAN+TCP) | (slow) | 70 | 70 | 127 |
+| pppoe-isp (PPPoE+TCP) | (slow) | 72 | 73 | 123 |
+| k8s-microservices (mixed VXLAN) | (slow) | 137 | (no measure) | 116 |
+| vxlan-k8s-pure (100 % VXLAN) | (incorrect: stopped at outer UDP) | 141 | 140 | 110 |
+
+The two tunnel workloads (k8s-microservices, vxlan-k8s-pure)
+show the work-vs-speed tradeoff: mono walks the full inner
+stack (correct inner 5-tuple); flowdis stops at outer (no
+inner extraction). Direct cross-parser comparison on those
+two cells is apples-vs-oranges (`docs/r3.4-hp5-perf-targets.md`
+caveats section).
+
+## Phase R6 — Metadata struct re-layout (2026-05-19)
+
+Targets the fourth hypothesis after R5 disproved bookkeeping:
+maybe the metadata-struct layout itself (200 B, scattered
+hot/cold mix) was the cause of the 280 instr/pkt gap to
+rust-mono on tunneled workloads. Per
+`perf-results/2026-05-19-r6-audit/audit.md`, the pre-R6 layout
+placed 108 bytes of cold fields (`tcp_options`, `arp`, `gre`,
+`gre_pptp`, `mpls`) BEFORE the hashed region, so they occupied
+hot cachelines that were never written on TCP/UDP 5-tuple
+parses (the common case).
+
+**Phase A** (`parser_metadata.h:297-323`): rebind
+`XDP2_HASH_LENGTH` macro from `sizeof(*FRAME)` to a named
+end field (`offsetof(addrs) + sizeof(addrs)`). Precondition
+for adding cold fields after `addrs` without silently extending
+the IPv6 hash byte range.
+
+**Phase B** (`parser_metadata.h:220-260`): move `tcp_options`,
+`arp`, `gre`, `gre_pptp`, `mpls` to AFTER `addrs`. Move
+`l2_off/l3_off/l4_off` to the front prefix so all small hot
+fields cluster ahead of the hash region.
+
+**Resulting struct**: 200 B → 192 B (saves 8 B / parser frame).
+All hot fields for a TCP/IPv4 5-tuple parse fit in CL0
+(offsets 0-59): addr_type + eth_addrs + l3_off + eth_proto +
+ip_proto + ports + addrs.v4. The pre-R6 layout used 4
+cachelines for the same set of writes (eth_addrs in CL0, the
+rest scattered across CL2-CL3).
+
+`perf-results/2026-05-19-r6-layout/comparison.md`:
+
+| workload | host | R5 baseline | R6 | Δ |
+|---|---|---:|---:|---:|
+| https-web | hp5 | 72 | 72 | 0 |
+| https-web | hp2 | 73 | 70 | -3 |
+| vxlan-k8s-pure | hp5 | 140 | 139 | -1 |
+| vxlan-k8s-pure | hp2 | 137 | 143 | +6 |
+
+**Null result on perf, like R5.** Smoke iter band is ±3 ns;
+every cell is within noise. Three layout/dispatch hypothesis
+tests (R5 bookkeeping, R6 layout, compile flags) have now all
+yielded zero ns/pkt on Zen 1 because gcc was already producing
+near-optimal code on the pre-R6 layout.
+
+Store-buffer absorption + 8-way L1d on Zen 1 mean cacheline-
+write count doesn't matter — 4 scattered stores retire at the
+same rate as 1 packed store once they all hit L1.
+
+**What R6 leaves**: the ~50 ns gap to rust-mono on tunnels is
+**store count**, not store placement. To close it requires
+either:
+
+- **R7** — per-parser metadata struct generation. Each parser
+  declares its used field set in the IR; codegen emits a
+  tailored struct + extractors. For flow-dissector-l2 the
+  per-parser struct would drop to ~57 B (single cacheline,
+  5-tuple only); fewer metadata writes per packet, matching
+  rust-mono's store count. ~500 LoC of IR + codegen work.
+- **R4** — proper flag_fields walker emission for `gre_v0/v1`
+  and similar protocols where the current mono codegen elides
+  field-by-field extraction.
+
+R6 is permanent value even at zero ns/pkt: struct size shrank,
+hash-macro is compositionally stable (precondition for R7),
+and hot fields are clustered for any future microarchitecture
+that's less forgiving than Zen 1.
+
+### Cumulative R3-R6 picture
+
+`c-xdp2-mono` on hp5, evolution across phases:
+
+| Phase | https-web | vxlan-k8s-pure | notes |
+|---|---:|---:|---|
+| Pre-R3.3 baseline | 116 | (n/a; outer-only) | slow generic engine |
+| R3.3.7 (mono canonical) | 114 | (n/a) | hand-written retired |
+| R3.4.1 (IPv4 fast-path) | 76 | (n/a) | -34 % |
+| R3.4.5a (IPv6 fast-path) | 71 | (n/a) | -38 % |
+| R3.4.5b-e + R3.4.4 (chains + generalisation) | 71 | (n/a) | (within noise) |
+| vxlan bug fix (a063bfc) | 71 | 141 | first correct vxlan walk |
+| R5 trim (bookkeeping) | 72 | 140 | null on perf, valid trim |
+| R6 layout | 72 | 139 | null on perf, struct now 192 B |
+
+**Net of all phases**: -38 % on https-web vs pre-R3.3
+baseline; the tunnel-walking c-xdp2-mono path now sits at
+139-143 ns/pkt with correct inner 5-tuple extraction (vs
+flowdis's 110-118 ns/pkt that stops at outer UDP).
+
 ## See also
 
 - `xdp2-rs/docs/fast-path-dispatch.md` — Rust dyn-vs-enum dispatch story

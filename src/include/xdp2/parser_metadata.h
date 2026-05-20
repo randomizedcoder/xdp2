@@ -215,19 +215,26 @@ enum xdp2_addr_types {
 
 /* Meta data structure containing all common metadata in canonical field
  * order. eth_proto is declared as the hash start field for the common
- * metadata structure. addrs is last field for canonical hashing.
+ * metadata structure. addrs ends the hash region (R6 layout: cold
+ * fields follow after addrs and are excluded from the hash via the
+ * named-end bound in XDP2_HASH_LENGTH).
+ *
+ * R6 layout rationale (perf-results/2026-05-19-r6-audit/audit.md):
+ * The pre-R6 layout placed tcp_options (44 B), arp (24 B), gre (20 B),
+ * gre_pptp (16 B), and mpls (4 B) ahead of the hashed region. On a
+ * plain TCP/IPv4 parse none of those fields are written, so they were
+ * 108 B of cold weight padding hot cachelines. Moving them after addrs
+ * leaves the hashed byte content identical (eth_proto..end-of-addrs)
+ * while pulling hot writes (eth_addrs, l2_off, l3_off, l4_off,
+ * hashed region) into the first two cachelines.
  */
 struct xdp2_metadata_all {
+	/* Hot prefix (not hashed): always-written or per-pkt-cheap fields */
 	XDP2_METADATA_addr_type;
 	XDP2_METADATA_is_fragment;
 	XDP2_METADATA_first_frag;
 	XDP2_METADATA_vlan_count;
 	XDP2_METADATA_eth_addrs;
-	XDP2_METADATA_tcp_options;
-	XDP2_METADATA_mpls;
-	XDP2_METADATA_arp;
-	XDP2_METADATA_gre;
-	XDP2_METADATA_gre_pptp;
 	XDP2_METADATA_l2_off;
 	XDP2_METADATA_l3_off;
 	XDP2_METADATA_l4_off;
@@ -241,7 +248,16 @@ struct xdp2_metadata_all {
 	XDP2_METADATA_ports;
 	XDP2_METADATA_icmp;
 
-	XDP2_METADATA_addrs; /* Must be last */
+	XDP2_METADATA_addrs; /* End of hashed region (see XDP2_HASH_LENGTH) */
+
+	/* Cold tail: rare-write fields outside hash. Not touched on TCP/UDP
+	 * 5-tuple parses; moved here from the front to keep hot CLs hot.
+	 */
+	XDP2_METADATA_tcp_options;
+	XDP2_METADATA_arp;
+	XDP2_METADATA_gre;
+	XDP2_METADATA_gre_pptp;
+	XDP2_METADATA_mpls;
 };
 
 #define XDP2_HASH_OFFSET_ALL						\
@@ -294,14 +310,20 @@ struct xdp2_metadata_all {
 #define XDP2_HASH_START(FRAME, HASH_START_FIELD)			\
 	(&(FRAME)->HASH_START_FIELD)
 
-/* Helper that returns the hash length for a metadata structure. This
- * returns the end of the address fields for the given type (the
- * address fields are assumed to be the common metadata fields in a nion
- * in the last fields in the metadata structure). The macro returns the
- * offset of the last byte of address minus the offset of the field
- * where the hash starts as indicated by the HASH_OFFSET argument.
+/* Helper that returns the hash length for a metadata structure. The
+ * hashed region spans HASH_OFFSET through the end of the addrs field.
+ * The bound is anchored on offsetof(addrs)+sizeof(addrs) rather than
+ * sizeof(*FRAME) so that adding cold fields AFTER addrs (R6 layout)
+ * does not silently extend the hashed byte range.
+ *
+ * For the address union we hash only the half corresponding to the
+ * current addr_type (v4_addrs or v6_addrs); for unknown addr_type the
+ * addrs region is excluded entirely.
  */
 #define XDP2_HASH_LENGTH(FRAME, HASH_OFFSET) ({				\
+	size_t hash_end =						\
+	    offsetof(typeof(*(FRAME)), addrs) +				\
+	    sizeof((FRAME)->addrs);					\
 	size_t diff = HASH_OFFSET + sizeof((FRAME)->addrs);		\
 									\
 	switch ((FRAME)->addr_type) {					\
@@ -312,7 +334,7 @@ struct xdp2_metadata_all {
 		diff -= sizeof((FRAME)->addrs.v6_addrs);		\
 		break;							\
 	}								\
-	sizeof(*(FRAME)) - diff;					\
+	hash_end - diff;						\
 })
 
 /* Helpers to extract common metadata */
