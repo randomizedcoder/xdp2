@@ -61,8 +61,13 @@ let
   # source of truth; we just drive it with XDP2DIR pointed at the
   # Nix-built xdp2 install tree and all hardening disabled (BPF target
   # rejects -fzero-call-used-regs).
-  artifacts = pkgs.stdenv.mkDerivation {
-    pname = "xdp2-flow-dissector-matrix-artifacts";
+  #
+  # Factored as `mkArtifacts stdenvUsed` so the same recipe builds the
+  # gcc-stdenv variant (`artifacts`) and the clang-stdenv variant
+  # (`artifacts-clang`, for the R8-followup compiler-comparison
+  # experiment). Caller picks the stdenv; everything else is identical.
+  mkArtifacts = stdenvUsed: nameSuffix: stdenvUsed.mkDerivation {
+    pname = "xdp2-flow-dissector-matrix-artifacts${nameSuffix}";
     version = xdp2.version or "0.1.0";
 
     src = srcRoot;
@@ -88,6 +93,14 @@ let
     hardeningDisable = [ "all" ];
     NIX_HARDENING_ENABLE = "";
 
+    # Allow -march=native through clang's cc-wrapper. By default
+    # Nix sets NIX_ENFORCE_NO_NATIVE=1 for reproducibility (clang
+    # would otherwise pick up host CPU features and produce a
+    # non-portable binary). For perf comparison vs the gcc build
+    # (which uses -march=native) we deliberately want host-specific
+    # optimisation.
+    NIX_ENFORCE_NO_NATIVE = "";
+
     # xdp2-compiler uses libclang to parse parser.c; it needs system
     # headers resolved without the cc-wrapper.
     XDP2_C_INCLUDE_PATH = "${llvmPackages.clang.cc.lib}/lib/clang/${lib.versions.major llvmPackages.clang.cc.version}/include";
@@ -105,8 +118,13 @@ let
       # matched it on parity AND perf. The Makefile recipes for
       # parser.mono.ll + parser.mono.c handle .ll generation +
       # xdp2-compiler invocation unconditionally.
+      #
+      # CC=$CC overrides the Makefile's hardcoded `CC = gcc` so the
+      # clang-stdenv variant compiles userspace with clang. The BPF
+      # objects always use clang regardless (XCC).
       make XDP2DIR=${xdp2} \
            XDP2_SRCDIR=${xdp2} \
+           CC=$CC \
            benchmark benchmark_bpf
 
       # All four BPF objects via the `bpf` meta-target (minus the one
@@ -114,6 +132,7 @@ let
       # grouped under BPF_TARGETS in the Makefile).
       make XDP2DIR=${xdp2} \
            XDP2_SRCDIR=${xdp2} \
+           CC=$CC \
            bpf_flow.kern.o \
            flow_dissector.bpf.o \
            fast_bpf/fast_flow.bpf.o \
@@ -141,14 +160,21 @@ let
       install -m 644 flow_dissector.bpf.o     $out/lib/xdp2-flow-dissector-matrix/
       install -m 644 fast_bpf/fast_flow.bpf.o $out/lib/xdp2-flow-dissector-matrix/
 
+      # VXLAN-debug: temporarily keep the generated mono parser for
+      # offline inspection (revert when triage completes).
+      install -m 644 parser.mono.c $out/lib/xdp2-flow-dissector-matrix/
+
       runHook postInstall
     '';
 
     meta = {
-      description = "Pre-built 6-way flow-dissector matrix artifacts";
+      description = "Pre-built 6-way flow-dissector matrix artifacts${nameSuffix}";
       platforms = lib.platforms.linux;
     };
   };
+
+  artifacts = mkArtifacts pkgs.stdenv "";
+  artifacts-clang = mkArtifacts pkgs.clangStdenv "-clang";
 
   # ── Shell matrix runner ─────────────────────────────────────────
   #
@@ -307,5 +333,5 @@ let
   };
 in
 {
-  inherit artifacts matrix;
+  inherit artifacts artifacts-clang matrix;
 }

@@ -700,6 +700,12 @@
           # ===================================================================
           flow-dissector-matrix = flowDissectorMatrix.matrix;
           flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
+          # Clang-stdenv build for the R-followup compiler-comparison
+          # experiment. Same parser.mono.c source (xdp2-compiler is
+          # gcc-built either way), but clang-21 compiles the userspace
+          # benchmark + the mono parser instead of gcc-15.
+          flow-dissector-matrix-artifacts-clang =
+            flowDissectorMatrix.artifacts-clang;
 
           # ===================================================================
           # flow-dissector-matrix-unified — C matrix + xdp2-bench,

@@ -21,10 +21,10 @@ match-tree dispatch.
 
 ## Options ranked by impact vs effort
 
-| # | option | effort | expected impact | risk |
-|---|---|---|---|---|
-| A | Polish kernel-team deliverable | 2-4 h | high (communication) | low |
-| B | Try building with clang/LLVM | 4-8 h | unknown (could be ±15 ns) | medium |
+| # | option | effort | expected impact | risk | status |
+|---|---|---|---|---|---|
+| A | Polish kernel-team deliverable | 2-4 h | high (communication) | low | **done** (`docs/perf-summary.md` etc.) |
+| B | Try building with clang/LLVM | 4-8 h | unknown (could be ±15 ns) | medium | **done — negative** (+0 to +39 ns; `perf-results/2026-05-20-clang-vs-gcc/`) |
 | C | R6 audit Option C: per-parser metadata struct | 2-3 days | 5-10 ns on tunnels | medium |
 | D | R4: TLV / flag_fields walker emission | 1-2 days | unblocks more parsers, null on current sweep | medium |
 | E | PGO infrastructure | 1-2 days | 5-15 ns potential | medium |
@@ -47,21 +47,35 @@ Sub-options:
 3. **Visualisation** — gnuplot / asciigraph chart of the
    6-cell comparison table. Visual impact for slides.
 
-## Option B — Compiler swap (clang instead of gcc)
+## Option B — Compiler swap (clang instead of gcc) — DONE, NEGATIVE
 
 R7-A noted that rustc/LLVM emits match-tree dispatch differently
 from gcc's binary-search switch. Building XDP2 with clang would
 test whether the 36 ns vxlan gap is gcc-specific or fundamental.
 
-Steps:
-1. Modify the nix build to use `clangStdenv` instead of
-   `stdenv` for the mono parser binary.
-2. Verify parity-gate + matrix.
-3. Sweep hp2/hp5; compare cells with current gcc build.
+**Investigated 2026-05-20.** Built
+`flow-dissector-matrix-artifacts-clang` via
+`pkgs.clangStdenv.mkDerivation` with `NIX_ENFORCE_NO_NATIVE=""`
+to allow `-march=native`. Measured c-xdp2-mono on hp5 across
+all 6 workloads:
 
-Risk: clang's optimisation choices differ from gcc; could
-regress on the flat-workload wins. BPF-side build already uses
-clang, so toolchain support is present.
+| workload | gcc-15 | clang-21 | Δ |
+|---|---:|---:|---:|
+| https-web | 67 | 70 | +3 |
+| nfs-server | 65 | 65 | 0 |
+| **pppoe-isp** | 66 | **105** | **+39 (regression)** |
+| vlan-tcp-mix | 64 | 70 | +6 |
+| k8s-microservices | 124 | 126 | +2 |
+| **vxlan-k8s-pure** | 125 | **129** | **+4 (worse, not better)** |
+
+Clang is universally slower or equal. Opposite of the
+hypothesis. Conclusion: the rust-mono tunnel advantage is NOT
+from LLVM backend choice — it's from Rust source-level
+structure (monomorphization, match-tree dispatch, smaller
+metadata struct).
+
+Full analysis: `perf-results/2026-05-20-clang-vs-gcc/findings.md`.
+c-xdp2-mono stays on gcc.
 
 ## Option C — R6 audit Option C: per-parser metadata struct
 
