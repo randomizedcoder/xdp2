@@ -18,6 +18,46 @@ extensibility.
 | k8s-microservices (mixed VXLAN+TCP) | 120† | 115† | 127 | apples-vs-oranges† |
 | vxlan-k8s-pure (VXLAN+TCP) | 111† | 120† | 128 | apples-vs-oranges† |
 
+### Visual
+
+ns/pkt (hp5), shorter bars = faster:
+
+```
+                       0          50         100        150
+                       |          |          |          |
+https-web   kernel-C   ████████████████████████ 117
+            kernel-BPF ████████████████████████ 115
+            XDP2-mono  ███████████████ 72                       ◄ 1.6× faster
+                       |
+nfs-server  kernel-C   ███████████████████████ 114
+            kernel-BPF ████████████████████████ 121
+            XDP2-mono  ██████████████ 70                        ◄ 1.6× faster
+                       |
+pppoe-isp   kernel-C   ██████████████████████████ 127
+            kernel-BPF █████████████ 65 (‡ does not parse PPPoE)
+            XDP2-mono  ███████████████ 74                       ◄ 1.7× faster
+                       |
+vlan-tcp-   kernel-C   █████████████████████████ 121
+  mix       kernel-BPF █████████████████████████ 125
+            XDP2-mono  ██████████████ 70                        ◄ 1.7× faster
+                       |
+k8s-micro-  kernel-C   ████████████████████████ 120 († outer only)
+  services  kernel-BPF ████████████████████████ 115 († outer only)
+            XDP2-mono  █████████████████████████ 127 (full inner walk)
+                       |
+vxlan-k8s-  kernel-C   ███████████████████████ 111 († outer only)
+  pure      kernel-BPF ████████████████████████ 120 († outer only)
+            XDP2-mono  █████████████████████████ 128 (full inner walk)
+                       |          |          |          |
+                       0          50         100        150 ns/pkt
+```
+
+Tunneled cells (k8s-microservices, vxlan-k8s-pure): kernel
+stops at outer 5-tuple; XDP2 walks full inner stack and emits
+inner 5-tuple metadata. The "extra" 17 ns on vxlan-k8s-pure is
+the cost of extracting inner addresses + ports + tunnel VNI
+that the kernel doesn't extract at all.
+
 † Kernel parsers stop at the OUTER 5-tuple on tunneled traffic.
 XDP2 walks the FULL INNER 5-tuple, emitting inner addresses +
 inner ports + tunnel metadata. These cells compare different

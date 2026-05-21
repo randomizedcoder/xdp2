@@ -21,6 +21,101 @@ hp2-hp5-x710 physical testbed (Ryzen 5 PRO 2400G, Zen 1).
   - `c-xdp2-mono` — XDP2 generated monolithic C parser.
   - `rust-mono` — XDP2 generated Rust monolithic parser.
 
+## Methodology
+
+### Benchmark harness
+
+Two harness binaries in `samples/flow_dissector/`:
+
+1. **`benchmark`** (`benchmark.c`) — drives the three C parsers
+   (`c-flowdis-usp`, `c-xdp2-usp`, `c-xdp2-mono`) in a single
+   process. Each parser gets its own perf loop:
+   ```c
+   for (int r = 0; r < repeat; r++) {
+       for (int i = 0; i < npkts; i++) {
+           __skb_flow_dissect_err(...);  /* or xdp2_parse() */
+       }
+   }
+   ```
+   Wallclock measured via `clock_gettime(CLOCK_MONOTONIC_RAW)`
+   bracketing each loop. ns/pkt = total_ns / (repeat × npkts).
+
+2. **`benchmark_bpf`** (`benchmark_bpf.c`) — drives BPF parsers
+   via `BPF_PROG_TEST_RUN`. The kernel-side `bpf_prog_test_run`
+   ioctl provides a built-in `repeat` parameter and returns
+   `duration_ns` directly. We use repeat=1000.
+
+Both harnesses run the parser against the same filtered pcap
+(only packets a given parser can handle are included, to avoid
+fairness penalties from parser-specific rejections).
+
+### Iteration counts
+
+- **Smoke mode** (`--smoke`): default repeat=100. Fast (~3 sec
+  per cell per host) but ±2-3 ns noise band.
+- **Full mode** (no flag): repeat=200 + BPF repeat=1000.
+  Slower (~10 sec per cell) but ±1 ns noise band.
+
+All numbers in the headline table are from full-mode sweeps.
+
+### What ns/pkt represents
+
+For c-flowdis-usp / c-xdp2-* (userspace): time from entering
+the parser function to returning, divided by packet count.
+Excludes pcap loading, harness setup, accumulator resets (per
+O1.A 2026-05-08, only the parse-relevant accumulators are
+reset per packet, not the full metadata struct).
+
+For c-bpf-flowdis / c-bpf-xdp2 (BPF_PROG_TEST_RUN): kernel's
+own measurement of the BPF program's execution time, including
+the kernel→BPF dispatch overhead. This is structurally ~65 ns
+of floor cost on Zen 1 that the userspace parsers don't have.
+
+### What ns/pkt does NOT include
+
+- Driver RX cost (NIC → skb)
+- Skb allocation / freeing
+- L1d cache miss on the first packet byte (the bench warms
+  caches with a 100-iteration warmup pass)
+- Userspace ↔ kernel context switches (the harness is fully
+  userspace; only BPF cells cross into kernel)
+
+### Output verification
+
+Every cell is correctness-checked against the parity-gate
+(32 pcaps × N parsers, all-fields comparison) and the
+protocol-coverage-matrix (4914 cells × N parsers, per-field
+pairwise). A cell with non-zero `OK!N`, `REJ-undeclared`, or
+`REJ-unexpected` would fail the run; the post-R8 sweeps show
+0/0/0 across the board.
+
+### Hardware control
+
+- CPU pinning: `taskset -c 3` (isolate the bench from the
+  scheduler's other cores).
+- Idle prevention: the perf loop runs at 100% CPU so frequency
+  governor stays at boost.
+- Thermal: the bench takes <30 sec per cell; no thermal
+  throttling observed in any run.
+
+hp5 is the canonical testbed; hp2 results are sanity checks
+because hp2 has historically shown ~5-10% more inter-run
+variance (likely DDR4 timing differences — hp2 at 2133 MT/s,
+hp5 at 1866 MT/s).
+
+### Noise band
+
+Smoke-iteration band: ±2-3 ns (single replicate per cell).
+Full-iteration band: ±1 ns (averaged over 200 replicates).
+Cell-to-cell variation within one run: typically ±1 ns on
+hp5, ±2-3 ns on hp2.
+
+A claim of "X ns/pkt improvement" requires the delta to
+exceed the noise band on the canonical testbed (hp5) and to
+not regress beyond the noise band on the secondary (hp2).
+The R7-B1 (-4 ns), R7-B4 v1 (reverted), R7-B2 (reverted), and
+R8 (-8 ns) decisions all applied this rule.
+
 ## Headline numbers (hp5)
 
 | workload | kernel C (flowdis-usp) | kernel BPF (bpf-flowdis) | **XDP2 mono** (c-xdp2-mono) | rust-mono |
