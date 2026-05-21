@@ -436,21 +436,72 @@ label_@!node!@: {
 		<!--(if graph[node]['mt_full_coverage'])-->
 			<!--(for t in graph[node]['metadata_transfers'])-->
 				<!--(if t['name'] in root['used_field_names'])-->
-	/* R3.3.4 devirt: @!t['name']!@ (R7-B3: typed-store for
+					<!--(if t['kind'] == 'copy')-->
+	/* R3.3.4 devirt copy: @!t['name']!@ (R7-B3: typed-store for
 	 * 2/4/8-byte aligned transfers, fallback to memcpy otherwise) */
-					<!--(if t['length'] == 16)-->
+						<!--(if t['length'] == 16)-->
 	*(__u16 *)((char *)metadata + @!t['dst_off']!@ / 8) =
 		*(const __u16 *)((const char *)hdr + @!t['src_off']!@ / 8);
-					<!--(elif t['length'] == 32)-->
+						<!--(elif t['length'] == 32)-->
 	*(__u32 *)((char *)metadata + @!t['dst_off']!@ / 8) =
 		*(const __u32 *)((const char *)hdr + @!t['src_off']!@ / 8);
-					<!--(elif t['length'] == 64)-->
+						<!--(elif t['length'] == 64)-->
 	*(__u64 *)((char *)metadata + @!t['dst_off']!@ / 8) =
 		*(const __u64 *)((const char *)hdr + @!t['src_off']!@ / 8);
-					<!--(else)-->
+						<!--(else)-->
 	memcpy((char *)metadata + @!t['dst_off']!@ / 8,
 	       (const char *)hdr + @!t['src_off']!@ / 8,
 	       @!t['length']!@ / 8);
+						<!--(end)-->
+					<!--(elif t['kind'] == 'constant')-->
+	/* R8-Option C 2-a.1: constant write — emit literal value
+	 * (e.g. .addr_type = XDP2_ADDR_TYPE_IPV4). */
+						<!--(if t['length'] == 8)-->
+	*(__u8 *)((char *)metadata + @!t['dst_off']!@ / 8) = @!t['value']!@;
+						<!--(elif t['length'] == 16)-->
+	*(__u16 *)((char *)metadata + @!t['dst_off']!@ / 8) = @!t['value']!@;
+						<!--(elif t['length'] == 32)-->
+	*(__u32 *)((char *)metadata + @!t['dst_off']!@ / 8) = @!t['value']!@;
+						<!--(else)-->
+	/* Wider/bitfield constant — fall back via memcpy of bytes */
+	{ unsigned long long _const_val = @!t['value']!@;
+	  memcpy((char *)metadata + @!t['dst_off']!@ / 8,
+		 &_const_val, @!t['length']!@ / 8); }
+						<!--(end)-->
+					<!--(elif t['kind'] == 'hdr_off')-->
+	/* R8-Option C 2-a.1: header-offset write — current parse
+	 * position relative to packet start. ctrl->pkt.packet was
+	 * set to the packet start by xdp2_parse(); hdr advances
+	 * per node. */
+						<!--(if t['length'] == 16)-->
+	*(__u16 *)((char *)metadata + @!t['dst_off']!@ / 8) =
+		(__u16)((const char *)hdr - (const char *)ctrl->pkt.start);
+						<!--(elif t['length'] == 32)-->
+	*(__u32 *)((char *)metadata + @!t['dst_off']!@ / 8) =
+		(__u32)((const char *)hdr - (const char *)ctrl->pkt.start);
+						<!--(else)-->
+	/* unusual length — fall back to runtime */
+	{ unsigned int _hdr_off =
+		(unsigned int)((const char *)hdr - (const char *)ctrl->pkt.start);
+	  memcpy((char *)metadata + @!t['dst_off']!@ / 8,
+		 &_hdr_off, @!t['length']!@ / 8); }
+						<!--(end)-->
+					<!--(elif t['kind'] == 'hdr_len')-->
+	/* R8-Option C 2-a.1: header-length write — current node's
+	 * computed hlen. */
+						<!--(if t['length'] == 16)-->
+	*(__u16 *)((char *)metadata + @!t['dst_off']!@ / 8) = (__u16)hlen;
+						<!--(elif t['length'] == 32)-->
+	*(__u32 *)((char *)metadata + @!t['dst_off']!@ / 8) = (__u32)hlen;
+						<!--(else)-->
+	{ unsigned int _hdr_len = (unsigned int)hlen;
+	  memcpy((char *)metadata + @!t['dst_off']!@ / 8,
+		 &_hdr_len, @!t['length']!@ / 8); }
+						<!--(end)-->
+					<!--(else)-->
+	/* R8-Option C 2-a.1: unsupported transfer kind '@!t['kind']!@'
+	 * for @!t['name']!@ — falls back to indirect call below.
+	 * (Currently 'value' kind only; complex computations.) */
 					<!--(end)-->
 				<!--(else)-->
 	/* R8-Option C: @!t['name']!@ elided per parser used_field_mask. */

@@ -1312,7 +1312,15 @@ def generate_parser_function(
     vertex['out_edges'] = out_edges
     next_proto_info = vertex.get('next_proto_info', {})
     mts = vertex.get('metadata_transfers', [])
-    mt_all_copy = len(mts) > 0 and all(t.get('kind') == 'copy' for t in mts)
+    # R8-Option C phase 2-a.1: relaxed mt_all_copy to mt_all_supported.
+    # The mono template now emits 'constant', 'hdr_off', 'hdr_len'
+    # transfer kinds inline (in addition to 'copy'). The 'value' kind
+    # carries arbitrary computation and is NOT inlineable yet — nodes
+    # using it fall back to the indirect ops.extract_metadata call.
+    # mt_all_copy retains its name for backward compat in the template
+    # if-checks but now means "all kinds inlineable".
+    _supported_kinds = ('copy', 'constant', 'hdr_off', 'hdr_len')
+    mt_all_copy = len(mts) > 0 and all(t.get('kind') in _supported_kinds for t in mts)
     vertex['mt_all_copy'] = mt_all_copy
     # R3.3.4b + R3.5.2: IR-coverage gate. Compare the LLVM-IR-derived
     # transfer count to the count of StoreInst in the metadata
