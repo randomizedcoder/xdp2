@@ -274,6 +274,57 @@ auto make_python_object(graph_t const &graph, std::vector<R> const &roots)
 	l.set("num_counters", r.num_counters);
 	l.set("num_keys", r.num_keys);
 	l.set("enable_fast_paths", r.enable_fast_paths);
+	/* R8-Option C: surface used_field_mask as both the raw integer
+	 * (so the template can test `used_field_mask == 0`) and a
+	 * Python list of field-name strings the mask permits. The
+	 * field<->bit map mirrors parser_metadata.h:enum xdp2_metadata_fields
+	 * and is kept here as the single C++-side source of truth for
+	 * the template's gating logic. */
+	{
+	    static const struct {
+	        const char *name;
+	        unsigned long long bit;
+	    } field_map[] = {
+	        { "eth_proto",   1ULL << 0 },
+	        { "eth_addrs",   1ULL << 1 },
+	        { "ip_proto",    1ULL << 2 },
+	        { "addr_type",   1ULL << 3 },
+	        { "addrs",       1ULL << 4 },
+	        { "ports",       1ULL << 5 },
+	        { "l2_off",      1ULL << 6 },
+	        { "l3_off",      1ULL << 7 },
+	        { "l4_off",      1ULL << 8 },
+	        { "flow_label",  1ULL << 9 },
+	        { "vlan",        1ULL << 10 },
+	        { "vlan_count",  1ULL << 11 },
+	        { "is_fragment", 1ULL << 12 },
+	        { "first_frag",  1ULL << 13 },
+	        { "icmp",        1ULL << 14 },
+	        { "keyid",       1ULL << 15 },
+	        { "tcp_options", 1ULL << 16 },
+	        { "arp",         1ULL << 17 },
+	        { "gre",         1ULL << 18 },
+	        { "gre_pptp",    1ULL << 19 },
+	        { "mpls",        1ULL << 20 },
+	    };
+	    /* Cast to int — make_python_object overloads support int but
+	     * have ambiguous long-long. Mask currently fits in 21 bits so
+	     * int is wide enough. */
+	    l.set("used_field_mask", static_cast<int>(r.used_field_mask));
+	    /* used_field_mask == 0 → "use all fields" (backward compat).
+	     * Otherwise emit the explicit name list so the template can
+	     * gate transfers. */
+	    python::list used_fields;
+	    if (r.used_field_mask == 0) {
+	        for (auto &&f : field_map)
+	            used_fields.append(std::string{ f.name });
+	    } else {
+	        for (auto &&f : field_map)
+	            if (r.used_field_mask & f.bit)
+	                used_fields.append(std::string{ f.name });
+	    }
+	    l.set("used_field_names", std::move(used_fields));
+	}
 	l.set("okay_node", r.okay_target_set ?
 	      graph[r.okay_target].name : "");
 	l.set("fail_node", r.fail_target_set ?

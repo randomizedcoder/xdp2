@@ -319,6 +319,30 @@ struct xdp2_parser_config {
 	 * python IR dict. Replaces the previously-hardcoded
 	 * parser_name == 'xdp2_parser_flow_dissector_l2' gate. */
 	__u8 enable_fast_paths;
+	/* R8-Option C: per-parser used metadata-field mask.
+	 *
+	 * Bitmask of which xdp2_metadata_all fields the parser actually
+	 * consumes (XDP2_MD_* enum, parser_metadata.h). The xdp2-compiler
+	 * reads this at codegen time and gates inlineable metadata
+	 * transfers (R3.3.4 IR-coverage path) — transfers writing fields
+	 * NOT in the mask are elided.
+	 *
+	 * Default 0 means "use all fields" (backward-compatible — parsers
+	 * that don't declare a mask get the existing behavior). Set to
+	 * XDP2_MD_FIELDS_ALL or a narrower mask to declare actual usage.
+	 *
+	 * Like enable_fast_paths, this has no runtime effect; it's read
+	 * only at compile time by xdp2-compiler (graph_consumer.h) and
+	 * surfaced to the mono template via the python IR dict.
+	 *
+	 * Forward-looking: on Zen 1 with a large store buffer, narrowing
+	 * the mask is mostly a no-op on ns/pkt because gcc constant-folds
+	 * and the store buffer absorbs scatter writes. On smaller cores
+	 * (in-order ARM, embedded RISC-V, older Intel) reducing metadata
+	 * write count and struct touch footprint should give more
+	 * measurable wins. The infrastructure ships forward-looking.
+	 */
+	__u64 used_field_mask;
 	const struct xdp2_parse_node *okay_node;
 	const struct xdp2_parse_node *fail_node;
 	const struct xdp2_parse_node *atencap_node;

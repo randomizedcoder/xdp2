@@ -33,6 +33,13 @@ XDP2_PARSER(xdp2_parser_flow_dissector_l2,
 	      * fast-paths for eth+(vlan|pppoe)+ip+L4. See
 	      * src/templates/xdp2/mono_def.template.c. */
 	     .enable_fast_paths = 1
+	     /* R8-Option C: not opting into used_field_mask (default 0
+	      * = "use all fields"). The L2 flow-dissector needs the full
+	      * metadata struct for the parity contract (GRE/MPLS keyid,
+	      * VLAN, ARP, etc. are all part of the matrix scope).
+	      * Specialised parsers (e.g. an IP-only consumer) can opt in
+	      * via .used_field_mask = XDP2_MD_ADDR_TYPE | XDP2_MD_ADDRS |
+	      * XDP2_MD_IP_PROTO | XDP2_MD_PORTS to elide other transfers. */
 	    )
 );
 

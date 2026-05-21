@@ -451,8 +451,37 @@ private:
 			    plog::log(std::cout)
 				<< "  literal_value: " << v->getZExtValue()
 				<< std::endl;
+			} else if (field_name == "used_field_mask") {
+			    /* R8-Option C: capture per-parser metadata-
+			     * field mask. 0 = backward-compatible (all
+			     * fields). Narrower mask opts in to codegen-
+			     * time elision of inlineable transfers in the
+			     * mono template. */
+			    node.used_field_mask = v->getZExtValue();
+			    plog::log(std::cout)
+				<< "  used_field_mask: 0x"
+				<< std::hex << v->getZExtValue() << std::dec
+				<< std::endl;
 			}
 		    }
+		}
+	    } else if (parent_name == "config" &&
+		       value->isIntegerConstantExpr(
+			   cur_record->getASTContext())) {
+		/* R8-Option C: catch constant-expression values like
+		 * `.used_field_mask = X | Y | Z` which arrive as
+		 * BinaryOperatorClass / ParenExprClass etc. (not
+		 * IntegerLiteralClass) but still evaluate to a constant.
+		 * Limited to fields where this matters today
+		 * (used_field_mask). */
+		auto v = value->getIntegerConstantExpr(
+		    cur_record->getASTContext());
+		if (v && field_name == "used_field_mask") {
+		    node.used_field_mask = v->getZExtValue();
+		    plog::log(std::cout)
+			<< "  used_field_mask (const-expr): 0x"
+			<< std::hex << v->getZExtValue() << std::dec
+			<< std::endl;
 		}
 	    }
 	}

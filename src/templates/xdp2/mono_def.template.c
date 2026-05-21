@@ -435,21 +435,25 @@ label_@!node!@: {
 
 		<!--(if graph[node]['mt_full_coverage'])-->
 			<!--(for t in graph[node]['metadata_transfers'])-->
+				<!--(if t['name'] in root['used_field_names'])-->
 	/* R3.3.4 devirt: @!t['name']!@ (R7-B3: typed-store for
 	 * 2/4/8-byte aligned transfers, fallback to memcpy otherwise) */
-				<!--(if t['length'] == 16)-->
+					<!--(if t['length'] == 16)-->
 	*(__u16 *)((char *)metadata + @!t['dst_off']!@ / 8) =
 		*(const __u16 *)((const char *)hdr + @!t['src_off']!@ / 8);
-				<!--(elif t['length'] == 32)-->
+					<!--(elif t['length'] == 32)-->
 	*(__u32 *)((char *)metadata + @!t['dst_off']!@ / 8) =
 		*(const __u32 *)((const char *)hdr + @!t['src_off']!@ / 8);
-				<!--(elif t['length'] == 64)-->
+					<!--(elif t['length'] == 64)-->
 	*(__u64 *)((char *)metadata + @!t['dst_off']!@ / 8) =
 		*(const __u64 *)((const char *)hdr + @!t['src_off']!@ / 8);
-				<!--(else)-->
+					<!--(else)-->
 	memcpy((char *)metadata + @!t['dst_off']!@ / 8,
 	       (const char *)hdr + @!t['src_off']!@ / 8,
 	       @!t['length']!@ / 8);
+					<!--(end)-->
+				<!--(else)-->
+	/* R8-Option C: @!t['name']!@ elided per parser used_field_mask. */
 				<!--(end)-->
 			<!--(end)-->
 		<!--(else)-->

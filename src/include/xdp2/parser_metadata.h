@@ -264,6 +264,73 @@ struct xdp2_metadata_all {
 	offsetof(struct xdp2_metadata_all,				\
 		 XDP2_HASH_START_FIELD_ALL)
 
+/* R8-Option C: per-parser metadata-field mask values. Bit-per-field
+ * mask declared by the parser via `.used_field_mask` in the parser
+ * config (parser_types.h:xdp2_parser_config). The xdp2-compiler reads
+ * the mask at codegen time and elides inlineable metadata transfers
+ * (R3.3.4 IR-coverage path) for fields the parser doesn't consume.
+ *
+ * Default behavior: a parser that doesn't set `.used_field_mask` (= 0)
+ * is treated as "uses all fields" — backward-compatible.
+ *
+ * Field-to-bit mapping covers every distinct extractor name that
+ * appears in the R3.3.4 IR analysis. The flow-dissector parser uses
+ * the full set (XDP2_MD_FIELDS_ALL) by default; specialised parsers
+ * (e.g. an L3-only consumer that doesn't care about eth_addrs) can
+ * declare a narrower mask. */
+enum xdp2_metadata_fields {
+	XDP2_MD_ETH_PROTO    = 1ULL << 0,
+	XDP2_MD_ETH_ADDRS    = 1ULL << 1,
+	XDP2_MD_IP_PROTO     = 1ULL << 2,
+	XDP2_MD_ADDR_TYPE    = 1ULL << 3,
+	XDP2_MD_ADDRS        = 1ULL << 4,
+	XDP2_MD_PORTS        = 1ULL << 5,
+	XDP2_MD_L2_OFF       = 1ULL << 6,
+	XDP2_MD_L3_OFF       = 1ULL << 7,
+	XDP2_MD_L4_OFF       = 1ULL << 8,
+	XDP2_MD_FLOW_LABEL   = 1ULL << 9,
+	XDP2_MD_VLAN         = 1ULL << 10,
+	XDP2_MD_VLAN_COUNT   = 1ULL << 11,
+	XDP2_MD_IS_FRAGMENT  = 1ULL << 12,
+	XDP2_MD_FIRST_FRAG   = 1ULL << 13,
+	XDP2_MD_ICMP         = 1ULL << 14,
+	XDP2_MD_KEYID        = 1ULL << 15,
+	XDP2_MD_TCP_OPTIONS  = 1ULL << 16,
+	XDP2_MD_ARP          = 1ULL << 17,
+	XDP2_MD_GRE          = 1ULL << 18,
+	XDP2_MD_GRE_PPTP     = 1ULL << 19,
+	XDP2_MD_MPLS         = 1ULL << 20,
+};
+
+/* Convenience: all metadata fields enabled. */
+#define XDP2_MD_FIELDS_ALL ((__u64)~0ULL)
+
+/* Field-name → flag mapping (used by xdp2-compiler at codegen time).
+ * Keep in sync with enum xdp2_metadata_fields. Strings match the
+ * `name` of metadata_transfer entries surfaced by the IR. */
+#define XDP2_MD_FIELD_NAMES_LIST(MAP)					\
+	MAP("eth_proto",   XDP2_MD_ETH_PROTO)				\
+	MAP("eth_addrs",   XDP2_MD_ETH_ADDRS)				\
+	MAP("ip_proto",    XDP2_MD_IP_PROTO)				\
+	MAP("addr_type",   XDP2_MD_ADDR_TYPE)				\
+	MAP("addrs",       XDP2_MD_ADDRS)				\
+	MAP("ports",       XDP2_MD_PORTS)				\
+	MAP("l2_off",      XDP2_MD_L2_OFF)				\
+	MAP("l3_off",      XDP2_MD_L3_OFF)				\
+	MAP("l4_off",      XDP2_MD_L4_OFF)				\
+	MAP("flow_label",  XDP2_MD_FLOW_LABEL)				\
+	MAP("vlan",        XDP2_MD_VLAN)				\
+	MAP("vlan_count",  XDP2_MD_VLAN_COUNT)				\
+	MAP("is_fragment", XDP2_MD_IS_FRAGMENT)				\
+	MAP("first_frag",  XDP2_MD_FIRST_FRAG)				\
+	MAP("icmp",        XDP2_MD_ICMP)				\
+	MAP("keyid",       XDP2_MD_KEYID)				\
+	MAP("tcp_options", XDP2_MD_TCP_OPTIONS)				\
+	MAP("arp",         XDP2_MD_ARP)					\
+	MAP("gre",         XDP2_MD_GRE)					\
+	MAP("gre_pptp",    XDP2_MD_GRE_PPTP)				\
+	MAP("mpls",        XDP2_MD_MPLS)
+
 /* Template for hash consistentify. Sort the source and destination IP (and the
  * ports if the IP address are the same) to have consistent hash within the two
  * directions.

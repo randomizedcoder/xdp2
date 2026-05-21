@@ -820,6 +820,12 @@ struct parser {
     /* R3.4.4: per-parser opt-in for the mono template's
      * straight-line fast-path emission. See parser_types.h. */
     int enable_fast_paths = 0;
+    /* R8-Option C: per-parser metadata-field mask. 0 = use all
+     * (backward-compatible default); narrower mask opts in to
+     * elision of metadata_transfers whose target field is not in
+     * the mask. See parser_types.h:xdp2_parser_config.used_field_mask
+     * and parser_metadata.h:enum xdp2_metadata_fields. */
+    unsigned long long used_field_mask = 0;
 
     friend inline std::ostream &operator<<(std::ostream &os, parser &p)
     {
