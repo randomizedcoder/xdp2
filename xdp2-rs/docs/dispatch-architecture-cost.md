@@ -1697,6 +1697,12 @@ our generated mono parser on TCP/IPv4 — full numbers in
 
 ### Kernel-vs-XDP2 comparison (post-R8, hp5)
 
+See also: `docs/kernel-vs-xdp2-comparison.md` — same table with
+methodology + reproduction instructions, as a standalone
+kernel-team-facing doc.
+
+
+
 Full sweep including the kernel's existing parsers
 (`__skb_flow_dissect_err` in userspace and the in-tree
 `bpf_flow.kern.o` BPF program):
@@ -1705,7 +1711,7 @@ Full sweep including the kernel's existing parsers
 |---|---:|---:|---:|---:|
 | https-web | 117 | 115 | **72** | 72 |
 | nfs-server | 114 | 121 | **70** | 71 |
-| pppoe-isp | 127 | 65 | **74** | 80 |
+| pppoe-isp | 127 | 65‡ | **74** | 80 |
 | vlan-tcp-mix | 121 | 125 | **70** | 89 |
 | k8s-microservices | 120† | 115† | 127 | 85 |
 | vxlan-k8s-pure | 111† | 120† | 128 | 92 |
@@ -1713,6 +1719,14 @@ Full sweep including the kernel's existing parsers
 † Kernel parsers stop at OUTER 5-tuple for tunneled traffic.
 c-xdp2-mono walks the FULL INNER 5-tuple. These cells are
 apples-vs-oranges (different scopes of work).
+
+‡ c-bpf-flowdis does NOT parse PPPoE — the in-tree BPF
+flow_dissector at
+`samples/flow_dissector/kern_bpf/bpf_flow.c:147-150` returns
+BPF_DROP for any etype outside IP / IPv6 / MPLS / VLAN. The
+65 ns/pkt is BPF_PROG_TEST_RUN entry+exit overhead with the
+program rejecting at the entry switch — not actual parsing.
+Full analysis: `perf-results/2026-05-20-bpf-pppoe-investigation/findings.md`.
 
 **Headline finding for kernel-team review:**
 
