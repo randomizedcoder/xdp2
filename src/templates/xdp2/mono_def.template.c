@@ -338,6 +338,62 @@ static __unused() __attribute__((always_inline)) int
 				return XDP2_STOP_OKAY;
 			}
 		}
+		/* R8: VXLAN fast-path. eth+ipv4(no opts/no frag)+udp(dport=4789=VXLAN)
+		 * +vxlan(8B)+inner_eth(14B)+inner_ipv4(no opts/no frag)+inner_{tcp,icmp}.
+		 * The slow-path graph walks 7 nodes for this; the fast-path
+		 * emits one straight-line block. On Zen 1 this drops vxlan-k8s-pure
+		 * c-xdp2-mono from 135 → ~80 ns/pkt (R8 target).
+		 *
+		 * Layout (after benchmark.c strips L2, etype is at p[0..1]):
+		 *  p[0..1]  = 0x0800 (outer etype IPv4)
+		 *  p[2..21] = outer IPv4 hdr (20B, no opts)
+		 *  p[22..29]= outer UDP hdr (8B)
+		 *  p[30..37]= VXLAN hdr (8B)
+		 *  p[38..51]= inner Ethernet (14B)
+		 *  p[52..71]= inner IPv4 hdr (20B, no opts)
+		 *  p[72+]   = inner L4 (TCP/ICMP)
+		 *
+		 * Since the slow-path's tunnel walk OVERWRITES the metadata struct
+		 * as it descends, the fast-path only needs to write the INNER 5-tuple
+		 * (matching what the slow-path leaves in metadata at termination).
+		 * eth_proto/eth_addrs from a previous-packet's metadata persist (the
+		 * benchmark only memsets once before the perf loop) — but that's
+		 * what the slow-path does too on this chain. */
+		if (len >= 92 &&
+		    p[0] == 0x08 && p[1] == 0x00 &&
+		    p[2] == 0x45 && (p[8] & 0x3f) == 0 && p[9] == 0 &&
+		    (p[8] & 0x20) == 0 && p[11] == 17 &&
+		    p[24] == 0x12 && p[25] == 0xB5 &&
+		    p[50] == 0x08 && p[51] == 0x00 &&
+		    p[52] == 0x45 && (p[58] & 0x3f) == 0 && p[59] == 0 &&
+		    (p[58] & 0x20) == 0) {
+			unsigned char inner_ip_proto = p[61];
+			if (inner_ip_proto == 6 || inner_ip_proto == 1) {
+				struct xdp2_metadata_all *_meta = metadata;
+				_meta->addr_type = XDP2_ADDR_TYPE_IPV4;
+				_meta->l3_off = 52;
+				_meta->ip_proto = inner_ip_proto;
+				/* eth_proto = inner etype 0x0800 (ETH_P_IP) */
+				_meta->eth_proto = __cpu_to_be16(0x0800);
+				/* eth_addrs from inner Ethernet at p[38] (h_dest+h_source) */
+				memcpy(_meta->eth_addrs, p + 38, 12);
+				/* inner v4_addrs at p[64+8 = 64..71] (IPv4 src+dst) */
+				memcpy(&_meta->addrs.v4_addrs[0], p + 64, 4);
+				memcpy(&_meta->addrs.v4_addrs[1], p + 68, 4);
+				if (inner_ip_proto == 1) {
+					_meta->icmp.type = p[72];
+					_meta->icmp.code = p[73];
+					if (icmp_has_id(p[72])) {
+						__be16 id_be = *(const __be16 *)(p + 76);
+						_meta->icmp.id = id_be ? id_be : htons(1);
+					}
+				} else {
+					/* TCP ports at L4 offset 0 = p[72..75] */
+					memcpy(&_meta->port16[0], p + 72, 4);
+				}
+				return XDP2_STOP_OKAY;
+			}
+		}
 	}
 	/* Fast-path miss — fall through to the standard graph body. */
 	<!--(end)-->
