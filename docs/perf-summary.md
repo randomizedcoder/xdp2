@@ -9,14 +9,14 @@ extensibility.
 
 ## The numbers (hp5, ns per packet)
 
-| workload | kernel C `__skb_flow_dissect_err` | kernel BPF `bpf_flow.kern.o` | **XDP2 generated mono** | speedup vs kernel C |
-|---|---:|---:|---:|---:|
-| https-web (TCP/IPv4) | 117 | 115 | **72** | **1.6×** |
-| nfs-server (TCP/IPv4) | 114 | 121 | **70** | **1.6×** |
-| pppoe-isp (PPPoE+TCP/IPv4) | 127 | 65‡ | **74** | **1.7×** |
-| vlan-tcp-mix (VLAN+TCP) | 121 | 125 | **70** | **1.7×** |
-| k8s-microservices (mixed VXLAN+TCP) | 120† | 115† | 127 | apples-vs-oranges† |
-| vxlan-k8s-pure (VXLAN+TCP) | 111† | 120† | 128 | apples-vs-oranges† |
+| workload | kernel C `__skb_flow_dissect_err` | kernel BPF `bpf_flow.kern.o` | **XDP2 mono** (C codegen) | **XDP2-rs mono** (Rust codegen) | speedup vs kernel C |
+|---|---:|---:|---:|---:|---:|
+| https-web (TCP/IPv4) | 117 | 115 | **72** | 72 | **1.6×** |
+| nfs-server (TCP/IPv4) | 114 | 121 | **70** | 71 | **1.6×** |
+| pppoe-isp (PPPoE+TCP/IPv4) | 127 | 65‡ | **74** | 80 | **1.7×** |
+| vlan-tcp-mix (VLAN+TCP) | 121 | 125 | **70** | 89 | **1.7×** |
+| k8s-microservices (mixed VXLAN+TCP) | 120† | 115† | 127 | 85 | apples-vs-oranges† |
+| vxlan-k8s-pure (VXLAN+TCP) | 111† | 120† | 128 | 92 | apples-vs-oranges† |
 
 ### Visual
 
@@ -28,29 +28,42 @@ ns/pkt (hp5), shorter bars = faster:
 https-web   kernel-C   ████████████████████████ 117
             kernel-BPF ████████████████████████ 115
             XDP2-mono  ███████████████ 72                       ◄ 1.6× faster
+            XDP2-rs    ███████████████ 72                       ◄ 1.6× faster
                        |
 nfs-server  kernel-C   ███████████████████████ 114
             kernel-BPF ████████████████████████ 121
             XDP2-mono  ██████████████ 70                        ◄ 1.6× faster
+            XDP2-rs    ██████████████ 71                        ◄ 1.6× faster
                        |
 pppoe-isp   kernel-C   ██████████████████████████ 127
             kernel-BPF █████████████ 65 (‡ does not parse PPPoE)
             XDP2-mono  ███████████████ 74                       ◄ 1.7× faster
+            XDP2-rs    ████████████████ 80                      ◄ 1.6× faster
                        |
 vlan-tcp-   kernel-C   █████████████████████████ 121
   mix       kernel-BPF █████████████████████████ 125
             XDP2-mono  ██████████████ 70                        ◄ 1.7× faster
+            XDP2-rs    ██████████████████ 89                    ◄ 1.4× faster
                        |
 k8s-micro-  kernel-C   ████████████████████████ 120 († outer only)
   services  kernel-BPF ████████████████████████ 115 († outer only)
             XDP2-mono  █████████████████████████ 127 (full inner walk)
+            XDP2-rs    █████████████████ 85 (full inner walk)
                        |
 vxlan-k8s-  kernel-C   ███████████████████████ 111 († outer only)
   pure      kernel-BPF ████████████████████████ 120 († outer only)
             XDP2-mono  █████████████████████████ 128 (full inner walk)
+            XDP2-rs    ██████████████████ 92 (full inner walk)
                        |          |          |          |
                        0          50         100        150 ns/pkt
 ```
+
+XDP2-mono and XDP2-rs are both generated from the same parse
+graph; mono produces a C parser via the codegen template,
+xdp2-rs produces a Rust parser via the Rust monomorphic
+template. On flat workloads (top 4 cells) they tie or run
+within 1-2 ns. On tunneled workloads (bottom 2 cells) xdp2-rs
+is currently faster — see "remaining gap" discussion below.
 
 Tunneled cells (k8s-microservices, vxlan-k8s-pure): kernel
 stops at outer 5-tuple; XDP2 walks full inner stack and emits
