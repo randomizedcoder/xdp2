@@ -25,7 +25,7 @@ match-tree dispatch.
 |---|---|---|---|---|---|
 | A | Polish kernel-team deliverable | 2-4 h | high (communication) | low | **done** (`docs/perf-summary.md` etc.) |
 | B | Try building with clang/LLVM | 4-8 h | unknown (could be ±15 ns) | medium | **done — negative** (+0 to +39 ns; `perf-results/2026-05-20-clang-vs-gcc/`) |
-| C | R6 audit Option C: per-parser metadata struct | 2-3 days | 5-10 ns on tunnels | medium |
+| C | R6 audit Option C: per-parser metadata struct | 2-3 days | 5-10 ns on tunnels | medium | **phase 1 done** — infrastructure shipped, null on Zen 1 as expected (`perf-results/2026-05-20-r8-option-c-infra/`); phase 2 (per-parser callback codegen) deferred |
 | D | R4: TLV / flag_fields walker emission | 1-2 days | unblocks more parsers, null on current sweep | medium |
 | E | PGO infrastructure | 1-2 days | 5-15 ns potential | medium |
 | F | R9: more fast-path chains for new workloads | small per chain | depends on workload | low |
