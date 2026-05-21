@@ -1524,6 +1524,79 @@ in the generated flow-dissector-l2 parser.
 Correctness: 4914-cell matrix 0/0/0, parity-gate 32/32 OK,
 mono-perf ceiling 0 violations.
 
+## Phase R8 — VXLAN fast-path chain (2026-05-20)
+
+R8 was originally scoped as "per-parser tailored metadata
+struct generation" per the R6 audit's Option C (~500 LoC IR +
+codegen). On reflection, that approach wouldn't have moved
+ns/pkt on the flow-dissector parser (which uses most metadata
+fields anyway). Reframed to extend the R3.4 fast-path framework
+with a VXLAN-inner-IPv4-TCP/ICMP chain that bypasses the
+7-node slow-path graph walk for the common VXLAN traffic shape.
+
+`src/templates/xdp2/mono_def.template.c:343` — 39 lines of
+straight-line C in the `enable_fast_paths` block:
+
+```c
+if (len >= 92 &&
+    p[0] == 0x08 && p[1] == 0x00 &&          /* outer etype IPv4 */
+    p[2] == 0x45 && /* IPv4 no opts no frag */ &&
+    p[11] == 17 &&                            /* UDP */
+    p[24] == 0x12 && p[25] == 0xB5 &&        /* dport 4789 VXLAN */
+    p[50] == 0x08 && p[51] == 0x00 &&        /* inner etype IPv4 */
+    p[52] == 0x45 && /* inner IPv4 no opts */) {
+    unsigned char inner_ip_proto = p[61];
+    if (inner_ip_proto == 6 || inner_ip_proto == 1) {
+        /* write inner 5-tuple; matches slow-path final state */
+        return XDP2_STOP_OKAY;
+    }
+}
+```
+
+`perf-results/2026-05-20-r8/comparison.md`:
+
+| workload | host | R7-B4 phase 1 | R8 | Δ |
+|---|---|---:|---:|---:|
+| **vxlan-k8s-pure** | hp5 | 136 | **128** | **-8** ✓ |
+| **vxlan-k8s-pure** | hp2 | 140 | **130** | **-10** ✓ |
+| **k8s-microservices** | hp5 | 133 | **127** | **-6** ✓ |
+| **k8s-microservices** | hp2 | 130 | **124** | **-6** ✓ |
+
+First real ns/pkt win on tunneled workloads since R3.4.5a.
+Other workloads ±2 ns noise (hp2 pppoe-isp +6 fits hp2's
+historical variance pattern; hp5 pppoe-isp is +2 noise).
+
+Correctness: parity-gate 32/32, matrix 4914-cell 0/0/0,
+mono-perf ceiling 0 violations.
+
+### What R8 confirms about the optimisation curve
+
+The R5/R6/R7-B3/R7-B4 template-level optimisations all yielded
+null perf because gcc -O3 -march=native -flto + always_inline
+was already producing optimal code from the template intent.
+
+The R3.4-style chain extensions ARE the productive lever on
+Zen 1. Each chain captures one specific packet shape; on hit
+it bypasses the entire slow-path graph walk. Each chain costs
+~40 lines of template C and saves ~5-10 ns/pkt on the matching
+workload. Adding more chains (VXLAN-UDP, VXLAN-IPv6, GENEVE,
+GTP-U, IPIP) would yield similar wins incrementally.
+
+### Cumulative R3.4 → R8 picture (hp5 c-xdp2-mono)
+
+| Phase | https-web | vxlan-k8s-pure | notes |
+|---|---:|---:|---|
+| post-R3.4 | 72 | 141 | first correct vxlan walk |
+| R5 trim | 72 | 140 | null (gcc already optimal) |
+| R6 layout | 73 | 139 | null (store buffer absorbs) |
+| **R7-B1** | 72 | 135 | **-4 ns ✓** (hot-edge shortcut) |
+| R7-B3 typed-store | 72 | 136 | null, cleaner emit |
+| R7-B4 phase 1 | 72 | 136 | null, IR fix |
+| **R8 VXLAN fast-path** | 72 | **128** | **-8 ns ✓** |
+
+vxlan-k8s-pure: 141 → 128 (-9% cumulative). R7-B1 + R8 the
+only template changes that moved the needle.
+
 ### Cross-impl ranking after R7-B1 (hp5)
 
 | workload | c-xdp2-mono | rust-mono | gap |
