@@ -1920,7 +1920,17 @@ int extract_struct_constants(
                      * to drive the IR-coverage gate (R3.3.4b). One
                      * decomposed metadata_transfer per LLVM store means
                      * the template's inline emit faithfully reproduces
-                     * the runtime behavior. */
+                     * the runtime behavior.
+                     *
+                     * R8-Option C phase 2-a.3 attempt: also counting
+                     * llvm.memcpy intrinsics here REGRESSED nodes
+                     * (ether_inner_node 1/1 → 1/2) because the matcher
+                     * patterns don't reliably catch every memcpy
+                     * intrinsic. Counting memcpys without matching them
+                     * all exposes an inconsistency. Keeping the original
+                     * StoreInst-only count — known partial coverage but
+                     * stable. The real fix is in the matcher patterns
+                     * (deeper xdp2gen work). */
                     int store_count = 0;
                     for (auto &&block : *metadata) {
                         for (auto &inst : block) {
