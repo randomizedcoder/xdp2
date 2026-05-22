@@ -31,6 +31,8 @@
 #include <sstream>
 #include <iostream>
 #include <filesystem>
+#include <algorithm>
+#include <set>
 // - Data manip
 #include <ranges> // C++20 only
 #include <numeric>
@@ -2097,6 +2099,47 @@ int extract_struct_constants(
                                 n.metadata_transfers.push_back({ name, *p });
                             }
                         }
+                    }
+
+                    /* R8-Option C phase 2-a.2: deduplicate
+                     * metadata_transfers by (dst_bit_offset, bit_size).
+                     * Multiple LLVM patterns can match the same IR
+                     * store via different shapes (e.g. icmp's conditional
+                     * id-write produces taken/not-taken IR variants both
+                     * matched). Without dedup, count-match against
+                     * store_count fails (4/3) — the gate falls back to
+                     * indirect call. Dedup keeps the first match per
+                     * (offset, size) pair; canonical write is the same
+                     * regardless of which pattern matched. */
+                    {
+                        auto dst_size_of = [](
+                            xdp2gen::metadata_transfer const &t)
+                            -> std::pair<std::size_t, std::size_t> {
+                            return std::visit(
+                                [](auto const &p) {
+                                    return std::make_pair(
+                                        p.dst_bit_offset, p.bit_size);
+                                }, t.transfer);
+                        };
+                        auto &mts = graph[vd].metadata_transfers;
+                        std::set<std::pair<std::size_t, std::size_t>> seen;
+                        auto new_end = std::remove_if(
+                            mts.begin(), mts.end(),
+                            [&](xdp2gen::metadata_transfer const &t) {
+                                auto key = dst_size_of(t);
+                                if (seen.count(key)) return true;
+                                seen.insert(key);
+                                return false;
+                            });
+                        auto dedup_removed = std::distance(new_end, mts.end());
+                        if (dedup_removed > 0) {
+                            plog::log(std::cout)
+                                << "R8-Option C phase 2-a.2: deduped "
+                                << dedup_removed
+                                << " duplicate metadata_transfer(s) for "
+                                << graph[vd].metadata << std::endl;
+                        }
+                        mts.erase(new_end, mts.end());
                     }
                 }
 
