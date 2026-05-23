@@ -82,8 +82,33 @@ Total diff: 5 files changed, 263 insertions(+), 4 deletions(-).
 Subject line for the cover letter:
 `[PATCH RFC 0/3] net: flow_dissector: 5-tuple-only hash helper + sch_cake adoption`.
 
-All three patches pass checkpatch.pl --strict with zero
-errors / warnings / checks.
+All three patches pass `checkpatch.pl --strict` with zero
+errors / warnings / checks. `net/core/flow_dissector.o` and
+`net/sched/sch_cake.o` both compile clean against the
+modified tree (gcc 15.2.0, x86_64_defconfig).
+
+### Build env workaround
+
+The default xdp2 `nix develop` shell ships `libelf-0.8.13`
+(the standalone Michael Riepe library), which is too old for
+the kernel's `tools/objtool` — the build fails with
+"implicit declaration of function `gelf_getsymshndx`". To
+make the kernel build work locally, prepend `elfutils`'s
+pkg-config dir before running `make`:
+
+```bash
+cd /home/das/Downloads/net-next
+nix develop /home/das/Downloads/xdp2 --command bash -c '
+  export PKG_CONFIG_PATH=/nix/store/1m12mh1nv5vcnhv1dpdlwzl7icnjzhxz-elfutils-0.194-dev/lib/pkgconfig:$PKG_CONFIG_PATH
+  make defconfig
+  make -j4 net/core/flow_dissector.o
+  make -j4 net/sched/sch_cake.o
+'
+```
+
+The exact nix store path will rotate as nix updates; locate
+the current one with
+`ls /nix/store/*elfutils-*-dev/lib/pkgconfig/libelf.pc`.
 
 ## Pre-post checklist (gates `git send-email`)
 

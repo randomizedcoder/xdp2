@@ -298,6 +298,12 @@ Order:
 
 These are needed before this patch series is ready to send:
 
+- [x] **Local build verification** — both `net/core/flow_dissector.o`
+  and `net/sched/sch_cake.o` build clean against the modified
+  tree (gcc 15.2.0, x86_64_defconfig). Note: the xdp2 nix
+  shell ships an old libelf that fails objtool's build; the
+  workaround is documented in
+  `kernel-patches/series1-flow-hash-small/README.md`.
 - [ ] **hp5 (Zen 1) re-validation of the Phase 3 numbers.**
   All cycle measurements were on Zen 2 Threadripper. Need
   to compile + run `hash_bench.c` on hp5 to confirm the
@@ -313,6 +319,9 @@ These are needed before this patch series is ready to send:
   `tools/testing/selftests/net/forwarding/` for a cake
   test; if there is one, run it locally before posting
   patch 3.
+- [ ] **`make htmldocs` clean render** for the new
+  flow_dissector.rst file. Sphinx will catch any RST
+  syntax issues.
 - [ ] **Patch 2 naming + v6 design** resolved (see "Open
   design questions" above).
 - [ ] **Tom Herbert ack/comment** before posting, since

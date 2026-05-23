@@ -88,8 +88,12 @@ What this is NOT
 Pre-post checklist done
 =======================
 
-- checkpatch.pl passes (0 errors, 0 warnings, 0 checks) for
-  all three patches.
+- checkpatch.pl --strict passes (0 errors, 0 warnings, 0 checks)
+  for all three patches.
+- net/core/flow_dissector.o builds clean (gcc 15.2.0, x86_64
+  defconfig).
+- net/sched/sch_cake.o builds clean (gcc 15.2.0, x86_64
+  defconfig).
 
 Pre-post checklist still TODO before non-RFC posting
 ====================================================
@@ -100,10 +104,9 @@ Pre-post checklist still TODO before non-RFC posting
 - Re-run chi-squared on tuples extracted from a real packet
   capture (heavy-tailed distribution) rather than synthetic
   uniform. Predicted equivalent.
-- Full kernel build verification. (Local nix shell has a
-  libelf version skew that blocks objtool; build was not
-  completed locally. Reviewers who hit this should be aware.)
 - Run any sch_cake selftest in tools/testing/selftests/.
+- Render Documentation/networking/flow_dissector.rst via
+  `make htmldocs` to confirm the RST renders cleanly.
 
 This is sent as RFC for review of the helper API shape and
 sch_cake adoption pattern before a final non-RFC submission.
