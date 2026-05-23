@@ -2,10 +2,51 @@
 
 **Date**: 2026-05-23
 **Branch**: `flow-keys-compat-reorder`
+**Target tree**: `net-next` (kernel networking submissions go here,
+  not mainline; this is the convention netdev maintainers enforce)
+**Local clone**: `/home/das/Downloads/net-next/` — cloned from
+  `git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git`
 **Companion analysis**: `perf-results/2026-05-23-flow-keys-consumer-audit/`
 **Companion docs**: `docs/upstream-options.md` (paths 1-5 +
   tooling-barrier addendum), `docs/flow-keys-compat-reorder-plan.md`
   (XDP2-side v2 implementation)
+**Patches go here**: `kernel-patches/series1-flow-hash-small/`
+  (in this repo, for preservation; actual development happens
+  in the net-next clone)
+
+## Net-next vs the linux/ clone the audit used
+
+The Phase 1-3 audit cited line numbers in
+`/home/das/Downloads/linux/` (an earlier mainline snapshot).
+Diffing against net-next at
+`/home/das/Downloads/net-next/` (HEAD `c0aa5f13826d`,
+2026-05-23):
+
+| file | status in net-next | impact on patches |
+|---|---|---|
+| `include/net/flow_dissector.h` | byte-identical | none |
+| `net/core/flow_dissector.c` | byte-identical | none (hash region helpers unchanged) |
+| `include/net/ip_fib.h` | byte-identical | none |
+| `include/net/ip6_fib.h` | byte-identical | none |
+| `net/sched/cls_flow.c` | byte-identical | none |
+| `net/sched/sch_cake.c` | differs at line 399+ (cobalt math signature, WRITE_ONCE additions for blue_timer) | audited range shifts +6 lines (e.g. `host_keys.control.addr_type` was 747, now 753); semantics unchanged |
+| `net/ipv4/route.c` | differs at line 1272 only (`WARN_ON` → `WARN_ON_ONCE`) | no shift in our audited range (1900-2200) |
+| `net/ipv6/route.c` | differs at lines 1645, 4995, 6928 (mtu null-check, fib6 sernum, error path) | audited range (2400-2650) shifts +4 lines from line 1645 onward |
+
+**Conclusion**: the audit conclusions all hold against net-next.
+Citations in `findings.md` use linux/ line numbers; patch
+context lines (from `git format-patch`) will reflect net-next
+numbers, which differ by ≤6 lines in sch_cake.c and ≤4 lines
+in ipv6/route.c.
+
+## Documentation gap: no existing flow_dissector.rst
+
+Neither linux/ nor net-next has a
+`Documentation/networking/flow_dissector.rst`. **Patch 1
+creates this file, not extends an existing one.** This is
+slightly higher review friction (new file = new
+table-of-contents entry; needs an `index.rst` update too)
+but means we have free rein on structure.
 
 ## What this plan IS
 
@@ -37,9 +78,9 @@ docs patch sets the context for the code patches.
 
 ### Patch 1/3 — `Documentation/networking: document flow_keys consumer touch matrix`
 
-**File**: `Documentation/networking/flow_dissector.rst`
-(extend existing file)
-**Size**: ~150 LoC of RST
+**Files**: `Documentation/networking/flow_dissector.rst` (NEW),
+  `Documentation/networking/index.rst` (add TOC entry)
+**Size**: ~150 LoC of RST + 1-line TOC addition
 **Controversy**: lowest — pure docs
 
 Adds a new section to the existing `flow_dissector.rst`
@@ -197,6 +238,42 @@ net: sched: sch_cake: use flow_hash_from_keys_small() for host accounting
   maintainer), `Dave Täht <dave.taht@gmail.com>` (cake
   contributor / origin), `Jamal Hadi Salim <jhs@mojatatu.com>`
   (TC), `netdev@vger.kernel.org`
+
+## Workflow — net-next development
+
+The actual patch development happens in
+`/home/das/Downloads/net-next/`, NOT in this repo. The XDP2
+repo's `kernel-patches/series1-flow-hash-small/` holds the
+generated `*.patch` files (post `git format-patch`) as
+preserved artifacts.
+
+```bash
+# In the net-next clone:
+cd /home/das/Downloads/net-next
+git checkout -b flow-hash-small-rfc origin/main
+# ... develop the 3 commits ...
+git format-patch -3 --cover-letter --base=origin/main \
+    -o /tmp/series1-v1/
+# Edit the cover letter (/tmp/series1-v1/0000-cover-letter.patch)
+
+# Copy artifacts back into this repo for preservation:
+cp /tmp/series1-v1/*.patch \
+   ~/Downloads/xdp2/kernel-patches/series1-flow-hash-small/v1/
+```
+
+When sending:
+```bash
+cd /home/das/Downloads/net-next
+git send-email --to=netdev@vger.kernel.org \
+    --cc='<CC list per patch — see below>' \
+    /tmp/series1-v1/*.patch
+```
+
+Iteration: each review round produces a new `v2/`, `v3/`
+subdirectory under
+`kernel-patches/series1-flow-hash-small/`. The git history
+in the net-next branch rebases; XDP2-side preservation keeps
+all revisions for the record.
 
 ## Sequencing
 
