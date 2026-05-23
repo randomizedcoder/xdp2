@@ -115,3 +115,80 @@ flow_dissector) becomes the natural follow-up.
 
 Path 4 requires Tom + broader community commitment; not
 something to drive solo.
+
+## Tooling barrier — Rust port vs pre-generate (2026-05-23 addendum)
+
+The biggest non-data blocker for Path 4 ("XDP2 as in-tree
+framework") is XDP2's build-time tooling: `xdp2-compiler`
+(C++ + libclang for parsing C source, walking LLVM IR for
+parser graphs), Python codegen glue, nix flakes. None of
+that fits the kernel build system, which is Kbuild + Make
++ vanilla C (and Rust since 6.1+ in some subsystems).
+
+The decision splits cleanly by **goal**:
+
+### Goal A — ship the flow_keys layout work only
+
+Phase 1-5 analysis (this branch) targets a single
+deliverable: have XDP2 produce a struct whose first 80
+bytes are byte-exact kernel `struct flow_keys`, then have
+kernel callers `(struct flow_keys *)xdp2_meta` and get a
+valid hash with zero translation. **No XDP2 tooling needs
+to ship into the kernel for this.** The kernel side is
+just consumer-side code reading flow_keys; the codegen
+runs on the XDP2 side, outside the kernel tree.
+
+So if the goal is "ship the layout work that makes (a)
+viable" — **Rust port is not on the critical path**. The
+kernel-side patches needed are small and pure-C (see
+`docs/kernel-patches-plan.md`).
+
+### Goal B — ship the XDP2 framework itself in-tree
+
+If the goal is "kernel maintainers can add a new protocol
+parser by writing an XDP2 parse-node definition, and the
+kernel build generates the C", then the codegen IS on the
+critical path. Two sub-paths:
+
+**B-1: Port `xdp2-compiler` to Rust** — technically
+tractable since Rust is accepted in kernel net code. But
+it's a major rewrite: the C-parsing front-end (currently
+libclang) and the LLVM IR analysis (currently uses LLVM
+APIs) are where the heavy lifting lives. Realistic
+estimate: 6-12 months of focused work for a complete
+port. Plus a separate, steeper buy-in conversation with
+maintainers for a *new build-time Rust tool in
+include/net/* — a different approval path from adding
+Rust kernel modules.
+
+**B-2: Pre-generate the parser C files** — run
+`xdp2-compiler` outside the kernel build, check the
+resulting C files into the kernel tree as plain sources.
+Precedent: `dt-bindings` schemas, generated UAPI headers,
+`syscalls/*.tbl` → generated headers. Cost: regenerate
+manually when the parser definition changes (rare for a
+stable production parser like a TCP/IPv4 dissector).
+Benefit: zero new tooling required in-tree.
+
+### Recommendation
+
+1. Pursue **Goal A** now — all five Phase 1-5 commits this
+   session lead there. Layout-work patches are pure C and
+   small; see `docs/kernel-patches-plan.md`.
+2. For **Goal B**, default to **B-2 (pre-generate)** as
+   the cheap path. Only Rust-port the toolchain (B-1) if
+   Goal A lands AND there's genuine netdev appetite for
+   "add new protocols in XDP2's DSL at build time."
+3. If Rust port is pursued speculatively, the contained
+   subset to start with is the **IR analysis + codegen
+   back-end** (turns parsed AST into C source). The
+   libclang front-end is where libclang earns its keep;
+   replacing it is more work than replacing the back-end
+   half.
+
+This addendum doesn't change paths 1-5 above; it
+specifically resolves the "what about the tooling
+blocker?" sub-question that recurs whenever Path 4 comes
+up. The tooling blocker is real but not on the critical
+path for Goal A — which is what Phase 1-5 makes
+shippable.
