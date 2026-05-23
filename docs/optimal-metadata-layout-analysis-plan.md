@@ -4,6 +4,66 @@ Branch: `flow-keys-compat-reorder`.
 Companion to: `docs/flow-keys-compat-reorder-plan.md` and
 `docs/flow-keys-vs-xdp2-metadata.md`.
 
+## TL;DR
+
+We have **two layout candidates** on the table today:
+- Kernel `struct flow_keys` (~80 B) — designed 2014-era,
+  evolved organically
+- XDP2 `xdp2_metadata_all_v2` (proposed, ~208 B) — flow_keys
+  prefix + XDP2 extras at tail
+
+Neither was designed from first principles around modern
+read/write patterns. **This plan investigates what an OPTIMAL
+layout would look like** by auditing how the kernel actually
+consumes `flow_keys` across 9+ hot consumers.
+
+**Preliminary data gathered** (this session):
+- Field access frequency across kernel `net/*` via grep
+- Hash region semantics (`net/core/flow_dissector.c:1764-1816`)
+- Top 9 consuming files identified
+
+**Hypothesized optimal layout** (to validate via the analysis):
+- 5-tuple (addrs + ports + basic) in CL0 — hot read + hot write
+- Hash region (basic..end-of-addrs) contiguous in CL0+CL1
+- Cold fields (icmp, flow_label, vlan, cvlan, keyid) at CL1 tail
+- XDP2 extras (eth_addrs, tcp_options, arp, gre, mpls) at 128+
+- Estimated size: **64-96 B** for the common-consumer set,
+  vs flow_keys 80 B and v2 ~208 B
+
+**Cost**: 2-3 focused sessions for full analysis (4-9 hours
+for Phase 1 alone). **Outcome**: data-driven choice between
+compatibility-first (match flow_keys), efficiency-first
+(propose new kernel layout), or per-parser-tailored
+(Option C 2-a.7).
+
+**Recommended first move**: Phase 1 (per-consumer field-touch
+matrix) — smallest self-contained piece that yields concrete
+data. Without it, "optimal layout" is speculation.
+
+## Quick reference — field access frequency (preliminary)
+
+Single-line grep counts across `~/Downloads/linux/net/*` +
+`include/net/*`. Indicative, not authoritative (doesn't
+capture context or weight by invocation frequency).
+
+| field | hits | category |
+|---|---:|---|
+| `ports` | 177 | **HOT** (read+write, in hash) |
+| `vlan` | 155 | hot |
+| `addrs` | 153 | **HOT** (read+write, in hash) |
+| `icmp` | 93 | medium |
+| `basic.ip_proto` | 59 | hot |
+| `basic.n_proto` | 55 | hot |
+| `control.flags` | 52 | medium |
+| `control.addr_type` | 51 | **HOT** (hash dispatch) |
+| `keyid` | 26 | medium |
+| `cvlan` | 22 | cold |
+| `tags.flow_label` | 13 | cold |
+| `control.thoff` | 2 | **VERY COLD** |
+
+The Phase 1 matrix will replace these flat counts with
+per-consumer weighted touches.
+
 ## Question
 
 What is the **most efficient** memory layout for flow-dissection
