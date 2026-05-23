@@ -1,0 +1,210 @@
+From cebdaf1be308497a800ed348fa82fa518d86b0ef Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 23 May 2026 16:33:23 -0700
+Subject: [PATCH 1/3] Documentation/networking: add flow_dissector consumer
+ touch matrix
+
+Add a new document describing struct flow_keys, the hash region
+used by flow_hash_from_keys(), and which kernel subsystems read
+which fields. Update the networking docs index to include it.
+
+The consumer matrix is derived from an audit of nine kernel
+flow_keys consumers (net/sched/{sch_cake,sch_choke,cls_flow},
+net/ipv{4,6}/route, net/ipv{4,6}/netfilter, net/ipv4/fib_frontend,
+net/core/flow_dissector). It documents the canonical 5-tuple
+(addrs + ports + control.addr_type + basic.ip_proto) as the
+highest-touch field set, identifies control.thoff as
+direct-read-cold, and gives guidance for new consumers including
+a pointer to flow_hash_from_keys_small() for 5-tuple-only
+hashing.
+
+This document provides the evidence base for two follow-up
+patches that add flow_hash_from_keys_small() and adopt it in
+sch_cake's host-accounting hashes.
+
+No code change; pure documentation.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ Documentation/networking/flow_dissector.rst | 156 ++++++++++++++++++++
+ Documentation/networking/index.rst          |   1 +
+ 2 files changed, 157 insertions(+)
+ create mode 100644 Documentation/networking/flow_dissector.rst
+
+diff --git a/Documentation/networking/flow_dissector.rst b/Documentation/networking/flow_dissector.rst
+new file mode 100644
+index 000000000000..bd6e0993d309
+--- /dev/null
++++ b/Documentation/networking/flow_dissector.rst
+@@ -0,0 +1,156 @@
++.. SPDX-License-Identifier: GPL-2.0
++
++==================
++The flow dissector
++==================
++
++The flow dissector (``__skb_flow_dissect()`` and friends in
++``net/core/flow_dissector.c``) extracts protocol fields from a
++packet's network/transport headers and writes them into
++``struct flow_keys`` (declared in ``include/net/flow_dissector.h``).
++Many kernel subsystems consume the dissector's output for hash
++computation, flow classification, routing decisions, and
++filtering.
++
++This document describes ``struct flow_keys``, the hash region used
++by ``flow_hash_from_keys()``, and which subsystems read which
++fields. It is intended for developers adding new flow_keys
++consumers or considering layout changes.
++
++``struct flow_keys``
++====================
++
++The dissector's output struct holds a normalised view of a
++packet's headers::
++
++    struct flow_keys {
++        struct flow_dissector_key_control control;
++        struct flow_dissector_key_basic   basic;
++        struct flow_dissector_key_tags    tags;
++        struct flow_dissector_key_vlan    vlan;
++        struct flow_dissector_key_vlan    cvlan;
++        struct flow_dissector_key_keyid   keyid;
++        struct flow_dissector_key_ports   ports;
++        struct flow_dissector_key_icmp    icmp;
++        struct flow_dissector_key_addrs   addrs;
++        /* addrs MUST be the last member */
++    };
++
++``addrs`` is intentionally placed last because
++``flow_keys_hash_length()`` computes a variable hash length per
++``control.addr_type`` by subtracting the unused suffix of
++``addrs`` (IPv4 uses 8 of 32 bytes; IPv6 uses 32; TIPC uses 4).
++
++The hash region
++===============
++
++``flow_hash_from_keys()`` computes a SipHash2-4 over the
++``flow_keys`` bytes starting at the ``FLOW_KEYS_HASH_START_FIELD``
++macro (``basic``) and ending at the end of ``addrs``. The
++``control`` substruct sits before the hash region; its
++``addr_type`` field dispatches the consistentify pass that
++sorts source/destination pairs for bidirectional hash
++consistency.
++
++The hash region spans:
++
++- ``basic`` (n_proto, ip_proto)
++- ``tags`` (flow_label)
++- ``vlan`` (outer)
++- ``cvlan`` (inner)
++- ``keyid``
++- ``ports``
++- ``icmp``
++- ``addrs`` (variable: 8 B for IPv4, 32 B for IPv6, 4 B for TIPC)
++
++Hash length is 40 B for IPv4, 64 B for IPv6 (approximate; exact
++length depends on struct padding).
++
++Consumer touch patterns
++=======================
++
++The following subsystems are the principal consumers of
++``flow_keys`` data (i.e. they call ``skb_flow_dissect_flow_keys()``
++or read fields from a struct populated by it):
++
++================================ ===================================== ========================================================
++Consumer                         Bucket                                Fields read directly
++================================ ===================================== ========================================================
++``net/sched/sch_cake.c``         RX-hot (per-packet on busy queues)   ``control.addr_type``, ``ports``, ``addrs``
++``net/sched/sch_choke.c``        RX-hot                                (full hash via ``make_flow_keys_digest()``)
++``net/sched/cls_flow.c``         TC-hot (per matched filter)          ``control.addr_type``, ``basic.ip_proto``, ``ports``, ``addrs``
++``net/ipv4/route.c``             Route-hot (per routed packet)        ``control.{addr_type,flags}``, ``basic.ip_proto``, ``ports``, ``tags.flow_label``, ``addrs``
++``net/ipv6/route.c``             Route-hot                            ``control.{addr_type,flags}``, ``basic.ip_proto``, ``ports``, ``tags.flow_label``, ``addrs``
++``net/ipv4/fib_frontend.c``      Setup-only (RPF / source validate)  ``basic.ip_proto``, ``ports``
++``net/ipv4/netfilter.c``         Setup-only (ip_route_me_harder)      ``basic.ip_proto``, ``ports``
++``net/ipv6/netfilter.c``         Setup-only (ip6_route_me_harder)     ``basic.ip_proto``, ``ports``
++================================ ===================================== ========================================================
++
++Buckets describe where the consumer sits on the receive path:
++
++- **RX-hot**: per-packet on the ingress path (qdiscs on busy
++  queues).
++- **Route-hot**: per-packet that traverses the FIB lookup path.
++- **TC-hot**: per-packet, only when a TC filter chain matches.
++- **Setup-only**: per-flow or per-connection, not per-packet
++  (e.g. reverse-path-filter on RPF-enabled paths,
++  netfilter hook reroute).
++
++The Setup-only consumers (``fib_frontend``, ``netfilter``) read
++``flow_keys`` only via inline helpers
++(``fib4_rules_early_flow_dissect()`` / ``fib6_rules_early_flow_dissect()``
++in ``include/net/ip_fib.h`` and ``ip6_fib.h``). They consume
++``basic.ip_proto`` and ``ports`` directly, but read addresses from
++the IP header on the skb, not from the flow_keys ``addrs``
++field.
++
++Aggregate read frequency
++========================
++
++Reading the matrix column-wise, the fields touched by the most
++consumers are:
++
++- ``addrs`` — RX-hot + TC-hot + Route-hot×2
++- ``ports`` — RX-hot + TC-hot + Route-hot×2 + Setup-only×3
++- ``control.addr_type`` — RX-hot + TC-hot + Route-hot×2
++- ``basic.ip_proto`` — TC-hot + Route-hot×2 + Setup-only×3
++
++These four constitute the canonical 5-tuple plus the
++address-family dispatch field. They are the highest-touch
++fields and are written by the dissector on every IP packet.
++
++Fields touched only via the hash region (i.e. not directly read
++by any consumer's logic, but contributing to
++``flow_hash_from_keys()`` output):
++
++- ``basic.n_proto``, ``tags.flow_label`` (RX-hot consumers via hash),
++  ``vlan``, ``cvlan``, ``keyid``, ``icmp``
++
++``control.thoff`` is read by none of the surveyed consumers.
++
++Notes for new consumers
++=======================
++
++- If your consumer only needs the 5-tuple for a flow-identification
++  hash, prefer ``flow_hash_from_keys_small()`` over
++  ``flow_hash_from_keys()``. It hashes only ``basic.ip_proto +
++  ports + addrs`` and is roughly 50% faster for IPv4 with
++  statistically equivalent distribution for RSS-style indirection.
++  Note: it is **not** bit-exact with ``flow_hash_from_keys()`` and
++  is not suitable for comparing against ``skb->hash`` or for
++  hashes that need to align with the kernel's RSS path.
++- If your consumer reads only ``basic`` and ``ports`` (e.g.
++  Setup-only style usage), use the inline helpers in
++  ``include/net/ip_fib.h`` / ``ip6_fib.h`` to avoid full struct
++  setup.
++- Adding a new field to ``flow_keys`` is an ABI-affecting change.
++  The struct is used as the output of the BPF flow_dissector
++  hook; layout changes must preserve the byte offsets the
++  hook contract exposes.
++
++See also
++========
++
++- ``include/net/flow_dissector.h`` — struct definitions
++- ``net/core/flow_dissector.c`` — dissector implementation
++- ``Documentation/networking/scaling.rst`` — RSS / RPS / RFS
+diff --git a/Documentation/networking/index.rst b/Documentation/networking/index.rst
+index 44a422ad3b05..65368050ebab 100644
+--- a/Documentation/networking/index.rst
++++ b/Documentation/networking/index.rst
+@@ -52,6 +52,7 @@ Contents:
+    eql
+    fib_trie
+    filter
++   flow_dissector
+    generic-hdlc
+    generic_netlink
+    ../netlink/specs/index
+-- 
+2.54.0
+

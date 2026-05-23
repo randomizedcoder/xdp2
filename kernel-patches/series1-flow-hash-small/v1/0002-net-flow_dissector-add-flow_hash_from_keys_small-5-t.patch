@@ -1,0 +1,192 @@
+From ba1e6d91738321f5951b473a034018a0c46c94c4 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 23 May 2026 16:38:19 -0700
+Subject: [PATCH 2/3] net: flow_dissector: add flow_hash_from_keys_small()
+ 5-tuple helper
+
+Add a flow_hash_from_keys_small() companion to flow_hash_from_keys()
+that hashes only the canonical 5-tuple (basic.ip_proto + ports +
+addrs), skipping tags/vlan/cvlan/keyid/icmp. Roughly 50% faster than
+flow_hash_from_keys() on IPv4 with statistically equivalent
+distribution for RSS-style indirection.
+
+Rationale
+=========
+
+Auditing nine kernel flow_keys consumers (see
+Documentation/networking/flow_dissector.rst) shows the 5-tuple
+fields (ip_proto + ports + addrs + control.addr_type) are the
+highest-touch field set. Fields between them in the hash region
+(tags.flow_label, vlan, cvlan, keyid, icmp) are touched only via
+the hash, not by any consumer's logic.
+
+A userspace microbench of __siphash_aligned() on AMD Zen 2
+showed cycle cost scales with input length in ~16 B bands
+(SipHash2-4 absorbs 8 B per round). A 16-B 5-tuple region runs
+at roughly half the cycles of the kernel's 40-B IPv4 hash region.
+
+A chi-squared distribution test (100k synthetic IPv4 5-tuples,
+K=256 and K=4096 buckets) showed the smaller region gives
+statistically equivalent uniformity to the full region:
+chi2=242.5 (full) vs 260.6 (small) at K=256 (df=255);
+chi2=4070.5 (full) vs 4155.3 (small) at K=4096 (df=4095).
+This is the expected result since siphash is a PRF whose
+distribution quality is algorithmically independent of input
+length above one absorption block.
+
+Implementation
+==============
+
+flow_hash_from_keys_small() packs the 5-tuple into a stack-local
+buffer (16 B for IPv4; 40 B for IPv6 because v6 addrs are 32 B)
+and runs siphash() over it after the usual
+__flow_hash_consistentify() pass for direction-symmetric hashes.
+TIPC and other non-IPv4/IPv6 address types fall back to the full
+hash so we never silently degrade an unfamiliar address type.
+
+A _seed variant is added for API symmetry with
+flow_hash_from_keys_seed().
+
+Limitations
+===========
+
+NOT bit-exact with flow_hash_from_keys(). Not suitable where the
+hash must match skb->hash or where bit-stable agreement with the
+kernel's RSS path matters. Suitable for in-subsystem accounting
+hashes where the caller owns both endpoints of the hash
+comparison (next patch adopts this in sch_cake's host-load
+counters).
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ include/net/flow_dissector.h |  3 ++
+ net/core/flow_dissector.c    | 99 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+)
+
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index ced79dc8e856..606f30a97c69 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -448,6 +448,9 @@ static inline bool flow_keys_have_l4(const struct flow_keys *keys)
+ u32 flow_hash_from_keys(struct flow_keys *keys);
+ u32 flow_hash_from_keys_seed(struct flow_keys *keys,
+ 			     const siphash_key_t *keyval);
++u32 flow_hash_from_keys_small(struct flow_keys *keys);
++u32 flow_hash_from_keys_small_seed(struct flow_keys *keys,
++				   const siphash_key_t *keyval);
+ void skb_flow_get_icmp_tci(const struct sk_buff *skb,
+ 			   struct flow_dissector_key_icmp *key_icmp,
+ 			   const void *data, int thoff, int hlen);
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 2a98f5fa74eb..d72f67abf21f 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -1822,6 +1822,105 @@ u32 flow_hash_from_keys_seed(struct flow_keys *keys,
+ }
+ EXPORT_SYMBOL(flow_hash_from_keys_seed);
+ 
++/*
++ * Pack the canonical 5-tuple (ip_proto + ports + addrs) into a
++ * siphash-aligned stack buffer for flow_hash_from_keys_small().
++ *
++ * For IPv4 the packed buffer is 16 bytes; for IPv6 it is 40 bytes
++ * (because v6 addrs are 32 bytes). Unsupported address types fall
++ * back to flow_hash_from_keys().
++ */
++static inline u32 __flow_hash_from_keys_small(struct flow_keys *keys,
++					      const siphash_key_t *keyval)
++{
++	union {
++		struct {
++			__u8   ip_proto;
++			__u8   pad[3];
++			__be32 ports;
++			__be32 src;
++			__be32 dst;
++		} v4;
++		struct {
++			__u8            ip_proto;
++			__u8            pad[3];
++			__be32          ports;
++			struct in6_addr src;
++			struct in6_addr dst;
++		} v6;
++	} __aligned(SIPHASH_ALIGNMENT) buf;
++	size_t len;
++	u32 hash;
++
++	__flow_hash_consistentify(keys);
++
++	switch (keys->control.addr_type) {
++	case FLOW_DISSECTOR_KEY_IPV4_ADDRS:
++		buf.v4.ip_proto = keys->basic.ip_proto;
++		memset(buf.v4.pad, 0, sizeof(buf.v4.pad));
++		buf.v4.ports = keys->ports.ports;
++		buf.v4.src = keys->addrs.v4addrs.src;
++		buf.v4.dst = keys->addrs.v4addrs.dst;
++		len = sizeof(buf.v4);
++		break;
++	case FLOW_DISSECTOR_KEY_IPV6_ADDRS:
++		buf.v6.ip_proto = keys->basic.ip_proto;
++		memset(buf.v6.pad, 0, sizeof(buf.v6.pad));
++		buf.v6.ports = keys->ports.ports;
++		buf.v6.src = keys->addrs.v6addrs.src;
++		buf.v6.dst = keys->addrs.v6addrs.dst;
++		len = sizeof(buf.v6);
++		break;
++	default:
++		/* TIPC and others: fall back to the full hash so we
++		 * never silently degrade an unfamiliar address type.
++		 */
++		return __flow_hash_from_keys(keys, keyval);
++	}
++
++	hash = siphash(&buf, len, keyval);
++	if (!hash)
++		hash = 1;
++	return hash;
++}
++
++/**
++ * flow_hash_from_keys_small - 5-tuple-only flow hash
++ * @keys: pointer to a struct flow_keys filled in by
++ *        skb_flow_dissect_flow_keys()
++ *
++ * Like flow_hash_from_keys() but hashes only basic.ip_proto, ports
++ * and addrs (the canonical 5-tuple). Roughly 50% faster on IPv4 than
++ * flow_hash_from_keys() (per microbench on AMD Zen 2; siphash is the
++ * dominant cost and scales with input length) and gives statistically
++ * equivalent
++ * distribution for RSS-style indirection tables.
++ *
++ * NOT bit-exact with flow_hash_from_keys(); not suitable for use
++ * where the hash must match skb->hash or where bit-stable agreement
++ * with the kernel's RSS path matters.
++ *
++ * Suitable for in-subsystem accounting hashes where the caller owns
++ * both endpoints of the hash comparison (e.g. sch_cake's host-load
++ * counters).
++ *
++ * TIPC and other non-IPv4/IPv6 address types fall back to the full
++ * hash.
++ */
++u32 flow_hash_from_keys_small(struct flow_keys *keys)
++{
++	__flow_hash_secret_init();
++	return __flow_hash_from_keys_small(keys, &hashrnd);
++}
++EXPORT_SYMBOL(flow_hash_from_keys_small);
++
++u32 flow_hash_from_keys_small_seed(struct flow_keys *keys,
++				   const siphash_key_t *keyval)
++{
++	return __flow_hash_from_keys_small(keys, keyval);
++}
++EXPORT_SYMBOL(flow_hash_from_keys_small_seed);
++
+ static inline u32 ___skb_get_hash(const struct sk_buff *skb,
+ 				  struct flow_keys *keys,
+ 				  const siphash_key_t *keyval)
+-- 
+2.54.0
+

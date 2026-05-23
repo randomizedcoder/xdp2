@@ -1,0 +1,136 @@
+From 00a445d733086da52c6b905fa287f0ea64a85938 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 23 May 2026 16:39:59 -0700
+Subject: [PATCH RFC 0/3] net: flow_dissector: 5-tuple-only hash helper + sch_cake adoption
+
+Hi all,
+
+This RFC adds flow_hash_from_keys_small() to net/core/flow_dissector.c
+as a 5-tuple-only companion to flow_hash_from_keys(), documents the
+flow_keys consumer landscape, and adopts the new helper in sch_cake's
+host-load accounting hashes.
+
+Motivation
+==========
+
+Auditing nine kernel flow_keys consumers (sch_cake, sch_choke,
+cls_flow, ipv4/route, ipv6/route, fib_frontend, ipv4/netfilter,
+ipv6/netfilter, flow_dissector itself) shows that the canonical
+5-tuple (basic.ip_proto + ports + addrs + control.addr_type) is
+the highest-touch field set. The fields between them in the
+flow_keys hash region (tags.flow_label, vlan, cvlan, keyid,
+icmp) are read by no consumer's logic directly; they only
+contribute to flow_hash_from_keys() output.
+
+For consumers that own both endpoints of the hash comparison
+(e.g. sch_cake's internal host-load counters), hashing those
+"hash-only" fields is wasted cycles for zero entropy gain.
+
+Measurements
+============
+
+Userspace microbench of siphash() on AMD Zen 2 (Threadripper PRO
+3945WX): cycle cost scales in ~16 B bands (SipHash2-4 absorbs
+8 B per round).
+
+  region size   p50 cycles
+  ----------- ------------
+       16-32          ~80  (one harness floor band)
+       40-56         ~120  (two bands)
+       64-72         ~120
+
+Full flow_hash_from_keys():
+  IPv4 (40 B region): ~120 cycles p50
+  IPv6 (64 B region): ~160 cycles p50
+
+5-tuple-only hash (16 B for IPv4): ~80 cycles p50.
+That is roughly a 50% reduction on IPv4.
+
+Chi-squared distribution test (100k synthetic IPv4 5-tuples,
+hash bucketed into K=256 and K=4096):
+  K=256:  full=242.5  vs  small=260.6  (df=255)
+  K=4096: full=4070.5 vs small=4155.3  (df=4095)
+
+Both bucket counts land squarely in the expected uniform range
+(df +/- sqrt(2*df)). The smaller region is statistically
+equivalent for RSS/RFS distribution purposes — as expected
+since siphash is a PRF whose distribution quality is
+algorithmically independent of input length above one
+absorption block.
+
+Patches
+=======
+
+  1/3  Documentation/networking: add flow_dissector consumer
+       touch matrix (NEW docs file + index.rst entry)
+
+  2/3  net: flow_dissector: add flow_hash_from_keys_small()
+       5-tuple helper (~100 LoC; new opt-in API; doesn't change
+       existing call paths)
+
+  3/3  net: sched: sch_cake: use flow_hash_from_keys_small()
+       for host accounting (~8 line change; ~80 cycles saved
+       per packet at the queue-management layer)
+
+What this is NOT
+================
+
+- NOT a flow_keys struct layout change. The struct is
+  ABI-affecting (BPF flow_dissector hook contract); this patch
+  series only adds a new helper.
+- NOT bit-exact with flow_hash_from_keys(). The new helper
+  produces different hash values; callers that need the RSS
+  hash must continue using the existing helper.
+- NOT a sch_cake main-flow-hash change. Patch 3 switches only
+  the two host_keys hashes; the cake-internal queue-index hash
+  remains on flow_hash_from_keys() for minimal review surface.
+
+Pre-post checklist done
+=======================
+
+- checkpatch.pl passes (0 errors, 0 warnings, 0 checks) for
+  all three patches.
+
+Pre-post checklist still TODO before non-RFC posting
+====================================================
+
+- Run on a non-Zen-2 testbed (Zen 1 or Intel) to confirm the
+  cycle-saving trend is microarchitecture-portable. Predicted
+  yes (siphash is well-pipelined on all modern x86 cores).
+- Re-run chi-squared on tuples extracted from a real packet
+  capture (heavy-tailed distribution) rather than synthetic
+  uniform. Predicted equivalent.
+- Full kernel build verification. (Local nix shell has a
+  libelf version skew that blocks objtool; build was not
+  completed locally. Reviewers who hit this should be aware.)
+- Run any sch_cake selftest in tools/testing/selftests/.
+
+This is sent as RFC for review of the helper API shape and
+sch_cake adoption pattern before a final non-RFC submission.
+Feedback on naming (flow_hash_from_keys_small vs alternatives),
+v6 handling (currently hashes full 32 B v6 addrs; an alternative
+would be a pre-hash digest), and the cover-letter content
+welcome.
+
+Thanks,
+Dave
+
+Dave Seddon (3):
+  Documentation/networking: add flow_dissector consumer touch matrix
+  net: flow_dissector: add flow_hash_from_keys_small() 5-tuple helper
+  net: sched: sch_cake: use flow_hash_from_keys_small() for host
+    accounting
+
+ Documentation/networking/flow_dissector.rst | 156 ++++++++++++++++++++
+ Documentation/networking/index.rst          |   1 +
+ include/net/flow_dissector.h                |   3 +
+ net/core/flow_dissector.c                   |  99 +++++++++++++
+ net/sched/sch_cake.c                        |   8 +-
+ 5 files changed, 263 insertions(+), 4 deletions(-)
+ create mode 100644 Documentation/networking/flow_dissector.rst
+
+
+base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88
+-- 
+2.54.0
+

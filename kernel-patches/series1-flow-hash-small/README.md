@@ -63,9 +63,27 @@ git send-email --to=netdev@vger.kernel.org \
 
 ## Status
 
-- [ ] v1 patches not yet written. This README is the
-  scaffolding; the `v1/` directory will be populated
-  after development in net-next.
+- [x] v1 patches drafted and preserved in `v1/`. Cover
+  letter edited; net-next branch `flow-hash-small-rfc` has
+  the three commits.
+- [ ] v1 not yet posted to netdev. Pre-post checklist (below)
+  must clear first.
+
+## v1 summary
+
+```
+$ git log --oneline origin/main..flow-hash-small-rfc
+00a445d73308 net: sched: sch_cake: use flow_hash_from_keys_small() for host accounting
+ba1e6d917383 net: flow_dissector: add flow_hash_from_keys_small() 5-tuple helper
+cebdaf1be308 Documentation/networking: add flow_dissector consumer touch matrix
+```
+
+Total diff: 5 files changed, 263 insertions(+), 4 deletions(-).
+Subject line for the cover letter:
+`[PATCH RFC 0/3] net: flow_dissector: 5-tuple-only hash helper + sch_cake adoption`.
+
+All three patches pass checkpatch.pl --strict with zero
+errors / warnings / checks.
 
 ## Pre-post checklist (gates `git send-email`)
 
