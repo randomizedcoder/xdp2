@@ -2,6 +2,52 @@
 
 Branch: `flow-keys-compat-reorder` (forked from
 `merge/matrix-physical-testbed` at `e970334`).
+PR-create link: `https://github.com/randomizedcoder/xdp2/pull/new/flow-keys-compat-reorder`.
+
+## TL;DR
+
+Reorder XDP2's metadata struct so the first 80 bytes match
+the kernel's `struct flow_keys` byte-exact. Then
+`(struct flow_keys *)xdp2_meta` is a valid kernel-side cast
+with **zero data copy and zero translation function** at
+runtime. XDP2 extras (`eth_addrs`, `tcp_options`, `arp`, etc.)
+move to the tail at offset 80+, invisible to kernel callers.
+
+- **Cost on hp5 (Zen 1)**: predicted null within ±2 ns
+  (R6 layout pattern repeats — store buffer absorbs scatter
+  writes)
+- **Struct size**: 192 B → ~208 B (+16 B for flow_keys
+  alignment)
+- **Implementation**: 1 focused session (~5-8 hours, 5 phases)
+- **Backward compat**: v1 struct unchanged; v2 opt-in via
+  `.use_flow_keys_layout = 1` parser config field
+- **Re-test required**: yes — standard R6/R8 protocol below
+
+## Quick-reference re-test protocol
+
+After implementation, verify with the standard gates:
+
+| gate | requirement | wall time |
+|---|---|---|
+| Parity gate | 32/32 OK | ~3 min |
+| Protocol-coverage matrix | 4914 cells, 0 OK!N / 0 REJ-undeclared / 0 REJ-unexpected | ~5 min |
+| Mono-perf ceiling | 0 violations on 12 cells | included in sweep |
+| hp2-hp5 sweep (6 workloads × 2 hosts) | cells within ±2 ns of baseline (`e970334`) | ~30 min |
+
+**If hp5 moves >3 ns**: investigate per the R6/R8 playbook
+(cacheline boundary, hash content change, gcc layout
+sensitivity).
+
+**Total verification cycle**: ~40 minutes.
+
+## Branch state (current)
+
+- Parent: `merge/matrix-physical-testbed` @ `e970334` (full
+  R3-R8 work + kernel comparison docs + upstream-options
+  analysis + flow_keys-vs-xdp2 layout analysis)
+- Current: `flow-keys-compat-reorder` @ `3e38ce1` (this
+  planning doc only; no code change yet)
+- Pushed: yes, tracking `origin/flow-keys-compat-reorder`
 
 ## Goal
 
