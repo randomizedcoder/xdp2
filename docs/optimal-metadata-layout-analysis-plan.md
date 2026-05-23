@@ -49,6 +49,21 @@ single-line grep counts below overstated `vlan` and `icmp`;
 both are direct-read cold (only touched via the siphash
 region). Treat the table below as upper bounds.
 
+**Phase 3 + Phase 5 complete (2026-05-23)**: see
+`phase3_hash_perf.md`, `phase3_hash_bias.md`,
+`phase5_layout_proposals.md` in the same directory.
+- siphash dominates `flow_hash_from_keys` cost (v4 ~80 cyc,
+  v6 ~120 cyc on Zen 2); consistentify is essentially free
+- a 16-B 5-tuple-only hash region is statistically
+  equivalent to the kernel's 40 B for RSS/RFS distribution
+  (chi-squared confirmed) and runs at ~40 cyc — **~50%
+  faster** with zero distribution penalty
+- Phase 5 recommends shipping Layout A (companion plan's
+  byte-exact v2) first, then adding Layout B (v3) as opt-in
+  with a small-hash entry point; Layout C (per-parser
+  tailored) deferred to Option C 2-a.7
+- Phase 4 (μarch sensitivity) remains parked on hp5 access
+
 ## Quick reference — field access frequency (preliminary)
 
 Single-line grep counts across `~/Downloads/linux/net/*` +
