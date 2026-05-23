@@ -40,6 +40,15 @@ compatibility-first (match flow_keys), efficiency-first
 matrix) — smallest self-contained piece that yields concrete
 data. Without it, "optimal layout" is speculation.
 
+**Phase 1+2 complete (2026-05-23)**: see
+`perf-results/2026-05-23-flow-keys-consumer-audit/findings.md`.
+Hypothesis confirmed — `addrs + ports + control.addr_type +
+basic.ip_proto` are the CL0 winners; `control.thoff` has zero
+reads in the nine audited consumers. The preliminary
+single-line grep counts below overstated `vlan` and `icmp`;
+both are direct-read cold (only touched via the siphash
+region). Treat the table below as upper bounds.
+
 ## Quick reference — field access frequency (preliminary)
 
 Single-line grep counts across `~/Downloads/linux/net/*` +
