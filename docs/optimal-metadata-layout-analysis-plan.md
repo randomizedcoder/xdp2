@@ -332,3 +332,82 @@ data-driven rather than hypothesis-driven.
 
 The analysis informs design decisions but doesn't commit to
 upstream layout changes.
+
+## Discoveries (post-plan synthesis, 2026-05-23)
+
+The plan was hypothesis-driven; the data turned hypothesis
+into design direction. Per-phase artifacts live in
+`perf-results/2026-05-23-flow-keys-consumer-audit/`:
+
+- `findings.md` — Phase 1+2 per-consumer matrix + write
+  cross-ref
+- `phase3_hash_perf.md` — `flow_hash_from_keys` cycle
+  breakdown on Zen 2
+- `phase3_hash_bias.md` — chi-squared distribution test
+  (16 B small region vs 40 B full region)
+- `phase5_layout_proposals.md` — three layout candidates
+  with modeled cycle cost and ABI trade-offs
+
+### The three-way design question, answered
+
+We have three candidate moves and the data tells us how
+to rank them:
+
+**(a) Use `xdp2_metadata_all_v2` (flow_keys byte-exact
+prefix)** — **VIABLE, ship first.** Kernel cast
+`(struct flow_keys *)xdp2_meta` works zero-cost. Phase 1+2
+confirms the kernel consumer set is a strict subset of
+what flow_keys holds, so the cast doesn't lose anything
+kernel code reads. Hash cost ≈ kernel today
+(~80 cyc v4 / ~120 cyc v6); no perf win, no perf regression
+either. This is the upstream-relevance lever. Already
+planned in `flow-keys-compat-reorder-plan.md`.
+
+**(b) Use the kernel `struct flow_keys` directly** —
+**NOT VIABLE in general.** Kernel flow_keys can't hold
+XDP2's extras (`eth_addrs`, `tcp_options`, `arp`, `gre`,
+`mpls`), so adopting it breaks any XDP2 parser/consumer
+that depends on those fields. Only viable for new
+specialised parsers that don't need extras, and for those
+(a) gives the same kernel-visible bytes plus future
+flexibility. Strictly dominated by (a).
+
+**(c) Improved struct (Layout B / v3)** — **VIABLE, ship
+second.** Strict superset of v2 (same prefix → kernel cast
+still works) plus a 16-B small-hash tail region and a new
+`xdp2_flow_hash_small()` entry point. Phase 3 measured
+~40 cyc/hash for the 16-B region (vs ~80 cyc v4 / ~120
+cyc v6 for the full region); Phase 3-followup confirmed no
+distribution penalty on RSS-style buckets. Net saving:
+~40 ns/pkt on sch_cake-style consumers that hash 3× per
+packet. ABI risk: none, since the prefix is unchanged.
+
+### Recommended sequencing
+
+1. Ship (a) per the companion implementation plan
+   (`flow-keys-compat-reorder-plan.md`)
+2. hp5 re-validate per its quick-reference test protocol
+3. If null: add (c) as opt-in v3 in a follow-up branch
+4. Skip (b); dominated by (a)
+5. Defer Layout C (per-parser tailored, biggest savings,
+   no ABI compat) to Option C phase 2-a.7 work
+
+### What this analysis did NOT settle
+
+- **hp5 (Zen 1) numbers**: all cycle measurements were on
+  Zen 2 Threadripper. Layout (a)'s zero-regression claim
+  and (c)'s ~40 ns/pkt saving claim both need hp5
+  re-validation before either ships. The relative trends
+  (smaller region → fewer cycles, same distribution) are
+  microarchitecture-portable; absolute numbers are not.
+- **μarch sensitivity beyond Zen** (Phase 4): in-order ARM
+  / RISC-V / small-store-buffer cores would amplify (c)'s
+  benefit but we have no testbed. Predicted; not measured.
+- **v6 in Layout B's small region**: 16 B fits v4 addrs
+  but not v6 src+dst. Open design question — pre-hash
+  digest? low-64-bits? two variants? Resolve when (c) is
+  implemented.
+- **Layout B's hash on real traffic**: chi-squared was on
+  synthetic uniform tuples. Re-validation on a real pcap
+  is cheap follow-up before (c) ships, but predicted to
+  match.
