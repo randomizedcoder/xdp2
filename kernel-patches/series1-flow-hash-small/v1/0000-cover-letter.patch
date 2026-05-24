@@ -221,6 +221,26 @@ unchanged:
 
 Every hash-stability path stays bit-stable.
 
+Related — separate future submission
+====================================
+
+While doing the XDP2-vs-kernel comparison, we also noticed
+that the in-tree BPF flow_dissector reference at
+tools/testing/selftests/bpf/progs/bpf_flow.c does not handle
+PPPoE session packets (ETH_P_PPP_SES, 0x8864) — the _dissect()
+entry point branches on n_proto for IP / IPv6 / VLAN /
+MPLS variants but has no PPP_SES case, so PPPoE-encapsulated
+flows get dropped by that reference program. A ~50-line
+patch adding ETH_P_PPP_SES dispatch and a small PPP
+sub-program would close that gap.
+
+That fix is out of scope for this series (different file,
+different maintainer audience, different test surface) and
+will be sent as a separate patch set after this one settles.
+Mentioning it here only because the BPF folks may see this
+series and recognise the same comparison work that turned up
+the PPPoE finding.
+
 Pre-post checklist done
 =======================
 
