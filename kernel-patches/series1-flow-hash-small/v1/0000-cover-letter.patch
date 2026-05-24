@@ -125,6 +125,57 @@ What this is NOT
   the two host_keys hashes; the cake-internal queue-index hash
   remains on flow_hash_from_keys() for minimal review surface.
 
+Prior art
+=========
+
+The "hash a subset of flow_keys" pattern already exists in
+__skb_get_hash_symmetric_net() (commit predates 2019; David
+Miller, for PACKET_FANOUT symmetric hashing). That function
+uses a separate flow_keys_dissector_symmetric that populates
+only proto+addrs+ports, then siphash-hashes the full flow_keys
+region (the cold fields contribute zero entropy because they
+are zero). Our helper is conceptually similar but takes a
+populated flow_keys and hashes only the populated bytes — same
+effective entropy, fewer siphash rounds.
+
+We did not find any prior posting on lore.kernel.org / LKML
+proposing a smaller-region variant of flow_hash_from_keys()
+for performance. The siphash conversion (55667441c84f, Oct
+2019) was security-driven and did not reconsider the region
+size. The PANDA / Flow Dissector replacement effort (Tom
+Herbert, Pedro Tammela, Netdev 0x15/0x16) aimed at wholesale
+replacement; it has not been merged. This patch is the
+incremental win that the wholesale-replacement plan made
+nobody bother to propose.
+
+Why __skb_get_hash_symmetric_net() is not the right place for
+this: that function re-runs the dissector on the skb to
+populate its own flow_keys. Our callers already have a
+populated flow_keys from a prior skb_flow_dissect_flow_keys()
+call (sch_cake dissects once per packet, then hashes three
+times). We need the post-dissect hash to be cheap.
+
+Blast radius
+============
+
+The patch series touches exactly one consumer (sch_cake's
+two host_keys hashes; 4 call sites total). It leaves
+unchanged:
+
+- __skb_get_hash_net() and therefore skb->hash population
+- get_rps_cpu() and the RPS/RFS steering chain
+- fib_multipath_hash_from_keys() and all 11 IPv{4,6}/route.c
+  ECMP call sites
+- sch_cake's main flow_hash (kept on flow_hash_from_keys()
+  because it interacts with skb->hash via the use_skbhash
+  shortcut)
+- __skb_get_hash_symmetric_net() (independent path)
+- All NIC ARFS driver code (11+ drivers; none call
+  flow_hash_from_keys())
+- The BPF flow_dissector hook ABI (struct layout unchanged)
+
+Every hash-stability path stays bit-stable.
+
 Pre-post checklist done
 =======================
 

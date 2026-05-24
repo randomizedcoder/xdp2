@@ -294,6 +294,19 @@ Order:
 - Single revision sent to netdev; expect iteration on
   patch 2's API naming and v6 handling
 
+## Risk audit
+
+See `docs/flow-keys-patch-risk-audit.md` for the exhaustive
+audit of every flow_keys consumer in net-next and what the
+patch does or doesn't change. Short version: the patch
+touches exactly one consumer (sch_cake's host_keys hashes;
+4 call sites total) and leaves every hash-stability path
+(skb->hash, RPS/RFS, multipath routing, sch_cake main
+flow_hash) bit-stable. Prior art for "hash a subset of
+flow_keys" already exists in `__skb_get_hash_symmetric_net()`
+since 2016. No prior performance-motivated proposal of this
+shape was found on lore.kernel.org / LKML.
+
 ## What we don't have yet (pre-post checklist)
 
 These are needed before this patch series is ready to send:
