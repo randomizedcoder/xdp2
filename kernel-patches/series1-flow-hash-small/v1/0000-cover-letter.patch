@@ -10,6 +10,47 @@ as a 5-tuple-only companion to flow_hash_from_keys(), documents the
 flow_keys consumer landscape, and adopts the new helper in sch_cake's
 host-load accounting hashes.
 
+Background — first kernel submission
+====================================
+
+This is my first patch submission to the Linux kernel, so a
+few words of context up front.
+
+I contribute to XDP2, the flow-dissection / parser-codegen
+project led by Tom Herbert (the project formerly known as
+PANDA; see "Replacing Flow Dissector with PANDA Parser",
+Netdev 0x15 https://netdevconf.info/0x15/slides/16/Flow%20dissector_PANDA%20parser.pdf
+and the 0x16 follow-up). XDP2 explores a codegen-based
+replacement for the kernel's __skb_flow_dissect()
+infrastructure — a larger architectural direction Tom and
+team have been pursuing for years.
+
+In the course of comparing XDP2's generated parsers against
+the kernel's flow_dissector + skb_get_hash path, I ended up
+auditing how the kernel actually consumes struct flow_keys
+today. The audit (data: https://github.com/randomizedcoder/xdp2
+branch flow-keys-compat-reorder, directory
+perf-results/2026-05-23-flow-keys-consumer-audit/) surfaced
+the observation behind this series: flow_hash_from_keys()
+hashes a larger region than any consumer actually reads at
+the field level, and a 5-tuple-only variant gives the same
+RSS distribution at lower cost.
+
+This series is explicitly NOT the XDP2 wholesale replacement —
+it is a small, narrowly-scoped helper that ADDS one function,
+doesn't change any existing call path, doesn't touch any
+hash-stability guarantee (skb->hash, RPS/RFS, multipath
+routing all unchanged), and adopts itself in exactly one
+consumer (sch_cake's host_keys accounting). I think it's
+small enough to be safe and the measurements show a
+consistent (if uarch-dependent) improvement. It's the
+incremental win I noticed while doing the broader comparison.
+
+Sent as RFC because (a) I'm new to the kernel review
+process and would value feedback before a non-RFC posting,
+and (b) the helper name and v6 handling in patch 2 are
+worth bike-shedding through before the formal submission.
+
 Motivation
 ==========
 

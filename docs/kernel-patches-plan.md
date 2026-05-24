@@ -57,6 +57,36 @@ don't require any XDP2 tooling to enter the kernel tree; they
 stand on their own as kernel-side changes justified by the
 analysis evidence.
 
+### First-time-contributor framing
+
+This is the patch author's first kernel submission. The
+series is deliberately small and incremental — adds one new
+helper function, doesn't change any existing call path,
+doesn't touch any hash-stability guarantee. The cover letter
+explains the context (work on XDP2 with Tom Herbert; this is
+an incremental win found while doing the broader XDP2-vs-
+kernel comparison; NOT the XDP2 wholesale replacement Tom
+and team have been pursuing).
+
+Implications for submission strategy:
+
+- **Expect more iteration rounds than a maintainer's patch
+  would get.** Plan for v2 / v3 / v4 over a few weeks.
+- **Post as RFC first** (cover letter already marked
+  `[PATCH RFC 0/3]`). Use the RFC round to settle naming,
+  v6 handling, and reviewer expectations before the non-RFC
+  submission.
+- **Lead with humility about scope.** The "this is small
+  enough to be safe, and it does improve performance"
+  framing in the cover letter is honest and appropriate.
+  Don't oversell.
+- **Courtesy alignment with Tom Herbert is load-bearing**
+  here — he's the XDP2 lead and the long-time driver of the
+  wholesale dissector-replacement effort (PANDA / Netdev
+  0x15+0x16) that this patch explicitly defers to. Get his
+  ack on the framing before posting (see pre-post
+  checklist).
+
 ## What this plan ISN'T
 
 - The PPPoE BPF patch (covered by `upstream-options.md` path 1;

@@ -260,8 +260,13 @@ Future directions the article can flag:
 ### 7. Closing (150 words)
 
 - Patch series link (LKML archive URL once posted).
-- Brief author bio: "Dave Seddon contributes to XDP2 and
-  is the author of the patch series discussed here."
+- Brief author bio: "Dave Seddon contributes to XDP2 (the
+  codegen-based flow-dissection project led by Tom Herbert,
+  formerly known as PANDA) and is the author of the patch
+  series discussed here. This is his first kernel patch
+  contribution. The XDP2-vs-kernel comparison work that led
+  to this audit lives at
+  https://github.com/randomizedcoder/xdp2."
 - Acknowledgments:
   - Tom Herbert (XDP2 lead) for the wider flow-dissection
     work this analysis builds on.
