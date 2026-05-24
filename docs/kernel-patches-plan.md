@@ -221,6 +221,17 @@ skb->hash, so bit-exact compat matters there).
 - sch_cake on a busy 10G+ link processes millions of
   packets/sec — small per-packet wins compound
 
+**cake_mq context**: the cake_mq qdisc (merged to net-next
+in early 2026 by Toke Høiland-Jørgensen) is the multi-queue
+wrapper that auto-installs an `sch_cake` instance on every
+hardware TX queue and shares configuration / shaper state
+across the per-queue instances. cake_mq does NOT change
+`cake_hash()` — each per-queue instance runs unchanged
+flow hashing code. So this patch's saving is picked up by
+every per-queue cake under cake_mq. On a 16-queue NIC
+under cake_mq, the per-packet saving compounds across all
+16 queues.
+
 **Suggested subject**:
 ```
 net: sched: sch_cake: use flow_hash_from_keys_small() for host accounting
@@ -234,10 +245,15 @@ net: sched: sch_cake: use flow_hash_from_keys_small() for host accounting
 - Reference: host_keys are sch_cake-internal accounting,
   not exposed to other RSS/RFS paths
 
-**CC**: `Toke Høiland-Jørgensen <toke@toke.dk>` (cake
-  maintainer), `Dave Täht <dave.taht@gmail.com>` (cake
-  contributor / origin), `Jamal Hadi Salim <jhs@mojatatu.com>`
-  (TC), `netdev@vger.kernel.org`
+**CC**: `Toke Høiland-Jørgensen <toke@toke.dk>` (sole cake
+  maintainer per `MAINTAINERS`),
+  `Jamal Hadi Salim <jhs@mojatatu.com>` (TC),
+  `cake@lists.bufferbloat.net`,
+  `netdev@vger.kernel.org`. **Do NOT CC** Dave Täht
+  (`dave.taht@gmail.com`) — he passed away on 2025-04-01
+  (LWN obit https://lwn.net/Articles/1016109/). His name
+  remains in the `sch_cake.c` copyright header where it
+  belongs; this patch series does not touch that.
 
 ## Workflow — net-next development
 
@@ -333,10 +349,11 @@ These are needed before this patch series is ready to send:
   but consistent with the synthetic result; full and small
   regions both pass uniformity at K=256 and K=4096. See
   `phase3_hash_bias.md` and `hash_bias_pcap_run.txt`.
-- [ ] **sch_cake selftest exists?** Check
-  `tools/testing/selftests/net/forwarding/` for a cake
-  test; if there is one, run it locally before posting
-  patch 3.
+- [ ] **Run sch_cake selftests.** Both `cake.json` (cake
+  base) and `cake_mq.json` (multi-queue cake) live at
+  `tools/testing/selftests/tc-testing/tc-tests/qdiscs/`.
+  The `cake_mq.json` test was added with the cake_mq
+  merge in early 2026. Run both before posting patch 3.
 - [ ] **`make htmldocs` clean render** for the new
   flow_dissector.rst file. Sphinx will catch any RST
   syntax issues.

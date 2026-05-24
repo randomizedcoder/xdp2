@@ -1,4 +1,4 @@
-From 2e36be5fa123c0ece37a0aee679d08ac0ebaca0a Mon Sep 17 00:00:00 2001
+From 1ddc5f7b7652c45f7dbd7965fe804d8e7d8811ed Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sat, 23 May 2026 16:39:44 -0700
 Subject: [PATCH 3/3] net: sched: sch_cake: use flow_hash_from_keys_small() for
@@ -18,15 +18,24 @@ flow_hash_from_keys_small() shaves the siphash region from
 roughly halving the per-hash cycle cost on IPv4.
 
 The main flow_hash at the end of the switch is unchanged
-because it ends up as the cake-internal queue index. Future
-work could switch it too, but keeping the change minimal makes
-this patch easy to review in isolation.
+because it can compare against skb->hash via the use_skbhash
+shortcut and therefore needs bit-stability with the kernel's
+RSS path. Keeping the change minimal makes this patch easy
+to review in isolation; whether the main flow_hash could also
+benefit is a follow-up question.
 
-Per-packet saving (modeled from microbench on AMD Zen 2):
+Per-packet saving (modelled from microbench on AMD Zen 2):
 roughly 80 cycles per packet (two hashes saving ~40 cycles
-each), or ~25 ns/pkt at 3 GHz. On a 10 Gb/s link saturating
-the queue this compounds to noticeable CPU saving at the
-queue-management layer.
+each), or ~25 ns/pkt at 3 GHz. On Zen 1 the median saving
+is masked by the rdtsc/cpuid fence measurement floor, but
+the underlying delta is still present at p10.
+
+The recently-merged cake_mq qdisc auto-installs an sch_cake
+instance per hardware TX queue and routes each per-queue
+instance through the same cake_hash() code. The saving
+therefore scales linearly with NIC queue count on cake_mq
+deployments: an N-queue NIC saturating its queues sees N
+times this per-packet saving at the queue-management layer.
 
 The new helper falls back to flow_hash_from_keys() for
 non-IPv4/IPv6 address types, but cake's default case zeros

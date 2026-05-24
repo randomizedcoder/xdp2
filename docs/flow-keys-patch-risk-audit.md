@@ -211,10 +211,15 @@ These are things the audit can't fully settle:
    `flow_hash_from_keys_fast()`. Worth bike-shedding on
    netdev before settling.
 
-4. **Sch_cake author opinion is uncertain.** Toke
-   Høiland-Jørgensen / Dave Täht maintain cake; their take
-   on whether the host_keys hashes are worth optimizing
-   matters. **Should reach out before posting.**
+4. **Sch_cake maintainer opinion is uncertain.** Toke
+   Høiland-Jørgensen is the sole listed cake maintainer
+   per net-next MAINTAINERS; the bufferbloat list
+   (`cake@lists.bufferbloat.net`) is the wider review
+   audience. **Should reach out before posting.** Note:
+   Dave Täht (cake co-author) passed away on 2025-04-01;
+   do NOT CC `dave.taht@gmail.com`. His name remains in
+   the `sch_cake.c` copyright header, which this patch
+   series does not touch.
 
 5. **The cycle data is from AMD Zen 1 and Zen 2 only.** Intel
    results could be different. The trend should hold (siphash
@@ -272,6 +277,37 @@ These are things the audit can't fully settle:
   network stacks) has its own bit-stability dependency on
   `flow_hash_from_keys()` output. Probably not — those stacks
   do their own hashing — but worth flagging if asked.
+
+## cake_mq context (added 2026-05-23)
+
+The recently merged `cake_mq` qdisc (Toke Høiland-Jørgensen,
+merged to net-next early 2026) is the multi-queue wrapper
+that auto-installs an `sch_cake` instance on every hardware
+TX queue and shares configuration / shaper state across them.
+
+Implications for this patch series:
+
+- **`cake_mq` does NOT change `cake_hash()`.** Each per-
+  queue instance still runs the unchanged hash code. Our
+  patch is therefore picked up by every per-queue cake
+  under `cake_mq` for free.
+- **The saving scales linearly with NIC queue count.** On
+  a 16-queue NIC under `cake_mq`, the per-packet saving
+  compounds across all 16 queues.
+- **Selftests exist for both**:
+  `tools/testing/selftests/tc-testing/tc-tests/qdiscs/cake.json`
+  and `cake_mq.json`. Both should be run before posting
+  patch 3.
+- **Our patch applies cleanly** on top of the cake_mq
+  merge. The host_keys hash call sites moved by +6 lines
+  vs the older audit baseline, which the patch already
+  reflects (lines 756, 759, 765, 769 in the post-cake_mq
+  source).
+- **No new structural conflicts.** The cake_mq series
+  refactored config into a shared struct
+  (`struct cake_config`), but `cake_hash()` itself was
+  untouched. The host_keys access pattern
+  (`keys.basic.ip_proto = 0` etc.) is unchanged.
 
 ## Bottom line for the user's concern
 

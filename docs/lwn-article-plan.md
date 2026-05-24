@@ -204,9 +204,19 @@ Three patches. Per-patch ~300 words.
 
 - ~8-line change. Switches sch_cake's two `host_keys`
   hashes (used for dual-host fair queueing) to the new
-  helper. Keeps the main flow_hash unchanged.
+  helper. Keeps the main flow_hash unchanged because it
+  can compare against `skb->hash`.
 - Saves ~80 cyc/packet on busy queues (2 hashes × ~40 cyc).
 - Show the diff (Diagram 4).
+- **cake_mq angle**: the newly merged `cake_mq` qdisc
+  (Toke Høiland-Jørgensen, merged net-next early 2026)
+  auto-installs an `sch_cake` per HW TX queue and routes
+  every per-queue instance through the same `cake_hash()`
+  code. Patch 3 is therefore picked up by every per-queue
+  cake under `cake_mq` for free — the saving scales
+  linearly with NIC queue count. Worth a short paragraph
+  in this section since cake_mq is the deployment target
+  most readers will care about.
 - Note: this is a *demonstration consumer*; the helper is
   general-purpose.
 
@@ -252,10 +262,22 @@ Future directions the article can flag:
 - Patch series link (LKML archive URL once posted).
 - Brief author bio: "Dave Seddon contributes to XDP2 and
   is the author of the patch series discussed here."
-- Acknowledgments: Tom Herbert (XDP2 lead), the cake
-  maintainers (Toke H., Dave Täht) for prior conversation,
-  Eric Dumazet for the original flow_dissector work this
-  builds on.
+- Acknowledgments:
+  - Tom Herbert (XDP2 lead) for the wider flow-dissection
+    work this analysis builds on.
+  - Toke Høiland-Jørgensen (current cake maintainer) for
+    the cake_mq design and the wider QoS work that makes
+    the patch-3 consumer relevant in the first place.
+  - Eric Dumazet for the original `skb_flow_dissect()` in
+    2011 that this work extends.
+  - **Remembering Dave Täht** (1965-2025): cake co-author
+    and a foundational voice in the Linux bufferbloat
+    effort. Patch 3 touches code he helped create; his
+    name remains in the `sch_cake.c` copyright header
+    where it belongs. The bufferbloat community's
+    tribute lives at LWN
+    (https://lwn.net/Articles/1016109/) and on Toke's
+    blog.
 
 ## Diagrams / structs / tables to include
 

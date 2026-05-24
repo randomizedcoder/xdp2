@@ -110,7 +110,11 @@ Patches
        Zen 2 v6. Never a regression. The change is small
        enough that even modest savings compound on busy
        queues; net-positive even in the worst Zen 1 v4-only
-       case where the median is unchanged.
+       case where the median is unchanged. The recently
+       merged cake_mq qdisc auto-installs an sch_cake per
+       HW TX queue and routes each instance through the same
+       cake_hash() code; the saving therefore scales
+       linearly with NIC queue count on cake_mq setups.
 
 What this is NOT
 ================
