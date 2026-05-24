@@ -1,0 +1,72 @@
+# Second testbed instantiation — AMD Ryzen 5 PRO 2400G × 2,
+# Mellanox ConnectX-4 Lx 25 GbE DAC, NixOS bare-metal. Mirrors
+# hp2-hp5-x710.toml but with a different driver (mlx5_core vs i40e)
+# and link speed (25 GbE vs 10 GbE).
+#
+# Host configs live under ~/nixos/hp/hp1/ and ~/nixos/hp/hp3/ on the
+# dev workstation and are managed identically to hp2/hp5 (see hp2's
+# Makefile sync target). NixOS module imported is
+# nixosModules.physical-testbed with xdp2.nicTuning.driver = "mlx5_core".
+#
+# Schema documented in docs/flow-dissector-matrix-physical-testbed.md §3
+# and validated by nix/testbed-config.nix.
+#
+# Verified live 2026-05-24:
+#   - Both hosts: AMD Ryzen 5 PRO 2400G (Zen 1, family 23 model 17,
+#     4c/8t, 1 NUMA node, CPUs 0-7).
+#   - Both NICs: Mellanox MT27710 ConnectX-4 Lx (dual-port, PCI 01:00.0
+#     + 01:00.1), linked at 25 Gb/s full-duplex over two DAC cables
+#     back-to-back.
+#   - Bidirectional ping passes on both 10.10.2.0/29 and 10.10.3.0/29
+#     subnets with sub-100 µs steady-state RTT.
+#   - hp1 has 30 GiB RAM (Kioxia 256 GB NVMe + Samsung 1 TB SATA SSD).
+#   - hp3 has 62 GiB RAM (Samsung MZVLQ1T0 1 TB NVMe) — the big-RAM
+#     host on this pair, analogous to hp5 on the i40e pair.
+
+[testbed]
+name        = "hp1-hp3-mlx5"
+description = "AMD Ryzen 5 PRO 2400G (Zen 1) × 2, Mellanox ConnectX-4 Lx 25 GbE, NixOS"
+
+[[hosts]]
+role           = "dut"
+hostname       = "hp3"
+arch           = "x86_64-linux"
+cpu_vendor     = "amd"
+cpu_uarch      = "zen1"
+isolated_cpus  = "2-7"
+hugepage_count = 1024
+governor       = "performance"
+mitigations    = "off"
+
+[[hosts]]
+role          = "generator"
+hostname      = "hp1"
+arch          = "x86_64-linux"
+cpu_vendor    = "amd"
+cpu_uarch     = "zen1"
+isolated_cpus = "2-7"
+hugepage_count = 1024
+governor       = "performance"
+mitigations    = "off"
+
+[nic]
+driver          = "mlx5_core"
+model           = "Mellanox ConnectX-4 Lx"
+# Verified live 2026-05-24 via `ip -br link` on both hosts: mlx5_core
+# under kernel 7.0.9 names the data-plane ports with the np<N> suffix.
+dut_iface       = "enp1s0f0np0"
+gen_iface       = "enp1s0f1np1"
+link_speed_gbps = 25
+queues          = 8
+zerocopy_afxdp  = true
+# mlx5_core does not expose ethtool ntuple destination-queue steering;
+# the nic-tuning module installs tc-flower filters instead. See
+# nix/modules/nic-tuning.nix § mlx5_core for the mechanism.
+flow_director   = "tc-flower"
+rss_config      = "default"
+
+[run]
+iterations_combo    = 200
+iterations_tcp_ipv4 = 500
+iterations_mixed    = 200
+afxdp_duration_s    = 30

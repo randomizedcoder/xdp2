@@ -11,13 +11,16 @@ reboot
 
 ## Boot summary
 
-| host | previous kernel | post-reboot kernel | uptime confirmed |
-|---|---|---|---|
-| hp5 | 7.0.1 | **7.1.0-rc4** | ✅ booted in ~2 min |
-| hp2 | 7.0.1 | **7.1.0-rc4** | ✅ booted in ~1.5 min |
+| host | NIC | previous kernel | post-reboot kernel | uptime confirmed |
+|---|---|---|---|---|
+| hp5 | Intel X710 10GbE (i40e) | 7.0.1 | **7.1.0-rc4** | ✅ booted in ~2 min |
+| hp2 | Intel X710 10GbE (i40e) | 7.0.1 | **7.1.0-rc4** | ✅ booted in ~1.5 min |
+| hp1 | Mellanox CX-4 Lx 25GbE (mlx5_core) | 7.0.9 | **7.1.0-rc4** | ✅ booted in <1 min |
+| hp3 | Mellanox CX-4 Lx 25GbE (mlx5_core) | 7.0.9 | **7.1.0-rc4** | ✅ booted in <1 min |
 
-Both hosts came back via SSH cleanly. No console intervention
-needed. Network up, all services running.
+All four hosts came back via SSH cleanly. No console intervention
+needed. Network up, all services running. Both NIC drivers (i40e
+and mlx5_core) loaded correctly under the patched kernel.
 
 ```
 $ ssh root@hp5 uname -a
@@ -163,17 +166,20 @@ passed cleanly on both hosts.
 
 ## Summary
 
-| validation | hp5 | hp2 |
-|---|---|---|
-| boots on 7.1.0-rc4 | ✅ | ✅ |
-| flow_hash_from_keys_small exported in /proc/kallsyms | ✅ | ✅ |
-| BPF flow_dissector loadall (7 progs inc. PROG(PPPOE)) | ✅ | (same, deterministic) |
-| Cake qdisc triple-isolate setup | ✅ | ✅ |
-| Cake traffic flow + tin classification | ✅ | ✅ |
-| Cake stats consistent | ✅ | ✅ |
-| dmesg sanity (no warnings from our patches) | ✅ | ✅ |
-| tdc.py cake.json (tests 1-3) | ✅ | n/a |
-| tdc.py cake.json (tests 4+) | infrastructure cascade | n/a |
+| validation | hp5 | hp2 | hp1 | hp3 |
+|---|---|---|---|---|
+| NIC / driver | X710 / i40e | X710 / i40e | CX-4 Lx / mlx5_core | CX-4 Lx / mlx5_core |
+| Link speed | 10 GbE | 10 GbE | 25 GbE | 25 GbE |
+| boots on 7.1.0-rc4 | ✅ | ✅ | ✅ | ✅ |
+| flow_hash_from_keys_small in /proc/kallsyms | ✅ | ✅ | ✅ | ✅ |
+| NIC driver loads + link UP | ✅ (i40e) | ✅ (i40e) | ✅ (mlx5_core) | ✅ (mlx5_core) |
+| Cross-host ping (data-plane subnet) | ✅ hp2↔hp5 | ✅ hp2↔hp5 | ✅ hp1↔hp3 | ✅ hp1↔hp3 |
+| BPF flow_dissector loadall (7 progs inc. PROG(PPPOE)) | ✅ | (deterministic) | ✅ | ✅ |
+| Cake qdisc triple-isolate setup | ✅ | ✅ | ✅ | ✅ |
+| Cake traffic flow + tin classification | ✅ 18 pkts | ✅ 9 pkts | ✅ 8 pkts | ✅ 18 pkts |
+| dmesg sanity (no warnings from our patches) | ✅ | ✅ | ✅ | ✅ |
+| tdc.py cake.json (tests 1-3) | ✅ | n/a | n/a | n/a |
+| tdc.py cake.json (tests 4+) | infrastructure cascade | n/a | n/a | n/a |
 
 **Conclusion**: both kernel patch series (1 and 2) are
 runtime-validated end-to-end on Zen 1 hardware. The patches
