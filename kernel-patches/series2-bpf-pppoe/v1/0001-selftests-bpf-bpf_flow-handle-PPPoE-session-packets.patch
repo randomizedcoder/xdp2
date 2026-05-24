@@ -1,0 +1,160 @@
+From edfca32c3a01d55fbe5455b7806e0bbd3c453542 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 23 May 2026 18:36:44 -0700
+Subject: [PATCH 1/1] selftests/bpf: bpf_flow: handle PPPoE session packets
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The BPF flow_dissector reference at
+tools/testing/selftests/bpf/progs/bpf_flow.c branches on
+n_proto in parse_eth_proto() for IPv4 / IPv6 / MPLS /
+802.1Q / 802.1AD. It has no case for ETH_P_PPP_SES, so
+PPPoE session packets hit the default arm and are dropped
+without parsing.
+
+The kernel's C flow dissector handles PPPoE — see the
+ETH_P_PPP_SES arm in __skb_flow_dissect()
+(net/core/flow_dissector.c) which validates the PPPoE
+header via is_pppoe_ses_hdr_valid(), advances past the
+8-byte PPPoE-plus-PPP-protocol prefix, and dispatches to
+the inner ethertype. The BPF reference has historically
+diverged: any test or production deployment that swaps
+the C dissector for the BPF one loses PPPoE coverage.
+
+Add PROG(PPPOE) following the same pattern as PROG(VLAN):
+
+- Define a local pppoe_ses_hdr struct (6 bytes of PPPoE
+  session header per RFC 2516 plus the 2-byte PPP
+  protocol field that begins the payload). Total 8 bytes,
+  matching PPPOE_SES_HLEN in <linux/if_pppox.h>.
+- Validate ver/type/code (vertype == 0x11, code == 0)
+  exactly as is_pppoe_ses_hdr_valid() does in the C path.
+- Switch on the PPP protocol field:
+    PPP_IP (0x0021)   -> tail-call IP
+    PPP_IPV6 (0x0057) -> tail-call IPV6
+  Anything else (LCP / PAP / CHAP / IPCP / etc) is not a
+  data flow and returns BPF_DROP. This matches the C
+  dissector's behaviour for control-plane PPP frames.
+- Advance keys->nhoff and keys->thoff by PPPOE_SES_HLEN
+  before dispatching.
+
+Bump MAX_PROG to 7 and add the PPPOE define alongside the
+existing IP / IPV6 / IPV6OP / IPV6FR / MPLS / VLAN
+identifiers.
+
+Note: bpf_flow_keys has no slot for the PPPoE session_id;
+the C dissector exposes it via FLOW_DISSECTOR_KEY_PPPOE
+but the BPF ABI does not. We extract enough of the PPPoE
+header to dispatch the inner packet correctly; surfacing
+session_id to BPF callers would be a separate UAPI
+addition.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ tools/testing/selftests/bpf/progs/bpf_flow.c | 64 +++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/tools/testing/selftests/bpf/progs/bpf_flow.c b/tools/testing/selftests/bpf/progs/bpf_flow.c
+index b04e092fac94..df4ee18abcec 100644
+--- a/tools/testing/selftests/bpf/progs/bpf_flow.c
++++ b/tools/testing/selftests/bpf/progs/bpf_flow.c
+@@ -34,13 +34,21 @@
+ #define IPV6FR		3 /* Fragmentation IPv6 Extension Header */
+ #define MPLS		4
+ #define VLAN		5
+-#define MAX_PROG	6
++#define PPPOE		6 /* PPPoE session (ETH_P_PPP_SES) */
++#define MAX_PROG	7
+ 
+ #define IP_MF		0x2000
+ #define IP_OFFSET	0x1FFF
+ #define IP6_MF		0x0001
+ #define IP6_OFFSET	0xFFF8
+ 
++/* PPP protocol identifiers carried inside a PPPoE session payload.
++ * See <linux/ppp_defs.h>; re-defined locally to keep BPF includes
++ * minimal, matching the pattern used for vlan_hdr / gre_hdr below.
++ */
++#define PPP_IP		0x0021
++#define PPP_IPV6	0x0057
++
+ struct vlan_hdr {
+ 	__be16 h_vlan_TCI;
+ 	__be16 h_vlan_encapsulated_proto;
+@@ -58,6 +66,22 @@ struct frag_hdr {
+ 	__be32 identification;
+ };
+ 
++/* PPPoE session header (RFC 2516) followed by the 2-byte PPP
++ * protocol field that begins the PPPoE payload. The PPPoE
++ * header packs version (high nibble) and type (low nibble)
++ * into the first byte; valid current frames carry ver=1,
++ * type=1 (i.e. vertype == 0x11) and code == 0.
++ */
++struct pppoe_ses_hdr {
++	__u8	vertype;
++	__u8	code;
++	__be16	session_id;
++	__be16	length;
++	__be16	ppp_proto;
++};
++
++#define PPPOE_SES_HLEN	8	/* sizeof(struct pppoe_ses_hdr) */
++
+ struct {
+ 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+ 	__uint(max_entries, MAX_PROG);
+@@ -132,6 +156,9 @@ static __always_inline int parse_eth_proto(struct __sk_buff *skb, __be16 proto)
+ 	case bpf_htons(ETH_P_8021AD):
+ 		bpf_tail_call_static(skb, &jmp_table, VLAN);
+ 		break;
++	case bpf_htons(ETH_P_PPP_SES):
++		bpf_tail_call_static(skb, &jmp_table, PPPOE);
++		break;
+ 	default:
+ 		/* Protocol not supported */
+ 		return export_flow_keys(keys, BPF_DROP);
+@@ -434,4 +461,39 @@ PROG(VLAN)(struct __sk_buff *skb)
+ 	return parse_eth_proto(skb, vlan->h_vlan_encapsulated_proto);
+ }
+ 
++PROG(PPPOE)(struct __sk_buff *skb)
++{
++	struct bpf_flow_keys *keys = skb->flow_keys;
++	struct pppoe_ses_hdr *hdr, _hdr;
++	__be16 next_proto;
++
++	hdr = bpf_flow_dissect_get_header(skb, sizeof(*hdr), &_hdr);
++	if (!hdr)
++		return export_flow_keys(keys, BPF_DROP);
++
++	/* Current PPPoE frames carry ver=1, type=1 (vertype == 0x11)
++	 * and code == 0. See is_pppoe_ses_hdr_valid() in
++	 * net/core/flow_dissector.c for the equivalent C check.
++	 */
++	if (hdr->vertype != 0x11 || hdr->code != 0)
++		return export_flow_keys(keys, BPF_DROP);
++
++	switch (hdr->ppp_proto) {
++	case bpf_htons(PPP_IP):
++		next_proto = bpf_htons(ETH_P_IP);
++		break;
++	case bpf_htons(PPP_IPV6):
++		next_proto = bpf_htons(ETH_P_IPV6);
++		break;
++	default:
++		/* LCP / PAP / CHAP / IPCP / etc: not a data flow. */
++		return export_flow_keys(keys, BPF_DROP);
++	}
++
++	keys->nhoff += PPPOE_SES_HLEN;
++	keys->thoff += PPPOE_SES_HLEN;
++	keys->n_proto = next_proto;
++	return parse_eth_proto(skb, next_proto);
++}
++
+ char __license[] SEC("license") = "GPL";
+-- 
+2.54.0
+

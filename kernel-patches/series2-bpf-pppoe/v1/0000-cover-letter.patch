@@ -1,0 +1,141 @@
+From edfca32c3a01d55fbe5455b7806e0bbd3c453542 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 23 May 2026 18:36:58 -0700
+Subject: [PATCH RFC 0/1] selftests/bpf: bpf_flow: handle PPPoE session packets
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hi all,
+
+This single-patch RFC adds PPPoE session-packet handling to the
+in-tree BPF flow_dissector reference at
+tools/testing/selftests/bpf/progs/bpf_flow.c.
+
+Background — same XDP2 comparison work as my other RFC
+=======================================================
+
+This is a follow-up to my first kernel submission
+([PATCH RFC 0/3] net: flow_dissector: 5-tuple-only hash
+helper + sch_cake adoption), sent separately to netdev.
+Both findings came out of the same XDP2-vs-kernel
+comparison work done with Tom Herbert and team on the
+XDP2 project (https://github.com/randomizedcoder/xdp2).
+This BPF patch is separated from the flow_dissector
+series because it touches a different file, different
+maintainer audience, and different test surface — but
+mentioning the shared origin so reviewers see the same
+analytical work behind both.
+
+The issue
+=========
+
+bpf_flow.c's parse_eth_proto() dispatches on outer
+ETHERTYPE to per-protocol BPF tail-call sub-programs.
+The current switch handles:
+
+  ETH_P_IP, ETH_P_IPV6, ETH_P_MPLS_MC, ETH_P_MPLS_UC,
+  ETH_P_8021Q, ETH_P_8021AD
+
+ETH_P_PPP_SES (0x8864 — PPPoE session packets) is missing.
+PPPoE packets hit the default arm and are dropped without
+parsing.
+
+The kernel's C flow dissector handles PPPoE properly —
+see the ETH_P_PPP_SES arm in __skb_flow_dissect()
+(net/core/flow_dissector.c) which validates the PPPoE
+session header via is_pppoe_ses_hdr_valid(), advances
+past PPPOE_SES_HLEN (8 bytes, including the PPP protocol
+field), and dispatches to the inner ethertype.
+
+Any setup that uses the BPF flow_dissector as an
+alternative to the C one (BPF_PROG_TYPE_FLOW_DISSECTOR)
+loses PPPoE coverage. Per the BPF flow_dissector
+selftests this is the reference program loaded by
+flow_dissector_load.c.
+
+Found while running the XDP2 protocol-coverage matrix
+against the BPF reference dissector — the discrepancy
+surfaces immediately on any pcap with PPPoE-wrapped
+flows. A more detailed write-up of the discovery lives
+in
+perf-results/2026-05-20-bpf-pppoe-investigation/findings.md
+on the same XDP2 branch as the flow_dissector RFC.
+
+The patch
+=========
+
+PROG(PPPOE) follows the same pattern as the existing
+PROG(VLAN):
+
+- Local pppoe_ses_hdr struct (6-byte PPPoE session
+  header per RFC 2516 + 2-byte PPP protocol field;
+  matches PPPOE_SES_HLEN in <linux/if_pppox.h>).
+- Validate ver/type (vertype == 0x11) and code (== 0)
+  exactly as is_pppoe_ses_hdr_valid() does in the C path.
+- Switch on PPP protocol:
+    PPP_IP (0x0021)   -> tail-call IP
+    PPP_IPV6 (0x0057) -> tail-call IPV6
+  Anything else (LCP / PAP / CHAP / IPCP / etc) returns
+  BPF_DROP — not a data flow.
+- Advance keys->nhoff and keys->thoff by PPPOE_SES_HLEN.
+- Update keys->n_proto for the inner protocol.
+
+MAX_PROG bumped from 6 to 7; PPPOE = 6 added to the
+identifier list. The userspace loader at
+tools/testing/selftests/bpf/flow_dissector_load.h
+iterates programs in source order and populates jmp_table
+indices automatically, so no loader change is needed.
+
+What this is NOT
+================
+
+- NOT a new bpf_flow_keys ABI field. session_id stays
+  unexposed in BPF; the C dissector surfaces it via
+  FLOW_DISSECTOR_KEY_PPPOE but bpf_flow_keys has no
+  corresponding slot. Adding one is a separate
+  UAPI conversation.
+- NOT MPLS-over-PPP support. The C dissector dispatches
+  PPP_MPLS_UC / PPP_MPLS_MC to the MPLS handler; this
+  patch only does IP and IPv6 to keep the diff minimal.
+  Easy follow-up if requested.
+- NOT a refactor of bpf_flow.c. Just the smallest change
+  that closes the documented gap.
+
+Pre-post checklist
+==================
+
+- checkpatch.pl --strict passes (0 errors, 0 warnings,
+  0 checks).
+- bpf_flow.bpf.o compiles clean (clang 18.1.8 -target bpf,
+  with nix hardening flags disabled — see the libelf /
+  bpf-target workaround documented in the companion
+  flow_dissector series).
+- Verified the resulting BPF object exposes
+  flow_dissector_6 (the new PPPOE program) alongside the
+  existing flow_dissector_{0..5}.
+- Still TODO: run the existing BPF flow_dissector
+  selftests (tools/testing/selftests/bpf/test_progs
+  -t flow_dissector); add a PPPoE pcap test case (the
+  current pcap fixtures in
+  tools/testing/selftests/bpf/ don't include PPPoE).
+
+This is my first BPF subsystem patch; sent as RFC to
+get feedback on the test-case strategy and on whether to
+expose session_id via a UAPI extension as a follow-up
+before formal submission.
+
+Thanks,
+Dave
+
+Dave Seddon (1):
+  selftests/bpf: bpf_flow: handle PPPoE session packets
+
+ tools/testing/selftests/bpf/progs/bpf_flow.c | 64 +++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
+
+
+base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88
+-- 
+2.54.0
+
