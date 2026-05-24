@@ -1,4 +1,4 @@
-From 00a445d733086da52c6b905fa287f0ea64a85938 Mon Sep 17 00:00:00 2001
+From 2e36be5fa123c0ece37a0aee679d08ac0ebaca0a Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sat, 23 May 2026 16:39:44 -0700
 Subject: [PATCH 3/3] net: sched: sch_cake: use flow_hash_from_keys_small() for

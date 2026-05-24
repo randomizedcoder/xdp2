@@ -1,0 +1,25 @@
+flow_hash_from_keys() microbench — Phase 3
+CPU: see /proc/cpuinfo; 100000 iters per measurement; cycles
+
+[A] __flow_hash_consistentify only (no siphash):
+  consistentify v4 (already-sorted)             min=   36  p10=   36  p50=   72  p99=   72
+  consistentify v4 (needs swap)                 min=   36  p10=   36  p50=   72  p99=   72
+  consistentify v6 (already-sorted)             min=   72  p10=   72  p50=   72  p99=  108
+  consistentify v6 (needs swap)                 min=   72  p10=   72  p50=   72  p99=  108
+
+[B] __siphash_aligned over N bytes (no consistentify):
+  siphash 16 B                                  min=   72  p10=   72  p50=  108  p99=  108
+  siphash 24 B                                  min=   72  p10=   72  p50=  108  p99=  144
+  siphash 32 B                                  min=   72  p10=  108  p50=  108  p99=  144
+  siphash 40 B                                  min=  108  p10=  108  p50=  108  p99=  144
+  siphash 48 B                                  min=  108  p10=  108  p50=  108  p99=  144
+  siphash 56 B                                  min=  108  p10=  108  p50=  144  p99=  180
+  siphash 64 B                                  min=  108  p10=  108  p50=  144  p99=  180
+  siphash 72 B                                  min=  108  p10=  144  p50=  144  p99=  180
+
+[C] full flow_hash_from_keys() (consistentify + siphash):
+  flow_hash_from_keys v4 (40 B region)          min=  108  p10=  108  p50=  108  p99=  144
+  flow_hash_from_keys v6 (64 B region)          min=  144  p10=  144  p50=  144  p99=  216
+
+[D] hypothetical 5-tuple-only hash (24 B):
+  consistentify v4 + siphash 24 B               min=   72  p10=  108  p50=  108  p99=  144

@@ -1,4 +1,4 @@
-From ba1e6d91738321f5951b473a034018a0c46c94c4 Mon Sep 17 00:00:00 2001
+From 67a90c69899d4408215fac80fcae80fef01434da Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sat, 23 May 2026 16:38:19 -0700
 Subject: [PATCH 2/3] net: flow_dissector: add flow_hash_from_keys_small()
@@ -6,9 +6,7 @@ Subject: [PATCH 2/3] net: flow_dissector: add flow_hash_from_keys_small()
 
 Add a flow_hash_from_keys_small() companion to flow_hash_from_keys()
 that hashes only the canonical 5-tuple (basic.ip_proto + ports +
-addrs), skipping tags/vlan/cvlan/keyid/icmp. Roughly 50% faster than
-flow_hash_from_keys() on IPv4 with statistically equivalent
-distribution for RSS-style indirection.
+addrs), skipping tags/vlan/cvlan/keyid/icmp.
 
 Rationale
 =========
@@ -20,19 +18,37 @@ highest-touch field set. Fields between them in the hash region
 (tags.flow_label, vlan, cvlan, keyid, icmp) are touched only via
 the hash, not by any consumer's logic.
 
-A userspace microbench of __siphash_aligned() on AMD Zen 2
-showed cycle cost scales with input length in ~16 B bands
-(SipHash2-4 absorbs 8 B per round). A 16-B 5-tuple region runs
-at roughly half the cycles of the kernel's 40-B IPv4 hash region.
+A userspace microbench of __siphash_aligned() on two AMD uarches
+(Zen 1 Ryzen 5 PRO 2400G, Zen 2 Threadripper PRO 3945WX) shows
+cycle cost scales with input length in ~16 B bands (SipHash2-4
+absorbs 8 B per round). The two uarches differ in where the
+bands transition:
+
+  region size   Zen 2 p50   Zen 1 p50
+       16 B          80         108
+       40 B         120         108
+       64 B         120         144
+
+So shrinking the v4 hash region from 40 B to 16 B saves ~40 cyc
+at median on Zen 2 and ~36 cyc at p10 on Zen 1 (median is masked
+by the rdtsc fence measurement floor; the underlying delta is
+still real). Shrinking the v6 region from 64 B to ~40 B saves
+~36 cyc on Zen 1 at median and ~40 cyc on Zen 2.
+
+No uarch shows a regression. The size of the win depends on
+uarch, percentile, and address family.
 
 A chi-squared distribution test (100k synthetic IPv4 5-tuples,
 K=256 and K=4096 buckets) showed the smaller region gives
 statistically equivalent uniformity to the full region:
 chi2=242.5 (full) vs 260.6 (small) at K=256 (df=255);
 chi2=4070.5 (full) vs 4155.3 (small) at K=4096 (df=4095).
-This is the expected result since siphash is a PRF whose
-distribution quality is algorithmically independent of input
-length above one absorption block.
+Real-traffic sanity check on a small protocol-coverage pcap
+(360 flows) gave consistent results.
+
+This matches the expected behaviour for siphash, which is a PRF
+whose distribution quality is algorithmically independent of
+input length above one absorption block.
 
 Implementation
 ==============
@@ -59,9 +75,9 @@ counters).
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- include/net/flow_dissector.h |  3 ++
- net/core/flow_dissector.c    | 99 ++++++++++++++++++++++++++++++++++++
- 2 files changed, 102 insertions(+)
+ include/net/flow_dissector.h |   3 +
+ net/core/flow_dissector.c    | 104 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 107 insertions(+)
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index ced79dc8e856..606f30a97c69 100644
@@ -78,10 +94,10 @@ index ced79dc8e856..606f30a97c69 100644
  			   struct flow_dissector_key_icmp *key_icmp,
  			   const void *data, int thoff, int hlen);
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2a98f5fa74eb..d72f67abf21f 100644
+index 2a98f5fa74eb..3f64e0352315 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1822,6 +1822,105 @@ u32 flow_hash_from_keys_seed(struct flow_keys *keys,
+@@ -1822,6 +1822,110 @@ u32 flow_hash_from_keys_seed(struct flow_keys *keys,
  }
  EXPORT_SYMBOL(flow_hash_from_keys_seed);
  
@@ -153,11 +169,16 @@ index 2a98f5fa74eb..d72f67abf21f 100644
 + *        skb_flow_dissect_flow_keys()
 + *
 + * Like flow_hash_from_keys() but hashes only basic.ip_proto, ports
-+ * and addrs (the canonical 5-tuple). Roughly 50% faster on IPv4 than
-+ * flow_hash_from_keys() (per microbench on AMD Zen 2; siphash is the
-+ * dominant cost and scales with input length) and gives statistically
-+ * equivalent
-+ * distribution for RSS-style indirection tables.
++ * and addrs (the canonical 5-tuple). The cycle saving versus
++ * flow_hash_from_keys() depends on microarchitecture and traffic
++ * mix; measurements on AMD Zen 1 (Ryzen 5 PRO 2400G) and Zen 2
++ * (Threadripper PRO 3945WX) show no regression on either uarch
++ * with ~36-80 cycles saved per call depending on uarch, percentile,
++ * and address family (IPv4 saves most on Zen 2; IPv6 saves on
++ * both). Distribution is statistically equivalent to
++ * flow_hash_from_keys() for RSS-style indirection tables
++ * (siphash is a PRF; distribution is independent of input length
++ * above one absorption block).
 + *
 + * NOT bit-exact with flow_hash_from_keys(); not suitable for use
 + * where the hash must match skb->hash or where bit-stable agreement

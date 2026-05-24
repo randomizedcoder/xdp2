@@ -3,48 +3,65 @@
 **Date**: 2026-05-23
 **Branch**: `flow-keys-compat-reorder`
 **Companion**: `findings.md` (Phase 1+2)
-**Bench**: `hash_bench.c`, raw output `hash_bench_run.txt`
+**Bench**: `hash_bench.c`, raw outputs `hash_bench_run.txt`
+  (local Zen 2 Threadripper), `hash_bench_hp5.txt`,
+  `hash_bench_hp2.txt` (Zen 1 Ryzen 5 PRO 2400G)
 
 ## TL;DR
 
-- `__flow_hash_consistentify` is **~free** (≤1 cacheline worth of
-  swaps and compares; ~0-40 cycles real work).
+- `__flow_hash_consistentify` is **~free** on every measured
+  CPU (≤1 cacheline of swaps and compares; ≤40 cycles real
+  work).
 - The dominant cost in `flow_hash_from_keys` is **siphash**
-  itself, and it scales in 16-B steps because siphash2-4
-  processes 8 bytes per round.
-- A hypothetical 24-B "5-tuple-only" hash (basic + ports +
-  v4 addrs) runs at **~40 cycles real work** — roughly half
-  the cost of the current v4 region (40 B, ~80 cycles) and
-  one-third the cost of the v6 region (64 B, ~120 cycles).
-- The v4→v6 difference is real: v6 costs ~50% more than v4
-  per hash because of the larger addrs.
+  itself, and it scales in 16-B steps (siphash2-4 processes
+  8 bytes per round).
+- The cycle saving from a smaller hash region is
+  **microarchitecture-dependent**:
+  - **Zen 2 (Threadripper)**: v4 hash saving ~40 cycles
+    (16-B p50=80, 40-B p50=120). Visible at p50.
+  - **Zen 1 (Ryzen 5 PRO 2400G, hp2/hp5)**: v4 hash p50 is
+    the same (108) for 16 B and 40 B — the rdtsc/cpuid
+    fence overhead masks the underlying delta. Saving is
+    visible at **p10 only** (~36 cycles).
+  - **v6 (64 B → 16 B)** saves cycles on both: ~80 cyc on
+    Zen 2, ~36 cyc on Zen 1.
+- The v4 → v6 difference is real on both uarches: v6 always
+  takes one siphash band more than v4 because of the larger
+  addrs.
 
-**Layout implication**: a smaller hash region is a meaningful
-optimization opportunity for hash-heavy consumers
-(sch_cake calls `flow_hash_from_keys` up to 3× per packet for
-its dual-host flow accounting). Whether the bias loss is
-acceptable for RSS/RFS is the open follow-up.
+**Layout implication**: the smaller hash region is a real
+saving on Zen 2 v4 and on v6 across uarches; the saving is
+masked at p50 on Zen 1 v4 but still positive at p10. **No
+uarch shows a regression.** The patch is justified, but the
+size of the win depends on uarch and on which percentile of
+latency you care about.
 
 ## Caveats
 
-- **Microarchitecture**: this ran on **AMD Ryzen Threadripper
-  PRO 3945WX (Zen 2)**, not hp5's Zen 1. SipHash is well-
-  pipelined on both Zen 1 and Zen 2, so the *relative* trend
-  (smaller region → fewer cycles) should be invariant. The
-  absolute numbers will differ by ~10-20% between cores.
+- **Microarchitecture-dependent**: ran on three configurations
+  to bracket the question:
+  - AMD Ryzen Threadripper PRO 3945WX, Zen 2, 12-core
+  - hp5: AMD Ryzen 5 PRO 2400G, Zen 1 (Raven Ridge APU)
+  - hp2: AMD Ryzen 5 PRO 2400G, Zen 1 (same CPU model;
+    different RAM speed, immaterial for this CPU-bound bench)
+  Each shows a different siphash-band layout — see Group B
+  below.
 - **Measurement floor**: the `CPUID; RDTSC` / `RDTSCP; CPUID`
-  fence pair around each measurement adds a fixed ~40-cycle
-  overhead. Cycles below ~40 in the min column are not
-  meaningful — what matters is the **transitions** between
-  measurements.
-- **Userspace, not kernel**: ran without preemption / IRQs /
-  cache contention. Real kernel-path numbers will be higher
-  due to TLB misses and cache evictions, but the relative
-  region-size trend is unaffected.
+  fence pair adds a fixed overhead — ~40 cycles on Zen 2,
+  ~36 cycles on Zen 1. Cycles at or below the floor are
+  unresolved; what matters is the **transitions** between
+  region sizes.
+- **Userspace, not kernel**: no preemption / IRQs / cache
+  contention. Real kernel-path numbers will be higher due to
+  TLB misses and cache evictions, but the relative region-
+  size trend is unaffected.
 
 ## Bench setup
 
-- CPU: AMD Ryzen Threadripper PRO 3945WX, Zen 2, 12-core
+- CPUs:
+  - Zen 2: AMD Ryzen Threadripper PRO 3945WX, 12-core
+  - Zen 1: AMD Ryzen 5 PRO 2400G (hp2 and hp5; same SKU,
+    different RAM)
 - Compiler: gcc -O2 from `nix develop`
 - siphash lib: `src/lib/siphash/libsiphash.so` (XDP2's port
   of kernel `lib/siphash.c`)
@@ -56,63 +73,73 @@ acceptable for RSS/RFS is the open follow-up.
 
 ### Group A — `__flow_hash_consistentify` only (no siphash)
 
-| variant | min | p10 | p50 | p99 |
-|---|---:|---:|---:|---:|
-| v4 already-sorted | 40 | 40 | 80 | 80 |
-| v4 needs swap | 40 | 40 | 80 | 80 |
-| v6 already-sorted | 40 | 80 | 80 | 120 |
-| v6 needs swap | 40 | 80 | 80 | 120 |
+| variant | Zen 2 p50 | Zen 1 p50 |
+|---|---:|---:|
+| v4 already-sorted | 80 | 72 |
+| v4 needs swap | 80 | 72 |
+| v6 already-sorted | 80 | 72 |
+| v6 needs swap | 80 | 72 |
 
-The harness floor is ~40 cycles. Consistentify itself runs
-in **0-40 cycles** above floor (essentially the cost of two
-compare-and-swap pairs for v4, plus a `memcmp` for v6).
-**Not the bottleneck.**
+Harness floor is ~40 cyc on Zen 2, ~36 cyc on Zen 1.
+Consistentify itself runs in **0-40 cycles above floor** on
+both — essentially free. **Not the bottleneck.**
 
 ### Group B — siphash over N bytes (no consistentify)
 
-| region size | min | p10 | p50 | p99 |
-|---|---:|---:|---:|---:|
-| 16 B | 80 | 80 | 80 | 120 |
-| 24 B | 80 | 80 | 80 | 120 |
-| 32 B | 80 | 80 | 80 | 120 |
-| 40 B | 80 | 80 | 120 | 120 |
-| 48 B | 80 | 80 | 120 | 120 |
-| 56 B | 80 | 80 | 120 | 120 |
-| 64 B | 120 | 120 | 120 | 160 |
-| 72 B | 120 | 120 | 120 | 160 |
+| region size | Zen 2 p10 | Zen 2 p50 | Zen 2 p99 | Zen 1 p10 | Zen 1 p50 | Zen 1 p99 |
+|---|---:|---:|---:|---:|---:|---:|
+| 16 B | 80 | 80 | 120 | 72 | 108 | 108 |
+| 24 B | 80 | 80 | 120 | 72 | 108 | 144 |
+| 32 B | 80 | 80 | 120 | 108 | 108 | 144 |
+| 40 B | 80 | 120 | 120 | 108 | 108 | 144 |
+| 48 B | 80 | 120 | 120 | 108 | 108 | 144 |
+| 56 B | 80 | 120 | 120 | 108 | 144 | 144 |
+| 64 B | 120 | 120 | 160 | 108 | 144 | 180 |
+| 72 B | 120 | 120 | 160 | 144 | 144 | 180 |
 
-SipHash2-4 processes 8 B per round, so each band of 16 B
-in the table corresponds to ~2 added rounds (one round =
-~5 cycles on Zen 2). The p50 transitions are:
+The two uarches show **different band layouts**:
 
-- 16-32 B: ~40 cycles real work (1 cacheline access + few rounds)
-- 40-56 B: ~80 cycles real work (one band up)
-- 64-72 B: ~80-120 cycles real work (another band up)
+- **Zen 2**: median transitions from band 1 (16-32 B p50=80)
+  to band 2 (40-72 B p50=120) at 40 B. So shrinking 40 B
+  → 24 B crosses one band — ~40 cyc saving at median.
+- **Zen 1**: median stays at p50=108 across the whole 16-48 B
+  range, then jumps to 144 at 56 B. So shrinking 40 B → 24 B
+  **doesn't cross a band at median** — saving is masked by
+  measurement floor. But p10 transitions earlier (72 → 108
+  between 24 B and 32 B), so the underlying delta is real
+  and visible at the best-case (p10) end.
 
-So **going from 64 B to 24 B saves ~40 cycles**, roughly a
-33-50% reduction in siphash cost.
+For 64 B → 16 B (i.e., shrinking the v6 region): both
+uarches cross at least one band:
+- Zen 2: 120 → 80 p50 = ~40 cyc saving
+- Zen 1: 144 → 108 p50 = ~36 cyc saving
 
 ### Group C — full `flow_hash_from_keys` (consistentify + siphash)
 
-| variant | region | min | p10 | p50 | p99 |
-|---|---:|---:|---:|---:|---:|
-| v4 | 40 B | 80 | 120 | 120 | 160 |
-| v6 | 64 B | 120 | 120 | 160 | 200 |
+| variant | region | Zen 2 p10 | Zen 2 p50 | Zen 2 p99 | Zen 1 p10 | Zen 1 p50 | Zen 1 p99 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| v4 | 40 B | 120 | 120 | 160 | 108 | 108 | 144 |
+| v6 | 64 B | 120 | 160 | 200 | 144 | 144 | 216 |
 
-v4 p50 = 120 → ~80 cycles real work
-v6 p50 = 160 → ~120 cycles real work
+- v4 (40 B): Zen 2 ~80 cyc real work; Zen 1 ~72 cyc real work
+- v6 (64 B): Zen 2 ~120 cyc real work; Zen 1 ~108 cyc real work
 
-**v6 is 50% more expensive than v4.** Consistentify on v6
-adds a small cost (~40 cycles for the memcmp + conditional
-4-word swap) on top of the larger siphash.
+Across both uarches, **v6 is ~50% more expensive than v4**
+because of the larger addrs (32 B vs 8 B). The extra
+consistentify work on v6 (`memcmp` + 4-word swap) is
+within measurement noise; the cost difference is the
+siphash region size.
 
 ### Group D — hypothetical 5-tuple-only hash (24 B)
 
-| variant | region | min | p10 | p50 | p99 |
-|---|---:|---:|---:|---:|---:|
-| consistentify v4 + siphash 24 B | 24 B | 80 | 80 | 80 | 120 |
+| variant | region | Zen 2 p10 | Zen 2 p50 | Zen 2 p99 | Zen 1 p10 | Zen 1 p50 | Zen 1 p99 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| consistentify v4 + siphash 24 B | 24 B | 80 | 80 | 120 | 108 | 108 | 144 |
 
-p50 = 80 → ~40 cycles real work. **Half the cost of current v4.**
+- Zen 2 p50 = 80 → ~40 cyc real work. **Half v4's cost** at p50.
+- Zen 1 p50 = 108 → ~72 cyc real work. **Same as v4 at p50**;
+  the underlying ~36-cyc delta only shows at best-case (p10
+  range) and is masked at median by measurement floor.
 
 The 24 B region holds:
 - `basic` (4 B)

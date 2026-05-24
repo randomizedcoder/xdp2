@@ -1,0 +1,12 @@
+hash bias test — 100000 synthetic IPv4 5-tuples
+full region: 48 B, small region: 16 B
+Compare chi-squared. Df = K-1 (255 or 4095).
+Uniform: chi2 ~ df with stddev ~ sqrt(2*df).
+
+[A] K=256 (low 8 bits) — RSS-style indirection table:
+  full   40-B region                chi2=   242.50  (df=255)  mean= 390.6  stddev=19.24  min=  335  max=  438
+  small  16-B region                chi2=   260.61  (df=255)  mean= 390.6  stddev=19.94  min=  337  max=  445
+
+[B] K=4096 (low 12 bits) — larger bucket count:
+  full   40-B region                chi2=  4070.51  (df=4095)  mean=  24.4  stddev= 4.93  min=    7  max=   47
+  small  16-B region                chi2=  4155.30  (df=4095)  mean=  24.4  stddev= 4.98  min=    8  max=   43

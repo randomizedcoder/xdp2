@@ -304,17 +304,22 @@ These are needed before this patch series is ready to send:
   shell ships an old libelf that fails objtool's build; the
   workaround is documented in
   `kernel-patches/series1-flow-hash-small/README.md`.
-- [ ] **hp5 (Zen 1) re-validation of the Phase 3 numbers.**
-  All cycle measurements were on Zen 2 Threadripper. Need
-  to compile + run `hash_bench.c` on hp5 to confirm the
-  trend. The relative trends should hold, but having hp5
-  numbers in the commit messages is much stronger than
-  "Zen 2 Threadripper says."
-- [ ] **Real-traffic chi-squared.** Synthetic uniform flows
-  passed; running the same test against tuples extracted
-  from a real pcap (one of `data/pcaps/*` or a captured
-  trace) before posting forecloses the "but what about
-  heavy-tailed real traffic?" reviewer question.
+- [x] **hp5 + hp2 (Zen 1) cycle measurement.** Both hosts
+  (same Ryzen 5 PRO 2400G SKU, different RAM speed) gave
+  matching Zen 1 numbers. Important finding: the v4 saving
+  is masked at p50 on Zen 1 by the rdtsc/cpuid fence
+  measurement floor — only visible at p10. The v6 saving
+  is unambiguous on both uarches. Patch 2 commit message
+  and the kerneldoc comment in flow_dissector.c updated to
+  reflect the uarch-dependence honestly. See
+  `perf-results/.../hash_bench_hp{2,5}.txt`.
+- [x] **Real-traffic chi-squared.** Ran on
+  `data/pcaps/broad-coverage.pcap` via the new
+  `hash_bias_pcap.c`; 360 IPv4 TCP/UDP flows. Sample size
+  too small for a tight bound (~1.4 mean count per bucket)
+  but consistent with the synthetic result; full and small
+  regions both pass uniformity at K=256 and K=4096. See
+  `phase3_hash_bias.md` and `hash_bias_pcap_run.txt`.
 - [ ] **sch_cake selftest exists?** Check
   `tools/testing/selftests/net/forwarding/` for a cake
   test; if there is one, run it locally before posting
