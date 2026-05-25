@@ -1,0 +1,1 @@
+{"mode":"rust-simd","pcap":"https-web.pcap","ns_per_pkt":39,"mpps":25,"iterations":100,"build_hash":"/nix/store/iyxvbc03g15bx99q2s8phg58aa6ph3fv-xdp2-rs-0.1.0/bin/xdp2-bench","kernel":"7.1.0-rc4","nic_driver":"","nic_firmware":"","parity_ok":null,"parity_disagreements":null}
