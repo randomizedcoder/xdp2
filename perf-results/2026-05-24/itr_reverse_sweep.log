@@ -1,0 +1,39 @@
+=== Baseline mlx5 (rx-usecs=8) ===
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.025/0.034/0.086/0.002 ms
+
+=== Sweep rx-usecs values on mlx5 ===
+--- mlx5 with rx-usecs=8, tx-usecs=8, adaptive OFF ---
+Adaptive RX: off  TX: off
+rx-usecs:	3
+tx-usecs:	16
+1000 packets transmitted, 1000 received, 0% packet loss, time 998ms
+rtt min/avg/max/mdev = 0.022/0.034/0.073/0.002 ms
+--- mlx5 with rx-usecs=16, tx-usecs=16, adaptive OFF ---
+Adaptive RX: off  TX: off
+rx-usecs:	16
+tx-usecs:	16
+1000 packets transmitted, 1000 received, 0% packet loss, time 998ms
+rtt min/avg/max/mdev = 0.028/0.034/0.067/0.002 ms
+--- mlx5 with rx-usecs=25, tx-usecs=25, adaptive OFF ---
+Adaptive RX: off  TX: off
+rx-usecs:	25
+tx-usecs:	25
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.028/0.034/0.067/0.002 ms
+--- mlx5 with rx-usecs=50, tx-usecs=50, adaptive OFF ---
+Adaptive RX: off  TX: off
+rx-usecs:	50
+tx-usecs:	50
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.029/0.034/0.070/0.002 ms
+--- mlx5 with rx-usecs=100, tx-usecs=100, adaptive OFF ---
+Adaptive RX: off  TX: off
+rx-usecs:	100
+tx-usecs:	100
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.028/0.034/0.070/0.002 ms
+
+=== Restore mlx5 adaptive ===
+restored
+DONE

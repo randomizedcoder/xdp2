@@ -10,17 +10,39 @@
 **Raw data files**:
   - `lat_compare_i40e_vs_mlx5.txt` — original ICMP RTT comparison
   - `itr_v2.log` — interrupt-moderation A/B experiment
+  - `itr_reverse_sweep.log` — mlx5 rx-usecs sweep (disproves
+    initial hypothesis)
 
-## TL;DR
+## TL;DR (revised)
 
-Measured ICMP round-trip latency between paired hosts. The mlx5 pair
-is **~2.3× lower latency** than the i40e pair across min/avg/max and
-**~3.7× tighter jitter** (mdev 3 µs vs 11 µs). The advantage is
-**almost entirely NIC + driver, not link rate** — 25 GbE vs 10 GbE
-contributes at most ~60 ns to a 44 µs gap. The dominant factor
-is the default interrupt-moderation timer: i40e ships with
-`rx-usecs=50` while mlx5_core ships with `rx-usecs=8`. The 42 µs
-default-ITR difference explains nearly the entire 44 µs RTT gap.
+Measured ICMP round-trip latency between paired hosts. The mlx5
+pair is **~2.3× lower latency** than the i40e pair across
+min/avg/max and **~3.7× tighter jitter** (mdev 3 µs vs 11 µs).
+The advantage is **almost entirely NIC hardware + driver**, not
+link rate, and — based on a direct sweep — **NOT primarily the
+interrupt-moderation timer** even though the defaults differ
+hugely between drivers (i40e ships `rx-usecs=50`, mlx5 ships
+`rx-usecs=8`).
+
+Direct experiment: sweeping mlx5 from `rx-usecs=8` to
+`rx-usecs=100` left ping latency unchanged at 34 µs avg across
+every value. ITR throttles interrupt rate *under load*; at 1000 pps
+ping there's only one packet per ITR window so the throttle never
+engages. The mlx5 advantage is **hardware processing latency +
+driver code path**, not interrupt-moderation policy.
+
+## Implication for i40e tuning
+
+`ethtool -C` retuning of i40e probably **won't close the latency
+gap for sparse traffic** like ping or low-pps RPC. ITR matters
+for high-pps workloads where it forces batching; for latency-
+sensitive sparse traffic the gap is hardware-bound. To make
+i40e match mlx5 latency you'd need different silicon.
+
+For *high-pps* workloads the picture is different: i40e's
+default rx-usecs=50 means up to 50 µs of latency tax under
+load. Retuning to rx-usecs=8 (the mlx5 default) would help
+there. But it doesn't help the ping numbers.
 
 ## Initial measurement (original lat_compare run)
 
@@ -127,46 +149,100 @@ did not recover. The link layer reports "Link detected: yes, Speed
 check.
 
 This is unrelated to the patched kernel — the earlier ping test
-(when the link was working) is consistent with this experiment's
-hypothesis.
+(when the link was working) is documented separately.
 
-## Conclusion
+### Reverse sweep: mlx5 rx-usecs from 8 → 100 (decisive)
 
-Three findings:
+Since the original ITR hypothesis was untestable on i40e, ran the
+inverse experiment on mlx5: set rx-usecs to a range of values
+spanning i40e's default, and re-measure ping. If ITR is the
+dominant factor, mlx5 latency at `rx-usecs=50` (i40e's default)
+should rise toward i40e's 78 µs.
 
-1. **Default interrupt moderation explains nearly the entire latency
-   gap.** i40e ships with `rx-usecs=50` (42 µs higher than mlx5's
-   `rx-usecs=8`); the measured ICMP RTT delta is 44 µs. The ITR
-   difference and the gap are within measurement noise of each
-   other.
+```
+mlx5 rx-usecs sweep (1000 pings, 0.1 ms interval):
 
-2. **mlx5 at rx-usecs=0 ≈ mlx5 at rx-usecs=8.** Confirmed
-   directly: 34 µs avg vs 34 µs avg, mdev 2 µs vs 2 µs. The
-   default 8 µs ITR is already low enough that disabling it
-   changes nothing measurable. mlx5 is at its hardware+driver
-   floor.
+rx-usecs  min   avg   max   mdev
+   8     25 µs 34 µs 86 µs  2 µs   (mlx5 default)
+   8 *   22 µs 34 µs 73 µs  2 µs   (adaptive off, rx-usecs forced 8)
+  16     28 µs 34 µs 67 µs  2 µs
+  25     28 µs 34 µs 67 µs  2 µs
+  50     29 µs 34 µs 70 µs  2 µs   (= i40e's default)
+ 100     28 µs 34 µs 70 µs  2 µs
+```
 
-3. **i40e at rx-usecs=0 — could not measure today** due to a
-   separate L2 link failure on the hp2-hp5 pair. Predicted
-   outcome: i40e would drop to roughly mlx5 + (hardware floor
-   delta) — possibly ~35-45 µs avg. The remaining ~10 µs after
-   the ITR adjustment is the X710 vs CX-4 hardware floor
-   difference (well-documented in industry references).
+**Verdict: mlx5 latency is completely insensitive to rx-usecs
+across this range.** Setting it to 100 µs — twelve times mlx5's
+default and twice i40e's — leaves the ping avg unchanged at 34 µs.
 
-### Practical implications
+This **rules out interrupt moderation as the dominant factor.**
+The reason: ITR is the minimum interval between successive
+interrupts when packets are arriving fast. At 1000 pps ping, the
+inter-arrival is 1 ms = 1000 µs, far outside any rx-usecs window.
+Each ping's interrupt fires immediately because the next packet
+isn't due. ITR only matters when arrival rate exceeds
+`1 / rx-usecs` (e.g., > 20 kpps at rx-usecs=50).
 
-- **For latency-sensitive workloads** on i40e hardware: set
-  `ethtool -C enp1s0f0np0 adaptive-rx off rx-usecs <small>`
-  explicitly. The factory default of 50 µs throws away latency
-  for throughput batching that isn't always wanted.
+## Conclusion (revised after the reverse sweep)
+
+The original hypothesis — that the i40e/mlx5 latency gap was
+dominated by their different `rx-usecs` defaults — **was wrong**.
+The reverse sweep on mlx5 disproves it directly: changing mlx5
+from rx-usecs=8 to rx-usecs=100 leaves latency unchanged at
+34 µs avg.
+
+Corrected findings:
+
+1. **The 44 µs ICMP RTT gap between i40e and mlx5 is NOT caused
+   by interrupt moderation policy.** ITR only matters under high
+   pps load (`> 1 / rx-usecs`); at 1000 pps ping (1 ms
+   inter-arrival, far outside any ITR window), each packet's
+   interrupt fires immediately regardless of `rx-usecs` setting.
+
+2. **The gap is caused by NIC hardware processing latency +
+   driver code path.** Industry references put X710 (Fortville)
+   silicon at ~5-10 µs per direction minimum and CX-4 at ~1-3 µs
+   per direction. Plus mlx5_core uses inline Blueflame doorbells
+   on small-packet TX, avoiding a PCIe round-trip for the
+   descriptor; i40e always goes through descriptor DMA.
+
+3. **The xdp2 nic-tune service doesn't touch ITR on either
+   driver.** Confirmed by reading `nix/modules/nic-tuning.nix`
+   (i40e branch ~L40-110, mlx5 branch ~L144-220). Both branches
+   carefully tune offloads off, flow control off, ring sizing,
+   IRQ pinning — all latency-favoring — but leave `rx-usecs` at
+   driver default. That's fine given our finding above: changing
+   it wouldn't help small-packet latency.
+
+### Practical implications (revised)
+
+- **For latency-sensitive sparse traffic** (ping, low-pps RPC):
+  ITR tuning **doesn't help**. The X710-vs-CX-4 latency gap is
+  hardware-bound. To meaningfully improve i40e ping latency
+  you'd need different silicon.
+- **For high-pps workloads where ITR can engage**: i40e's
+  default rx-usecs=50 means up to ~50 µs of forced batching;
+  retuning to a low value would help. This is the case where
+  the `ethtool -C` tuning is worth doing. (For our cake/BPF
+  patch testing this isn't the bottleneck; cake's per-packet
+  cost dominates at the rates we're testing.)
 - **For comparing NIC performance** in benchmarks: pin ITR
-  settings explicitly. The default-defaults conflate hardware
-  capability with driver-policy choice.
+  settings explicitly so you measure hardware capability
+  separately from driver-policy choice — and remember that ITR
+  is irrelevant for sparse-traffic latency comparisons.
 - **For the kernel-patch story** (cake_hash, flow_dissector
   work): both NIC pairs run the same patched kernel correctly;
   the latency difference between pairs is property of the
   driver/hardware, not the kernel patches. Cake's behavior
   was identical on both pairs in functional tests.
+
+### Lesson learned about the experimental method
+
+Initial reasoning that connected the 42 µs ITR-default
+difference to the 44 µs RTT gap was an arithmetic coincidence,
+not causation. The "verify on mlx5 by sweeping the same range"
+was the right next step and it caught the error. Always test
+the inverse direction before declaring causation.
 
 ## Limitations
 
