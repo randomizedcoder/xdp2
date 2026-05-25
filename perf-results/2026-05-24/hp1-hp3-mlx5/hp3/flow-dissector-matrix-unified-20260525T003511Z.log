@@ -1,0 +1,4 @@
+error:
+       … while fetching the input 'git+file:///root/xdp2'
+
+       error: opening Git repository "/root/xdp2": repository path '/root/xdp2' is not owned by current user (libgit2 error code = 7)

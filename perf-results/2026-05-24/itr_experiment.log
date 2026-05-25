@@ -1,0 +1,43 @@
+=== Baseline ITR settings ===
+--- hp2 i40e enp1s0f1np1 ---
+Adaptive RX: on  TX: on
+rx-usecs:	50
+tx-usecs:	50
+--- hp5 i40e enp1s0f1np1 ---
+Adaptive RX: on  TX: on
+rx-usecs:	50
+tx-usecs:	50
+
+=== Baseline ping (adaptive ITR engaged) ===
+--- i40e hp2->hp5 (10.10.1.5) on enp1s0f1np1 ---
+1000 packets transmitted, 0 received, +932 errors, 100% packet loss, time 577571ms
+pipe 6
+--- mlx5 hp1->hp3 (10.10.2.3) on enp1s0f0np0 ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.027/0.034/0.075/0.002 ms
+
+=== Disable adaptive ITR + set rx-usecs=0 ===
+Adaptive RX: off  TX: off
+rx-usecs:	0
+tx-usecs:	0
+Adaptive RX: off  TX: off
+rx-usecs:	0
+tx-usecs:	0
+Adaptive RX: off  TX: off
+rx-usecs:	0
+tx-usecs:	0
+Adaptive RX: off  TX: off
+rx-usecs:	0
+tx-usecs:	0
+
+=== After-disable ping (rx-usecs=0, no moderation) ===
+--- i40e hp2->hp5 ---
+1000 packets transmitted, 0 received, +919 errors, 100% packet loss, time 565297ms
+pipe 6
+--- mlx5 hp1->hp3 ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.027/0.034/0.087/0.002 ms
+
+=== Restore adaptive ===
+(restored adaptive on all 4)
+DONE

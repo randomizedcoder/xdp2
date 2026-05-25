@@ -1,0 +1,33 @@
+=== Setup: install netperf via nix shell on all 4 hosts ===
+/nix/store/kpcylgwdpfywn5l0v38828hd2rygil2w-netperf-20210121/bin/netperf
+/nix/store/kpcylgwdpfywn5l0v38828hd2rygil2w-netperf-20210121/bin/netserver
+/nix/store/kpcylgwdpfywn5l0v38828hd2rygil2w-netperf-20210121/bin/netperf
+/nix/store/kpcylgwdpfywn5l0v38828hd2rygil2w-netperf-20210121/bin/netserver
+/nix/store/rq7gyl8c0ckg11n1r8b98m96k4yr0ifc-netperf-20210121/bin/netperf
+/nix/store/rq7gyl8c0ckg11n1r8b98m96k4yr0ifc-netperf-20210121/bin/netserver
+/nix/store/rq7gyl8c0ckg11n1r8b98m96k4yr0ifc-netperf-20210121/bin/netperf
+/nix/store/rq7gyl8c0ckg11n1r8b98m96k4yr0ifc-netperf-20210121/bin/netserver
+
+=== ICMP RTT (1000 fast pings, .1ms interval) ===
+--- i40e: hp2 -> hp5 (10.10.0.5) ---
+--- 10.10.0.5 ping statistics ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.046/0.078/0.359/0.011 ms
+--- mlx5: hp1 -> hp3 (10.10.2.3) ---
+--- 10.10.2.3 ping statistics ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.028/0.034/0.091/0.003 ms
+
+=== netperf TCP_RR (10s, 1 connection) ===
+--- i40e: hp2 -> hp5 ---
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.10.0.5 () port 0 AF_INET : demo : first burst 0
+recv_response_timed_n: no response received. errno 113 counter 0
+
+--- mlx5: hp1 -> hp3 ---
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.10.2.3 () port 0 AF_INET : demo : first burst 0
+Minimum      Mean         50th         99th          
+Latency      Latency      Percentile   Percentile    
+Microseconds Microseconds Latency      Latency       
+                          Microseconds Microseconds  
+20           395.05       29           5312          
+DONE
