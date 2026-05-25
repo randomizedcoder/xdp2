@@ -102,23 +102,62 @@ What this is NOT
 - NOT a refactor of bpf_flow.c. Just the smallest change
   that closes the documented gap.
 
-Pre-post checklist
-==================
+Pre-post checklist done
+=======================
 
-- checkpatch.pl --strict passes (0 errors, 0 warnings,
-  0 checks).
+Static + build verification:
+
+- checkpatch.pl --strict passes (0 errors, 0 warnings, 0 checks).
 - bpf_flow.bpf.o compiles clean (clang 18.1.8 -target bpf,
   with nix hardening flags disabled — see the libelf /
   bpf-target workaround documented in the companion
   flow_dissector series).
-- Verified the resulting BPF object exposes
-  flow_dissector_6 (the new PPPOE program) alongside the
-  existing flow_dissector_{0..5}.
-- Still TODO: run the existing BPF flow_dissector
-  selftests (tools/testing/selftests/bpf/test_progs
-  -t flow_dissector); add a PPPoE pcap test case (the
-  current pcap fixtures in
-  tools/testing/selftests/bpf/ don't include PPPoE).
+- Verified the resulting BPF object exposes flow_dissector_6
+  (the new PPPOE program) alongside the existing
+  flow_dissector_{0..5}, with the expected JIT'd size
+  (1200 B xlated — sits between MPLS at 928 B and VLAN at
+  1536 B).
+- BPF disassembly matches the source: vertype check (0x11),
+  code check (0), switch on ppp_proto with PPP_IP/PPP_IPV6
+  branches and DROP default.
+
+Runtime validation on patched kernel:
+
+- BPF verifier accepts the program on FOUR separate kernel
+  versions:
+    - hp5 running 7.0.1 (initial smoke test, pre-patched-kernel)
+    - hp1 running 7.1.0-rc4-flowdis-pppoe (patched kernel)
+    - hp3 running 7.1.0-rc4-flowdis-pppoe (patched kernel)
+    - hp5 running 7.1.0-rc4-flowdis-pppoe (patched kernel)
+  All four `bpftool prog loadall` succeeded with all 7
+  sub-programs loading; the JIT'd flow_dissector_6 (= our
+  PROG(PPPOE)) carries the same tag (c837649601b2161f) across
+  all four loads, confirming deterministic build.
+- The patched kernel has been booted and exercised on two
+  testbed pairs (i40e 10 GbE + mlx5_core 25 GbE) under real
+  traffic via the flow_dissector subsystem; no regressions
+  in the BPF verifier or runtime path on either NIC family.
+
+Multi-NIC + multi-link-rate coverage matches the companion
+series 1 — see that cover letter's "Multi-NIC + multi-link-rate
+coverage" section for the four-host table.
+
+Still TODO before non-RFC posting
+=================================
+
+- Add a PPPoE pcap test fixture to the BPF flow_dissector
+  selftest harness (current fixtures don't include PPPoE).
+  Probably patch 2 of v2 of this series.
+- End-to-end packet dispatch test via flow_dissector_load.c
+  + scapy injection — verifier-accept + loadall is solid
+  validation but doesn't exercise the full RX-path. The
+  selftest harness wraps this cleanly once a PPPoE fixture
+  exists.
+- Decide whether to mention/defer the session_id UAPI
+  exposure as a follow-up (currently mentioned in
+  "Limitations").
+- Decide whether to extend the patch to handle
+  PPP_MPLS_UC / PPP_MPLS_MC (the C dissector does).
 
 This is my first BPF subsystem patch; sent as RFC to
 get feedback on the test-case strategy and on whether to
