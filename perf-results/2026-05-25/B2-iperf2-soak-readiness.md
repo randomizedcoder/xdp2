@@ -56,6 +56,31 @@ run. Tested against captured iperf2 output (100515 Mbits/sec
 → correctly parsed as 100.515 Gbit/s on a localhost loopback
 test).
 
+### Gotcha #2.5 (not iperf2-specific, learned the hard way on B.1)
+
+The B.1 launch script does:
+```bash
+ssh root@hp1 "... iperf3 -c ... -J 2>&1 > /tmp/soak_iperf_$RUN.json"
+```
+
+The redirect `> /tmp/soak_iperf_$RUN.json` runs INSIDE the
+ssh-quoted command, so the JSON lands on **hp1's** /tmp, not
+the local box. The subsequent local `python3` parse step
+then sees no file, prints nothing, and the local log gets
+no per-run summary lines.
+
+This does NOT corrupt the soak — iperf3 ran fine, cake was
+exercised, hourly snapshots still work (they query hp3
+directly for cake stats / memory / dmesg). It only loses the
+per-run throughput summary in the local log. JSONs are
+recoverable from hp1 via `scp root@hp1:/tmp/soak_iperf_*.json`
+at the end.
+
+The B.2 script avoids this trap by capturing iperf2 output
+via ssh's stdout (`OUT=$(ssh ... iperf -c ...)`), which sends
+the data back to the local shell. See the comment above the
+`OUT=$(ssh ...)` line in `soak_iperf2_ready.sh`.
+
 ### Gotcha #3: bidirectional (`-d`) is fragile
 
 iperf2 `-d` (concurrent bidirectional) was historically

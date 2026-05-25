@@ -86,6 +86,11 @@ echo "run gbit_s ts"
 RUN=0
 while [ $(date +%s) -lt $END ]; do
   RUN=$((RUN+1))
+  # IMPORTANT: capture the iperf2 output via ssh's stdout (NOT via
+  # a redirect inside the remote command). A redirect inside the
+  # quoted ssh command would write to hp1's /tmp, not locally —
+  # this was the B.1 script's bug (JSONs landed on hp1, local
+  # parser saw nothing).
   OUT=$(ssh root@hp1 "nix shell nixpkgs#iperf2 --command iperf -c 10.10.2.3 -p 5202 -P 16 -t $SESSION_LEN -f m" 2>&1)
   # Parse ONLY the final [SUM] line. Without -i, iperf2 prints
   # per-thread totals + ONE final [SUM] cumulative line. (-i 0 is
