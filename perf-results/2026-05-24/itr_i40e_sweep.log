@@ -1,0 +1,21 @@
+=== i40e enp1s0f1np1 rx-usecs sweep (1000 pings each) ===
+
+--- rx-usecs=50, tx-usecs=50, adaptive OFF on hp2+hp5 ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.063/0.082/0.145/0.002 ms
+
+--- rx-usecs=25, tx-usecs=25, adaptive OFF on hp2+hp5 ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.067/0.079/0.109/0.006 ms
+
+--- rx-usecs=8, tx-usecs=8, adaptive OFF on hp2+hp5 ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.067/0.083/0.106/0.002 ms
+
+--- rx-usecs=0, tx-usecs=0, adaptive OFF on hp2+hp5 ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.063/0.082/0.108/0.002 ms
+
+=== Restore adaptive ITR ===
+(restored)
+DONE

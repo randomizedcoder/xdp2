@@ -139,17 +139,32 @@ observed in the gap (44 µs).
 ≤1 µs at average.** This confirms mlx5 is already at its
 hardware/driver floor at the default 8 µs ITR.
 
-**i40e (hp2 → hp5)** — could not measure. During the ITR experiment,
-the L2 link between hp2 and hp5 went into a broken state (ARP
-resolution INCOMPLETE, 100% packet loss) on both physical links
-(`enp1s0f0np0` and `enp1s0f1np1`). Down/up cycling and arp flush
-did not recover. The link layer reports "Link detected: yes, Speed
-10000Mb/s, Full Duplex" but no L2 traffic passes. Likely physical
-(cable / SFP+ transceiver / Flow Director rule) and needs in-person
-check.
+**i40e (hp2 → hp5)** — initially could not measure due to an X710
+TX-ring wedge (NETDEV WATCHDOG + PF reset failed in dmesg; the
+NIC's admin queue returned all-ones counters; ARP INCOMPLETE
+even though link lights stayed UP because PHY autoneg is
+independent of the host-side function). Reboot of hp5 recovered
+the X710 cleanly; measurement then completed:
 
-This is unrelated to the patched kernel — the earlier ping test
-(when the link was working) is documented separately.
+```
+i40e enp1s0f1np1 rx-usecs sweep (1000 pings, 0.001 s interval):
+
+rx-usecs  min   avg   max   mdev
+   50    63 µs 82 µs 145 µs  2 µs   (kernel default)
+   25    67 µs 79 µs 109 µs  6 µs
+   8     67 µs 83 µs 106 µs  2 µs   (= mlx5 default)
+   0     63 µs 82 µs 108 µs  2 µs
+```
+
+**i40e latency is also flat across rx-usecs.** Setting i40e to
+mlx5's default (rx-usecs=8) gives 83 µs avg — basically unchanged
+from i40e's 82 µs at rx-usecs=50. Setting all the way to
+rx-usecs=0 also gives 82 µs. Same conclusion as the mlx5 sweep:
+ITR doesn't change sparse-traffic latency.
+
+The remaining ~48 µs delta between i40e (82 µs) and mlx5 (34 µs)
+is the **NIC hardware + driver floor difference**, unmovable via
+`ethtool -C`.
 
 ### Reverse sweep: mlx5 rx-usecs from 8 → 100 (decisive)
 
@@ -183,13 +198,24 @@ Each ping's interrupt fires immediately because the next packet
 isn't due. ITR only matters when arrival rate exceeds
 `1 / rx-usecs` (e.g., > 20 kpps at rx-usecs=50).
 
-## Conclusion (revised after the reverse sweep)
+## Conclusion (revised after both sweeps)
 
 The original hypothesis — that the i40e/mlx5 latency gap was
 dominated by their different `rx-usecs` defaults — **was wrong**.
-The reverse sweep on mlx5 disproves it directly: changing mlx5
-from rx-usecs=8 to rx-usecs=100 leaves latency unchanged at
-34 µs avg.
+Confirmed by sweeping rx-usecs on BOTH NICs:
+
+| rx-usecs | mlx5 avg | i40e avg |
+|---|---:|---:|
+| 0 | n/a | 82 µs |
+| 8 (mlx5 default) | 34 µs | 83 µs |
+| 25 | 34 µs | 79 µs |
+| 50 (i40e default) | 34 µs | 82 µs |
+| 100 | 34 µs | n/a |
+
+Both NICs are completely flat across the rx-usecs range. Setting
+i40e to mlx5's default doesn't close the gap. Setting mlx5 to
+i40e's default doesn't open one. The 48 µs delta is a property of
+silicon + driver code path, not interrupt-moderation policy.
 
 Corrected findings:
 
