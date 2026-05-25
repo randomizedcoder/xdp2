@@ -1,0 +1,48 @@
+=== Phase 0: TCP tuning on hp1 + hp3 ===
+--- hp1 ---
+applied
+net.ipv4.tcp_autocorking = 0
+net.ipv4.tcp_congestion_control = cubic
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.tcp_rto_min_us = 5000
+net.ipv4.tcp_slow_start_after_idle = 0
+--- hp3 ---
+applied
+net.ipv4.tcp_autocorking = 0
+net.ipv4.tcp_congestion_control = cubic
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.tcp_rto_min_us = 5000
+net.ipv4.tcp_slow_start_after_idle = 0
+
+=== Cake setup + iperf3 server on hp3 ===
+copying path '/nix/store/iinq9szmz7c60iqlbdhynldky4xri8v9-iperf-2.2.1' from 'https://cache.nixos.org'...
+4668 bash -c    tc qdisc replace dev enp1s0f0np0 root cake bandwidth 25Gbit triple-isolate   pkill iperf3 2>/dev/null   pkill iperf 2>/dev/null   sleep 1   iperf3 -s -B 10.10.2.3 -p 5201 -D >/dev/null 2>&1   iperf -s -B 10.10.2.3 -p 5202 -D >/dev/null 2>&1   sleep 2   pgrep -af iperf | head -2 
+4700 iperf3 -s -B 10.10.2.3 -p 5201 -D
+
+=== A.1a: 10x iperf3 on patched/tuned ===
+run  gbit_s  retransmits
+1    16.086  16476
+2    15.938  19080
+3    16.056  16943
+4    15.702  12337
+5    15.988  9747
+6    16.098  12383
+7    15.925  11223
+8    16.216  12458
+9    16.335  20238
+10   16.032  16267
+
+=== A.1b: 10x iperf2 on patched/tuned ===
+(iperf2 outputs differ; capturing key metric: aggregate throughput + retx if available)
+run  output_summary
+1    52.461 Gbit/s (16 streams aggregate)
+2    52.577 Gbit/s (16 streams aggregate)
+3    74.079 Gbit/s (16 streams aggregate)
+4    66.703 Gbit/s (16 streams aggregate)
+5    60.736 Gbit/s (16 streams aggregate)
+6    62.396 Gbit/s (16 streams aggregate)
+7    54.051 Gbit/s (16 streams aggregate)
+8    70.728 Gbit/s (16 streams aggregate)
+9    56.584 Gbit/s (16 streams aggregate)
+10   85.165 Gbit/s (16 streams aggregate)
+DONE

@@ -1,0 +1,31 @@
+=== Tuning (re-applied after reboot) ===
+--- hp1 ---
+net.ipv4.tcp_autocorking = 0
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.tcp_rto_min_us = 5000
+net.ipv4.tcp_slow_start_after_idle = 0
+--- hp3 ---
+net.ipv4.tcp_autocorking = 0
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.tcp_rto_min_us = 5000
+net.ipv4.tcp_slow_start_after_idle = 0
+
+=== Verify no-patch-3 cake refs ===
+nm: '-': No such file
+
+=== Cake setup + iperf3 server on hp3 ===
+1757 bash -c    tc qdisc replace dev enp1s0f0np0 root cake bandwidth 25Gbit triple-isolate   pkill iperf3 2>/dev/null; sleep 1   iperf3 -s -B 10.10.2.3 -p 5201 -D >/dev/null 2>&1   sleep 2   pgrep -af iperf3 | head -1 
+
+=== A.2 NO-PATCH-3: 10x iperf3 ===
+run  gbit_s  retransmits
+1    15.934  15538
+2    15.961  14638
+3    16.453  9228
+4    15.968  18650
+5    16.248  16612
+6    15.939  9673
+7    16.038  13041
+8    15.716  14627
+9    15.814  12111
+10   16.348  14006
+DONE

@@ -1,0 +1,15 @@
+2440 bash -c    tc qdisc replace dev enp1s0f0np0 root cake bandwidth 25Gbit triple-isolate   pkill iperf3 2>/dev/null   sleep 1   iperf3 -s -B 10.10.2.3 -p 5201 -D >/dev/null 2>&1   sleep 2   pgrep -af iperf3 | head -1 
+
+=== 10x iperf3 60s 16-stream runs on patched 7.1.0-rc4 ===
+run  gbit_s  retransmits  drops
+1    16.605  12810  0
+2    16.424  10165  0
+3    17.014  16818  0
+4    16.500  11590  0
+5    16.081  12593  0
+6    16.560  11616  0
+7    16.505  9723  0
+8    16.859  16510  0
+9    16.362  9410  0
+10   16.638  13177  0
+DONE
