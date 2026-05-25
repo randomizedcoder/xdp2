@@ -328,6 +328,26 @@ in
     # bind a NIC to userspace without having to modprobe mid-run.
     boot.kernelModules = lib.optionals cfg.dpdkBenchHost [ "vfio-pci" ];
 
+    # ---- /dev/null permissions defense ----
+    # Recurring NixOS race: on some hosts /dev/null lands at 0644
+    # (crw-r--r--) after boot instead of the standard 0666
+    # (crw-rw-rw-). Symptom: Nix flake builds fail deep in a build
+    # phase with cryptic "/dev/null: Permission denied" errors,
+    # because the build sandbox runs as the nixbld user which can't
+    # write to a root-owned 0644 /dev/null.
+    #
+    # Observed 2026-05-24 on hp3 and hp5 (matrix builds failed);
+    # hp1 and hp2 were fine. Root cause not fully isolated — likely
+    # a udev / devtmpfs ordering issue that races. The tmpfiles
+    # `z` directive re-enforces 0666 at boot regardless of what
+    # set it wrong. Idempotent; harmless on hosts where /dev/null
+    # is already correct. See
+    # perf-results/2026-05-24/nic-latency-investigation.md and
+    # the surrounding commits for the discovery context.
+    systemd.tmpfiles.rules = [
+      "z /dev/null 0666 root root -"
+    ];
+
     # ---- sysctls ----
     boot.kernel.sysctl = {
       "kernel.perf_event_paranoid" = lib.mkDefault 0;
