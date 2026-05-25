@@ -7,6 +7,52 @@ non-claim, AND demonstrate stability of the patched kernel under
 sustained load (12-24h) for the first-kernel-submission framing.
 **Hosts**: hp1 (gen) ↔ hp3 (DUT), Mellanox CX-4 Lx 25 GbE, Zen 1.
 
+## Phase 0 — TCP sysctl tuning (prerequisite)
+
+Default Linux TCP sysctls are tuned for WAN, not for back-to-back
+sub-100 µs RTT links. Untuned testing on this hardware is
+unrepresentative AND makes consecutive iperf runs non-independent
+(invalidating any variance characterization).
+
+Default state observed on hp3 (2026-05-24):
+
+```
+net.ipv4.tcp_rto_min_us = 200000     # 200 ms — 5882x our 34 µs RTT
+net.ipv4.tcp_no_metrics_save = 0     # TCP metrics cache persists between runs
+net.ipv4.tcp_slow_start_after_idle = 1   # cwnd resets between back-to-back runs
+net.ipv4.tcp_autocorking = 1         # microsecond delays to coalesce small writes
+net.ipv4.tcp_congestion_control = cubic
+```
+
+For realistic low-latency testing on this testbed, apply on both
+hp1 and hp3 before each test session:
+
+```bash
+sysctl -w net.ipv4.tcp_rto_min_us=5000      # 5 ms — still 150x our RTT,
+                                            # but 40x faster recovery than default
+sysctl -w net.ipv4.tcp_no_metrics_save=1    # don't pollute next test with
+                                            # previous run's metrics cache
+sysctl -w net.ipv4.tcp_slow_start_after_idle=0  # keep cwnd between
+                                                # consecutive iperf runs
+sysctl -w net.ipv4.tcp_autocorking=0        # remove corking microsecond delays
+# tcp_congestion_control left at cubic for compatibility with kernel defaults
+# (BBR comparison could be a separate experiment)
+```
+
+OR per-route:
+```bash
+ip route change 10.10.2.0/29 dev enp1s0f0np0 rto_min 5
+```
+
+Document the applied sysctls in EVERY run output so the test is
+reproducible AND we can compare tuned vs default-tuned results
+honestly.
+
+**Status of in-flight task b8l7xohsn**: started with DEFAULT
+sysctls — its variance numbers are the untuned baseline, useful
+to report but NOT the basis for the controlled experiment
+decision. Re-run variance with the tuned profile before A.2.
+
 ## Phase A — Short controlled experiment (~90 min)
 
 The goal is to isolate the patch's effect from kernel-version
@@ -14,6 +60,8 @@ differences. The original baseline-vs-patched test changed two
 things at once (7.0.9 → 7.1.0-rc4 AND no-patch → patched). To
 make a defensible claim about the patch alone, build two
 kernels from the SAME 7.1.0-rc4 base and only differ in patch 3.
+
+**Apply Phase 0 sysctl tuning before each Phase A test.**
 
 ### A.1 Variance baseline (~12 min, IN PROGRESS as task b8l7xohsn)
 
