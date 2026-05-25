@@ -290,6 +290,22 @@ Runtime validation on patched kernel (BOOTED 7.1.0-rc4-flowdis-pppoe):
   accounting classes populated; patched flow_hash_from_keys_small
   exercised under real high-bandwidth load with no
   regressions.
+- Controlled patch-effect comparison (10 iperf3 runs per
+  kernel, same 7.1.0-rc4 base differing only in patch 3,
+  tuned TCP profile: rto_min=5ms, no_metrics_save,
+  no slow_start_after_idle, no autocorking) shows no
+  statistical difference in TCP throughput
+  (16.038 vs 16.042 Gbit/s, p ~ 0.97) or retransmit count
+  (14715 vs 13812, p ~ 0.54 by Welch's t). The patch is
+  neutral on TCP behaviour at this load — neither slower
+  nor faster on aggregate metrics. ~20% effects would be
+  detectable at N=10 given the observed within-kernel
+  variance (CV ~22% on retransmit count, CV ~1.4% on
+  throughput), so the neutral claim is teethed, not just
+  an absence-of-evidence statement. Forecloses the
+  "did you check it doesn't affect TCP?" reviewer
+  question. Data:
+  perf-results/2026-05-24/controlled-comparison.md.
 - tdc.py cake.json: tests 1-3 PASS (setup/teardown/config).
   Tests 4+ blocked by a NixOS test-harness dummy-interface
   lifecycle issue unrelated to our patch (same blocker would
