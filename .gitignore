@@ -79,3 +79,13 @@ thirdparty/cppfront/cppfront-compiler
 # Rust build artifacts
 **/target/
 result
+
+# Large per-run perf-results artifacts. Keep the analysis docs +
+# aggregated CSVs / snapshot logs; the raw per-run JSONs and
+# captured tarballs are bulky and reproducible from the soak
+# scripts in this directory. Preserve them on disk locally
+# (e.g. /tmp) if you need to rerun analysis.
+perf-results/**/iperf3_soak_jsons/
+perf-results/**/iperf2_soak_jsons/
+perf-results/**/*soak_jsons.tar.gz
+perf-results/**/soak_iperf_*.json
