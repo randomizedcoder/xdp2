@@ -44,14 +44,39 @@ if ssh root@hp3 'pgrep -f iperf3' 2>/dev/null | head -1 >/dev/null; then
     exit 1
 fi
 
-# Cake + iperf2 server on hp3
-ssh root@hp3 'nix shell nixpkgs#iperf2 --command bash -c "
+# Resolve the iperf2 binary on hp3 (the nix store path is stable across
+# both hosts via the binary cache). Direct binary path avoids two pitfalls:
+#  - nix shell would daemonize via -D but the shell exits early, killing -D child
+#  - pkill -f on the binary path is unambiguous and doesn't match the launcher
+IPERF=$(ssh root@hp3 'nix eval --raw nixpkgs#iperf2' 2>/dev/null)/bin/iperf
+echo "iperf2 binary: $IPERF"
+
+# Cake + iperf2 server on hp3. Kill prior server by binary path (won't
+# match this script's bash command line — different argv) before starting.
+# Server runs in background of a held-open ssh from the local launcher
+# (the parent script). This is the same lifecycle pattern we validated
+# in the pre-soak 5x60s runs.
+ssh root@hp3 "
   tc qdisc replace dev enp1s0f0np0 root cake bandwidth 25Gbit triple-isolate
-  pkill -f \"iperf -s\" 2>/dev/null; sleep 1
-  iperf -s -B 10.10.2.3 -p 5202 -D >/dev/null 2>&1
-  sleep 2
-  pgrep -af iperf | head -2
-"' 2>&1 | tail -3
+  pgrep -f '${IPERF}.*-s' | xargs -r kill -9 2>/dev/null
+  sleep 1
+  echo 'cake + server-killed'
+" 2>&1 | tail -2
+
+# Start the persistent server in local-shell background. The ssh holds
+# the connection open for the duration of the soak; the script's exit
+# trap below kills it cleanly.
+ssh root@hp3 "${IPERF} -s -B 10.10.2.3 -p 5202" > /tmp/soak_iperf2_srv.log 2>&1 &
+SRV_SSH_PID=$!
+trap "kill $SRV_SSH_PID 2>/dev/null; ssh root@hp3 \"pgrep -f '${IPERF}.*-s' | xargs -r kill -9 2>/dev/null; tc qdisc del dev enp1s0f0np0 root\" >/dev/null 2>&1" EXIT
+sleep 3
+# Verify server actually listening
+if ! ssh root@hp3 "ss -tlnp 2>&1 | grep -q ':5202'"; then
+    echo "ERROR: iperf2 server not listening on 5202. Aborting."
+    cat /tmp/soak_iperf2_srv.log
+    exit 1
+fi
+echo "iperf2 server listening on hp3:5202 (local ssh PID $SRV_SSH_PID)"
 
 START=$(date +%s)
 END=$((START + DURATION))
@@ -91,7 +116,7 @@ while [ $(date +%s) -lt $END ]; do
   # quoted ssh command would write to hp1's /tmp, not locally —
   # this was the B.1 script's bug (JSONs landed on hp1, local
   # parser saw nothing).
-  OUT=$(ssh root@hp1 "nix shell nixpkgs#iperf2 --command iperf -c 10.10.2.3 -p 5202 -P 16 -t $SESSION_LEN -f m" 2>&1)
+  OUT=$(ssh root@hp1 "${IPERF} -c 10.10.2.3 -p 5202 -P 16 -t $SESSION_LEN -f m" 2>&1)
   # Parse ONLY the final [SUM] line. Without -i, iperf2 prints
   # per-thread totals + ONE final [SUM] cumulative line. (-i 0 is
   # NOT a "suppress" flag in iperf2 — it actually emits every
@@ -114,5 +139,5 @@ done
 
 # Cleanup
 kill $SNAP_PID 2>/dev/null
-ssh root@hp3 'pkill -f "iperf -s"; tc qdisc del dev enp1s0f0np0 root' >/dev/null 2>&1
+# The EXIT trap (set earlier) handles iperf2 server + cake qdisc cleanup
 echo "=== Soak ended $(date) ==="
