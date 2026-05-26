@@ -33,6 +33,7 @@ It is written so that someone new to the project can:
 11. [Result collection](#11-result-collection)
 12. [Replicating in your own environment](#12-replicating-in-your-own-environment)
 13. [Future work](#13-future-work)
+14. [Second testbed pair (hp1 ↔ hp3, mlx5_core 25 GbE)](#14-second-testbed-pair-hp1--hp3-mlx5_core-25-gbe)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -949,6 +950,106 @@ and lean on the testbed once they land.
   against the previous one, flagging regressions ≥ 5%.
 - **Converge `~/nixos/hp/{hp2,hp5}/` channels** (see §4) so the testbed
   is reproducible bit-for-bit between hosts.
+
+---
+
+## 14. Second testbed pair (hp1 ↔ hp3, mlx5_core 25 GbE)
+
+A second physical testbed pair was racked alongside hp2/hp5: **hp1**
+and **hp3**, each fitted with a **Mellanox ConnectX-4 Lx 25 GbE** NIC,
+connected back-to-back over two DAC cables (`f0 ↔ f0`, `f1 ↔ f1` —
+same topology as hp2/hp5, see §3). Hostnames, role assignment, and
+NixOS layout mirror the first pair so the same automation runs
+against both.
+
+| | hp2 / hp5 (pair #1) | hp1 / hp3 (pair #2) |
+| --- | --- | --- |
+| CPU | AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t) | AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t) |
+| RAM | hp2 30 GiB / hp5 62 GiB | hp1 30 GiB / hp3 62 GiB |
+| NIC | Intel X710 10 GbE SFP+ fibre | Mellanox MT27710 ConnectX-4 Lx 25 GbE DAC |
+| Driver | `i40e` | `mlx5_core` |
+| Flow steering | ethtool ntuple (Flow Director) | tc-flower (see `nix/modules/nic-tuning.nix` § mlx5_core) |
+| Data-plane subnets | `10.10.0.0/29` + `10.10.1.0/29` | `10.10.2.0/29` + `10.10.3.0/29` |
+| Generator / DUT | hp2 (gen) ↔ hp5 (dut) | hp1 (gen) ↔ hp3 (dut) |
+| Testbed config | [`testbeds/hp2-hp5-x710.toml`](../testbeds/hp2-hp5-x710.toml) | [`testbeds/hp1-hp3-mlx5.toml`](../testbeds/hp1-hp3-mlx5.toml) |
+| Host config | `~/nixos/hp/hp{2,5}/` | `~/nixos/hp/hp{1,3}/` |
+
+By symmetry, hp3 is the "big-RAM dut" on pair #2 (analogous to hp5 on
+pair #1) and hp1 is the generator (analogous to hp2). Workload-routing
+heuristics from §2 apply identically: if you want extra headroom for
+generated PCAP corpora or in-memory result aggregation, drive the run
+on hp3.
+
+Both pairs are driven through the same orchestrator:
+
+```bash
+# Pair #1 (i40e):
+nix run .#run-on-host -- --testbed testbeds/hp2-hp5-x710.toml -- flow-dissector-matrix-unified
+
+# Pair #2 (mlx5_core):
+nix run .#run-on-host -- --testbed testbeds/hp1-hp3-mlx5.toml -- flow-dissector-matrix-unified
+```
+
+The `xdp2.nicTuning.driver` option (forwarded automatically by
+`xdp2.testbed`) selects the per-driver ethtool/IRQ-affinity branch.
+On pair #2's hosts the config sets `driver = "mlx5_core"`; everything
+else (CPU isolation, hugepages, kernel cmdline, sshd policy, sysctls)
+is identical to pair #1.
+
+### Verified live state (2026-05-24)
+
+Both hosts running NixOS 26.05.20260523 / kernel 7.0.9. Kernel cmdline
+on each carries `isolcpus=2-7 nohz_full=2-7 rcu_nocbs=2-7 mitigations=off
+processor.max_cstate=1 hugepages=1024 default_hugepagesz=2M
+transparent_hugepage=never audit=0`. All four
+`xdp2-nic-{tune,affinity}-enp1s0f{0,1}np{0,1}.service` units exit
+`active (exited)` against the mlx5_core branch.
+
+Data-plane state at bring-up:
+
+| Interface | hp1 | hp3 | Link | RTT (steady) |
+| --- | --- | --- | --- | --- |
+| `enp1s0f0np0` (`f0 ↔ f0`) | `10.10.2.1/29` | `10.10.2.3/29` | 25 Gb/s full | ~60 µs |
+| `enp1s0f1np1` (`f1 ↔ f1`) | `10.10.3.1/29` | `10.10.3.3/29` | 25 Gb/s full | ~60 µs |
+
+Both directions on both links pass `ping -c 3` with 0% loss. The first
+ICMP per (src, dst) pair is ~0.3-0.4 ms (ARP resolution); subsequent
+pings settle around 50-100 µs — the expected latency profile for a
+direct DAC link on mlx5 hardware.
+
+### Bringing up a fresh hp1/hp3 install
+
+A freshly-installed NixOS host has no `flake.lock` and
+`experimental-features` is empty in `/etc/nix/nix.conf`. The hp3
+Makefile (and copy at `~/nixos/hp/hp1/Makefile` for symmetry) ships
+three bootstrap targets that work around this:
+
+- `make bootstrap_update` — runs `nix flake update` with the
+  `--extra-experimental-features 'nix-command flakes'` flag inline so
+  the lockfile resolves without needing flakes enabled system-wide.
+- `make bootstrap` — runs `nixos-rebuild boot --option
+  experimental-features 'nix-command flakes' --flake .#<host>` and
+  reminds the operator to `sudo reboot`. Uses `boot` (not `switch`)
+  because the kernel cmdline changes (`isolcpus`, `mitigations=off`,
+  `hugepages`, `nohz_full`, `rcu_nocbs`) only take effect on the next
+  boot. Pins the configuration name explicitly because on a fresh
+  install the hostname is still `nixos`, not `hp1`/`hp3`, so the
+  hostname-lookup form `--flake .` won't find the right entry.
+- `make bootstrap_switch` — `switch` variant of the above, for the
+  case where you've already booted into the new kernel once.
+
+Once the first bootstrap rebuild lands and the NixOS-managed
+`/etc/nix/nix.conf` carries `experimental-features = [ "nix-command"
+"flakes" ]`, plain `make` / `make update` work for all subsequent
+rebuilds.
+
+### Outstanding follow-up
+
+- Flow Director rules in `xdp2.testbed.flowDirectorRules` are empty
+  on hp1/hp3 today. When the ntuple+template bench (category H in §9)
+  is brought up on the mlx5 pair, add the same UDP/443 → queue 1 rule
+  pattern used on hp2/hp5; the mlx5_core branch translates it to a
+  tc-flower filter automatically.
 
 ---
 
