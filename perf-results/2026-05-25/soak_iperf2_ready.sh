@@ -34,12 +34,14 @@ echo "=== 24h iperf2 soak on patched kernel - started $(date) ==="
 TUNE='sysctl -w net.ipv4.tcp_rto_min_us=5000 net.ipv4.tcp_no_metrics_save=1 net.ipv4.tcp_slow_start_after_idle=0 net.ipv4.tcp_autocorking=0 >/dev/null 2>&1; echo tuned'
 for h in hp1 hp3; do ssh root@$h "$TUNE" | tail -1; done
 
-# Sanity: confirm B.1 is really gone
-if ssh root@hp1 'pgrep -f iperf3' 2>/dev/null | head -1 >/dev/null; then
+# Sanity: confirm B.1 is really gone. pgrep returns 0 if found, 1 if not;
+# DON'T pipe to head — head always exits 0 even on empty input, defeating
+# the check. Use pgrep's own exit code via "if ssh ... pgrep ..." directly.
+if ssh root@hp1 'pgrep -x iperf3 >/dev/null'; then
     echo "ERROR: iperf3 still running on hp1 - B.1 has not finished yet. Aborting."
     exit 1
 fi
-if ssh root@hp3 'pgrep -f iperf3' 2>/dev/null | head -1 >/dev/null; then
+if ssh root@hp3 'pgrep -x iperf3 >/dev/null'; then
     echo "ERROR: iperf3 still running on hp3 - B.1 has not finished yet. Aborting."
     exit 1
 fi
