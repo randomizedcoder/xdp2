@@ -7,29 +7,49 @@
 **Test plan**: `docs/kernel-flowdis-fastpath-test-plan.md`.
 **Base**: net-next `c0aa5f13826dcb035bec3d6b252e6b2020fa5f88`
   (same base as series 1 + 2).
-**Branch in net-next**: `flowdis-fastpath-rfc`, HEAD `ad885e48f1d4`.
+**Branch in net-next**: `flowdis-fastpath-rfc`, HEAD `eeca3eb493b8`.
 
 ## Series shape (v1)
 
 | # | patch | net-next commit | LoC | status |
 |---:|---|---|---:|---|
 | 1 | flow_dissector: add fast-path entry-point skeleton | `1ddc620812be` | 57 | drafted |
-| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | `0a45d17e954e` | 66 | drafted |
-| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | `ad885e48f1d4` | 72 | drafted |
+| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | `080196491134` | 73 | drafted |
+| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | `eeca3eb493b8` | 78 | drafted |
 
-Total: 195 LoC, all in net/core/flow_dissector.c. Cover letter at
-`0000-cover-letter.patch`.
+Total: 207 LoC, all in net/core/flow_dissector.c.
 
-LoC dropped 30% from the first draft (276 -> 195) after a comment
-pruning pass: kernel norm is "code speaks for itself" with comments
-only on non-obvious bits. See the parallel helpers
-`__skb_flow_dissect_ipv4`, `__skb_flow_dissect_icmp`,
-`__skb_flow_dissect_l2tpv3` in the same file -- all zero comments.
-We kept comments only on:
+LoC trajectory:
+- First draft: 276 lines (with verbose comments)
+- After comment pruning: 195 lines
+- After C11 modernization (+static_assert, +unlikely): 207 lines
 
+Kept comments only on:
 - The dispatcher's contract (3-line block above `flow_dissect_fast`)
 - The IPv4 0x45 magic (version + IHL packed in one byte)
 - The IPv6 flow-label deferral logic (non-obvious why we defer)
+- The static_assert blocks (explain the compile-time invariant)
+
+## C11 idioms used (kernel uses -std=gnu11 since 5.18)
+
+- `static_assert(sizeof(struct iphdr) == 20)` — patch 2. Holds the
+  compile-time invariant the fast-path depends on. If struct iphdr
+  ever grew (unlikely, ABI-affecting), build would fail with a clear
+  message instead of silent misbehaviour.
+- `static_assert(sizeof(struct ipv6hdr) == 40)` — patch 3.
+- `unlikely(...)` hints on the bail-out branches. Tells the branch
+  predictor that fast-path bail-outs (length too short, wrong
+  version, unsupported protocol, etc.) are the cold path. Saves
+  a small amount on the hit-path code layout.
+
+Reference: `Documentation/process/programming-language.rst` documents
+the kernel C standard:
+
+  "the kernel is typically compiled with gcc under -std=gnu11: the
+   GNU dialect of ISO C11"
+
+C11 was adopted by the kernel in commit e8c07082a810 (May 2022,
+5.18-rc1).
 
 Held for v2 follow-up:
 
@@ -74,12 +94,35 @@ documents an architectural commitment.
 | `make W=1` (gcc warnings) | clean |
 | `make coccicheck M=net/core/` | no findings introduced |
 | `clang-tidy bugprone-* performance-* clang-analyzer-*` | only `easily-swappable-parameters` warnings, matching the existing `__skb_flow_dissect` API shape (kernel idiom) |
-| sparse | (skipped: sparse 0.6.4 in nixpkgs does not understand `__typeof_unqual__` used by recent kernels; need master-branch sparse) |
+| `sparse` (master, post 0.6.4) | clean — no findings in flow_dissector.c |
+| `smatch` (Dan Carpenter, 1.74) | clean — no findings in flow_dissector.c |
 
-The `xdp2` flake has clang-tidy, cppcheck, flawfinder, semgrep, etc.
-under `.#analysis-*`, but those are wired to the xdp2 C codebase
-and would need an adapter to run against kernel source. The
-kernel-native tools above are the relevant ones.
+### Running these locally
+
+Three new flake outputs (added to xdp2's `flake.nix`, see
+`nix/kernel-static-analysis.nix`):
+
+```bash
+# Build sparse from upstream master (nixpkgs 0.6.4 is too old)
+nix build .#sparse-master
+
+# Wrap smatch with same UX
+nix build .#kernel-smatch
+
+# Run both against a kernel tree's .o target
+nix run .#kernel-check -- /home/das/Downloads/net-next \
+                          net/core/flow_dissector.o
+```
+
+The wrapper takes a kernel source tree path and a target .o; runs
+sparse-master and smatch as `CHECK=`, filters results to only
+findings in the source file (drops included-header noise), prints
+"(clean)" when no findings.
+
+The `xdp2` flake's `.#analysis-*` tools (clang-tidy, cppcheck,
+flawfinder, semgrep, sanitizers) target xdp2's own C codebase, not
+kernel source. The `sparse-master` + `kernel-smatch` + `kernel-check`
+outputs are the kernel-source equivalents.
 
 ## CC list when posting (from `scripts/get_maintainer.pl net/core/flow_dissector.c`)
 

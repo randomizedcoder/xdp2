@@ -46,8 +46,11 @@ The patches
          label is non-zero (uncommon on real traffic).
        - Expected saving: about 30 ns/pkt on matching packets.
 
-Total added code: about 195 lines, all in
-net/core/flow_dissector.c.
+Total added code: about 207 lines, all in
+net/core/flow_dissector.c. Uses C11 idioms supported by the
+kernel since 5.18 (-std=gnu11): static_assert for header-size
+invariants, unlikely() hints for the fast-path bail-out
+branches.
 
 
 What this is NOT
@@ -133,6 +136,12 @@ Pre-post checklist done
   - scripts/checkpatch.pl --strict: 0 errors, 0 warnings, 0
     checks per patch.
   - W=1 compile clean per patch.
+  - sparse (master branch, post 0.6.4): no findings in
+    net/core/flow_dissector.c. The nixpkgs 0.6.4 cannot parse
+    recent kernel headers; build instructions for sparse-master
+    at https://git.kernel.org/pub/scm/devel/sparse/sparse.git
+  - smatch (Dan Carpenter, version 1.74): no findings in
+    net/core/flow_dissector.c.
   - coccicheck (kernel semantic patcher) on net/core/: no
     new findings introduced by this series.
   - clang-tidy bugprone + performance + clang-analyzer checks:
@@ -182,8 +191,8 @@ Dave Seddon (3):
   net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
   net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
 
- net/core/flow_dissector.c | 195 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 195 insertions(+)
+ net/core/flow_dissector.c | 207 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 207 insertions(+)
 
 
 base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88

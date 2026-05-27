@@ -1,6 +1,6 @@
-From ad885e48f1d44e4c837811991d263d3b5ca2bd82 Mon Sep 17 00:00:00 2001
+From eeca3eb493b801a08adcb97bc5e7a9f258498c88 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Wed, 27 May 2026 16:38:14 -0700
+Date: Wed, 27 May 2026 16:49:49 -0700
 Subject: [PATCH RFC 3/3] net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
 
 Plug the IPv6 stub from the framework patch with a straight-line
@@ -38,14 +38,25 @@ walk.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector.c | 73 ++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 72 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c | 79 ++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 78 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 4774094870df..77d36f47f9c9 100644
+index 303cf84846b5..a313a807e965 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1117,7 +1117,78 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1118,13 +1118,90 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ 	return true;
+ }
+ 
++/* The fast-path assumes a 40-byte fixed IPv6 header (no extension
++ * headers). The nexthdr check below holds the run-time invariant.
++ */
++static_assert(sizeof(struct ipv6hdr) == 40);
++
+ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+ 				   struct flow_dissector *flow_dissector,
+ 				   void *target_container,
  				   const void *data,
  				   int nhoff, int hlen)
  {
@@ -57,25 +68,26 @@ index 4774094870df..77d36f47f9c9 100644
 +	const struct ipv6hdr *iph;
 +	int thoff;
 +
-+	if (hlen - nhoff < (int)sizeof(*iph) + 4)
++	if (unlikely(hlen - nhoff < (int)sizeof(*iph) + 4))
 +		return false;
 +
 +	iph = (const struct ipv6hdr *)((const u8 *)data + nhoff);
 +
-+	if ((*(const u8 *)iph >> 4) != 6)
++	if (unlikely((*(const u8 *)iph >> 4) != 6))
 +		return false;
 +
-+	if (iph->nexthdr != IPPROTO_TCP && iph->nexthdr != IPPROTO_UDP)
++	if (unlikely(iph->nexthdr != IPPROTO_TCP &&
++		     iph->nexthdr != IPPROTO_UDP))
 +		return false;
 +
 +	/* Slow path writes key_tags->flow_label when the dissector
 +	 * requests it and the label is non-zero; defer to stay
 +	 * byte-identical.
 +	 */
-+	if (dissector_uses_key(flow_dissector,
-+			       FLOW_DISSECTOR_KEY_FLOW_LABEL) &&
-+	    ((iph->flow_lbl[0] & 0x0f) | iph->flow_lbl[1] |
-+	     iph->flow_lbl[2]))
++	if (unlikely(dissector_uses_key(flow_dissector,
++					FLOW_DISSECTOR_KEY_FLOW_LABEL) &&
++		     ((iph->flow_lbl[0] & 0x0f) | iph->flow_lbl[1] |
++		      iph->flow_lbl[2])))
 +		return false;
 +
 +	thoff = nhoff + (int)sizeof(*iph);

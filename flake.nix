@@ -572,6 +572,13 @@
           src = ./.;
         };
 
+        # Kernel-source static-analysis tools (sparse-master, smatch).
+        # For vetting kernel-patches/ series before posting to netdev.
+        # See nix/kernel-static-analysis.nix for usage.
+        kernelStaticAnalysis = import ./nix/kernel-static-analysis.nix {
+          inherit pkgs lib;
+        };
+
         # =====================================================================
         # Phase 1: Packaging (x86_64 .deb only)
         # See: documentation/nix/microvm-implementation-phase1.md
@@ -1205,6 +1212,18 @@
           analysis-gcc-analyzer = analysis.gcc-analyzer;
           analysis-semgrep = analysis.semgrep;
           analysis-sanitizers = analysis.sanitizers;
+
+          # ===================================================================
+          # Kernel-patch static analysis
+          # See: nix/kernel-static-analysis.nix
+          # Usage:
+          #   nix build .#sparse-master   # sparse from upstream master
+          #   nix build .#kernel-smatch   # Dan Carpenter's smatch
+          #   nix run   .#kernel-check -- /path/to/kernel-tree net/core/file.o
+          # ===================================================================
+          sparse-master = kernelStaticAnalysis.sparseMaster;
+          kernel-smatch = kernelStaticAnalysis.smatch;
+          kernel-check = kernelStaticAnalysis.kernelCheck;
 
           # ===================================================================
           # Phase 1: Packaging outputs (x86_64 .deb only)

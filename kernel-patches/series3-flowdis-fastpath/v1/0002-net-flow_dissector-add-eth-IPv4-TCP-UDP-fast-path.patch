@@ -1,6 +1,6 @@
-From 0a45d17e954eb88b67e9a759cf5943f65e043eb9 Mon Sep 17 00:00:00 2001
+From 08019649113434b21bf1e960b15cafba12c26956 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Wed, 27 May 2026 16:37:43 -0700
+Date: Wed, 27 May 2026 16:49:11 -0700
 Subject: [PATCH RFC 2/3] net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
 
 Plug the IPv4 stub from the framework patch with a straight-line
@@ -43,14 +43,26 @@ byte-by-byte to confirm the byte-identical claim.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector.c | 67 ++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 66 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c | 74 ++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 73 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 248d6c7d17dd..4774094870df 100644
+index 248d6c7d17dd..303cf84846b5 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1043,7 +1043,72 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1037,13 +1037,85 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
+ 
+ static struct flow_dissector flow_keys_dissector_symmetric;
+ 
++/* The fast-path assumes a 20-byte IPv4 header. The IHL == 5 runtime
++ * check below holds the run-time invariant; this static_assert holds
++ * the compile-time one in case struct iphdr ever grows.
++ */
++static_assert(sizeof(struct iphdr) == 20);
++
+ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ 				   struct flow_dissector *flow_dissector,
+ 				   void *target_container,
  				   const void *data,
  				   int nhoff, int hlen)
  {
@@ -62,19 +74,20 @@ index 248d6c7d17dd..4774094870df 100644
 +	const struct iphdr *iph;
 +	int thoff;
 +
-+	if (hlen - nhoff < (int)sizeof(*iph) + 4)
++	if (unlikely(hlen - nhoff < (int)sizeof(*iph) + 4))
 +		return false;
 +
 +	iph = (const struct iphdr *)((const u8 *)data + nhoff);
 +
 +	/* version == 4 and IHL == 5 packed in the first byte. */
-+	if (*(const u8 *)iph != 0x45)
++	if (unlikely(*(const u8 *)iph != 0x45))
 +		return false;
 +
-+	if (iph->frag_off & htons(IP_MF | IP_OFFSET))
++	if (unlikely(iph->frag_off & htons(IP_MF | IP_OFFSET)))
 +		return false;
 +
-+	if (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP)
++	if (unlikely(iph->protocol != IPPROTO_TCP &&
++		     iph->protocol != IPPROTO_UDP))
 +		return false;
 +
 +	thoff = nhoff + (int)sizeof(*iph);
