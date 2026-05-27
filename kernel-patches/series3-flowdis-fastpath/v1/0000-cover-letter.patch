@@ -46,7 +46,7 @@ The patches
          label is non-zero (uncommon on real traffic).
        - Expected saving: about 30 ns/pkt on matching packets.
 
-Total added code: about 280 lines, all in
+Total added code: about 195 lines, all in
 net/core/flow_dissector.c.
 
 
@@ -133,6 +133,12 @@ Pre-post checklist done
   - scripts/checkpatch.pl --strict: 0 errors, 0 warnings, 0
     checks per patch.
   - W=1 compile clean per patch.
+  - coccicheck (kernel semantic patcher) on net/core/: no
+    new findings introduced by this series.
+  - clang-tidy bugprone + performance + clang-analyzer checks:
+    no new findings beyond the existing kernel API patterns
+    (the same easily-swappable-parameters warning is already
+    flagged on __skb_flow_dissect itself).
 
 
 Pre-post checklist still TODO before non-RFC posting
@@ -176,8 +182,8 @@ Dave Seddon (3):
   net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
   net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
 
- net/core/flow_dissector.c | 276 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 276 insertions(+)
+ net/core/flow_dissector.c | 195 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 195 insertions(+)
 
 
 base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88

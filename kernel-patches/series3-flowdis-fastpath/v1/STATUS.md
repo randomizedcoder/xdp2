@@ -7,18 +7,29 @@
 **Test plan**: `docs/kernel-flowdis-fastpath-test-plan.md`.
 **Base**: net-next `c0aa5f13826dcb035bec3d6b252e6b2020fa5f88`
   (same base as series 1 + 2).
-**Branch in net-next**: `flowdis-fastpath-rfc`, HEAD `bd25b1631c7d`.
+**Branch in net-next**: `flowdis-fastpath-rfc`, HEAD `ad885e48f1d4`.
 
 ## Series shape (v1)
 
 | # | patch | net-next commit | LoC | status |
 |---:|---|---|---:|---|
-| 1 | flow_dissector: add fast-path entry-point skeleton | `97474d67cd36` | 96 | drafted |
-| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | `c59233bf2874` | 88 | drafted |
-| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | `bd25b1631c7d` | 101 | drafted |
+| 1 | flow_dissector: add fast-path entry-point skeleton | `1ddc620812be` | 57 | drafted |
+| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | `0a45d17e954e` | 66 | drafted |
+| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | `ad885e48f1d4` | 72 | drafted |
 
-Total: 276 LoC, all in net/core/flow_dissector.c. Cover letter at
+Total: 195 LoC, all in net/core/flow_dissector.c. Cover letter at
 `0000-cover-letter.patch`.
+
+LoC dropped 30% from the first draft (276 -> 195) after a comment
+pruning pass: kernel norm is "code speaks for itself" with comments
+only on non-obvious bits. See the parallel helpers
+`__skb_flow_dissect_ipv4`, `__skb_flow_dissect_icmp`,
+`__skb_flow_dissect_l2tpv3` in the same file -- all zero comments.
+We kept comments only on:
+
+- The dispatcher's contract (3-line block above `flow_dissect_fast`)
+- The IPv4 0x45 magic (version + IHL packed in one byte)
+- The IPv6 flow-label deferral logic (non-obvious why we defer)
 
 Held for v2 follow-up:
 
@@ -54,6 +65,21 @@ documents an architectural commitment.
 | 1 | clean | 0 errors, 0 warnings, 0 checks |
 | 2 | clean | 0 errors, 0 warnings, 0 checks |
 | 3 | clean | 0 errors, 0 warnings, 0 checks |
+
+## Static analysis (whole series)
+
+| tool | result |
+|---|---|
+| `scripts/checkpatch.pl --strict` | 0/0/0 per patch |
+| `make W=1` (gcc warnings) | clean |
+| `make coccicheck M=net/core/` | no findings introduced |
+| `clang-tidy bugprone-* performance-* clang-analyzer-*` | only `easily-swappable-parameters` warnings, matching the existing `__skb_flow_dissect` API shape (kernel idiom) |
+| sparse | (skipped: sparse 0.6.4 in nixpkgs does not understand `__typeof_unqual__` used by recent kernels; need master-branch sparse) |
+
+The `xdp2` flake has clang-tidy, cppcheck, flawfinder, semgrep, etc.
+under `.#analysis-*`, but those are wired to the xdp2 C codebase
+and would need an adapter to run against kernel source. The
+kernel-native tools above are the relevant ones.
 
 ## CC list when posting (from `scripts/get_maintainer.pl net/core/flow_dissector.c`)
 
