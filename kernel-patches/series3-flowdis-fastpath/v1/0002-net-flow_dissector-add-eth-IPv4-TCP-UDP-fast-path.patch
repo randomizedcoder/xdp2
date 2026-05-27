@@ -1,53 +1,45 @@
-From aeef2daf1f6781468d36c622545c6f69d34eb432 Mon Sep 17 00:00:00 2001
+From c59233bf2874284e847f6b9b1a5b11948152339b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 14:59:41 -0700
 Subject: [PATCH RFC 2/3] net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
 
-Plug the IPv4 stub introduced in the framework patch with a
-straight-line extractor for the common-case packet shape:
+Plug the IPv4 stub from the framework patch with a straight-line
+extractor for the common-case packet shape.
 
-  - Ethernet outer (ethertype == ETH_P_IP)
-  - 20-byte IPv4 header (version == 4, IHL == 5, no options)
-  - Not a fragment (frag_off MF and OFFSET bits both zero)
-  - TCP or UDP transport (both have src/dst ports at offset 0
-    of the L4 header)
+The fast-path matches a narrow shape:
 
-On a hit, the fast-path populates exactly the keys the slow path
-would populate for the standard flow_keys_dissector and
-flow_keys_dissector_symmetric:
+- 20-byte IPv4 header. Reject IP options by checking the first
+  byte is 0x45 (version 4, IHL 5).
+- Not a fragment. Reject MF or non-zero fragment offset.
+- TCP or UDP only. Reject other transport protocols.
 
-  - FLOW_DISSECTOR_KEY_CONTROL: addr_type, thoff, flags
-  - FLOW_DISSECTOR_KEY_BASIC: n_proto, ip_proto
-  - FLOW_DISSECTOR_KEY_IPV4_ADDRS: v4addrs.{src,dst}
-  - FLOW_DISSECTOR_KEY_PORTS: ports (combined __be32)
+On a match the fast-path writes the same key slots the slow path
+would write for the standard dissectors:
 
-Other dissector keys (KEY_IP, KEY_TCP, KEY_VLAN, etc.) are not
-in the standard dissector's key list and stay zero (the caller
-already memset the target container, per the __skb_flow_dissect()
-contract).
+- key_control: addr_type, thoff, flags
+- key_basic: n_proto, ip_proto
+- key_addrs.v4addrs: src and dst from the IPv4 header
+- key_ports: src and dst u16 ports read at the L4 header
 
-On any miss (IP options, fragment, non-TCP/UDP transport, short
-packet, etc.), the function returns false without modifying
-target_container; control returns to flow_dissect_fast() which
-returns false; __skb_flow_dissect() then proceeds to the slow
-path.
+TCP and UDP both place the port pair at offset 0 of the L4
+header, so one __be32 read covers both protocols.
 
-The fast-path is ~85 lines of straight-line C. It avoids the
-slow-path dispatch loop's per-protocol indirect calls, per-node
-length checks, and graph-walk bookkeeping. For an eth+IPv4+TCP
-packet, this is on the order of 30 ns/pkt saved on a Zen 1 / DDR4
-host running the userspace flow-dissector benchmark.
+On any miss the function returns false without touching
+target_container. The caller falls back to the slow path.
 
-The technique is the kernel-C counterpart of XDP2's R3.4
-"fast-path chains" emission, which xdp2-compiler injects at the
-top of every generated mono parser. XDP2 demonstrates the
-technique accounts for the majority of its 35-42 % speedup over
-the in-tree dissector on common workloads.
+Cold key slots that the slow path leaves untouched for this
+packet shape (KEY_IP, KEY_TCP, KEY_VLAN, etc.) are not in the
+standard dissector's key list. They stay at the caller's
+pre-memset zero. Output is byte-identical to the slow path on
+the standard dissectors.
 
-Byte-exact correctness will be verified by a follow-up selftest
-patch that exercises both the fast path and the (sysctl-disabled)
-slow path on the same packet corpus and compares the resulting
-struct flow_keys byte-for-byte.
+Expected effect: about 30 ns/pkt saved on packets that match,
+based on userspace measurements of the matching technique in the
+XDP2 project. The saving comes from skipping the slow-path graph
+walk. Cost on a miss is unchanged: one ethertype switch.
+
+A follow-up selftest will compare fast-path and slow-path output
+byte-by-byte to confirm the byte-identical claim.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---

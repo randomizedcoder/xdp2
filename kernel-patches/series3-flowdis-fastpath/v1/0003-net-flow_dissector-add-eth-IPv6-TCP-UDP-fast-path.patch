@@ -1,48 +1,40 @@
-From 28bc2795d2feac8f95a3b812fbeab1791b4bd29e Mon Sep 17 00:00:00 2001
+From bd25b1631c7d2d6aad30f568d24e24ea81c3be57 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 15:01:10 -0700
 Subject: [PATCH RFC 3/3] net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
-Plug the IPv6 stub introduced in the framework patch with a
-straight-line extractor for the common-case IPv6 shape:
+Plug the IPv6 stub from the framework patch with a straight-line
+extractor for the common IPv6 shape.
 
-  - Ethernet outer (ethertype == ETH_P_IPV6)
-  - 40-byte fixed IPv6 header (version == 6)
-  - No extension headers (nexthdr is TCP or UDP directly)
-  - No non-zero flow label when the dissector asked for it
+The fast-path matches a narrow shape:
 
-Extension headers (HBH, Routing, Fragment, ESP, AH, DSTOPTS,
-Mobility, HIP, Shim6) are rare on internet RX traffic and the
-slow path has explicit walkers for each — fast-path defers
-those.
+- 40-byte fixed IPv6 header. Reject any other version.
+- nexthdr is TCP or UDP only. Extension headers (HBH, ROUTING,
+  FRAGMENT, ESP, AH, DSTOPTS, MH, HIP, SHIM6) and other
+  transports fall back to the slow path.
+- The IPv6 flow label is zero, or the dissector did not request
+  FLOW_DISSECTOR_KEY_FLOW_LABEL. The slow path writes
+  key_tags->flow_label when both conditions fail; this code does
+  not, so it defers in that case to keep output byte-identical.
+  RFC 6437 allows non-zero flow labels but most stacks leave
+  them zero, so the fast-path still hits on the common case.
 
-A non-zero IPv6 flow label is also deferred when the dissector
-includes FLOW_DISSECTOR_KEY_FLOW_LABEL. The slow path writes
-key_tags->flow_label in that case; the fast-path doesn't, so
-to stay byte-exact we defer. Note that the flow label is zero
-on the vast majority of internet traffic today (RFC 6437
-allows but most stacks leave it at zero), so the fast-path
-still hits on the common case.
+On a match the fast-path writes the same key slots the slow path
+would write for the standard dissectors:
 
-Output is byte-identical to the slow path for this shape on the
-standard dissectors: key_control.{addr_type,thoff,flags},
-key_basic.{n_proto,ip_proto}, key_addrs.v6addrs, key_ports.
+- key_control: addr_type, thoff, flags
+- key_basic: n_proto, ip_proto
+- key_addrs.v6addrs: src and dst from the IPv6 header
+- key_ports: src and dst u16 ports read at the L4 header
 
-The same straight-line shape as the IPv4 fast-path with two
-adjustments: 40-byte fixed header (no IHL field) and the
-optional flow-label deferral. The check on the flow label
-costs one ANDed-and-ORed test per IPv6 packet (~2 cycles); the
-common case (label == 0) takes the early exit and proceeds to
-the writes.
+IPv6 is a large share of real RX traffic on modern deployments.
+Many datacentre east-west paths run IPv6 only. Many client
+networks are dual-stack. This patch gives the v6 path the same
+speedup the v4 patch gives the v4 path.
 
-IPv6 is increasingly the bulk of internet RX traffic on modern
-deployments (Google reports ~45 % of traffic is IPv6,
-datacenter east-west often IPv6-only). This patch closes the
-gap between the IPv4 and IPv6 fast-path coverage so dual-stack
-and IPv6-first deployments see the same speedup.
+Expected effect: about 30 ns/pkt saved on packets that match.
+Same mechanism as the IPv4 fast-path: skip the slow-path graph
+walk.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---

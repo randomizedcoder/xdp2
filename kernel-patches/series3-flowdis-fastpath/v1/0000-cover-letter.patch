@@ -1,234 +1,172 @@
-From 28bc2795d2feac8f95a3b812fbeab1791b4bd29e Mon Sep 17 00:00:00 2001
+From bd25b1631c7d... Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 15:01:43 -0700
-Subject: [PATCH RFC 0/3] net: flow_dissector: straight-line fast-path for common L3+L4 shapes
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH RFC 0/3] net: flow_dissector: fast-path for common L3+L4 shapes
 
 Hi all,
 
-This RFC adds a straight-line fast-path entry to
-__skb_flow_dissect() for the most common packet shapes seen on
-modern RX paths: ethernet + {IPv4, IPv6} + {TCP, UDP}. On a hit,
-the fast-path produces byte-identical struct flow_keys output to
-the slow path and returns without entering the generic parse-graph
-state machine.
+This series adds a fast-path to __skb_flow_dissect() for the
+most common packet shapes seen on Linux RX paths:
 
-This is my third small kernel submission. The two prior RFCs
-(flow_hash_from_keys_small + sch_cake adoption; bpf_flow PPPoE)
-came out of the same XDP2-vs-kernel comparison work led by Tom
-Herbert (https://github.com/randomizedcoder/xdp2). This series is
-the **largest single performance technique** from that comparison
-work that's portable to the in-tree dissector — and the most
-substantive of the three submissions to date.
+  - eth + IPv4 + TCP or UDP
+  - eth + IPv6 + TCP or UDP
 
-Background — same comparison work, different lever
-==================================================
+On a match the fast-path produces byte-identical struct
+flow_keys output and returns. On a miss it falls back to the
+existing slow-path graph walk.
 
-XDP2's generated mono parser runs 35-42 % faster than
-__skb_flow_dissect_err on common L2-L4 traffic. Attributing
-that delta to its component techniques (XDP2 commit history
-R3-R8, https://github.com/randomizedcoder/xdp2):
+This is the third RFC I have sent to netdev. The first two
+(flow_hash_from_keys_small + sch_cake adoption, and bpf_flow
+PPPoE support) came out of the same comparison work led by Tom
+Herbert (https://github.com/randomizedcoder/xdp2). XDP2 shows
+that a straight-line "decision tree at function entry" extractor
+for common shapes saves 35-42 % over the slow-path graph walk
+on the same packets. This series brings that one technique to
+the in-tree dissector as plain C.
 
-  Phase                  | https-web ns/pkt | delta
-  -----------------------|------------------|------
-  Pre-R3.3               | 116              | -
-  R3.3 IR-coverage devirt| 116              | 0 (null)
-  R3.4 fast-path chains  | 71               | -45 (-39 %)
-  R5/R6/R7 polish        | 72               | +1 (noise)
-  R8 VXLAN fast-path     | 72               | 0 on flat
-                                              workloads
-
-**One technique — R3.4 "fast-path chains at parser entry" — is
-essentially the entire flat-workload speedup.** R3.3 (explicit
-devirtualisation of indirect calls) was a null because gcc -O3
-+ LTO already inlines indirect calls at compile time when the
-target is constant — the compiler does it for free.
-
-This series backports that R3.4 technique to the in-tree C
-dissector. The technique is portable straight-line C — no
-codegen, no LTO requirement, no new tooling, no new ABI. The
-implementation is ~280 lines of straight-line C across three
-patches.
 
 The patches
 ===========
 
-  1/3  flow_dissector: add fast-path entry-point skeleton
-       (~96 LoC, framework only, no behaviour change)
+  1/3  net: flow_dissector: add fast-path entry-point skeleton
+       - Adds the flow_dissect_fast() dispatcher.
+       - No fast-path arms yet; per-shape helpers are stubs.
+       - Reject custom dissectors and slow-path-only flags.
+       - Cost on a miss: one ethertype switch (about 5 cycles).
 
-  2/3  flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
-       (~88 LoC, plugs IPv4 stub from patch 1)
+  2/3  net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
+       - Plug the IPv4 stub.
+       - Reject IP options, fragments, other L4 protocols.
+       - Expected saving: about 30 ns/pkt on matching packets.
 
-  3/3  flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
-       (~101 LoC, plugs IPv6 stub from patch 1)
+  3/3  net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
+       - Plug the IPv6 stub.
+       - Reject extension headers.
+       - Defer when the caller asks for the flow label and the
+         label is non-zero (uncommon on real traffic).
+       - Expected saving: about 30 ns/pkt on matching packets.
 
-The framework patch (1/3) establishes:
+Total added code: about 280 lines, all in
+net/core/flow_dissector.c.
 
-  - The dispatch site: in __skb_flow_dissect() AFTER the BPF
-    flow_dissector override check, BEFORE the slow-path graph
-    walk. BPF semantics unchanged.
-  - Dissector identity check: only the two standard dissectors
-    (flow_keys_dissector, flow_keys_dissector_symmetric). Custom
-    dissectors (e.g. tc cls_flow with bespoke key sets) defer
-    unconditionally.
-  - Flag-rejection: any flag combination other than the empty
-    set or FLOW_DISSECTOR_F_PARSE_1ST_FRAG defers (we don't
-    implement encap walking, MPLS, flow-label stop, etc.).
-  - Fall-through cost on a fast-path miss: one ethertype switch
-    (~5 cycles). Independent of how many fast-path shapes are
-    wired in.
-
-Patches 2 and 3 are mechanical applications of the framework
-to the two address families. Each rejects IP options
-(IPv4 IHL != 5), fragments, extension headers (IPv6), and
-non-{TCP,UDP} transports. Each writes the same key set the slow
-path would for the standard dissector (CONTROL.{addr_type,
-thoff, flags}, BASIC.{n_proto, ip_proto}, IPV{4,6}_ADDRS,
-PORTS).
 
 What this is NOT
 ================
 
-- NOT a new dissector API. __skb_flow_dissect() is unchanged from
-  the caller's perspective.
-- NOT a new struct flow_keys layout. The struct is ABI-affecting
-  (BPF flow_dissector hook contract); this series doesn't touch
-  it.
-- NOT a change in BPF flow_dissector hook semantics. The
-  fast-path runs only after the existing BPF override check
-  decides no BPF program is loaded for this netns.
-- NOT bit-exact with any specific RSS / RFS / multipath hash. The
-  fast-path produces the same struct flow_keys; downstream hash
-  functions remain unchanged.
-- NOT VLAN-aware (yet). VLAN-tagged packets defer to the slow
-  path. A VLAN fast-path is a natural follow-up; held back from
-  v1 to keep the review surface small.
-- NOT an XDP2 framework upstream attempt. The XDP2 framework
-  itself is a separate, larger conversation
-  (https://github.com/randomizedcoder/xdp2,
-  formerly PANDA, see "Replacing Flow Dissector with PANDA
-  Parser" at Netdev 0x15
-  https://netdevconf.info/0x15/slides/16/Flow%20dissector_PANDA%20parser.pdf
-  ). This series captures the largest single technique
-  from that work in hand-written kernel C; no framework
-  required.
+  - NOT a new dissector API. __skb_flow_dissect() signature
+    and contract are unchanged.
+  - NOT a struct flow_keys layout change. The struct is ABI for
+    the BPF flow_dissector hook.
+  - NOT a change to BPF flow_dissector precedence. The fast-path
+    runs only when the existing BPF override check decides no
+    BPF program is loaded for this netns.
+  - NOT VLAN-aware in v1. VLAN-tagged packets fall through to
+    the slow path. A VLAN fast-path is a planned follow-up.
+  - NOT an XDP2 framework upstream. This series is hand-written
+    C for one technique only. The XDP2 framework conversation
+    is a separate, larger topic.
 
-Why the kernel can't capture ALL of XDP2's win
-==============================================
-
-XDP2's mono parser at 71 ns/pkt has three properties this
-in-tree C can't replicate:
-
-  1. always_inline + LTO into the caller's translation unit:
-     XDP2's parser inlines into the benchmark's parse loop as
-     one ~10 KB block. The kernel's __skb_flow_dissect() is a
-     generic API; flow_dissector.o and sch_cake.o are different
-     translation units, no LTO, function too large to inline.
-     Cost: ~5-10 ns/pkt of function-call / register-save
-     overhead.
-
-  2. Constant-folding of static const proto_def fields: XDP2
-     mono parser folds protocol-table constants at compile time.
-     The kernel reads runtime structs. Cost: ~2-5 ns/pkt.
-
-  3. Per-callsite specialisation: XDP2 produces a fresh parser
-     per use-site if desired. Kernel flow_dissector is one
-     function serving many callers. Cost: 0-3 ns/pkt on the
-     common path.
-
-Total un-recoverable structural gap: ~10-15 ns/pkt. The kernel
-captures the dispatch-loop bypass (the bulk of the win) and pays
-the inherent generic-API tax for the rest. **Expected kernel
-result: 117 -> ~85-90 ns/pkt on https-web, ~25-30 % faster vs
-today.** Still substantial; absolutely worth shipping
-incrementally.
 
 Output byte-equivalence
 =======================
 
-The fast-path is required to produce byte-identical
-target_container output to the slow path on every shape it
-handles, on the standard dissectors. The architectural contract
-is enforced by careful field-by-field replication of the slow
-path's writes:
+The fast-path writes the same key slots the slow path writes
+for the standard dissectors on the matching shape:
 
-  Slow path:                       Fast-path:
-  ----------                       ----------
-  v4: key_addrs->v4addrs.{src,dst} same memcpy
-      key_control->addr_type        same (= IPV4_ADDRS)
-  out: key_control->thoff           same (= nhoff + 20)
-       key_basic->n_proto           same (= htons(ETH_P_IP))
-       key_basic->ip_proto          same (iph->protocol)
-  ports: skb_flow_get_ports         direct __be32 read at thoff+0
-                                    (proto_ports_offset(TCP/UDP)
-                                    is 0 for both)
+  - key_control: addr_type, thoff, flags
+  - key_basic: n_proto, ip_proto
+  - key_addrs.v{4,6}addrs: src and dst from the IP header
+  - key_ports: src and dst u16 ports at the L4 header
 
-Cold key slots (KEY_IP TOS/TTL, KEY_TCP flags, KEY_VLAN, etc.)
-are not in flow_keys_dissector's request list and stay at the
-caller's pre-memset zero — same as the slow path's behaviour for
-the standard dissector on this packet shape.
+Cold key slots that the slow path does not write for this
+shape (KEY_IP, KEY_TCP, KEY_VLAN, KEY_FLOW_LABEL when zero,
+etc.) are not in the standard dissector's key list. They stay
+at the caller's pre-memset zero.
 
-The IPv6 path additionally defers when the dissector requests
-FLOW_DISSECTOR_KEY_FLOW_LABEL and the packet carries a non-zero
-label, since the slow path writes key_tags->flow_label in that
-case. Zero-labelled packets (the vast majority of real traffic)
-proceed through the fast-path normally.
+A follow-up selftest will verify byte-by-byte equivalence on a
+packet corpus.
+
+
+Why the kernel cannot capture every optimisation XDP2 shows
+===========================================================
+
+XDP2 runs at about 71 ns/pkt on these workloads. The in-tree
+dissector with this series should reach about 85-90 ns/pkt
+(from 117 today). The remaining ~15 ns gap is structural:
+
+  - always_inline plus LTO into the caller. XDP2's parser
+    inlines into the test harness as one block. The kernel
+    cannot do this: flow_dissector.o and sch_cake.o are
+    different translation units, and the function is too
+    large to inline.
+  - Constant folding of static const proto_def fields. XDP2
+    folds at compile time. The kernel reads runtime structs.
+  - Per-callsite specialisation. XDP2 can emit a fresh parser
+    per use-site. flow_dissector serves many callers.
+
+These are the price of being a generic kernel API rather than
+a per-callsite specialised parser. The technique this series
+backports captures most of the win and pays this price for
+the rest.
+
+
+Prior art
+=========
+
+Earlier wholesale-replacement attempts for flow_dissector have
+stalled. This series intentionally takes the opposite path:
+incremental, no new framework, no new tooling, no new ABI.
+
+  - 2017 Tom Herbert, "Protocol specific flow dissector
+    offload":
+    https://patchwork.ozlabs.org/project/netdev/cover/20170928235230.22158-1-tom@quantonium.net/
+  - 2021 Tom Herbert, "Replacing Flow Dissector with PANDA
+    Parser", netdev 0x15:
+    https://netdevconf.info/0x15/slides/16/Flow%20dissector_PANDA%20parser.pdf
+  - 2021 PANDA tc flower2 RFC:
+    https://lkml.kernel.org/netdev/614bf3bc4850_b9b1a208e2@john-XPS-13-9370.notmuch/t/
+
 
 Pre-post checklist done
 =======================
 
-Static:
-
-  - net/core/flow_dissector.c W=1 compile clean for each patch.
   - scripts/checkpatch.pl --strict: 0 errors, 0 warnings, 0
-    checks for each of the three patches.
-  - The framework patch's dispatch site is the only outwardly
-    visible change in __skb_flow_dissect(); the three new helper
-    functions are file-static and don't appear in any header.
+    checks per patch.
+  - W=1 compile clean per patch.
+
 
 Pre-post checklist still TODO before non-RFC posting
 ====================================================
 
-- Kernel selftest under tools/testing/selftests/net/ that
-  exercises both the fast-path and the slow-path on a packet
-  corpus (synthetic + the kernel's existing pcap test set) and
-  compares struct flow_keys byte-for-byte for every packet.
-  Held out of v1 because the toggle mechanism (sysctl vs
-  static_key vs CONFIG) deserves separate maintainer feedback.
-- Per-workload microbench numbers on a multi-uarch testbed.
-  Initial measurement on Zen 1 (Ryzen 5 PRO 2400G) via the
-  userspace harness at
-  github.com/randomizedcoder/xdp2/samples/flow_dissector/
-  shows the expected ~25-30 % range, but a kernel selftest +
-  internal numbers would be stronger evidence.
-- 24-hour soak test on patched kernel under sustained iperf3
-  load through sch_cake on the four-host benchmark testbed
-  used for the prior two RFCs. Same methodology as
-  perf-results/2026-05-25/soak-B1-iperf3-24h-results.md.
-- VLAN fast-path (eth+VLAN+IPv4+{TCP,UDP} and eth+VLAN+IPv6+
-  {TCP,UDP}). Adds ~150 LoC and an ETH_P_8021Q dispatch arm.
-  Held for v2 once the v1 design lands.
+  - Boot and pass traffic on four test-bed hosts (two Intel
+    X710 10 GbE i40e pairs, two Mellanox CX-4 Lx 25 GbE
+    mlx5_core pairs). In progress.
+  - iperf3 and iperf2 macro tests per pair, per L3/L4 arm.
+  - 24h iperf3 soak and 24h iperf2 soak. Same pattern as the
+    series 1 soak result for sch_cake.
+  - Kernel selftest in tools/testing/selftests/net/ that
+    compares fast-path and slow-path output byte-by-byte.
+  - Per-workload microbench numbers from the selftest harness.
+  - VLAN fast-path (planned for v2).
+
+The non-RFC post will include the measured numbers from the
+test-bed runs and the selftest output.
+
 
 This is sent as RFC for early feedback on:
 
   - The dispatch shape (single ethertype switch with per-family
-    extractors). Reviewers may prefer a different organisation.
-  - The byte-exact contract (vs. allowing the fast-path to skip
-    "cold" slot writes that the consumer-touch matrix shows are
-    unread). Skipping cold writes saves ~3 ns/pkt but adds
-    forward-compat risk if a future consumer reads them.
-  - The dissector-identity check (only flow_keys_dissector and
-    flow_keys_dissector_symmetric). A broader policy (e.g. any
-    dissector whose key set is a subset of what the fast-path
-    writes) might catch more callers.
-  - Whether a CONFIG knob / static_key / sysctl is wanted for
-    runtime A/B testing. v1 omits all toggles.
+    helpers). Is this the right structure?
+  - The byte-exact output rule. The alternative is to skip
+    "cold" slot writes (saves about 3 ns/pkt) but adds risk if
+    a future consumer reads them. v1 chose byte-exact for
+    safety; happy to change if reviewers prefer the other rule.
+  - The dissector-identity check. A broader rule (any dissector
+    whose key set is a subset of what the fast-path writes)
+    might catch more callers.
 
-Detailed design + per-mechanism analysis at
-github.com/randomizedcoder/xdp2/docs/kernel-flowdis-fastpath-plan.md
-on the same branch as the prior two RFCs.
+Detailed design and per-mechanism analysis:
+https://github.com/randomizedcoder/xdp2/blob/flow-keys-compat-reorder/docs/kernel-flowdis-fastpath-plan.md
 
 Thanks,
 Dave

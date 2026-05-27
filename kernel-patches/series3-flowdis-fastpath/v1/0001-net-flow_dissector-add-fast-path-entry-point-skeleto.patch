@@ -1,53 +1,40 @@
-From 390998d4efbcc755e004281bb21f9fe68abc6fbb Mon Sep 17 00:00:00 2001
+From 97474d67cd36b5d767a5771844c83a22b2e4b7e3 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 14:51:37 -0700
 Subject: [PATCH RFC 1/3] net: flow_dissector: add fast-path entry-point
  skeleton
 
-Introduce flow_dissect_fast(), a straight-line fast-path
-dispatcher invoked from __skb_flow_dissect() after the BPF
-flow_dissector override check and before the slow-path graph
-walk.
+Add a fast-path dispatcher to __skb_flow_dissect(). It runs after
+the BPF flow_dissector check and before the slow-path graph walk.
 
-This patch is framework only:
+The dispatcher checks three conditions before doing any work:
 
-  - flow_dissect_fast() validates that the caller is using one
-    of the two standard dissectors (flow_keys_dissector or
-    flow_keys_dissector_symmetric) and that no slow-path-only
-    flag is requested.
-  - It then switches on the outer ethertype and calls a per-shape
-    extractor.
-  - The IPv4 and IPv6 extractors are stubs that return false; the
-    actual fast-path bodies are added in follow-up patches.
+- The caller must use flow_keys_dissector or
+  flow_keys_dissector_symmetric. Custom dissectors (e.g. tc
+  cls_flow with bespoke key sets) fall back to the slow path.
+- The flags must be empty or only FLOW_DISSECTOR_F_PARSE_1ST_FRAG.
+  Other flags request behaviour this code does not implement
+  (encap walking, MPLS deep parse, flow-label stop).
+- The outer ethertype must be IPv4 or IPv6.
 
-Architectural contract (enforced by the follow-up patches):
+If all three conditions hold the dispatcher calls a per-shape
+helper. Other cases return false and the slow path runs as
+before.
 
-  - Fast-path output is byte-identical to the slow path on every
-    shape it handles. The win comes from bypassing the dispatch
-    loop, not from skipping field writes. This will be verified
-    by a kernel selftest added with the first non-stub patch.
-  - Fall-through cost on a packet that misses every fast-path is
-    a single ethertype switch (about 5 cycles). Independent of
-    how many fast-path shapes are wired in.
-  - BPF flow_dissector hook precedence is preserved: the
-    fast-path runs only after the BPF override check decides no
-    BPF program is loaded for this netns.
-  - Custom dissectors (e.g. tc cls_flow with bespoke key sets)
-    fall through unconditionally.
+The per-shape helpers (flow_dissect_fast_ipv4,
+flow_dissect_fast_ipv6) are added as stubs that return false.
+Real bodies arrive in follow-up patches.
 
-No behaviour change in this patch: every fast-path stub returns
-false, so every packet still reaches the slow path. The only
-measurable cost is one ethertype switch per dissect call on
-packets that pass the BPF check.
+This patch does not change behaviour:
 
-This is the framework patch of a series that backports a
-performance technique developed in the XDP2 project
-(https://github.com/randomizedcoder/xdp2). The R3.4 fast-path
-chain technique is XDP2's largest single optimisation, accounting
-for the majority of the 35-42 % speedup XDP2 demonstrates over
-the in-tree dissector on common L2-L4 traffic. Unlike XDP2's
-codegen-based parser, this series captures the technique in
-hand-written kernel C, requiring no new tooling and no new ABI.
+- Every fast-path stub returns false.
+- Every packet still reaches the slow path.
+- Added cost is one ethertype switch (about 5 cycles) per call
+  that passes the BPF override check.
+
+The framework patch is sent on its own so reviewers can comment
+on the dispatch shape, the dissector identity check, and the BPF
+order separately from the per-shape extractor code.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
