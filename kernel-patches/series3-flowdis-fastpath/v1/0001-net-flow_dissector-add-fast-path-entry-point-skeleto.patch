@@ -1,7 +1,8 @@
 From 390998d4efbcc755e004281bb21f9fe68abc6fbb Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 14:51:37 -0700
-Subject: [PATCH RFC] net: flow_dissector: add fast-path entry-point skeleton
+Subject: [PATCH RFC 1/3] net: flow_dissector: add fast-path entry-point
+ skeleton
 
 Introduce flow_dissect_fast(), a straight-line fast-path
 dispatcher invoked from __skb_flow_dissect() after the BPF

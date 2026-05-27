@@ -1,82 +1,131 @@
-# Series 3: kernel flow_dissector fast-path — RFC v1 (in flight)
+# Series 3: kernel flow_dissector fast-path — RFC v1 (draft complete)
 
 **Date**: 2026-05-27
-**Status**: Patch 1 of 5-6 drafted; awaiting patch-1 architectural-gate
-  smoke test on hp5 before writing patches 2-5.
-**Plan**: see `docs/kernel-flowdis-fastpath-plan.md` in the xdp2 repo.
-**Base**: net-next commit `c0aa5f13826dcb035bec3d6b252e6b2020fa5f88`
+**Status**: 3-patch v1 RFC drafted. Awaits build + boot + test
+  before submission to netdev. Test plan below.
+**Plan**: `docs/kernel-flowdis-fastpath-plan.md` in the xdp2 repo.
+**Base**: net-next `c0aa5f13826dcb035bec3d6b252e6b2020fa5f88`
   (same base as series 1 + 2).
-**Branch in net-next**: `flowdis-fastpath-rfc`.
+**Branch in net-next**: `flowdis-fastpath-rfc`,
+  HEAD `28bc2795d2fe`.
 
-## Series goal (recap)
+## Series shape (v1)
 
-Backport XDP2's R3.4 fast-path technique into the in-tree
-`__skb_flow_dissect()`. The technique alone captures ~95% of XDP2's
-flat-workload speedup and is portable straight-line C — no codegen,
-no new tooling, no new ABI.
+| # | patch | LoC | status |
+|---:|---|---:|---|
+| 1 | flow_dissector: add fast-path entry-point skeleton | 96 | drafted |
+| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | 88 | drafted |
+| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | 101 | drafted |
 
-Expected on-the-wire result: 117 -> ~85-90 ns/pkt on https-web
-(~25-30% faster vs vanilla).
+Total: 276 LoC, all in net/core/flow_dissector.c. Cover letter at
+`0000-cover-letter.patch`.
 
-## Patch series shape
+Held for v2 follow-up:
+- VLAN dispatch + 4 VLAN variants (~150 LoC)
+- Kernel selftest for byte-exact verification
+- A toggle mechanism (CONFIG / static_key / sysctl) for the
+  selftest
 
-| # | patch | status |
+## Decision notes from drafting
+
+**Combined TCP+UDP per address family** rather than separate
+patches. The dispatching logic and key writes are identical
+between TCP and UDP (both have src/dst u16 ports at L4 offset
+0); the only difference is the `iph->protocol` / `iph->nexthdr`
+test. Keeping them in one function per family matches kernel
+"one logical change per patch" convention and avoids
+mostly-duplicated diffs across two patches.
+
+**Byte-exact output** vs the "skip cold slot writes" alternative.
+The plan doc considered both. Final decision: byte-exact, because:
+- Saving from skipping is ~3 ns/pkt — small vs the ~30 ns/pkt
+  fast-path win
+- Forward-compat risk if a future consumer reads a "cold" slot
+- The cover letter explicitly invites maintainer feedback on
+  this choice; if reviewers prefer the skip-cold variant, we
+  can change in v2
+
+**Dissector-identity check** restricts the fast-path to
+`flow_keys_dissector` and `flow_keys_dissector_symmetric`. Custom
+dissectors (e.g. tc cls_flow with bespoke key sets) defer. The
+cover letter invites maintainer feedback on whether a broader
+policy (any dissector requesting a subset of what the fast-path
+writes) would be better.
+
+**Flow label deferral** in the IPv6 fast-path. The slow path
+writes `key_tags->flow_label` when the dissector requests
+FLOW_DISSECTOR_KEY_FLOW_LABEL AND the packet's label is non-zero.
+The fast-path doesn't write key_tags->flow_label, so for
+byte-exactness we defer when both conditions hold. The common
+case (label == 0 on most internet traffic) takes the fast-path.
+
+## Compile-time gates (per patch)
+
+| patch | W=1 build | checkpatch --strict |
 |---:|---|---|
-| 1 | flow_dissector: add fast-path entry-point skeleton | **drafted** |
-| 2 | flow_dissector: add eth+IPv4+TCP fast-path | pending patch-1 smoke |
-| 3 | flow_dissector: add eth+IPv4+UDP fast-path | pending |
-| 4 | flow_dissector: add eth+IPv6+TCP fast-path | pending |
-| 5 | flow_dissector: add eth+IPv6+UDP fast-path | pending |
-| 6 | (optional) flow_dissector: add VLAN dispatch + variants | TBD |
+| 1 | clean | 0 errors, 0 warnings, 0 checks |
+| 2 | clean | 0 errors, 0 warnings, 0 checks |
+| 3 | clean | 0 errors, 0 warnings, 0 checks |
 
-## Patch 1 — drafted state
+## Pending tests (before non-RFC submission)
 
-- `0001-net-flow_dissector-add-fast-path-entry-point-skelet.patch`
-  - 96 insertions, 0 deletions
-  - checkpatch.pl --strict: 0 errors, 0 warnings, 0 checks
-  - Compiles clean at W=1
-  - Forward-declares `flow_keys_dissector_symmetric` near the new
-    code (it's defined later in the same file)
-  - Adds `flow_dissect_fast()` dispatcher with:
-    - dissector-identity check (only the two standard dissectors)
-    - flag-rejection (only accepts the empty flag set or
-      `FLOW_DISSECTOR_F_PARSE_1ST_FRAG`)
-    - ethertype switch (IPv4 / IPv6 / default)
-  - Adds `flow_dissect_fast_ipv4()` and `flow_dissect_fast_ipv6()`
-    stubs (both return false)
-  - Adds the call site in `__skb_flow_dissect()` after the BPF
-    override block (`rcu_read_unlock()`) and before the slow-path
-    `FLOW_DISSECTOR_KEY_ETH_ADDRS` write
-  - No behaviour change: all stubs return false, every packet
-    still reaches the slow path
+Per `docs/kernel-flowdis-fastpath-plan.md` §3:
 
-## Next step
+### Patch 1 architectural gate (the hybrid-cadence checkpoint)
 
-Per the hybrid testing cadence in `docs/kernel-flowdis-fastpath-plan.md`,
-patch 1 is the architectural commitment and gets independent
-validation before patches 2-5 are written:
+Skipped on user direction (Option B chosen: write all, then
+test the lot at the end). If patch 1's dispatch site is wrong,
+patches 2-3 inherit the bug. Risk accepted.
 
-1. Build patched kernel via NixOS flake (same pattern as
-   `kernel-patches/test-kernel/`, but pointing at the new branch
-   `flowdis-fastpath-rfc`).
-2. Boot on hp5.
-3. Verify the dispatch site behaves correctly (every packet still
-   reaches slow path; flow_keys output is unchanged).
-4. Measure fall-through cost on a flat workload via the matrix
-   benchmark (`nix run .#flow-dissector-matrix-unified`).
-   - Expected: ≤2 ns/pkt added vs vanilla baseline (one ethertype
-     switch in the fast-path framework).
-   - If higher: investigate; framework design issue.
-5. Confirm no kernel WARN/BUG in dmesg.
+### Batched test of the 3-patch series
 
-If patch 1 validates, proceed to patches 2-5 in a batched workflow.
-If patch 1 reveals a design issue, fix in place before continuing.
+1. **Build**: Patched kernel via NixOS flake. Pattern: modify
+   `/home/das/nixos/hp/hp3/test-kernel/default.nix` to point at
+   `/home/das/Downloads/net-next` branch `flowdis-fastpath-rfc`
+   (HEAD 28bc2795d2fe). Rebuild via `nixos-rebuild build` from
+   hp3's config OR `nix build .#xdp2-test-kernel` if there's a
+   flake target.
+2. **Boot**: nix-copy-closure to hp1, hp2, hp3, hp5. Reboot each.
+   Verify `uname -r` matches expected build, `dmesg | grep -i
+   WARN` is clean.
+3. **Correctness (manual byte-exact spot check)**: Run iperf3
+   through cake on hp1<->hp3. Verify `tc -s qdisc show cake`
+   shows non-zero `Sent`, no `dropped`. The cake host_keys hash
+   uses fields the fast-path writes; if those fields are wrong,
+   cake class population breaks visibly.
+4. **Microbench**: Run
+   `nix run .#flow-dissector-matrix-unified -- --pcap data/pcaps/
+   https-web.pcap` on hp5 with patched kernel. Compare ns/pkt
+   for `c-flowdis-usp` (the kernel C path) to the same metric
+   on the unpatched hp5 baseline (last measured 116-119 ns/pkt
+   on the post-R8 sweep). Expected: ~85-90 ns/pkt patched. Run
+   on the 4 flat workloads (https-web, nfs-server, vlan-tcp-mix
+   for the IPv4 fast-path stats; nfs-server may include IPv6).
+5. **Macrobench**: iperf3 -P 16 -t 60 hp1->hp3 through cake.
+   Throughput in the 16 Gbit/s range, matching B.1 baseline.
+   No regression.
+6. **Short sustained**: 30-min iperf3 through cake on the
+   patched kernel. dmesg clean, no memory growth, no drop
+   accumulation.
+7. **BPF compat**: Load
+   `tools/testing/selftests/bpf/progs/bpf_flow.bpf.o` via
+   `flow_dissector_load.c`. Verify the BPF dissector runs (not
+   the C fast-path) when loaded. Unload, verify fast-path
+   resumes via timing comparison.
+8. **24h soak (final, before non-RFC)**: 24h iperf3 + 24h iperf2
+   soak per the B.1 pattern.
 
-## Notes for future-me
+## Next sessions
 
-- Branch `flowdis-fastpath-rfc` in `/home/das/Downloads/net-next/` is
-  the working tree.
-- HEAD on that branch is patch 1; rebase on net-next when starting
-  patch 2.
-- Don't rename the patch file; the kernel-patch convention is
-  one `.patch` per commit, exported via `git format-patch`.
+When picking this back up:
+1. Confirm `/home/das/Downloads/net-next` branch
+   `flowdis-fastpath-rfc` is still at HEAD `28bc2795d2fe`. If
+   not, fetch from the previous session's state.
+2. Modify the NixOS test-kernel derivation to point at this
+   branch.
+3. Run the batched test plan above. Iterate on any failures.
+4. Once green, update cover letter with the actual measured
+   numbers (replacing the "~85-90 ns/pkt expected" claim with
+   measured values).
+5. Send to netdev with cc to relevant maintainers (Jakub
+   Kicinski, Paolo Abeni, Eric Dumazet — same list as series 1).
