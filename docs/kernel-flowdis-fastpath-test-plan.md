@@ -253,44 +253,81 @@ nix run .#flow-dissector-matrix-unified -- \
 Same as 3.1 on hp2 (the gen, but its CPU is the same SKU so
 this is just a noise-floor check). Within ±2-3 ns of hp5.
 
-## Phase 4 — Macro short tests (~2-3 hours)
+## Phase 4 — Macro short tests (~3-4 hours)
 
-Run each protocol variant on each pair for 60 seconds. Verify
-no regression vs unpatched baseline. Each cell exercises a
-specific fast-path arm.
+Run each protocol variant on each pair for 60 seconds with both
+iperf3 (single-threaded server, classic socket-per-stream) and
+iperf2 (thread-per-stream, multi-threaded server, stresses
+kernel scheduler differently). Verify no regression vs
+unpatched baseline. Each cell exercises a specific fast-path
+arm; iperf3 and iperf2 vs the same arm catch different
+kernel-side bugs (TCP-stack vs scheduler-driven).
 
 ### 4.1 Test matrix
 
-| pair | protocol | duration | expected fast-path arm |
-|---|---|---|---|
-| #1 i40e | iperf3 IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
-| #1 i40e | iperf3 IPv6 TCP -P 16 | 60 s | patch 3 (IPv6 TCP) |
-| #1 i40e | iperf3 IPv4 UDP -P 16 | 60 s | patch 2 (IPv4 UDP) |
-| #1 i40e | iperf3 IPv6 UDP -P 16 | 60 s | patch 3 (IPv6 UDP) |
-| #1 i40e | iperf2 IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
-| #2 mlx5 | iperf3 IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
-| #2 mlx5 | iperf3 IPv6 TCP -P 16 | 60 s | patch 3 (IPv6 TCP) |
-| #2 mlx5 | iperf3 IPv4 UDP -P 16 | 60 s | patch 2 (IPv4 UDP) |
-| #2 mlx5 | iperf3 IPv6 UDP -P 16 | 60 s | patch 3 (IPv6 UDP) |
-| #2 mlx5 | iperf2 IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
+| pair | tool | protocol | duration | expected fast-path arm |
+|---|---|---|---|---|
+| #1 i40e | iperf3 | IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
+| #1 i40e | iperf3 | IPv6 TCP -P 16 | 60 s | patch 3 (IPv6 TCP) |
+| #1 i40e | iperf3 | IPv4 UDP -P 16 | 60 s | patch 2 (IPv4 UDP) |
+| #1 i40e | iperf3 | IPv6 UDP -P 16 | 60 s | patch 3 (IPv6 UDP) |
+| #1 i40e | iperf2 | IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
+| #1 i40e | iperf2 | IPv6 TCP -P 16 | 60 s | patch 3 (IPv6 TCP) |
+| #1 i40e | iperf2 | IPv4 UDP -P 16 | 60 s | patch 2 (IPv4 UDP) |
+| #1 i40e | iperf2 | IPv6 UDP -P 16 | 60 s | patch 3 (IPv6 UDP) |
+| #2 mlx5 | iperf3 | IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
+| #2 mlx5 | iperf3 | IPv6 TCP -P 16 | 60 s | patch 3 (IPv6 TCP) |
+| #2 mlx5 | iperf3 | IPv4 UDP -P 16 | 60 s | patch 2 (IPv4 UDP) |
+| #2 mlx5 | iperf3 | IPv6 UDP -P 16 | 60 s | patch 3 (IPv6 UDP) |
+| #2 mlx5 | iperf2 | IPv4 TCP -P 16 | 60 s | patch 2 (IPv4 TCP) |
+| #2 mlx5 | iperf2 | IPv6 TCP -P 16 | 60 s | patch 3 (IPv6 TCP) |
+| #2 mlx5 | iperf2 | IPv4 UDP -P 16 | 60 s | patch 2 (IPv4 UDP) |
+| #2 mlx5 | iperf2 | IPv6 UDP -P 16 | 60 s | patch 3 (IPv6 UDP) |
 
-10 cells × ~1.5 min each ≈ 15-20 min per pair. Run pairs
-sequentially (don't share the gen host).
+16 cells × ~1.5 min each ≈ 25-30 min per pair. Run pairs
+sequentially (don't share the gen host). iperf2 cells start
+fresh after iperf3 cells per pair so the test kernel's RPS /
+TCP state doesn't have to handle protocol-mode mixing.
 
 ### 4.2 Commands per cell
 
 ```bash
+# === iperf3 cells ===
 # Server on DUT (one-time setup per pair):
 ssh root@hp5 'tc qdisc replace dev enp1s0f0np0 root cake bandwidth 10Gbit triple-isolate'
 ssh root@hp5 'nix run nixpkgs#iperf3 -- -s -B 10.10.0.5 -p 5201 -D'
 
-# Client on gen for each cell (example: IPv4 TCP):
+# Client (example: IPv4 TCP):
 ssh root@hp2 'nix run nixpkgs#iperf3 -- -c 10.10.0.5 -p 5201 -P 16 -t 60'
+# IPv6 TCP:  -c fd10:10:0::5  (or with explicit -6)
+# IPv4 UDP:  add -u -b 0
+# IPv6 UDP:  -c fd10:10:0::5 -u -b 0
 
-# IPv6 variant: -c fd10:10:0::5
-# UDP variant: -u -b 0 (no rate limit)
-# iperf2 variant: nix run nixpkgs#iperf2 -- -c 10.10.0.5 -p 5202 -P 16 -t 60 -f m
+# === iperf2 cells ===
+# After iperf3 cells finish on this pair, stop iperf3 server,
+# start iperf2 server on port 5202:
+ssh root@hp5 'pkill iperf3'
+IPERF=/nix/store/iinq9szmz7c60iqlbdhynldky4xri8v9-iperf-2.2.1/bin/iperf
+# Hold-open ssh from launcher (pattern validated in B.2 pre-soak):
+ssh root@hp5 "$IPERF -s -B 10.10.0.5 -p 5202" > /tmp/iperf2_srv_hp5.log 2>&1 &
+
+# Client (IPv4 TCP):
+ssh root@hp2 "$IPERF -c 10.10.0.5 -p 5202 -P 16 -t 60 -f m"
+# IPv6 TCP:  -c fd10:10:0::5  -V (force IPv6) OR address auto-detect
+# IPv4 UDP:  -u -b 0  (uncapped) OR -b 10G (capped to link)
+# IPv6 UDP:  -c fd10:10:0::5 -V -u -b 0
 ```
+
+**iperf2 IPv6 note**: iperf-2.2.1 supports IPv6 either by
+auto-detection of the address family from `-c <addr>` or via the
+explicit `-V` flag. Prefer auto-detect; fall back to `-V` if a
+test cell hangs at connect.
+
+**iperf2 server lifecycle**: per the B.2 readiness doc, use a
+held-open ssh from the test workstation (`ssh root@DUT "$IPERF
+-s ..."`) rather than `iperf -D` (the latter doesn't survive
+the `nix shell` exit). The held-open ssh is killed via an EXIT
+trap when the Phase 4 driver script completes.
 
 Use the TCP-tuning script that we used for B.1 / B.2:
 ```bash
@@ -318,53 +355,87 @@ Capture per-cell:
 
 Save to `perf-results/2026-05-XX-series3-phase4/`.
 
-## Phase 5 — 30-min sustained per pair (~1 hour, can parallelize)
+## Phase 5 — 30-min sustained per pair (~70 min, can parallelize)
 
-Run iperf3 -P 16 -t 1800 (30 min) on each pair. Catches:
-- Slow memory drift not visible in 60-s tests
-- Cumulative cake drop counter creep
-- Late-arriving dmesg warnings
+Two 30-min runs per pair: one iperf3, one iperf2. Catches slow
+memory drift, cumulative cake drop counter creep, and
+late-arriving dmesg warnings under both single-threaded and
+multi-threaded server load.
 
 ```bash
-# hp1<->hp3 mlx5 (24h soak script pattern, but with -t 1800)
+# Round 1: iperf3 30 min, both pairs in parallel
 ssh root@hp1 'nix run nixpkgs#iperf3 -- -c 10.10.2.3 -p 5201 -t 1800 -P 16' &
 ssh root@hp2 'nix run nixpkgs#iperf3 -- -c 10.10.0.5 -p 5201 -t 1800 -P 16' &
 wait
+
+# Round 2: iperf2 30 min, both pairs in parallel (after iperf3
+# servers are killed and iperf2 servers brought up — see Phase 4.2
+# for the iperf2 server lifecycle pattern)
+IPERF=/nix/store/iinq9szmz7c60iqlbdhynldky4xri8v9-iperf-2.2.1/bin/iperf
+ssh root@hp1 "$IPERF -c 10.10.2.3 -p 5202 -P 16 -t 1800 -f m" &
+ssh root@hp2 "$IPERF -c 10.10.0.5 -p 5202 -P 16 -t 1800 -f m" &
+wait
 ```
 
-Both can run simultaneously — independent links, independent
-hosts.
+Both pairs run in parallel within each round (independent
+links, independent host pairs). Round 2 (iperf2) starts after
+Round 1 (iperf3) completes — different L7 tools, but the
+DUT's kernel state should be reset between rounds.
 
-Pass:
+Pass per round per pair:
 - Throughput stable (no degradation over 30 min)
-- RSS on DUTs (hp3, hp5) stable (~3500 MB baseline)
+- RSS on DUTs (hp3, hp5) stable (+<50 MB)
 - No new dmesg alerts
 - cake drops cumulative <100
 
-## Phase 6 — 24h soak (parallel on both pairs)
+## Phase 6 — 24h soak (parallel on both pairs, different tools)
 
-Replay the B.1 pattern from `perf-results/2026-05-25/` on BOTH
-pairs simultaneously.
+Pair the soak coverage so we exercise BOTH NIC families AND
+BOTH iperf modes in one 24h wall-clock window:
 
-### 6.1 Reuse the B.1 soak script
+  Pair #1 (i40e 10 GbE hp2<->hp5): **24h iperf3** soak
+    -> validates iperf3 stability on i40e (new — never soaked
+       this pair before; complements B.1 mlx5 iperf3 result)
+
+  Pair #2 (mlx5 25 GbE hp1<->hp3): **24h iperf2** soak
+    -> validates iperf2 stability on mlx5 (new — B.2 was only
+       prepared, never fired against series 3 kernel)
+
+Pairs run in parallel; total wall clock 24h. This gives us four
+new long-duration data points:
+  - iperf3 / i40e / 24h: new (mlx5 was B.1)
+  - iperf2 / mlx5 / 24h: new
+
+Plus the prior B.1 iperf3/mlx5 24h result as a comparison
+baseline.
+
+### 6.1 Reuse the B.1 + B.2 soak scripts
+
+Two scripts, one per pair:
 
 `perf-results/2026-05-25/soak_iperf3_main.log` and friends
-captured the script shape. For series 3 testing, parameterise
-the script to take a pair name and write per-pair logs:
+captured the iperf3 script shape. Parameterise for pair #1:
 
 ```bash
-# Pair 1 (i40e):
 PAIR=hp2-hp5-x710 SERVER=hp5 SERVER_IP=10.10.0.5 \
-  /home/das/Downloads/xdp2/perf-results/2026-05-25/soak_iperf3_pair.sh &
-
-# Pair 2 (mlx5):
-PAIR=hp1-hp3-mlx5 SERVER=hp3 SERVER_IP=10.10.2.3 \
+  DEV=enp1s0f0np0 BANDWIDTH=10Gbit \
   /home/das/Downloads/xdp2/perf-results/2026-05-25/soak_iperf3_pair.sh &
 ```
 
-The script doesn't exist as a parameterised version yet — we'd
-adapt the B.1 script. Probably a small editing task during
-Phase 6 setup.
+`perf-results/2026-05-25/soak_iperf2_ready.sh` is the iperf2
+soak launcher (already parameterisable, validated in the B.2
+1h pre-soak). Adapt for pair #2:
+
+```bash
+PAIR=hp1-hp3-mlx5 SERVER=hp3 SERVER_IP=10.10.2.3 \
+  DEV=enp1s0f0np0 BANDWIDTH=25Gbit \
+  /home/das/Downloads/xdp2/perf-results/2026-05-25/soak_iperf2_ready.sh &
+```
+
+Neither script exists as a parameterised version yet — small
+editing task during Phase 6 setup. The B.1 script needs the
+SERVER_IP and DEV factored out; the B.2 script needs DEV and
+BANDWIDTH factored out.
 
 ### 6.2 Snapshot collection (per pair, every hour)
 
@@ -421,13 +492,13 @@ Commit cover letter update. Format-patch again. Re-checkpatch.
 | 1 — deploy + boot | 30-60 min | 30-60 min |
 | 2 — functional smoke | 30 min | 30 min |
 | 3 — microbench | 1-2 h | 1-2 h |
-| 4 — macro short | 2-3 h | 2-3 h |
-| 5 — 30-min sustained | 5 min setup | 35 min (parallel) |
-| 6 — 24 h soak | 15 min setup + check-ins | 24 h |
+| 4 — macro short (16 cells) | 3-4 h | 3-4 h |
+| 5 — 30-min sustained × 2 rounds | 10 min setup | 70 min (parallel within each round) |
+| 6 — 24 h soak | 30 min setup + check-ins | 24 h |
 | 7 — analysis + cover-letter | 2-3 h | 2-3 h |
 
-**Active hands-on total**: ~10-15 hours
-**Wall clock total** (with parallel soaks): ~36-40 hours
+**Active hands-on total**: ~12-18 hours
+**Wall clock total** (with parallel soaks): ~38-42 hours
 
 ## Parallelisation notes
 
