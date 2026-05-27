@@ -1,0 +1,172 @@
+From 390998d4efbcc755e004281bb21f9fe68abc6fbb Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Wed, 27 May 2026 14:51:37 -0700
+Subject: [PATCH RFC] net: flow_dissector: add fast-path entry-point skeleton
+
+Introduce flow_dissect_fast(), a straight-line fast-path
+dispatcher invoked from __skb_flow_dissect() after the BPF
+flow_dissector override check and before the slow-path graph
+walk.
+
+This patch is framework only:
+
+  - flow_dissect_fast() validates that the caller is using one
+    of the two standard dissectors (flow_keys_dissector or
+    flow_keys_dissector_symmetric) and that no slow-path-only
+    flag is requested.
+  - It then switches on the outer ethertype and calls a per-shape
+    extractor.
+  - The IPv4 and IPv6 extractors are stubs that return false; the
+    actual fast-path bodies are added in follow-up patches.
+
+Architectural contract (enforced by the follow-up patches):
+
+  - Fast-path output is byte-identical to the slow path on every
+    shape it handles. The win comes from bypassing the dispatch
+    loop, not from skipping field writes. This will be verified
+    by a kernel selftest added with the first non-stub patch.
+  - Fall-through cost on a packet that misses every fast-path is
+    a single ethertype switch (about 5 cycles). Independent of
+    how many fast-path shapes are wired in.
+  - BPF flow_dissector hook precedence is preserved: the
+    fast-path runs only after the BPF override check decides no
+    BPF program is loaded for this netns.
+  - Custom dissectors (e.g. tc cls_flow with bespoke key sets)
+    fall through unconditionally.
+
+No behaviour change in this patch: every fast-path stub returns
+false, so every packet still reaches the slow path. The only
+measurable cost is one ethertype switch per dissect call on
+packets that pass the BPF check.
+
+This is the framework patch of a series that backports a
+performance technique developed in the XDP2 project
+(https://github.com/randomizedcoder/xdp2). The R3.4 fast-path
+chain technique is XDP2's largest single optimisation, accounting
+for the majority of the 35-42 % speedup XDP2 demonstrates over
+the in-tree dissector on common L2-L4 traffic. Unlike XDP2's
+codegen-based parser, this series captures the technique in
+hand-written kernel C, requiring no new tooling and no new ABI.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ net/core/flow_dissector.c | 96 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 96 insertions(+)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 2a98f5fa74eb..c5954916ad9f 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -1035,6 +1035,91 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
+ 	return hdr->ver == 1 && hdr->type == 1 && hdr->code == 0;
+ }
+ 
++/* Forward declaration: flow_keys_dissector_symmetric is defined later
++ * in this file but is needed by the fast-path identity check below.
++ */
++static struct flow_dissector flow_keys_dissector_symmetric;
++
++/* Fast-path stub for eth+IPv4+{TCP,UDP} packets. Returns true when the
++ * fast-path successfully filled @target_container; false to defer to
++ * the slow path. This stub returns false unconditionally; the actual
++ * extractor is added in a follow-up patch.
++ */
++static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
++				   struct flow_dissector *flow_dissector,
++				   void *target_container,
++				   const void *data,
++				   int nhoff, int hlen)
++{
++	return false;
++}
++
++/* Fast-path stub for eth+IPv6+{TCP,UDP} packets. As with the IPv4 stub
++ * above, this returns false until the IPv6 fast-path is added in a
++ * follow-up patch.
++ */
++static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
++				   struct flow_dissector *flow_dissector,
++				   void *target_container,
++				   const void *data,
++				   int nhoff, int hlen)
++{
++	return false;
++}
++
++/* Try to dissect @data into @target_container using a straight-line
++ * extractor for common packet shapes. Returns true on success (caller
++ * should return); false to defer to the slow-path graph walk.
++ *
++ * The fast-path is only attempted for the two standard dissectors
++ * (flow_keys_dissector and flow_keys_dissector_symmetric) and for
++ * flag combinations where the slow-path's encap-walking, MPLS deep
++ * parse, and other behaviours are not requested. Custom dissectors
++ * (e.g. tc cls_flow with bespoke key sets) always defer.
++ *
++ * Cost when the fast-path declines: one ethertype switch (~5 cycles).
++ * Independent of how many fast-path shapes are wired up.
++ *
++ * Architectural contract:
++ *  - Must produce byte-identical @target_container to the slow path
++ *    on every shape it handles (verified by selftest).
++ *  - Must run AFTER the BPF flow_dissector override check; BPF
++ *    semantics are unchanged.
++ *  - Must not modify @target_container on a false return.
++ */
++static bool flow_dissect_fast(const struct sk_buff *skb,
++			      struct flow_dissector *flow_dissector,
++			      void *target_container,
++			      const void *data,
++			      __be16 proto, int nhoff, int hlen,
++			      unsigned int flags)
++{
++	/* Only attempt the fast-path for the two standard dissectors. */
++	if (flow_dissector != &flow_keys_dissector &&
++	    flow_dissector != &flow_keys_dissector_symmetric)
++		return false;
++
++	/* The fast-path doesn't implement encap-walking, MPLS deep parse,
++	 * or any other slow-path-only behaviour. Bail to the slow path
++	 * whenever the caller asks for flags we don't handle.
++	 */
++	if (flags & ~(unsigned int)FLOW_DISSECTOR_F_PARSE_1ST_FRAG)
++		return false;
++
++	switch (proto) {
++	case htons(ETH_P_IP):
++		return flow_dissect_fast_ipv4(skb, flow_dissector,
++					      target_container, data,
++					      nhoff, hlen);
++	case htons(ETH_P_IPV6):
++		return flow_dissect_fast_ipv6(skb, flow_dissector,
++					      target_container, data,
++					      nhoff, hlen);
++	default:
++		return false;
++	}
++}
++
+ /**
+  * __skb_flow_dissect - extract the flow_keys struct and return it
+  * @net: associated network namespace, derived from @skb if NULL
+@@ -1171,6 +1256,17 @@ bool __skb_flow_dissect(const struct net *net,
+ 
+ 	rcu_read_unlock();
+ 
++	/* Try a straight-line fast-path for common packet shapes
++	 * (eth+IPv4+{TCP,UDP}, eth+IPv6+{TCP,UDP}, etc.). On a hit, the
++	 * fast-path populates the same fields the slow path would and we
++	 * return immediately. On a miss, defer to the slow-path graph
++	 * walk below. See flow_dissect_fast() for the architectural
++	 * contract.
++	 */
++	if (flow_dissect_fast(skb, flow_dissector, target_container,
++			      data, proto, nhoff, hlen, flags))
++		return true;
++
+ 	if (dissector_uses_key(flow_dissector,
+ 			       FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
+ 		struct ethhdr *eth = eth_hdr(skb);
+-- 
+2.54.0
+
