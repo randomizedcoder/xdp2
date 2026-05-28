@@ -1,0 +1,17 @@
+=== Series 3 microbench, eth+IPv4+TCP synthetic packet ===
+Workstation: AMD Ryzen Threadripper PRO 3945WX (Zen 2, 24 cores)
+Compiler: gcc 15.2 with -O3
+libflowdis built via 'nix build .#xdp2' in /tmp/lib-{patched,baseline}/
+
+10 runs each, 10M iterations per run, ns/pkt:
+
+Baseline (unpatched):
+  13.62  13.40  13.28  11.98  12.30  11.84  11.93  12.17  11.81  12.05
+  mean=12.44  stdev=0.71  range=11.81-13.62
+
+Patched (series 3, all 3 patches in libflowdis):
+  5.88  6.38  6.59  6.06  7.48  6.98  5.89  6.92  6.87  6.57
+  mean=6.56  stdev=0.51  range=5.88-7.48
+
+Delta: -5.88 ns/pkt, -47.3 %
+Welch t test: very significant (means differ by 8x pooled stdev)
