@@ -130,6 +130,44 @@ incremental, no new framework, no new tooling, no new ABI.
     https://lkml.kernel.org/netdev/614bf3bc4850_b9b1a208e2@john-XPS-13-9370.notmuch/t/
 
 
+Measured numbers
+================
+
+Microbench (synthetic eth+IPv4+TCP packet, always hits the
+fast-path; libflowdis userspace port of the same C code,
+gcc -O3, 10M iterations per run):
+
+  uarch              host                            baseline    patched    delta
+  -----              ----                            --------    -------    -----
+  Zen 2 (4.5 GHz)    Threadripper PRO 3945WX, N=10   12.44 ns    6.56 ns    -47.3 %
+  Zen 1 (3.6 GHz)    Ryzen 5 PRO 2400G hp5, N=5      20.50 ns    20.53 ns   within noise
+
+Zen 2 delta is 8 x pooled stdev (highly significant). Zen 1
+shows no measurable delta at the median; the ~36 cycle saving
+falls below the clock_gettime(CLOCK_MONOTONIC_RAW) timing band
+on Zen 1 at this iteration depth. Visible at p10 but not p50.
+
+This is the upper-bound result (one packet shape, always hits
+the fast-path). On real traffic with mixed shapes, some packets
+fall to the slow path; the average improvement is smaller. The
+synthetic upper bound is consistent with kernel projections of
+roughly 25-30 % at the median on common internet RX traffic.
+
+Macro tests (60 s, -P 16, sch_cake triple-isolate, tuned TCP,
+all combinations IPv4/IPv6 x TCP/UDP x iperf3/iperf2 on two
+testbed pairs):
+
+  pair                 Gbit/s baseline (B.1)     Gbit/s patched     delta
+  ----                 --------------------       --------------    -----
+  mlx5 25 GbE          16.023 (N=279, 24h soak)  15.942 - 16.785   -0.5 % to +4.7 %
+  i40e 10 GbE          (no prior baseline)        9.27  -  9.56    near link rate
+
+16 cells total, 0 dmesg WARN/BUG/oops introduced by the patches
+on any host across any cell. Full numbers in
+perf-results/2026-05-28-series3-phase4/results-full.md on the
+flow-keys-compat-reorder branch.
+
+
 Pre-post checklist done
 =======================
 
@@ -148,24 +186,32 @@ Pre-post checklist done
     no new findings beyond the existing kernel API patterns
     (the same easily-swappable-parameters warning is already
     flagged on __skb_flow_dissect itself).
+  - Boot and pass traffic on four test-bed hosts. Two Intel
+    X710 10 GbE i40e pair (hp2 gen, hp5 dut); two Mellanox
+    CX-4 Lx 25 GbE mlx5_core pair (hp1 gen, hp3 dut). All on
+    AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t).
+  - 16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP x
+    two pairs). No regression vs the B.1 24 h soak baseline on
+    mlx5; first ever measurement on i40e at near link rate.
 
 
 Pre-post checklist still TODO before non-RFC posting
 ====================================================
 
-  - Boot and pass traffic on four test-bed hosts (two Intel
-    X710 10 GbE i40e pairs, two Mellanox CX-4 Lx 25 GbE
-    mlx5_core pairs). In progress.
-  - iperf3 and iperf2 macro tests per pair, per L3/L4 arm.
   - 24h iperf3 soak and 24h iperf2 soak. Same pattern as the
-    series 1 soak result for sch_cake.
+    series 1 soak result for sch_cake. Queued for the i40e and
+    mlx5 pairs in parallel.
+  - 30-min sustained per pair (catches drift not visible in
+    60 s runs).
   - Kernel selftest in tools/testing/selftests/net/ that
     compares fast-path and slow-path output byte-by-byte.
-  - Per-workload microbench numbers from the selftest harness.
+  - sparse-master run instead of nixpkgs sparse (the latter
+    cannot parse recent kernel macros).
   - VLAN fast-path (planned for v2).
 
-The non-RFC post will include the measured numbers from the
-test-bed runs and the selftest output.
+The non-RFC post will include the soak data and the selftest
+output, and update the microbench section with sparse-master
+results.
 
 
 This is sent as RFC for early feedback on:

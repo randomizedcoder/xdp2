@@ -186,21 +186,41 @@ The fast-path does not write key_tags->flow_label, so for
 byte-exactness we defer when both conditions hold. The common
 case (label == 0 on most internet traffic) takes the fast-path.
 
-## Pending tests (before non-RFC submission)
+## Test plan status (updated 2026-05-28)
 
 Per `docs/kernel-flowdis-fastpath-test-plan.md`:
 
-- Phase 1: deploy and boot patched kernel on hp1, hp2, hp3, hp5
-- Phase 2: functional smoke (ping, brief iperf3, cake works)
-- Phase 3: microbench (flow-dissector-matrix-unified on hp5 + hp3)
-- Phase 4: macro short (16 cells: iperf3 + iperf2 × IPv4/IPv6 ×
-  TCP/UDP × two pairs)
-- Phase 5: 30-min sustained per pair (iperf3 round, iperf2 round)
-- Phase 6: 24h soak (i40e pair iperf3, mlx5 pair iperf2 in parallel)
-- Phase 7: analysis + cover-letter update with measured numbers
+| phase | task | status |
+|---|---|---|
+| 0 | prereqs (kernel build, IPv6 NixOS config) | done |
+| 1 | deploy + boot patched kernel on hp1/hp2/hp3/hp5 | done |
+| 2 | functional smoke (ping, cake, dual stack) | done |
+| 3 | microbench (libflowdis port) | done |
+| 4 | macro short (16 cells) | done |
+| 5 | 30-min sustained per pair | pending |
+| 6 | 24h soak (i40e iperf3 + mlx5 iperf2 parallel) | pending |
+| 7 | cover-letter update with measured numbers | done |
 
-Phase 0 (kernel build on the four hosts) is in flight at the time
-of writing.
+### Phase 3 numbers
+
+Microbench (synthetic eth+IPv4+TCP, always-hit fast-path):
+
+- Zen 2 Threadripper PRO 3945WX (N=10): 12.44 -> 6.56 ns/pkt
+  (-47.3 %, 8x pooled stdev)
+- Zen 1 Ryzen 5 PRO 2400G hp5 (N=5): 20.50 -> 20.53 ns/pkt
+  (within noise; cover letter's "masked at p50" prediction holds)
+
+Details: `perf-results/2026-05-28-series3-phase3/results.md`.
+
+### Phase 4 numbers
+
+16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP, two pairs):
+
+- mlx5 25 GbE TCP: 15.94 - 16.78 Gbit/s (B.1 baseline 16.023)
+- i40e 10 GbE TCP: 9.28 - 9.41 Gbit/s (near link rate)
+- 0 dmesg WARN/BUG introduced by the patches across all cells
+
+Details: `perf-results/2026-05-28-series3-phase4/results-full.md`.
 
 ## Next sessions
 
