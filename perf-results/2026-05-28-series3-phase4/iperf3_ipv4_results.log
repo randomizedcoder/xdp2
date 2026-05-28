@@ -1,0 +1,6 @@
+pair gen->dut proto gbits retx_or_lost
+mlx5 hp1->$ 10.10.2.3 UDP 60s 10.483 0
+i40e hp2->$ 10.10.0.5 TCP 9.408 32086
+i40e hp2->$ 10.10.0.5 UDP 9.563 5203826
+mlx5 hp1->$ 10.10.2.3 TCP 15.942 8539
+mlx5 hp1->$ 10.10.2.3 UDP 10.446 0

@@ -1,0 +1,38 @@
+------------------------------------------------------------
+Client connecting to 10.10.0.5, TCP port 5202
+TCP window size:  977 KByte (default)
+------------------------------------------------------------
+[  2] local 10.10.0.2 port 6799 connected with 10.10.0.5 port 5202
+[ 14] local 10.10.0.2 port 6949 connected with 10.10.0.5 port 5202
+[  6] local 10.10.0.2 port 6935 connected with 10.10.0.5 port 5202
+[  3] local 10.10.0.2 port 6907 connected with 10.10.0.5 port 5202
+[  4] local 10.10.0.2 port 6923 connected with 10.10.0.5 port 5202
+[  8] local 10.10.0.2 port 6855 connected with 10.10.0.5 port 5202
+[  9] local 10.10.0.2 port 6865 connected with 10.10.0.5 port 5202
+[  5] local 10.10.0.2 port 6815 connected with 10.10.0.5 port 5202
+[ 13] local 10.10.0.2 port 6917 connected with 10.10.0.5 port 5202
+[ 11] local 10.10.0.2 port 6895 connected with 10.10.0.5 port 5202
+[ 15] local 10.10.0.2 port 6933 connected with 10.10.0.5 port 5202
+[  7] local 10.10.0.2 port 6847 connected with 10.10.0.5 port 5202
+[ 16] local 10.10.0.2 port 6831 connected with 10.10.0.5 port 5202
+[  1] local 10.10.0.2 port 6879 connected with 10.10.0.5 port 5202
+[ 10] local 10.10.0.2 port 6889 connected with 10.10.0.5 port 5202
+[ 12] local 10.10.0.2 port 6947 connected with 10.10.0.5 port 5202
+[ ID] Interval       Transfer     Bandwidth
+[ 10] 0.0000-60.0067 sec  3514 MBytes   491 Mbits/sec
+[  9] 0.0000-60.0070 sec  5529 MBytes   773 Mbits/sec
+[  6] 0.0000-60.0064 sec  3818 MBytes   534 Mbits/sec
+[  3] 0.0000-60.0064 sec  3514 MBytes   491 Mbits/sec
+[  5] 0.0000-60.0062 sec  3399 MBytes   475 Mbits/sec
+[  4] 0.0000-60.0061 sec  3530 MBytes   494 Mbits/sec
+[  7] 0.0000-60.0058 sec  3708 MBytes   518 Mbits/sec
+[ 13] 0.0000-60.0059 sec  3514 MBytes   491 Mbits/sec
+[  2] 0.0000-60.0067 sec  3777 MBytes   528 Mbits/sec
+[ 15] 0.0000-60.0058 sec  4099 MBytes   573 Mbits/sec
+[ 14] 0.0000-60.0228 sec  5508 MBytes   770 Mbits/sec
+[  1] 0.0000-60.0225 sec  3715 MBytes   519 Mbits/sec
+[ 11] 0.0000-60.0231 sec  5509 MBytes   770 Mbits/sec
+[ 12] 0.0000-60.0227 sec  5508 MBytes   770 Mbits/sec
+[  8] 0.0000-60.0060 sec  3683 MBytes   515 Mbits/sec
+[ 16] 0.0000-60.0227 sec  4982 MBytes   696 Mbits/sec
+[SUM] 0.0000-60.0230 sec  67306 MBytes  9406 Mbits/sec

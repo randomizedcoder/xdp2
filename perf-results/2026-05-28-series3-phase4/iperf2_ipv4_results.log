@@ -1,0 +1,6 @@
+=== Phase 4 IPv4 iperf2 cells (60s, -P 16) ===
+pair gen->dut proto gbits
+i40e hp2->$ 10.10.0.5 TCP 9.406
+i40e hp2->$ 10.10.0.5 UDP 10.363
+mlx5 hp1->$ 10.10.2.3 TCP 16.785
+mlx5 hp1->$ 10.10.2.3 UDP 10.265
