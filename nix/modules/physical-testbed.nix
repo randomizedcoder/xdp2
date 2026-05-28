@@ -66,12 +66,32 @@ in
             example = "10.10.0.2";
             description = "Peer IPv4 address (informational; used by test scripts).";
           };
+          local6 = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "fd10:10:0::5/64";
+            description = ''
+              Optional local IPv6 ULA address (CIDR form) for this
+              interface. Convention used by xdp2 testbeds:
+              fd10:10:N::M/64 where N matches the v4 third octet
+              (0/1 for hp2-hp5 pair, 2/3 for hp1-hp3 pair) and M
+              matches the v4 host octet (.2/.5 or .1/.3). Set to
+              null (default) to skip IPv6 assignment.
+            '';
+          };
+          peer6 = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "fd10:10:0::2";
+            description = "Peer IPv6 address (informational; used by test scripts).";
+          };
         };
       });
       default = { };
       description = ''
         Per-interface static address assignment. Replaces the accidental
         link-local 169.254.x.x fallback that hosts get with no config.
+        IPv6 fields are optional and skipped when null.
       '';
     };
 
@@ -376,15 +396,19 @@ in
 
     # ---- Static addressing on peer interfaces ----
     networking.interfaces = lib.mapAttrs' (ifname: addr:
-      lib.nameValuePair ifname {
-        ipv4.addresses = [
-          (let
-            parts = lib.splitString "/" addr.local;
-            ip = lib.elemAt parts 0;
-            prefix = lib.toInt (lib.elemAt parts 1);
-          in { address = ip; prefixLength = prefix; })
-        ];
-      }
+      let
+        parseCidr = s:
+          let parts = lib.splitString "/" s;
+          in {
+            address = lib.elemAt parts 0;
+            prefixLength = lib.toInt (lib.elemAt parts 1);
+          };
+      in
+      lib.nameValuePair ifname ({
+        ipv4.addresses = [ (parseCidr addr.local) ];
+      } // lib.optionalAttrs (addr.local6 != null) {
+        ipv6.addresses = [ (parseCidr addr.local6) ];
+      })
     ) cfg.addresses;
 
     # Disable DHCP on peer interfaces (we set static IPs above).

@@ -579,6 +579,13 @@
           inherit pkgs lib;
         };
 
+        # iperf3 + iperf2 long-running soak runners for the testbed
+        # pairs. See nix/testbed-soaks.nix for the parameter list and
+        # usage examples.
+        testbedSoaks = import ./nix/testbed-soaks.nix {
+          inherit pkgs lib;
+        };
+
         # =====================================================================
         # Phase 1: Packaging (x86_64 .deb only)
         # See: documentation/nix/microvm-implementation-phase1.md
@@ -1224,6 +1231,17 @@
           sparse-master = kernelStaticAnalysis.sparseMaster;
           kernel-smatch = kernelStaticAnalysis.smatch;
           kernel-check = kernelStaticAnalysis.kernelCheck;
+
+          # ===================================================================
+          # Testbed soak runners (24h iperf3, 24h iperf2)
+          # See: nix/testbed-soaks.nix
+          # Usage:
+          #   PAIR=hp2-hp5-x710 GEN=hp2 DUT=hp5 \
+          #     DUT_IP4=10.10.0.5 DEV=enp1s0f0np0 BANDWIDTH=10Gbit \
+          #     DURATION=86400 nix run .#soak-iperf3
+          # ===================================================================
+          soak-iperf3 = testbedSoaks.soakIperf3;
+          soak-iperf2 = testbedSoaks.soakIperf2;
 
           # ===================================================================
           # Phase 1: Packaging outputs (x86_64 .deb only)

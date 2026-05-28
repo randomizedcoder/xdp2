@@ -34,6 +34,7 @@ It is written so that someone new to the project can:
 12. [Replicating in your own environment](#12-replicating-in-your-own-environment)
 13. [Future work](#13-future-work)
 14. [Second testbed pair (hp1 ↔ hp3, mlx5_core 25 GbE)](#14-second-testbed-pair-hp1--hp3-mlx5_core-25-gbe)
+15. [IPv6 testbed addresses (ULA)](#15-ipv6-testbed-addresses-ula)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1050,6 +1051,99 @@ rebuilds.
   is brought up on the mlx5 pair, add the same UDP/443 → queue 1 rule
   pattern used on hp2/hp5; the mlx5_core branch translates it to a
   tc-flower filter automatically.
+
+---
+
+## 15. IPv6 testbed addresses (ULA)
+
+Both testbed pairs carry IPv6 alongside IPv4 on the back-to-back
+interfaces. We use IPv6 ULA (RFC 4193, `fd00::/8` private prefix)
+addressed deterministically so the layout is mnemonic and survives
+reboot.
+
+### Layout convention
+
+`fd10:10:N::M/64` where:
+
+- `N` matches the v4 third octet (`0` and `1` for the hp2-hp5 pair;
+  `2` and `3` for the hp1-hp3 pair)
+- `M` matches the v4 host octet (`.2`/`.5` on pair 1; `.1`/`.3` on
+  pair 2)
+
+This makes the v6 address derivable from the v4 address at a glance.
+
+| pair | iface | host A | host B |
+| --- | --- | --- | --- |
+| hp2 ↔ hp5 (i40e 10 GbE) | `enp1s0f0np0` | hp2 `fd10:10:0::2/64` | hp5 `fd10:10:0::5/64` |
+| hp2 ↔ hp5 | `enp1s0f1np1` | hp2 `fd10:10:1::2/64` | hp5 `fd10:10:1::5/64` |
+| hp1 ↔ hp3 (mlx5 25 GbE) | `enp1s0f0np0` | hp1 `fd10:10:2::1/64` | hp3 `fd10:10:2::3/64` |
+| hp1 ↔ hp3 | `enp1s0f1np1` | hp1 `fd10:10:3::1/64` | hp3 `fd10:10:3::3/64` |
+
+The `/64` prefix is per-link (one link per cable). Each per-link
+subnet is independent so adding a third pair later (or a third
+interface on an existing pair) is a matter of picking the next
+`N`.
+
+### Where these are set
+
+The IPv6 addresses are part of the NixOS `xdp2.testbed.addresses`
+schema (see [`nix/modules/physical-testbed.nix`](../nix/modules/physical-testbed.nix)
+for the option definition). Each host's
+`~/nixos/hp/<hp>/configuration.nix` carries:
+
+```nix
+xdp2.testbed = {
+  addresses = {
+    enp1s0f0np0 = {
+      local  = "10.10.0.5/29";     peer  = "10.10.0.2";
+      local6 = "fd10:10:0::5/64";  peer6 = "fd10:10:0::2";
+    };
+    # ...
+  };
+};
+```
+
+The `local6` and `peer6` fields are optional (`nullable`); set both
+to add IPv6 assignment, leave at default (`null`) to skip. The
+module's `networking.interfaces` builder picks up `local6` and
+emits an `ipv6.addresses = [ ... ]` entry alongside the v4 one.
+
+### Verifying IPv6 is up
+
+After `nixos-rebuild switch` on each host, confirm the addresses
+are configured:
+
+```bash
+ssh root@hp5 'ip -6 addr show dev enp1s0f0np0 | grep fd10'
+# inet6 fd10:10:0::5/64 scope global noprefixroute ...
+
+ssh root@hp2 'ping -6 -c 3 fd10:10:0::5'
+# 64 bytes from fd10:10:0::5: icmp_seq=1 ttl=64 time=...
+```
+
+### Why ULA (`fd00::/8`) and not link-local
+
+Link-local addresses (`fe80::/10`) work fine for direct neighbour
+discovery but require specifying the source interface in every
+client invocation (`-6 -c fe80::xxx%enp1s0f0np0`). ULA addresses
+route through the kernel's normal IPv6 forwarding logic, so test
+clients like `iperf3 -6 -c fd10:10:0::5` work without per-call
+interface annotation.
+
+ULA also makes test-script generation simpler: the same `-c <v4>`
+vs `-c <v6>` mode switch works with bare addresses, no escape
+needed.
+
+### Why per-link `/64`
+
+IPv6 best practice is `/64` per L2 segment so SLAAC and ND work
+correctly. Even though we don't use SLAAC here (addresses are
+static), keeping the prefix size canonical avoids surprises if we
+later add VLANs or run things like radvd for autoconfiguration.
+
+The `/64` also gives plenty of room to add hosts to a pair if it
+ever becomes a 3+ host segment (e.g. an out-of-band test
+generator).
 
 ---
 
