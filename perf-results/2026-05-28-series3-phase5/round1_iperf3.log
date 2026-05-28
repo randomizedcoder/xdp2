@@ -1,0 +1,4 @@
+=== Phase 5 Round 1: 30-min iperf3 -P 16 in parallel on both pairs ===
+start: Thu May 28 11:44:55 AM PDT 2026
+PID_HP2=3730143 PID_HP1=3730144
+will end ~Thu May 28 12:14:55 PM PDT 2026

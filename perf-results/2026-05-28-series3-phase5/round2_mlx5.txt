@@ -1,0 +1,38 @@
+------------------------------------------------------------
+Client connecting to 10.10.2.3, TCP port 5202
+TCP window size:  977 KByte (default)
+------------------------------------------------------------
+[  4] local 10.10.2.1 port 5343 connected with 10.10.2.3 port 5202
+[  6] local 10.10.2.1 port 5389 connected with 10.10.2.3 port 5202
+[  1] local 10.10.2.1 port 5371 connected with 10.10.2.3 port 5202
+[  8] local 10.10.2.1 port 5417 connected with 10.10.2.3 port 5202
+[  3] local 10.10.2.1 port 5373 connected with 10.10.2.3 port 5202
+[  9] local 10.10.2.1 port 5349 connected with 10.10.2.3 port 5202
+[  7] local 10.10.2.1 port 5449 connected with 10.10.2.3 port 5202
+[ 10] local 10.10.2.1 port 5397 connected with 10.10.2.3 port 5202
+[  2] local 10.10.2.1 port 5365 connected with 10.10.2.3 port 5202
+[  5] local 10.10.2.1 port 5433 connected with 10.10.2.3 port 5202
+[ 14] local 10.10.2.1 port 5457 connected with 10.10.2.3 port 5202
+[ 13] local 10.10.2.1 port 5455 connected with 10.10.2.3 port 5202
+[ 12] local 10.10.2.1 port 5427 connected with 10.10.2.3 port 5202
+[ 15] local 10.10.2.1 port 5463 connected with 10.10.2.3 port 5202
+[ 11] local 10.10.2.1 port 5409 connected with 10.10.2.3 port 5202
+[ 16] local 10.10.2.1 port 5477 connected with 10.10.2.3 port 5202
+[ ID] Interval       Transfer     Bandwidth
+[  3] 0.0000-1800.0168 sec  262978 MBytes  1226 Mbits/sec
+[ 11] 0.0000-1800.0169 sec  208629 MBytes   972 Mbits/sec
+[ 10] 0.0000-1800.0167 sec  236559 MBytes  1102 Mbits/sec
+[ 12] 0.0000-1800.0164 sec  199633 MBytes   930 Mbits/sec
+[  1] 0.0000-1800.0162 sec  258916 MBytes  1207 Mbits/sec
+[  8] 0.0000-1800.0164 sec  151769 MBytes   707 Mbits/sec
+[ 13] 0.0000-1800.0160 sec  256014 MBytes  1193 Mbits/sec
+[  7] 0.0000-1800.0165 sec  149846 MBytes   698 Mbits/sec
+[ 16] 0.0000-1800.0157 sec  151201 MBytes   705 Mbits/sec
+[  9] 0.0000-1800.0167 sec  250056 MBytes  1165 Mbits/sec
+[  4] 0.0000-1800.0165 sec  250972 MBytes  1170 Mbits/sec
+[ 14] 0.0000-1800.0167 sec  209595 MBytes   977 Mbits/sec
+[  6] 0.0000-1800.0162 sec  247375 MBytes  1153 Mbits/sec
+[  2] 0.0000-1800.0165 sec  250913 MBytes  1169 Mbits/sec
+[  5] 0.0000-1800.0158 sec  149273 MBytes   696 Mbits/sec
+[ 15] 0.0000-1800.0162 sec  248107 MBytes  1156 Mbits/sec
+[SUM] 0.0000-1800.0167 sec  3481837 MBytes  16226 Mbits/sec

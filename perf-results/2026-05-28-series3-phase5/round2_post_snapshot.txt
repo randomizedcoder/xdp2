@@ -1,0 +1,32 @@
+=== hp3 post-round2 ===
+qdisc cake 8001: root refcnt 65 bandwidth 25Gbit diffserv3 triple-isolate nonat nowash no-ack-filter split-gso rtt 100ms raw overhead 0 
+ Sent 22468737299 bytes 337332530 pkt (dropped 0, overlimits 0 requeues 22195) 
+ backlog 0b 0p requeues 22195
+ memory used: 260162b of 15140Kb
+ capacity estimate: 25Gbit
+ min/max network layer size:           42 /    1514
+ min/max overhead-adjusted size:       42 /    1514
+ active queues:                         0
+ average network hdr offset:           14
+
+-- mem
+               total        used        free      shared  buff/cache   available
+Mem:           63989        3603       58239           5        2836       60386
+-- dmesg alerts
+8
+=== hp5 post-round2 ===
+qdisc cake 8001: root refcnt 9 bandwidth 10Gbit diffserv3 triple-isolate nonat nowash no-ack-filter split-gso rtt 100ms raw overhead 0 
+ Sent 16457150113 bytes 246390003 pkt (dropped 0, overlimits 0 requeues 15627) 
+ backlog 0b 0p requeues 15627
+ memory used: 129600b of 15140Kb
+ capacity estimate: 10Gbit
+ min/max network layer size:           42 /    1514
+ min/max overhead-adjusted size:       42 /    1514
+ average network hdr offset:           14
+
+                   Bulk  Best Effort        Voice
+-- mem
+               total        used        free      shared  buff/cache   available
+Mem:           63233        3399       54435           5        6008       59834
+-- dmesg alerts
+8
