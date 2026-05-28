@@ -1,0 +1,6 @@
+=== Phase 4 IPv6 iperf2 cells (60s, -P 16) ===
+pair gen->dut proto gbits
+i40e hp2 TCP 9.278
+i40e hp2 UDP 10.129
+mlx5 hp1 TCP 16.719
+mlx5 hp1 UDP 9.980

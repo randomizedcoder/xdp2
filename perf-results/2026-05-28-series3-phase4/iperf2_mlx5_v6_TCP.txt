@@ -1,0 +1,38 @@
+------------------------------------------------------------
+Client connecting to fd10:10:2::3, TCP port 5202
+TCP window size:  977 KByte (default)
+------------------------------------------------------------
+[ 11] local fd10:10:2::1 port 28047 connected with fd10:10:2::3 port 5202
+[  5] local fd10:10:2::1 port 28069 connected with fd10:10:2::3 port 5202
+[  3] local fd10:10:2::1 port 28037 connected with fd10:10:2::3 port 5202
+[  2] local fd10:10:2::1 port 28033 connected with fd10:10:2::3 port 5202
+[  4] local fd10:10:2::1 port 28043 connected with fd10:10:2::3 port 5202
+[  1] local fd10:10:2::1 port 28083 connected with fd10:10:2::3 port 5202
+[ 10] local fd10:10:2::1 port 28095 connected with fd10:10:2::3 port 5202
+[ 16] local fd10:10:2::1 port 28059 connected with fd10:10:2::3 port 5202
+[  7] local fd10:10:2::1 port 28073 connected with fd10:10:2::3 port 5202
+[  6] local fd10:10:2::1 port 28049 connected with fd10:10:2::3 port 5202
+[  8] local fd10:10:2::1 port 28111 connected with fd10:10:2::3 port 5202
+[  9] local fd10:10:2::1 port 28121 connected with fd10:10:2::3 port 5202
+[ 12] local fd10:10:2::1 port 28123 connected with fd10:10:2::3 port 5202
+[ 13] local fd10:10:2::1 port 28125 connected with fd10:10:2::3 port 5202
+[ 14] local fd10:10:2::1 port 28139 connected with fd10:10:2::3 port 5202
+[ 15] local fd10:10:2::1 port 28151 connected with fd10:10:2::3 port 5202
+[ ID] Interval       Transfer     Bandwidth
+[  9] 0.0000-60.0045 sec  8459 MBytes  1183 Mbits/sec
+[ 10] 0.0000-60.0043 sec  7226 MBytes  1010 Mbits/sec
+[  3] 0.0000-60.0210 sec  6616 MBytes   925 Mbits/sec
+[  7] 0.0000-60.0205 sec  7634 MBytes  1067 Mbits/sec
+[  2] 0.0000-60.0206 sec  4068 MBytes   568 Mbits/sec
+[ 13] 0.0000-60.0202 sec  7584 MBytes  1060 Mbits/sec
+[  8] 0.0000-60.0200 sec  4046 MBytes   565 Mbits/sec
+[ 14] 0.0000-60.0201 sec  8700 MBytes  1216 Mbits/sec
+[  6] 0.0000-60.0212 sec  8383 MBytes  1172 Mbits/sec
+[ 16] 0.0000-60.0210 sec  7273 MBytes  1016 Mbits/sec
+[  4] 0.0000-60.0208 sec  7496 MBytes  1048 Mbits/sec
+[  5] 0.0000-60.0201 sec  7649 MBytes  1069 Mbits/sec
+[ 12] 0.0000-60.0199 sec  8249 MBytes  1153 Mbits/sec
+[ 15] 0.0000-60.0211 sec  7522 MBytes  1051 Mbits/sec
+[  1] 0.0000-60.0202 sec  8604 MBytes  1203 Mbits/sec
+[ 11] 0.0000-60.0206 sec  10119 MBytes  1414 Mbits/sec
+[SUM] 0.0000-60.0210 sec  119626 MBytes  16719 Mbits/sec
