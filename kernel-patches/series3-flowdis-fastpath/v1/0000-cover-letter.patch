@@ -167,6 +167,25 @@ on any host across any cell. Full numbers in
 perf-results/2026-05-28-series3-phase4/results-full.md on the
 flow-keys-compat-reorder branch.
 
+Long-duration soak (24 h continuous, rolling 300 s sessions,
+two pairs in parallel, hourly snapshots of cake / RSS / dmesg):
+
+  pair    tool     runs   throughput      CV       drift
+  ----    ----     ----   ----------      --       -----
+  i40e    iperf3   279    9.4114 Gbit/s   0.011 %  -0.000 %
+  mlx5    iperf2   284    16.258 Gbit/s   1.68  %  -0.504 %
+
+Cake drops over 24 h: 0 (i40e) and 7 (mlx5). RSS drift on mlx5:
++11 MB across 24 h. 0 new dmesg WARN/BUG/oops on either host.
+
+The i40e iperf3 throughput drift first-30-runs vs last-30-runs
+is -0.000 % (literally below the printed precision). CV 0.011 %
+is the tightest stability number we have measured on this test
+bed. The patched kernel is at least as stable as the series 1+2
+B.1 baseline under sustained load.
+
+Full data in perf-results/2026-05-28-series3-phase6/results.md.
+
 
 Pre-post checklist done
 =======================
@@ -193,25 +212,32 @@ Pre-post checklist done
   - 16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP x
     two pairs). No regression vs the B.1 24 h soak baseline on
     mlx5; first ever measurement on i40e at near link rate.
+  - 30-min sustained per pair (iperf3 round, iperf2 round, both
+    pairs in parallel). All four cells passed: mlx5 within
+    0.04 % of B.1 baseline; i40e at near link rate.
+  - 24 h iperf3 soak on i40e (hp2->hp5) and 24 h iperf2 soak
+    on mlx5 (hp1->hp3) in parallel. Both pass:
+
+      pair    tool     runs   mean throughput   CV       drift
+      ----    ----     ----   ---------------   --       -----
+      i40e    iperf3   279    9.4114 Gbit/s     0.011 %  -0.000 %
+      mlx5    iperf2   284    16.258 Gbit/s     1.68  %  -0.504 %
+
+    Cake drops: 0 (i40e) and 7 (mlx5) total over 24 h. Memory
+    drift on mlx5 +11 MB (3686 -> 3697 MB peak). 0 new dmesg
+    WARN/BUG/oops on either host throughout. The i40e CV of
+    0.011 % is the tightest stability number ever measured on
+    this test bed.
 
 
 Pre-post checklist still TODO before non-RFC posting
 ====================================================
 
-  - 24h iperf3 soak and 24h iperf2 soak. Same pattern as the
-    series 1 soak result for sch_cake. Queued for the i40e and
-    mlx5 pairs in parallel.
-  - 30-min sustained per pair (catches drift not visible in
-    60 s runs).
   - Kernel selftest in tools/testing/selftests/net/ that
     compares fast-path and slow-path output byte-by-byte.
-  - sparse-master run instead of nixpkgs sparse (the latter
-    cannot parse recent kernel macros).
   - VLAN fast-path (planned for v2).
 
-The non-RFC post will include the soak data and the selftest
-output, and update the microbench section with sparse-master
-results.
+The non-RFC post will add the selftest plus VLAN fast-path.
 
 
 This is sent as RFC for early feedback on:
