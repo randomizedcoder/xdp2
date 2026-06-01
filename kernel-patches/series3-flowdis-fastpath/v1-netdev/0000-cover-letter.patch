@@ -1,0 +1,92 @@
+From eeca3eb493b8a37b1c3e0b8e7e3a3a7e3a3a7e3a Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Mon, 1 Jun 2026 16:00:00 -0700
+Subject: [PATCH RFC 0/3] net: flow_dissector: fast-path for common L3+L4 shapes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A small targeted optimisation to __skb_flow_dissect(): add a
+straight-line extractor at the top of the function for the most
+common packet shapes, before entering the slow-path graph walk.
+
+  - What this does. Adds a fast-path for eth+IPv4+{TCP,UDP} and
+    eth+IPv6+{TCP,UDP} packets. On a match it fills struct
+    flow_keys byte-identically to the slow path and returns.
+    On any miss it defers to the existing graph walk. Only the
+    two standard dissectors are eligible (flow_keys_dissector and
+    flow_keys_dissector_symmetric); custom dissectors defer.
+    No new API, no ABI change, no header changes.
+
+  - How it works. A single ethertype branch routes to a per-family
+    helper. The helper does a fixed set of checks (version + IHL or
+    extension headers, fragmentation, nexthdr), then writes
+    key_control, key_basic, key_addrs, and key_ports from fixed
+    offsets. Total +207 lines, all in net/core/flow_dissector.c.
+    Fall-through cost on a miss is one ethertype switch (~5 cycles).
+    BPF flow_dissector override semantics are preserved -- the
+    fast-path runs only after the existing BPF check decides no BPF
+    program is loaded for this netns.
+
+  - Why it is faster. The slow-path graph walk dispatches through
+    per-protocol function pointers and a linear lookup_node table
+    per layer. For the common shapes the fast-path bypasses all of
+    that. Userspace microbench (libflowdis port, synthetic
+    eth+IPv4+TCP, 10 M iterations, gcc -O3):
+
+      uarch    host                          baseline   patched   delta
+      -----    ----                          --------   -------   -----
+      Zen 2    Threadripper PRO 3945WX N=10  12.44 ns   6.56 ns   -47.3 %
+      Zen 1    Ryzen 5 PRO 2400G N=5         20.50 ns   20.53 ns  noise
+
+    On Zen 1 the saving is below the clock_gettime resolution at
+    p50 (visible at p10); cycles are saved either way.
+
+Output byte-equivalence is enforced by field-by-field matching of
+the slow-path writes. A kernel selftest for byte-by-byte comparison
+is planned for v2.
+
+Tested
+======
+
+  - scripts/checkpatch.pl --strict: 0 errors, 0 warnings, 0 checks
+    per patch.
+  - W=1 build clean per patch.
+  - sparse (master) and smatch (1.74) clean on
+    net/core/flow_dissector.c.
+  - Four-host testbed, Ryzen 5 PRO 2400G (Zen 1, 4c/8t):
+    * Pair 1: hp2 (gen) <-> hp5 (DUT), Intel X710 10 GbE i40e
+    * Pair 2: hp1 (gen) <-> hp3 (DUT), Mellanox CX-4 Lx 25 GbE
+  - 16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP x 2
+    pairs, 60 s each, sch_cake triple-isolate, tuned TCP). All
+    cells pass; no regression vs the series 1+2 B.1 24h baseline
+    on mlx5.
+  - 24h soaks, both pairs in parallel:
+      i40e iperf3: 279 runs, 9.4114 Gbit/s mean, CV 0.011 %,
+                   drift -0.000 %, 0 cake drops.
+      mlx5 iperf2: 284 runs, 16.258 Gbit/s mean, CV 1.68 %,
+                   drift -0.504 %, 7 cake drops, +11 MB RSS.
+    0 new dmesg WARN/BUG/oops on either host throughout.
+
+This is sent as RFC for feedback on:
+
+  - The dispatch shape (single ethertype switch with per-family
+    helpers).
+  - The byte-exact output rule (vs the cheaper alternative of
+    skipping "cold" slot writes that no current consumer reads).
+  - The dissector-identity check (only the two standard
+    dissectors, vs a broader rule based on key-set subset).
+
+Dave Seddon (3):
+  net: flow_dissector: add fast-path entry-point skeleton
+  net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
+  net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
+
+ net/core/flow_dissector.c | 207 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 207 insertions(+)
+
+
+base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88
+--
+2.54.0
+
