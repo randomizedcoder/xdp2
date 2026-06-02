@@ -6,9 +6,14 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-A small targeted optimisation to __skb_flow_dissect(): add a
-straight-line extractor at the top of the function for the most
-common packet shapes, before entering the slow-path graph walk.
+A small targeted optimisation to __skb_flow_dissect(). Two
+fast-paths are added — one for eth+IPv4+{TCP,UDP}, one for
+eth+IPv6+{TCP,UDP} — that collapse the slow-path's per-layer
+parse-graph traversal (function-pointer dispatch + linear
+lookup_node per layer, three layers per packet) into a single
+straight-line block. On any miss, falls back to the existing
+graph walk. Output is byte-identical to the slow path for the
+shapes handled.
 
   - What this does. Adds a fast-path for eth+IPv4+{TCP,UDP} and
     eth+IPv6+{TCP,UDP} packets. On a match it fills struct
@@ -76,6 +81,14 @@ This is sent as RFC for feedback on:
     skipping "cold" slot writes that no current consumer reads).
   - The dissector-identity check (only the two standard
     dissectors, vs a broader rule based on key-set subset).
+  - Whether a runtime opt-out is wanted. The current v1 makes
+    the fast-path always-on (output is byte-identical to the
+    slow path, so there is nothing operationally different to
+    disable). If reviewers want a toggle the right shape is a
+    static_branch + debugfs entry (~0 cycle overhead in either
+    state), NOT a sysctl (which would cost a cache-line read on
+    every dissect call -- noise on a hot path that we are trying
+    to make faster).
 
 Dave Seddon (3):
   net: flow_dissector: add fast-path entry-point skeleton
