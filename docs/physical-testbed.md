@@ -35,6 +35,7 @@ It is written so that someone new to the project can:
 13. [Future work](#13-future-work)
 14. [Second testbed pair (hp1 ↔ hp3, mlx5_core 25 GbE)](#14-second-testbed-pair-hp1--hp3-mlx5_core-25-gbe)
 15. [IPv6 testbed addresses (ULA)](#15-ipv6-testbed-addresses-ula)
+16. [Standalone Intel data point (chromebox1, Haswell-ULT)](#16-standalone-intel-data-point-chromebox1-haswell-ult)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1144,6 +1145,149 @@ later add VLANs or run things like radvd for autoconfiguration.
 The `/64` also gives plenty of room to add hosts to a pair if it
 ever becomes a 3+ host segment (e.g. an out-of-band test
 generator).
+
+---
+
+## 16. Standalone Intel data point (chromebox1, Haswell-ULT)
+
+A third host was added to the fleet on 2026-06-02: **chromebox1**, a
+Google "Panther" Chromebox running NixOS. It is **not** part of any
+peer pair — it has no 10/25 GbE NIC and no DAC link — but it joins
+the fleet as the **Intel-uarch data point** for cross-microarchitecture
+comparison against the four AMD Zen 1 Ryzen hosts. Same NixOS module
+treatment, same automation wrapper, just with the two NIC-bound
+options (`peerInterfaces`, `flowDirectorRules`) and CPU isolation
+disabled because the hardware can't support them.
+
+### Hardware
+
+| Field | chromebox1 |
+| --- | --- |
+| Chassis | Google "Panther" Chromebox |
+| CPU | Intel Celeron 2955U **(Haswell-ULT, Family 6 Model 69)** |
+| Cores / threads | 2 / 2 (1 thread per core, no SMT) |
+| Base clock | 1.4 GHz (no turbo) |
+| RAM | 16 GiB DDR3 |
+| Storage | 1.9 TB SATA SSD (`/dev/sda`, LVM via disko) |
+| NIC (mgmt) | Realtek RTL8111/8168 1 GbE (`enp1s0`, PCI `01:00.0`) |
+| NIC (wifi) | Qualcomm Atheros AR9462 (`wlp2s0`, unused) |
+| Mgmt IPv4 | 172.16.40.178 (DHCP) |
+
+Live verification (run from your dev box, requires the root SSH key
+landed by `sshd-INSECURE.nix`):
+
+```bash
+ssh root@chromebox1 'lscpu | grep "Model name"; free -g; lspci | grep -i ethernet'
+```
+
+### What chromebox1 can / cannot run
+
+Driven from §9's category table:
+
+| Category | Description | chromebox1 | Why |
+| --- | --- | --- | --- |
+| A | xdp2-rs cargo tests | ✅ | No NIC needed. |
+| B | flow-dissector matrix userspace ways | ✅ | Pcap replay, no NIC. |
+| C | flow-dissector matrix BPF_PROG_TEST_RUN ways | ✅ | Root only, no NIC. |
+| D | proto-audit | ✅ | Stdlib only. |
+| E | perf sweeps over cached PCAPs | ✅ | `perf_event_paranoid≤2` set by module. |
+| F | XDP samples loaded against real traffic | ❌ | No peer 10 GbE+ link. |
+| G | AF_XDP throughput | ❌ | No peer link, no zero-copy-capable NIC. |
+| H | Hardware ntuple offload | ❌ | Realtek 1 GbE has no Flow Director / tc-flower offload worth measuring. |
+| I | Unified xdp2-rs vs C matrix | ✅ | Pcap replay, no NIC. |
+
+So chromebox1 covers six of nine categories — the same set as a
+pcap-only run on hp2/hp5/hp1/hp3, with results comparable to the AMD
+hosts on the same workloads.
+
+### NixOS module deltas vs the hp pattern
+
+The same `xdp2.nixosModules.physical-testbed` is imported. Two options
+are forced empty on chromebox1 because of the 2-core / no-peer-link
+hardware constraints:
+
+```nix
+# ~/nixos/chromebox/chromebox1/configuration.nix
+xdp2.testbed = {
+  enable = true;
+  peerInterfaces = [ ];   # no data-plane NICs
+  addresses = { };
+  isolatedCpus = [ ];     # 2-core CPU — no room to dedicate any
+  hugepages2M = 256;      # 512 MiB (vs 1024 = 2 GiB on the hp boxes)
+  disableNonEssentialServices = true;
+  lowJitter = false;
+  managementInterface = "enp1s0";  # not "eno1" — see Realtek above
+  flowDirectorRules = [ ];
+  realServicesBench = false;
+};
+```
+
+With both lists empty, the module compiles away:
+
+- No `xdp2-nic-tune-*` / `xdp2-nic-affinity-*` systemd services
+  generated (the `peerInterfaces = []` guard in `nic-tuning.nix`).
+- No `isolcpus=` / `nohz_full=` / `rcu_nocbs=` kernel cmdline entries
+  (the `isolatedCpus != []` guard in `physical-testbed.nix:333`).
+
+The kernel cmdline still gets the noise-suppression bits, verified
+post-boot:
+
+```
+processor.max_cstate=1 transparent_hugepage=never audit=0
+default_hugepagesz=2M hugepagesz=2M hugepages=256 mitigations=off
+```
+
+`HugePages_Total: 256` (= 512 MiB) reserved at boot.
+
+### Bringing up a fresh chromebox1
+
+The `~/nixos/chromebox/chromebox1/Makefile` ships the same
+`bootstrap` / `bootstrap_switch` / `bootstrap_update` targets as
+the hp1/hp3 Makefiles — see §14 "Bringing up a fresh hp1/hp3
+install" for the procedure; only the directory changes.
+
+Post-boot smoke check:
+
+```bash
+ssh root@chromebox1 'hostname; uname -r; \
+  tr " " "\n" < /proc/cmdline | grep -E "mitigations|hugepages|max_cstate"; \
+  ip -br link'
+```
+
+### Why no testbed config TOML for chromebox1
+
+`testbeds/hp1-hp3-mlx5.toml` and `testbeds/hp2-hp5-x710.toml` describe
+**pairs** (one DUT + one generator). chromebox1 is a single host
+running the no-NIC subset of category A/B/C/D/E/I, which has no
+generator role and no `[nic]` block worth parameterising.
+
+For ad-hoc runs use the positional host form of `nix run .#run-on-host`:
+
+```bash
+# Smoke
+nix run .#run-on-host -- chromebox1 -- xdp2-rs-test
+
+# Full pcap-bound matrix
+nix run .#run-on-host -- chromebox1 -- flow-dissector-matrix proto-audit-report
+
+# Cross-uarch comparison (Zen 1 vs Haswell on same workloads)
+nix run .#run-on-host -- hp5 chromebox1 -- flow-dissector-matrix-unified
+```
+
+If we ever want a TOML form (e.g. to feed the testbed-config adapter
+in `nix/modules/testbed-config-adapter.nix`), the loader's allowed
+`cpu_uarch` set in `nix/testbed-config.nix` needs `"haswell"` added —
+currently the validator only enumerates `skylake icelake icx
+sapphirerapids` on the Intel side.
+
+### Expected performance vs the hp boxes
+
+Haswell-ULT @ 1.4 GHz with no turbo is roughly **3-4× slower** in
+single-thread parser throughput than Zen 1 @ ~3.4 GHz. Treat
+chromebox1's ns/pkt numbers as an Intel reference point, not a
+direct apples-to-apples comparison — the value is in the
+**uarch-specific deltas** (e.g. how each parser mode's performance
+varies between Haswell and Zen 1), not the absolute numbers.
 
 ---
 
