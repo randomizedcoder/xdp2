@@ -52,7 +52,17 @@
   outputs = { self, nixpkgs, flake-utils, microvm }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        # Overlay applies a User-Agent fix to Nixpkgs' rustPlatform
+        # .fetchCargoVendor so crates.io stops returning HTTP 403
+        # under its API data-access policy. See
+        # nix/overlays/fetch-cargo-vendor-ua-fix.nix for the diagnosis,
+        # the empirical UA → status code map, and the removal criterion.
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [
+            (import ./nix/overlays/fetch-cargo-vendor-ua-fix.nix)
+          ];
+        };
         lib = nixpkgs.lib;
 
         # Import LLVM configuration module
