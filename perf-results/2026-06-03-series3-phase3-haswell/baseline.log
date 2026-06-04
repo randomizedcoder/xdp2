@@ -1,0 +1,20 @@
+iter=10000000 total=359354884 ns ns_per_pkt=35.94
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=360128556 ns ns_per_pkt=36.01
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359371193 ns ns_per_pkt=35.94
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359410428 ns ns_per_pkt=35.94
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359292370 ns ns_per_pkt=35.93
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359310999 ns ns_per_pkt=35.93
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359349319 ns ns_per_pkt=35.93
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359449663 ns ns_per_pkt=35.94
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=359265548 ns ns_per_pkt=35.93
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=360001171 ns ns_per_pkt=36.00
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80

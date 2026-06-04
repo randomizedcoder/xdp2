@@ -39,13 +39,15 @@ shapes handled.
     that. Userspace microbench (libflowdis port, synthetic
     eth+IPv4+TCP, 10 M iterations, gcc -O3):
 
-      uarch    host                          baseline   patched   delta
-      -----    ----                          --------   -------   -----
-      Zen 2    Threadripper PRO 3945WX N=10  12.44 ns   6.56 ns   -47.3 %
-      Zen 1    Ryzen 5 PRO 2400G N=5         20.50 ns   20.53 ns  noise
+      uarch         host                          baseline   patched   delta
+      -----         ----                          --------   -------   -----
+      Zen 2         Threadripper PRO 3945WX N=10  12.44 ns   6.56 ns   -47.3 %
+      Zen 1         Ryzen 5 PRO 2400G N=5         20.50 ns   20.53 ns  noise
+      Haswell-ULT   Intel Celeron 2955U N=10      35.94 ns   17.97 ns  -50.0 %
 
     On Zen 1 the saving is below the clock_gettime resolution at
-    p50 (visible at p10); cycles are saved either way.
+    p50 (visible at p10); cycles are saved either way. The Intel
+    result confirms the speedup is not Zen-specific.
 
 Output byte-equivalence is enforced by field-by-field matching of
 the slow-path writes. A kernel selftest for byte-by-byte comparison

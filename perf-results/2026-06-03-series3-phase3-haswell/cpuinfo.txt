@@ -1,0 +1,6 @@
+model name	: Intel(R) Celeron(R) 2955U @ 1.40GHz
+cpu MHz		: 1396.792
+cache size	: 2048 KB
+model name	: Intel(R) Celeron(R) 2955U @ 1.40GHz
+cpu MHz		: 1396.803
+cache size	: 2048 KB

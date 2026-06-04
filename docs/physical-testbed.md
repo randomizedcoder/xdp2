@@ -36,6 +36,7 @@ It is written so that someone new to the project can:
 14. [Second testbed pair (hp1 ↔ hp3, mlx5_core 25 GbE)](#14-second-testbed-pair-hp1--hp3-mlx5_core-25-gbe)
 15. [IPv6 testbed addresses (ULA)](#15-ipv6-testbed-addresses-ula)
 16. [Standalone Intel data point (chromebox1, Haswell-ULT)](#16-standalone-intel-data-point-chromebox1-haswell-ult)
+17. [High-end Intel data point (t, Comet Lake-H)](#17-high-end-intel-data-point-t-comet-lake-h)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1288,6 +1289,171 @@ chromebox1's ns/pkt numbers as an Intel reference point, not a
 direct apples-to-apples comparison — the value is in the
 **uarch-specific deltas** (e.g. how each parser mode's performance
 varies between Haswell and Zen 1), not the absolute numbers.
+
+---
+
+## 17. High-end Intel data point (t, Comet Lake-H)
+
+A fourth host joined the fleet on 2026-06-04: **t**, a laptop with an
+Intel Core i9-10885H. Like chromebox1, t is **not** part of any peer
+pair — it has only WiFi, no wired ethernet — but it complements
+chromebox1 by being a much higher-end Intel CPU, giving the fleet two
+Intel data points at the opposite ends of the perf curve:
+
+| | chromebox1 (entry-level Intel) | t (high-end Intel) |
+| --- | --- | --- |
+| CPU | Celeron 2955U (Haswell-ULT) | Core i9-10885H (Comet Lake-H) |
+| Cores / threads | 2 / 2 (no SMT) | 8 / 16 (SMT) |
+| Base clock | 1.4 GHz (no turbo) | 2.4 GHz |
+| Max boost | 1.4 GHz | 5.3 GHz |
+| L1d/L1i/L2/L3 per core | 32K / 32K / 256K / 2M | 32K / 32K / 256K / 16M |
+| Generation | 2013 | 2020 |
+
+Comet Lake-H is microarchitecturally a Skylake derivative (same core
+IP, refined process node + higher binning); use `cpu_uarch = "skylake"`
+in any future testbed TOML and add a comment noting it's actually
+Comet Lake-H.
+
+### Hardware
+
+| Field | t |
+| --- | --- |
+| Chassis | laptop (no model recorded in this doc — see `~/nixos/laptops/t/` for the full hardware-configuration.nix) |
+| CPU | Intel Core i9-10885H **(Comet Lake-H, Family 6 Model 165)** |
+| Cores / threads | 8 / 16 (2 threads per core, SMT enabled) |
+| Base / boost clock | 2.4 GHz / 5.3 GHz |
+| RAM | ~31 GiB |
+| Storage | 1 TB Toshiba KXG6AZNV1T02 NVMe SSD |
+| GPU | Intel UHD Graphics (iGPU) + NVIDIA Quadro T2000 Mobile (dGPU — uninitialised on the bench profile; nouveau is blacklisted, nvidia driver is not loaded) |
+| NIC (mgmt / only NIC) | Intel Comet Lake PCH CNVi WiFi (`wlp0s20f3`, PCI `00:14.3`) |
+| Wired ethernet | **none** |
+| Thunderbolt 3 | Intel JHL7540 Titan Ridge 4C 2018 (could host a future 10/25 GbE USB-C/TB adapter) |
+| Mgmt IPv4 | 172.16.50.141 (DHCP over WiFi) |
+
+Live verification:
+
+```bash
+ssh root@t 'lscpu | grep "Model name"; free -g; ip -br link'
+```
+
+### What t can / cannot run
+
+Identical to chromebox1's category-coverage table (§16) since the
+constraint is purely "no peer 10/25 GbE link": A/B/C/D/E/I ✅,
+F/G/H ❌.
+
+The added value vs chromebox1: t can run cargo test, the matrix
+runners, and proto-audit **dramatically faster** thanks to 16
+threads and 5.3 GHz boost. Benchmark workloads that exercise
+parallelism (`flow-dissector-matrix` over a large pcap, perf sweeps,
+the unified matrix's parallel cells) will lift the bottleneck off the
+parser and onto memory bandwidth or BPF JIT throughput on t,
+exposing different ratios than the 4c/8t hp boxes show.
+
+### NixOS module deltas vs the hp pattern
+
+```nix
+# ~/nixos/laptops/t/configuration.nix
+xdp2.testbed = {
+  enable = true;
+  peerInterfaces = [ ];                # WiFi-only, no peer DAC link
+  addresses = { };
+  # 8c/16t Comet Lake-H. SMT layout (verified live via `lscpu
+  # --extended`): CPU N and N+8 are siblings on phys core N.
+  # Keep CPUs 0,1 for housekeeping (one thread each of phys cores 0,1);
+  # isolate the other 14 logical CPUs (7 phys cores) for benchmarks.
+  isolatedCpus = [ 2 3 4 5 6 7 8 9 10 11 12 13 14 15 ];
+  hugepages2M = 1024;                  # 2 GiB — aligned with hp1/hp3/hp5
+  disableNonEssentialServices = true;
+  lowJitter = false;
+  managementInterface = "wlp0s20f3";   # Intel CNVi WiFi, the only network path
+  flowDirectorRules = [ ];
+  realServicesBench = false;
+};
+```
+
+Three deltas worth knowing:
+
+1. **`isolatedCpus` is populated**, unlike chromebox1 where it's
+   empty. The 8c/16t Comet Lake-H has plenty of cores to dedicate
+   isolated ones to benchmarks while keeping housekeeping responsive
+   on CPUs 0,1.
+2. **`managementInterface = "wlp0s20f3"`** instead of `enp1s0`. Only
+   matters under `lowJitter = true` (IRQ pinning); the bench profile
+   keeps `lowJitter = false`.
+3. **`boot.blacklistedKernelModules = [ "nouveau" ]`** in
+   configuration.nix. The NVIDIA Quadro T2000 dGPU is physically
+   present; nouveau would grab it. Blacklisting keeps the GPU
+   uninitialised, which is what we want on a headless bench host
+   (no display, no compositor).
+
+The historic config had a full Hyprland (Wayland compositor) + NVIDIA
+proprietary driver + OBS + libvirtd + docker + binfmt aarch64/riscv64
++ printing + pipewire desktop. All of that is dropped at the imports
+level (kept on disk for git history). Reverting to a usable laptop
+means restoring the relevant `.nix` files in `imports` — see the file
+list documented in configuration.nix's header.
+
+### Verified live state (2026-06-04 first bootstrap)
+
+```
+hostname: t
+kernel:   7.0.10
+cmdline:  processor.max_cstate=1 transparent_hugepage=never audit=0
+          default_hugepagesz=2M hugepagesz=2M hugepages=1024
+          mitigations=off
+          isolcpus=2,3,4,5,6,7,8,9,10,11,12,13,14,15
+          nohz_full=2,3,4,5,6,7,8,9,10,11,12,13,14,15
+          rcu_nocbs=2,3,4,5,6,7,8,9,10,11,12,13,14,15
+isolated: 2-15
+hugepages: HugePages_Total: 1024 (2 GiB reserved)
+network:  wlp0s20f3 UP 172.16.50.141/24
+xdp2:     no nic-tune-* / nic-affinity-* services (peerInterfaces=[])
+```
+
+### Bootstrap procedure
+
+Same shape as chromebox1 / hp3, with the additional one-time
+caveat that the WiFi-only network means `make sync` must complete
+*after* the laptop is awake and on the lab WiFi. The
+`~/nixos/laptops/t/Makefile` carries the `bootstrap` / `bootstrap_switch`
+/ `bootstrap_update` targets — see §14 "Bringing up a fresh
+hp1/hp3 install" for the procedure; only the directory changes.
+
+NetworkManager remains enabled across the bench-profile rebuild
+because WiFi credentials live in
+`/etc/NetworkManager/system-connections/` (stateful), so they
+survive the rebuild without re-entry. **Critical:** do NOT disable
+NetworkManager on this host — it's the only network path.
+
+### Why no testbed config TOML for t
+
+Same reason as chromebox1 (§16): single host, no generator role,
+no `[nic]` block worth parameterising for a WiFi-only host. For
+ad-hoc runs use the positional host form of `nix run .#run-on-host`:
+
+```bash
+# Smoke
+nix run .#run-on-host -- t -- xdp2-rs-test
+
+# Cross-Intel (Haswell vs Comet Lake) on the same pcap-bound matrix
+nix run .#run-on-host -- chromebox1 t -- flow-dissector-matrix proto-audit-report
+
+# Full cross-uarch (Zen 1 + Haswell + Comet Lake)
+nix run .#run-on-host -- hp5 chromebox1 t -- flow-dissector-matrix-unified
+```
+
+### Expected performance vs the rest of the fleet
+
+Comet Lake-H @ 5.3 GHz boost should be roughly **1.5–2× faster** in
+single-thread parser throughput than Zen 1 @ ~3.4 GHz (Ryzen 5 PRO
+2400G), and roughly **10–15× faster** than chromebox1's Haswell
+Celeron. With 16 threads vs hp's 8, parallel-friendly workloads
+(matrix sweeps, perf-analysis-all) should also scale up
+proportionally. Treat t's numbers as the modern-Intel reference
+point; treat chromebox1's as the entry-Intel reference point. The
+**uarch-specific deltas** between the three CPUs are the publishable
+signal, not the absolute numbers.
 
 ---
 
