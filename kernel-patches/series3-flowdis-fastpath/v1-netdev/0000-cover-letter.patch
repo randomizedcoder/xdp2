@@ -1,10 +1,7 @@
-From eeca3eb493b8a37b1c3e0b8e7e3a3a7e3a3a7e3a Mon Sep 17 00:00:00 2001
+From e24cf9001c0b3d28ba68c33a55b083e4fce02fd4 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Mon, 1 Jun 2026 16:00:00 -0700
-Subject: [PATCH RFC 0/3] net: flow_dissector: fast-path for common L3+L4 shapes
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sun, 7 Jun 2026 08:09:55 -0700
+Subject: [PATCH RFC 0/3] net: flow_dissector: opt-in fast-path for common L3+L4 shapes
 
 A small targeted optimisation to __skb_flow_dissect(). Two
 fast-paths are added — one for eth+IPv4+{TCP,UDP}, one for
@@ -15,43 +12,112 @@ straight-line block. On any miss, falls back to the existing
 graph walk. Output is byte-identical to the slow path for the
 shapes handled.
 
-  - What this does. Adds a fast-path for eth+IPv4+{TCP,UDP} and
-    eth+IPv6+{TCP,UDP} packets. On a match it fills struct
-    flow_keys byte-identically to the slow path and returns.
-    On any miss it defers to the existing graph walk. Only the
-    two standard dissectors are eligible (flow_keys_dissector and
-    flow_keys_dissector_symmetric); custom dissectors defer.
-    No new API, no ABI change, no header changes.
+The fast-path is gated by a new sysctl, default off:
+
+    net.core.flow_dissector_fastpath = 0   (default; no change)
+    net.core.flow_dissector_fastpath = 1   (fast-path enabled)
+
+The gate uses a static_branch_likely + proc_do_static_key (the
+canonical helper for sysctl-toggled static_branches; cf.
+net.core.high_order_alloc_disable). When the sysctl is 0 the
+call-site test is patched to a forward JMP that skips the
+dispatcher — one not-taken JMP per dissector call. When the
+sysctl is 1 execution falls through inline to the dispatcher,
+keeping the fast-path body in the hot text section.
+
+  - What this does. Adds an opt-in fast-path for
+    eth+IPv4+{TCP,UDP} and eth+IPv6+{TCP,UDP} packets. When the
+    sysctl is enabled and a packet matches, it fills struct
+    flow_keys byte-identically to the slow path and returns. On
+    any miss it defers to the existing graph walk. Only the two
+    standard dissectors are eligible (flow_keys_dissector and
+    flow_keys_dissector_symmetric); custom dissectors defer. No
+    new API, no ABI change, no header changes beyond one extern
+    in <net/flow_dissector.h> for the static_branch key.
 
   - How it works. A single ethertype branch routes to a per-family
     helper. The helper does a fixed set of checks (version + IHL or
     extension headers, fragmentation, nexthdr), then writes
     key_control, key_basic, key_addrs, and key_ports from fixed
-    offsets. Total +207 lines, all in net/core/flow_dissector.c.
-    Fall-through cost on a miss is one ethertype switch (~5 cycles).
-    BPF flow_dissector override semantics are preserved -- the
-    fast-path runs only after the existing BPF check decides no BPF
-    program is loaded for this netns.
+    offsets. Total +257 lines:
+      net/core/flow_dissector.c                +217
+      include/net/flow_dissector.h               +8
+      net/core/sysctl_net_core.c                 +8
+      Documentation/admin-guide/sysctl/net.rst  +24
+    Fall-through cost on a miss is one ethertype switch
+    (~5 cycles). BPF flow_dissector override semantics are
+    preserved — the fast-path runs only after the existing BPF
+    check decides no BPF program is loaded for this netns.
 
-  - Why it is faster. The slow-path graph walk dispatches through
-    per-protocol function pointers and a linear lookup_node table
-    per layer. For the common shapes the fast-path bypasses all of
-    that. Userspace microbench (libflowdis port, synthetic
-    eth+IPv4+TCP, 10 M iterations, gcc -O3):
+  - Why static_branch_likely (not _unlikely). Operators who flip
+    this sysctl have opted into the fast-path because they want
+    it fast; static_branch_likely keeps the fast-path body inline
+    in the hot text section, matching the layout the microbench
+    measured against. The trade is one forward JMP per dissector
+    call in the default-off case (one not-taken JMP, cheap) vs. a
+    cold-section detour per call in the enabled case if we had
+    used _unlikely.
 
-      uarch         host                          baseline   patched   delta
-      -----         ----                          --------   -------   -----
-      Zen 2         Threadripper PRO 3945WX N=10  12.44 ns   6.56 ns   -47.3 %
-      Zen 1         Ryzen 5 PRO 2400G N=5         20.50 ns   20.53 ns  noise
-      Haswell-ULT   Intel Celeron 2955U N=10      35.94 ns   17.97 ns  -50.0 %
+  - Why it is faster (sysctl=1). The slow-path graph walk
+    dispatches through per-protocol function pointers and a
+    linear lookup_node table per layer. For the common shapes the
+    fast-path bypasses all of that.
 
-    On Zen 1 the saving is below the clock_gettime resolution at
-    p50 (visible at p10); cycles are saved either way. The Intel
-    result confirms the speedup is not Zen-specific.
+    Operator-facing result, real workload (iperf3 -P 16 TCP/IPv4
+    through sch_cake on a 25 GbE mlx5_core pair, same kernel,
+    sysctl flipped at runtime, 60 s each):
+
+      sysctl=0           sysctl=1           delta
+      --------           --------           -----
+      16.393 Gbit/s      16.723 Gbit/s     +2.0 %
+
+    The fast-path saves roughly 5 ns of dissector cost per
+    packet. At 25 GbE elephant-TCP rates that translates into
+    the +2.0 % bulk throughput shown above. The per-packet
+    saving is fixed, so it represents a larger relative share of
+    the per-packet CPU budget at higher pps (smaller packets, DDoS
+    workloads, RSS scatter) and at higher link rates -- we expect
+    the relative gain to grow at 50/100 GbE, but we do not have
+    that hardware on the testbed so we are not making a claim.
+
+    On the i40e 10 GbE pair the link saturates at ~9.4 Gbit/s in
+    both modes; the dissector saving shows up as CPU headroom
+    rather than throughput. Retransmit rates are equivalent
+    between sysctl=0 and sysctl=1 on both NICs, validating the
+    byte-exact contract end-to-end (no flow-hash scatter).
+
+    The +2.0 % reproduces across the kernel default fq_codel
+    (+2.4 %), Eric Dumazet's fq (+1.0 %), and even noqueue
+    (+0.8 %, no qdisc dissect at all -- residual saving comes
+    from skb_get_hash, RPS/RFS, etc.). So the benefit is not
+    cake-specific: roughly 60 % comes from qdisc classify and
+    40 % from non-qdisc dissector callers in this workload. See
+    perf-results/2026-06-07-series3-gated-ab/ in the project
+    repo for the per-qdisc table.
+
+    Isolated dissector cost (userspace microbench, libflowdis
+    port, synthetic eth+IPv4+TCP, fast-path always hits, 10 M
+    iterations, gcc -O3):
+
+      uarch          host                           baseline  patched  delta
+      -----          ----                           --------  -------  -----
+      Zen 2          Threadripper PRO 3945WX  N=10  12.44 ns   6.56 ns -47.3%
+      Skylake-deriv  Intel i9-10885H (t)      N=10  10.61 ns   5.62 ns -47.0%
+      Zen 1          Ryzen 5 PRO 2400G        N=5   20.50 ns  20.53 ns noise
+      Haswell-ULT    Intel Celeron 2955U      N=10  35.94 ns  17.97 ns -50.0%
+
+    Both modern uarchs (Zen 2, Intel Skylake-deriv) land at ~47%
+    on the always-hit synthetic case. The Intel data points
+    confirm the speedup is not Zen-specific. On Zen 1 the saving
+    is below the clock_gettime resolution at p50 (visible at
+    p10); cycles are saved either way. The userspace microbench
+    is the upper bound — it removes everything except the
+    dissector cost. The +2.0 % macro number above is the realistic
+    end-to-end result on a representative TCP workload.
 
 Output byte-equivalence is enforced by field-by-field matching of
-the slow-path writes. A kernel selftest for byte-by-byte comparison
-is planned for v2.
+the slow-path writes. A kernel selftest for byte-by-byte
+comparison is planned for v2.
 
 Tested
 ======
@@ -61,14 +127,35 @@ Tested
   - W=1 build clean per patch.
   - sparse (master) and smatch (1.74) clean on
     net/core/flow_dissector.c.
-  - Four-host testbed, Ryzen 5 PRO 2400G (Zen 1, 4c/8t):
+  - Five-host testbed:
     * Pair 1: hp2 (gen) <-> hp5 (DUT), Intel X710 10 GbE i40e
     * Pair 2: hp1 (gen) <-> hp3 (DUT), Mellanox CX-4 Lx 25 GbE
-  - 16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP x 2
-    pairs, 60 s each, sch_cake triple-isolate, tuned TCP). All
-    cells pass; no regression vs the series 1+2 B.1 24h baseline
-    on mlx5.
-  - 24h soaks, both pairs in parallel:
+      (Zen 1, Ryzen 5 PRO 2400G, 4c/8t)
+    * t: Intel Comet Lake-H i9-10885H (Skylake-derivative)
+      microbench-only host, WiFi-only.
+  - 16 macro cells under the always-on draft (iperf3 + iperf2 x
+    IPv4/IPv6 x TCP/UDP x 2 pairs, 60 s each, sch_cake
+    triple-isolate, tuned TCP). All cells pass; no regression vs
+    the series 1+2 B.1 24h baseline on mlx5. These results carry
+    over to the gated kernel as the sysctl=1 data point — the
+    gated path produces the same code as the always-on draft.
+  - Gated kernel A/B verification (2026-06-07), 60 s iperf3
+    -P 16 -t 60 per cell, sch_cake triple-isolate on each DUT:
+
+      pair         sysctl=0           sysctl=1           delta
+      ----         --------           --------           -----
+      mlx5 25 GbE  16.393 Gbit/s      16.723 Gbit/s     +2.0 %
+      i40e 10 GbE   9.409 Gbit/s       9.409 Gbit/s     0 (link-saturated)
+
+    sysctl=0 matches or slightly exceeds the unpatched-kernel
+    baseline on both NICs (no regression). sysctl=1 lands at the
+    top of the prior Phase 4 range. Retransmit rates are
+    equivalent between sysctl=0 and sysctl=1 on each pair, which
+    validates the byte-exact contract end-to-end (no flow-hash
+    scatter from broken dissector output). 0 cake drops, 0 cake
+    overlimits, 0 new dmesg WARN/BUG/oops across all four runs.
+  - 24h soaks, both pairs in parallel, under the prior always-on
+    draft (kept as the sysctl=1 24h data point):
       i40e iperf3: 279 runs, 9.4114 Gbit/s mean, CV 0.011 %,
                    drift -0.000 %, 0 cake drops.
       mlx5 iperf2: 284 runs, 16.258 Gbit/s mean, CV 1.68 %,
@@ -83,22 +170,28 @@ This is sent as RFC for feedback on:
     skipping "cold" slot writes that no current consumer reads).
   - The dissector-identity check (only the two standard
     dissectors, vs a broader rule based on key-set subset).
-  - Whether a runtime opt-out is wanted. The current v1 makes
-    the fast-path always-on (output is byte-identical to the
-    slow path, so there is nothing operationally different to
-    disable). If reviewers want a toggle the right shape is a
-    static_branch + debugfs entry (~0 cycle overhead in either
-    state), NOT a sysctl (which would cost a cache-line read on
-    every dissect call -- noise on a hot path that we are trying
-    to make faster).
+  - The sysctl name (net.core.flow_dissector_fastpath) and gate
+    shape (static_branch_likely + proc_do_static_key). The
+    default-off / opt-in choice matches the established pattern
+    for new flow_dissector behaviour that operators opt into for
+    performance; if a different default or gate mechanism is
+    preferred we are happy to respin.
+
+A single-patch alternative form of the same code (skeleton + IPv4
++ IPv6 squashed into one commit) is also available for reviewers
+who prefer a single diff to read end-to-end:
+https://github.com/randomizedcoder/xdp2/tree/main/kernel-patches/series3-flowdis-fastpath/v2-experiment
 
 Dave Seddon (3):
-  net: flow_dissector: add fast-path entry-point skeleton
+  net: flow_dissector: add opt-in fast-path entry-point skeleton
   net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
   net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
 
- net/core/flow_dissector.c | 207 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 207 insertions(+)
+ Documentation/admin-guide/sysctl/net.rst |  24 +++
+ include/net/flow_dissector.h             |   8 +
+ net/core/flow_dissector.c                | 217 +++++++++++++++++++++++
+ net/core/sysctl_net_core.c               |   8 +
+ 4 files changed, 257 insertions(+)
 
 
 base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88

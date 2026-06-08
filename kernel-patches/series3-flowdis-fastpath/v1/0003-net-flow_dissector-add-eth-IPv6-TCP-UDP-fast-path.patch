@@ -1,4 +1,4 @@
-From eeca3eb493b801a08adcb97bc5e7a9f258498c88 Mon Sep 17 00:00:00 2001
+From e24cf9001c0b3d28ba68c33a55b083e4fce02fd4 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 16:49:49 -0700
 Subject: [PATCH RFC 3/3] net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
@@ -42,10 +42,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  1 file changed, 78 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 303cf84846b5..a313a807e965 100644
+index 545dfbaf1deb..dd057c0ebeec 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1118,13 +1118,90 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1128,13 +1128,90 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  	return true;
  }
  

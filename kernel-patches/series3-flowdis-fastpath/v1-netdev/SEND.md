@@ -12,13 +12,17 @@ for `git send-email`.
 
   - [ ] Re-verify the 3 patches still pass checkpatch + W=1 build
         on net-next branch `flowdis-fastpath-rfc` (HEAD
-        `eeca3eb493b8`).
+        `e24cf9001c0b`, 2026-06-07 gate reshape).
+  - [ ] Re-verify the sysctl gate behavior: build with the patches,
+        boot with default (no change vs baseline), then
+        `sysctl -w net.core.flow_dissector_fastpath=1` and confirm
+        the fast-path engages (e.g. enable the planned selftest, or
+        observe via perf top + microbench).
   - [ ] Confirm `scripts/get_maintainer.pl` output is current; the
         list below is from 2026-05-27.
-  - [ ] Re-read the cover letter once with fresh eyes.
-  - [ ] Decide whether to mention the v2-experiment branch in the
-        cover letter as a reading aid (one extra line). Current
-        draft does NOT mention it.
+  - [ ] Re-read the cover letter once with fresh eyes — note it
+        now points reviewers at the v2-experiment single-patch on
+        GitHub as a reading aid.
 
 ## CC list
 
@@ -47,7 +51,7 @@ Cc: Tom Herbert <tom@quantonium.net>
 ## Send command
 
 From `~/Downloads/net-next` with branch `flowdis-fastpath-rfc`
-checked out (HEAD `eeca3eb493b8`):
+checked out (HEAD `e24cf9001c0b`):
 
 ```bash
 cd /home/das/Downloads/net-next

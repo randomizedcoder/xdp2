@@ -1,270 +1,197 @@
-From bd25b1631c7d... Mon Sep 17 00:00:00 2001
+From e24cf9001c0b3d28ba68c33a55b083e4fce02fd4 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Wed, 27 May 2026 15:01:43 -0700
-Subject: [PATCH RFC 0/3] net: flow_dissector: fast-path for common L3+L4 shapes
+Date: Sun, 7 Jun 2026 08:09:55 -0700
+Subject: [PATCH RFC 0/3] net: flow_dissector: opt-in fast-path for common L3+L4 shapes
 
-Hi all,
+A small targeted optimisation to __skb_flow_dissect(). Two
+fast-paths are added — one for eth+IPv4+{TCP,UDP}, one for
+eth+IPv6+{TCP,UDP} — that collapse the slow-path's per-layer
+parse-graph traversal (function-pointer dispatch + linear
+lookup_node per layer, three layers per packet) into a single
+straight-line block. On any miss, falls back to the existing
+graph walk. Output is byte-identical to the slow path for the
+shapes handled.
 
-This series adds a fast-path to __skb_flow_dissect() for the
-most common packet shapes seen on Linux RX paths:
+The fast-path is gated by a new sysctl, default off:
 
-  - eth + IPv4 + TCP or UDP
-  - eth + IPv6 + TCP or UDP
+    net.core.flow_dissector_fastpath = 0   (default; no change)
+    net.core.flow_dissector_fastpath = 1   (fast-path enabled)
 
-On a match the fast-path produces byte-identical struct
-flow_keys output and returns. On a miss it falls back to the
-existing slow-path graph walk.
+The gate uses a static_branch_likely + proc_do_static_key (the
+canonical helper for sysctl-toggled static_branches; cf.
+net.core.high_order_alloc_disable). When the sysctl is 0 the
+call-site test is patched to a forward JMP that skips the
+dispatcher — one not-taken JMP per dissector call. When the
+sysctl is 1 execution falls through inline to the dispatcher,
+keeping the fast-path body in the hot text section.
 
-This is the third RFC I have sent to netdev. The first two
-(flow_hash_from_keys_small + sch_cake adoption, and bpf_flow
-PPPoE support) came out of the same comparison work led by Tom
-Herbert (https://github.com/randomizedcoder/xdp2). XDP2 shows
-that a straight-line "decision tree at function entry" extractor
-for common shapes saves 35-42 % over the slow-path graph walk
-on the same packets. This series brings that one technique to
-the in-tree dissector as plain C.
+  - What this does. Adds an opt-in fast-path for
+    eth+IPv4+{TCP,UDP} and eth+IPv6+{TCP,UDP} packets. When the
+    sysctl is enabled and a packet matches, it fills struct
+    flow_keys byte-identically to the slow path and returns. On
+    any miss it defers to the existing graph walk. Only the two
+    standard dissectors are eligible (flow_keys_dissector and
+    flow_keys_dissector_symmetric); custom dissectors defer. No
+    new API, no ABI change, no header changes beyond one extern
+    in <net/flow_dissector.h> for the static_branch key.
 
+  - How it works. A single ethertype branch routes to a per-family
+    helper. The helper does a fixed set of checks (version + IHL or
+    extension headers, fragmentation, nexthdr), then writes
+    key_control, key_basic, key_addrs, and key_ports from fixed
+    offsets. Total +257 lines:
+      net/core/flow_dissector.c                +217
+      include/net/flow_dissector.h               +8
+      net/core/sysctl_net_core.c                 +8
+      Documentation/admin-guide/sysctl/net.rst  +24
+    Fall-through cost on a miss is one ethertype switch
+    (~5 cycles). BPF flow_dissector override semantics are
+    preserved — the fast-path runs only after the existing BPF
+    check decides no BPF program is loaded for this netns.
 
-The patches
-===========
+  - Why static_branch_likely (not _unlikely). Operators who flip
+    this sysctl have opted into the fast-path because they want
+    it fast; static_branch_likely keeps the fast-path body inline
+    in the hot text section, matching the layout the microbench
+    measured against. The trade is one forward JMP per dissector
+    call in the default-off case (one not-taken JMP, cheap) vs. a
+    cold-section detour per call in the enabled case if we had
+    used _unlikely.
 
-  1/3  net: flow_dissector: add fast-path entry-point skeleton
-       - Adds the flow_dissect_fast() dispatcher.
-       - No fast-path arms yet; per-shape helpers are stubs.
-       - Reject custom dissectors and slow-path-only flags.
-       - Cost on a miss: one ethertype switch (about 5 cycles).
+  - Why it is faster (sysctl=1). The slow-path graph walk
+    dispatches through per-protocol function pointers and a
+    linear lookup_node table per layer. For the common shapes the
+    fast-path bypasses all of that.
 
-  2/3  net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
-       - Plug the IPv4 stub.
-       - Reject IP options, fragments, other L4 protocols.
-       - Expected saving: about 30 ns/pkt on matching packets.
+    Operator-facing result, real workload (iperf3 -P 16 TCP/IPv4
+    through sch_cake on a 25 GbE mlx5_core pair, same kernel,
+    sysctl flipped at runtime, 60 s each):
 
-  3/3  net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
-       - Plug the IPv6 stub.
-       - Reject extension headers.
-       - Defer when the caller asks for the flow label and the
-         label is non-zero (uncommon on real traffic).
-       - Expected saving: about 30 ns/pkt on matching packets.
+      sysctl=0           sysctl=1           delta
+      --------           --------           -----
+      16.393 Gbit/s      16.723 Gbit/s     +2.0 %
 
-Total added code: about 207 lines, all in
-net/core/flow_dissector.c. Uses C11 idioms supported by the
-kernel since 5.18 (-std=gnu11): static_assert for header-size
-invariants, unlikely() hints for the fast-path bail-out
-branches.
+    The fast-path saves roughly 5 ns of dissector cost per
+    packet. At 25 GbE elephant-TCP rates that translates into
+    the +2.0 % bulk throughput shown above. The per-packet
+    saving is fixed, so it represents a larger relative share of
+    the per-packet CPU budget at higher pps (smaller packets, DDoS
+    workloads, RSS scatter) and at higher link rates -- we expect
+    the relative gain to grow at 50/100 GbE, but we do not have
+    that hardware on the testbed so we are not making a claim.
 
+    On the i40e 10 GbE pair the link saturates at ~9.4 Gbit/s in
+    both modes; the dissector saving shows up as CPU headroom
+    rather than throughput. Retransmit rates are equivalent
+    between sysctl=0 and sysctl=1 on both NICs, validating the
+    byte-exact contract end-to-end (no flow-hash scatter).
 
-What this is NOT
-================
+    The +2.0 % reproduces across the kernel default fq_codel
+    (+2.4 %), Eric Dumazet's fq (+1.0 %), and even noqueue
+    (+0.8 %, no qdisc dissect at all -- residual saving comes
+    from skb_get_hash, RPS/RFS, etc.). So the benefit is not
+    cake-specific: roughly 60 % comes from qdisc classify and
+    40 % from non-qdisc dissector callers in this workload. See
+    perf-results/2026-06-07-series3-gated-ab/ in the project
+    repo for the per-qdisc table.
 
-  - NOT a new dissector API. __skb_flow_dissect() signature
-    and contract are unchanged.
-  - NOT a struct flow_keys layout change. The struct is ABI for
-    the BPF flow_dissector hook.
-  - NOT a change to BPF flow_dissector precedence. The fast-path
-    runs only when the existing BPF override check decides no
-    BPF program is loaded for this netns.
-  - NOT VLAN-aware in v1. VLAN-tagged packets fall through to
-    the slow path. A VLAN fast-path is a planned follow-up.
-  - NOT an XDP2 framework upstream. This series is hand-written
-    C for one technique only. The XDP2 framework conversation
-    is a separate, larger topic.
+    Isolated dissector cost (userspace microbench, libflowdis
+    port, synthetic eth+IPv4+TCP, fast-path always hits, 10 M
+    iterations, gcc -O3):
 
+      uarch          host                           baseline  patched  delta
+      -----          ----                           --------  -------  -----
+      Zen 2          Threadripper PRO 3945WX  N=10  12.44 ns   6.56 ns -47.3%
+      Skylake-deriv  Intel i9-10885H (t)      N=10  10.61 ns   5.62 ns -47.0%
+      Zen 1          Ryzen 5 PRO 2400G        N=5   20.50 ns  20.53 ns noise
+      Haswell-ULT    Intel Celeron 2955U      N=10  35.94 ns  17.97 ns -50.0%
 
-Output byte-equivalence
-=======================
+    Both modern uarchs (Zen 2, Intel Skylake-deriv) land at ~47%
+    on the always-hit synthetic case. The Intel data points
+    confirm the speedup is not Zen-specific. On Zen 1 the saving
+    is below the clock_gettime resolution at p50 (visible at
+    p10); cycles are saved either way. The userspace microbench
+    is the upper bound — it removes everything except the
+    dissector cost. The +2.0 % macro number above is the realistic
+    end-to-end result on a representative TCP workload.
 
-The fast-path writes the same key slots the slow path writes
-for the standard dissectors on the matching shape:
+Output byte-equivalence is enforced by field-by-field matching of
+the slow-path writes. A kernel selftest for byte-by-byte
+comparison is planned for v2.
 
-  - key_control: addr_type, thoff, flags
-  - key_basic: n_proto, ip_proto
-  - key_addrs.v{4,6}addrs: src and dst from the IP header
-  - key_ports: src and dst u16 ports at the L4 header
+Tested
+======
 
-Cold key slots that the slow path does not write for this
-shape (KEY_IP, KEY_TCP, KEY_VLAN, KEY_FLOW_LABEL when zero,
-etc.) are not in the standard dissector's key list. They stay
-at the caller's pre-memset zero.
-
-A follow-up selftest will verify byte-by-byte equivalence on a
-packet corpus.
-
-
-Why the kernel cannot capture every optimisation XDP2 shows
-===========================================================
-
-XDP2 runs at about 71 ns/pkt on these workloads. The in-tree
-dissector with this series should reach about 85-90 ns/pkt
-(from 117 today). The remaining ~15 ns gap is structural:
-
-  - always_inline plus LTO into the caller. XDP2's parser
-    inlines into the test harness as one block. The kernel
-    cannot do this: flow_dissector.o and sch_cake.o are
-    different translation units, and the function is too
-    large to inline.
-  - Constant folding of static const proto_def fields. XDP2
-    folds at compile time. The kernel reads runtime structs.
-  - Per-callsite specialisation. XDP2 can emit a fresh parser
-    per use-site. flow_dissector serves many callers.
-
-These are the price of being a generic kernel API rather than
-a per-callsite specialised parser. The technique this series
-backports captures most of the win and pays this price for
-the rest.
-
-
-Prior art
-=========
-
-Earlier wholesale-replacement attempts for flow_dissector have
-stalled. This series intentionally takes the opposite path:
-incremental, no new framework, no new tooling, no new ABI.
-
-  - 2017 Tom Herbert, "Protocol specific flow dissector
-    offload":
-    https://patchwork.ozlabs.org/project/netdev/cover/20170928235230.22158-1-tom@quantonium.net/
-  - 2021 Tom Herbert, "Replacing Flow Dissector with PANDA
-    Parser", netdev 0x15:
-    https://netdevconf.info/0x15/slides/16/Flow%20dissector_PANDA%20parser.pdf
-  - 2021 PANDA tc flower2 RFC:
-    https://lkml.kernel.org/netdev/614bf3bc4850_b9b1a208e2@john-XPS-13-9370.notmuch/t/
-
-
-Measured numbers
-================
-
-Microbench (synthetic eth+IPv4+TCP packet, always hits the
-fast-path; libflowdis userspace port of the same C code,
-gcc -O3, 10M iterations per run):
-
-  uarch              host                            baseline    patched    delta
-  -----              ----                            --------    -------    -----
-  Zen 2 (4.5 GHz)    Threadripper PRO 3945WX, N=10   12.44 ns    6.56 ns    -47.3 %
-  Zen 1 (3.6 GHz)    Ryzen 5 PRO 2400G hp5, N=5      20.50 ns    20.53 ns   within noise
-
-Zen 2 delta is 8 x pooled stdev (highly significant). Zen 1
-shows no measurable delta at the median; the ~36 cycle saving
-falls below the clock_gettime(CLOCK_MONOTONIC_RAW) timing band
-on Zen 1 at this iteration depth. Visible at p10 but not p50.
-
-This is the upper-bound result (one packet shape, always hits
-the fast-path). On real traffic with mixed shapes, some packets
-fall to the slow path; the average improvement is smaller. The
-synthetic upper bound is consistent with kernel projections of
-roughly 25-30 % at the median on common internet RX traffic.
-
-Macro tests (60 s, -P 16, sch_cake triple-isolate, tuned TCP,
-all combinations IPv4/IPv6 x TCP/UDP x iperf3/iperf2 on two
-testbed pairs):
-
-  pair                 Gbit/s baseline (B.1)     Gbit/s patched     delta
-  ----                 --------------------       --------------    -----
-  mlx5 25 GbE          16.023 (N=279, 24h soak)  15.942 - 16.785   -0.5 % to +4.7 %
-  i40e 10 GbE          (no prior baseline)        9.27  -  9.56    near link rate
-
-16 cells total, 0 dmesg WARN/BUG/oops introduced by the patches
-on any host across any cell. Full numbers in
-perf-results/2026-05-28-series3-phase4/results-full.md on the
-flow-keys-compat-reorder branch.
-
-Long-duration soak (24 h continuous, rolling 300 s sessions,
-two pairs in parallel, hourly snapshots of cake / RSS / dmesg):
-
-  pair    tool     runs   throughput      CV       drift
-  ----    ----     ----   ----------      --       -----
-  i40e    iperf3   279    9.4114 Gbit/s   0.011 %  -0.000 %
-  mlx5    iperf2   284    16.258 Gbit/s   1.68  %  -0.504 %
-
-Cake drops over 24 h: 0 (i40e) and 7 (mlx5). RSS drift on mlx5:
-+11 MB across 24 h. 0 new dmesg WARN/BUG/oops on either host.
-
-The i40e iperf3 throughput drift first-30-runs vs last-30-runs
-is -0.000 % (literally below the printed precision). CV 0.011 %
-is the tightest stability number we have measured on this test
-bed. The patched kernel is at least as stable as the series 1+2
-B.1 baseline under sustained load.
-
-Full data in perf-results/2026-05-28-series3-phase6/results.md.
-
-
-Pre-post checklist done
-=======================
-
-  - scripts/checkpatch.pl --strict: 0 errors, 0 warnings, 0
-    checks per patch.
-  - W=1 compile clean per patch.
-  - sparse (master branch, post 0.6.4): no findings in
-    net/core/flow_dissector.c. The nixpkgs 0.6.4 cannot parse
-    recent kernel headers; build instructions for sparse-master
-    at https://git.kernel.org/pub/scm/devel/sparse/sparse.git
-  - smatch (Dan Carpenter, version 1.74): no findings in
+  - scripts/checkpatch.pl --strict: 0 errors, 0 warnings, 0 checks
+    per patch.
+  - W=1 build clean per patch.
+  - sparse (master) and smatch (1.74) clean on
     net/core/flow_dissector.c.
-  - coccicheck (kernel semantic patcher) on net/core/: no
-    new findings introduced by this series.
-  - clang-tidy bugprone + performance + clang-analyzer checks:
-    no new findings beyond the existing kernel API patterns
-    (the same easily-swappable-parameters warning is already
-    flagged on __skb_flow_dissect itself).
-  - Boot and pass traffic on four test-bed hosts. Two Intel
-    X710 10 GbE i40e pair (hp2 gen, hp5 dut); two Mellanox
-    CX-4 Lx 25 GbE mlx5_core pair (hp1 gen, hp3 dut). All on
-    AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t).
-  - 16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP x
-    two pairs). No regression vs the B.1 24 h soak baseline on
-    mlx5; first ever measurement on i40e at near link rate.
-  - 30-min sustained per pair (iperf3 round, iperf2 round, both
-    pairs in parallel). All four cells passed: mlx5 within
-    0.04 % of B.1 baseline; i40e at near link rate.
-  - 24 h iperf3 soak on i40e (hp2->hp5) and 24 h iperf2 soak
-    on mlx5 (hp1->hp3) in parallel. Both pass:
+  - Five-host testbed:
+    * Pair 1: hp2 (gen) <-> hp5 (DUT), Intel X710 10 GbE i40e
+    * Pair 2: hp1 (gen) <-> hp3 (DUT), Mellanox CX-4 Lx 25 GbE
+      (Zen 1, Ryzen 5 PRO 2400G, 4c/8t)
+    * t: Intel Comet Lake-H i9-10885H (Skylake-derivative)
+      microbench-only host, WiFi-only.
+  - 16 macro cells under the always-on draft (iperf3 + iperf2 x
+    IPv4/IPv6 x TCP/UDP x 2 pairs, 60 s each, sch_cake
+    triple-isolate, tuned TCP). All cells pass; no regression vs
+    the series 1+2 B.1 24h baseline on mlx5. These results carry
+    over to the gated kernel as the sysctl=1 data point — the
+    gated path produces the same code as the always-on draft.
+  - Gated kernel A/B verification (2026-06-07), 60 s iperf3
+    -P 16 -t 60 per cell, sch_cake triple-isolate on each DUT:
 
-      pair    tool     runs   mean throughput   CV       drift
-      ----    ----     ----   ---------------   --       -----
-      i40e    iperf3   279    9.4114 Gbit/s     0.011 %  -0.000 %
-      mlx5    iperf2   284    16.258 Gbit/s     1.68  %  -0.504 %
+      pair         sysctl=0           sysctl=1           delta
+      ----         --------           --------           -----
+      mlx5 25 GbE  16.393 Gbit/s      16.723 Gbit/s     +2.0 %
+      i40e 10 GbE   9.409 Gbit/s       9.409 Gbit/s     0 (link-saturated)
 
-    Cake drops: 0 (i40e) and 7 (mlx5) total over 24 h. Memory
-    drift on mlx5 +11 MB (3686 -> 3697 MB peak). 0 new dmesg
-    WARN/BUG/oops on either host throughout. The i40e CV of
-    0.011 % is the tightest stability number ever measured on
-    this test bed.
+    sysctl=0 matches or slightly exceeds the unpatched-kernel
+    baseline on both NICs (no regression). sysctl=1 lands at the
+    top of the prior Phase 4 range. Retransmit rates are
+    equivalent between sysctl=0 and sysctl=1 on each pair, which
+    validates the byte-exact contract end-to-end (no flow-hash
+    scatter from broken dissector output). 0 cake drops, 0 cake
+    overlimits, 0 new dmesg WARN/BUG/oops across all four runs.
+  - 24h soaks, both pairs in parallel, under the prior always-on
+    draft (kept as the sysctl=1 24h data point):
+      i40e iperf3: 279 runs, 9.4114 Gbit/s mean, CV 0.011 %,
+                   drift -0.000 %, 0 cake drops.
+      mlx5 iperf2: 284 runs, 16.258 Gbit/s mean, CV 1.68 %,
+                   drift -0.504 %, 7 cake drops, +11 MB RSS.
+    0 new dmesg WARN/BUG/oops on either host throughout.
 
-
-Pre-post checklist still TODO before non-RFC posting
-====================================================
-
-  - Kernel selftest in tools/testing/selftests/net/ that
-    compares fast-path and slow-path output byte-by-byte.
-  - VLAN fast-path (planned for v2).
-
-The non-RFC post will add the selftest plus VLAN fast-path.
-
-
-This is sent as RFC for early feedback on:
+This is sent as RFC for feedback on:
 
   - The dispatch shape (single ethertype switch with per-family
-    helpers). Is this the right structure?
-  - The byte-exact output rule. The alternative is to skip
-    "cold" slot writes (saves about 3 ns/pkt) but adds risk if
-    a future consumer reads them. v1 chose byte-exact for
-    safety; happy to change if reviewers prefer the other rule.
-  - The dissector-identity check. A broader rule (any dissector
-    whose key set is a subset of what the fast-path writes)
-    might catch more callers.
+    helpers).
+  - The byte-exact output rule (vs the cheaper alternative of
+    skipping "cold" slot writes that no current consumer reads).
+  - The dissector-identity check (only the two standard
+    dissectors, vs a broader rule based on key-set subset).
+  - The sysctl name (net.core.flow_dissector_fastpath) and gate
+    shape (static_branch_likely + proc_do_static_key). The
+    default-off / opt-in choice matches the established pattern
+    for new flow_dissector behaviour that operators opt into for
+    performance; if a different default or gate mechanism is
+    preferred we are happy to respin.
 
-Detailed design and per-mechanism analysis:
-https://github.com/randomizedcoder/xdp2/blob/flow-keys-compat-reorder/docs/kernel-flowdis-fastpath-plan.md
-
-Thanks,
-Dave
+A single-patch alternative form of the same code (skeleton + IPv4
++ IPv6 squashed into one commit) is also available for reviewers
+who prefer a single diff to read end-to-end:
+https://github.com/randomizedcoder/xdp2/tree/main/kernel-patches/series3-flowdis-fastpath/v2-experiment
 
 Dave Seddon (3):
-  net: flow_dissector: add fast-path entry-point skeleton
+  net: flow_dissector: add opt-in fast-path entry-point skeleton
   net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
   net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
 
- net/core/flow_dissector.c | 207 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 207 insertions(+)
+ Documentation/admin-guide/sysctl/net.rst |  24 +++
+ include/net/flow_dissector.h             |   8 +
+ net/core/flow_dissector.c                | 217 +++++++++++++++++++++++
+ net/core/sysctl_net_core.c               |   8 +
+ 4 files changed, 257 insertions(+)
 
 
 base-commit: c0aa5f13826dcb035bec3d6b252e6b2020fa5f88

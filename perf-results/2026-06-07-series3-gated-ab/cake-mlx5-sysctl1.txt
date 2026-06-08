@@ -1,0 +1,35 @@
+qdisc cake 8001: root refcnt 65 bandwidth 25Gbit diffserv3 triple-isolate nonat nowash no-ack-filter split-gso rtt 100ms raw overhead 0 
+ Sent 731619649 bytes 11078895 pkt (dropped 0, overlimits 0 requeues 873) 
+ backlog 0b 0p requeues 873
+ memory used: 4564b of 15140Kb
+ capacity estimate: 25Gbit
+ min/max network layer size:           42 /    1514
+ min/max overhead-adjusted size:       42 /    1514
+ active queues:                         0
+ average network hdr offset:           14
+
+                   Bulk  Best Effort        Voice
+  thresh       1562Mbit       25Gbit     6250Mbit
+  target            5ms          5ms          5ms
+  interval        100ms        100ms        100ms
+  pk_delay          0us          1us          1us
+  av_delay          0us          0us          0us
+  sp_delay          0us          0us          0us
+  backlog            0b           0b           0b
+  pkts                0     11078890            5
+  bytes               0    731619439          210
+  way_inds            0            0            0
+  way_miss            0           34            1
+  way_cols            0            0            0
+  drops               0            0            0
+  marks               0            0            0
+  ack_drop            0            0            0
+  sp_flows            0           16            1
+  bk_flows            0            1            0
+  un_flows            0            0            0
+  max_len             0         2776           42
+  quantum          1514         1514         1514
+
+qdisc clsact ffff: parent ffff:fff1 
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0

@@ -11,40 +11,54 @@ static helper functions.
 | | v1 (current) | v2-experiment |
 |---|---:|---:|
 | patches | 3 | 1 |
-| total +insertions | 206 | 151 |
+| total +insertions | 257 | 205 |
 | total -deletions | 2 | 0 |
 | new functions | 3 (flow_dissect_fast, flow_dissect_fast_ipv4, flow_dissect_fast_ipv6) | 0 |
 | static_asserts | 2 | 2 |
+| sysctl gate | net.core.flow_dissector_fastpath (default 0) | same |
+| static_branch flavor | _likely | _likely |
 | W=1 compile clean | yes | yes |
 | checkpatch --strict | 0/0/0 | 0/0/0 |
 | disassembly bytes | (gcc inlines static funcs from one call site, so identical) | (no inlining required; bytes already inline) |
-| measured Zen 2 -47 % | yes | yes (same code emitted) |
+| measured Zen 2 -47.3% / Comet Lake-H -47.0% | yes (sysctl=1) | yes (sysctl=1, same code emitted) |
 
 ## What v1 looks like (control)
 
-Series of 3 commits in net-next branch `flowdis-fastpath-rfc`:
+Series of 3 commits in net-next branch `flowdis-fastpath-rfc` (HEAD
+`e24cf9001c0b` as of 2026-06-07):
 
-  1ddc620812be net: flow_dissector: add fast-path entry-point skeleton
-                +57 lines — adds the dispatcher + IPv4/IPv6 stubs
-  080196491134 net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
+  cb4e51dd913c net: flow_dissector: add opt-in fast-path entry-point skeleton
+                +108 lines — adds the dispatcher + IPv4/IPv6 stubs +
+                static_branch + sysctl + Documentation entry
+  09548fd3f814 net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
                 +73/-1 lines — plugs the IPv4 stub body
-  eeca3eb493b8 net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
+  e24cf9001c0b net: flow_dissector: add eth+IPv6+{TCP,UDP} fast-path
                 +78/-1 lines — plugs the IPv6 stub body
 
-`__skb_flow_dissect()` itself grows by 7 lines (the call site). The
+`__skb_flow_dissect()` itself grows by 8 lines (the call site, now
+gated by `static_branch_likely(&flow_dissector_fastpath_key)`). The
 heavy lifting lives in three new static helpers above the function.
+
+Patch 1 also touches three other files for the sysctl gate:
+include/net/flow_dissector.h (+8 lines, extern decl),
+net/core/sysctl_net_core.c (+8 lines, table entry),
+Documentation/admin-guide/sysctl/net.rst (+24 lines, sysctl doc).
 
 ## What v2-experiment looks like
 
-A single commit in net-next branch `flowdis-fastpath-rfc-v2-inline`:
+A single commit in net-next branch `flowdis-fastpath-rfc-v2-inline`
+(HEAD `8013aee91ccb` as of 2026-06-07):
 
-  net: flow_dissector: add fast-path for eth + IPv{4,6} + {TCP,UDP}
-                +151 lines, all in one commit
+  net: flow_dissector: add opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
+                +205 lines, all in one commit
 
 `__skb_flow_dissect()` grows by ~135 lines (the entire fast-path
 block inline, plus the forward declaration of
 `flow_keys_dissector_symmetric` and the two static_asserts at
-file scope).
+file scope). The other +70 lines are the sysctl gate infra: extern
+decl in include/net/flow_dissector.h, sysctl entry in
+net/core/sysctl_net_core.c, and the Documentation entry. Identical
+to the 3-patch series' gate.
 
 No new functions. Bail-outs use `goto slow_path;` to a label just
 above the existing slow-path entry — same idiom the existing
@@ -114,6 +128,10 @@ on the same xdp2 repo"). Reviewer reads whichever they prefer.
 - `COMPARISON.md` (this file)
 
 The v2 experiment is on net-next branch
-`flowdis-fastpath-rfc-v2-inline` (HEAD around commit
-`1cb8ab442809`). The v1 patches remain canonical on
-`flowdis-fastpath-rfc` (HEAD `eeca3eb493b8`).
+`flowdis-fastpath-rfc-v2-inline` (HEAD `8013aee91ccb`). The v1
+patches remain canonical on `flowdis-fastpath-rfc` (HEAD
+`e24cf9001c0b`). Both branches now carry the sysctl gate
+(`net.core.flow_dissector_fastpath`, default 0,
+`static_branch_likely`). Pre-gate snapshots are preserved as
+`flowdis-fastpath-rfc-pre-gate` and
+`flowdis-fastpath-rfc-v2-inline-pre-gate` for reference.

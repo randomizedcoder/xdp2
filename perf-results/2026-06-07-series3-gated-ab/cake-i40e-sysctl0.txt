@@ -1,0 +1,31 @@
+qdisc cake 8001: root refcnt 9 bandwidth 10Gbit diffserv3 triple-isolate nonat nowash no-ack-filter split-gso rtt 100ms raw overhead 0 
+ Sent 268564436 bytes 4049320 pkt (dropped 0, overlimits 0 requeues 626) 
+ backlog 0b 0p requeues 626
+ memory used: 154560b of 15140Kb
+ capacity estimate: 10Gbit
+ min/max network layer size:           42 /    1514
+ min/max overhead-adjusted size:       42 /    1514
+ average network hdr offset:           14
+
+                   Bulk  Best Effort        Voice
+  thresh        625Mbit       10Gbit     2500Mbit
+  target            5ms          5ms          5ms
+  interval        100ms        100ms        100ms
+  pk_delay          0us          5us          1us
+  av_delay          0us          1us          0us
+  sp_delay          0us          0us          0us
+  backlog            0b           0b           0b
+  pkts                0      4049317            3
+  bytes               0    268564310          126
+  way_inds            0            0            0
+  way_miss            0           33            1
+  way_cols            0            0            0
+  drops               0            0            0
+  marks               0            0            0
+  ack_drop            0            0            0
+  sp_flows            0           32            1
+  bk_flows            0            1            0
+  un_flows            0            0            0
+  max_len             0         2778           42
+  quantum          1514         1514         1514
+

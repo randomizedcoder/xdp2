@@ -1,4 +1,4 @@
-From 08019649113434b21bf1e960b15cafba12c26956 Mon Sep 17 00:00:00 2001
+From 09548fd3f814b04151322e834c1b80fc991be2e5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 27 May 2026 16:49:11 -0700
 Subject: [PATCH RFC 2/3] net: flow_dissector: add eth+IPv4+{TCP,UDP} fast-path
@@ -47,12 +47,12 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  1 file changed, 73 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 248d6c7d17dd..303cf84846b5 100644
+index 211fbbf6fb48..545dfbaf1deb 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1037,13 +1037,85 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
- 
- static struct flow_dissector flow_keys_dissector_symmetric;
+@@ -1047,13 +1047,85 @@ static struct flow_dissector flow_keys_dissector_symmetric;
+  */
+ DEFINE_STATIC_KEY_FALSE(flow_dissector_fastpath_key);
  
 +/* The fast-path assumes a 20-byte IPv4 header. The IHL == 5 runtime
 + * check below holds the run-time invariant; this static_assert holds

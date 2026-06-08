@@ -1,23 +1,56 @@
-# Series 3: kernel flow_dissector fast-path — RFC v1 (draft, awaiting test)
+# Series 3: kernel flow_dissector fast-path — RFC v1 (sysctl-gated, awaiting test)
 
-**Date**: 2026-05-27
-**Status**: 3-patch v1 RFC drafted with simplified English + bullet
-  style. Awaits build + boot + test before submission to netdev.
+**Date**: 2026-05-27 (initial), 2026-06-07 (gate reshape)
+**Status**: 3-patch v1 RFC reshaped to be sysctl-gated (default off,
+  static_branch_likely + proc_do_static_key). Awaits build + boot +
+  test on the gated form before submission to netdev.
 **Plan**: `docs/kernel-flowdis-fastpath-plan.md` in the xdp2 repo.
 **Test plan**: `docs/kernel-flowdis-fastpath-test-plan.md`.
 **Base**: net-next `c0aa5f13826dcb035bec3d6b252e6b2020fa5f88`
   (same base as series 1 + 2).
-**Branch in net-next**: `flowdis-fastpath-rfc`, HEAD `eeca3eb493b8`.
+**Branch in net-next**: `flowdis-fastpath-rfc`, HEAD `e24cf9001c0b`
+  (2026-06-07 gate reshape; pre-gate snapshot at
+  `flowdis-fastpath-rfc-pre-gate`, HEAD `eeca3eb493b8`).
 
-## Series shape (v1)
+## Gate design
+
+The fast-path is opt-in via a new sysctl:
+
+  `net.core.flow_dissector_fastpath = 0` (default; no behavior change)
+  `net.core.flow_dissector_fastpath = 1` (fast-path enabled)
+
+Implementation pattern mirrors Eric Dumazet's existing static-branch
+sysctls (`net.core.high_order_alloc_disable` /
+`net_high_order_alloc_disable_key` in sock.c):
+
+- `DEFINE_STATIC_KEY_FALSE(flow_dissector_fastpath_key)` in
+  `net/core/flow_dissector.c`
+- extern declaration in `include/net/flow_dissector.h`
+- sysctl table entry in `net/core/sysctl_net_core.c` with
+  `.proc_handler = proc_do_static_key`
+- new Documentation entry in
+  `Documentation/admin-guide/sysctl/net.rst`
+
+**static_branch_likely (not _unlikely)**: operators who flip this
+sysctl have opted into the fast-path because they want it fast;
+`static_branch_likely` keeps the dispatcher inline in the hot text
+section, matching the layout the microbench measured against.
+Default-off users pay one forward JMP per dissector call (cheap,
+one not-taken JMP).
+
+## Series shape (v1, gated)
 
 | # | patch | net-next commit | LoC | status |
 |---:|---|---|---:|---|
-| 1 | flow_dissector: add fast-path entry-point skeleton | `1ddc620812be` | 57 | drafted |
-| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | `080196491134` | 73 | drafted |
-| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | `eeca3eb493b8` | 78 | drafted |
+| 1 | flow_dissector: add opt-in fast-path entry-point skeleton | `cb4e51dd913c` | +108 | reshaped |
+| 2 | flow_dissector: add eth+IPv4+{TCP,UDP} fast-path | `09548fd3f814` | +73/-1 | unchanged |
+| 3 | flow_dissector: add eth+IPv6+{TCP,UDP} fast-path | `e24cf9001c0b` | +78/-1 | unchanged |
 
-Total: 207 LoC, all in net/core/flow_dissector.c.
+Total: 257 insertions across 4 files:
+- net/core/flow_dissector.c (+217)
+- Documentation/admin-guide/sysctl/net.rst (+24)
+- include/net/flow_dissector.h (+8)
+- net/core/sysctl_net_core.c (+8)
 
 LoC trajectory:
 - First draft: 276 lines (with verbose comments)
@@ -54,9 +87,12 @@ C11 was adopted by the kernel in commit e8c07082a810 (May 2022,
 Held for v2 follow-up:
 
 - VLAN dispatch + 4 VLAN variants (~150 LoC)
-- Kernel selftest for byte-exact verification
-- A toggle mechanism (CONFIG / static_key / sysctl) for the
-  selftest
+- Kernel selftest for byte-exact verification (flip the sysctl
+  on, run a packet corpus through both paths, byte-compare struct
+  flow_keys)
+
+The "toggle mechanism" follow-up from the pre-gate plan landed in
+v1 (sysctl + static_branch_likely) rather than v2.
 
 ## Style audit applied (2026-05-27 evening)
 
@@ -203,14 +239,48 @@ Per `docs/kernel-flowdis-fastpath-test-plan.md`:
 
 ### Phase 3 numbers
 
-Microbench (synthetic eth+IPv4+TCP, always-hit fast-path):
+Microbench (synthetic eth+IPv4+TCP, fast-path always hits; sysctl=1
+equivalent — the libflowdis port runs the fast-path
+unconditionally, equivalent to the kernel with the static_branch
+key enabled):
 
 - Zen 2 Threadripper PRO 3945WX (N=10): 12.44 -> 6.56 ns/pkt
   (-47.3 %, 8x pooled stdev)
+- Skylake-deriv Core i9-10885H t (N=10): 10.61 -> 5.62 ns/pkt
+  (-47.0 %, 38x pooled stdev) -- added 2026-06-04
 - Zen 1 Ryzen 5 PRO 2400G hp5 (N=5): 20.50 -> 20.53 ns/pkt
-  (within noise; cover letter's "masked at p50" prediction holds)
+  (within noise; cover letter's "masked at p50" prediction holds;
+  Comet Lake-H confirms the same ~5 ns absolute saving is masked
+  by the clock_gettime floor on Zen 1, not a uarch-specific no-op)
 
-Details: `perf-results/2026-05-28-series3-phase3/results.md`.
+Details: `perf-results/2026-05-28-series3-phase3/results.md`
+  (Zen 2 + Zen 1) and
+  `perf-results/2026-06-04-series3-phase3-t/results.md`
+  (Comet Lake-H, second-vendor confirmation).
+
+### Gated kernel A/B verification (2026-06-07)
+
+After the gate reshape, the patched kernel was rebuilt against
+`linuxPackages_latest` (Path B; hp1/hp3 at 7.0.9, hp2/hp5 at
+7.0.0; t at 7.0.10). The four hp* hosts were re-tested with
+sysctl=0 then sysctl=1 to confirm the new claims:
+
+| pair | sysctl=0 | sysctl=1 | delta |
+|---|---:|---:|---:|
+| mlx5 25 GbE (hp1->hp3) | 16.393 Gbit/s | 16.723 Gbit/s | +2.0% |
+| i40e 10 GbE (hp2->hp5) | 9.409 Gbit/s  | 9.409 Gbit/s  | 0% (link-saturated) |
+
+- sysctl=0 matches or exceeds B.1 baseline on both NICs:
+  *no regression* vs unpatched kernel.
+- sysctl=1 lands at the top of the prior Phase 4 range on both
+  NICs: the gated path produces the same code as the prior
+  always-on draft.
+- Retransmit rates between sysctl=0 and sysctl=1 are equivalent
+  on both pairs: the byte-exact contract holds end-to-end (no
+  flow-hash scatter from broken dissector output).
+- Cake stats: 0 drops, 0 overlimits across all 4 runs.
+
+Details: `perf-results/2026-06-07-series3-gated-ab/results.md`.
 
 ### Phase 4 numbers
 
@@ -227,11 +297,18 @@ Details: `perf-results/2026-05-28-series3-phase4/results-full.md`.
 When picking this back up:
 
 1. Confirm `/home/das/Downloads/net-next` branch
-   `flowdis-fastpath-rfc` is still at HEAD `bd25b1631c7d`. If
-   not, fetch from the previous session's state.
-2. Confirm `kernel-patches/series3-flowdis-fastpath/v1/` matches
-   that branch (regenerate via `git format-patch` if not).
-3. Run the test plan. Iterate on any failures.
-4. Once green, update cover letter with the measured numbers
-   from Phases 3-6.
-5. Send to netdev with the CC list above.
+   `flowdis-fastpath-rfc` is still at HEAD `e24cf9001c0b` (gated;
+   2026-06-07 reshape). Pre-gate snapshot kept at branch
+   `flowdis-fastpath-rfc-pre-gate` (HEAD `eeca3eb493b8`).
+   Single-patch variant on `flowdis-fastpath-rfc-v2-inline` HEAD
+   `8013aee91ccb` (gated), pre-gate at
+   `flowdis-fastpath-rfc-v2-inline-pre-gate` HEAD `1cb8ab442809`.
+2. Confirm `kernel-patches/series3-flowdis-fastpath/v1/` and
+   `v1-netdev/` and `v2-experiment/` match those branches
+   (regenerate via `git format-patch` if not).
+3. Re-run smoke tests with sysctl flipped (sysctl=0 must be
+   no-change; sysctl=1 must match the unconditional draft's
+   Phase 4 macro numbers within noise).
+4. Send to netdev with the CC list above. The v1-netdev/ cover
+   letter is the canonical send form; the COMPARISON.md in
+   v2-experiment/ explains the single-patch alternative.

@@ -1350,6 +1350,24 @@ the unified matrix's parallel cells) will lift the bottleneck off the
 parser and onto memory bandwidth or BPF JIT throughput on t,
 exposing different ratios than the 4c/8t hp boxes show.
 
+t also fills the **second-vendor / Skylake-derivative** gap in the
+fleet's uarch coverage. Concretely, the series 3 v1 RFC's Phase 3
+microbench was extended to t on 2026-06-04 with this result:
+
+| uarch | host | baseline ns/pkt | patched ns/pkt | speedup |
+| --- | --- | ---: | ---: | ---: |
+| Zen 2 | workstation (3945WX) | 12.44 | 6.56 | -47.3% |
+| Skylake-deriv | **t (i9-10885H)** | **10.61** | **5.62** | **-47.0%** |
+| Zen 1 | hp5 (2400G) | 20.50 | 20.53 | 0% (masked by timer floor) |
+
+Comet Lake-H confirms the Zen 2 saving on an Intel CPU — the
+same ~5 ns absolute reduction, indistinguishable percentage. The
+Zen 1 "0%" result is now clearly identified as a clock_gettime
+resolution-floor artefact rather than a uarch-specific no-op:
+the ~5 ns saving Comet Lake-H exposes lies below Zen 1's
+measurement band at p50. Details:
+`perf-results/2026-06-04-series3-phase3-t/results.md`.
+
 ### NixOS module deltas vs the hp pattern
 
 ```nix

@@ -1,0 +1,42 @@
+=== PATCHED N=10 ===
+iter=10000000 total=52889445 ns ns_per_pkt=5.29
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=54927481 ns ns_per_pkt=5.49
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=55903721 ns ns_per_pkt=5.59
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=56530150 ns ns_per_pkt=5.65
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=56138641 ns ns_per_pkt=5.61
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=56190138 ns ns_per_pkt=5.62
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=60150529 ns ns_per_pkt=6.02
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=56940837 ns ns_per_pkt=5.69
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=56067752 ns ns_per_pkt=5.61
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=56259194 ns ns_per_pkt=5.63
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+=== BASELINE N=10 ===
+iter=10000000 total=106788888 ns ns_per_pkt=10.68
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=105770773 ns ns_per_pkt=10.58
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=106256432 ns ns_per_pkt=10.63
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=105850783 ns ns_per_pkt=10.59
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=106130458 ns ns_per_pkt=10.61
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=105910901 ns ns_per_pkt=10.59
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=106256043 ns ns_per_pkt=10.63
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=105771537 ns ns_per_pkt=10.58
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=106178121 ns ns_per_pkt=10.62
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
+iter=10000000 total=105720401 ns ns_per_pkt=10.57
+addr_type=3 ip_proto=6 v4src=0xc0a80164 v4dst=0xa000005 sport=43981 dport=80
