@@ -1,0 +1,6 @@
+run 1 sysctl=0: 164.2 Mbit/s, 6413152 pkts, lost=0.0027%
+run 2 sysctl=0: 163.9 Mbit/s, 6403325 pkts, lost=0.0026%
+run 3 sysctl=0: 160.4 Mbit/s, 6268515 pkts, lost=0.0026%
+run 4 sysctl=1: 156.9 Mbit/s, 6131916 pkts, lost=0.0000%
+run 5 sysctl=1: 153.1 Mbit/s, 5981461 pkts, lost=0.0044%
+run 6 sysctl=1: 151.5 Mbit/s, 5919515 pkts, lost=0.0064%

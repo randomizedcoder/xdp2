@@ -282,6 +282,45 @@ sysctl=0 then sysctl=1 to confirm the new claims:
 
 Details: `perf-results/2026-06-07-series3-gated-ab/results.md`.
 
+### ARM gated kernel A/B (2026-06-09)
+
+The patches were ported to the Raspberry Pi 5 pair (Cortex-A76 4c @
+2.4 GHz, BCM2712, 1 GbE switched) and a standalone Pi 4 (Cortex-A72
+4c @ 1.8 GHz, BCM2711) via Path B against nixos-raspberrypi's
+linux_rpi5 / linux_rpi4 6.12.87 kernel. The 3 patches applied
+cleanly with no 6.12 context drift — patches generalise to 6.12
+kernel base.
+
+| host | uname | sysctl | mount + dmesg |
+|---|---|---|---|
+| pi5-1 | 6.12.87 (patched) | = 0 ✅ | /nix on NVMe, no new dmesg |
+| pi5-2 | 6.12.87 (patched) | = 0 ✅ | /nix on NVMe, no new dmesg |
+| pi4-1 | 6.12.87 (patched) | = 0 ✅ | no new dmesg |
+
+Pi 5 pair TCP wire-rate cross-qdisc matrix (30 s, -P 16):
+
+- cake/fq_codel/fq/noqueue: 936.2 ± 0.05 Mbit/s in both modes,
+  0 retx in all cells. **No regression at sysctl=0 on ARM**, link
+  saturates in both modes (1 GbE ceiling).
+
+Pi 5 pair UDP small-packet PPS-limited (-b 0 -l 64 -P 8, 20 s, N=3
+per mode):
+
+- sysctl=0: 162.8 ± 1.7 Mbit/s mean
+- sysctl=1: 153.8 ± 2.3 Mbit/s mean
+- delta -5.5 % (every sysctl=1 run below every sysctl=0 run,
+  signal not noise)
+
+This is an **unexpected ARM-specific regression** in the opt-in
+path for UDP small-packet workloads. Working hypotheses pending v2
+investigation: branch predictor on the dispatcher chain, 16 KiB
+page boundary effects, fast-path .text layout vs slow-path entry.
+
+The default-off case (sysctl=0) shows no regression on ARM — the
+critical claim for v1 RFC holds.
+
+Details: `perf-results/2026-06-09-series3-arm-ab/results.md`.
+
 ### Phase 4 numbers
 
 16 macro cells (iperf3 + iperf2 x IPv4/IPv6 x TCP/UDP, two pairs):

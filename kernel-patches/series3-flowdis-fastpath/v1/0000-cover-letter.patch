@@ -162,6 +162,51 @@ Tested
                    drift -0.504 %, 7 cake drops, +11 MB RSS.
     0 new dmesg WARN/BUG/oops on either host throughout.
 
+  - ARM/Broadcom validation (2026-06-09), third CPU vendor in the
+    test fleet, Cortex-A76 + A72 uarch families:
+
+      * Build + boot: patches apply cleanly against the
+        nixos-raspberrypi linux_rpi5 and linux_rpi4 6.12.87
+        kernels (no 6.12 context drift in the touched files).
+        sysctl registered, default 0, dmesg clean of new
+        WARN/BUG/oops on all three hosts (pi5-1, pi5-2, pi4-1).
+
+      * TCP wire-rate cross-qdisc matrix on the Pi 5 pair
+        (Cortex-A76 4c @ 2.4 GHz, 1 GbE switched, -P 16 -t 30 s,
+        cake/fq_codel/fq/noqueue each tested):
+
+           sysctl=0     sysctl=1     delta
+           936.20       936.16       -0.004 %   cake
+           936.15       936.21       +0.006 %   fq_codel
+           936.25       936.18       -0.007 %   fq
+           936.16       936.18       +0.002 %   noqueue
+                                                (Mbit/s, both modes)
+
+        All four qdiscs produce link-saturated throughput with 0
+        retransmits in both modes — no regression at sysctl=0
+        on ARM, and the byte-exact contract holds end-to-end
+        (no flow-hash scatter from broken dissector output).
+
+      * UDP -b 0 -l 64 -P 8 (PPS-limited, 20 s, N=3 per mode):
+        sysctl=0 162.8 Mbit/s mean (160.4 - 164.2)
+        sysctl=1 153.8 Mbit/s mean (151.5 - 156.9)
+                                          delta -5.5 %
+
+        Every sysctl=1 run lies below every sysctl=0 run, so the
+        delta is signal not noise. This is an unexpected
+        ARM-specific finding — Cortex-A76 sees a small UDP
+        small-packet regression at sysctl=1 while x86 does not.
+        Working hypotheses (none verified): dispatcher branch
+        chain predicting worse on A76, 16 KiB page boundary
+        effects on the new code, or fast-path .text layout
+        crossing a cache line that the slow path didn't.
+        Default-off remains free, so operators who don't opt in
+        see no impact; we plan to investigate the layout fix
+        in v2.
+
+    Details: perf-results/2026-06-09-series3-arm-ab/ in the
+    project repo.
+
 This is sent as RFC for feedback on:
 
   - The dispatch shape (single ethertype switch with per-family

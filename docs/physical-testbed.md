@@ -37,6 +37,8 @@ It is written so that someone new to the project can:
 15. [IPv6 testbed addresses (ULA)](#15-ipv6-testbed-addresses-ula)
 16. [Standalone Intel data point (chromebox1, Haswell-ULT)](#16-standalone-intel-data-point-chromebox1-haswell-ult)
 17. [High-end Intel data point (t, Comet Lake-H)](#17-high-end-intel-data-point-t-comet-lake-h)
+18. [ARM testbed pair (pi5-1 ↔ pi5-2, BCM2712 Cortex-A76, 1 GbE switched)](#18-arm-testbed-pair-pi5-1--pi5-2-bcm2712-cortex-a76-1-gbe-switched)
+19. [Standalone ARM Cortex-A72 data point (pi4-1, BCM2711)](#19-standalone-arm-cortex-a72-data-point-pi4-1-bcm2711)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1472,6 +1474,266 @@ proportionally. Treat t's numbers as the modern-Intel reference
 point; treat chromebox1's as the entry-Intel reference point. The
 **uarch-specific deltas** between the three CPUs are the publishable
 signal, not the absolute numbers.
+
+---
+
+## 18. ARM testbed pair (pi5-1 ↔ pi5-2, BCM2712 Cortex-A76, 1 GbE switched)
+
+A fifth and sixth host joined the fleet on 2026-06-08: two
+Raspberry Pi 5 boards running NixOS via the
+[nixos-raspberrypi](https://github.com/nvmd/nixos-raspberrypi)
+flake. They form a third pair in the testbed, with two important
+differences from the hp pairs:
+
+1. **ARM uarch (Broadcom BCM2712, 4× Cortex-A76 @ 2.4 GHz).** Third
+   CPU vendor in the fleet alongside AMD (Zen 1, hp1-5) and Intel
+   (Haswell, chromebox1; Comet Lake-H, t). Each Pi 5 is a 4-core
+   no-SMT package — a much smaller compute envelope than the 4c/8t
+   Zen 1 boxes, but a modern ARMv8 uarch with out-of-order execution
+   and a 16K page size by default (set by the rpi-5.page-size-16k
+   nixos-raspberrypi module).
+2. **1 GbE switched, not back-to-back DAC.** Both Pi 5s connect to
+   the same lab switch on `end0` at 1 GbE. There is no peer
+   /29 carved for them — they reach each other via their
+   regular lab IPs (172.16.40.122 ↔ 172.16.40.174). Test results
+   that depend on switch-side scheduling (e.g. cake/fq pacing
+   under load) carry that caveat versus the back-to-back hp
+   pairs.
+
+### Hardware
+
+| Field | pi5-1 | pi5-2 |
+| --- | --- | --- |
+| Chassis | Raspberry Pi 5 SBC | Raspberry Pi 5 SBC |
+| SoC | Broadcom BCM2712 | Broadcom BCM2712 |
+| CPU | 4× ARM Cortex-A76 @ 2.4 GHz | 4× ARM Cortex-A76 @ 2.4 GHz |
+| Cores / threads | 4 / 4 (no SMT) | 4 / 4 (no SMT) |
+| Page size | 16 KiB (rpi-5.page-size-16k module) | 16 KiB |
+| RAM | 8 GiB LPDDR4X | 8 GiB LPDDR4X |
+| Boot storage | SD card (NIXOS_SD label) | SD card (NIXOS_SD label) |
+| Build storage | **Kingston SNV2S1000G NVMe (1 TB)** | **Kingston SNV3S1000G NVMe (1 TB)** |
+| NIC (end0) | onboard 1 GbE (BCM54213PE PHY) | onboard 1 GbE (BCM54213PE PHY) |
+| MAC | `2c:cf:67:37:a1:b2` | `2c:cf:67:31:df:b7` |
+| Mgmt IPv4 | 172.16.40.122 | 172.16.40.174 |
+
+**NVMe state (2026-06-08):** both Pi 5s have the Kingston NVMe SSDs
+physically attached via the Pi 5's PCIe 2.0 x1 lane (FPC), and the
+drives appear as `/dev/nvme0n1`. They are **not currently mounted**
+and `/nix/store` lives on the SD card. The NVMe drives are
+planned to back `/nix` to make kernel builds tractable; until then,
+on-host kernel builds (e.g. the series 3 patched kernel) are very
+slow (multi-hour) on SD.
+
+Live verification:
+
+```bash
+ssh root@pi5-1 'uname -r; lsblk -d | grep -E "mmc|nvme"; df -h /nix'
+# Expected:
+#   6.12.87
+#   mmcblk0   119G   ...
+#   nvme0n1   931.5G KINGSTON SNV2S1000G
+#   /dev/mmcblk0p2  117G   3.5G  108G   4% /
+```
+
+### What pi5-1 / pi5-2 can / cannot run
+
+Identical to hp1↔hp3 / hp2↔hp5 in terms of category coverage —
+they have a peer link, so all categories work. The link
+is 1 GbE rather than 10/25 GbE, so some absolute numbers in
+the F/G/H categories (XDP / AF_XDP throughput, hardware ntuple
+offload) will be link-limited rather than CPU-limited. But each
+category exercises the code path correctly:
+
+- A–E, I (single-host parsers and matrices): ✅
+- F (XDP samples on real traffic): ✅ (1 GbE link)
+- G (AF_XDP throughput): ✅ (1 GbE link)
+- H (hardware ntuple offload): **N/A** — BCM54213PE PHY does not
+  expose Flow Director / ethtool-ntuple steering. The category is
+  skipped for this pair the same way chromebox1 and t skip it.
+
+The added value vs the hp pairs: a **third CPU vendor** in the
+A/B/C/D/E/I + F/G sweeps, with very different cache hierarchy
+(64 KiB L1d per core, 512 KiB L2 per core, 2 MiB shared L3
+vs the Zen 1 4×96 KiB / 4×512 KiB / 4 MiB hp pattern) and a
+16 KiB page size. The `static_branch` / `jump_label` runtime
+patching machinery the series 3 RFC depends on is arch-specific
+code in `arch/arm64/kernel/jump_label.c` — exercising it on real
+hardware is meaningful evidence the patches generalise beyond
+x86.
+
+### NixOS module deltas vs the hp pattern
+
+The two Pi 5s use `nixos-raspberrypi`'s `raspberry-pi-5.base` +
+`raspberry-pi-5.page-size-16k` modules rather than the
+upstream `pkgs.linuxPackages_latest` used by hp* and t. The
+kernel is the rpi-shipped `linux_rpi5` (currently 6.12.87) with
+rpi-specific patches and the `bcm2712_defconfig`.
+
+```nix
+# ~/nixos/arm/pi5-1/configuration.nix (and pi5-2)
+imports = with nixos-raspberrypi.nixosModules; [
+  raspberry-pi-5.base
+  raspberry-pi-5.page-size-16k
+  ./il8n.nix
+  ./sshd-INSECURE.nix
+];
+
+fileSystems."/" = {
+  device = "/dev/disk/by-label/NIXOS_SD";
+  fsType = "ext4";
+  options = [ "noatime" ];
+};
+fileSystems."/boot/firmware" = {
+  device = "/dev/disk/by-label/FIRMWARE";
+  fsType = "vfat";
+  options = [ "noatime" "noauto"
+              "x-systemd.automount" "x-systemd.idle-timeout=1min" ];
+};
+
+boot.loader.raspberry-pi.bootloader = "kernel";
+networking.hostName = "pi5-1";   # or "pi5-2"
+networking.networkmanager.enable = false;
+```
+
+There is **no `xdp2.testbed` block** on either Pi 5 today —
+neither the IRQ-affinity tuning nor the cmdline isolation
+parameters from §6/§7 are applied. The lab kernel cmdline already
+carries the rpi-baseline tuning (`pci=pcie_bus_safe`,
+`coherent_pool=1M`, `numa=fake=8`, `system_heap.max_order=0`) via
+the rpi module. Adding an `xdp2.testbed` block on the Pi 5s is a
+follow-up if more aggressive tuning is needed for benchmark
+runs.
+
+### Why no testbed config TOML for this pair
+
+Same reason as chromebox1 (§16) and t (§17): no `[nic]` block
+worth parameterising yet, and the pair runs on the shared lab
+switch rather than a back-to-back link. For ad-hoc runs use the
+positional host form of `nix run .#run-on-host`:
+
+```bash
+# Smoke (parser on the Pi 5)
+nix run .#run-on-host -- pi5-1 -- xdp2-rs-test
+
+# Cross-uarch matrix (Zen 1 + Skylake-deriv + Cortex-A76)
+nix run .#run-on-host -- hp5 t pi5-1 -- flow-dissector-matrix-unified
+```
+
+### Measured performance — series 3 A/B (2026-06-09)
+
+| test | sysctl=0 | sysctl=1 | delta |
+|---|---:|---:|---:|
+| TCP -P 16 cake 1Gbit | 936.20 Mbit/s | 936.16 Mbit/s | ~0% (link sat) |
+| TCP -P 16 fq_codel | 936.15 Mbit/s | 936.21 Mbit/s | ~0% |
+| TCP -P 16 fq | 936.25 Mbit/s | 936.18 Mbit/s | ~0% |
+| TCP -P 16 noqueue | 936.16 Mbit/s | 936.18 Mbit/s | ~0% |
+| UDP -b 0 -l 64 -P 8 cake (N=3) | 162.8 Mbit/s mean | 153.8 Mbit/s mean | **-5.5%** |
+
+TCP at wire rate saturates ~936 Mbit/s in both modes with 0
+retransmits — **no regression at sysctl=0**, byte-exact contract
+holds. UDP small-packet (PPS-limited) shows a small but consistent
+ARM-specific regression at sysctl=1 — every sysctl=1 sample below
+every sysctl=0 sample. Default-off case unaffected; the regression
+is in the opt-in path only.
+
+Working hypotheses for the ARM UDP regression (none verified, all
+held for series 3 v2 follow-up): branch predictor on the dispatcher
+chain handling fast-path less well than slow path on Cortex-A76;
+16 KiB page boundary effect from the larger page size; or
+fast-path .text layout crossing an i-cache line the slow path
+didn't. Details:
+`perf-results/2026-06-09-series3-arm-ab/results.md`.
+
+For uarch comparison purposes: Cortex-A76 @ 2.4 GHz has roughly
+**0.5–0.7×** the single-thread parser throughput of Zen 1 @ 3.4
+GHz (hp1-5) — narrower dispatch width, lower clock. With 4 cores
+vs hp's 8 logical threads, parallel-friendly workloads scale
+4-wide.
+
+---
+
+## 19. Standalone ARM Cortex-A72 data point (pi4-1, BCM2711)
+
+A seventh host joined the fleet on 2026-06-08: **pi4-1**, a
+Raspberry Pi 4 running NixOS via the same nixos-raspberrypi
+flake. Like chromebox1 and t, pi4-1 is **not** part of any peer
+pair — it provides an older ARM uarch data point for the
+single-host categories.
+
+### Hardware
+
+| Field | pi4-1 |
+| --- | --- |
+| Chassis | Raspberry Pi 4 SBC |
+| SoC | Broadcom BCM2711 |
+| CPU | 4× ARM Cortex-A72 @ 1.8 GHz |
+| Cores / threads | 4 / 4 (no SMT) |
+| RAM | 8 GiB LPDDR4 |
+| Storage | SD card only (NIXOS_SD label) — no NVMe HAT |
+| NIC (end0) | onboard 1 GbE |
+| MAC | `e4:5f:01:42:a1:0f` |
+| Mgmt IPv4 | 172.16.40.199 |
+
+Live verification:
+
+```bash
+ssh root@pi4-1 'uname -r; lscpu | grep -E "Model name|max MHz"; free -g'
+# Expected:
+#   6.12.87
+#   Model name: Cortex-A72   CPU max MHz: 1800.0000
+#   8 GiB
+```
+
+### What pi4-1 can / cannot run
+
+Identical to chromebox1 (§16) and t (§17) since the constraint is
+"no peer link": **A/B/C/D/E/I ✅, F/G/H ❌**.
+
+The added value vs the Pi 5 pair: **older Cortex-A72 uarch** (3
+generations behind the A76 — in-order vs out-of-order, narrower
+dispatch, smaller caches, 4 KiB pages by default). For the series
+3 microbench this gives the same kind of "entry-level" reference
+point that chromebox1 provides on the Intel side. The
+uarch-specific deltas across A72 / A76 / Zen 1 / Zen 2 / Haswell /
+Skylake-deriv are the publishable signal.
+
+### NixOS module deltas
+
+Uses `raspberry-pi-4.base` (no page-size module — Pi 4 uses 4 KiB
+pages) and **u-boot** rather than the kernelboot loader the Pi 5s
+use:
+
+```nix
+# ~/nixos/arm/pi4-1/configuration.nix
+imports = with nixos-raspberrypi.nixosModules; [
+  raspberry-pi-4.base
+  ./il8n.nix
+  ./sshd-INSECURE.nix
+];
+networking.hostName = "pi4-1";
+```
+
+Same caveat as the Pi 5s: **no `xdp2.testbed` block** today;
+benchmark-mode tuning is a follow-up.
+
+### Why no testbed config TOML
+
+Same as chromebox1 / t / the Pi 5 pair: single peerless host.
+Use the positional form:
+
+```bash
+nix run .#run-on-host -- pi4-1 -- xdp2-rs-test
+nix run .#run-on-host -- chromebox1 pi4-1 -- flow-dissector-matrix
+```
+
+### Expected performance vs the rest of the fleet
+
+Cortex-A72 @ 1.8 GHz is roughly **0.3–0.5×** the single-thread
+parser throughput of Cortex-A76 @ 2.4 GHz (pi5-1/pi5-2) — older
+uarch, lower clock. On the parser microbench it should sit
+between chromebox1 (Haswell Celeron @ 1.4 GHz, even slower)
+and the Pi 5 pair. As with chromebox1, the absolute numbers are
+not the publishable signal — the **uarch comparison** is.
 
 ---
 
