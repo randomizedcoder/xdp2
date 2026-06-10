@@ -70,6 +70,48 @@
    work on real PCAP shapes; the synthetic benchmark's
    apparent `-52%` is a hot-cache best case.
 
+## Why the patched bench is slower on these specific PCAPs
+
+**These PCAPs are heavy on non-fast-path traffic.** Per the
+xdp2 workload definitions:
+
+| pcap | fast-path-eligible packets |
+|---|---|
+| pppoe-isp | 0% — every packet PPPoE-encap, fast-path declines |
+| vxlan-k8s-pure | 0% — every packet VXLAN-encap |
+| vlan-tcp-mix | 0% — every packet 802.1Q VLAN-tagged |
+| https-web | ~50-70% — bidirectional TLS with some ICMP / handshakes |
+| k8s-microservices | ~30-60% — gRPC over TCP plus some VXLAN |
+| nfs-server | ~70-90% — mostly bulk NFS TCP, fast-path-eligible |
+
+The per-packet cost model:
+
+```
+delta(sysctl=1 - sysctl=0) =
+    + dispatcher_overhead × (1 - p)       cost on non-eligible packets
+    - fast_path_savings   × p             gain on eligible packets
+```
+
+where p = fraction of fast-path-eligible packets in the workload.
+For p ≈ 0 (the three encap workloads), the delta is purely
+dispatcher overhead per call (~+0.5 ns/pkt observed). For p ≈ 1
+(always-hit synthetic), delta is purely the fast-path savings
+(the -52% headline). Workloads in between scale linearly with p.
+
+The cover letter should make this explicit: **the cost of enabling
+the sysctl is workload-dependent**. The headline -52% is the upper
+bound at p=1; the small per-packet overhead on a heavy non-eligible
+mix (these PCAPs) is the floor at p≈0. Operators with mostly
+eligible traffic (bare-eth TCP/UDP, common in datacenter east-west
+or load-balanced HTTP fleets) get the gain; operators dominated by
+VLAN-tagged, encap, or non-TCP/UDP traffic should leave the sysctl
+off.
+
+Phase E of the deep-investigation plan
+(`perf-results/2026-06-XX-series3-controlled-mix/`) will build
+synthetic PCAPs with controlled p ∈ {10, 25, 50, 75, 90}% and
+demonstrate this monotonicity as a clean curve.
+
 ## Cover-letter implications
 
 This dataset, combined with `2026-06-10-series3-non-fast-path/`

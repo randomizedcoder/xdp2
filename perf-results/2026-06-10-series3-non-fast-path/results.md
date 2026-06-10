@@ -26,6 +26,22 @@ family, plus plain TCP shapes and the 5200-pkt broad-coverage
 mix), the patched libflowdis with the fast-path **always engaged**
 runs 0.0-0.94 ns/pkt slower than baseline (0-9%).
 
+**This is the cost of enabling the sysctl on traffic that doesn't
+hit the fast-path.** At `sysctl=0` the kernel's `static_branch`
+collapses the dispatch site to a NOP-skip — `baseline libflowdis`
+above is the userspace equivalent of that case. The delta below is
+what an operator pays per-packet on these specific shapes if they
+turn the sysctl ON despite their workload being non-eligible.
+
+For each packet: cost(sysctl=1) ≈ cost(sysctl=0) +
+dispatcher_overhead, where the dispatcher overhead is roughly +0.5
+ns/pkt (~1 cycle on Cortex-A76) for an eth+IPv4/IPv6 packet that
+the fast-path then declines. The dispatcher cost is paid *per call*;
+the more non-fast-path packets in a workload, the more visible the
+overhead. The fast-path savings (-10 ns/pkt on always-hit
+synthetic, see `2026-06-09-series3-arm-microbench/`) apply only to
+the eligible subset.
+
 This is consistent with the cover letter's "small dispatcher
 fall-through cost on non-matching shapes" claim. Importantly, the
 kernel patches are **sysctl-gated** (default off → zero cost; only
