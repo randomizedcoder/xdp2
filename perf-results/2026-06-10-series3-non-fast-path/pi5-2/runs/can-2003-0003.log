@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/can-2003-0003.pcap n_packets=27 iter=10000000 total=108490074 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/can-2003-0003.pcap n_packets=27 iter=10000000 total=108449537 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/can-2003-0003.pcap n_packets=27 iter=10000000 total=108428926 ns ns_per_pkt=10.84
+=== BASELINE ===
+pcap=/root/microbench/pcap/can-2003-0003.pcap n_packets=27 iter=10000000 total=105334037 ns ns_per_pkt=10.53
+pcap=/root/microbench/pcap/can-2003-0003.pcap n_packets=27 iter=10000000 total=106612685 ns ns_per_pkt=10.66
+pcap=/root/microbench/pcap/can-2003-0003.pcap n_packets=27 iter=10000000 total=106703759 ns ns_per_pkt=10.67

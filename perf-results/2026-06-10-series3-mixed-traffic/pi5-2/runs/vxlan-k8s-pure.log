@@ -1,0 +1,12 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=108835907 ns ns_per_pkt=10.88
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=108844296 ns ns_per_pkt=10.88
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=108833777 ns ns_per_pkt=10.88
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=108831796 ns ns_per_pkt=10.88
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=108856537 ns ns_per_pkt=10.89
+=== BASELINE ===
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=105178722 ns ns_per_pkt=10.52
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=102071074 ns ns_per_pkt=10.21
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=102633259 ns ns_per_pkt=10.26
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=104589741 ns ns_per_pkt=10.46
+pcap=/root/microbench/pcap/vxlan-k8s-pure.pcap n_packets=20000 iter=10000000 total=104454149 ns ns_per_pkt=10.45

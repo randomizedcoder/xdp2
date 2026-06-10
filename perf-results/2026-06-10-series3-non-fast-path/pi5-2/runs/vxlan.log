@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/vxlan.pcap n_packets=10 iter=10000000 total=108476519 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/vxlan.pcap n_packets=10 iter=10000000 total=108479834 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/vxlan.pcap n_packets=10 iter=10000000 total=108444315 ns ns_per_pkt=10.84
+=== BASELINE ===
+pcap=/root/microbench/pcap/vxlan.pcap n_packets=10 iter=10000000 total=105828297 ns ns_per_pkt=10.58
+pcap=/root/microbench/pcap/vxlan.pcap n_packets=10 iter=10000000 total=106895111 ns ns_per_pkt=10.69
+pcap=/root/microbench/pcap/vxlan.pcap n_packets=10 iter=10000000 total=105595648 ns ns_per_pkt=10.56

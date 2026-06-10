@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/gre-within-gre.pcap n_packets=628 iter=10000000 total=108437056 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/gre-within-gre.pcap n_packets=628 iter=10000000 total=108572166 ns ns_per_pkt=10.86
+pcap=/root/microbench/pcap/gre-within-gre.pcap n_packets=628 iter=10000000 total=108460204 ns ns_per_pkt=10.85
+=== BASELINE ===
+pcap=/root/microbench/pcap/gre-within-gre.pcap n_packets=628 iter=10000000 total=105547407 ns ns_per_pkt=10.55
+pcap=/root/microbench/pcap/gre-within-gre.pcap n_packets=628 iter=10000000 total=103344204 ns ns_per_pkt=10.33
+pcap=/root/microbench/pcap/gre-within-gre.pcap n_packets=628 iter=10000000 total=105212555 ns ns_per_pkt=10.52

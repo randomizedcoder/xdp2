@@ -1,0 +1,7 @@
+pcap,n_packets,patched_mean_ns,patched_stdev,baseline_mean_ns,baseline_stdev,delta_ns,delta_pct,note
+https-web,20000,12.048,0.004,11.192,0.065,+0.856,+7.65,ok
+k8s-microservices,20000,11.342,0.004,10.586,0.235,+0.756,+7.14,ok
+nfs-server,20000,11.080,0.000,10.432,0.365,+0.648,+6.21,ok
+pppoe-isp,20000,10.892,0.008,10.380,0.101,+0.512,+4.93,ok
+vlan-tcp-mix,20000,10.892,0.008,10.338,0.097,+0.554,+5.36,ok
+vxlan-k8s-pure,20000,10.882,0.004,10.380,0.136,+0.502,+4.84,ok

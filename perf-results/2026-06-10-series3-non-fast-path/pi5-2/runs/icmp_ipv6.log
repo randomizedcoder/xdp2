@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/icmp_ipv6.pcap n_packets=6 iter=10000000 total=108462759 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/icmp_ipv6.pcap n_packets=6 iter=10000000 total=108552740 ns ns_per_pkt=10.86
+pcap=/root/microbench/pcap/icmp_ipv6.pcap n_packets=6 iter=10000000 total=108500981 ns ns_per_pkt=10.85
+=== BASELINE ===
+pcap=/root/microbench/pcap/icmp_ipv6.pcap n_packets=6 iter=10000000 total=107020444 ns ns_per_pkt=10.70
+pcap=/root/microbench/pcap/icmp_ipv6.pcap n_packets=6 iter=10000000 total=109092037 ns ns_per_pkt=10.91
+pcap=/root/microbench/pcap/icmp_ipv6.pcap n_packets=6 iter=10000000 total=107990037 ns ns_per_pkt=10.80

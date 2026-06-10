@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/l7_l2tp.pcap n_packets=4 iter=10000000 total=108437037 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/l7_l2tp.pcap n_packets=4 iter=10000000 total=108456926 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/l7_l2tp.pcap n_packets=4 iter=10000000 total=108478926 ns ns_per_pkt=10.85
+=== BASELINE ===
+pcap=/root/microbench/pcap/l7_l2tp.pcap n_packets=4 iter=10000000 total=104361778 ns ns_per_pkt=10.44
+pcap=/root/microbench/pcap/l7_l2tp.pcap n_packets=4 iter=10000000 total=99944203 ns ns_per_pkt=9.99
+pcap=/root/microbench/pcap/l7_l2tp.pcap n_packets=4 iter=10000000 total=104451018 ns ns_per_pkt=10.45

@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/vlan_icmp.pcap n_packets=1 iter=10000000 total=108458519 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/vlan_icmp.pcap n_packets=1 iter=10000000 total=108472481 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/vlan_icmp.pcap n_packets=1 iter=10000000 total=108496537 ns ns_per_pkt=10.85
+=== BASELINE ===
+pcap=/root/microbench/pcap/vlan_icmp.pcap n_packets=1 iter=10000000 total=97770389 ns ns_per_pkt=9.78
+pcap=/root/microbench/pcap/vlan_icmp.pcap n_packets=1 iter=10000000 total=101159759 ns ns_per_pkt=10.12
+pcap=/root/microbench/pcap/vlan_icmp.pcap n_packets=1 iter=10000000 total=105957463 ns ns_per_pkt=10.60

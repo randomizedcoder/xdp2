@@ -1,0 +1,12 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=113388148 ns ns_per_pkt=11.34
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=113434982 ns ns_per_pkt=11.34
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=113406889 ns ns_per_pkt=11.34
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=113503074 ns ns_per_pkt=11.35
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=113416222 ns ns_per_pkt=11.34
+=== BASELINE ===
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=106512629 ns ns_per_pkt=10.65
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=103661703 ns ns_per_pkt=10.37
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=106636444 ns ns_per_pkt=10.66
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=109143537 ns ns_per_pkt=10.91
+pcap=/root/microbench/pcap/k8s-microservices.pcap n_packets=20000 iter=10000000 total=103411518 ns ns_per_pkt=10.34

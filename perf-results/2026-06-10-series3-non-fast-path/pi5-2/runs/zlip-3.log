@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/zlip-3.pcap n_packets=1 iter=10000000 total=108486426 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/zlip-3.pcap n_packets=1 iter=10000000 total=108440759 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/zlip-3.pcap n_packets=1 iter=10000000 total=108458371 ns ns_per_pkt=10.85
+=== BASELINE ===
+pcap=/root/microbench/pcap/zlip-3.pcap n_packets=1 iter=10000000 total=96322926 ns ns_per_pkt=9.63
+pcap=/root/microbench/pcap/zlip-3.pcap n_packets=1 iter=10000000 total=104471241 ns ns_per_pkt=10.45
+pcap=/root/microbench/pcap/zlip-3.pcap n_packets=1 iter=10000000 total=96529667 ns ns_per_pkt=9.65

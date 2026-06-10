@@ -1,0 +1,12 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=108832796 ns ns_per_pkt=10.88
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=108887944 ns ns_per_pkt=10.89
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=108981463 ns ns_per_pkt=10.90
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=109004889 ns ns_per_pkt=10.90
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=108890963 ns ns_per_pkt=10.89
+=== BASELINE ===
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=102932408 ns ns_per_pkt=10.29
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=104792722 ns ns_per_pkt=10.48
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=104968241 ns ns_per_pkt=10.50
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=103065945 ns ns_per_pkt=10.31
+pcap=/root/microbench/pcap/pppoe-isp.pcap n_packets=20000 iter=10000000 total=103184556 ns ns_per_pkt=10.32

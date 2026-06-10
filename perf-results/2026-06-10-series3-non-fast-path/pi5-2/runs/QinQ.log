@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/QinQ.pcap n_packets=2 iter=10000000 total=108449407 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/QinQ.pcap n_packets=2 iter=10000000 total=108450870 ns ns_per_pkt=10.85
+pcap=/root/microbench/pcap/QinQ.pcap n_packets=2 iter=10000000 total=108481592 ns ns_per_pkt=10.85
+=== BASELINE ===
+pcap=/root/microbench/pcap/QinQ.pcap n_packets=2 iter=10000000 total=102123500 ns ns_per_pkt=10.21
+pcap=/root/microbench/pcap/QinQ.pcap n_packets=2 iter=10000000 total=100113333 ns ns_per_pkt=10.01
+pcap=/root/microbench/pcap/QinQ.pcap n_packets=2 iter=10000000 total=98561555 ns ns_per_pkt=9.86

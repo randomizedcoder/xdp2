@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/broad-coverage.pcap n_packets=5200 iter=10000000 total=118805259 ns ns_per_pkt=11.88
+pcap=/root/microbench/pcap/broad-coverage.pcap n_packets=5200 iter=10000000 total=118882352 ns ns_per_pkt=11.89
+pcap=/root/microbench/pcap/broad-coverage.pcap n_packets=5200 iter=10000000 total=118856482 ns ns_per_pkt=11.89
+=== BASELINE ===
+pcap=/root/microbench/pcap/broad-coverage.pcap n_packets=5200 iter=10000000 total=108883186 ns ns_per_pkt=10.89
+pcap=/root/microbench/pcap/broad-coverage.pcap n_packets=5200 iter=10000000 total=110549907 ns ns_per_pkt=11.05
+pcap=/root/microbench/pcap/broad-coverage.pcap n_packets=5200 iter=10000000 total=108334055 ns ns_per_pkt=10.83

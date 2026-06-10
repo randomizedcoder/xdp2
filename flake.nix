@@ -433,6 +433,9 @@
         series3-microbench = import ./nix/series3-microbench.nix {
           inherit pkgs;
         };
+        series3-pcap-microbench = import ./nix/series3-pcap-microbench.nix {
+          inherit pkgs;
+        };
 
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
@@ -1235,6 +1238,7 @@
           # perf-results/2026-06-09-series3-cross-uarch/ (traffic A/B).
           inherit series3-traffic-ab;
           inherit series3-microbench;
+          inherit series3-pcap-microbench;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src

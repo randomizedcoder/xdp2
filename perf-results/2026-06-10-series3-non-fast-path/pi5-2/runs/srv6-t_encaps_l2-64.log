@@ -1,0 +1,8 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/srv6-t_encaps_l2-64.pcap n_packets=1 iter=10000000 total=108447982 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/srv6-t_encaps_l2-64.pcap n_packets=1 iter=10000000 total=108446759 ns ns_per_pkt=10.84
+pcap=/root/microbench/pcap/srv6-t_encaps_l2-64.pcap n_packets=1 iter=10000000 total=108439204 ns ns_per_pkt=10.84
+=== BASELINE ===
+pcap=/root/microbench/pcap/srv6-t_encaps_l2-64.pcap n_packets=1 iter=10000000 total=100737000 ns ns_per_pkt=10.07
+pcap=/root/microbench/pcap/srv6-t_encaps_l2-64.pcap n_packets=1 iter=10000000 total=101839630 ns ns_per_pkt=10.18
+pcap=/root/microbench/pcap/srv6-t_encaps_l2-64.pcap n_packets=1 iter=10000000 total=101759333 ns ns_per_pkt=10.18
