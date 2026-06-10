@@ -1,0 +1,31 @@
+=== pi5-2 ===
+temp pre:
+temp=47.7'C
+gov pre:
+schedutil
+performance
+=== PATCHED ===
+iter=10000000 total=90330797 ns ns_per_pkt=9.03
+iter=10000000 total=93191703 ns ns_per_pkt=9.32
+iter=10000000 total=91106815 ns ns_per_pkt=9.11
+iter=10000000 total=93302685 ns ns_per_pkt=9.33
+iter=10000000 total=93744851 ns ns_per_pkt=9.37
+iter=10000000 total=92154834 ns ns_per_pkt=9.22
+iter=10000000 total=93146389 ns ns_per_pkt=9.31
+iter=10000000 total=93294482 ns ns_per_pkt=9.33
+iter=10000000 total=93184740 ns ns_per_pkt=9.32
+iter=10000000 total=91745871 ns ns_per_pkt=9.17
+=== BASELINE ===
+iter=10000000 total=193916593 ns ns_per_pkt=19.39
+iter=10000000 total=196745426 ns ns_per_pkt=19.67
+iter=10000000 total=191980351 ns ns_per_pkt=19.20
+iter=10000000 total=195037999 ns ns_per_pkt=19.50
+iter=10000000 total=192138852 ns ns_per_pkt=19.21
+iter=10000000 total=196659815 ns ns_per_pkt=19.67
+iter=10000000 total=192472536 ns ns_per_pkt=19.25
+iter=10000000 total=192236741 ns ns_per_pkt=19.22
+iter=10000000 total=191851278 ns ns_per_pkt=19.19
+iter=10000000 total=194389870 ns ns_per_pkt=19.44
+temp post:
+temp=51.0'C
+throttle: throttled=0x0

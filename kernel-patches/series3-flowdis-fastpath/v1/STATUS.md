@@ -252,11 +252,26 @@ key enabled):
   (within noise; cover letter's "masked at p50" prediction holds;
   Comet Lake-H confirms the same ~5 ns absolute saving is masked
   by the clock_gettime floor on Zen 1, not a uarch-specific no-op)
+- Cortex-A76 pi5-2 @ 2.4 GHz (N=10): 19.37 -> 9.25 ns/pkt
+  (-52.3 %, added 2026-06-09)
+- Cortex-A72 pi4-1 @ 1.8 GHz (N=10): 42.37 -> 19.05 ns/pkt
+  (-55.0 %, added 2026-06-09)
+- **Cortex-A53 pi3-1 @ 1.2 GHz (N=10): 118.97 -> 61.27 ns/pkt**
+  (-48.5 %, added 2026-06-09; in-order ARM, saves 69 cycles per
+  call — the largest absolute cycle saving of any uarch tested
+  so far). The pattern of "simpler cores save more cycles" is
+  monotonic: A53 in-order saves 69, A72 OoO 3-wide saves 42,
+  A76 OoO 4-wide saves 24. Modern OoO cores speculate around
+  the slow-path's branch chain; in-order cores can't, so they
+  benefit most from the straight-line fast-path.
 
 Details: `perf-results/2026-05-28-series3-phase3/results.md`
-  (Zen 2 + Zen 1) and
+  (Zen 2 + Zen 1),
   `perf-results/2026-06-04-series3-phase3-t/results.md`
-  (Comet Lake-H, second-vendor confirmation).
+  (Comet Lake-H, second-vendor confirmation), and
+  `perf-results/2026-06-09-series3-arm-microbench/results.md`
+  (three ARM uarches: A76, A72, A53 — generalises across the
+  full ARM range).
 
 ### Gated kernel A/B verification (2026-06-07)
 

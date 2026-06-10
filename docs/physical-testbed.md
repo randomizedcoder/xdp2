@@ -39,6 +39,7 @@ It is written so that someone new to the project can:
 17. [High-end Intel data point (t, Comet Lake-H)](#17-high-end-intel-data-point-t-comet-lake-h)
 18. [ARM testbed pair (pi5-1 ↔ pi5-2, BCM2712 Cortex-A76, 1 GbE switched)](#18-arm-testbed-pair-pi5-1--pi5-2-bcm2712-cortex-a76-1-gbe-switched)
 19. [Standalone ARM Cortex-A72 data point (pi4-1, BCM2711)](#19-standalone-arm-cortex-a72-data-point-pi4-1-bcm2711)
+20. [Standalone ARM Cortex-A53 data point (pi3-1, BCM2837)](#20-standalone-arm-cortex-a53-data-point-pi3-1-bcm2837)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1734,6 +1735,121 @@ uarch, lower clock. On the parser microbench it should sit
 between chromebox1 (Haswell Celeron @ 1.4 GHz, even slower)
 and the Pi 5 pair. As with chromebox1, the absolute numbers are
 not the publishable signal — the **uarch comparison** is.
+
+---
+
+## 20. Standalone ARM Cortex-A53 data point (pi3-1, BCM2837)
+
+An eighth host joined the fleet on 2026-06-09: **pi3-1**, a
+Raspberry Pi 3B (BCM2837, Cortex-A53). Like chromebox1, t, and
+pi4-1, it is not part of any peer pair — single-host categories
+only. The added value here is a fundamentally different ARM
+uarch family from the Pi 5 / Pi 4:
+
+| uarch | host | dispatch | year | typical use |
+| --- | --- | --- | --- | --- |
+| Cortex-A53 | pi3-1 | **in-order** | 2012 | low-cost networking gear, embedded |
+| Cortex-A72 | pi4-1 | OoO 3-wide | 2015 | mid-range routers, SBCs |
+| Cortex-A76 | pi5-1, pi5-2 | OoO 4-wide | 2018 | flagship phones, modern routers |
+
+The Cortex-A53 in-order dispatch is significant for the series 3
+flow_dissector fast-path RFC: the fast-path adds a short branch
+chain (static_branch + dissector identity + flag + ethertype
+switch + per-shape parse) ahead of the slow-path graph walk. In-
+order cores cannot speculate around mispredicted branches the way
+A72/A76 can, so any dispatcher-chain misprediction cost shows up
+more visibly on A53. Validating the patches on Cortex-A53 covers
+the "extensively used in embedded networking" class of devices
+that reviewers will (correctly) ask about.
+
+### Hardware
+
+| Field | pi3-1 |
+| --- | --- |
+| Chassis | Raspberry Pi 3 SBC |
+| SoC | Broadcom BCM2837 |
+| CPU | 4× ARM Cortex-A53 @ 1.2 GHz |
+| Cores / threads | 4 / 4 (no SMT) |
+| RAM | 1 GiB LPDDR2 |
+| Storage | 256 GB SD card (NIXOS_SD label) — no NVMe |
+| NIC | SMSC LAN9514 (USB 2.0 → 10/100 Mbit Ethernet, internally bridged) |
+| Interface | `enu1u1` |
+| MAC | `b8:27:eb:70:39:cb` (canonical RPi OUI) |
+| WiFi | onboard BCM43438 (disabled in lab profile) |
+| Mgmt IPv4 | 172.16.40.224 |
+| Mgmt IPv6 (EUI-64) | `2603:8000:9c01:3b01:ba27:ebff:fe70:39cb/64` |
+
+The interface name `enu1u1` (not `end0` / `eth0`) reflects the
+Pi 3's network topology: the Ethernet PHY is bridged through an
+internal USB 2.0 hub. systemd-udev names USB-attached NICs as
+`enu<bus><port>`. This caps real throughput at ~95 Mbit/s — far
+below what the Pi 4 / Pi 5 onboard MAC reaches. For series 3 macro
+testing this matters less than the per-packet CPU envelope, which
+is the relevant quantity for the dissector saving.
+
+Live verification:
+
+```bash
+ssh root@pi3-1 'cat /proc/cpuinfo | grep "CPU part" | head -1; vcgencmd measure_temp; ip -br addr show enu1u1'
+# Expected:
+#   CPU part : 0xd03   (Cortex-A53)
+#   temp=45.1'C
+#   enu1u1  UP  172.16.40.224/24  2603:8000:9c01:3b01:...  fe80::...
+```
+
+### What pi3-1 can / cannot run
+
+Identical to chromebox1 / t / pi4-1 — A/B/C/D/E/I ✅, F/G/H ❌.
+The 100 Mbit USB-bridged NIC makes the F/G/H link-rate categories
+meaningless even if pi3-1 had a peer (which it doesn't); the
+single-host parser categories are the contributing role.
+
+The added value vs pi4-1: in-order Cortex-A53 ARM uarch (see
+table above), and 1 GB of RAM forcing a tighter compile/test
+footprint — useful as a stress signal for any test that assumes
+generous memory.
+
+### NixOS module deltas
+
+Uses `raspberry-pi-3.base` (no page-size module — Pi 3 uses 4 KiB
+pages) and u-boot, mirroring the Pi 4 setup:
+
+```nix
+# ~/nixos/arm/pi3-1/configuration.nix
+imports = with nixos-raspberrypi.nixosModules; [
+  raspberry-pi-3.base
+  ./il8n.nix
+  ./sshd-INSECURE.nix
+];
+networking.hostName = "pi3-1";
+```
+
+No `xdp2.testbed` block today; no `test-kernel/` either. Series
+3 patches on Cortex-A53 are a follow-on (the patches build on
+linux_rpi3 in principle but the on-Pi build is slow on SD card;
+cross-compile from the workstation is the practical path).
+
+### Why no testbed config TOML
+
+Same as the other single-host data points — single peerless host,
+no `[nic]` block worth parameterising. Use the positional form:
+
+```bash
+nix run .#run-on-host -- pi3-1 -- xdp2-rs-test
+# Or in a cross-uarch sweep with the other ARM data points:
+nix run .#run-on-host -- pi3-1 pi4-1 pi5-2 -- flow-dissector-matrix
+```
+
+### Expected performance vs the rest of the fleet
+
+Cortex-A53 @ 1.2 GHz is the slowest ARM data point in the fleet —
+the dispatch width is 2-wide and the core is in-order, plus the
+clock is below pi4-1's 1.8 GHz. On the libflowdis microbench it
+should sit between chromebox1 (Haswell Celeron @ 1.4 GHz, similar
+era and similar single-thread envelope) and the Pi 4 (Cortex-A72
+@ 1.8 GHz). The publishable signal from pi3-1 is the in-order
+ARM uarch row in the cross-uarch microbench table, not absolute
+throughput.
 
 ---
 
