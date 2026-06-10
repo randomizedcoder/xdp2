@@ -115,6 +115,87 @@ keeping the fast-path body in the hot text section.
     dissector cost. The +2.0 % macro number above is the realistic
     end-to-end result on a representative TCP workload.
 
+  - When does this help in practice? Per-packet cost model
+    (operator-facing reference for "should I enable this sysctl?"):
+
+    The headline -47 to -55 % on synthetic always-hit traffic is
+    the upper bound. Real workloads mix eligible
+    (eth + IPv4/IPv6 + TCP/UDP, IHL=5, no fragmentation) and
+    non-eligible (encap, VLAN, ICMP, fragments, IP options, etc.)
+    shapes. Per-packet cost-benefit depends on the
+    fast-path-eligible fraction.
+
+    At sysctl=0 (default), the call site is a static_branch
+    NOP-skip. Every packet takes the slow path; no behavioural
+    or performance difference vs the unpatched kernel.
+
+    At sysctl=1, the dispatcher attempts the fast-path on every
+    packet. The dispatcher is designed to bail at the first
+    failing check (`unlikely()` hints on every miss path):
+
+      bail point                          | typical shapes that hit
+      ------------------------------------|-----------------------------
+      non-IP ethertype (switch default)   | ARP, VLAN, PPPoE, MPLS
+      IP header length check              | truncated IP
+      IPv4 version + IHL check (*iph!=0x45)| IPv4 with options
+      IPv4 fragmentation check            | IPv4 fragments
+      IPv4 protocol != TCP/UDP            | ICMP, AH, ESP, GRE inner
+      IPv6 next-header != TCP/UDP         | ICMPv6, IPv6 ext headers, SRv6
+      fast-path body completes (hit)      | eth+IPv4/IPv6+TCP/UDP, IHL=5,
+                                          |   no fragments
+
+    On a hit, the slow path is SKIPPED entirely — the headline
+    cycle saving. On a miss, the slow path runs as before, plus
+    the bounded bail-out cost.
+
+    Net effect across N packets with hit fraction p:
+
+      delta_per_packet = dispatcher_overhead  -  p * fast_path_savings
+
+    Measured on Cortex-A76 (Pi 5, 2.4 GHz, userspace libflowdis):
+
+      fast_path body              ~ 9 ns / pkt (always-hit synthetic)
+      slow_path baseline          ~19 ns / pkt (always-hit synthetic)
+      fast_path savings on hit    ~10 ns / pkt   (= 24 cycles)
+      dispatcher_overhead on miss ~ 0.3 - 0.9 ns / pkt (measured
+                                  across 34 non-eligible PCAPs in
+                                  data/pcaps/ — covers ICMP,
+                                  fragments, VLAN, QinQ, GRE,
+                                  GRE-within-GRE, VXLAN, IPIP, L2TP,
+                                  6in4, 6to4, SRv6 family)
+
+    Breakeven hit fraction p ≈ 10-20 %. Above 10-20 % of packets
+    eligible, sysctl=1 wins on average. Below, it's a small
+    per-call cost on the non-matching majority. The exact crossover
+    shifts slightly between uarchs but the order of magnitude is
+    stable because both numerator and denominator scale with core
+    speed.
+
+    Operator guidance:
+
+      Workload predominantly eth+IPv4/v6+TCP/UDP (datacenter
+      east-west, HTTP edge fleets, database tiers, bulk file
+      transfer, public-cloud guest VPC north-south):
+        --> sysctl=1 wins
+
+      Workload predominantly encapsulated or non-TCP/UDP
+      (ISP CPE with PPPoE backhaul, VXLAN/Geneve overlays, GRE
+      tunnels, ICMP-heavy monitoring, MPLS edge, IPSEC pass-
+      through, anti-DDoS scrubbers):
+        --> leave sysctl=0 (default)
+
+      Mixed workloads: the patches expose this on a per-host
+      basis via the sysctl — measure your hit fraction against
+      ~10-20 % and decide. The cost is per-packet, so the
+      decision is independent of bandwidth.
+
+    Numbers above are from
+    perf-results/2026-06-10-series3-non-fast-path/ (single-shape
+    non-fast-path PCAPs) and
+    perf-results/2026-06-10-series3-mixed-traffic/ (real workload
+    PCAPs) in
+    https://github.com/randomizedcoder/xdp2/tree/main/perf-results/.
+
 Output byte-equivalence is enforced by field-by-field matching of
 the slow-path writes. A kernel selftest for byte-by-byte
 comparison is planned for v2.
