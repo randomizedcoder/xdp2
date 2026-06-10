@@ -1,0 +1,66 @@
+[tcp-v4] run 1 sysctl=0: 936.0 Mbit/s  retx=0
+[tcp-v4] run 1 sysctl=1: 935.9 Mbit/s  retx=0
+[tcp-v4] run 2 sysctl=0: 935.8 Mbit/s  retx=0
+[tcp-v4] run 2 sysctl=1: 936.0 Mbit/s  retx=0
+[tcp-v4] run 3 sysctl=0: 936.1 Mbit/s  retx=0
+[tcp-v4] run 3 sysctl=1: 936.0 Mbit/s  retx=0
+[tcp-v4] run 4 sysctl=0: 936.0 Mbit/s  retx=0
+[tcp-v4] run 4 sysctl=1: 935.9 Mbit/s  retx=0
+[tcp-v4] run 5 sysctl=0: 936.0 Mbit/s  retx=0
+[tcp-v4] run 5 sysctl=1: 936.0 Mbit/s  retx=0
+---
+[tcp-v6] run 1 sysctl=0:  Mbit/s  
+[tcp-v6] run 1 sysctl=1:  Mbit/s  
+[tcp-v6] run 2 sysctl=0:  Mbit/s  
+[tcp-v6] run 2 sysctl=1:  Mbit/s  
+[tcp-v6] run 3 sysctl=0:  Mbit/s  
+[tcp-v6] run 3 sysctl=1:  Mbit/s  
+[tcp-v6] run 4 sysctl=0:  Mbit/s  
+[tcp-v6] run 4 sysctl=1:  Mbit/s  
+[tcp-v6] run 5 sysctl=0:  Mbit/s  
+[tcp-v6] run 5 sysctl=1:  Mbit/s  
+---
+[udp-v4] run 1 sysctl=0: 172.4 Mbit/s  pkts=6733925 lost=45.3155%
+[udp-v4] run 1 sysctl=1: 172.4 Mbit/s  pkts=6737664 lost=45.2706%
+[udp-v4] run 2 sysctl=0: 172.3 Mbit/s  pkts=6732752 lost=45.6008%
+[udp-v4] run 2 sysctl=1: 172.5 Mbit/s  pkts=6738338 lost=45.4746%
+[udp-v4] run 3 sysctl=0: 172.4 Mbit/s  pkts=6737538 lost=45.5158%
+[udp-v4] run 3 sysctl=1: 172.5 Mbit/s  pkts=6739418 lost=45.3993%
+[udp-v4] run 4 sysctl=0: 172.4 Mbit/s  pkts=6737167 lost=45.2415%
+[udp-v4] run 4 sysctl=1: 172.5 Mbit/s  pkts=6738070 lost=45.5477%
+[udp-v4] run 5 sysctl=0: 172.3 Mbit/s  pkts=6732453 lost=45.3681%
+[udp-v4] run 5 sysctl=1: 172.4 Mbit/s  pkts=6736621 lost=45.4687%
+---
+[udp-v6] run 1 sysctl=0:  Mbit/s  
+[udp-v6] run 1 sysctl=1:  Mbit/s  
+[udp-v6] run 2 sysctl=0:  Mbit/s  
+[udp-v6] run 2 sysctl=1:  Mbit/s  
+[udp-v6] run 3 sysctl=0:  Mbit/s  
+[udp-v6] run 3 sysctl=1:  Mbit/s  
+[udp-v6] run 4 sysctl=0:  Mbit/s  
+[udp-v6] run 4 sysctl=1:  Mbit/s  
+[udp-v6] run 5 sysctl=0:  Mbit/s  
+[udp-v6] run 5 sysctl=1:  Mbit/s  
+=== cross-uarch A/B done ===
+[tcp-v6] run 1 sysctl=0: 927.8 Mbit/s  retx=17287
+[tcp-v6] run 1 sysctl=1: 927.9 Mbit/s  retx=17233
+[tcp-v6] run 2 sysctl=0: 927.9 Mbit/s  retx=17502
+[tcp-v6] run 2 sysctl=1: 928.0 Mbit/s  retx=17533
+[tcp-v6] run 3 sysctl=0: 927.9 Mbit/s  retx=17409
+[tcp-v6] run 3 sysctl=1: 928.0 Mbit/s  retx=17279
+[tcp-v6] run 4 sysctl=0: 928.0 Mbit/s  retx=17434
+[tcp-v6] run 4 sysctl=1: 927.9 Mbit/s  retx=17304
+[tcp-v6] run 5 sysctl=0: 927.9 Mbit/s  retx=17564
+[tcp-v6] run 5 sysctl=1: 927.9 Mbit/s  retx=17323
+---
+[udp-v6] run 1 sysctl=0: 171.3 Mbit/s  pkts=6690796 lost=60.6699%
+[udp-v6] run 1 sysctl=1: 171.4 Mbit/s  pkts=6697510 lost=60.6815%
+[udp-v6] run 2 sysctl=0: 171.3 Mbit/s  pkts=6691745 lost=60.5636%
+[udp-v6] run 2 sysctl=1: 171.4 Mbit/s  pkts=6695765 lost=60.6481%
+[udp-v6] run 3 sysctl=0: 171.4 Mbit/s  pkts=6696249 lost=60.7100%
+[udp-v6] run 3 sysctl=1: 171.4 Mbit/s  pkts=6697064 lost=60.5121%
+[udp-v6] run 4 sysctl=0: 171.5 Mbit/s  pkts=6702072 lost=60.7410%
+[udp-v6] run 4 sysctl=1: 171.5 Mbit/s  pkts=6699411 lost=60.9797%
+[udp-v6] run 5 sysctl=0: 171.5 Mbit/s  pkts=6700740 lost=60.8035%
+[udp-v6] run 5 sysctl=1: 171.3 Mbit/s  pkts=6691877 lost=60.5941%
+=== v6 redo done ===

@@ -415,6 +415,25 @@
           inherit pkgs;
         };
 
+        # Series 3 flow_dissector fast-path A/B harnesses. See
+        # kernel-patches/series3-flowdis-fastpath/v1/STATUS.md for the
+        # patch shape and perf-results/2026-06-09-series3-arm-microbench
+        # for the canonical x86+ARM dataset shape these reproduce.
+        #
+        #   nix run .#series3-traffic-ab -- GEN DUT DUT_V4 DUT_V6 [N]
+        #     Cross-host iperf3 A/B (TCP+UDP, v4+v6, interleaved
+        #     sysctl, sidecar telemetry).
+        #
+        #   nix run .#series3-microbench -- HOST PATCHED BASELINE [N]
+        #     Userspace libflowdis A/B. Requires two xdp2 closures
+        #     pre-built and nix-copy-closure'd to HOST.
+        series3-traffic-ab = import ./nix/series3-traffic-ab.nix {
+          inherit pkgs;
+        };
+        series3-microbench = import ./nix/series3-microbench.nix {
+          inherit pkgs;
+        };
+
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
         # so the run-on-host orchestrator's result rsync carries them
@@ -1206,6 +1225,16 @@
           # rsync+ssh. See docs/physical-testbed.md §9.
           # Usage: nix run .#run-on-host -- hp5 -- xdp2-rs-test
           inherit run-on-host;
+
+          # Series 3 flow_dissector fast-path A/B harnesses.
+          # See nix/series3-traffic-ab.nix and nix/series3-microbench.nix
+          # for the wrappers; the canonical input/output shape they
+          # implement is documented in
+          # perf-results/2026-06-09-series3-arm-microbench/results.md
+          # (microbench) and
+          # perf-results/2026-06-09-series3-cross-uarch/ (traffic A/B).
+          inherit series3-traffic-ab;
+          inherit series3-microbench;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
