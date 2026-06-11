@@ -1,0 +1,20 @@
+Warning: Unable to send packet: Error with PF_PACKET send() [359946]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [359975]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360005]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360017]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360020]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360052]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360065]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360075]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360093]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360107]: Message too long (errno = 90)
+Warning: Unable to send packet: Error with PF_PACKET send() [360122]: Message too long (errno = 90)
+Actual: 332833 packets (200000753 bytes) sent in 20.00 seconds
+Rated: 9999997.6 Bps, 79.99 Mbps, 16641.58 pps
+Flows: 20000 flows, 999.99 fps, 360130 unique flow packets, 0 unique non-flow packets
+Statistics for network device: end0
+	Successful packets:        332833
+	Failed packets:            27297
+	Truncated packets:         0
+	Retried packets (ENOBUFS): 0
+	Retried packets (EAGAIN):  0

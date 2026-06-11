@@ -1,0 +1,8 @@
+=== pi3-1  pcap=tcp_ipv4 ===
+temp=47.8'C
+=== PATCHED ===
+pcap=/root/microbench/pcap/tcp_ipv4.pcap n_packets=11 iter=10000000 total=712208750 ns ns_per_pkt=71.22
+=== BASELINE ===
+pcap=/root/microbench/pcap/tcp_ipv4.pcap n_packets=11 iter=10000000 total=645496249 ns ns_per_pkt=64.55
+temp=47.8'C
+throttled=0x0

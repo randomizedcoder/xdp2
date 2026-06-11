@@ -1,0 +1,20 @@
+Warning: flow_decode failed to determine Ethernet header length for packet 2481
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2503
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2505
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2515
+Warning: flow_decode failed to determine Ethernet header length for packet 2519
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2529
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2535
+Warning: flow_decode failed to determine Ethernet header length for packet 2537
+Warning: flow_decode: packet 2542 needs at least 62 bytes for ICMP header but only 59 available
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2543
+Warning: parse_mpls:suspect Generic Associated Channel Header
+Warning: flow_decode failed to determine Ethernet header length for packet 2548
+Warning: flow_decode failed to determine Ethernet header length for packet 2556
+Warning: flow_decode failed to determine Ethernet header length for packet 2559
