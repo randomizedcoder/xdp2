@@ -1202,6 +1202,14 @@
           workload-pcap-vlan-tcp-mix     = perfAnalysis.workload-pcap-vlan-tcp-mix;
           workload-pcap-pppoe-isp        = perfAnalysis.workload-pcap-pppoe-isp;
           workload-pcap-vxlan-k8s-pure   = perfAnalysis.workload-pcap-vxlan-k8s-pure;
+          # Series-3 controlled-ratio mixes (2026-06-10) — used by
+          # perf-results/2026-06-10-series3-controlled-mix/ to plot
+          # ns/pkt vs fast-path-eligible fraction p.
+          workload-pcap-series3-fast-vs-slow-10 = perfAnalysis.workload-pcap-series3-fast-vs-slow-10;
+          workload-pcap-series3-fast-vs-slow-25 = perfAnalysis.workload-pcap-series3-fast-vs-slow-25;
+          workload-pcap-series3-fast-vs-slow-50 = perfAnalysis.workload-pcap-series3-fast-vs-slow-50;
+          workload-pcap-series3-fast-vs-slow-75 = perfAnalysis.workload-pcap-series3-fast-vs-slow-75;
+          workload-pcap-series3-fast-vs-slow-90 = perfAnalysis.workload-pcap-series3-fast-vs-slow-90;
           gen-workload-pcap              = perfAnalysis.gen-workload-pcap;
           chain-histogram-workloads      = perfAnalysis.chain-histogram-workloads;
           sweep-workload-https-web       = perfAnalysis.sweep-workload-https-web;
