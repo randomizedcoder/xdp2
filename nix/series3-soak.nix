@@ -98,9 +98,20 @@ pkgs.writeShellApplication {
     PI4_1=''${PI4_1:-pi4-1}
     PI3_1=''${PI3_1:-pi3-1}
 
-    # tcpreplay sender-side PCAP path (already MAC-rewritten by
-    # Phase H; regenerate if missing).
-    VXLAN_PCAP=''${VXLAN_PCAP:-/root/replay/pcaps/vxlan-k8s-pure-pi3-1.pcap}
+    # tcpreplay sender-side PCAP paths (MAC-rewritten by Phase H).
+    # SOURCE = original Phase H PCAP (may contain frames > MTU).
+    # USED   = MTU-filtered variant; oversized frames must be dropped
+    #          first, otherwise tcpreplay 4.5.2's --duration check is
+    #          unreliable when many sends fail. See bug analysis
+    #          below run_cell() for details.
+    VXLAN_PCAP_SRC=''${VXLAN_PCAP_SRC:-/root/replay/pcaps/vxlan-k8s-pure-pi3-1.pcap}
+    VXLAN_PCAP=''${VXLAN_PCAP:-/root/replay/pcaps/vxlan-k8s-pure-pi3-1-mtufit.pcap}
+    SENDER_MTU=''${SENDER_MTU:-1500}
+
+    # Outer-timeout multiplier for tcpreplay cells (belt + braces
+    # over the --duration check; will kill tcpreplay if it ever
+    # wedges past DUR + 60 s regardless of PCAP cleanliness).
+    TCPRP_GUARD_SEC=$((DUR + 60))
 
     # The 10-cell matrix.
     CELLS=(
@@ -178,7 +189,48 @@ pkgs.writeShellApplication {
 
     receiver_temp_c() {
       local host="$1"
-      SSH root@"$host" 'vcgencmd measure_temp 2>/dev/null | sed "s/temp=//" | tr -d "'\''C"' 2>/dev/null
+      # Extract digits from vcgencmd output; sed regex avoids
+      # needing a literal single quote that would terminate the
+      # surrounding Nix indented string.
+      SSH root@"$host" "vcgencmd measure_temp 2>/dev/null | sed -E 's/temp=([0-9.]+).*/\\1/'" 2>/dev/null
+    }
+
+    # mpstat runner: ship a small wrapper to the receiver, run it
+    # under nohup so the SSH session can close without killing
+    # mpstat.  Output written to a known path on the receiver and
+    # pulled back at cell-end.
+    ensure_mpstat_runner() {
+      local host="$1" local_path="$2" dur="$3"
+      ssh -o BatchMode=yes -o ConnectTimeout=10 root@"$host" "cat > /tmp/mpstat-runner.sh" <<'MPSTAT'
+    #!/usr/bin/env bash
+    DUR="$1"
+    OUT="$2"
+    exec nix shell nixpkgs#sysstat -c mpstat -P ALL 1 "$DUR" -o JSON > "$OUT" 2>&1
+    MPSTAT
+      SSH root@"$host" "chmod +x /tmp/mpstat-runner.sh; nohup bash /tmp/mpstat-runner.sh $dur /tmp/mpstat-cell.json > /dev/null 2>&1 </dev/null & disown" > /dev/null 2>&1
+      # MPSTAT_LOCAL is consumed by stop_mpstat_runner.
+      MPSTAT_LOCAL="$local_path"
+      export MPSTAT_LOCAL
+    }
+
+    stop_mpstat_runner() {
+      local host="$1"
+      SSH root@"$host" 'pkill -f /tmp/mpstat-runner.sh 2>/dev/null; pkill -f "mpstat -P ALL 1" 2>/dev/null' > /dev/null 2>&1 || true
+      SSH root@"$host" 'cat /tmp/mpstat-cell.json' > "$MPSTAT_LOCAL" 2>/dev/null || true
+    }
+
+    # Auto-prep MTU-filtered PCAP on sender if missing.  Drops
+    # frames > SENDER_MTU so tcpreplay 4.5.2's duration check
+    # (which is skipped on PF_PACKET send() failure) stays
+    # accurate over multi-hour runs.
+    ensure_mtufit_pcap() {
+      local host="$1" src="$2" dst="$3" mtu="$4"
+      SSH root@"$host" "
+        if [ ! -e $dst ] || [ $src -nt $dst ]; then
+          nix shell nixpkgs#tcpdump -c tcpdump -r $src -w $dst \"not greater $mtu\" 2>&1 | head -2
+          echo PCAP filtered: \$(nix shell nixpkgs#wireshark-cli -c capinfos -c $src 2>&1 | grep \"Number of packets\") -> \$(nix shell nixpkgs#wireshark-cli -c capinfos -c $dst 2>&1 | grep \"Number of packets\")
+        fi
+      " 2>&1
     }
 
     # ── Per-cell runner ────────────────────────────────────────────
@@ -223,15 +275,26 @@ pkgs.writeShellApplication {
           ;;
         tcpreplay-vxlan)
           local mbps=80
-          SSH root@"$recv" "nix shell nixpkgs#sysstat -c mpstat -P ALL 1 $DUR -o JSON" \
-            > "$dir/mpstat.json" 2>&1 &
-          local mp_pid=$!
+          # Pre-flight: drop oversized frames from the source PCAP
+          # to keep tcpreplay's --duration check reliable. Idempotent;
+          # only regenerates if the source is newer than the filtered.
+          ensure_mtufit_pcap "$sender" "$VXLAN_PCAP_SRC" "$VXLAN_PCAP" "$SENDER_MTU"
+          # mpstat captured via a long-lived nohup'd remote process
+          # rather than a backgrounded ssh — the latter dropped
+          # after 5-7 minutes on the original Phase I run.
+          ensure_mpstat_runner "$recv" "$dir/mpstat.json" "$DUR"
           sleep 1
+          # tcpreplay 4.5.2 has a known wedge: when many sends fail
+          # (e.g. oversized frames > MTU), the failure path uses
+          # `continue` which skips the duration check, so --duration
+          # is unreliable on long runs.  Two-layer fix:
+          #   1) PCAP is pre-filtered to drop frames > MTU (Phase J)
+          #   2) Outer `timeout` enforces DUR + 60 s as belt+braces
           SSH root@"$sender" \
-            "$TCPRP_BIN --intf1=end0 --mbps=$mbps --duration=$DUR --loop=0 --quiet $VXLAN_PCAP" \
+            "timeout $TCPRP_GUARD_SEC $TCPRP_BIN --intf1=end0 --mbps=$mbps --duration=$DUR --loop=0 --quiet $VXLAN_PCAP" \
             > "$dir/replay.log.tail" 2>&1
           exit_rc=$?
-          wait $mp_pid 2>/dev/null || true
+          stop_mpstat_runner "$recv"
           tail -25 "$dir/replay.log.tail" > "$dir/replay.log"
           rm -f "$dir/replay.log.tail"
           ;;

@@ -203,12 +203,64 @@ Effect on the soak:
   of replay.log to bound repo size, and the wedged tcpreplay
   never reached its terminal "Successful packets:" summary.
 
-These two anomalies are bench-harness, not patch, issues. For a
-v2 cleanup the right fixes are: (1) wrap tcpreplay in a
-`timeout 3700 …` shell guard, (2) keep mpstat alive via
-`-o ServerAliveInterval=15 -o ServerAliveCountMax=10` on the
-backgrounded ssh session, or have the receiver write its own
-mpstat to disk via nohup like the sidecar does.
+These two anomalies are bench-harness, not patch, issues.
+
+### Anomaly resolution (Phase J — same day)
+
+Investigated the tcpreplay 4.5.2 source and reproduced on the
+same hosts:
+
+1. **Root cause of the wedge**: tcpreplay's main send loop uses
+   `continue` on PF_PACKET send failure, which **skips the
+   duration-deadline check** at the bottom of the loop body.
+   Confirmed in `src/send_packets.c`: the `now > end_us` check
+   only runs after a successful send. With the workload PCAP's
+   ~8 % oversized frames (vxlan-k8s-pure.pcap has packets up to
+   1537 bytes, end0 MTU is 1500), bursts of failures delay the
+   timestamp update and the duration check intermittently slips.
+   On a 60 s run the bursts are too short to matter; at 1 h they
+   can shift the deadline by an arbitrary amount (cell 9 was off
+   by 1 hour).
+
+2. **Fix #1 — pre-filter the PCAP**:
+   `tcpdump -r in -w out 'not greater 1500'` drops the oversized
+   frames before tcpreplay sees them. Verified:
+   - 10-minute filtered-PCAP run: exit at 600 s exactly,
+     0 warnings, 0 failed packets, 398-byte log (vs 146 MB for
+     5-min unfiltered).
+   - The filter drops ~2 k of the 20 k packets in the source
+     PCAP (10 %); the remaining 18 k packets still represent
+     the workload's encap shape mix.
+
+3. **Fix #2 — outer `timeout` guard**: wrap tcpreplay in
+   `timeout $((DUR + 60)) tcpreplay …` so that even if the bug
+   ever re-surfaces (e.g. on a different PCAP), the cell exits
+   cleanly with code 124 instead of hanging.
+
+4. **Fix #3 — mpstat via nohup'd remote script** instead of a
+   backgrounded SSH session. The SSH session was dropping after
+   5-7 minutes on the original run; running mpstat under nohup
+   on the receiver and pulling the file at cell-end avoids the
+   client-side timeout entirely.
+
+All three fixes are landed in `nix/series3-soak.nix` for the
+next run. Validation:
+- Filtered PCAP 10-min: exit 0 at 600 s, no warnings, 0 failed.
+- Timeout guard: deliberate 5 s `timeout` over an unfiltered
+  600 s `--duration` invocation → exit 124 (timeout fired), no
+  hang.
+- mpstat-nohup: pattern lifted from `start_sidecar` (already
+  proven over 1-hour cells in this dataset).
+
+Open follow-up (TBD): the 10-min filtered run showed a separate
+rate-cap anomaly — `--mbps=80` was respected on 30 s and 60 s
+test runs (both PCAPs reported 79.99 Mbps) but the 600 s run
+hit 621 Mbps. The tcpreplay rate-limiter appears to drift over
+longer durations on this PCAP shape. Switching to `--pps=16500`
+(deterministic packet rate) is the likely v2 fix; not yet
+verified. The 80 Mbps cap is only relevant to keep us under the
+pi3-1 USB-Ethernet ceiling (~94 Mbit/s effective); for a 1 GbE
+receiver it doesn't matter.
 
 ### iperf2 CPU% not captured
 
