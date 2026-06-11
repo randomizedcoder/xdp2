@@ -1,0 +1,35 @@
+{
+  "nn": "01",
+  "sender": "pi5-1",
+  "recv": "pi5-2",
+  "proto": "iperf3-tcp",
+  "sysctl": 0,
+  "exit_rc": 0,
+  "sender_sidecar": {
+    "samples": 3492,
+    "max_temp": 51.0,
+    "p95_temp": 49.9,
+    "mean_temp": 48.875687285223364,
+    "throttled_observed": []
+  },
+  "recv_sidecar": {
+    "samples": 3445,
+    "max_temp": 58.2,
+    "p95_temp": 57.6,
+    "mean_temp": 56.91323657474601,
+    "throttled_observed": [
+      "0xe0000"
+    ]
+  },
+  "throughput_mbps_recv": 936.452244885059,
+  "retransmits": 0,
+  "cpu_recv_pct": 8.655633293128053,
+  "cpu_send_pct": 2.74176083776526,
+  "drift_pct_per_hour": -0.008428227259458215,
+  "thr_p50": 935.3293460004254,
+  "thr_min": 917.5058593787679,
+  "thr_max": 967.765043651017,
+  "thr_stdev": 5.978915525230986,
+  "thr_cv_pct": 0.6385000722776775,
+  "thermal_clean": true
+}
