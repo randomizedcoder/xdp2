@@ -436,6 +436,13 @@
         series3-pcap-microbench = import ./nix/series3-pcap-microbench.nix {
           inherit pkgs;
         };
+        # 10-cell × 1-hour real-traffic soak across the Pi pair fleet.
+        # Static matrix (pi5-1↔pi5-2, pi5-2↔pi4-1, pi5-2↔pi3-1) over
+        # iperf3 TCP + iperf2 TCP + tcpreplay vxlan, A/B on sysctl.
+        # ~10.3 h wall clock at default DUR=3600 / COOLDOWN=120.
+        series3-soak = import ./nix/series3-soak.nix {
+          inherit pkgs;
+        };
 
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
@@ -1247,6 +1254,7 @@
           inherit series3-traffic-ab;
           inherit series3-microbench;
           inherit series3-pcap-microbench;
+          inherit series3-soak;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
