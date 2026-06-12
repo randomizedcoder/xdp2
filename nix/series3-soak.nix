@@ -256,6 +256,12 @@ pkgs.writeShellApplication {
         sleep 300
       fi
 
+      # Errexit-safe: we want a transient SSH non-zero exit on any
+      # SSH command in the cell body NOT to kill the whole 10-cell
+      # soak.  Capture errors per-cell via $exit_rc + summary.json
+      # note; let the outer driver keep going.
+      set +e
+
       SSH root@"$recv"   "sysctl -w net.core.flow_dissector_fastpath=$sysctl" > /dev/null 2>&1
       SSH root@"$sender" "sysctl -w net.core.flow_dissector_fastpath=$sysctl" > /dev/null 2>&1
       ensure_iperf_daemons "$recv"
@@ -430,6 +436,9 @@ pkgs.writeShellApplication {
       log "[cell $nn] done   exit=$exit_rc  summary=$dir/summary.json"
       log "[cell $nn] cool-down ''${COOLDOWN}s ..."
       sleep "$COOLDOWN"
+
+      # Restore errexit for the outer driver.
+      set -e
     }
 
     # ── Drive ──────────────────────────────────────────────────────
