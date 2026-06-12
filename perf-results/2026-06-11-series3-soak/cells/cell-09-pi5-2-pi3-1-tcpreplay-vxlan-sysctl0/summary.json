@@ -1,0 +1,27 @@
+{
+  "nn": "09",
+  "sender": "pi5-2",
+  "recv": "pi3-1",
+  "proto": "tcpreplay-vxlan",
+  "sysctl": 0,
+  "exit_rc": 124,
+  "sender_sidecar": {
+    "samples": 3550,
+    "max_temp": 65.3,
+    "p95_temp": 64.2,
+    "mean_temp": 62.074450704225356,
+    "throttled_observed": [
+      "0xe0000"
+    ]
+  },
+  "recv_sidecar": {
+    "samples": 3346,
+    "max_temp": 43.5,
+    "p95_temp": 42.9,
+    "mean_temp": 41.78362223550508,
+    "throttled_observed": []
+  },
+  "cpu_recv_mean_pct": 10.398938888888887,
+  "cpu_recv_p95_pct": 15.11,
+  "thermal_clean": true
+}

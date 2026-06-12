@@ -367,44 +367,52 @@ Tested
         Details: perf-results/2026-06-10-series3-cross-uarch-perf/
         and perf-results/2026-06-10-series3-tcpreplay-mixed/.
 
-      * 10 h sustained-load ARM cross-uarch soak (2026-06-10/11):
-        pi5-1<->pi5-2 (A76<->A76), pi5-2<->pi4-1 (A76<->A72) and
-        pi5-2<->pi3-1 (A76<->A53) over 1 GbE switched + 100 Mbit
-        USB-eth, 6 x iperf3 TCP + 2 x iperf2 TCP + 2 x tcpreplay
-        vxlan-k8s-pure, 60 min each, sysctl=0 vs sysctl=1 paired
-        cells. 1 Hz vcgencmd telemetry on both ends; new fans
-        installed on all four Pis.
+      * 10-hour sustained-load ARM cross-uarch soak, repeated
+        twice (2026-06-10/11 and 2026-06-11/12) via `nix run
+        .#series3-soak` for reproducibility: pi5-1<->pi5-2
+        (A76<->A76), pi5-2<->pi4-1 (A76<->A72) and pi5-2<->pi3-1
+        (A76<->A53) over 1 GbE switched + 100 Mbit USB-eth.  10
+        cells per run: 6 x iperf3 TCP + 2 x iperf2 TCP + 2 x
+        tcpreplay vxlan-k8s-pure, 60 min each, sysctl=0 vs
+        sysctl=1 paired.  1 Hz vcgencmd telemetry on both ends.
 
-        All 10 cells thermal clean -- max receiver temp 65.3 C
+        Both runs thermal clean -- max receiver temp 65.3 C / 64.8 C
         (pi5-2), well below the Pi 5 soft-temp limit; no current
-        throttle bits set in any sample.  Per-cell drift
-        <= 0.08 %/hour; CV 0.47-1.00 % on the 1 GbE cells.
+        throttle bits set in any 1 Hz sample over the full 20 h.
+        Per-cell drift <= 0.08 %/hour; CV 0.41-1.00 % on 1 GbE.
 
         Throughput delta sysctl=0 -> sysctl=1: <= +/- 0.001 %
-        across every cell (every TCP cell link-saturated in both
-        modes; retransmits identical within USB-Ethernet jitter).
+        across every cell, both runs (every TCP cell
+        link-saturated in both modes; retransmits identical within
+        USB-Ethernet jitter).
 
-        Receiver-CPU% delta at sysctl=1 over 1-h sustained load:
-          A76 receiver:    -0.05 pp (within noise)
-          A72 receiver:    -1.30 pp (-2.0 % of rx budget) --
-                           per-packet fast-path body savings
-                           visible where the slower receive-side
-                           core makes the dissector a larger
-                           fraction of rx cost
-          A53 receiver:    -0.64 pp on tcpreplay-vxlan
-                           +0.01 pp on iperf3 TCP
+        Receiver-CPU% delta at sysctl=1 over 1-h sustained load
+        (showing both runs):
+          A76 receiver:    -0.05 pp / -0.05 pp   (within noise;
+                           dissector small fraction of rx budget)
+          A72 receiver:    -1.30 pp / -3.90 pp   (-2.0 % / -5.9 %
+                           of rx budget) -- per-packet fast-path
+                           body savings visible where the
+                           slower-clock receive-side core makes
+                           the dissector a larger fraction of rx
+                           cost
+          A53 receiver:    +0.01 pp / +0.03 pp on iperf3 TCP;
+                           +0.02 pp on tcpreplay vxlan
+                           (all within noise)
 
         No regression on any receiver under sustained load. The
-        A72 cell is the first kernel-macro signal of the
-        fast-path body savings on real wire-rate traffic; the
-        per-packet cycle saving manifests as a measurable CPU%
-        reduction on the in-between uarch where the dissector
-        is large enough to matter but cache thrash isn't yet
-        masking it.
+        Cortex-A72 cell is the cleanest measurable kernel-macro
+        signal of the fast-path body savings on real wire-rate
+        traffic -- the per-packet cycle saving manifests as a
+        measurable CPU% reduction on the in-between uarch where
+        the dissector is large enough to matter but cache thrash
+        isn't yet masking it.
 
         Reproducible via `nix run .#series3-soak`.
 
-        Details: perf-results/2026-06-10-series3-soak-10h/.
+        Details:
+          perf-results/2026-06-10-series3-soak-10h/  (1st run)
+          perf-results/2026-06-11-series3-soak/      (2nd run)
 
 This is sent as RFC for feedback on:
 
