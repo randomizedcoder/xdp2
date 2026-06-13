@@ -1,0 +1,80 @@
+# Pair #4 — l ↔ l2, AMD Threadripper PRO 3945WX (Zen 2) × 2,
+# Mellanox ConnectX-4 Lx 25 GbE DAC, NixOS bare-metal.
+#
+# The x86 high-performance analogue of the Zen 1 hp1-hp3-mlx5 pair: same
+# NIC family and link speed (25 GbE, mlx5_core, tc-flower steering) but
+# much faster CPUs, so it should drive far closer to 25 GbE line rate
+# than the ~16.4 Gbit/s the Zen 1 hp boxes top out at. Used for the
+# series-3 flow_dissector fast-path A/B and the long soak
+# (`nix run .#series3-soak-l-l2`).
+#
+# Roles:
+#   - l2 = dedicated DUT (benchmark host; xdp2.testbed enable=true,
+#     dedicatedHost=true, lowJitter=true, series-3 patched kernel).
+#   - l  = the user's main desktop acting as the generator. NOT
+#     dedicated: xdp2.testbed runs in "generator-lite" mode
+#     (dedicatedHost=false, mitigations on, desktop services kept),
+#     ~4 cores isolated for traffic generation. Keeps its NVIDIA +
+#     GNOME + llama.cpp stack.
+#
+# Host configs live under ~/nixos/desktop/l/ and ~/nixos/desktop/l2/.
+# Both import nixosModules.physical-testbed with
+# xdp2.nicTuning.driver = "mlx5_core".
+#
+# Addressing (docs/physical-testbed.md Pair #4): two back-to-back DAC
+# links. /29 subnets (not /30) so .2 and .5 share a subnet. IPv6 ULA
+# fd10:10:N::M/64, N = v4 third octet, M = v4 host octet.
+#   link A: 10.10.4.0/29  fd10:10:4::/64   l=.2 (gen)  l2=.5 (DUT)
+#   link B: 10.10.5.0/29  fd10:10:5::/64   l=.2 (gen)  l2=.5 (DUT)
+#
+# Schema validated by nix/testbed-config.nix.
+
+[testbed]
+name        = "l-l2-mlx5"
+description = "AMD Threadripper PRO 3945WX (Zen 2) × 2, Mellanox ConnectX-4 Lx 25 GbE, NixOS"
+
+[[hosts]]
+role           = "dut"
+hostname       = "l2"
+arch           = "x86_64-linux"
+cpu_vendor     = "amd"
+cpu_uarch      = "zen2"
+isolated_cpus  = "4-23"
+hugepage_count = 1024
+governor       = "performance"
+mitigations    = "off"
+
+[[hosts]]
+role          = "generator"
+hostname      = "l"
+arch          = "x86_64-linux"
+cpu_vendor    = "amd"
+cpu_uarch     = "zen2"
+# Generator-lite: only ~4 logical cores isolated; the rest stay for the
+# interactive desktop. Mitigations kept ON (daily driver).
+isolated_cpus = "2-5"
+hugepage_count = 512
+governor       = "performance"
+mitigations    = "on"
+
+[nic]
+driver          = "mlx5_core"
+model           = "Mellanox ConnectX-4 Lx"
+# Both hosts name the data-plane ports enp35s0f0np0 / enp35s0f1np1
+# (PCI 23:00.0 / 23:00.1). enp35s0f0np0 is link A (10.10.4/fd10:10:4);
+# enp35s0f1np1 is link B (10.10.5/fd10:10:5).
+dut_iface       = "enp35s0f0np0"
+gen_iface       = "enp35s0f0np0"
+link_speed_gbps = 25
+queues          = 8
+zerocopy_afxdp  = true
+# mlx5_core does not expose ethtool ntuple destination-queue steering;
+# the nic-tuning module installs tc-flower filters instead.
+flow_director   = "tc-flower"
+rss_config      = "default"
+
+[run]
+iterations_combo    = 200
+iterations_tcp_ipv4 = 500
+iterations_mixed    = 200
+afxdp_duration_s    = 30

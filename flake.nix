@@ -443,6 +443,14 @@
         series3-soak = import ./nix/series3-soak.nix {
           inherit pkgs;
         };
+        # 12-cell soak for the x86 back-to-back pair l (generator) <-> l2
+        # (DUT) over the Mellanox 25 GbE link. The high-performance
+        # analogue of series3-soak (Pi fleet): /sys+/proc sidecar,
+        # CPU-bound UDP + tunnelled tcpreplay cells, taskset-pinned
+        # generator. ~12 h at default DUR=3600.
+        series3-soak-l-l2 = import ./nix/series3-soak-x86.nix {
+          inherit pkgs;
+        };
 
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
@@ -1255,6 +1263,11 @@
           inherit series3-microbench;
           inherit series3-pcap-microbench;
           inherit series3-soak;
+          # x86 25 GbE soak for the l <-> l2 pair. Usage:
+          #   L2_V4=10.10.4.5 L2_V6=fd10:10:4::5 \
+          #     nix run .#series3-soak-l-l2
+          #   DUR=60 COOLDOWN=10 L2_V4=10.10.4.5 nix run .#series3-soak-l-l2  # smoke
+          inherit series3-soak-l-l2;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src

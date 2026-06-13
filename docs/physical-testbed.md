@@ -40,6 +40,7 @@ It is written so that someone new to the project can:
 18. [ARM testbed pair (pi5-1 ↔ pi5-2, BCM2712 Cortex-A76, 1 GbE switched)](#18-arm-testbed-pair-pi5-1--pi5-2-bcm2712-cortex-a76-1-gbe-switched)
 19. [Standalone ARM Cortex-A72 data point (pi4-1, BCM2711)](#19-standalone-arm-cortex-a72-data-point-pi4-1-bcm2711)
 20. [Standalone ARM Cortex-A53 data point (pi3-1, BCM2837)](#20-standalone-arm-cortex-a53-data-point-pi3-1-bcm2837)
+21. [x86 testbed pair (l ↔ l2, ConnectX-4 Lx 25 GbE back-to-back)](#21-x86-testbed-pair-l--l2-connectx-4-lx-25-gbe-back-to-back)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1083,6 +1084,8 @@ This makes the v6 address derivable from the v4 address at a glance.
 | hp2 ↔ hp5 | `enp1s0f1np1` | hp2 `fd10:10:1::2/64` | hp5 `fd10:10:1::5/64` |
 | hp1 ↔ hp3 (mlx5 25 GbE) | `enp1s0f0np0` | hp1 `fd10:10:2::1/64` | hp3 `fd10:10:2::3/64` |
 | hp1 ↔ hp3 | `enp1s0f1np1` | hp1 `fd10:10:3::1/64` | hp3 `fd10:10:3::3/64` |
+| l ↔ l2 (mlx5 25 GbE) | `enp35s0f0np0` | l `fd10:10:4::2/64` | l2 `fd10:10:4::5/64` |
+| l ↔ l2 | `enp35s0f1np1` | l `fd10:10:5::2/64` | l2 `fd10:10:5::5/64` |
 
 The `/64` prefix is per-link (one link per cable). Each per-link
 subnet is independent so adding a third pair later (or a third
@@ -1850,6 +1853,106 @@ era and similar single-thread envelope) and the Pi 4 (Cortex-A72
 @ 1.8 GHz). The publishable signal from pi3-1 is the in-order
 ARM uarch row in the cross-uarch microbench table, not absolute
 throughput.
+
+---
+
+## 21. x86 testbed pair (l ↔ l2, ConnectX-4 Lx 25 GbE back-to-back)
+
+A fourth /29 subnet block (`10.10.4/5`) hosts the high-performance x86
+pair: **l** (the developer's main desktop, acting as generator) and
+**l2** (a dedicated DUT), each with a **Mellanox ConnectX-4 Lx 25 GbE**
+NIC, cabled back-to-back over two DAC links (`f0 ↔ f0` = link A,
+`f1 ↔ f1` = link B — same topology as hp1/hp3). Both run NixOS; configs
+live under `~/nixos/desktop/{l,l2}/`.
+
+The motivation is headroom. The Zen 1 hp1/hp3 pair is CPU-bound well
+below the 25 GbE line rate (~16.4 Gbit/s on the iperf3 macro), so the
+flow_dissector fast-path's macro signal is muted. l/l2 are AMD
+Threadripper PRO 3945WX (Zen 2, 12c/24t) — far more single-thread and
+aggregate throughput — so this pair is expected to drive much closer to
+25 GbE line rate and give a stronger demonstration of the series-3
+patch, plus the x86 long-soak analogue of the Pi fleet's
+`nix run .#series3-soak`.
+
+| | hp1 / hp3 (pair #2) | l / l2 (pair #4) |
+| --- | --- | --- |
+| CPU | AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t) | AMD Threadripper PRO 3945WX (Zen 2, 12c/24t) |
+| NIC | Mellanox ConnectX-4 Lx 25 GbE DAC | Mellanox ConnectX-4 Lx 25 GbE DAC |
+| Driver | `mlx5_core` | `mlx5_core` |
+| Iface names | `enp1s0f{0,1}np{0,1}` | `enp35s0f{0,1}np{0,1}` (PCI 23:00.x) |
+| Data-plane subnets | `10.10.2.0/29` + `10.10.3.0/29` | `10.10.4.0/29` + `10.10.5.0/29` |
+| Generator / DUT | hp1 (gen) ↔ hp3 (dut) | l (gen, `.2`) ↔ l2 (dut, `.5`) |
+| Dedicated? | both dedicated | l2 dedicated; l is a daily-driver desktop |
+| Testbed config | [`testbeds/hp1-hp3-mlx5.toml`](../testbeds/hp1-hp3-mlx5.toml) | [`testbeds/l-l2-mlx5.toml`](../testbeds/l-l2-mlx5.toml) |
+| Host config | `~/nixos/hp/hp{1,3}/` | `~/nixos/desktop/{l,l2}/` |
+
+### Generator-lite profile on `l`
+
+Unlike every other testbed host, `l` is the user's interactive
+workstation (NVIDIA GPU, GNOME, llama.cpp) and must stay usable. It
+imports `xdp2.nixosModules.physical-testbed` with a deliberately light
+profile:
+
+- `xdp2.testbed.dedicatedHost = false` — skips the always-on
+  `processor.max_cstate=1` / `transparent_hugepage=never` / `audit=0`
+  kernel params that raise idle power/heat on a desktop (see §7 and the
+  option doc in `nix/modules/physical-testbed.nix`).
+- `disableMitigations = false` — CPU mitigations stay **on** (daily
+  driver).
+- `disableNonEssentialServices = false` and `lowJitter = false` — GNOME,
+  printing, VPN, turbo all preserved.
+- `isolatedCpus = [ 2 3 4 5 ]` — only ~4 logical cores are isolated for
+  traffic generation; the remaining ~20 threads stay for the desktop.
+  The soak harness `taskset`-pins the generator load onto these cores.
+
+`l2` keeps the full dedicated profile (`dedicatedHost = true`,
+`lowJitter = true`, `isolatedCpus = 4-23`) and the series-3 patched
+kernel. Both hosts set `xdp2.nicTuning.driver = "mlx5_core"`.
+
+### Kernel patch on both ends
+
+The series-3 A/B flips `net.core.flow_dissector_fastpath` on **both**
+hosts, so both must boot a kernel carrying the gated patch:
+
+- `l2` builds it via `~/nixos/desktop/l2/test-kernel/` (the same 3
+  pinned patches hp1/hp2/hp3/hp5 use, on `linuxPackages_latest`).
+- `l` applies the same 3 canonical patches as a `boot.kernelPatches`
+  overlay on its existing NVIDIA-compatible `pkgs.linuxPackages` (no
+  net-next needed; `flow_dissector.c` is stable across 6.x/7.x). The
+  earlier squashed single-file backport was replaced because it omitted
+  the sysctl-gate hunk (`net/core/sysctl_net_core.c`), which would make
+  the runtime A/B impossible.
+
+### Long soak
+
+```bash
+# Smoke (~18 min): 12 cells × 60 s
+DUR=60 COOLDOWN=10 L2_V4=10.10.4.5 L2_V6=fd10:10:4::5 \
+  nix run .#series3-soak-l-l2
+
+# Full demonstration (~12 h): 12 cells × 3600 s
+L2_V4=10.10.4.5 L2_V6=fd10:10:4::5 nix run .#series3-soak-l-l2
+```
+
+The 12-cell matrix (iperf3 TCP/UDP v4+v6, iperf2 TCP, tcpreplay VXLAN ×
+sysctl 0/1) is weighted toward CPU-bound workloads — small-packet UDP
+and tunnelled tcpreplay — because a 25 GbE TCP elephant is GRO/PCIe-
+bound and runs the dissector only once per super-packet, hiding the
+per-packet win. Output layout matches the Pi soak
+(`cells/*/summary.json`, `aggregate.csv`) so the same analysis tooling
+applies. See `nix/series3-soak-x86.nix`.
+
+### Outstanding follow-up
+
+- The Mellanox links were `DOWN` (no carrier) at config time — connect
+  the two DAC cables and confirm `ethtool enp35s0f0np0 | grep Speed`
+  reports `25000Mb/s` on both ends.
+- `flowDirectorRules` on l2 are ethtool-ntuple-shaped; under
+  `mlx5_core` they translate to tc-flower (or drop them — they are not
+  needed for the cake-based soak).
+- For tcpreplay cells, copy a `vxlan-k8s-pure.pcap` onto `l` and rewrite
+  its dst MAC to l2's `enp35s0f0np0` MAC (see `series3-soak-x86.nix`
+  header).
 
 ---
 
