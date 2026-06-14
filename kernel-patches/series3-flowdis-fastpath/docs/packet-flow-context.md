@@ -1,40 +1,19 @@
 # Where the flow_dissector fast-path fits in the Linux packet stack
 
-Companion doc to `series3-flowdis-fastpath` v1 (cover letter in
-`../v1-netdev/0000-cover-letter.patch`). The cover letter is good at
-**what the patch does** and **why it's safe**. This doc is for the
-**big-picture question**: where in the Linux packet path does
-`__skb_flow_dissect()` actually get invoked, who calls it, and which
-of those callers does the fast-path improve?
+Companion doc to `series3-flowdis-fastpath` v1 (cover letter in `../v1-netdev/0000-cover-letter.patch`). The cover letter is good at **what the patch does** and **why it's safe**. This doc is for the **big-picture question**: where in the Linux packet path does `__skb_flow_dissect()` actually get invoked, who calls it, and which of those callers does the fast-path improve?
 
-Audience: kernel reviewers who want stack placement, and engineers
-reading background material before tuning a real system.
+Audience: kernel reviewers who want stack placement, and engineers reading background material before tuning a real system.
 
 ## TL;DR
 
-- `__skb_flow_dissect()` is called from roughly **50 sites across the
-  kernel** — RX softirq, qdisc enqueue, ECMP routing, multi-queue TX,
-  hardware-accelerated RFS, OVS, BPF helpers, tunneling, wireless.
-- The patch makes the dissector body itself **~5 ns/skb faster** on
-  Eth + IPv4/IPv6 + TCP/UDP packets (cover-letter measurement: 12.44 →
-  6.56 ns on Zen 2, 10.61 → 5.62 ns on Skylake-derived Intel — both
-  ~47 %). All callers benefit when the packet matches the eligible
-  shape.
-- Real-world impact is bounded by **how often the dissector is called
-  per packet** and **what fraction of packets match the eligible
-  shape**. Measured on a representative TCP cake workload: +2.0 %
-  end-to-end (cover-letter `series3-gated-ab` data). A targeted
-  hot-helper optimization, not a stack-wide speedup.
-- Two fast-paths exist today (IPv4 and IPv6 over Eth, TCP/UDP). The
-  same template is extensible: section 9 walks through what someone
-  would do to add a fast-path for VLAN, PPPoE, VXLAN, or another
-  common shape.
+- `__skb_flow_dissect()` is called from roughly **50 sites across the kernel** — RX softirq, qdisc enqueue, ECMP routing, multi-queue TX, hardware-accelerated RFS, OVS, BPF helpers, tunneling, wireless.
+- The patch makes the dissector body itself **~5 ns/skb faster** on Eth + IPv4/IPv6 + TCP/UDP packets (cover-letter measurement: 12.44 → 6.56 ns on Zen 2, 10.61 → 5.62 ns on Skylake-derived Intel — both ~47 %). All callers benefit when the packet matches the eligible shape.
+- Real-world impact is bounded by **how often the dissector is called per packet** and **what fraction of packets match the eligible shape**. Measured on a representative TCP cake workload: +2.0 % end-to-end (cover-letter `series3-gated-ab` data). A targeted hot-helper optimization, not a stack-wide speedup.
+- Two fast-paths exist today (IPv4 and IPv6 over Eth, TCP/UDP). The same template is extensible: section 9 walks through what someone would do to add a fast-path for VLAN, PPPoE, VXLAN, or another common shape.
 
 ## 1. Diagram L1 — high-level packet path (Wire ↔ Application)
 
-The full RX and TX paths. Annotations on the right indicate which
-stages invoke `__skb_flow_dissect()` either directly or via
-`skb_get_hash()`.
+The full RX and TX paths. Annotations on the right indicate which stages invoke `__skb_flow_dissect()` either directly or via `skb_get_hash()`.
 
 ```
         RX (ingress)                                       TX (egress)
@@ -69,24 +48,14 @@ stages invoke `__skb_flow_dissect()` either directly or via
   Application
 ```
 
-External references for the broader stack (this doc doesn't try to
-duplicate them):
+External references for the broader stack (this doc doesn't try to duplicate them):
 
-- *Linux Networking — Quick Survey of the Linux Networking Stack*,
-  TUM NET-2024-04-1 §5 (PDF). The user-supplied figure showing the
-  socket-layer transit (`write() → sys_send() → udp_sendmsg() →
-  ip_queue_xmit() → dev_queue_xmit() → Wire`, symmetric on RX) is the
-  application-layer counterpart of the diagram above.
-- `Documentation/networking/scaling.rst` in the kernel tree —
-  authoritative deep-dive on RPS, RFS, aRFS, and XPS. The
-  flow_dissector is the helper that *all* of those subsystems use to
-  derive a flow hash; this doc is the dissector-side perspective.
+- *Linux Networking — Quick Survey of the Linux Networking Stack*, TUM NET-2024-04-1 §5 (PDF). The user-supplied figure showing the socket-layer transit (`write() → sys_send() → udp_sendmsg() → ip_queue_xmit() → dev_queue_xmit() → Wire`, symmetric on RX) is the application-layer counterpart of the diagram above.
+- `Documentation/networking/scaling.rst` in the kernel tree — authoritative deep-dive on RPS, RFS, aRFS, and XPS. The flow_dissector is the helper that *all* of those subsystems use to derive a flow hash; this doc is the dissector-side perspective.
 
 ## 2. Diagram L2 — caller → dissector entry → fast vs slow path
 
-Two patterns in the kernel for invoking the dissector, both
-relevant. Pattern A is the lazy-cached form most callers use;
-Pattern B is the direct form used by qdiscs and routing.
+Two patterns in the kernel for invoking the dissector, both relevant. Pattern A is the lazy-cached form most callers use; Pattern B is the direct form used by qdiscs and routing.
 
 ```
         Pattern A — lazy, cached on skb->hash
@@ -142,16 +111,11 @@ Pattern B is the direct form used by qdiscs and routing.
              ~3 indirect calls per packet on the canonical eth+IP+L4 shape
 ```
 
-Both paths write the same `struct flow_keys` into the caller's
-`target_container`. The contract is byte-identical: the same flow
-hash, the same dissector keys, no observable difference in any
-downstream consumer.
+Both paths write the same `struct flow_keys` into the caller's `target_container`. The contract is byte-identical: the same flow hash, the same dissector keys, no observable difference in any downstream consumer.
 
 ## 3. Diagram L3 — inside one fast-path body (`flow_dissect_fast_ipv4`)
 
-The IPv4 helper in detail. The IPv6 helper has the same structure
-with `sizeof(struct ipv6hdr) == 40` and an extension-header gate
-instead of an IHL gate.
+The IPv4 helper in detail. The IPv6 helper has the same structure with `sizeof(struct ipv6hdr) == 40` and an extension-header gate instead of an IHL gate.
 
 ```
   flow_dissect_fast_ipv4(skb, flow_dissector, target, data, nhoff, hlen)
@@ -189,8 +153,7 @@ instead of an IHL gate.
 
 ## 4. Where `__skb_flow_dissect()` is called from
 
-Condensed map across the net-next tree (HEAD `8013aee91ccb` at the
-time of writing). Full long-form list is one `grep` away:
+Condensed map across the net-next tree (HEAD `8013aee91ccb` at the time of writing). Full long-form list is one `grep` away:
 
 ```sh
 git grep -nE '__skb_flow_dissect|skb_flow_dissect_flow_keys|skb_get_hash' \
@@ -281,74 +244,36 @@ About 30 high-signal callers shown; the full grep yields ~50.
 
 ## 5. Which callers does the patch improve — and by how much?
 
-The fast-path is **inside `__skb_flow_dissect()` itself**, so its
-benefit is uniform per *call*. The interesting variation is at the
-*workload* level — how often a caller hits the dissector and how
-often the packets match the eligible shape.
+The fast-path is **inside `__skb_flow_dissect()` itself**, so its benefit is uniform per *call*. The interesting variation is at the *workload* level — how often a caller hits the dissector and how often the packets match the eligible shape.
 
 ### When the fast-path is a win
 
-- **Single-stack TCP/UDP traffic**, no VLAN, no encapsulation. Every
-  packet matches the IPv4 or IPv6 helper; every dissector call saves
-  ~5 ns. This is the headline target.
-- **RPS-heavy receivers** on plain TCP/UDP workloads. RPS calls the
-  dissector once per packet (via `get_rps_cpu`), and the result is
-  cached on `skb->hash` so other callers reuse it. The first call is
-  the only one that pays the dissector cost — the fast-path makes
-  exactly that call cheaper.
-- **cake / fq / fq_codel / sfq / hhf qdisc-shaped links** on simple
-  IP traffic. The qdisc classifies every packet using the dissector.
-  Cover-letter measurement: +2.0 % macro throughput on a real TCP
-  workload through `sch_cake` on a 25 GbE mlx5_core pair, and across
-  three other qdiscs:
+- **Single-stack TCP/UDP traffic**, no VLAN, no encapsulation. Every packet matches the IPv4 or IPv6 helper; every dissector call saves ~5 ns. This is the headline target.
+- **RPS-heavy receivers** on plain TCP/UDP workloads. RPS calls the dissector once per packet (via `get_rps_cpu`), and the result is cached on `skb->hash` so other callers reuse it. The first call is the only one that pays the dissector cost — the fast-path makes exactly that call cheaper.
+- **cake / fq / fq_codel / sfq / hhf qdisc-shaped links** on simple IP traffic. The qdisc classifies every packet using the dissector. Cover-letter measurement: +2.0 % macro throughput on a real TCP workload through `sch_cake` on a 25 GbE mlx5_core pair, and across three other qdiscs:
   - cake: +2.0 %
   - fq_codel (kernel default): +2.4 %
   - fq (Eric Dumazet's pacing qdisc): +1.0 %
-  - noqueue: +0.8 % (no qdisc dissect — residual saving comes from
-    RPS, `skb_get_hash`, etc.)
-  Roughly **60 % of the gain comes from qdisc classify, 40 % from
-  non-qdisc dissector callers** in this workload.
-- **ECMP routers** on IPv4/IPv6 unicast flows. Every forwarded packet
-  on a multipath route invokes `fib_multipath_hash`. Each call
-  saves ~5 ns.
+  - noqueue: +0.8 % (no qdisc dissect — residual saving comes from RPS, `skb_get_hash`, etc.)
+
+  Roughly **60 % of the gain comes from qdisc classify, 40 % from non-qdisc dissector callers** in this workload.
+- **ECMP routers** on IPv4/IPv6 unicast flows. Every forwarded packet on a multipath route invokes `fib_multipath_hash`. Each call saves ~5 ns.
 
 ### When the patch is partial or neutral
 
-- **VXLAN overlays in k8s / cloud**: the dissector wants to dissect
-  the *inner* flow for proper hashing of encapsulated traffic.
-  The current fast-path matches the outer Eth + IPv4 + UDP shape and
-  exits cleanly, but the dissector still has to recurse into the
-  VXLAN payload for inner addresses/ports — the patch as-shipped
-  captures the outer-header work, not the inner. **No regression**,
-  partial win. Section 9 discusses a VXLAN-inner fast-path.
-- **VLAN-tagged traffic** (most DC LANs): the outer ethertype is
-  `ETH_P_8021Q` not `ETH_P_IP`, so the current fast-path bails to
-  slow path on the very first check. **No regression**, no win. This
-  is the **biggest near-future gap** the doc calls out — see
-  section 9 / 10.
-- **GRE tunnels, IPsec, MPLS, PPPoE, QinQ**: same story. Outer
-  ethertype doesn't match; slow path handles it as before.
+- **VXLAN overlays in k8s / cloud**: the dissector wants to dissect the *inner* flow for proper hashing of encapsulated traffic. The current fast-path matches the outer Eth + IPv4 + UDP shape and exits cleanly, but the dissector still has to recurse into the VXLAN payload for inner addresses/ports — the patch as-shipped captures the outer-header work, not the inner. **No regression**, partial win. Section 9 discusses a VXLAN-inner fast-path.
+- **VLAN-tagged traffic** (most DC LANs): the outer ethertype is `ETH_P_8021Q` not `ETH_P_IP`, so the current fast-path bails to slow path on the very first check. **No regression**, no win. This is the **biggest near-future gap** the doc calls out — see section 9 / 10.
+- **GRE tunnels, IPsec, MPLS, PPPoE, QinQ**: same story. Outer ethertype doesn't match; slow path handles it as before.
 
 ### When the patch is irrelevant
 
-- **Custom dissectors** (`flow_dissector` instances that are *not*
-  `flow_keys_dissector` or `flow_keys_dissector_symmetric`): excluded
-  by the eligibility gate. The fast-path never runs. Examples:
-  custom TC matchall filters with extra keys, the BPF
-  flow_dissector hook when a program is loaded.
-- **Workloads where the dissector is a tiny fraction of the
-  packet-handling budget**: XDP receive (dissector skipped
-  entirely), AF_XDP zero-copy (same), full hardware-offloaded
-  qdisc (qdisc runs on NIC, not host). No measurable change.
-- **BPF flow_dissector program loaded for the netns**: the patch's
-  eligibility check runs *after* the existing BPF override, so BPF
-  semantics are preserved.
+- **Custom dissectors** (`flow_dissector` instances that are *not* `flow_keys_dissector` or `flow_keys_dissector_symmetric`): excluded by the eligibility gate. The fast-path never runs. Examples: custom TC matchall filters with extra keys, the BPF flow_dissector hook when a program is loaded.
+- **Workloads where the dissector is a tiny fraction of the packet-handling budget**: XDP receive (dissector skipped entirely), AF_XDP zero-copy (same), full hardware-offloaded qdisc (qdisc runs on NIC, not host). No measurable change.
+- **BPF flow_dissector program loaded for the netns**: the patch's eligibility check runs *after* the existing BPF override, so BPF semantics are preserved.
 
 ## 6. Real-world example — one packet under cake on a forwarding host
 
-Annotated walk-through of a single 1500 B IPv4 TCP packet on a host
-that's forwarding (so all three relevant dissector callers fire) and
-shaping the egress link with cake:
+Annotated walk-through of a single 1500 B IPv4 TCP packet on a host that's forwarding (so all three relevant dissector callers fire) and shaping the egress link with cake:
 
 ```
 NAPI poll on RX core
@@ -389,17 +314,13 @@ At 25 Gbit/s (~2 Mpps):
    ~10–20 µs/sec of CPU back per core.
 ```
 
-That's modest in absolute terms, but it scales linearly with packet
-rate and stacks with other small optimizations in the receive path.
-The cover letter's +2.0 % cake-soak result is the realistic
-end-to-end shape of this win.
+That's modest in absolute terms, but it scales linearly with packet rate and stacks with other small optimizations in the receive path. The cover letter's +2.0 % cake-soak result is the realistic end-to-end shape of this win.
 
 ## 7. Magnitude in context
 
 The honest framing:
 
-- **Isolated dissector cost**, userspace microbench, always-hit
-  eth+IPv4+TCP, 10 M iter, gcc -O3 (cover-letter table):
+- **Isolated dissector cost**, userspace microbench, always-hit eth+IPv4+TCP, 10 M iter, gcc -O3 (cover-letter table):
 
   | uarch | host | baseline | patched | delta |
   |---|---|---|---|---|
@@ -408,90 +329,45 @@ The honest framing:
   | Zen 1 | Ryzen 5 PRO 2400G | 20.50 ns | 20.53 ns | noise |
   | Haswell-ULT | Intel Celeron 2955U | 35.94 ns | 17.97 ns | -50.0 % |
 
-  The fast-path body is ~5 ns shorter than the slow-path graph
-  walk; the saving shows up at the dissector entry point and is
-  the upper bound for any single caller.
+The fast-path body is ~5 ns shorter than the slow-path graph walk; the saving shows up at the dissector entry point and is the upper bound for any single caller.
 
-- **Macro end-to-end**, cake soak on 25 GbE mlx5_core pair, real
-  TCP workload (cover-letter `series3-gated-ab` data set):
+- **Macro end-to-end**, cake soak on 25 GbE mlx5_core pair, real TCP workload (cover-letter `series3-gated-ab` data set):
   - cake: +2.0 %
   - fq_codel: +2.4 %
   - fq: +1.0 %
   - noqueue: +0.8 %
 
-  The +2.0 % is the realistic shape — not 50 %, not 0.1 %. The
-  dissector is roughly 5–10 % of receive CPU on cake-shaped
-  workloads, and a ~30 % faster dissector lifts the macro number
-  proportionally.
+The +2.0 % is the realistic shape — not 50 %, not 0.1 %. The dissector is roughly 5–10 % of receive CPU on cake-shaped workloads, and a ~30 % faster dissector lifts the macro number proportionally.
 
-- **Not measurable in**: XDP / AF_XDP receive paths (dissector
-  skipped entirely), hardware-offloaded qdisc, workloads where the
-  packets don't match the fast-path shape (VLAN-tagged DC LANs,
-  inside-VXLAN payloads).
+- **Not measurable in**: XDP / AF_XDP receive paths (dissector skipped entirely), hardware-offloaded qdisc, workloads where the packets don't match the fast-path shape (VLAN-tagged DC LANs, inside-VXLAN payloads).
 
-This is a **targeted hot-helper optimization**, not a stack-wide
-speedup. The right way to read the gain is per-call, and the
-per-call gain shows up in every workload that calls the dissector
-enough times to matter.
+This is a **targeted hot-helper optimization**, not a stack-wide speedup. The right way to read the gain is per-call, and the per-call gain shows up in every workload that calls the dissector enough times to matter.
 
 ## 8. How to add a fast-path for a different shape
 
-The reusable recipe. This section is for someone reading these
-patches and asking *"my workload has shape X, not Eth+IP+TCP/UDP —
-could I add a similar fast-path?"*.
+The reusable recipe. This section is for someone reading these patches and asking *"my workload has shape X, not Eth+IP+TCP/UDP — could I add a similar fast-path?"*.
 
 ### Eligibility checklist
 
 A shape is fast-path-able if **all** of these hold:
 
-- The header layout is **fixed-offset**. No length-by-flag fields,
-  no variable-depth option walks. The fast-path body must compute
-  every field offset as a constant or with a single arithmetic
-  step.
-- The shape is **common enough** in the workload of interest to
-  justify a hot-text branch. The dispatcher cost is one ethertype
-  switch on miss; that's cheap but not free.
-- All keys the dissector reads (the `flow_keys_dissector`'s
-  configured keys: `KEY_CONTROL`, `KEY_BASIC`, `KEY_IPV4_ADDRS` or
-  `KEY_IPV6_ADDRS`, `KEY_PORTS`) are at fixed offsets from the
-  shape's start.
-- The eligibility check itself can be done in O(1) byte reads. The
-  existing IPv4 helper does this in four byte-level checks
-  (version+IHL, frag-off, protocol, L4 minimum length).
+- The header layout is **fixed-offset**. No length-by-flag fields, no variable-depth option walks. The fast-path body must compute every field offset as a constant or with a single arithmetic step.
+- The shape is **common enough** in the workload of interest to justify a hot-text branch. The dispatcher cost is one ethertype switch on miss; that's cheap but not free.
+- All keys the dissector reads (the `flow_keys_dissector`'s configured keys: `KEY_CONTROL`, `KEY_BASIC`, `KEY_IPV4_ADDRS` or `KEY_IPV6_ADDRS`, `KEY_PORTS`) are at fixed offsets from the shape's start.
+- The eligibility check itself can be done in O(1) byte reads. The existing IPv4 helper does this in four byte-level checks (version+IHL, frag-off, protocol, L4 minimum length).
 
 ### Recipe (mirrors `flow_dissect_fast_ipv4`)
 
-1. Add `flow_dissect_fast_<shape>(skb, flow_dissector, target,
-   data, nhoff, hlen)` following the structure in Diagram L3.
-   Keep it under ~80 lines of straight-line C; no loops, no
-   indirect calls.
-2. Extend the ethertype switch (or add a deeper dispatch under
-   `ETH_P_IP` / `ETH_P_IPV6` — see the VLAN worked example below)
-   in `__skb_flow_dissect()`. Branch to the new helper on the
-   shape's discriminator.
-3. Gate behind the **existing** sysctl
-   `net.core.flow_dissector_fastpath`. Don't add per-shape
-   sysctls — more knobs means more configuration complexity for
-   operators, and the gate already costs only a not-taken JMP
-   when disabled.
-4. Add a `static_assert(...)` for any fixed header size the body
-   assumes (the existing patch does this for `struct iphdr` and
-   `struct ipv6hdr`).
-5. Add a selftest in `tools/testing/selftests/net/` comparing
-   fast-path output byte-for-byte against the slow path on
-   crafted pcaps of the new shape. The byte-identical contract is
-   what makes the change safe to enable globally.
-6. Measure: microbench (always-hit synthetic case) should show a
-   similar dissector-cost saving; macro soak should show
-   comparable +0.x–2 % depending on how shape-heavy the workload
-   is.
+1. Add `flow_dissect_fast_<shape>(skb, flow_dissector, target, data, nhoff, hlen)` following the structure in Diagram L3. Keep it under ~80 lines of straight-line C; no loops, no indirect calls.
+2. Extend the ethertype switch (or add a deeper dispatch under `ETH_P_IP` / `ETH_P_IPV6` — see the VLAN worked example below) in `__skb_flow_dissect()`. Branch to the new helper on the shape's discriminator.
+3. Gate behind the **existing** sysctl `net.core.flow_dissector_fastpath`. Don't add per-shape sysctls — more knobs means more configuration complexity for operators, and the gate already costs only a not-taken JMP when disabled.
+4. Add a `static_assert(...)` for any fixed header size the body assumes (the existing patch does this for `struct iphdr` and `struct ipv6hdr`).
+5. Add a selftest in `tools/testing/selftests/net/` comparing fast-path output byte-for-byte against the slow path on crafted pcaps of the new shape. The byte-identical contract is what makes the change safe to enable globally.
+6. Measure: microbench (always-hit synthetic case) should show a similar dissector-cost saving; macro soak should show comparable +0.x–2 % depending on how shape-heavy the workload is.
 
 ### Worked example — single VLAN (the cheapest extension)
 
-VLAN-tagged Eth + IPv4 + TCP/UDP is overwhelmingly common in DCs.
-The existing `flow_dissect_fast_ipv4` doesn't handle it because the
-outer ethertype is `ETH_P_8021Q`, not `ETH_P_IP`. Two ways to
-extend:
+VLAN-tagged Eth + IPv4 + TCP/UDP is overwhelmingly common in DCs. The existing `flow_dissect_fast_ipv4` doesn't handle it because the outer ethertype is `ETH_P_8021Q`, not `ETH_P_IP`. Two ways to extend:
 
 ```
   Option A — wrap-and-recurse
@@ -521,23 +397,13 @@ extend:
     re-enter the ethertype switch (one extra iteration)
 ```
 
-Either way: ~30 extra lines of C, same selftest discipline.
-Unlocks the very large fraction of DC traffic that's
-VLAN-tagged. Option A is slightly cleaner because it keeps the
-hot-text path predictable; Option B is fewer lines but harder for
-the branch predictor.
+Either way: ~30 extra lines of C, same selftest discipline. Unlocks the very large fraction of DC traffic that's VLAN-tagged. Option A is slightly cleaner because it keeps the hot-text path predictable; Option B is fewer lines but harder for the branch predictor.
 
-A reviewer concern to anticipate: the kernel already handles
-hardware-stripped VLAN tags (in `skb_vlan_tag_present(skb)`
-slots). The fast-path would need to honour both forms — see the
-existing slow-path code in `__skb_flow_dissect` around the
-`case htons(ETH_P_8021Q)` block for the canonical pattern.
+A reviewer concern to anticipate: the kernel already handles hardware-stripped VLAN tags (in `skb_vlan_tag_present(skb)` slots). The fast-path would need to honour both forms — see the existing slow-path code in `__skb_flow_dissect` around the `case htons(ETH_P_8021Q)` block for the canonical pattern.
 
 ## 9. Other obvious fast-path candidates
 
-A table of shapes worth fast-pathing, ranked roughly by
-**value-per-line-of-code**. None of these are committed; they're
-the candidates someone reading these patches should look at next.
+A table of shapes worth fast-pathing, ranked roughly by **value-per-line-of-code**. None of these are committed; they're the candidates someone reading these patches should look at next.
 
 | Shape | Feasibility | Who benefits |
 |---|---|---|
@@ -553,37 +419,16 @@ the candidates someone reading these patches should look at next.
 
 Two observations worth flagging explicitly:
 
-- **VLAN is the highest-leverage extension.** Nearly every DC packet
-  has at least one VLAN tag, the slow-path's VLAN handling is itself
-  a non-trivial block, and the implementation is ~30 lines of C.
-  Best ratio of code-to-impact in the candidate list.
-- **VXLAN inner is the most-asked-for.** k8s overlay prevalence
-  makes it the case real operators care about, and it's also the
-  case where the dissector's value is most degraded by the patch
-  as-shipped (outer matches cleanly, inner has to slow-path). Both
-  important *and* partial — likely the second extension someone
-  would tackle.
+- **VLAN is the highest-leverage extension.** Nearly every DC packet has at least one VLAN tag, the slow-path's VLAN handling is itself a non-trivial block, and the implementation is ~30 lines of C. Best ratio of code-to-impact in the candidate list.
+- **VXLAN inner is the most-asked-for.** k8s overlay prevalence makes it the case real operators care about, and it's also the case where the dissector's value is most degraded by the patch as-shipped (outer matches cleanly, inner has to slow-path). Both important *and* partial — likely the second extension someone would tackle.
 
-A nudge for future work: the simplest path to broad coverage is
-probably **VLAN + VXLAN-inner** as a combined v2 follow-up. That
-covers DC traffic shape and k8s overlay shape with one extension,
-which together account for a very large fraction of modern Linux
-data-path packets.
+A nudge for future work: the simplest path to broad coverage is probably **VLAN + VXLAN-inner** as a combined v2 follow-up. That covers DC traffic shape and k8s overlay shape with one extension, which together account for a very large fraction of modern Linux data-path packets.
 
 ## 10. References
 
-- *Linux Networking — Quick Survey of the Linux Networking Stack*,
-  TUM NET-2024-04-1 §5 "Conclusion" diagram. PDF:
-  <https://www.net.in.tum.de/fileadmin/TUM/NET/NET-2024-04-1/NET-2024-04-1_16.pdf>
-- `Documentation/networking/scaling.rst` (in the kernel tree), the
-  authoritative deep-dive on RPS / RFS / aRFS / XPS — every one of
-  those subsystems consumes the dissector via `skb_get_hash`.
-- `../v1-netdev/0000-cover-letter.patch` — what the patch does and
-  the safety arguments.
-- `../v1-netdev/000{1,2,3}-*.patch` — the three patches: framework
-  + IPv4 fast-path + IPv6 fast-path.
-- net-next at the time of writing: HEAD `8013aee91ccb` on branch
-  `flowdis-fastpath-rfc-v2-inline`.
-- `../../../xdp2-rs/docs/dispatch-architecture-cost.md` — the
-  userspace measurements (xdp2-rs benchmark matrix) that motivated
-  the "skip the graph walk for common shapes" technique.
+- *Linux Networking — Quick Survey of the Linux Networking Stack*, TUM NET-2024-04-1 §5 "Conclusion" diagram. PDF: <https://www.net.in.tum.de/fileadmin/TUM/NET/NET-2024-04-1/NET-2024-04-1_16.pdf>
+- `Documentation/networking/scaling.rst` (in the kernel tree), the authoritative deep-dive on RPS / RFS / aRFS / XPS — every one of those subsystems consumes the dissector via `skb_get_hash`.
+- `../v1-netdev/0000-cover-letter.patch` — what the patch does and the safety arguments.
+- `../v1-netdev/000{1,2,3}-*.patch` — the three patches: framework + IPv4 fast-path + IPv6 fast-path.
+- net-next at the time of writing: HEAD `8013aee91ccb` on branch `flowdis-fastpath-rfc-v2-inline`.
+- `../../../xdp2-rs/docs/dispatch-architecture-cost.md` — the userspace measurements (xdp2-rs benchmark matrix) that motivated the "skip the graph walk for common shapes" technique.
