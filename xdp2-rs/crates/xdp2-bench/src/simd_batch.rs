@@ -1,9 +1,13 @@
-//! Step 3b: Batch SIMD packet parser prototype (AVX2).
+//! Step 3b: Batch SIMD packet parser prototype.
 //!
-//! Processes 8 packets in parallel using AVX2 256-bit integer operations.
+//! Processes 8 packets per batch with SIMD ethertype classification.
 //! The Eth/IPv4/TCP fast path runs entirely in SIMD; packets that diverge
 //! (non-IPv4, non-TCP, variable IHL, etc.) fall back to the scalar
 //! compiled parser.
+//!
+//! Two backends, selected at compile time by `target_arch`:
+//! - **x86_64**: AVX2 256-bit `_mm256_cmpeq_epi32` over 8 lanes.
+//! - **aarch64**: NEON 128-bit `vceqq_u32` over 4 lanes, run twice per batch.
 //!
 //! Populates FlowMeta with the same metadata extractors as graph mode,
 //! ensuring honest apples-to-apples benchmarking. The SIMD stages handle
@@ -14,17 +18,21 @@
 //! A single packet parse is a serial dependent-load chain: read ethertype
 //! → branch → read IP proto → branch → done. The CPU can overlap packets
 //! via out-of-order execution, but the ROB window limits how many chains
-//! fly concurrently. SIMD sidesteps this by reading the same field from
-//! 8 packets in one instruction via `vpgatherdd`.
+//! fly concurrently. SIMD sidesteps this by classifying the same field
+//! across N packets in one instruction.
 //!
 //! ## Limitations
 //!
 //! - Only the Eth→IPv4→TCP/UDP/ICMP fast path is accelerated.
 //! - VLAN/IPv6/extension headers always fall back to scalar.
-//! - Gather throughput varies by µarch (Zen 2: one 256-bit gather per 5 cycles).
+//! - AVX2 packs 8 lanes per compare; NEON packs 4 (so 8-packet batch =
+//!   2× NEON compares). Expect a smaller per-batch SIMD share on aarch64.
 
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::*;
 
 use crate::graph::{AddrType, FlowMeta};
 use crate::graph_compiled;
@@ -35,10 +43,10 @@ use crate::pcap::StoredPacket;
 /// successfully parsed packets.
 ///
 /// # Safety
-/// Requires AVX2 support. Caller must check `is_x86_feature_detected!("avx2")`.
+/// Requires AVX2 support. Caller must check `is_available()` first.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
-pub unsafe fn parse_batch_avx2(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
+pub unsafe fn parse_batch(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     let mut acc: u64 = 0;
     let n = packets.len();
     let full_chunks = n / 8;
@@ -269,6 +277,157 @@ fn compress_byte_mask_to_lanes(byte_mask: u32) -> u8 {
     lanes
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// aarch64 NEON path. Mirrors the AVX2 6-stage pipeline above; only the
+// ethertype-compare stage differs (NEON `vceqq_u32` over two 4-lane
+// Q registers in place of AVX2 `_mm256_cmpeq_epi32` over one 8-lane
+// YMM). Stages 1, 2, 4, 5, 6 are scalar in both backends.
+// ─────────────────────────────────────────────────────────────────────
+
+/// Parse a batch of packets using NEON SIMD for the fast path, with
+/// scalar fallback for divergent packets. Returns the count of
+/// successfully parsed packets.
+///
+/// # Safety
+/// NEON is mandatory in the ARMv8 ABI; `unsafe` here matches the per-arch
+/// `parse_batch` signature shared with the AVX2 variant. The body's
+/// safety relies on the bounds checks inside `parse_8_neon`.
+#[cfg(target_arch = "aarch64")]
+pub unsafe fn parse_batch(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
+    let mut acc: u64 = 0;
+    let n = packets.len();
+    let full_chunks = n / 8;
+
+    for i in 0..full_chunks {
+        let chunk = &packets[i * 8..(i + 1) * 8];
+        acc += parse_8_neon(chunk, meta);
+    }
+
+    // Tail: scalar fallback for remaining packets.
+    for pkt in &packets[full_chunks * 8..] {
+        *meta = FlowMeta::default();
+        if graph_compiled::parse_packet(&pkt.data, meta).is_ok() {
+            acc += 1;
+        }
+    }
+
+    acc
+}
+
+/// Process exactly 8 packets with NEON ethertype classification + scalar
+/// IHL/protocol/L4-length checks.
+///
+/// Fast path: Eth (14B) → IPv4 (IHL=5, 20B) → leaf (TCP/UDP/ICMP/SCTP).
+/// Any packet that doesn't match this exact path gets scalar fallback.
+#[cfg(target_arch = "aarch64")]
+#[inline]
+unsafe fn parse_8_neon(chunk: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
+    debug_assert_eq!(chunk.len(), 8);
+
+    const MIN_FAST_PATH: usize = 42;
+
+    let mut ptrs: [*const u8; 8] = [std::ptr::null(); 8];
+    let mut lens: [usize; 8] = [0; 8];
+    for i in 0..8 {
+        ptrs[i] = chunk[i].data.as_ptr();
+        lens[i] = chunk[i].data.len();
+    }
+
+    // ── Stage 1: Length check (scalar) ──
+    let mut long_enough: u8 = 0;
+    for i in 0..8 {
+        if lens[i] >= MIN_FAST_PATH {
+            long_enough |= 1 << i;
+        }
+    }
+    if long_enough == 0 {
+        return scalar_fallback_all(chunk, meta);
+    }
+
+    // ── Stage 2: Gather ethertypes (scalar, packed as u32 for NEON) ──
+    let mut ethertypes = [0u32; 8];
+    for i in 0..8 {
+        if long_enough & (1 << i) != 0 {
+            ethertypes[i] =
+                u16::from_be_bytes([*ptrs[i].add(12), *ptrs[i].add(13)]) as u32;
+        }
+    }
+
+    // ── Stage 3: NEON compare ethertypes == 0x0800 ──
+    // Two 4-wide compares cover the 8-packet batch. Reduce each
+    // 4-lane all-ones-or-zero result to a 4-bit mask via the
+    // AND-with-[1,2,4,8] + horizontal-add idiom, then pack into a u8.
+    let ipv4_const = vdupq_n_u32(0x0800);
+    let lo_vec = vld1q_u32(ethertypes.as_ptr());
+    let hi_vec = vld1q_u32(ethertypes.as_ptr().add(4));
+    let cmp_lo = vceqq_u32(lo_vec, ipv4_const);
+    let cmp_hi = vceqq_u32(hi_vec, ipv4_const);
+
+    let bit_pos_arr: [u32; 4] = [1, 2, 4, 8];
+    let bit_pos = vld1q_u32(bit_pos_arr.as_ptr());
+    let bits_lo = vandq_u32(cmp_lo, bit_pos);
+    let bits_hi = vandq_u32(cmp_hi, bit_pos);
+    let mask_lo = vaddvq_u32(bits_lo) as u8; // 0..15
+    let mask_hi = vaddvq_u32(bits_hi) as u8; // 0..15
+    let ipv4_lanes: u8 = mask_lo | (mask_hi << 4);
+
+    let fast_mask = long_enough & ipv4_lanes;
+    if fast_mask == 0 {
+        return scalar_fallback_all(chunk, meta);
+    }
+
+    // ── Stage 4: Check IHL == 5 for fast-path IPv4 ──
+    let mut ihl_ok: u8 = 0;
+    let mut protocols = [0u8; 8];
+    for i in 0..8 {
+        if fast_mask & (1 << i) != 0 {
+            let ihl = *ptrs[i].add(14) & 0x0F;
+            if ihl == 5 {
+                ihl_ok |= 1 << i;
+                protocols[i] = *ptrs[i].add(23);
+            }
+        }
+    }
+    let fast_ipv4 = fast_mask & ihl_ok;
+
+    // ── Stage 5: Check protocol is a known leaf + L4 header length ──
+    let mut simd_ok: u8 = 0;
+    for i in 0..8 {
+        if fast_ipv4 & (1 << i) != 0 {
+            let remaining = lens[i] - 34;
+            let leaf_ok = match protocols[i] {
+                6 => remaining >= 20,   // TCP
+                17 => remaining >= 8,   // UDP
+                1 => remaining >= 8,    // ICMPv4
+                132 => remaining >= 12, // SCTP
+                _ => false,
+            };
+            if leaf_ok {
+                simd_ok |= 1 << i;
+            }
+        }
+    }
+
+    // ── Stage 6: Extract metadata for SIMD successes + scalar fallback ──
+    let mut count = 0u64;
+    for i in 0..8 {
+        if simd_ok & (1 << i) != 0 {
+            extract_fast_path_meta(ptrs[i], lens[i], protocols[i], meta);
+            count += 1;
+        }
+    }
+    let fallback = !simd_ok;
+    for i in 0..8 {
+        if fallback & (1 << i) != 0 {
+            *meta = FlowMeta::default();
+            if graph_compiled::parse_packet(&chunk[i].data, meta).is_ok() {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
 /// Scalar fallback for all 8 packets.
 #[inline]
 fn scalar_fallback_all(chunk: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
@@ -282,9 +441,14 @@ fn scalar_fallback_all(chunk: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     count
 }
 
-/// Non-AVX2 stub for other architectures.
-#[cfg(not(target_arch = "x86_64"))]
-pub fn parse_batch_avx2(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
+/// Scalar fallback for architectures without an accelerated path.
+///
+/// # Safety
+/// Marked `unsafe` only to match the per-arch `parse_batch` signature
+/// (AVX2/NEON variants take `unsafe fn`). This body has no real safety
+/// invariants — it just iterates and calls the safe graph_compiled parser.
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+pub unsafe fn parse_batch(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     let mut acc: u64 = 0;
     for pkt in packets {
         *meta = FlowMeta::default();
@@ -295,13 +459,21 @@ pub fn parse_batch_avx2(packets: &[&StoredPacket], meta: &mut FlowMeta) -> u64 {
     acc
 }
 
-/// Check whether AVX2 SIMD batch parsing is available at runtime.
+/// Check whether SIMD batch parsing is available at runtime.
+///
+/// - x86_64: requires AVX2 (runtime CPU feature check).
+/// - aarch64: NEON is mandatory in the ARMv8 ABI, so always true.
+/// - other: no SIMD path; returns false.
 pub fn is_available() -> bool {
     #[cfg(target_arch = "x86_64")]
     {
         is_x86_feature_detected!("avx2")
     }
-    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(target_arch = "aarch64")]
+    {
+        true
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     {
         false
     }

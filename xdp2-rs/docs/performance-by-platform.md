@@ -150,6 +150,71 @@ left ~445K packets), while the 2026-05-06 matrix uses 100% of
 combo.pcap (post-22d3448). For directly-comparable Zen 1 vs Zen 2,
 re-run the matrix on the Zen 2 host with the same pipeline.
 
+### Raspberry Pi 5 — Broadcom BCM2712 / Cortex-A76 (Armv8.2-A, 4c @ 2.4 GHz)
+
+Measured 2026-06-14 on pi5-1 (kernel 6.12.87 aarch64, `schedutil`
+governor, 7.9 GiB RAM, `taskset -c 3`). Toolchain: rustc 1.91.1 /
+cargo 1.91.0 via `nix shell nixpkgs#cargo nixpkgs#rustc`. Binary built
+on the host with the same release profile (fat LTO, `target-cpu=native`)
+used everywhere else in this doc. Full narrative:
+[`perf-results/2026-06-14-rust-neon-pi5/summary.md`](../../perf-results/2026-06-14-rust-neon-pi5/summary.md).
+Implementation notes: [`simd-batch-neon.md`](simd-batch-neon.md).
+
+This is the first aarch64 row in this matrix. The `simd` mode here
+runs the **NEON** path added 2026-06-14
+(`xdp2-rs/crates/xdp2-bench/src/simd_batch.rs`), not AVX2. Same
+fast-path coverage (Eth → IPv4 → TCP/UDP/ICMP/SCTP), byte-identical
+FlowMeta output (validated by `cargo test --release -p xdp2-bench`:
+93 passed, 0 failed on aarch64).
+
+**Single-threaded (`tcp_ipv4.pcap`, 11 packets, 100% fast-path eligible,
+5000 iterations × 5 trials, medians):**
+
+| Mode | ns/pkt | Mpps |
+|------|-------:|-----:|
+| **template** | **18** | **55.6** |
+| mono | 26 | 38.5 |
+| compiled | 26 | 38.5 |
+| **simd (NEON)** | **39** | **25.6** |
+| graph-enum | 74 | 13.5 |
+| graph | 261 | 3.8 |
+
+NEON SIMD beats `graph-enum` by **1.9×** here and beats raw `graph` by
+**6.7×**. Per-packet hand-tuned modes (`template`, `mono`) still win on
+this 11-packet pcap because the per-batch setup cost in `simd_batch.rs`
+isn't amortized over enough batches per iteration.
+
+**Single-threaded (`broad-coverage.pcap`, 5200 packets, mixed shapes
+including VLAN/IPv6/encap, 500 iterations × 5 trials, medians):**
+
+| Mode | ns/pkt | Mpps |
+|------|-------:|-----:|
+| **graph-enum** | **22** | **45.5** |
+| template-simd | 43 | 23.3 |
+| mono | 46 | 21.7 |
+| compiled | 46 | 21.7 |
+| template | 49 | 20.4 |
+| **simd (NEON)** | **56** | **17.9** |
+| graph | 317 | 3.2 |
+
+On heterogeneous traffic, `graph-enum` wins (same story as the Zen 1
+matrix above). Most packets in this workload don't match the
+SIMD classifier's narrow shape, so every batch falls through to scalar
+and the NEON path is paying setup cost it can't recover.
+
+**Comparison vs x86 AVX2 on the same fast-path-eligible workload:**
+
+| arch / vector ISA | ns/pkt @ simd | host |
+|---|---:|---|
+| x86_64 AVX2 (256-bit, 8-lane) | 38–40 | Threadripper 3945WX (Zen 2) |
+| aarch64 NEON (128-bit, 2× 4-lane) | 39 | Pi 5 Cortex-A76 |
+
+The two numbers are remarkably close in absolute terms despite the A76
+being ~10× slower than the 3945WX on most scalar workloads — evidence
+that this SIMD path is memory-access-latency bound rather than
+ALU-throughput bound. The two-compare-per-batch NEON structure pays for
+itself even at half the lane count.
+
 ### (placeholder) AMD EPYC
 
 _Not yet measured._
@@ -160,7 +225,9 @@ _Not yet measured._
 
 ### (placeholder) AWS Graviton (ARM)
 
-_Not yet measured._
+_Not yet measured. When measured, structure as a sibling section to the
+Pi 5 entry above — same `tcp_ipv4` + `broad-coverage` pair so cross-arch
+deltas are directly comparable._
 
 ## Notes
 
@@ -185,9 +252,12 @@ _Not yet measured._
   so template ≈ compiled speed. With production traffic (80-95% TCP/UDP),
   template would be significantly faster due to NIC hardware classification
   (zero CPU classification cost) and higher template match rates.
-- **simd:** Batch SIMD parser with multi-stage AVX2 classification pipeline
-  and scalar metadata extraction. Slower than compiled (44 vs 36 ns) because
-  gather overhead doesn't amortize with scattered PCAP pointers.
+- **simd:** Batch SIMD parser with multi-stage classification pipeline
+  (AVX2 8-lane compare on x86_64, NEON 2× 4-lane on aarch64) and scalar
+  metadata extraction. On the Zen 2 numbers above it's slower than
+  compiled (44 vs 36 ns) because gather overhead doesn't amortize with
+  scattered PCAP pointers; on the Pi 5 A76 NEON path the picture flips
+  by workload — see the per-platform tables.
 - **Multi-threaded scaling:** Near-linear up to physical core count, then
   drops due to SMT sharing. The parser is purely CPU-bound with no shared
   state, so scaling is limited only by hardware resources.

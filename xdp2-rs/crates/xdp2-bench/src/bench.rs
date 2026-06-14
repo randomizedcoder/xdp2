@@ -178,8 +178,8 @@ pub fn dump_meta_pass(
                 w.emit(&rec.rejected(reject_reason::NO_AVX2))?;
             } else {
                 let mut meta = graph::FlowMeta::default();
-                // SAFETY: is_available() returned true → AVX2 supported on this CPU.
-                let acc = unsafe { simd_batch::parse_batch_avx2(&[*pkt], &mut meta) };
+                // SAFETY: is_available() returned true → SIMD path supported on this CPU.
+                let acc = unsafe { simd_batch::parse_batch(&[*pkt], &mut meta) };
                 let rec = if acc > 0 {
                     rec.accepted(&meta, None)
                 } else {
@@ -401,12 +401,12 @@ fn run_single_threaded(
     if run_simd && simd_batch::is_available() {
         let (ns, snap) = time_run_passes(perf_passes, iterations, || {
             let mut meta = graph::FlowMeta::default();
-            std::hint::black_box(unsafe { simd_batch::parse_batch_avx2(packets, &mut meta) });
+            std::hint::black_box(unsafe { simd_batch::parse_batch(packets, &mut meta) });
             std::hint::black_box(&meta);
         });
         results.push(BenchResult::new("simd", ns, total_pkts, 1, snap));
     } else if run_simd {
-        eprintln!("warning: AVX2 not available, skipping SIMD benchmark");
+        eprintln!("warning: SIMD path not available on this CPU, skipping SIMD benchmark");
     }
 
     if run_template {
@@ -555,7 +555,7 @@ fn run_multi_threaded(
     if run_simd && simd_batch::is_available() {
         let ns = run_mt(packets, iterations, threads, |slice| {
             let mut meta = graph::FlowMeta::default();
-            let r = unsafe { simd_batch::parse_batch_avx2(slice, &mut meta) };
+            let r = unsafe { simd_batch::parse_batch(slice, &mut meta) };
             std::hint::black_box(&meta);
             r
         });
