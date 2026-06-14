@@ -1,0 +1,147 @@
+From 76e3e46477315ed900e9980cac38ac2065318fc8 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sun, 14 Jun 2026 14:49:55 -0700
+Subject: [RFC EXTENSIONS 1/3] net: flow_dissector: add fast-path for single
+ Eth + VLAN + IP + TCP/UDP
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Extend the eth+IP+L4 fast-path introduced in the parent commit to
+cover the single-VLAN-tagged case (one ETH_P_8021Q or ETH_P_8021AD
+tag in front of IPv4/IPv6 + TCP/UDP). Single-tag covers the
+overwhelming majority of data-centre traffic (typical 1-VLAN-per-
+tenant isolation, plus the implicit access-port tag); QinQ defers
+to the slow path here and gets its own follow-up.
+
+The shape:
+
+  Eth | VLAN(4B) | IPv4 (IHL=5) | TCP|UDP
+
+Both header forms are handled byte-identically to the slow path:
+
+- Hardware-stripped form: TCI in skb metadata
+  (skb_vlan_tag_present), inner ethertype in skb->protocol. The
+  fast-path uses skb_vlan_tag_get_id / skb_vlan_tag_get_prio.
+- In-band form: 4-byte vlan_hdr at data + nhoff. The fast-path
+  parses TCI directly, advances nhoff by sizeof(struct vlan_hdr).
+
+Keys written when the dissector requests them:
+  - FLOW_DISSECTOR_KEY_VLAN     vlan_id, vlan_priority,
+                                vlan_tpid, vlan_eth_type
+  - FLOW_DISSECTOR_KEY_NUM_OF_VLANS    num_of_vlans++
+
+After the VLAN tag is consumed, control falls through to the
+existing IPv4 / IPv6 fast-path bodies via a small "try_inner" label
+loop. On a depth-2 packet (would-be QinQ) the fast-path returns to
+slow path; same on any unparseable shape inside the tag.
+
+Cost analysis:
+
+  Hit on single-VLAN eth+IPv4+TCP:
+    cost = vlan branch + 1 cache-line read + 2 optional key writes
+         ≈ 3-5 ns added to the IPv4 fast-path body
+    saving = ~30 ns (slow-path graph walk skipped, including the
+             slow-path vlan-rewind / proto_again loop)
+
+  Hit on plain eth+IPv4+TCP (no VLAN):
+    unchanged; the vlan branch is one not-taken JMP.
+
+  Miss inside the VLAN body (QinQ, bad tag, etc.):
+    falls through to slow path; no regression.
+
+This addresses the highest-leverage gap noted in
+kernel-patches/series3-flowdis-fastpath/docs/packet-flow-context.md
+section 9: VLAN-tagged traffic is dominant in modern data centres
+and the bare eth+IP fast-path did not match it.
+
+Selftests follow-up: extend the byte-identical comparator at
+tools/testing/selftests/net/flow_dissector_fastpath.sh to cover
+single-VLAN + IPv4/IPv6 + TCP/UDP/ICMP eligibility shapes.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ net/core/flow_dissector.c | 62 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index fe0f85426175..691707c97ad9 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -1206,11 +1206,73 @@ bool __skb_flow_dissect(const struct net *net,
+ 	    (flow_dissector == &flow_keys_dissector ||
+ 	     flow_dissector == &flow_keys_dissector_symmetric) &&
+ 	    !(flags & ~(unsigned int)FLOW_DISSECTOR_F_PARSE_1ST_FRAG)) {
++		struct flow_dissector_key_num_of_vlans *key_nvs;
+ 		struct flow_dissector_key_addrs *key_addrs;
+ 		struct flow_dissector_key_control *key_control;
+ 		struct flow_dissector_key_basic *key_basic;
+ 		struct flow_dissector_key_ports *key_ports;
++		struct flow_dissector_key_vlan *key_vlan;
++		enum flow_dissector_key_id vlan_key;
+ 		int thoff;
++		int vlan_depth = 0;
++
++try_inner:
++		/* Single 802.1Q or 802.1ad tag. Outer-only — QinQ defers to
++		 * the slow path (depth limit one). Handles both the
++		 * hardware-stripped form (tag in skb metadata) and the
++		 * in-band form (4-byte vlan_hdr at data + nhoff).
++		 */
++		if (proto == htons(ETH_P_8021Q) || proto == htons(ETH_P_8021AD)) {
++			__be16 inner_proto;
++			__be16 saved_tpid;
++			u16 tci_id;
++			u16 tci_prio;
++
++			if (vlan_depth >= 1)
++				goto slow_path;
++
++			vlan_key = FLOW_DISSECTOR_KEY_VLAN;
++			saved_tpid = proto;
++
++			if (skb && skb_vlan_tag_present(skb)) {
++				tci_id = skb_vlan_tag_get_id(skb);
++				tci_prio = skb_vlan_tag_get_prio(skb);
++				inner_proto = skb->protocol;
++			} else {
++				const struct vlan_hdr *vlan;
++
++				if (unlikely(hlen - nhoff < (int)sizeof(*vlan)))
++					goto slow_path;
++				vlan = (const struct vlan_hdr *)
++				       ((const u8 *)data + nhoff);
++				tci_id = ntohs(vlan->h_vlan_TCI) & VLAN_VID_MASK;
++				tci_prio = (ntohs(vlan->h_vlan_TCI) &
++					    VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
++				inner_proto = vlan->h_vlan_encapsulated_proto;
++				nhoff += (int)sizeof(*vlan);
++			}
++
++			if (dissector_uses_key(flow_dissector, vlan_key)) {
++				key_vlan = skb_flow_dissector_target(flow_dissector,
++								     vlan_key,
++								     target_container);
++				key_vlan->vlan_id = tci_id;
++				key_vlan->vlan_priority = tci_prio;
++				key_vlan->vlan_tpid = saved_tpid;
++				key_vlan->vlan_eth_type = inner_proto;
++			}
++			if (dissector_uses_key(flow_dissector,
++					       FLOW_DISSECTOR_KEY_NUM_OF_VLANS)) {
++				key_nvs = skb_flow_dissector_target(flow_dissector,
++								    FLOW_DISSECTOR_KEY_NUM_OF_VLANS,
++								    target_container);
++				key_nvs->num_of_vlans++;
++			}
++
++			proto = inner_proto;
++			vlan_depth++;
++			goto try_inner;
++		}
+ 
+ 		if (proto == htons(ETH_P_IP)) {
+ 			const struct iphdr *iph;
+-- 
+2.54.0
+

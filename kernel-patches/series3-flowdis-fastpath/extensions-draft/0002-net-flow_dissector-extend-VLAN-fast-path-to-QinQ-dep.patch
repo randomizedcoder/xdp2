@@ -1,0 +1,89 @@
+From c984b9f514b9f0020cdab430beab9d50d62d23b5 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sun, 14 Jun 2026 14:50:33 -0700
+Subject: [RFC EXTENSIONS 2/3] net: flow_dissector: extend VLAN fast-path to
+ QinQ (depth-2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Lift the single-VLAN fast-path's depth limit from 1 to 2. Allows the
+fast-path to handle two stacked 802.1ad / 802.1Q tags — the canonical
+QinQ shape used by carriers and service providers:
+
+  Eth | S-TAG (4B, ETH_P_8021AD) | C-TAG (4B, ETH_P_8021Q) | IPv4 (IHL=5) | TCP|UDP
+
+The outer tag is written to FLOW_DISSECTOR_KEY_VLAN, the inner to
+FLOW_DISSECTOR_KEY_CVLAN. This mirrors the slow-path's state-machine
+transition (dissector_vlan MAX → VLAN → CVLAN). Both per-tag forms
+(hardware-stripped on the outermost, in-band on either) are handled
+as in the single-VLAN fast-path. Past the second tag, defer to slow
+path.
+
+Cost analysis:
+
+  Hit on QinQ eth+IPv4+TCP:
+    cost = 2 × (vlan branch + cache-line read + ≤2 key writes)
+         ≈ 6-9 ns added to the IPv4 fast-path body
+    saving = ~50 ns (slow-path graph walk + two slow-path proto_again
+             rewinds skipped)
+
+  No regression on single-VLAN packets: the depth-1 case is the
+  same as before; only the conditional that previously bailed out
+  has been relaxed.
+
+  No regression on plain eth+IPv4+TCP: the outer vlan branch is
+  still one not-taken JMP.
+
+This addresses the second-highest-leverage gap noted in
+kernel-patches/series3-flowdis-fastpath/docs/packet-flow-context.md
+section 9 — QinQ is heavily used in service-provider and
+carrier-grade deployments.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ net/core/flow_dissector.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 691707c97ad9..044dc7c57406 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -1217,10 +1217,10 @@ bool __skb_flow_dissect(const struct net *net,
+ 		int vlan_depth = 0;
+ 
+ try_inner:
+-		/* Single 802.1Q or 802.1ad tag. Outer-only — QinQ defers to
+-		 * the slow path (depth limit one). Handles both the
+-		 * hardware-stripped form (tag in skb metadata) and the
+-		 * in-band form (4-byte vlan_hdr at data + nhoff).
++		/* Up to two 802.1Q / 802.1ad tags (single VLAN + QinQ).
++		 * Outer tag → FLOW_DISSECTOR_KEY_VLAN; second tag →
++		 * FLOW_DISSECTOR_KEY_CVLAN, matching the slow path's
++		 * state-machine. Depth > 2 defers to slow path.
+ 		 */
+ 		if (proto == htons(ETH_P_8021Q) || proto == htons(ETH_P_8021AD)) {
+ 			__be16 inner_proto;
+@@ -1228,13 +1228,16 @@ bool __skb_flow_dissect(const struct net *net,
+ 			u16 tci_id;
+ 			u16 tci_prio;
+ 
+-			if (vlan_depth >= 1)
++			if (vlan_depth >= 2)
+ 				goto slow_path;
+ 
+-			vlan_key = FLOW_DISSECTOR_KEY_VLAN;
++			vlan_key = vlan_depth == 0 ?
++				   FLOW_DISSECTOR_KEY_VLAN :
++				   FLOW_DISSECTOR_KEY_CVLAN;
+ 			saved_tpid = proto;
+ 
+-			if (skb && skb_vlan_tag_present(skb)) {
++			/* HW-stripped tag is only ever the outermost. */
++			if (vlan_depth == 0 && skb && skb_vlan_tag_present(skb)) {
+ 				tci_id = skb_vlan_tag_get_id(skb);
+ 				tci_prio = skb_vlan_tag_get_prio(skb);
+ 				inner_proto = skb->protocol;
+-- 
+2.54.0
+
