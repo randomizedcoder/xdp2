@@ -470,6 +470,13 @@
         netconf-vxlan = import ./nix/scenarios/netconf-vxlan.nix { inherit pkgs; };
         netconf-pppoe = import ./nix/scenarios/netconf-pppoe.nix { inherit pkgs; };
 
+        # Phase 2 orchestrator: loops {pair × scenario × proto × sysctl},
+        # composing the netconf-<scenario> scripts with iperf3 A/B cells
+        # in the spirit of series3-soak-x86.nix. Emits matrix.csv.
+        series3-extensions-soak = import ./nix/series3-extensions-soak.nix {
+          inherit pkgs;
+        };
+
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
         # so the run-on-host orchestrator's result rsync carries them
@@ -1298,6 +1305,12 @@
           inherit netconf-qinq;
           inherit netconf-vxlan;
           inherit netconf-pppoe;
+
+          # Phase 2 orchestrator for the extension-patches scenario
+          # matrix. Usage:
+          #   PAIRS=pi5-pair SCENARIOS=vlan DUR=10 \
+          #     nix run .#series3-extensions-soak
+          inherit series3-extensions-soak;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
