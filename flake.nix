@@ -1712,6 +1712,17 @@
           # See nix/modules/nic-tuning.nix for the option surface.
           nixosModules.nicTuning = ./nix/modules/nic-tuning.nix;
 
+          # NixOS module: apply the series3 fast-path extension patches
+          # (single VLAN, QinQ, optionally VXLAN-inner) on top of the
+          # host's existing kernel. See nix/modules/flowdis-fastpath-
+          # extensions.nix for the option surface and consumer doc.
+          # Consumer:
+          #   imports = [ inputs.xdp2.nixosModules.flowdisFastpathExtensions ];
+          #   xdp2.flowdisFastpathExtensions.enable = true;
+          # Then: sudo nixos-rebuild boot && sudo reboot
+          nixosModules.flowdisFastpathExtensions =
+            ./nix/modules/flowdis-fastpath-extensions.nix;
+
           # ---- Testbed configurations ----
           #
           # Each *.toml in ./testbeds/ is loaded and validated by
