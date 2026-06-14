@@ -54,6 +54,24 @@ pkgs.writeShellApplication {
     DUT_OVERLAY_V4=''${DUT_OVERLAY_V4:-192.168.100.2}
     PREFIX=''${PREFIX:-24}
 
+    # Open / close the underlay UDP dstport in the NixOS firewall on
+    # both hosts so VXLAN frames can actually be received. Idempotent:
+    # iptables -C checks-and-skips if the rule already exists. Same
+    # pattern as series3-soak-x86.nix's ensure_fw().
+    open_fw() {
+      local host="$1"
+      SSH root@"$host" "
+        iptables -C nixos-fw -p udp --dport $DSTPORT -j ACCEPT 2>/dev/null \
+          || iptables -I nixos-fw 1 -p udp --dport $DSTPORT -j ACCEPT
+      " >/dev/null 2>&1 || true
+    }
+    close_fw() {
+      local host="$1"
+      SSH root@"$host" "
+        iptables -D nixos-fw -p udp --dport $DSTPORT -j ACCEPT 2>/dev/null
+      " >/dev/null 2>&1 || true
+    }
+
     case "$OP" in
       up)
         SSH root@"$L"  "ip link del $VX_NAME 2>/dev/null || true"
@@ -62,8 +80,13 @@ pkgs.writeShellApplication {
         cleanup_partial() {
           SSH root@"$L"  "ip link del $VX_NAME 2>/dev/null || true" || true
           SSH root@"$L2" "ip link del $VX_NAME 2>/dev/null || true" || true
+          close_fw "$L"
+          close_fw "$L2"
         }
         trap cleanup_partial ERR
+
+        open_fw "$L"
+        open_fw "$L2"
 
         # Point-to-point VXLAN: remote address is the peer's underlay IP.
         # `dev <iface>` pins the encap source to the bare link (not the
@@ -100,6 +123,8 @@ pkgs.writeShellApplication {
       down)
         SSH root@"$L"  "ip link del $VX_NAME 2>/dev/null || true" || true
         SSH root@"$L2" "ip link del $VX_NAME 2>/dev/null || true" || true
+        close_fw "$L"
+        close_fw "$L2"
         log "vxlan VNI=$VNI down"
         ;;
 
