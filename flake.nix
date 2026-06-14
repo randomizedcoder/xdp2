@@ -452,6 +452,24 @@
           inherit pkgs;
         };
 
+        # ===================================================================
+        # Network-config scenarios for the series3 extension patches.
+        # Each script reconfigures a host pair (over SSH) for a named
+        # encap shape (single VLAN, QinQ, VXLAN, PPPoE), runs an
+        # `up | down | verify` op, and emits scenario-specific env
+        # vars (L_SCENARIO_DEV, L_SCENARIO_V4, ...) on stdout for the
+        # orchestrator to ingest. The underlying NixOS-managed static
+        # config is never modified — these scripts add and remove
+        # sub-interfaces only.
+        #
+        # See nix/scenarios/lib.sh for shared helpers and
+        # kernel-patches/series3-flowdis-fastpath/docs/packet-flow-context.md
+        # section 9 for the design rationale.
+        netconf-vlan  = import ./nix/scenarios/netconf-vlan.nix  { inherit pkgs; };
+        netconf-qinq  = import ./nix/scenarios/netconf-qinq.nix  { inherit pkgs; };
+        netconf-vxlan = import ./nix/scenarios/netconf-vxlan.nix { inherit pkgs; };
+        netconf-pppoe = import ./nix/scenarios/netconf-pppoe.nix { inherit pkgs; };
+
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
         # so the run-on-host orchestrator's result rsync carries them
@@ -1268,6 +1286,18 @@
           #     nix run .#series3-soak-l-l2
           #   DUR=60 COOLDOWN=10 L2_V4=10.10.4.5 nix run .#series3-soak-l-l2  # smoke
           inherit series3-soak-l-l2;
+
+          # Network-config scenarios for the series3 extension patches.
+          # Usage:
+          #   OP=up L=l L2=l2 GEN_DEV=enp35s0f0np0 DUT_DEV=enp35s0f0np0 \
+          #     nix run .#netconf-vlan
+          #   (symmetric: netconf-qinq, netconf-vxlan, netconf-pppoe)
+          # See nix/scenarios/lib.sh and kernel-patches/series3-
+          # flowdis-fastpath/docs/packet-flow-context.md §9.
+          inherit netconf-vlan;
+          inherit netconf-qinq;
+          inherit netconf-vxlan;
+          inherit netconf-pppoe;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
