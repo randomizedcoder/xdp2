@@ -1,6 +1,6 @@
-From 8ad1677d592e8ae0154445642d4ee06137a380e7 Mon Sep 17 00:00:00 2001
+From 74ebdeb46e9da2e96e8a36dee2c5733344ee44b1 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sun, 14 Jun 2026 17:54:04 -0700
+Date: Sun, 14 Jun 2026 20:26:37 -0700
 Subject: [PATCH 5/6] net: flow_dissector: extend VLAN fast-path to QinQ
  (depth-2, v1-netdev)
 MIME-Version: 1.0
@@ -8,15 +8,14 @@ Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 Lift the single-VLAN fast-path's depth limit from 1 to 2 so two
-stacked 802.1ad / 802.1Q tags (the canonical QinQ shape) are fast-
-pathed too. Outer tag → FLOW_DISSECTOR_KEY_VLAN, inner →
+stacked 802.1ad / 802.1Q tags (canonical QinQ S-tag + C-tag) are also
+fast-pathed. Outer tag → FLOW_DISSECTOR_KEY_VLAN, inner →
 FLOW_DISSECTOR_KEY_CVLAN, mirroring the slow-path's MAX → VLAN →
 CVLAN state machine.
 
-Done by adding a vlan_depth parameter to flow_dissect_fast_vlan and
-extending the inner-proto switch to also recognize ETH_P_8021Q /
-ETH_P_8021AD and recurse with vlan_depth + 1. Past two tags, defer.
-Byte-identical with the slow path.
+Implemented by adding a vlan_depth param to flow_dissect_fast_vlan
+and extending the inner-proto switch to recurse on ETH_P_8021Q /
+ETH_P_8021AD with depth + 1. Byte-identical with the slow path.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
@@ -24,13 +23,13 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  1 file changed, 27 insertions(+), 10 deletions(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5c38349527e5..43ffab135762 100644
+index 6b04a6fb8a40..102b82ec5891 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1209,27 +1209,39 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
-  * to fall back. Only the two standard dissectors are eligible; custom
-  * dissectors and slow-path-only flags defer unconditionally.
-  */
+@@ -1227,27 +1227,39 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+ 				   const void *data,
+ 				   int nhoff, int hlen);
+ 
 -/* Strip a single 802.1Q or 802.1ad tag (HW-stripped or in-band),
 - * optionally write key_vlan / num_of_vlans, then dispatch to the
 - * IPv4 / IPv6 fast-path helper on the inner ethertype. Byte-identical
@@ -73,7 +72,7 @@ index 5c38349527e5..43ffab135762 100644
  		tci_id = skb_vlan_tag_get_id(skb);
  		tci_prio = skb_vlan_tag_get_prio(skb);
  		inner_proto = skb->protocol;
-@@ -1246,10 +1258,9 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1264,10 +1276,9 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  		nhoff += (int)sizeof(*vlan);
  	}
  
@@ -86,7 +85,7 @@ index 5c38349527e5..43ffab135762 100644
  						     target_container);
  		key_vlan->vlan_id = tci_id;
  		key_vlan->vlan_priority = tci_prio;
-@@ -1273,6 +1284,12 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1291,6 +1302,12 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  		return flow_dissect_fast_ipv6(skb, flow_dissector,
  					      target_container, data,
  					      nhoff, hlen);
@@ -99,7 +98,7 @@ index 5c38349527e5..43ffab135762 100644
  	default:
  		return false;
  	}
-@@ -1297,7 +1314,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1315,7 +1332,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	case htons(ETH_P_8021AD):
  		return flow_dissect_fast_vlan(skb, flow_dissector,
  					      target_container, data,

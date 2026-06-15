@@ -1,50 +1,25 @@
-From 3094c871b76cda845464fed86636ea687f125381 Mon Sep 17 00:00:00 2001
+From ca4a35ec15f6837e61289912fdb94762f3893a04 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sun, 14 Jun 2026 17:56:26 -0700
+Date: Sun, 14 Jun 2026 20:27:21 -0700
 Subject: [PATCH 6/6] RFC EXPERIMENT: net: flow_dissector: descend into VXLAN
  inner flow (v1-netdev)
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 THIS IS A BEHAVIOUR CHANGE, not a byte-identical fast-path.
 
-Today's flow_keys_dissector stops at the outer of a VXLAN packet
-(Eth + IPv4 + UDP, dst port 4789); for VXLAN overlays between two
-VTEPs every inner flow collapses onto a single 5-tuple bucket.
-That's bad for cake / fq / fq_codel fairness, RPS, RFS, ECMP in
-k8s deployments.
+Today's flow_keys_dissector stops at outer UDP for VXLAN; this patch
+extends flow_dissect_fast_ipv4 to detect UDP/IANA_VXLAN_UDP_PORT
+(4789) and descend into the inner Eth + IPv4/IPv6 for hashing.
 
-This patch extends flow_dissect_fast_ipv4 (added by the parent
-series in v1-netdev) to descend into the VXLAN payload when:
-  - the outer is eth + IPv4 + UDP, dst port == IANA_VXLAN_UDP_PORT
-    (4789, hardcoded), and
-  - enough bytes remain for udphdr + vxlanhdr + ETH_HLEN.
-
-On match: set FLOW_DIS_ENCAPSULATION in key_control, then dispatch to
-flow_dissect_fast_ipv4 / _ipv6 on the inner ethertype. The inner pass
-overwrites key_basic / key_addrs / key_ports with the inner values —
-same shape as the slow-path encap descent in __skb_flow_dissect_gre()
-etc.
-
-Open questions (also in the cover letter for the parent draft):
-  - Should this be a separate sysctl
-    (net.core.flow_dissector_descend_udp_encap) rather than
-    piggy-backed on the fast-path gate?
-  - Should the slow path also get UDP-encap descent so the
-    contract stays "fast-path output == slow-path output"?
-  - How should the configured VXLAN port(s) be discovered (today
-    hardcoded to 4789; production needs per-netns lookup)?
-
-Not landable as-is. Posted as a foothold for the discussion.
+Open questions (cover letter): separate sysctl vs piggy-back, slow-
+path symmetry, configurable VXLAN port. Not landable as-is.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector.c | 53 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 53 insertions(+)
+ net/core/flow_dissector.c | 47 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 43ffab135762..2cee5553cb11 100644
+index 102b82ec5891..88d7c7215111 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -55,19 +30,16 @@ index 43ffab135762..2cee5553cb11 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -1115,6 +1116,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1115,6 +1116,52 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
 +	/* EXPERIMENT: descend into VXLAN inner flow for hashing.
-+	 * This is *not* byte-identical with the existing slow path —
-+	 * the standard flow_keys_dissector stops at outer UDP today.
-+	 * Descending is a behaviour change with operator-visible
-+	 * impact (k8s overlays would get per-inner-flow fairness in
-+	 * cake instead of per-VTEP-pair hashing). Gated by the same
-+	 * parent fastpath sysctl as the byte-identical extensions
-+	 * above. See the cover letter; not landable as-is without
-+	 * wider review and likely an opt-in flag.
++	 * NOT byte-identical with the existing slow path — the standard
++	 * flow_keys_dissector stops at outer UDP today. Descending is a
++	 * behaviour change with operator-visible impact. Gated by the
++	 * same parent fastpath sysctl as the byte-identical extensions
++	 * above. See the cover letter; not landable as-is.
 +	 */
 +	if (iph->protocol == IPPROTO_UDP &&
 +	    hlen - thoff >= (int)(sizeof(struct udphdr) +
@@ -105,9 +77,6 @@ index 43ffab135762..2cee5553cb11 100644
 +							      target_container, data,
 +							      inner_nhoff, hlen);
 +			}
-+			/* Inner ethertype not fast-pathable; fall through
-+			 * and keep the outer keys.
-+			 */
 +		}
 +	}
 +
