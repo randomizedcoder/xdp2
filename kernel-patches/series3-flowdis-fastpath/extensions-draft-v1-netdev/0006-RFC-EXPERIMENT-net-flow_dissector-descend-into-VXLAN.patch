@@ -1,25 +1,24 @@
-From ca4a35ec15f6837e61289912fdb94762f3893a04 Mon Sep 17 00:00:00 2001
+From 207e5b1032775135700152b9f88acd6422f798ab Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sun, 14 Jun 2026 20:27:21 -0700
+Date: Sun, 14 Jun 2026 22:56:04 -0700
 Subject: [PATCH 6/6] RFC EXPERIMENT: net: flow_dissector: descend into VXLAN
  inner flow (v1-netdev)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-THIS IS A BEHAVIOUR CHANGE, not a byte-identical fast-path.
-
-Today's flow_keys_dissector stops at outer UDP for VXLAN; this patch
-extends flow_dissect_fast_ipv4 to detect UDP/IANA_VXLAN_UDP_PORT
-(4789) and descend into the inner Eth + IPv4/IPv6 for hashing.
-
-Open questions (cover letter): separate sysctl vs piggy-back, slow-
-path symmetry, configurable VXLAN port. Not landable as-is.
+VXLAN-inner descent on the v1-netdev parent — adds inner-flow
+hashing path in flow_dissect_fast_ipv4 when UDP dst is
+IANA_VXLAN_UDP_PORT. NOT byte-identical with the slow path; see
+the cover letter for the open design questions.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector.c | 47 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 47 insertions(+)
+ net/core/flow_dissector.c | 46 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 102b82ec5891..88d7c7215111 100644
+index d2cc7b60c6fa..547554a01145 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -30,16 +29,15 @@ index 102b82ec5891..88d7c7215111 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -1115,6 +1116,52 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1132,6 +1133,51 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
 +	/* EXPERIMENT: descend into VXLAN inner flow for hashing.
-+	 * NOT byte-identical with the existing slow path — the standard
++	 * NOT byte-identical with the slow path — the standard
 +	 * flow_keys_dissector stops at outer UDP today. Descending is a
-+	 * behaviour change with operator-visible impact. Gated by the
-+	 * same parent fastpath sysctl as the byte-identical extensions
-+	 * above. See the cover letter; not landable as-is.
++	 * behaviour change. Gated by the same parent fastpath sysctl as
++	 * the byte-identical extensions. See the cover letter.
 +	 */
 +	if (iph->protocol == IPPROTO_UDP &&
 +	    hlen - thoff >= (int)(sizeof(struct udphdr) +

@@ -1,6 +1,6 @@
-From 21272d35526ce54d2274a6decbf7134f808b6cb4 Mon Sep 17 00:00:00 2001
+From dd09eb7dedccb26f702be341e740cca7d3a7679d Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sun, 14 Jun 2026 20:25:47 -0700
+Date: Sun, 14 Jun 2026 22:54:39 -0700
 Subject: [PATCH 4/6] net: flow_dissector: add fast-path helper for single
  Eth+VLAN+IP+TCP/UDP (v1-netdev)
 MIME-Version: 1.0
@@ -13,11 +13,12 @@ one ETH_P_8021Q / ETH_P_8021AD tag (HW-stripped or in-band) and
 dispatches to the existing flow_dissect_fast_ipv4 / _ipv6 helpers on
 the inner ethertype.
 
-Forward declarations for the IPv4 / IPv6 helpers precede the new
-helper. The parent series defines them earlier in the file in the
-canonical case, but kernel-version-specific context drift can cause
-the helper to land before either definition on older kernels;
-forward declarations make the patch order-independent.
+Forward declarations for the parent helpers are anchored to the top
+of the file (right after the includes) rather than just-before-use.
+That makes the patch immune to context-match ambiguity where the
+extension body lands at a different position than the parent
+definitions on older kernels (observed on 7.0.x and 6.12.x with the
+v1-netdev parent series applied).
 
 Both per-tag forms byte-identical with the slow path:
   - Hardware-stripped: TCI in skb metadata, inner ethertype in
@@ -33,23 +34,22 @@ QinQ defers (depth limit one — see follow-up patch).
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector.c | 92 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 92 insertions(+)
+ net/core/flow_dissector.c | 91 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 91 insertions(+)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index a313a807e965..6b04a6fb8a40 100644
+index a313a807e965..6d627fe75b71 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -1209,6 +1209,93 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
-  * to fall back. Only the two standard dissectors are eligible; custom
-  * dissectors and slow-path-only flags defer unconditionally.
-  */
-+/* Forward declarations: flow_dissect_fast_vlan calls these. They are
-+ * defined earlier in this file in the parent series, but kernel-
-+ * version-specific context drift can cause the helper below to land
-+ * before either definition. Declaring up front keeps the call sites
-+ * inside flow_dissect_fast_vlan well-defined regardless of patch
-+ * application order or surrounding line-number shift.
+@@ -37,6 +37,23 @@
+ #endif
+ #include <linux/bpf-netns.h>
+ 
++/* Forward declarations for the parent-series fast-path helpers.
++ * Anchored to the top of the file so the follow-up
++ * flow_dissect_fast_vlan extension can call them regardless of
++ * where patch lands the extension body relative to the parent
++ * definitions on different kernel versions.
 + */
 +static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
 +				   struct flow_dissector *flow_dissector,
@@ -62,6 +62,13 @@ index a313a807e965..6b04a6fb8a40 100644
 +				   const void *data,
 +				   int nhoff, int hlen);
 +
+ static void dissector_set_key(struct flow_dissector *flow_dissector,
+ 			      enum flow_dissector_key_id key_id)
+ {
+@@ -1209,6 +1226,75 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+  * to fall back. Only the two standard dissectors are eligible; custom
+  * dissectors and slow-path-only flags defer unconditionally.
+  */
 +/* Strip a single 802.1Q or 802.1ad tag (HW-stripped or in-band),
 + * optionally write key_vlan / num_of_vlans, then dispatch to the
 + * IPv4 / IPv6 fast-path helper on the inner ethertype. Byte-identical
@@ -134,7 +141,7 @@ index a313a807e965..6b04a6fb8a40 100644
  static bool flow_dissect_fast(const struct sk_buff *skb,
  			      struct flow_dissector *flow_dissector,
  			      void *target_container,
-@@ -1224,6 +1311,11 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1224,6 +1310,11 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return false;
  
  	switch (proto) {
