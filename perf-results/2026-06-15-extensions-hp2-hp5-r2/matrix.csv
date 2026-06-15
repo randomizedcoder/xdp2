@@ -1,0 +1,13 @@
+pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,kernel_has_sysctl,status
+hp2-hp5,vlan,cell-01,tcp,0,30,vlan100,10.10.40.5,9387.4,3732,yes,ok
+hp2-hp5,vlan,cell-02,tcp,1,30,vlan100,10.10.40.5,9389.0,2596,yes,ok
+hp2-hp5,vlan,cell-03,udp,0,30,vlan100,10.10.40.5,7359.4,0,yes,ok
+hp2-hp5,vlan,cell-04,udp,1,30,vlan100,10.10.40.5,7279.7,0,yes,ok
+hp2-hp5,qinq,cell-01,tcp,0,30,cvlan100,10.10.41.5,8952.9,2281,yes,ok
+hp2-hp5,qinq,cell-02,tcp,1,30,cvlan100,10.10.41.5,9005.8,2053,yes,ok
+hp2-hp5,qinq,cell-03,udp,0,30,cvlan100,10.10.41.5,5993.6,0,yes,ok
+hp2-hp5,qinq,cell-04,udp,1,30,cvlan100,10.10.41.5,6027.7,0,yes,ok
+hp2-hp5,vxlan,cell-01,tcp,0,30,vxlan10,192.168.100.2,9088.3,1862,yes,ok
+hp2-hp5,vxlan,cell-02,tcp,1,30,vxlan10,192.168.100.2,9088.8,1039,yes,ok
+hp2-hp5,vxlan,cell-03,udp,0,30,vxlan10,192.168.100.2,6068.4,0,yes,ok
+hp2-hp5,vxlan,cell-04,udp,1,30,vxlan10,192.168.100.2,6052.6,0,yes,ok

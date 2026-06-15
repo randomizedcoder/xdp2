@@ -87,10 +87,10 @@ pkgs.writeShellApplication {
           ;;
         hp1-hp3)
           PAIR_L=hp1; PAIR_L2=hp3; PAIR_IFACE=enp1s0f0np0
-          PAIR_UNDERLAY_L=10.10.2.2; PAIR_UNDERLAY_L2=10.10.2.5
+          PAIR_UNDERLAY_L=10.10.2.1; PAIR_UNDERLAY_L2=10.10.2.3
           ;;
         hp2-hp5)
-          PAIR_L=hp2; PAIR_L2=hp5; PAIR_IFACE=enp3s0f0
+          PAIR_L=hp2; PAIR_L2=hp5; PAIR_IFACE=enp1s0f0np0
           PAIR_UNDERLAY_L=10.10.0.2; PAIR_UNDERLAY_L2=10.10.0.5
           ;;
         pi5-pair)
