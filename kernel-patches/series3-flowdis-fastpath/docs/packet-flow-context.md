@@ -360,7 +360,7 @@ A shape is fast-path-able if **all** of these hold:
 
 1. Add `flow_dissect_fast_<shape>(skb, flow_dissector, target, data, nhoff, hlen)` following the structure in Diagram L3. Keep it under ~80 lines of straight-line C; no loops, no indirect calls.
 2. Extend the ethertype switch (or add a deeper dispatch under `ETH_P_IP` / `ETH_P_IPV6` — see the VLAN worked example below) in `__skb_flow_dissect()`. Branch to the new helper on the shape's discriminator.
-3. Gate behind the **existing** sysctl `net.core.flow_dissector_fastpath`. Don't add per-shape sysctls — more knobs means more configuration complexity for operators, and the gate already costs only a not-taken JMP when disabled.
+3. Add your own per-shape sysctl in the `net.flow_dissector.*` subtree (the v3 series moved away from a single umbrella knob — see `v3-namespace/0000-cover-letter.patch`). Mirror the existing `proc_set_vlan_key` / `proc_set_qinq_key` shape when your shape has a sibling-key dependency (e.g. depth-2 extending depth-1). Each per-shape gate is a separate `DEFINE_STATIC_KEY_FALSE`; cost when disabled is one forward not-taken JMP in the dispatcher switch.
 4. Add a `static_assert(...)` for any fixed header size the body assumes (the existing patch does this for `struct iphdr` and `struct ipv6hdr`).
 5. Add a selftest in `tools/testing/selftests/net/` comparing fast-path output byte-for-byte against the slow path on crafted pcaps of the new shape. The byte-identical contract is what makes the change safe to enable globally.
 6. Measure: microbench (always-hit synthetic case) should show a similar dissector-cost saving; macro soak should show comparable +0.x–2 % depending on how shape-heavy the workload is.

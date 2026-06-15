@@ -60,7 +60,21 @@ pkgs.writeShellApplication {
     SCENARIOS=''${SCENARIOS:-vlan,qinq,vxlan}
     DUR=''${DUR:-60}
     COOLDOWN=''${COOLDOWN:-5}
-    SYSCTL_PATH=''${SYSCTL_PATH:-net.core.flow_dissector_fastpath}
+    # Map scenario -> sysctl. The v3 series ships per-shape sysctls
+    # under /proc/sys/net/flow_dissector/; toggling the right one per
+    # scenario is what makes the matrix meaningful.
+    scenario_sysctl() {
+      case "$1" in
+        vlan)  echo "net.flow_dissector.vlan" ;;
+        qinq)  echo "net.flow_dissector.qinq" ;;  # auto-pulls in vlan on write of 1
+        vxlan) echo "net.flow_dissector.vxlan_inner" ;;
+        # Fallback / legacy paths. eth_ip is the parent series; pppoe
+        # has no kernel knob yet — orchestrator runs the cells with
+        # the legacy eth_ip toggle so the parent fast-path still
+        # exercises.
+        *)     echo "net.flow_dissector.eth_ip" ;;
+      esac
+    }
     PORT3=''${PORT3:-5201}
     # iperf3 warns if UDP block size > TCP MSS (typically 1398 on 1500
     # MTU, less on VXLAN overlay). Stay below to avoid stderr noise.
@@ -128,13 +142,13 @@ pkgs.writeShellApplication {
     }
 
     probe_sysctl() {
-      local host="$1"
-      SSH root@"$host" "sysctl -n $SYSCTL_PATH" >/dev/null 2>&1
+      local host="$1" path="$2"
+      SSH root@"$host" "sysctl -n $path" >/dev/null 2>&1
     }
 
     set_sysctl() {
-      local host="$1" val="$2"
-      SSH root@"$host" "sysctl -w $SYSCTL_PATH=$val" >/dev/null 2>&1 || true
+      local host="$1" val="$2" path="$3"
+      SSH root@"$host" "sysctl -w $path=$val" >/dev/null 2>&1 || true
     }
 
     # ── Per-cell run ────────────────────────────────────────────────
@@ -146,8 +160,10 @@ pkgs.writeShellApplication {
       cell_dir="$OUT/$pair/$scen/cell-$(printf '%02d' "$cell")"
       mkdir -p "$cell_dir"
 
-      set_sysctl "$PAIR_L" "$sysctl"
-      set_sysctl "$PAIR_L2" "$sysctl"
+      local sysctl_path
+      sysctl_path=$(scenario_sysctl "$scen")
+      set_sysctl "$PAIR_L" "$sysctl" "$sysctl_path"
+      set_sysctl "$PAIR_L2" "$sysctl" "$sysctl_path"
 
       local IPERF3_DUT IPERF3_GEN
       IPERF3_DUT=$(iperf3_remote "$PAIR_L2")/bin/iperf3
@@ -248,8 +264,13 @@ pkgs.writeShellApplication {
       log "--- pair $pair: L=$PAIR_L L2=$PAIR_L2 iface=$PAIR_IFACE ---"
 
       has_sysctl=yes
-      if ! probe_sysctl "$PAIR_L" || ! probe_sysctl "$PAIR_L2"; then
-        log "WARN: $SYSCTL_PATH missing on one or both hosts of $pair; cells will still run, sysctl writes best-effort"
+      # Probe the eth_ip path (it's always-present whenever the v3
+      # series is booted; the per-scenario knobs all live in the same
+      # subtree). Per-scenario set_sysctl writes the right one inside
+      # run_cell.
+      if ! probe_sysctl "$PAIR_L" "net.flow_dissector.eth_ip" \
+         || ! probe_sysctl "$PAIR_L2" "net.flow_dissector.eth_ip"; then
+        log "WARN: net.flow_dissector.eth_ip missing on one or both hosts of $pair; cells will still run, sysctl writes best-effort"
         has_sysctl=no
       fi
 

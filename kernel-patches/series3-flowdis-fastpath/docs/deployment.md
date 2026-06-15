@@ -12,11 +12,11 @@ Adding three patches to whatever kernel your testbed already runs:
 | `0002-…QinQ` | + a second stacked tag | yes |
 | `0003-…VXLAN inner` | UDP dst 4789 → inner Eth + IPv4 | **no — behaviour change** |
 
-The first two are pure performance wins under the parent series3's existing sysctl gate (`net.core.flow_dissector_fastpath`). The third descends into VXLAN payloads for hashing — useful for k8s overlay fairness but it changes the dissector's contract, so it's gated separately and defaults off.
+The first two are pure performance wins under the parent series3's existing sysctl gate (`net.flow_dissector.eth_ip`). The third descends into VXLAN payloads for hashing — useful for k8s overlay fairness but it changes the dissector's contract, so it's gated separately and defaults off.
 
 ## Prerequisite
 
-The host must already have the **parent** series3 fast-path patches applied — i.e. `sysctl -n net.core.flow_dissector_fastpath` must return a value, not "unknown key". For most of the existing testbeds (l, l2, hp1, hp3, hp2, hp5, pi5-1, pi5-2) this is already true via the host's `boot.kernelPatches` referencing the series3 v1 patches.
+The host must already have the **parent** series3 fast-path patches applied — i.e. `sysctl -n net.flow_dissector.eth_ip` must return a value, not "unknown key". For most of the existing testbeds (l, l2, hp1, hp3, hp2, hp5, pi5-1, pi5-2) this is already true via the host's `boot.kernelPatches` referencing the series3 v1 patches.
 
 If a host doesn't have the parent series3 yet, add the v1 patches from `kernel-patches/series3-flowdis-fastpath/v1-netdev/000{1,2,3}-*.patch` to its kernel-build first, *or* upgrade to a net-next 7.1.0-rc4+ kernel which has the parent series in upstream as commit `8013aee91ccb`.
 
@@ -66,8 +66,8 @@ After reboot, on the host:
 
 ```sh
 uname -r                                       # should match new kernel version
-sysctl -n net.core.flow_dissector_fastpath     # 0 (default; gate is still off)
-sysctl -w net.core.flow_dissector_fastpath=1   # enable
+sysctl -n net.flow_dissector.eth_ip     # 0 (default; gate is still off)
+sysctl -w net.flow_dissector.eth_ip=1   # enable
 ```
 
 The orchestrator (`series3-extensions-soak`) drives the sysctl toggles itself per cell, but it's worth a quick manual check that the sysctl is settable and the kernel didn't panic.
@@ -95,7 +95,7 @@ The module is opt-in — comment out or remove the import, `nixos-rebuild boot`,
 If you want to keep the kernel but disable the extensions at runtime, set the parent sysctl to 0:
 
 ```sh
-sysctl -w net.core.flow_dissector_fastpath=0
+sysctl -w net.flow_dissector.eth_ip=0
 ```
 
 That turns the static-branch off and the dispatcher falls through to the slow path, with or without the extension patches present. Same shape of rollback that the parent series3 supports.

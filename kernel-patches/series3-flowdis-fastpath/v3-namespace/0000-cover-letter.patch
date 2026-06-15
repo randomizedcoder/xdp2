@@ -1,0 +1,129 @@
+From bb1b8029b9cc3767fac5d2e90790134db4ce0955 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Mon, 15 Jun 2026 09:40:02 -0700
+Subject: [PATCH RFC v3 0/4] net: flow_dissector: per-shape fast-path sysctls under /proc/sys/net/flow_dissector/
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+v3 of the flow_dissector fast-path series. Supersedes v1 (three-patch
+split applied via net-next as eeca3eb493b8) and v2-experiment (single
+inline patch 8013aee91ccb).
+
+What changed since v2-inline:
+
+  - Single sysctl net.core.flow_dissector_fastpath replaced by a new
+    per-shape subtree at /proc/sys/net/flow_dissector/{eth_ip, vlan,
+    qinq, vxlan_inner}. Each is a separate DEFINE_STATIC_KEY_FALSE
+    with its own sysctl. Operators enable only the shapes their
+    deployment uses.
+
+  - Hard rename. net.core.flow_dissector_fastpath is gone; its
+    replacement is net.flow_dissector.eth_ip. The old knob only ever
+    existed in net-next 7.1-rc4 so no released kernel had it.
+
+  - New extension patches stack on the parent and ship their own
+    sysctl + helper:
+      * patch 2 - single VLAN (8021Q / 8021AD outer tag) - byte-
+        identical with slow path
+      * patch 3 - QinQ depth-2 (8021AD + 8021Q stack) - byte-identical
+        with slow path; auto-toggle proc_handlers tie qinq <-> vlan
+        so writing qinq=1 enables vlan and writing vlan=0 clears qinq
+      * patch 4 - RFC EXPERIMENT, VXLAN inner descent. Independent
+        knob. NOT byte-identical with the slow path; gated separately
+        so operators who want only the byte-identical knobs don't
+        inherit the behaviour change.
+
+Why per-shape:
+
+  Different deployments want different shapes. A data-centre operator
+  running cake on VLAN-tagged switch trunks wants vlan + qinq. A k8s
+  overlay operator wants vxlan_inner. An ISP running PPPoE will
+  eventually want a fifth knob (not in this series). One coarse "all
+  or nothing" sysctl doesn't fit.
+
+  Each per-shape gate is a separate static_branch — the slow-path
+  cost when a shape is disabled is one forward not-taken JMP in the
+  dispatcher switch, same as the v1/v2 "umbrella" gate.
+
+Base / where it applies:
+
+  Patches are against net-next at c0aa5f13826d (the commit immediately
+  before v2-inline 8013aee91ccb was applied). The previous series was
+  withdrawn; this replaces it.
+
+Patch-by-patch shape:
+
+  Patch 1: opt-in fast-path for eth + IPv4/IPv6 + TCP/UDP. Same
+  functionality as v2-inline but reorganised:
+    - flow_dissect_fast_ipv4 / _ipv6 are separate static helpers (not
+      inline in __skb_flow_dissect) — makes patches 2-4 add cleanly
+    - forward declarations anchored at top of file (right after
+      includes) so patch 2's VLAN helper can call them regardless of
+      where the patch tool lands the helper body relative to the
+      parent definitions on stable-kernel backports
+    - DEFINE_STATIC_KEY_FALSE(flow_dissector_eth_ip_key), sysctl
+      /proc/sys/net/flow_dissector/eth_ip
+    - new late_initcall flow_dissector_sysctl_init in flow_dissector.c
+      registers the net/flow_dissector subtree (pattern from
+      net/mpls/af_mpls.c)
+
+  Patch 2: single VLAN. Adds flow_dissect_fast_vlan helper +
+  dispatcher case for ETH_P_8021Q / ETH_P_8021AD. Own sysctl
+  /proc/sys/net/flow_dissector/vlan. Custom proc_handler
+  proc_set_vlan_key (a thin wrapper today; patch 3 gives it the
+  sibling-clear behaviour).
+
+  Patch 3: QinQ. Adds vlan_depth parameter to flow_dissect_fast_vlan,
+  outer tag -> KEY_VLAN, inner tag -> KEY_CVLAN. New sysctl
+  /proc/sys/net/flow_dissector/qinq. Custom proc_set_qinq_key
+  auto-enables vlan on write of 1; the updated proc_set_vlan_key
+  clears qinq on write of 0. So `echo 1 > qinq` is enough to get
+  both knobs wired up.
+
+  Patch 4: VXLAN inner descent, RFC EXPERIMENT. Gated independently.
+  Behaviour change called out in the commit message and in the
+  vxlan_inner sysctl paragraph. Open design questions on slow-path
+  symmetry and per-netns port discovery.
+
+Measured headline (xdp2 testbed pair pi5-1 <-> pi5-2, Cortex-A76, 1
+GbE genet, 4 parallel iperf3, 30 s cells):
+
+  vlan UDP host_system  68.11% -> 63.66%  (-6.5%)  sysctl 0 -> 1
+  qinq UDP host_system  75.87% -> 70.98%  (-6.4%)  sysctl 0 -> 1
+  vxlan UDP             ~zero net (outer fast-path saving offset by
+                                   inner-descent work, as designed)
+
+Wire-saturated; dissector saving converts to CPU headroom rather
+than throughput. Cross-uarch tables for hp1-hp3 (25 GbE mlx5 Zen 1)
+and hp2-hp5 (10 GbE i40e Zen 1) at perf-results/2026-06-15-
+extensions-cross-testbed-summary.md in the xdp2 repo. Numbers there
+are within ±2 pp at single-30s-cell granularity; longer DUR + repeats
+needed to lift above x86 variance on hp.
+
+Open items not addressed in this RFC:
+
+  - Selftests at tools/testing/selftests/net/ comparing fast-path
+    output byte-for-byte to slow-path output across the eligible
+    shapes.
+  - PPPoE, MPLS, GRE shape extensions (candidate table in
+    packet-flow-context.md §10 in the xdp2 repo).
+  - VXLAN port per-netns discovery (still hardcoded IANA 4789).
+  - slow-path UDP-encap descent symmetry for patch 4.
+
+Dave Seddon (4):
+
+Dave Seddon (4):
+  net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
+  net: flow_dissector: add fast-path for single Eth+VLAN+IP+TCP/UDP
+  net: flow_dissector: extend VLAN fast-path to QinQ (depth-2)
+  RFC EXPERIMENT: net: flow_dissector: descend into VXLAN inner flow
+
+ Documentation/admin-guide/sysctl/net.rst |  84 +++-
+ include/net/flow_dissector.h             |  11 +
+ net/core/flow_dissector.c                | 478 +++++++++++++++++++++++
+ 3 files changed, 572 insertions(+), 1 deletion(-)
+
+-- 
+2.54.0
+
