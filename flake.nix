@@ -469,6 +469,8 @@
         netconf-qinq  = import ./nix/scenarios/netconf-qinq.nix  { inherit pkgs; };
         netconf-vxlan = import ./nix/scenarios/netconf-vxlan.nix { inherit pkgs; };
         netconf-pppoe = import ./nix/scenarios/netconf-pppoe.nix { inherit pkgs; };
+        netconf-mpls  = import ./nix/scenarios/netconf-mpls.nix  { inherit pkgs; };
+        netconf-ipip  = import ./nix/scenarios/netconf-ipip.nix  { inherit pkgs; };
 
         # Phase 2 orchestrator: loops {pair × scenario × proto × sysctl},
         # composing the netconf-<scenario> scripts with iperf3 A/B cells
@@ -1298,13 +1300,16 @@
           # Usage:
           #   OP=up L=l L2=l2 GEN_DEV=enp35s0f0np0 DUT_DEV=enp35s0f0np0 \
           #     nix run .#netconf-vlan
-          #   (symmetric: netconf-qinq, netconf-vxlan, netconf-pppoe)
+          #   (symmetric: netconf-qinq, netconf-vxlan, netconf-pppoe,
+          #              netconf-mpls, netconf-ipip)
           # See nix/scenarios/lib.sh and kernel-patches/series3-
           # flowdis-fastpath/docs/packet-flow-context.md §9.
           inherit netconf-vlan;
           inherit netconf-qinq;
           inherit netconf-vxlan;
           inherit netconf-pppoe;
+          inherit netconf-mpls;
+          inherit netconf-ipip;
 
           # Phase 2 orchestrator for the extension-patches scenario
           # matrix. Usage:

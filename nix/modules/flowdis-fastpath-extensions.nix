@@ -40,16 +40,19 @@
 
 let
   cfg = config.xdp2.flowdisFastpathExtensions;
-  patchDir = ../../kernel-patches/series3-flowdis-fastpath/v3-namespace;
+  patchDir   = ../../kernel-patches/series3-flowdis-fastpath/v3-namespace;
+  patchDirV4 = ../../kernel-patches/series3-flowdis-fastpath/v4-namespace;
 in
 {
   options.xdp2.flowdisFastpathExtensions = {
     enable = lib.mkEnableOption ''
-      the v3 flow_dissector fast-path patch series. Applies patches 1
-      (eth_ip parent), 2 (single VLAN), and 3 (QinQ depth-2) — all
-      byte-identical with the slow path on the eligible shapes. Patch
-      4 (VXLAN inner descent) is a behaviour change and is gated
-      separately via `enableVxlanInner`'';
+      the v3+v4 flow_dissector fast-path patch series. v3 applies
+      patches 1 (eth_ip parent), 2 (single VLAN), and 3 (QinQ
+      depth-2) — all byte-identical with the slow path. v4 stacks
+      three more byte-identical shapes on top: 5 (PPPoE session), 6
+      (single-label MPLS), 7 (IP-in-IP family). Patch 4 (VXLAN
+      inner descent, RFC EXPERIMENT) is a behaviour change and is
+      gated separately via `enableVxlanInner`'';
 
     enableVxlanInner = lib.mkOption {
       type = lib.types.bool;
@@ -82,6 +85,18 @@ in
       {
         name = "v3-flow_dissector-qinq";
         patch = "${patchDir}/0003-net-flow_dissector-extend-VLAN-fast-path-to-QinQ-dep.patch";
+      }
+      {
+        name = "v4-flow_dissector-pppoe";
+        patch = "${patchDirV4}/0001-net-flow_dissector-pppoe-session.patch";
+      }
+      {
+        name = "v4-flow_dissector-mpls-single-label";
+        patch = "${patchDirV4}/0002-net-flow_dissector-mpls-single-label.patch";
+      }
+      {
+        name = "v4-flow_dissector-ipip-family";
+        patch = "${patchDirV4}/0003-net-flow_dissector-ipip-family.patch";
       }
     ] ++ lib.optional cfg.enableVxlanInner {
       name = "v3-flow_dissector-vxlan-inner-RFC-EXPERIMENT";

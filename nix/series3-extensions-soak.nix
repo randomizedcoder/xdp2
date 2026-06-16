@@ -68,10 +68,10 @@ pkgs.writeShellApplication {
         vlan)  echo "net.flow_dissector.vlan" ;;
         qinq)  echo "net.flow_dissector.qinq" ;;  # auto-pulls in vlan on write of 1
         vxlan) echo "net.flow_dissector.vxlan_inner" ;;
-        # Fallback / legacy paths. eth_ip is the parent series; pppoe
-        # has no kernel knob yet — orchestrator runs the cells with
-        # the legacy eth_ip toggle so the parent fast-path still
-        # exercises.
+        pppoe) echo "net.flow_dissector.pppoe" ;;
+        mpls)  echo "net.flow_dissector.mpls" ;;
+        ipip)  echo "net.flow_dissector.ipip" ;;
+        # Fallback for the underlay-only / parent scenario.
         *)     echo "net.flow_dissector.eth_ip" ;;
       esac
     }
@@ -255,12 +255,13 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" > "$out_env"
           ;;
-        vxlan)
+        vxlan|mpls|ipip)
+          # These need underlay /29 endpoints for their encap setup.
           OP=up L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
             DUT_UNDERLAY_V4="$PAIR_UNDERLAY_L2" \
-            nix run ".#netconf-vxlan" > "$out_env"
+            nix run ".#netconf-$scen" > "$out_env"
           ;;
         *)
           log "ERROR: unknown scenario $scen"
@@ -276,12 +277,12 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" >/dev/null 2>&1 || true
           ;;
-        vxlan)
+        vxlan|mpls|ipip)
           OP=down L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
             DUT_UNDERLAY_V4="$PAIR_UNDERLAY_L2" \
-            nix run ".#netconf-vxlan" >/dev/null 2>&1 || true
+            nix run ".#netconf-$scen" >/dev/null 2>&1 || true
           ;;
       esac
     }

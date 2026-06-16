@@ -1,0 +1,103 @@
+Subject: [PATCH RFC v4 0/3] flow_dissector: byte-identical fast-paths for PPPoE, single-label MPLS, IP-in-IP family
+
+This series extends the v3-namespace per-shape fast-path machinery
+(in net-next as commits 74c6ea03a417 .. 8504d0dca46b for the byte-
+identical eth_ip / vlan / qinq trio) with three more byte-identical
+shapes. Each new shape is its own DEFINE_STATIC_KEY_FALSE, its own
+sysctl entry under /proc/sys/net/flow_dissector/, and is gated
+independently so operators only enable what their deployment uses.
+
+All three are byte-identical with the slow path's output for the
+eligible shape: no behaviour change. The series intentionally
+excludes the descent-style behaviour-change patches (the vxlan_inner
+RFC EXPERIMENT in v3 and the GRE-inner / Geneve-inner / GTP-U-inner
+companions in the parallel Phase E RFC), which carry their own cover
+letter so reviewers can review descent semantics separately from the
+byte-identical perf wins.
+
+Why these three:
+
+  PPPoE session - the dominant L2 on millions of ISP last-mile
+    DSL / FTTH links. The existing slow path's ETH_P_PPP_SES case
+    does __skb_header_pointer + per-field switch on every packet.
+    Patch 1 replaces it with a straight-line read + tail-call into
+    the eth_ip fast-path for the common PPP_IP / PPP_IPV6 inner
+    case. PPP_MPLS_UC / PPP_MPLS_MC and PFC-compressed PPP proto
+    fields defer to slow path.
+
+  MPLS single-label - the dominant L2.5 on SP backbones. Slow
+    path __skb_flow_dissect_mpls() runs per-label even when the
+    consumer just wants the label-stack flow key. Patch 2's fast-
+    path handles the single-label (BoS=1 on the first label) case
+    in straight-line form. Multi-label stacks defer; a depth-2+
+    extension can land later, mirroring the vlan -> qinq staging
+    in v3.
+
+  IP-in-IP family - IPv4-in-IPv4, IPv6-in-IPv4 (6in4), and the
+    IPv6-outer variants. Common in legacy 6to4 tunnels, simple
+    GRE-less tunnels, and some VPN gateways. Patch 3 adds a small
+    inner helper that the existing v3 v4 / v6 helpers tail-call to
+    when the outer protocol/nexthdr is IPPROTO_IPIP / IPPROTO_IPV6
+    and the gate is on. The inner overwrites outer addrs/basic
+    (matching slow-path behaviour); ENCAP is stamped on
+    key_control->flags after the inner returns.
+
+Each patch is self-contained: own DEFINE, own extern in
+flow_dissector.h, own sysctl table entry, own Documentation
+paragraph under the existing /proc/sys/net/flow_dissector/
+chapter that v3 created.
+
+Cost when off: each new shape adds at most a forward not-taken JMP
+on the relevant cold path. The hot eth_ip path (TCP/UDP over
+plain IPv4/IPv6, the largest share of real traffic) is unchanged.
+
+Base: stacks on flow-dissector-namespace-v3's HEAD-1 (commit
+8504d0dca46b, the qinq patch), i.e. the byte-identical subset of
+v3. Doesn't depend on the vxlan_inner RFC EXPERIMENT.
+
+Measurements:
+  Captured on a 6-host testbed fleet (2x Raspberry Pi 5 6.12.x,
+  4x HP-class x86_64 7.0.x) via the xdp2 series3-extensions-soak
+  orchestrator, which now collects per-cell mpstat softirq/sys
+  percentages on the receiver in addition to iperf3 throughput.
+  Per-shape numbers (PPPoE, MPLS, IPIP) attached to the cover
+  letter when this hits the list - capturing them concurrent with
+  this format-patch.
+
+Open questions for reviewers:
+
+  - Should multi-label MPLS be a separate sysctl (mpls_deep, default
+    off) or fold into the same `mpls` knob with an auto-toggle
+    matching the qinq <-> vlan pattern? Leaning towards "separate
+    knob" because vlan/qinq's auto-toggle was driven by a strict
+    extension semantic (qinq requires vlan) that doesn't apply here.
+
+  - For IP-in-IP, only the standalone IPIP / IPV6 protocols are
+    handled - explicit user-mode tunnels created via ip link add
+    type ipip / type ip6tnl. The fast-path does NOT handle
+    GRE-encapsulated IP-in-IP (that's the Phase E gre_inner patch).
+    Is there a deployment where the standalone IPIP gate is too
+    narrow without also fast-pathing GRE? Real-world feedback
+    welcome.
+
+  - PPPoE writes FLOW_DISSECTOR_KEY_PPPOE only when the dissector
+    requests it; the existing flow_keys_dissector doesn't include
+    that key, so the typical hash path skips the write. A user-
+    visible doc clarification of "this fast-path is invisible to
+    consumers that don't request KEY_PPPOE" might be warranted in
+    the Documentation; happy to add if reviewers want it.
+
+Dave Seddon (3):
+  net: flow_dissector: add fast-path for PPPoE session + IPv{4,6} +
+    TCP/UDP
+  net: flow_dissector: add fast-path for single MPLS label + IP
+  net: flow_dissector: add fast-path for IP-in-IP family (IPIP /
+    4in6 / 6in4)
+
+ Documentation/admin-guide/sysctl/net.rst |  44 +++++
+ include/net/flow_dissector.h             |   3 +
+ net/core/flow_dissector.c                | 211 +++++++++++++++++++++++
+ 3 files changed, 258 insertions(+), 0 deletions(-)
+
+--
+2.46.0
