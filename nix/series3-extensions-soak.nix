@@ -86,7 +86,14 @@ pkgs.writeShellApplication {
 
     mkdir -p "$OUT"
     matrix_csv="$OUT/matrix.csv"
-    echo "pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,kernel_has_sysctl,status" > "$matrix_csv"
+    # recv_sys_pct and recv_soft_pct are mpstat-derived averages across
+    # all CPUs on the receiver (L2) host for the test window — captures
+    # kernel softirq cost where flow_dissect actually runs. iperf3's
+    # own cpu_utilization_percent measures the iperf3 process only,
+    # which on wire-saturated workloads misses the fast-path saving
+    # entirely; the mpstat columns are what the netdev cover-letter
+    # numbers should come from.
+    echo "pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,kernel_has_sysctl,status" > "$matrix_csv"
 
     # Pair name → L L2 IFACE underlay_L underlay_L2
     # Hard-coded here rather than reaching into testbeds/*.toml from
@@ -180,6 +187,17 @@ pkgs.writeShellApplication {
         *)   client_flags="-t $DUR -i 1 -J" ;;
       esac
 
+      # Spawn mpstat on the receiver (L2) for the duration of the test.
+      # Captures per-CPU %sys + %soft averaged over the window; the
+      # post-test "Average: all" row is where the kernel-CPU saving
+      # signal lives. nix-shell wraps so testbed doesn't need sysstat
+      # pre-installed in its NixOS config.
+      SSH root@"$PAIR_L2" "nix shell nixpkgs#sysstat --command mpstat -P ALL 1 $DUR" \
+        > "$cell_dir/mpstat.log" 2> "$cell_dir/mpstat.err" &
+      local mpstat_pid=$!
+      # Brief settle so mpstat's first sample isn't pre-iperf3-ramp idle.
+      sleep 0.3
+
       # Keep stdout/stderr separate so iperf3's pre-JSON warnings
       # (e.g. "UDP block size … exceeds TCP MSS …") don't corrupt the
       # JSON parse below.
@@ -187,6 +205,10 @@ pkgs.writeShellApplication {
         > "$cell_dir/iperf3.json" 2> "$cell_dir/iperf3.err" || true
 
       SSH root@"$PAIR_L2" "pkill iperf3 2>/dev/null" >/dev/null 2>&1 || true
+
+      # Wait for mpstat to finish naturally (it ran for DUR seconds).
+      # Tolerate stale PID if the ssh exited early.
+      wait "$mpstat_pid" 2>/dev/null || true
 
       local mbps retr status
       if jq -e . "$cell_dir/iperf3.json" >/dev/null 2>&1; then
@@ -205,12 +227,23 @@ pkgs.writeShellApplication {
         mbps=0; retr=0; status=fail
       fi
 
-      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%.1f,%s,%s,%s\n' \
+      # Parse mpstat "Average: all" row. Column layout on sysstat 12+:
+      #   $1=Average:  $2=all  $3=%usr $4=%nice $5=%sys $6=%iowait
+      #   $7=%irq $8=%soft $9=%steal $10=%guest $11=%gnice $12=%idle
+      local recv_sys_pct recv_soft_pct
+      recv_sys_pct=$(awk '$1=="Average:" && $2=="all" {print $5; exit}' "$cell_dir/mpstat.log" 2>/dev/null)
+      recv_soft_pct=$(awk '$1=="Average:" && $2=="all" {print $8; exit}' "$cell_dir/mpstat.log" 2>/dev/null)
+      recv_sys_pct=''${recv_sys_pct:-0.00}
+      recv_soft_pct=''${recv_soft_pct:-0.00}
+
+      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%.1f,%s,%s,%s,%s,%s\n' \
         "$pair" "$scen" "$cell" "$proto" "$sysctl" "$DUR" \
-        "$SCEN_DEV_DUT" "$SCEN_V4_DUT" "$mbps" "$retr" "$has_sysctl" "$status" \
+        "$SCEN_DEV_DUT" "$SCEN_V4_DUT" "$mbps" "$retr" \
+        "$recv_sys_pct" "$recv_soft_pct" \
+        "$has_sysctl" "$status" \
         >> "$matrix_csv"
 
-      log "[$pair/$scen/cell$cell $proto sysctl=$sysctl] $mbps Mbps (retr=$retr, has_sysctl=$has_sysctl, status=$status)"
+      log "[$pair/$scen/cell$cell $proto sysctl=$sysctl] $mbps Mbps (retr=$retr, recv_sys=$recv_sys_pct%, recv_soft=$recv_soft_pct%, has_sysctl=$has_sysctl, status=$status)"
     }
 
     # ── Scenario lifecycle ─────────────────────────────────────────
