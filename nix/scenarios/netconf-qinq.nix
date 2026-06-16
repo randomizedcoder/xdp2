@@ -77,11 +77,20 @@ pkgs.writeShellApplication {
         SSH root@"$L2" "ip link add link $DUT_DEV name $SVLAN_NAME type vlan id $SVLAN_ID proto 802.1ad"
         SSH root@"$L2" "ip link set $SVLAN_NAME up"
 
-        # Inner C-tag (8021Q) on top of the S-tag
+        # Inner C-tag (8021Q) on top of the S-tag.
+        # MTU=1492 = phys_mtu(1500) - 2x VLAN tags(8 bytes). The Linux vlan
+        # driver inherits parent MTU by default instead of subtracting the
+        # tag size, so without this clamp TCP MSS auto-negotiates to 1460,
+        # producing 1522-byte wire frames that some mlx5 variants (e.g.
+        # the one in hp1/hp3 with rx-vlan-stag-filter: on [fixed]) silently
+        # drop while a standard one-tag 1518-byte frame still passes. UDP
+        # masked the bug because iperf3's default UDP blksize is 1200.
         SSH root@"$L"  "ip link add link $SVLAN_NAME name $CVLAN_NAME type vlan id $CVLAN_ID proto 802.1q"
+        SSH root@"$L"  "ip link set $CVLAN_NAME mtu 1492"
         SSH root@"$L"  "ip addr add $GEN_V4/$PREFIX dev $CVLAN_NAME"
         SSH root@"$L"  "ip link set $CVLAN_NAME up"
         SSH root@"$L2" "ip link add link $SVLAN_NAME name $CVLAN_NAME type vlan id $CVLAN_ID proto 802.1q"
+        SSH root@"$L2" "ip link set $CVLAN_NAME mtu 1492"
         SSH root@"$L2" "ip addr add $DUT_V4/$PREFIX dev $CVLAN_NAME"
         SSH root@"$L2" "ip link set $CVLAN_NAME up"
 

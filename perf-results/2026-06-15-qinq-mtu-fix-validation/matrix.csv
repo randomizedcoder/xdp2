@@ -1,0 +1,5 @@
+pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,kernel_has_sysctl,status
+hp1-hp3,qinq,cell-01,tcp,0,60,cvlan100,10.10.41.5,17508.7,5094,yes,ok
+hp1-hp3,qinq,cell-02,tcp,1,60,cvlan100,10.10.41.5,17052.2,8719,yes,ok
+hp1-hp3,qinq,cell-03,udp,0,60,cvlan100,10.10.41.5,5958.1,0,yes,ok
+hp1-hp3,qinq,cell-04,udp,1,60,cvlan100,10.10.41.5,5757.9,0,yes,ok
