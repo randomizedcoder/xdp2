@@ -479,6 +479,14 @@
           inherit pkgs;
         };
 
+        # 10-hour soak wrapper around series3-extensions-soak with
+        # DUR=600 across 60 cells (3 pairs × 5 scenarios × 4 cells).
+        # Goal: pin down recv_soft delta confidence intervals beyond
+        # the ±0.3pp noise floor of the DUR=60 runs.
+        series3-extensions-soak-10h = import ./nix/series3-extensions-soak-10h.nix {
+          inherit pkgs;
+        };
+
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
         # so the run-on-host orchestrator's result rsync carries them
@@ -1316,6 +1324,13 @@
           #   PAIRS=pi5-pair SCENARIOS=vlan DUR=10 \
           #     nix run .#series3-extensions-soak
           inherit series3-extensions-soak;
+
+          # 10-hour soak across the v4 testbed fleet — same matrix
+          # shape as series3-extensions-soak but with DUR=600 to nail
+          # per-cell recv_soft confidence intervals beyond the
+          # ±0.3pp DUR=60 noise floor. Usage:
+          #   nix run .#series3-extensions-soak-10h
+          inherit series3-extensions-soak-10h;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
