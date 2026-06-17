@@ -47,6 +47,22 @@ pkgs.writeShellApplication {
     DUT_V4=''${DUT_V4:-10.10.42.5}
     PREFIX=''${PREFIX:-29}
 
+    open_ipip_fw() {
+      # NixOS default firewall (nixos-fw chain) refuses anything not
+      # explicitly accepted, so IPv4 protocol 4 (IPIP) tunnel traffic
+      # gets log-refused both directions. Insert an ACCEPT rule on
+      # both ends; cleanup removes it.
+      local host="$1"
+      SSH root@"$host" "
+        iptables -C nixos-fw -p 4 -j ACCEPT 2>/dev/null \
+          || iptables -I nixos-fw 1 -p 4 -j ACCEPT
+      " >/dev/null 2>&1 || true
+    }
+    close_ipip_fw() {
+      local host="$1"
+      SSH root@"$host" "iptables -D nixos-fw -p 4 -j ACCEPT 2>/dev/null" >/dev/null 2>&1 || true
+    }
+
     case "$OP" in
       up)
         SSH root@"$L"  "ip link del $TUN_NAME 2>/dev/null || true"
@@ -55,8 +71,13 @@ pkgs.writeShellApplication {
         cleanup_partial() {
           SSH root@"$L"  "ip link del $TUN_NAME 2>/dev/null || true" || true
           SSH root@"$L2" "ip link del $TUN_NAME 2>/dev/null || true" || true
+          close_ipip_fw "$L"
+          close_ipip_fw "$L2"
         }
         trap cleanup_partial ERR
+
+        open_ipip_fw "$L"
+        open_ipip_fw "$L2"
 
         # Each end's `ip link add` swaps remote/local relative to its
         # underlay position.
@@ -89,6 +110,8 @@ pkgs.writeShellApplication {
       down)
         SSH root@"$L"  "ip link del $TUN_NAME 2>/dev/null || true" || true
         SSH root@"$L2" "ip link del $TUN_NAME 2>/dev/null || true" || true
+        close_ipip_fw "$L"
+        close_ipip_fw "$L2"
         log "ipip $TUN_NAME down"
         ;;
 

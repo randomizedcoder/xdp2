@@ -64,7 +64,9 @@ pkgs.writeShellApplication {
       SSH root@"$host" "
         modprobe mpls_router || true
         modprobe mpls_iptunnel || true
-        sysctl -w net.mpls.platform_labels=1048576 >/dev/null 2>&1 || true
+        # Kernel caps net.mpls.platform_labels at 2^20-1 (1048575).
+        # Writing the round 2^20 (1048576) returns EINVAL silently.
+        sysctl -w net.mpls.platform_labels=1048575 >/dev/null 2>&1 || true
         sysctl -w net.mpls.conf.$iface.input=1 >/dev/null 2>&1 || true
         sysctl -w net.mpls.conf.lo.input=1 >/dev/null 2>&1 || true
       "
