@@ -85,11 +85,25 @@ pkgs.writeShellApplication {
                           remote $DUT_UNDERLAY_V4 local $GEN_UNDERLAY_V4 dev $GEN_DEV"
         SSH root@"$L"  "ip addr add $GEN_V4/$PREFIX dev $TUN_NAME"
         SSH root@"$L"  "ip link set $TUN_NAME up"
+        # Disable tx-checksum offload on the tunnel iface. Some mlx5
+        # silicon revisions (notably the variant on hp1/hp3) mis-
+        # compute TCP/UDP checksums when the kernel asks the NIC to
+        # checksum a packet that's IPIP-encapsulated by the tunnel
+        # driver — TCP SYN traverses but with a bad inner checksum
+        # so the receiver silently drops it. iperf3 times out with
+        # "Connection timed out" while ICMP-in-IPIP traverses fine
+        # (kernel computes ICMP checksum in software). The CPU cost
+        # of software-computing TCP/UDP checksums on the tunnel
+        # iface is negligible vs the flow_dissector cost we're
+        # actually measuring. Other mlx5 variants (hp2/hp5) don't
+        # need this but the change is harmless there.
+        SSH root@"$L"  "ethtool -K $TUN_NAME tx off 2>/dev/null || true"
 
         SSH root@"$L2" "ip link add $TUN_NAME type ipip \
                           remote $GEN_UNDERLAY_V4 local $DUT_UNDERLAY_V4 dev $DUT_DEV"
         SSH root@"$L2" "ip addr add $DUT_V4/$PREFIX dev $TUN_NAME"
         SSH root@"$L2" "ip link set $TUN_NAME up"
+        SSH root@"$L2" "ethtool -K $TUN_NAME tx off 2>/dev/null || true"
 
         sleep 1
 

@@ -66,10 +66,18 @@ pkgs.writeShellApplication {
     do_down_remote() {
       local host="$1"
       # Kill server + client + remove staged files. Tolerate missing.
+      # Restore the pre-scenario /etc/ppp/pap-secrets if we backed
+      # one up; otherwise remove the one we wrote so we don't leave
+      # PAP creds lying around.
       SSH root@"$host" "
         if [ -r $SERVER_PIDFILE ]; then kill \$(cat $SERVER_PIDFILE) 2>/dev/null; rm -f $SERVER_PIDFILE; fi
         if [ -r $CLIENT_PIDFILE ]; then kill \$(cat $CLIENT_PIDFILE) 2>/dev/null; rm -f $CLIENT_PIDFILE; fi
         pkill -f pppoe-server 2>/dev/null; pkill -f 'pppd .*rp-pppoe' 2>/dev/null
+        if [ -f ''${SECRETS_PATH}.backup ]; then
+          mv ''${SECRETS_PATH}.backup /etc/ppp/pap-secrets
+        else
+          rm -f /etc/ppp/pap-secrets
+        fi
         rm -f $SECRETS_PATH $SERVER_OPTIONS $CLIENT_OPTIONS
         true
       " || true
@@ -87,13 +95,20 @@ pkgs.writeShellApplication {
         trap cleanup_partial ERR
 
         # --- DUT side (pppoe-server access concentrator) ---
-        # Stage a minimal PAP secrets file readable by pppd and
-        # a server options file. pppoe-server-options form: one
-        # option per line, same shape as /etc/ppp/pppoe-server-options.
-        SSH root@"$L2" "cat > $SECRETS_PATH <<EOF
-$PPP_USER * $PPP_PASS *
-EOF
-chmod 600 $SECRETS_PATH"
+        # Stage a minimal PAP secrets file. pppd has its PAP secrets
+        # path baked in at compile time (/etc/ppp/pap-secrets); there
+        # is no CLI override, so we install the credentials there
+        # directly. The /etc/ppp dir on NixOS is created on-demand
+        # the first time pppd runs; ensure it exists with mkdir -p.
+        # We back up any prior content and restore on teardown to be
+        # nice to a host that legitimately uses pppd outside our
+        # scenario (rare but cheap).
+        SSH root@"$L2" "
+          mkdir -p /etc/ppp
+          [ -f /etc/ppp/pap-secrets ] && cp /etc/ppp/pap-secrets ''${SECRETS_PATH}.backup 2>/dev/null || true
+          echo '$PPP_USER * $PPP_PASS *' > /etc/ppp/pap-secrets
+          chmod 600 /etc/ppp/pap-secrets
+        "
 
         SSH root@"$L2" "cat > $SERVER_OPTIONS <<EOF
 require-pap
@@ -110,7 +125,6 @@ pap-restart 2
 maxfail 0
 mtu 1492
 mru 1492
-file $SECRETS_PATH
 EOF
 chmod 600 $SERVER_OPTIONS"
 
@@ -122,13 +136,21 @@ chmod 600 $SERVER_OPTIONS"
         "
 
         # --- GEN side (pppd client) ---
-        SSH root@"$L" "cat > $SECRETS_PATH <<EOF
-$PPP_USER * $PPP_PASS *
-EOF
-chmod 600 $SECRETS_PATH"
+        SSH root@"$L" "
+          mkdir -p /etc/ppp
+          [ -f /etc/ppp/pap-secrets ] && cp /etc/ppp/pap-secrets ''${SECRETS_PATH}.backup 2>/dev/null || true
+          echo '$PPP_USER * $PPP_PASS *' > /etc/ppp/pap-secrets
+          chmod 600 /etc/ppp/pap-secrets
+        "
 
+        # pppd looks for plugins in its compiled-in path (inside the
+        # ppp nix-store derivation's lib/pppd/<ver>/), where rp-pppoe
+        # isn't because it's packaged separately. Pass the absolute
+        # path through /run/current-system/sw/lib/ — that's a
+        # systemPackages symlink farm that includes rp-pppoe.so once
+        # rp-pppoe is in environment.systemPackages on the host.
         SSH root@"$L" "cat > $CLIENT_OPTIONS <<EOF
-plugin rp-pppoe.so
+plugin /run/current-system/sw/lib/rp-pppoe.so
 nic-$GEN_DEV
 user $PPP_USER
 hide-password
@@ -142,7 +164,6 @@ lcp-echo-interval 30
 lcp-echo-failure 4
 nobsdcomp
 nodeflate
-file $SECRETS_PATH
 EOF
 chmod 600 $CLIENT_OPTIONS"
 
@@ -171,10 +192,19 @@ chmod 600 $CLIENT_OPTIONS"
           exit 1
         fi
 
-        # Read the negotiated local IP for the env emit.
-        gen_v4=$(SSH root@"$L" "ip -4 -br addr show ppp0 | awk '{print \$3}' | cut -d/ -f1")
+        # Read the negotiated local IP for the env emit. PPP link
+        # appears as soon as LCP is up; IPCP negotiation (which
+        # assigns the IP) takes another 0.5-2s. Retry briefly so we
+        # don't lose this race when the link is healthy.
+        gen_v4=""
+        for _ in $(seq 1 10); do
+          gen_v4=$(SSH root@"$L" "ip -4 -br addr show ppp0 | awk '{print \$3}' | cut -d/ -f1")
+          [ -n "$gen_v4" ] && break
+          sleep 1
+        done
         if [ -z "$gen_v4" ]; then
-          log "ppp0 has no IPv4 address yet; tearing down"
+          log "ppp0 has no IPv4 address after 10s of IPCP wait; tearing down"
+          SSH root@"$L" "tail -40 /tmp/netconf-pppoe-client.log 2>/dev/null" >&2 || true
           cleanup_partial
           exit 1
         fi
