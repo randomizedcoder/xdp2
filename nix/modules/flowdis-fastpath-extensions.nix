@@ -98,6 +98,10 @@ in
         name = "v4-flow_dissector-ipip-family";
         patch = "${patchDirV4}/0003-net-flow_dissector-ipip-family.patch";
       }
+      {
+        name = "v4-flow_dissector-gre-byte-identical";
+        patch = "${patchDirV4}/0004-net-flow_dissector-gre-byte-identical.patch";
+      }
     ] ++ lib.optional cfg.enableVxlanInner {
       name = "v3-flow_dissector-vxlan-inner-RFC-EXPERIMENT";
       patch = "${patchDir}/0004-RFC-EXPERIMENT-net-flow_dissector-descend-into-VXLAN.patch";

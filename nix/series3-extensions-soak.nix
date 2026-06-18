@@ -71,6 +71,7 @@ pkgs.writeShellApplication {
         pppoe) echo "net.flow_dissector.pppoe" ;;
         mpls)  echo "net.flow_dissector.mpls" ;;
         ipip)  echo "net.flow_dissector.ipip" ;;
+        gre)   echo "net.flow_dissector.gre" ;;
         # Fallback for the underlay-only / parent scenario.
         *)     echo "net.flow_dissector.eth_ip" ;;
       esac
@@ -255,7 +256,7 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" > "$out_env"
           ;;
-        vxlan|mpls|ipip)
+        vxlan|mpls|ipip|gre)
           # These need underlay /29 endpoints for their encap setup.
           OP=up L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
@@ -277,7 +278,7 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" >/dev/null 2>&1 || true
           ;;
-        vxlan|mpls|ipip)
+        vxlan|mpls|ipip|gre)
           OP=down L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
