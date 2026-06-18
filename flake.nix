@@ -472,6 +472,8 @@
         netconf-mpls  = import ./nix/scenarios/netconf-mpls.nix  { inherit pkgs; };
         netconf-ipip  = import ./nix/scenarios/netconf-ipip.nix  { inherit pkgs; };
         netconf-gre   = import ./nix/scenarios/netconf-gre.nix   { inherit pkgs; };
+        netconf-geneve = import ./nix/scenarios/netconf-geneve.nix { inherit pkgs; };
+        netconf-gtpu   = import ./nix/scenarios/netconf-gtpu.nix   { inherit pkgs; };
 
         # Phase 2 orchestrator: loops {pair × scenario × proto × sysctl},
         # composing the netconf-<scenario> scripts with iperf3 A/B cells
@@ -1330,6 +1332,8 @@
           inherit netconf-mpls;
           inherit netconf-ipip;
           inherit netconf-gre;
+          inherit netconf-geneve;
+          inherit netconf-gtpu;
 
           # Phase 2 orchestrator for the extension-patches scenario
           # matrix. Usage:

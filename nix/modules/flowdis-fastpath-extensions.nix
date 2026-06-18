@@ -102,6 +102,20 @@ in
         name = "v4-flow_dissector-gre-byte-identical";
         patch = "${patchDirV4}/0004-net-flow_dissector-gre-byte-identical.patch";
       }
+      # Phase E RFC EXPERIMENT descents. Behaviour-change patches:
+      # the standard flow_keys_dissector stops at outer UDP today, so
+      # turning these on gives Geneve / GTP-U overlays per-inner-flow
+      # fairness but changes the hash output. Knobs default to 0 at
+      # sysctl level so behaviour is unchanged unless an operator
+      # opts in. Same posture as the existing v3 vxlan_inner patch.
+      {
+        name = "v4-flow_dissector-geneve-inner-RFC-EXPERIMENT";
+        patch = "${patchDirV4}/0005-RFC-EXPERIMENT-flow_dissector-geneve-inner.patch";
+      }
+      {
+        name = "v4-flow_dissector-gtpu-inner-RFC-EXPERIMENT";
+        patch = "${patchDirV4}/0006-RFC-EXPERIMENT-flow_dissector-gtpu-inner.patch";
+      }
     ] ++ lib.optional cfg.enableVxlanInner {
       name = "v3-flow_dissector-vxlan-inner-RFC-EXPERIMENT";
       patch = "${patchDir}/0004-RFC-EXPERIMENT-net-flow_dissector-descend-into-VXLAN.patch";
