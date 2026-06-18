@@ -50,7 +50,10 @@ pkgs.writeShellApplication {
     require_op
     require_env L L2 GEN_DEV DUT_DEV GEN_UNDERLAY_V4 DUT_UNDERLAY_V4
 
-    TUN_NAME=''${TUN_NAME:-gre0}
+    # gre0 is auto-created by the `gre` kernel module as a fallback
+    # device on module-load; clashes with `ip link add gre0 type gre`
+    # ("RTNETLINK answers: File exists"). Use a unique name.
+    TUN_NAME=''${TUN_NAME:-gretest0}
     GEN_V4=''${GEN_V4:-10.10.44.2}
     DUT_V4=''${DUT_V4:-10.10.44.5}
     PREFIX=''${PREFIX:-29}

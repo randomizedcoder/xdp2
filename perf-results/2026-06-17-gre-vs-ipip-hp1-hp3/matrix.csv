@@ -1,0 +1,5 @@
+pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,kernel_has_sysctl,status
+hp1-hp3,ipip,cell-01,tcp,0,300,ipip0,10.10.42.5,11277.8,915,19.61,5.47,yes,ok
+hp1-hp3,ipip,cell-02,tcp,1,300,ipip0,10.10.42.5,11166.9,1559,20.12,5.18,yes,ok
+hp1-hp3,ipip,cell-03,udp,0,300,ipip0,10.10.42.5,6677.6,0,16.42,7.22,yes,ok
+hp1-hp3,ipip,cell-04,udp,1,300,ipip0,10.10.42.5,6958.6,0,16.25,7.33,yes,ok
