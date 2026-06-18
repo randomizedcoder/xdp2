@@ -252,17 +252,30 @@ pkgs.writeShellApplication {
     open_iperf_fw "$PAIR_L"
     open_iperf_fw "$PAIR_L2"
 
-    # Bring up the scenario once for the entire investigation.
-    scen_env="$OUT/scenario.env"
-    log ">>> bring up $SCENARIO"
-    OP=up L="$PAIR_L" L2="$PAIR_L2" \
-      GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
-      GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
-      DUT_UNDERLAY_V4="$PAIR_UNDERLAY_L2" \
-      nix run ".#netconf-$SCENARIO" > "$scen_env"
-    TUN_V4_GEN=$(grep '^L_SCENARIO_V4='  "$scen_env" | cut -d= -f2-)
-    TUN_V4_DUT=$(grep '^L2_SCENARIO_V4=' "$scen_env" | cut -d= -f2-)
-    log "tunnel up: $PAIR_L($TUN_V4_GEN) <-> $PAIR_L2($TUN_V4_DUT) on $TUN_NAME"
+    scenario_up() {
+      log ">>> bring up $SCENARIO"
+      OP=up L="$PAIR_L" L2="$PAIR_L2" \
+        GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
+        GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
+        DUT_UNDERLAY_V4="$PAIR_UNDERLAY_L2" \
+        nix run ".#netconf-$SCENARIO" > "$OUT/scenario.env"
+      TUN_V4_GEN=$(grep '^L_SCENARIO_V4='  "$OUT/scenario.env" | cut -d= -f2-)
+      TUN_V4_DUT=$(grep '^L2_SCENARIO_V4=' "$OUT/scenario.env" | cut -d= -f2-)
+      log "tunnel up: $PAIR_L($TUN_V4_GEN) <-> $PAIR_L2($TUN_V4_DUT) on $TUN_NAME"
+    }
+    scenario_down() {
+      OP=down L="$PAIR_L" L2="$PAIR_L2" \
+        GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
+        GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
+        DUT_UNDERLAY_V4="$PAIR_UNDERLAY_L2" \
+        nix run ".#netconf-$SCENARIO" >/dev/null 2>&1 || true
+    }
+
+    # Bring up once for the baseline measurement; re-create between
+    # OFAT features so a destructive offload (e.g. tx-checksum on,
+    # which exposes the mlx5 IPIP-encap bug) can't poison the next
+    # feature's cells.
+    scenario_up
 
     # Baseline cell: record current as-found feature state, no toggles.
     log "--- baseline (as-found offload state) ---"
@@ -272,11 +285,14 @@ pkgs.writeShellApplication {
       done
     done
 
-    # OFAT cells: toggle one feature at a time, off then on, replicate.
-    # Reset to baseline (no toggles) between OFAT features so combinations
-    # don't accumulate.
+    # OFAT cells: tear down + bring up the scenario fresh before each
+    # feature so a destructive toggle (e.g. tx-checksum-on, which
+    # exposes the mlx5 IPIP-encap bug) can't poison subsequent
+    # features' cells. ~5-10s per feature; cheap insurance.
     for feature in $(echo "$FEATURES" | tr ',' ' '); do
-      log "--- OFAT: feature=$feature ---"
+      log "--- OFAT: feature=$feature  (fresh tunnel) ---"
+      scenario_down
+      scenario_up
       local_state=$(read_feature_state "$feature")
       log "as-found $feature on $PAIR_L = $local_state"
 
@@ -288,20 +304,10 @@ pkgs.writeShellApplication {
           done
         done
       done
-
-      # Restore as-found state so the next feature starts from baseline.
-      if [ -n "$local_state" ] && [ "$local_state" != "?" ]; then
-        set_feature_state "$feature" "$local_state"
-      fi
     done
 
-    # Tear down the scenario.
     log "<<< tearing down $SCENARIO"
-    OP=down L="$PAIR_L" L2="$PAIR_L2" \
-      GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
-      GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
-      DUT_UNDERLAY_V4="$PAIR_UNDERLAY_L2" \
-      nix run ".#netconf-$SCENARIO" >/dev/null 2>&1 || true
+    scenario_down
 
     close_iperf_fw "$PAIR_L"
     close_iperf_fw "$PAIR_L2"
