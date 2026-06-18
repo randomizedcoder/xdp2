@@ -488,6 +488,16 @@
           inherit pkgs;
         };
 
+        # OFAT mlx5 offload investigation harness. Designed to isolate
+        # the cause of the IPIP +5.2% vs GRE -4% UDP throughput
+        # discrepancy on hp1<->hp3. Toggles one offload feature at a
+        # time (off, on) under both sysctl=0/1 and replicates each
+        # cell. Output CSV is suitable for sharing with the kernel
+        # team. See nix/mlx5-offload-investigate.nix for env knobs.
+        mlx5-offload-investigate = import ./nix/mlx5-offload-investigate.nix {
+          inherit pkgs;
+        };
+
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
         # so the run-on-host orchestrator's result rsync carries them
@@ -1333,6 +1343,16 @@
           # ±0.3pp DUR=60 noise floor. Usage:
           #   nix run .#series3-extensions-soak-10h
           inherit series3-extensions-soak-10h;
+
+          # mlx5 offload investigation: OFAT (one-feature-at-a-time)
+          # harness for isolating the IPIP +5.2% / GRE -4% UDP
+          # throughput discrepancy on hp1<->hp3. Default config runs
+          # 36 cells (~18 min). Output is matrix.csv with all
+          # dimensions captured; safe to share with the kernel team.
+          # Usage:
+          #   nix run .#mlx5-offload-investigate
+          #   SCENARIO=gre nix run .#mlx5-offload-investigate
+          inherit mlx5-offload-investigate;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
