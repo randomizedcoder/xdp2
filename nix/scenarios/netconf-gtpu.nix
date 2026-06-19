@@ -62,10 +62,21 @@ pkgs.writeShellApplication {
       up)
         for h in "$L" "$L2"; do
           if ! SSH root@"$h" "command -v gtp-tunnel >/dev/null 2>&1"; then
-            log "REQUIRES libgtpnl on $h (gtp-tunnel not found). Skipping."
-            log "Install: nixpkgs has libgtpnl as a derivation; add"
-            log "  environment.systemPackages = with pkgs; [ libgtpnl ];"
-            log "to the test-host nixos config then nixos-rebuild switch."
+            log "REQUIRES gtp-tunnel (from libgtpnl) on $h. Skipping."
+            log "libgtpnl isn't packaged in nixpkgs by that name as"
+            log "of 2026-06. Options to get gtp-tunnel installed:"
+            log "  (1) build libgtpnl manually from"
+            log "      https://git.osmocom.org/libgtpnl/ on the host"
+            log "      and copy gtp-tunnel into /usr/local/bin"
+            log "  (2) author a nixos derivation for libgtpnl and add"
+            log "      it to environment.systemPackages on the testbed"
+            log "  (3) use the Osmocom osmo-ggsn package (which depends"
+            log "      on libgtpnl) but that's a much heavier setup"
+            log "Without gtp-tunnel, the kernel side (the patch + the"
+            log "gtpu_inner sysctl) is functional but we have no way"
+            log "to drive traffic through a GTP-U session for the"
+            log "matrix orchestrator. Phase E GTP-U fast-path is still"
+            log "deployed on the testbed; matrix data requires (1) or (2)."
             exit 1
           fi
         done
