@@ -84,6 +84,27 @@ pkgs.writeShellApplication {
     UDP_PKTLEN=''${UDP_PKTLEN:-1200}
     UDP_PARALLEL=''${UDP_PARALLEL:-4}
     TCP_PARALLEL=''${TCP_PARALLEL:-4}
+
+    # Consumer activation knobs — turn on the kernel paths that
+    # actually use flow_dissect's output (skb->hash + flow_keys), so
+    # the fast-path's per-call saving becomes visible above the
+    # wire-saturated-iperf3 noise floor. CONSUMER_ALL=1 is a
+    # shortcut that flips all four on; otherwise each defaults off
+    # for back-compat with prior runs.
+    CONSUMER_ALL=''${CONSUMER_ALL:-0}
+    if [ "$CONSUMER_ALL" = "1" ]; then
+      CONSUMER_RPS=''${CONSUMER_RPS:-1}
+      CONSUMER_RFS=''${CONSUMER_RFS:-1}
+      CONSUMER_CAKE=''${CONSUMER_CAKE:-1}
+      CONSUMER_FLOWER=''${CONSUMER_FLOWER:-1}
+    else
+      CONSUMER_RPS=''${CONSUMER_RPS:-0}
+      CONSUMER_RFS=''${CONSUMER_RFS:-0}
+      CONSUMER_CAKE=''${CONSUMER_CAKE:-0}
+      CONSUMER_FLOWER=''${CONSUMER_FLOWER:-0}
+    fi
+    CAKE_BW=''${CAKE_BW:-25Gbit}
+
     today=$(date +%Y-%m-%d)
     OUT=''${OUT:-perf-results/$today-series3-extensions-soak}
 
@@ -96,7 +117,7 @@ pkgs.writeShellApplication {
     # which on wire-saturated workloads misses the fast-path saving
     # entirely; the mpstat columns are what the netdev cover-letter
     # numbers should come from.
-    echo "pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,kernel_has_sysctl,status" > "$matrix_csv"
+    echo "pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,rps,rfs,cake,flower,kernel_has_sysctl,status" > "$matrix_csv"
 
     # Pair name → L L2 IFACE underlay_L underlay_L2
     # Hard-coded here rather than reaching into testbeds/*.toml from
@@ -161,6 +182,84 @@ pkgs.writeShellApplication {
       SSH root@"$host" "sysctl -w $path=$val" >/dev/null 2>&1 || true
     }
 
+    # ── Consumer activation ─────────────────────────────────────────
+    # Turn on the kernel paths that actually use flow_dissect's output
+    # so the fast-path's per-call saving becomes visible.
+    setup_consumers() {
+      local host="$1" iface="$2"
+
+      if [ "$CONSUMER_RPS" = "1" ]; then
+        # Spread incoming flows across all CPUs via RPS. Bitmask = all
+        # CPUs ('f' per nibble); compute width from /proc/cpuinfo.
+        SSH root@"$host" "
+          ncpu=\$(nproc)
+          hex=\$(printf '%x' \$(( (1 << ncpu) - 1 )))
+          for q in /sys/class/net/$iface/queues/rx-*; do
+            [ -d \$q ] || continue
+            echo \$hex > \$q/rps_cpus 2>/dev/null || true
+          done
+          if [ \"$CONSUMER_RFS\" = \"1\" ]; then
+            echo 32768 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
+            for q in /sys/class/net/$iface/queues/rx-*; do
+              [ -d \$q ] || continue
+              echo 2048 > \$q/rps_flow_cnt 2>/dev/null || true
+            done
+          fi
+        " >/dev/null 2>&1 || true
+      fi
+
+      if [ "$CONSUMER_CAKE" = "1" ]; then
+        # Egress cake on the receiver — yes, the receiver. cake's flow
+        # isolation reads skb->hash on outbound (and inbound packets
+        # get hashed for return-direction queuing). Mirror the pattern
+        # from nix/testbed-soaks.nix:82.
+        SSH root@"$host" "
+          tc qdisc replace dev $iface root cake bandwidth $CAKE_BW triple-isolate 2>/dev/null || true
+        " >/dev/null 2>&1 || true
+      fi
+
+      if [ "$CONSUMER_FLOWER" = "1" ]; then
+        # cls_flower on ingress IS a direct consumer of flow_dissect —
+        # every ingress packet runs __skb_flow_dissect to evaluate
+        # match keys against the filter. skip_hw forces SW evaluation
+        # so the kernel's flow_dissect path actually runs (mlx5 on
+        # these testbeds is hw-tc-offload:off anyway, but explicit is
+        # safer). action pass = no drop/redirect, just exercise the
+        # classifier.
+        SSH root@"$host" "
+          tc qdisc replace dev $iface handle ffff: ingress 2>/dev/null || true
+          tc filter add dev $iface ingress protocol ip   flower skip_hw action pass 2>/dev/null || true
+          tc filter add dev $iface ingress protocol ipv6 flower skip_hw action pass 2>/dev/null || true
+        " >/dev/null 2>&1 || true
+      fi
+    }
+
+    teardown_consumers() {
+      local host="$1" iface="$2"
+
+      if [ "$CONSUMER_FLOWER" = "1" ]; then
+        SSH root@"$host" "
+          tc filter del dev $iface ingress 2>/dev/null
+          tc qdisc del dev $iface ingress 2>/dev/null
+        " >/dev/null 2>&1 || true
+      fi
+
+      if [ "$CONSUMER_CAKE" = "1" ]; then
+        SSH root@"$host" "tc qdisc del dev $iface root 2>/dev/null" >/dev/null 2>&1 || true
+      fi
+
+      if [ "$CONSUMER_RPS" = "1" ]; then
+        # Reset rps_cpus to 0 (the kernel default = RPS off).
+        SSH root@"$host" "
+          for q in /sys/class/net/$iface/queues/rx-*; do
+            [ -d \$q ] || continue
+            echo 0 > \$q/rps_cpus 2>/dev/null || true
+            [ \"$CONSUMER_RFS\" = \"1\" ] && echo 0 > \$q/rps_flow_cnt 2>/dev/null || true
+          done
+        " >/dev/null 2>&1 || true
+      fi
+    }
+
     # ── Per-cell run ────────────────────────────────────────────────
     # globals from scenario env: SCEN_DEV_DUT SCEN_V4_DUT SCEN_DEV_L SCEN_V4_L
     #            (we use the DUT addr as the iperf3 target)
@@ -174,6 +273,12 @@ pkgs.writeShellApplication {
       sysctl_path=$(scenario_sysctl "$scen")
       set_sysctl "$PAIR_L" "$sysctl" "$sysctl_path"
       set_sysctl "$PAIR_L2" "$sysctl" "$sysctl_path"
+
+      # Stand up the requested consumers on the receiver (L2). Receiver
+      # is where flow_dissect is in the hot path; sender doesn't need
+      # them. Teardown happens after the iperf3 cell completes so each
+      # cell starts clean.
+      setup_consumers "$PAIR_L2" "$PAIR_IFACE"
 
       local IPERF3_DUT IPERF3_GEN
       IPERF3_DUT=$(iperf3_remote "$PAIR_L2")/bin/iperf3
@@ -213,6 +318,10 @@ pkgs.writeShellApplication {
       # Tolerate stale PID if the ssh exited early.
       wait "$mpstat_pid" 2>/dev/null || true
 
+      # Tear down consumers before computing CSV row so the next cell
+      # starts clean.
+      teardown_consumers "$PAIR_L2" "$PAIR_IFACE"
+
       local mbps retr status
       if jq -e . "$cell_dir/iperf3.json" >/dev/null 2>&1; then
         case "$proto" in
@@ -239,14 +348,15 @@ pkgs.writeShellApplication {
       recv_sys_pct=''${recv_sys_pct:-0.00}
       recv_soft_pct=''${recv_soft_pct:-0.00}
 
-      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%.1f,%s,%s,%s,%s,%s\n' \
+      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%.1f,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$pair" "$scen" "$cell" "$proto" "$sysctl" "$DUR" \
         "$SCEN_DEV_DUT" "$SCEN_V4_DUT" "$mbps" "$retr" \
         "$recv_sys_pct" "$recv_soft_pct" \
+        "$CONSUMER_RPS" "$CONSUMER_RFS" "$CONSUMER_CAKE" "$CONSUMER_FLOWER" \
         "$has_sysctl" "$status" \
         >> "$matrix_csv"
 
-      log "[$pair/$scen/cell$cell $proto sysctl=$sysctl] $mbps Mbps (retr=$retr, recv_sys=$recv_sys_pct%, recv_soft=$recv_soft_pct%, has_sysctl=$has_sysctl, status=$status)"
+      log "[$pair/$scen/cell$cell $proto sysctl=$sysctl rps=$CONSUMER_RPS cake=$CONSUMER_CAKE flower=$CONSUMER_FLOWER] $mbps Mbps (retr=$retr, recv_sys=$recv_sys_pct%, recv_soft=$recv_soft_pct%, has_sysctl=$has_sysctl, status=$status)"
     }
 
     # ── Scenario lifecycle ─────────────────────────────────────────
