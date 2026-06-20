@@ -490,6 +490,17 @@
           inherit pkgs;
         };
 
+        # Phase G: CPU-bound pktgen-driven matrix. Same shape as
+        # series3-extensions-soak but pktgen with random source ports
+        # replaces iperf3, and the per-cell artifacts include a
+        # ksoftirqd-targeted perf-stat trace so we get
+        # cycles_per_pkt + ins_per_pkt + branch_miss_per_pkt as
+        # architecture-independent numbers for the netdev cover
+        # letter alongside the recv_soft_pct mpstat deltas.
+        series3-cpu-bound-soak = import ./nix/series3-cpu-bound-soak.nix {
+          inherit pkgs;
+        };
+
         # OFAT mlx5 offload investigation harness. Designed to isolate
         # the cause of the IPIP +5.2% vs GRE -4% UDP throughput
         # discrepancy on hp1<->hp3. Toggles one offload feature at a
@@ -1347,6 +1358,15 @@
           # ±0.3pp DUR=60 noise floor. Usage:
           #   nix run .#series3-extensions-soak-10h
           inherit series3-extensions-soak-10h;
+
+          # Phase G CPU-bound matrix: pktgen-driven, random source
+          # ports, 64-byte UDP, with perf-stat targeting ksoftirqd to
+          # produce architecture-independent cycles_per_pkt /
+          # ins_per_pkt / branch_miss_per_pkt numbers alongside
+          # mpstat recv_soft_pct. Usage:
+          #   PAIRS=hp1-hp3 SCENARIOS=ipip DUR=30 \
+          #     nix run .#series3-cpu-bound-soak
+          inherit series3-cpu-bound-soak;
 
           # mlx5 offload investigation: OFAT (one-feature-at-a-time)
           # harness for isolating the IPIP +5.2% / GRE -4% UDP

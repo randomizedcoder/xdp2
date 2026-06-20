@@ -162,11 +162,27 @@ IS_IPV6=false
 #                         CPUs on hp2 where isolcpus=2-15.
 #   PKTGEN_CPU_OFFSET     kpktgend starting index when CPU_PIN_MODE=
 #                         isolcpus-aligned (default 2).
+#   PKTGEN_RANDOMIZE_FLOWS  0 (default) | 1. When 1, every packet
+#                         gets a random UDP src port in
+#                         [PKTGEN_SRC_PORT_MIN, PKTGEN_SRC_PORT_MAX]
+#                         via pktgen's UDPSRC_RND flag, producing
+#                         thousands of distinct flow 5-tuples per
+#                         second. Use for Phase G CPU-bound runs
+#                         where the goal is to defeat per-flow
+#                         GRO/hash-cache amortization. Default off
+#                         preserves the Flow Director steering use
+#                         case where a stable dport per thread is
+#                         what the FD rules match on.
+#   PKTGEN_SRC_PORT_MIN   low end of the randomized range (default 1024)
+#   PKTGEN_SRC_PORT_MAX   high end (default 65535)
 PKTGEN_BURST="${PKTGEN_BURST:-1}"
 PKTGEN_CLONE_SKB="${PKTGEN_CLONE_SKB:-100000}"
 PKTGEN_QUEUE_MAP_MODE="${PKTGEN_QUEUE_MAP_MODE:-none}"
 PKTGEN_CPU_PIN_MODE="${PKTGEN_CPU_PIN_MODE:-none}"
 PKTGEN_CPU_OFFSET="${PKTGEN_CPU_OFFSET:-2}"
+PKTGEN_RANDOMIZE_FLOWS="${PKTGEN_RANDOMIZE_FLOWS:-0}"
+PKTGEN_SRC_PORT_MIN="${PKTGEN_SRC_PORT_MIN:-1024}"
+PKTGEN_SRC_PORT_MAX="${PKTGEN_SRC_PORT_MAX:-65535}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -206,6 +222,7 @@ echo "  burst:      $PKTGEN_BURST"
 echo "  clone_skb:  $PKTGEN_CLONE_SKB"
 echo "  queue_map:  $PKTGEN_QUEUE_MAP_MODE"
 echo "  cpu_pin:    $PKTGEN_CPU_PIN_MODE (offset=$PKTGEN_CPU_OFFSET)"
+echo "  rand_flows: $PKTGEN_RANDOMIZE_FLOWS (range=$PKTGEN_SRC_PORT_MIN-$PKTGEN_SRC_PORT_MAX)"
 echo ""
 
 # Bind N threads to the interface. Each thread handles a slice of
@@ -245,10 +262,20 @@ for ((i=0; i<THREADS; i++)); do
         pg_dev "$devname" "dst $DST_IP"
     fi
 
-    # Fixed src port, fixed dst port -- FD rule steers by dport only,
-    # so we want a stable dport. src port is arbitrary.
-    pg_dev "$devname" "udp_src_min $((12345 + i))"
-    pg_dev "$devname" "udp_src_max $((12345 + i))"
+    # Default: fixed src port, fixed dst port -- FD rule steers by dport
+    # only, so we want a stable dport. src port is arbitrary.
+    # PKTGEN_RANDOMIZE_FLOWS=1 widens the src-port range and sets
+    # UDPSRC_RND so every packet picks a new src port — produces
+    # thousands of distinct 5-tuples per second, which is what we
+    # want for CPU-bound flow_dissect benchmarking (Phase G).
+    if [[ "$PKTGEN_RANDOMIZE_FLOWS" == "1" ]]; then
+        pg_dev "$devname" "udp_src_min $PKTGEN_SRC_PORT_MIN"
+        pg_dev "$devname" "udp_src_max $PKTGEN_SRC_PORT_MAX"
+        pg_dev "$devname" "flag UDPSRC_RND"
+    else
+        pg_dev "$devname" "udp_src_min $((12345 + i))"
+        pg_dev "$devname" "udp_src_max $((12345 + i))"
+    fi
     pg_dev "$devname" "udp_dst_min $DPORT"
     pg_dev "$devname" "udp_dst_max $DPORT"
 
