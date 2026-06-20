@@ -115,8 +115,10 @@ pkgs.writeShellApplication {
 
         emit_env L_SCENARIO_DEV  "$TUN_NAME"
         emit_env L_SCENARIO_V4   "$GEN_V4"
+        emit_env L_SCENARIO_MAC  "$(read_mac "$L"  "$GEN_DEV")"
         emit_env L2_SCENARIO_DEV "$TUN_NAME"
         emit_env L2_SCENARIO_V4  "$DUT_V4"
+        emit_env L2_SCENARIO_MAC "$(read_mac "$L2" "$DUT_DEV")"
         log "gtpu $TUN_NAME (TEID=$TEID port=$DST_PORT) up: $L($GEN_V4) <-> $L2($DUT_V4)"
         ;;
       down)

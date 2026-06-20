@@ -83,8 +83,10 @@ pkgs.writeShellApplication {
 
         emit_env L_SCENARIO_DEV  "$VLAN_NAME"
         emit_env L_SCENARIO_V4   "$GEN_V4"
+        emit_env L_SCENARIO_MAC  "$(read_mac "$L"  "$VLAN_NAME")"
         emit_env L2_SCENARIO_DEV "$VLAN_NAME"
         emit_env L2_SCENARIO_V4  "$DUT_V4"
+        emit_env L2_SCENARIO_MAC "$(read_mac "$L2" "$VLAN_NAME")"
         log "vlan id=$VLAN_ID up: $L($GEN_V4) <-> $L2($DUT_V4) on $VLAN_NAME"
         ;;
 

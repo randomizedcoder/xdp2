@@ -114,8 +114,10 @@ pkgs.writeShellApplication {
 
         emit_env L_SCENARIO_DEV  "$VX_NAME"
         emit_env L_SCENARIO_V4   "$GEN_OVERLAY_V4"
+        emit_env L_SCENARIO_MAC  "$(read_mac "$L"  "$VX_NAME")"
         emit_env L2_SCENARIO_DEV "$VX_NAME"
         emit_env L2_SCENARIO_V4  "$DUT_OVERLAY_V4"
+        emit_env L2_SCENARIO_MAC "$(read_mac "$L2" "$VX_NAME")"
         emit_env VXLAN_DSTPORT   "$DSTPORT"
         log "vxlan VNI=$VNI dstport=$DSTPORT up: $L($GEN_OVERLAY_V4) <-> $L2($DUT_OVERLAY_V4) on $VX_NAME"
         ;;

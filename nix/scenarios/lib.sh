@@ -50,6 +50,16 @@ emit_env() {
   printf '%s=%s\n' "$1" "$2"
 }
 
+# Read the MAC address of a remote iface. Returns the lower-case
+# hex MAC (e.g. f8:f2:1e:38:c3:50) or empty on failure. Used by
+# scenarios that need to emit L_SCENARIO_MAC / L2_SCENARIO_MAC so
+# pktgen-style open-loop senders can fill in the L2 dst directly
+# without an ARP round-trip.
+read_mac() {
+  local host="$1" iface="$2"
+  SSH root@"$host" "ip -br link show $iface 2>/dev/null | awk '{print \$3}'" 2>/dev/null | tr -d '\n\r'
+}
+
 # Best-effort cleanup on partial-up failure. Each scenario can override
 # by re-defining cleanup_partial after sourcing this file. The default
 # is a no-op; the scenario's `up` should set this to a function that

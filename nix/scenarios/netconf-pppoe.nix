@@ -218,8 +218,10 @@ chmod 600 $CLIENT_OPTIONS"
 
         emit_env L_SCENARIO_DEV  "ppp0"
         emit_env L_SCENARIO_V4   "$gen_v4"
+        emit_env L_SCENARIO_MAC  "$(read_mac "$L"  "$GEN_DEV")"
         emit_env L2_SCENARIO_DEV "ppp0"
         emit_env L2_SCENARIO_V4  "$PPP_SERVER_LOCAL_V4"
+        emit_env L2_SCENARIO_MAC "$(read_mac "$L2" "$DUT_DEV")"
         log "pppoe up: $L($gen_v4) <-> $L2($PPP_SERVER_LOCAL_V4) on ppp0"
         log "NOTE: PPPoE userspace pppd caps wire rate well below NIC line rate"
         ;;

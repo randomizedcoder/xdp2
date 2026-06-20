@@ -128,8 +128,10 @@ pkgs.writeShellApplication {
         # decapsulating on RX will see the MPLS labels).
         emit_env L_SCENARIO_DEV  "lo"
         emit_env L_SCENARIO_V4   "$GEN_V4_LOOP"
+        emit_env L_SCENARIO_MAC  "$(read_mac "$L"  "$GEN_DEV")"
         emit_env L2_SCENARIO_DEV "lo"
         emit_env L2_SCENARIO_V4  "$DUT_V4_LOOP"
+        emit_env L2_SCENARIO_MAC "$(read_mac "$L2" "$DUT_DEV")"
         log "mpls labels=$MPLS_LABEL_GEN_TO_DUT/$MPLS_LABEL_DUT_TO_GEN up: $L($GEN_V4_LOOP) <-> $L2($DUT_V4_LOOP)"
         ;;
 
