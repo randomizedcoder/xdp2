@@ -1,0 +1,2 @@
+ksoftirqd PIDs (L2=pi5-2): 17,25,30,35
+bash: line 1: perf: command not found
