@@ -59,6 +59,7 @@ pkgs.writeShellApplication {
     PAIRS=''${PAIRS:-pi5-pair}
     SCENARIOS=''${SCENARIOS:-vlan,qinq,vxlan}
     DUR=''${DUR:-60}
+    REPLICATES=''${REPLICATES:-1}
     COOLDOWN=''${COOLDOWN:-5}
     # Map scenario -> sysctl. The v3 series ships per-shape sysctls
     # under /proc/sys/net/flow_dissector/; toggling the right one per
@@ -117,7 +118,7 @@ pkgs.writeShellApplication {
     # which on wire-saturated workloads misses the fast-path saving
     # entirely; the mpstat columns are what the netdev cover-letter
     # numbers should come from.
-    echo "pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,rps,rfs,cake,flower,kernel_has_sysctl,status" > "$matrix_csv"
+    echo "pair,scenario,cell,rep,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,rps,rfs,cake,flower,kernel_has_sysctl,status" > "$matrix_csv"
 
     # Pair name → L L2 IFACE underlay_L underlay_L2
     # Hard-coded here rather than reaching into testbeds/*.toml from
@@ -264,9 +265,9 @@ pkgs.writeShellApplication {
     # globals from scenario env: SCEN_DEV_DUT SCEN_V4_DUT SCEN_DEV_L SCEN_V4_L
     #            (we use the DUT addr as the iperf3 target)
     run_cell() {
-      local pair="$1" scen="$2" cell="$3" proto="$4" sysctl="$5" has_sysctl="$6"
+      local pair="$1" scen="$2" cell="$3" proto="$4" sysctl="$5" has_sysctl="$6" rep="$7"
       local cell_dir
-      cell_dir="$OUT/$pair/$scen/cell-$(printf '%02d' "$cell")"
+      cell_dir="$OUT/$pair/$scen/cell-$(printf '%02d' "$cell")-rep$(printf '%d' "$rep")"
       mkdir -p "$cell_dir"
 
       local sysctl_path
@@ -348,15 +349,15 @@ pkgs.writeShellApplication {
       recv_sys_pct=''${recv_sys_pct:-0.00}
       recv_soft_pct=''${recv_soft_pct:-0.00}
 
-      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%.1f,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-        "$pair" "$scen" "$cell" "$proto" "$sysctl" "$DUR" \
+      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%s,%.1f,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+        "$pair" "$scen" "$cell" "$rep" "$proto" "$sysctl" "$DUR" \
         "$SCEN_DEV_DUT" "$SCEN_V4_DUT" "$mbps" "$retr" \
         "$recv_sys_pct" "$recv_soft_pct" \
         "$CONSUMER_RPS" "$CONSUMER_RFS" "$CONSUMER_CAKE" "$CONSUMER_FLOWER" \
         "$has_sysctl" "$status" \
         >> "$matrix_csv"
 
-      log "[$pair/$scen/cell$cell $proto sysctl=$sysctl rps=$CONSUMER_RPS cake=$CONSUMER_CAKE flower=$CONSUMER_FLOWER] $mbps Mbps (retr=$retr, recv_sys=$recv_sys_pct%, recv_soft=$recv_soft_pct%, has_sysctl=$has_sysctl, status=$status)"
+      log "[$pair/$scen/cell$cell.rep$rep $proto sysctl=$sysctl rps=$CONSUMER_RPS cake=$CONSUMER_CAKE flower=$CONSUMER_FLOWER] $mbps Mbps (retr=$retr, recv_sys=$recv_sys_pct%, recv_soft=$recv_soft_pct%, has_sysctl=$has_sysctl, status=$status)"
     }
 
     # ── Scenario lifecycle ─────────────────────────────────────────
@@ -368,8 +369,9 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" > "$out_env"
           ;;
-        vxlan|mpls|ipip|gre|geneve|gtpu)
-          # These need underlay /29 endpoints for their encap setup.
+        eth_ip|vxlan|mpls|ipip|gre|geneve|gtpu)
+          # eth_ip needs the underlay endpoints to emit them as the
+          # scenario vars; the encap scenarios need them for encap setup.
           OP=up L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
@@ -390,7 +392,7 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" >/dev/null 2>&1 || true
           ;;
-        vxlan|mpls|ipip|gre|geneve|gtpu)
+        eth_ip|vxlan|mpls|ipip|gre|geneve|gtpu)
           OP=down L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
@@ -449,9 +451,11 @@ pkgs.writeShellApplication {
         cell=1
         for proto in tcp udp; do
           for sysctl in 0 1; do
-            run_cell "$pair" "$scen" "$cell" "$proto" "$sysctl" "$has_sysctl"
+            for rep in $(seq 1 "$REPLICATES"); do
+              run_cell "$pair" "$scen" "$cell" "$proto" "$sysctl" "$has_sysctl" "$rep"
+              sleep "$COOLDOWN"
+            done
             cell=$((cell + 1))
-            sleep "$COOLDOWN"
           done
         done
 

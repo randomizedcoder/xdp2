@@ -465,6 +465,7 @@
         # See nix/scenarios/lib.sh for shared helpers and
         # kernel-patches/series3-flowdis-fastpath/docs/packet-flow-context.md
         # section 9 for the design rationale.
+        netconf-eth_ip = import ./nix/scenarios/netconf-eth_ip.nix { inherit pkgs; };
         netconf-vlan  = import ./nix/scenarios/netconf-vlan.nix  { inherit pkgs; };
         netconf-qinq  = import ./nix/scenarios/netconf-qinq.nix  { inherit pkgs; };
         netconf-vxlan = import ./nix/scenarios/netconf-vxlan.nix { inherit pkgs; };
@@ -500,6 +501,24 @@
         series3-cpu-bound-soak = import ./nix/series3-cpu-bound-soak.nix {
           inherit pkgs;
         };
+
+        # Phase H: cover-letter summary table generator. Reads one or
+        # more matrix.csv files from Phase F (iperf3) or Phase G
+        # (pktgen) and emits a kernel-team-ready markdown table with
+        # per-sysctl % improvement, sorted by |% improvement| desc so
+        # the strongest signal lands first. Pure awk.
+        series3-summary-report = import ./nix/series3-summary-report.nix {
+          inherit pkgs;
+        };
+
+        # Phase H comprehensive matrix wrappers. Defaults: 3 pairs *
+        # 8 scenarios (eth_ip..geneve) * REPLICATES=3 * DUR=60. Run
+        # iperf3 wrapper first (~5.6h), then pktgen wrapper (~2.8h),
+        # then series3-summary-report on both matrix.csv files.
+        series3-comprehensive-iperf3-soak =
+          import ./nix/series3-comprehensive-iperf3-soak.nix { inherit pkgs; };
+        series3-comprehensive-pktgen-soak =
+          import ./nix/series3-comprehensive-pktgen-soak.nix { inherit pkgs; };
 
         # OFAT mlx5 offload investigation harness. Designed to isolate
         # the cause of the IPIP +5.2% vs GRE -4% UDP throughput
@@ -1336,6 +1355,7 @@
           #              netconf-mpls, netconf-ipip)
           # See nix/scenarios/lib.sh and kernel-patches/series3-
           # flowdis-fastpath/docs/packet-flow-context.md §9.
+          inherit netconf-eth_ip;
           inherit netconf-vlan;
           inherit netconf-qinq;
           inherit netconf-vxlan;
@@ -1367,6 +1387,22 @@
           #   PAIRS=hp1-hp3 SCENARIOS=ipip DUR=30 \
           #     nix run .#series3-cpu-bound-soak
           inherit series3-cpu-bound-soak;
+
+          # Phase H cover-letter table generator. Reads one or more
+          # matrix.csv paths and emits a single markdown summary with
+          # the strongest |% improvement| line first. Usage:
+          #   nix run .#series3-summary-report -- \
+          #     iperf3-matrix.csv pktgen-matrix.csv > SUMMARY.md
+          inherit series3-summary-report;
+
+          # Phase H comprehensive overnight wrappers. Run iperf3 first
+          # (~5.6h, all 3 pairs * 8 scenarios * tcp+udp * N=3), then
+          # pktgen (~2.8h, same shape minus tcp axis). Outputs land in
+          # perf-results/<date>-phase-h-{iperf3,pktgen}/. Usage:
+          #   nix run .#series3-comprehensive-iperf3-soak
+          #   nix run .#series3-comprehensive-pktgen-soak
+          inherit series3-comprehensive-iperf3-soak;
+          inherit series3-comprehensive-pktgen-soak;
 
           # mlx5 offload investigation: OFAT (one-feature-at-a-time)
           # harness for isolating the IPIP +5.2% / GRE -4% UDP

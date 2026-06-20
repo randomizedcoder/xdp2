@@ -82,6 +82,7 @@ pkgs.writeShellApplication {
     PAIRS=''${PAIRS:-hp1-hp3}
     SCENARIOS=''${SCENARIOS:-vlan,qinq,vxlan,mpls,ipip,gre,geneve}
     DUR=''${DUR:-60}
+    REPLICATES=''${REPLICATES:-1}
     COOLDOWN=''${COOLDOWN:-5}
     PKT_SIZE=''${PKT_SIZE:-64}
     THREADS=''${THREADS:-2}
@@ -119,7 +120,7 @@ pkgs.writeShellApplication {
     OUT=''${OUT:-perf-results/$today-series3-cpu-bound-soak}
     mkdir -p "$OUT"
     matrix_csv="$OUT/matrix.csv"
-    echo "pair,scenario,cell,sysctl,dur_s,pkt_size,threads,scenario_iface,scenario_mac,pps_sent,pps_recv,cycles,instructions,branches,branch_misses,cycles_per_pkt,ins_per_pkt,branch_miss_per_pkt,recv_sys_pct,recv_soft_pct,rps,rfs,cake,flower,kernel_has_sysctl,status" > "$matrix_csv"
+    echo "pair,scenario,cell,rep,sysctl,dur_s,pkt_size,threads,scenario_iface,scenario_mac,pps_sent,pps_recv,cycles,instructions,branches,branch_misses,cycles_per_pkt,ins_per_pkt,branch_miss_per_pkt,recv_sys_pct,recv_soft_pct,rps,rfs,cake,flower,kernel_has_sysctl,status" > "$matrix_csv"
 
     # Pair name → L L2 IFACE underlay_L underlay_L2. Same table as
     # series3-extensions-soak.nix; testbeds/*.toml is the source of truth.
@@ -268,9 +269,9 @@ pkgs.writeShellApplication {
     # Required from scenario env: SCEN_DEV_L SCEN_V4_L SCEN_MAC_L
     #                             SCEN_DEV_DUT SCEN_V4_DUT SCEN_MAC_DUT
     run_cell() {
-      local pair="$1" scen="$2" cell="$3" sysctl="$4" has_sysctl="$5"
+      local pair="$1" scen="$2" cell="$3" sysctl="$4" has_sysctl="$5" rep="$6"
       local cell_dir
-      cell_dir="$OUT/$pair/$scen/cell-$(printf '%02d' "$cell")"
+      cell_dir="$OUT/$pair/$scen/cell-$(printf '%02d' "$cell")-rep$(printf '%d' "$rep")"
       mkdir -p "$cell_dir"
 
       local sysctl_path
@@ -292,10 +293,23 @@ pkgs.writeShellApplication {
       local rx_before rx_after
       rx_before=$(rx_packets "$PAIR_L2" "$PAIR_IFACE")
 
+      # Pktgen iface selection: for vxlan/geneve the receiver mlx5 NIC
+      # filters bare frames with the overlay-device MAC (since the MAC
+      # isn't the NIC's unicast MAC). Target pktgen at the overlay
+      # device itself so the kernel handles encap on TX. Other scenarios
+      # (vlan/qinq/mpls/ipip/gre and eth_ip) emit either the underlay
+      # MAC or the VLAN-inherited-from-parent MAC, both of which the
+      # NIC accepts when pktgen sends from the underlay iface.
+      local pktgen_iface
+      case "$scen" in
+        vxlan|geneve) pktgen_iface="$SCEN_DEV_DUT" ;;
+        *)            pktgen_iface="$PAIR_IFACE"   ;;
+      esac
+
       # Start pktgen on L. Pktgen returns immediately (the script
       # nohup's the blocking pgctrl start).
       SSH root@"$PAIR_L" "PKTGEN_RANDOMIZE_FLOWS=1 PKTGEN_BURST=8 \
-        $PKTGEN_SCRIPT_REMOTE start $PAIR_IFACE $SCEN_V4_DUT $SCEN_MAC_DUT \
+        $PKTGEN_SCRIPT_REMOTE start $pktgen_iface $SCEN_V4_DUT $SCEN_MAC_DUT \
         --dport $DPORT --pkt-size $PKT_SIZE --threads $THREADS" \
         > "$cell_dir/pktgen.log" 2>&1 || true
 
@@ -324,8 +338,10 @@ pkgs.writeShellApplication {
 
       # Read counters BEFORE stopping pktgen — the stop subcommand
       # does rem_device_all which deletes the per-device proc entries.
+      # Use $pktgen_iface (not PAIR_IFACE) so we read the right proc
+      # entries when overlay-targeting vxlan/geneve.
       local pkts_sent pps_sent
-      pkts_sent=$(pktgen_pkts_sent "$PAIR_L" "$PAIR_IFACE")
+      pkts_sent=$(pktgen_pkts_sent "$PAIR_L" "$pktgen_iface")
       pkts_sent=''${pkts_sent:-0}
       pps_sent=$(( pkts_sent / DUR ))
 
@@ -386,8 +402,22 @@ pkgs.writeShellApplication {
       local status=ok
       [ "$rx_delta" -le 0 ] && status=no-rx
 
-      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-        "$pair" "$scen" "$cell" "$sysctl" "$DUR" "$PKT_SIZE" "$THREADS" \
+      # Overlay-unsupported detection: pktgen's add_device write fails
+      # on vxlan/geneve devices on most kernels ("Operation not
+      # supported"). Symptom is pkts_sent=0 + tiny rx_delta + the
+      # "write error" string in pktgen.log. Tag those cells so the
+      # summary-report tool can filter them out of the headline table.
+      case "$scen" in
+        vxlan|geneve)
+          if [ "$pkts_sent" -eq 0 ] \
+             && grep -q "Operation not supported" "$cell_dir/pktgen.log" 2>/dev/null; then
+            status=overlay-unsupported
+          fi
+          ;;
+      esac
+
+      printf '%s,%s,cell-%02d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+        "$pair" "$scen" "$cell" "$rep" "$sysctl" "$DUR" "$PKT_SIZE" "$THREADS" \
         "$SCEN_DEV_DUT" "$SCEN_MAC_DUT" \
         "$pps_sent" "$pps_recv" \
         "$cycles" "$instructions" "$branches" "$branch_misses" \
@@ -397,7 +427,7 @@ pkgs.writeShellApplication {
         "$has_sysctl" "$status" \
         >> "$matrix_csv"
 
-      log "[$pair/$scen/cell$cell sysctl=$sysctl] pps_sent=$pps_sent pps_recv=$pps_recv cyc/pkt=$cycles_per_pkt ins/pkt=$ins_per_pkt recv_soft=$recv_soft_pct% status=$status"
+      log "[$pair/$scen/cell$cell.rep$rep sysctl=$sysctl] pps_sent=$pps_sent pps_recv=$pps_recv cyc/pkt=$cycles_per_pkt ins/pkt=$ins_per_pkt recv_soft=$recv_soft_pct% status=$status"
     }
 
     # ── Scenario lifecycle ─────────────────────────────────────────
@@ -409,7 +439,7 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" > "$out_env"
           ;;
-        vxlan|mpls|ipip|gre|geneve)
+        eth_ip|vxlan|mpls|ipip|gre|geneve)
           OP=up L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
@@ -434,7 +464,7 @@ pkgs.writeShellApplication {
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             nix run ".#netconf-$scen" >/dev/null 2>&1 || true
           ;;
-        vxlan|mpls|ipip|gre|geneve)
+        eth_ip|vxlan|mpls|ipip|gre|geneve)
           OP=down L="$PAIR_L" L2="$PAIR_L2" \
             GEN_DEV="$PAIR_IFACE" DUT_DEV="$PAIR_IFACE" \
             GEN_UNDERLAY_V4="$PAIR_UNDERLAY_L" \
@@ -501,9 +531,11 @@ pkgs.writeShellApplication {
 
         cell=1
         for sysctl in 0 1; do
-          run_cell "$pair" "$scen" "$cell" "$sysctl" "$has_sysctl"
+          for rep in $(seq 1 "$REPLICATES"); do
+            run_cell "$pair" "$scen" "$cell" "$sysctl" "$has_sysctl" "$rep"
+            sleep "$COOLDOWN"
+          done
           cell=$((cell + 1))
-          sleep "$COOLDOWN"
         done
 
         log "<<< $pair / $scen down"
