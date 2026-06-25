@@ -56,13 +56,27 @@ Base: stacks on flow-dissector-namespace-v3's HEAD-1 (commit
 v3. Doesn't depend on the vxlan_inner RFC EXPERIMENT.
 
 Measurements:
-  Captured on a 6-host testbed fleet (2x Raspberry Pi 5 6.12.x,
-  4x HP-class x86_64 7.0.x) via the xdp2 series3-extensions-soak
-  orchestrator, which now collects per-cell mpstat softirq/sys
-  percentages on the receiver in addition to iperf3 throughput.
-  Per-shape numbers (PPPoE, MPLS, IPIP) attached to the cover
-  letter when this hits the list - capturing them concurrent with
-  this format-patch.
+  Macro (real workload): captured across the xdp2 testbed fleet -
+  4x HP-class x86_64 7.0.x (Zen 1, 10/25 GbE), l-l2 (Zen 2, 25 GbE),
+  2x Raspberry Pi 5 (Cortex-A76, 1 GbE), and a Banana Pi BPI-F3
+  (SpacemiT K1, RISC-V, 1 GbE) - via the series3-extensions-soak
+  orchestrator, which collects per-cell mpstat softirq/sys on the
+  receiver alongside iperf3 throughput. The MPLS and IP-in-IP shapes
+  run clean across the fleet (status=ok every cell); as with v3,
+  these workloads are wire-saturated, so the per-shape macro delta
+  is within run-to-run noise and the saving manifests as receiver
+  CPU headroom rather than throughput. Full matrices under
+  perf-results/ in the xdp2 repo.
+
+  Microbench (dissector cost in isolation): the per-call cost of the
+  fast-path mechanism these byte-identical shapes share is quantified
+  by the userspace libflowdis A/B in the v3 cover letter - ~47-55%
+  reduction across AMD/Intel x86, Cortex-A53/A72/A76, and RISC-V
+  SpacemiT X60 (49.8%). The PPPoE / MPLS / IPIP helpers are the same
+  straight-line shape as the eth_ip / vlan fast-paths measured there.
+  Per-shape microbench isolation (a synthetic packet per shape) is a
+  TODO; the cross-arch eth_ip number is the representative per-call
+  figure today.
 
 Open questions for reviewers:
 

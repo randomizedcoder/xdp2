@@ -86,20 +86,49 @@ Patch-by-patch shape:
   vxlan_inner sysctl paragraph. Open design questions on slow-path
   symmetry and per-netns port discovery.
 
-Measured headline (xdp2 testbed pair pi5-1 <-> pi5-2, Cortex-A76, 1
-GbE genet, 4 parallel iperf3, 30 s cells):
+Measured - real workload (macro):
 
-  vlan UDP host_system  68.11% -> 63.66%  (-6.5%)  sysctl 0 -> 1
-  qinq UDP host_system  75.87% -> 70.98%  (-6.4%)  sysctl 0 -> 1
-  vxlan UDP             ~zero net (outer fast-path saving offset by
-                                   inner-descent work, as designed)
+  Receiver-side CPU on the xdp2 testbed pair pi5-1 <-> pi5-2
+  (Cortex-A76, 1 GbE genet, 4 parallel iperf3, 30 s cells):
 
-Wire-saturated; dissector saving converts to CPU headroom rather
-than throughput. Cross-uarch tables for hp1-hp3 (25 GbE mlx5 Zen 1)
-and hp2-hp5 (10 GbE i40e Zen 1) at perf-results/2026-06-15-
-extensions-cross-testbed-summary.md in the xdp2 repo. Numbers there
-are within ±2 pp at single-30s-cell granularity; longer DUR + repeats
-needed to lift above x86 variance on hp.
+    vlan UDP host_system  68.11% -> 63.66%  (-6.5%)  sysctl 0 -> 1
+    qinq UDP host_system  75.87% -> 70.98%  (-6.4%)  sysctl 0 -> 1
+    vxlan UDP             ~zero net (outer fast-path saving offset by
+                                     inner-descent work, as designed)
+
+  These cells are wire-saturated, so the dissector saving shows up
+  as receiver CPU headroom, not throughput. On the faster links the
+  per-cell macro delta sits within run-to-run noise (within ~2 pp at
+  single-30 s-cell granularity on the 10/25 GbE x86 pairs) - there
+  the link, not the dissector, is the bottleneck, and longer DUR +
+  repeats are needed to lift the signal above x86 variance. Macro
+  tables across the fleet (hp1-hp3 25 GbE mlx5 Zen 1; hp2-hp5 10 GbE
+  i40e Zen 1; l-l2 25 GbE Zen 2; pi5 1 GbE Cortex-A76; bpi-f3 1 GbE
+  RISC-V) live under perf-results/ in the xdp2 repo.
+
+Measured - dissector cost in isolation (microbench):
+
+  To show where the saving comes from, independent of NIC / qdisc /
+  scheduler, a userspace libflowdis A/B (identical dissector source,
+  fast-path .so vs baseline .so, synthetic eth+IPv4+TCP, 10 x 10 M
+  iterations, taskset-pinned) was run on every uarch in the fleet:
+
+    uarch                          baseline  patched  speedup
+    x86 Zen 2  (TR PRO 3945WX)       12.44     6.56    -47.3%
+    x86 Skylake (i9-10885H)          10.61     5.62    -47.0%
+    ARM Cortex-A53 (pi3-1)          118.97    61.27    -48.5%
+    ARM Cortex-A72 (pi4-1)           42.37    19.05    -55.0%
+    ARM Cortex-A76 (pi5-2)           19.37     9.25    -52.3%
+    RISC-V SpacemiT X60 (bpi-f3)     98.16    49.27    -49.8%
+                                              (ns/pkt, lower is better)
+
+  ~47-55% reduction in the dissector cost itself across AMD/Intel
+  x86, three ARM uarches, and RISC-V - i.e. the fast-path generalises
+  across ISAs (the static_branch gate resolves through each arch's
+  jump_label implementation). One honest exception: x86 Zen 1
+  (Ryzen 5 PRO 2400G) shows ~0% at p50 - the saving is masked on that
+  older uarch (documented in the xdp2 perf-results). Default-off cost
+  remains one not-taken JMP per dissector call on every arch.
 
 Open items not addressed in this RFC:
 
