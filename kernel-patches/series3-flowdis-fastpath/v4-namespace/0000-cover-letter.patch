@@ -74,9 +74,13 @@ Measurements:
   reduction across AMD/Intel x86, Cortex-A53/A72/A76, and RISC-V
   SpacemiT X60 (49.8%). The PPPoE / MPLS / IPIP helpers are the same
   straight-line shape as the eth_ip / vlan fast-paths measured there.
-  Per-shape microbench isolation (a synthetic packet per shape) is a
-  TODO; the cross-arch eth_ip number is the representative per-call
-  figure today.
+  Per-shape microbench isolation is now demonstrated for the v3 shapes
+  on RISC-V (eth_ip -29.8%, vlan -33.1%, qinq -35.4%, byte-identical
+  verified - saving grows with header complexity; see the v3 cover
+  letter / perf-results/2026-06-25-series3-riscv-microbench/). The
+  PPPoE / MPLS / IPIP helpers in this series share that straight-line
+  shape; their userland ports + per-shape numbers are the remaining
+  TODO, tracked in the same harness.
 
 Open questions for reviewers:
 
