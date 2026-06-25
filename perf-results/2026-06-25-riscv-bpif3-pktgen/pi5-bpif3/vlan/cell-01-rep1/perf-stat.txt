@@ -1,0 +1,2 @@
+ksoftirqd PIDs (L2=bpi-f3): 15,23,28,33,38,43,48,53
+mux_client_request_session: read from master failed: Broken pipe

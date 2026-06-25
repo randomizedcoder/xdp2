@@ -2081,12 +2081,38 @@ matrix: `perf-results/2026-06-25-riscv-bpif3-iperf3/`, summary:
 `perf-results/2026-06-25-riscv-bpif3-summary.md`.
 
 This mirrors the fleet-wide finding (only the hp2-hp5 vlan-UDP cell is
-cleanly above noise anywhere). Extracting a CPU/pkt win on RISC-V would
-need either a CPU-bound driver — Phase G kernel-pktgen + ksoftirqd
-`perf stat` (gated on the pi5-1 generator running 6.12.87; perf cycle
-counting is confirmed working on the K1) — or a userspace dissector
-microbench. Until then the RISC-V data point stands as a **correctness**
-demonstration, which is what the cross-architecture claim requires.
+cleanly above noise anywhere). The RISC-V data point stands as a
+**correctness** demonstration, which is what the cross-architecture claim
+requires.
+
+### Measured performance — Phase G (2026-06-25, kernel-pktgen cycles/pkt)
+
+Phase G ran after rolling the **generator pi5-1 back to 6.12.87** — its
+6.18 `bcmgenet` driver reproducibly wedges the NIC within ~30 s of pktgen
+TX; 6.12.87 sends the flood without wedging. `PAIRS=pi5-bpif3`, 8
+scenarios × sysctl 0/1, N=3: **48/48 cells `status=ok`**, and the K1 PMU
+counts cleanly under perf (cycles, instructions, branches, branch-misses,
+L1-dcache loads/misses all populated on the riscv64 ksoftirqd).
+
+But there is **no usable cyc/pkt A/B on this pair**, for structural
+reasons rather than a patch problem:
+- The 1 GbE link can't make the 8-core K1 CPU-bound on dissection, so
+  the per-packet dissector cost never dominates.
+- ksoftirqd attribution is unreliable: several cells `perf stat` to 0
+  cyc/pkt because the K1 processed RX in NAPI-poll context on the RX CPU
+  rather than ksoftirqd (the PIDs perf was attached to).
+- pktgen's inner-encap delivery doesn't traverse this path for the
+  tunnels — geneve/vxlan cells received only ~8 packets.
+- pps_recv differs widely between the two sysctl states (e.g. vlan 1.56M
+  vs 0.55M), so cyc/pkt isn't comparable cell-to-cell.
+
+Consequently `series3-summary-report` tags every Phase G row `(noise)`
+(pooled stddev ±1000–3600 cyc/pkt vs deltas that bounce −54%…+64% with no
+consistent sign). Matrix retained for the record at
+`perf-results/2026-06-25-riscv-bpif3-pktgen/`. A clean RISC-V cyc/pkt
+number would need a faster link (so the CPU is the bottleneck) or a
+userspace dissector microbench — noted as future work; it does not change
+the correctness conclusion above.
 
 ### Outstanding follow-ups / caveats
 
