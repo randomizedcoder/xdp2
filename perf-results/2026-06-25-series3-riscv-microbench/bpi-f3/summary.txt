@@ -1,0 +1,5 @@
+series3 RISC-V userland libflowdis microbench (bpi-f3, SpacemiT K1 X60)
+
+patched (fast-path): N=10 mean=49.27 stdev=0.32 range=[48.97,50.04]
+baseline (slowpath): N=10 mean=98.16 stdev=0.21 range=[97.96,98.61]
+delta   : -48.88 ns/pkt (-49.8%)

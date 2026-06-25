@@ -2055,6 +2055,25 @@ PAIRS=pi5-bpif3 OUT=perf-results/<date>-riscv-bpif3-pktgen \
   nix run .#series3-comprehensive-pktgen-soak
 ```
 
+### Measured performance — userland libflowdis microbench (2026-06-25)
+
+**Headline: the fast-path roughly halves dissector cost on RISC-V —
+−48.88 ns/pkt, −49.8%** (patched 49.27 ± 0.32 vs baseline 98.16 ± 0.21
+ns/pkt, 10×10 M-iter runs, `taskset`-pinned). This is the single
+highest-signal A/B in the series — it isolates the dissector from the
+NIC/qdisc/scheduler, which is why it shows a clean result where the
+1 GbE-limited Phase F/G runs below could not. It lands squarely in the
+ARM range (A53 −48.5%, A72 −55.0%, A76 −52.3%) and completes the
+cross-architecture story: ~50% reduction on x86, ARM, **and RISC-V**.
+
+The two `libflowdis.so` variants (patched = current
+`src/lib/flowdis/flow_dissector.c`; baseline = the same file at
+`5960a9c6^`, before the port) were cross-compiled on `l` with
+`pkgsCross.riscv64.stdenv.cc` — the full `nix run .#xdp2-debug-riscv64`
+path fails on an unrelated `sox` cross-build and the K1 has no riscv64
+binary cache — then copied to bpi-f3 and run. Full writeup + raw runs:
+`perf-results/2026-06-25-series3-riscv-microbench/`.
+
 ### Measured performance — series 3 A/B (2026-06-25, Phase F)
 
 First Phase F run: `PAIRS=pi5-bpif3`, all 8 scenarios (eth_ip, vlan, qinq,
