@@ -130,16 +130,19 @@ Measured - dissector cost in isolation (microbench):
   older uarch (documented in the xdp2 perf-results). Default-off cost
   remains one not-taken JMP per dissector call on every arch.
 
-  Per-shape (RISC-V X60, fast-path .so with all shapes present vs
-  pure slow-path .so, byte-identical output verified): eth_ip -29.8%,
-  vlan -33.1%, qinq -35.4% - the saving grows with header complexity,
-  since the slow path does progressively more generic per-tag work.
-  (These are lower than the -49.8% eth_ip headline above because that
-  figure is the eth_ip-only lib; with all per-shape fast-paths
-  compiled in, the larger code footprint shifts the hot path's icache
-  on this in-order core - an honest effect, same direction on a kernel
-  carrying the full series. perf-results/2026-06-25-series3-riscv-
-  microbench/bpi-f3-pershape/.)
+  Per-shape, full matrix (every byte-identical shape x every fleet
+  uarch, fast-path .so vs pure slow-path .so, byte-identical output
+  verified per shape). vlan / qinq span -16%..-40% across x86 Zen1/
+  Zen2/Skylake, ARM A53/A72/A76, and RISC-V X60; the saving grows with
+  header complexity (the slow path does progressively more generic
+  per-layer work). The complete table - including the v4 pppoe / mpls /
+  ipip shapes, where ipip is the largest win everywhere (-37%..-47%,
+  the slow path re-dissects the inner IP via a full second dispatch) -
+  is at perf-results/2026-06-25-series3-allshapes-microbench/. (Per-shape
+  eth_ip is below the -49.8% headline above because that figure is the
+  eth_ip-only lib; with all fast-paths compiled in, the larger code
+  footprint shifts the hot path's icache - an honest, documented
+  effect, same direction on a kernel carrying the full series.)
 
 Open items not addressed in this RFC:
 

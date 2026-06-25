@@ -74,13 +74,24 @@ Measurements:
   reduction across AMD/Intel x86, Cortex-A53/A72/A76, and RISC-V
   SpacemiT X60 (49.8%). The PPPoE / MPLS / IPIP helpers are the same
   straight-line shape as the eth_ip / vlan fast-paths measured there.
-  Per-shape microbench isolation is now demonstrated for the v3 shapes
-  on RISC-V (eth_ip -29.8%, vlan -33.1%, qinq -35.4%, byte-identical
-  verified - saving grows with header complexity; see the v3 cover
-  letter / perf-results/2026-06-25-series3-riscv-microbench/). The
-  PPPoE / MPLS / IPIP helpers in this series share that straight-line
-  shape; their userland ports + per-shape numbers are the remaining
-  TODO, tracked in the same harness.
+  Per-shape microbench isolation is now done for all six byte-identical
+  shapes across the whole fleet (x86 Zen1/Zen2/Skylake, ARM A53/A72/A76,
+  RISC-V X60), byte-identical output verified per shape. For the three
+  shapes in THIS series, the userland-libflowdis A/B (fast .so vs pure
+  slow-path .so, ns/pkt, across the seven uarches) gives:
+
+    PPPoE :  -8.6% .. -28.0%   (strip session+PPP, tail-call eth_ip)
+    MPLS  :  -6.7% .. -15.0%   (single-label read; both paths then stop
+                                with KEY_MPLS not requested, so this is
+                                the label-shortcut cost only)
+    IPIP  : -36.8% .. -47.0%   (largest win on every uarch - the slow
+                                path re-dispatches the full dissector
+                                for the inner IP; the fast-path does a
+                                straight-line second IP read)
+
+  Full table + raw logs: perf-results/2026-06-25-series3-allshapes-
+  microbench/. (Absolute ns/pkt are generic per-ISA baselines; the
+  cross-arch ratios are the claim.)
 
 Open questions for reviewers:
 

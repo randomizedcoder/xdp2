@@ -1,0 +1,227 @@
+1076a1077,1108
+> 
+> /* Series 3 per-shape userland port: inline defs for symbols the
+>  * userland flowdis headers lack, plus a forward decl for the IPIP
+>  * inner descent (called from the eth_ip fast-path below). */
+> #ifndef ETH_P_PPP_SES
+> #define ETH_P_PPP_SES 0x8864
+> #endif
+> #ifndef ETH_P_MPLS_UC
+> #define ETH_P_MPLS_UC 0x8847
+> #endif
+> #ifndef ETH_P_MPLS_MC
+> #define ETH_P_MPLS_MC 0x8848
+> #endif
+> #ifndef PPP_IP
+> #define PPP_IP   0x0021
+> #define PPP_IPV6 0x0057
+> #endif
+> #define S3_PPPOE_SES_HLEN 8
+> #ifndef MPLS_LS_S_MASK
+> #define MPLS_LS_S_MASK      0x00000100
+> #define MPLS_LS_S_SHIFT     8
+> #endif
+> struct s3_mpls_label { __be32 entry; };
+> struct s3_pppoe_ses { __u8 vertype; __u8 code; __be16 sid; __be16 length; __be16 ppp_proto; };
+> 
+> static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+> 					 struct flow_dissector *flow_dissector,
+> 					 void *target_container,
+> 					 const void *data,
+> 					 __be16 inner_eth_proto,
+> 					 int inner_nhoff, int hlen);
+> 
+1103c1135,1143
+< 		     iph->protocol != IPPROTO_UDP))
+---
+> 		     iph->protocol != IPPROTO_UDP)) {
+> 		if (iph->protocol == IPPROTO_IPIP)
+> 			return flow_dissect_fast_ipip_inner(skb, flow_dissector,
+> 				target_container, data, htons(ETH_P_IP),
+> 				nhoff + (int)sizeof(*iph), hlen);
+> 		if (iph->protocol == IPPROTO_IPV6)
+> 			return flow_dissect_fast_ipip_inner(skb, flow_dissector,
+> 				target_container, data, htons(ETH_P_IPV6),
+> 				nhoff + (int)sizeof(*iph), hlen);
+1104a1145
+> 	}
+1179c1220,1228
+< 		     iph->nexthdr != IPPROTO_UDP))
+---
+> 		     iph->nexthdr != IPPROTO_UDP)) {
+> 		if (iph->nexthdr == IPPROTO_IPIP)
+> 			return flow_dissect_fast_ipip_inner(skb, flow_dissector,
+> 				target_container, data, htons(ETH_P_IP),
+> 				nhoff + (int)sizeof(*iph), hlen);
+> 		if (iph->nexthdr == IPPROTO_IPV6)
+> 			return flow_dissect_fast_ipip_inner(skb, flow_dissector,
+> 				target_container, data, htons(ETH_P_IPV6),
+> 				nhoff + (int)sizeof(*iph), hlen);
+1180a1230
+> 	}
+1242a1293,1442
+> 
+> /* IPIP / 4in6 / 6in4 inner descent. Recurse into the inner IP fast-path
+>  * then stamp FLOW_DIS_ENCAPSULATION (the inner helper zeroes
+>  * key_control->flags, so ENCAP must be OR'd in after it returns). */
+> static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+> 					 struct flow_dissector *flow_dissector,
+> 					 void *target_container,
+> 					 const void *data,
+> 					 __be16 inner_eth_proto,
+> 					 int inner_nhoff, int hlen)
+> {
+> 	struct flow_dissector_key_control *key_control;
+> 	bool ok;
+> 
+> 	if (inner_eth_proto == htons(ETH_P_IP))
+> 		ok = flow_dissect_fast_ipv4(skb, flow_dissector,
+> 					    target_container, data,
+> 					    inner_nhoff, hlen);
+> 	else
+> 		ok = flow_dissect_fast_ipv6(skb, flow_dissector,
+> 					    target_container, data,
+> 					    inner_nhoff, hlen);
+> 	if (ok && dissector_uses_key(flow_dissector,
+> 				     FLOW_DISSECTOR_KEY_CONTROL)) {
+> 		key_control = skb_flow_dissector_target(flow_dissector,
+> 				FLOW_DISSECTOR_KEY_CONTROL, target_container);
+> 		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+> 	}
+> 	return ok;
+> }
+> 
+> /* PPPoE session + IPv{4,6} inner. KEY_PPPOE write omitted (the userland
+>  * flow_keys has no pppoe field and the bench dissector never requests
+>  * it; the inner 5-tuple is what is compared byte-for-byte). */
+> static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+> 				    struct flow_dissector *flow_dissector,
+> 				    void *target_container,
+> 				    const void *data,
+> 				    int nhoff, int hlen)
+> {
+> 	const struct s3_pppoe_ses *hdr;
+> 	__be16 inner_eth_proto;
+> 	u16 ppp_proto;
+> 
+> 	if (unlikely(hlen - nhoff < (int)sizeof(*hdr)))
+> 		return false;
+> 	hdr = (const struct s3_pppoe_ses *)((const u8 *)data + nhoff);
+> 	/* is_pppoe_ses_hdr_valid: ver==1, type==1, code==0 */
+> 	if (hdr->vertype != 0x11 || hdr->code != 0x00)
+> 		return false;
+> 
+> 	ppp_proto = ntohs(hdr->ppp_proto);
+> 	switch (ppp_proto) {
+> 	case PPP_IP:   inner_eth_proto = htons(ETH_P_IP);   break;
+> 	case PPP_IPV6: inner_eth_proto = htons(ETH_P_IPV6); break;
+> 	default:       return false;
+> 	}
+> 
+> 	nhoff += S3_PPPOE_SES_HLEN;
+> 	if (inner_eth_proto == htons(ETH_P_IP))
+> 		return flow_dissect_fast_ipv4(skb, flow_dissector,
+> 					      target_container, data,
+> 					      nhoff, hlen);
+> 	return flow_dissect_fast_ipv6(skb, flow_dissector,
+> 				      target_container, data, nhoff, hlen);
+> }
+> 
+> /* Single-label MPLS (BoS=1). KEY_MPLS write omitted (bench dissector
+>  * does not request it; like the slow path's __skb_flow_dissect_mpls
+>  * early-out, both paths then stop without descending -> byte-identical
+>  * empty inner). Multi-label stacks defer to slow path. */
+> static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+> 				   struct flow_dissector *flow_dissector,
+> 				   void *target_container,
+> 				   const void *data, int nhoff, int hlen)
+> {
+> 	const struct s3_mpls_label *hdr;
+> 	u32 entry, bos;
+> 
+> 	(void)skb; (void)flow_dissector; (void)target_container;
+> 	if (unlikely(hlen - nhoff < (int)sizeof(*hdr)))
+> 		return false;
+> 	hdr = (const struct s3_mpls_label *)((const u8 *)data + nhoff);
+> 	entry = ntohl(hdr->entry);
+> 	bos = (entry & MPLS_LS_S_MASK) >> MPLS_LS_S_SHIFT;
+> 	if (!bos)
+> 		return false;
+> 	return true;
+> }
+> 
+> /* Series 3 per-shape userland port: single VLAN + QinQ (depth-2).
+>  * Adapted from kernel v3 patches 2-3. skb is always NULL in the
+>  * userland lib, so only the read-from-data path is kept. Outer tag ->
+>  * KEY_VLAN, inner tag -> KEY_CVLAN; then tail-call the eth_ip fast-path.
+>  */
+> static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+> 				   struct flow_dissector *flow_dissector,
+> 				   void *target_container,
+> 				   const void *data,
+> 				   __be16 proto, int nhoff, int hlen,
+> 				   int vlan_depth)
+> {
+> 	struct flow_dissector_key_vlan *key_vlan;
+> 	enum flow_dissector_key_id vlan_key_id;
+> 	const struct vlan_hdr *vlan;
+> 	__be16 inner_proto;
+> 	__be16 saved_tpid = proto;
+> 	u16 tci_id, tci_prio;
+> 
+> 	if (unlikely(hlen - nhoff < (int)sizeof(*vlan)))
+> 		return false;
+> 	vlan = (const struct vlan_hdr *)((const u8 *)data + nhoff);
+> 	tci_id = ntohs(vlan->h_vlan_TCI) & VLAN_VID_MASK;
+> 	tci_prio = (ntohs(vlan->h_vlan_TCI) & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
+> 	inner_proto = vlan->h_vlan_encapsulated_proto;
+> 	nhoff += (int)sizeof(*vlan);
+> 
+> 	vlan_key_id = (vlan_depth == 0) ? FLOW_DISSECTOR_KEY_VLAN
+> 					: FLOW_DISSECTOR_KEY_CVLAN;
+> 	if (dissector_uses_key(flow_dissector, vlan_key_id)) {
+> 		key_vlan = skb_flow_dissector_target(flow_dissector,
+> 						     vlan_key_id,
+> 						     target_container);
+> 		key_vlan->vlan_id = tci_id;
+> 		key_vlan->vlan_priority = tci_prio;
+> 		key_vlan->vlan_tpid = saved_tpid;
+> 	}
+> 
+> 	switch (inner_proto) {
+> 	case htons(ETH_P_8021Q):
+> 	case htons(ETH_P_8021AD):
+> 		if (vlan_depth == 0)
+> 			return flow_dissect_fast_vlan(skb, flow_dissector,
+> 						      target_container, data,
+> 						      inner_proto, nhoff, hlen,
+> 						      vlan_depth + 1);
+> 		return false;
+> 	case htons(ETH_P_IP):
+> 		return flow_dissect_fast_ipv4(skb, flow_dissector,
+> 					      target_container, data,
+> 					      nhoff, hlen);
+> 	case htons(ETH_P_IPV6):
+> 		return flow_dissect_fast_ipv6(skb, flow_dissector,
+> 					      target_container, data,
+> 					      nhoff, hlen);
+> 	default:
+> 		return false;
+> 	}
+> }
+> 
+1263a1464,1477
+> 					      target_container, data,
+> 					      nhoff, hlen);
+> 	case htons(ETH_P_8021Q):
+> 	case htons(ETH_P_8021AD):
+> 		return flow_dissect_fast_vlan(skb, flow_dissector,
+> 					      target_container, data,
+> 					      proto, nhoff, hlen, 0);
+> 	case htons(ETH_P_PPP_SES):
+> 		return flow_dissect_fast_pppoe(skb, flow_dissector,
+> 					       target_container, data,
+> 					       nhoff, hlen);
+> 	case htons(ETH_P_MPLS_UC):
+> 	case htons(ETH_P_MPLS_MC):
+> 		return flow_dissect_fast_mpls(skb, flow_dissector,
