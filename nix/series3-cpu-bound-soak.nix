@@ -143,6 +143,13 @@ pkgs.writeShellApplication {
           PAIR_L=pi5-1; PAIR_L2=pi5-2; PAIR_IFACE=end0
           PAIR_UNDERLAY_L=172.16.40.122; PAIR_UNDERLAY_L2=172.16.40.174
           ;;
+        pi5-bpif3)
+          # RISC-V DUT: generator pi5-1 -> measured bpi-f3 (SpacemiT K1),
+          # switched 1 GbE on the shared lab LAN; both use iface end0.
+          # pktgen TX needs pi5-1 on 6.12.87 (its 6.18 bcmgenet wedges).
+          PAIR_L=pi5-1; PAIR_L2=bpi-f3; PAIR_IFACE=end0
+          PAIR_UNDERLAY_L=172.16.40.122; PAIR_UNDERLAY_L2=172.16.40.205
+          ;;
         *) return 1 ;;
       esac
       return 0

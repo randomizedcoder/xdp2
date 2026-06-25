@@ -143,6 +143,12 @@ pkgs.writeShellApplication {
           PAIR_L=pi5-1; PAIR_L2=pi5-2; PAIR_IFACE=end0
           PAIR_UNDERLAY_L=172.16.40.122; PAIR_UNDERLAY_L2=172.16.40.174
           ;;
+        pi5-bpif3)
+          # RISC-V DUT: generator pi5-1 -> measured bpi-f3 (SpacemiT K1),
+          # switched 1 GbE on the shared lab LAN; both use iface end0.
+          PAIR_L=pi5-1; PAIR_L2=bpi-f3; PAIR_IFACE=end0
+          PAIR_UNDERLAY_L=172.16.40.122; PAIR_UNDERLAY_L2=172.16.40.205
+          ;;
         *)
           return 1
           ;;
@@ -153,7 +159,20 @@ pkgs.writeShellApplication {
     # iperf3 / sysctl helpers — mirror series3-soak-x86.nix's pattern.
     iperf3_remote() {
       local host="$1"
-      SSH root@"$host" 'nix eval --raw nixpkgs#iperf3' 2>/dev/null
+      # Prefer an iperf3 already installed on the host. On the riscv bpi-f3
+      # `nix eval nixpkgs#iperf3` resolves to a path with no binary cache, so
+      # using it would trigger a multi-hour native toolchain+openssl build;
+      # the box ships iperf3 in systemPackages instead. Fall back to nixpkgs
+      # for hosts that don't install it (e.g. pi5). Returns the store prefix;
+      # callers append /bin/iperf3.
+      # shellcheck disable=SC2016  # $() / $p are intentionally evaluated on the remote
+      SSH root@"$host" '
+        if command -v iperf3 >/dev/null 2>&1; then
+          p=$(readlink -f "$(command -v iperf3)"); printf "%s" "''${p%/bin/iperf3}"
+        else
+          nix eval --raw nixpkgs#iperf3
+        fi
+      ' 2>/dev/null
     }
 
     open_iperf_fw() {
