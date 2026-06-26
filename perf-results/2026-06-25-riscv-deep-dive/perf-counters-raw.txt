@@ -1,0 +1,18 @@
+eth+IPv4+TCP microbench, 20M iters, taskset -c 3, eth_ip-only libflowdis
+(patched = HEAD eth_ip fast-path; baseline = 5960a9c6^, no fast-path)
+
+=== RISC-V SpacemiT X60 (bpi-f3, ~1.6 GHz) ===
+baseline: ns/pkt=98.15  cycles=3,163,770,144  instructions=4,408,209,517
+          branches=543,302,128  branch-misses=65,522
+          L1-dcache-loads=986,401,600  L1-dcache-load-misses=45,914   IPC=1.39
+patched : ns/pkt=49.38  cycles=1,595,014,465  instructions=2,235,450,841
+          branches=281,835,226  branch-misses=55,894
+          L1-dcache-loads=503,532,732  L1-dcache-load-misses=37,889   IPC=1.40
+
+=== x86 Zen2 (l, Threadripper PRO 3945WX) ===
+baseline: ns/pkt=10.19  cycles=838,620,103  instructions=3,500,331,635
+          branches=744,403,430  branch-misses=90,209
+          L1-dcache-loads=1,348,094,010  L1-dcache-load-misses=64,511   IPC=4.17
+patched : ns/pkt=5.97   cycles=492,817,389  instructions=1,972,729,852
+          branches=362,501,641  branch-misses=90,124
+          L1-dcache-loads=986,636,353  L1-dcache-load-misses=71,503   IPC=4.00
