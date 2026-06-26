@@ -6,16 +6,16 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-__skb_flow_dissect() parses every packet with the generic
+__skb_flow_dissect() parses packet headers with a generic
 protocol-graph parser. This series adds an opt-in, straight-line
 fast-path for the most common packet shape: eth + IP + TCP/UDP, both
 IPv4 and IPv6. It is gated by a static_branch and is disabled by
 default. Its output is byte-identical to the slow path.
 
 What it does:
-  - Handles eth + IPv4/IPv6 + TCP/UDP. All other input (IPv4 options or
-    fragments, IPv6 extension headers, any other shape) returns to the
-    existing parser unchanged.
+  - Handles eth + IPv4/IPv6 + TCP/UDP. Any other input (IPv4 options or
+    fragments, IPv6 extension headers, any other shape) is handled by
+    the existing parser, unchanged.
   - Per-shape gates under /proc/sys/net/flow_dissector/. eth_ip is the
     base gate; vlan and qinq build on it. All are disabled by default.
   - When a gate is disabled, the added cost is one not-taken branch per
@@ -24,7 +24,7 @@ What it does:
 Safety:
   - The fast-path either writes the same flow keys as the slow path, or
     it returns false and the slow path runs. These are the only two
-    outcomes, by construction. Output was verified equal to the slow
+    outcomes, by construction. Output was verified to match the slow
     path for each shape (IPv4, IPv6, VLAN, QinQ).
 
 Measurements. Dissector cost in isolation, measured with a userspace
@@ -40,10 +40,10 @@ eth + IPv4 + TCP. Values are nanoseconds per packet, lower is better:
 
   - IPv6 uses the same gate and is also byte-identical (x86 -39%,
     RISC-V -25%).
-  - The fast-path retires about half as many instructions per dissect.
+  - The fast-path executes about half as many instructions per dissect.
     This is consistent across architectures. The relative reduction is
-    largest on narrow in-order cores. One exception is x86 Zen 1, where
-    the reduction is not measurable.
+    largest on in-order cores. One exception is x86 Zen 1, where the
+    reduction is not measurable.
 
 Where the dissector runs:
   - Callers of skb_get_hash(): RPS, RFS, the fq / fq_codel / cake
@@ -54,10 +54,11 @@ Where the dissector runs:
 
 Limitations:
   - This is a per-packet CPU reduction. On a host limited by link rate
-    or queue depth it appears as spare CPU, not as higher throughput.
-    Our live-traffic measurements are within run-to-run noise.
+    or queue depth, it appears as available CPU capacity, not as higher
+    throughput. Our live-traffic measurements are within run-to-run
+    noise.
   - The absolute nanosecond values are per-architecture baselines. The
-    cross-architecture ratios are the relevant figure.
+    cross-architecture ratios are the relevant comparison.
 
 Patches:
   1  eth + IPv4/IPv6 + TCP/UDP (eth_ip)    byte-identical

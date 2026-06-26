@@ -1,6 +1,6 @@
 Subject: [PATCH RFC v4 0/3] net: flow_dissector: byte-identical fast-paths for PPPoE, single-label MPLS, IP-in-IP
 
-This series adds three more byte-identical fast-path shapes on top of
+This series adds three more byte-identical fast-path shapes that extend
 the v3 series (eth_ip, vlan, qinq; in net-next as commits 74c6ea03a417
 .. 8504d0dca46b). Each shape is a separate static_branch with its own
 sysctl under /proc/sys/net/flow_dissector/ and is disabled by default.
@@ -22,11 +22,11 @@ Shapes:
     return to the slow path.
   - IP-in-IP (IPv4-in-IPv4, IPv6-in-IPv4, and IPv6-outer variants).
     Patch 3 descends into the inner IP when the outer protocol is
-    IPPROTO_IPIP or IPPROTO_IPV6. The inner overwrites the outer address
-    and basic keys (matching the slow path) and sets
+    IPPROTO_IPIP or IPPROTO_IPV6. The inner dissection overwrites the
+    outer address and basic keys (matching the slow path) and sets
     FLOW_DIS_ENCAPSULATION.
 
-When a gate is disabled, its shape adds one not-taken branch on its
+When a gate is disabled, that shape adds one not-taken branch on its
 cold path. The eth_ip hot path is unchanged.
 
 Safety:
@@ -41,11 +41,12 @@ of the reduction across those microarchitectures:
 
     PPPoE     -8.6% to -28.0%   read session header, call eth_ip
     MPLS      -6.7% to -15.0%   single-label read; with KEY_MPLS not
-                                requested both paths then stop, so this
-                                measures the label read only
+                                requested, both paths stop after the
+                                label, so this measures the label read
+                                only
     IP-in-IP  -36.8% to -47.0%  largest reduction; the slow path re-runs
-                                the full parser for the inner IP, the
-                                fast-path does a second straight-line
+                                the full parser for the inner IP, while
+                                the fast-path does a second straight-line
                                 IP read
 
 Live-traffic measurements are within run-to-run noise (link- or
