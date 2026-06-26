@@ -1,0 +1,12 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=139423963 ns ns_per_pkt=13.94
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=139992686 ns ns_per_pkt=14.00
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=139703241 ns ns_per_pkt=13.97
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=140038592 ns ns_per_pkt=14.00
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=139748352 ns ns_per_pkt=13.97
+=== BASELINE ===
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=130114778 ns ns_per_pkt=13.01
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=132039037 ns ns_per_pkt=13.20
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=130047815 ns ns_per_pkt=13.00
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=130728593 ns ns_per_pkt=13.07
+pcap=/root/microbench/pcap/p25.pcap n_packets=20000 iter=10000000 total=131834000 ns ns_per_pkt=13.18

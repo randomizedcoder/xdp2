@@ -1,0 +1,25 @@
+bash: line 3: /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor: No such file or directory
+governor: n/a
+freq: n/a
+=== PATCHED ===
+iter=10000000 total=490692625 ns ns_per_pkt=49.07
+iter=10000000 total=492163417 ns ns_per_pkt=49.22
+iter=10000000 total=494360584 ns ns_per_pkt=49.44
+iter=10000000 total=489662459 ns ns_per_pkt=48.97
+iter=10000000 total=492122000 ns ns_per_pkt=49.21
+iter=10000000 total=491475500 ns ns_per_pkt=49.15
+iter=10000000 total=491821500 ns ns_per_pkt=49.18
+iter=10000000 total=494843209 ns ns_per_pkt=49.48
+iter=10000000 total=500420542 ns ns_per_pkt=50.04
+iter=10000000 total=489803126 ns ns_per_pkt=48.98
+=== BASELINE ===
+iter=10000000 total=980028417 ns ns_per_pkt=98.00
+iter=10000000 total=979554876 ns ns_per_pkt=97.96
+iter=10000000 total=983431167 ns ns_per_pkt=98.34
+iter=10000000 total=982703542 ns ns_per_pkt=98.27
+iter=10000000 total=980776959 ns ns_per_pkt=98.08
+iter=10000000 total=986101625 ns ns_per_pkt=98.61
+iter=10000000 total=980141750 ns ns_per_pkt=98.01
+iter=10000000 total=980817125 ns ns_per_pkt=98.08
+iter=10000000 total=982558667 ns ns_per_pkt=98.26
+iter=10000000 total=979712667 ns ns_per_pkt=97.97

@@ -1,0 +1,103 @@
+From 5afe6cab0e3a0bf36ba555f23187ded903e0c888 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sun, 14 Jun 2026 22:55:30 -0700
+Subject: [PATCH 5/6] net: flow_dissector: extend VLAN fast-path to QinQ
+ (depth-2, v1-netdev)
+
+Same as the previous v1-netdev QinQ patch (depth-2 + CVLAN key for
+inner tag); regenerated against the rebased single-VLAN parent that
+anchors forward decls at the top of the file.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ net/core/flow_dissector.c | 37 +++++++++++++++++++++++++++----------
+ 1 file changed, 27 insertions(+), 10 deletions(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 6d627fe75b71..d2cc7b60c6fa 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -1226,27 +1226,39 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+  * to fall back. Only the two standard dissectors are eligible; custom
+  * dissectors and slow-path-only flags defer unconditionally.
+  */
+-/* Strip a single 802.1Q or 802.1ad tag (HW-stripped or in-band),
+- * optionally write key_vlan / num_of_vlans, then dispatch to the
+- * IPv4 / IPv6 fast-path helper on the inner ethertype. Byte-identical
+- * with the slow path for the eligibility shape; defers on any miss.
++/* Strip up to two 802.1Q / 802.1ad tags (QinQ S-tag + C-tag, or two
++ * stacked 802.1Q tags). Outer tag → FLOW_DISSECTOR_KEY_VLAN, inner →
++ * FLOW_DISSECTOR_KEY_CVLAN, mirroring the slow-path's MAX → VLAN →
++ * CVLAN state machine. Past two tags, defer to slow path.
++ *
++ * Byte-identical with the slow path for the eligibility shape; defers
++ * on any miss.
+  */
+ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+ 				   struct flow_dissector *flow_dissector,
+ 				   void *target_container,
+ 				   const void *data,
+-				   __be16 proto, int nhoff, int hlen)
++				   __be16 proto, int nhoff, int hlen,
++				   int vlan_depth)
+ {
+ 	struct flow_dissector_key_num_of_vlans *key_nvs;
+ 	struct flow_dissector_key_vlan *key_vlan;
++	enum flow_dissector_key_id vlan_key;
+ 	__be16 inner_proto;
+ 	__be16 saved_tpid;
+ 	u16 tci_id;
+ 	u16 tci_prio;
+ 
++	if (vlan_depth >= 2)
++		return false;
++
++	vlan_key = vlan_depth == 0 ?
++		   FLOW_DISSECTOR_KEY_VLAN :
++		   FLOW_DISSECTOR_KEY_CVLAN;
+ 	saved_tpid = proto;
+ 
+-	if (skb && skb_vlan_tag_present(skb)) {
++	/* HW-stripped tag is only ever the outermost. */
++	if (vlan_depth == 0 && skb && skb_vlan_tag_present(skb)) {
+ 		tci_id = skb_vlan_tag_get_id(skb);
+ 		tci_prio = skb_vlan_tag_get_prio(skb);
+ 		inner_proto = skb->protocol;
+@@ -1263,10 +1275,9 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+ 		nhoff += (int)sizeof(*vlan);
+ 	}
+ 
+-	if (dissector_uses_key(flow_dissector,
+-			       FLOW_DISSECTOR_KEY_VLAN)) {
++	if (dissector_uses_key(flow_dissector, vlan_key)) {
+ 		key_vlan = skb_flow_dissector_target(flow_dissector,
+-						     FLOW_DISSECTOR_KEY_VLAN,
++						     vlan_key,
+ 						     target_container);
+ 		key_vlan->vlan_id = tci_id;
+ 		key_vlan->vlan_priority = tci_prio;
+@@ -1290,6 +1301,12 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+ 		return flow_dissect_fast_ipv6(skb, flow_dissector,
+ 					      target_container, data,
+ 					      nhoff, hlen);
++	case htons(ETH_P_8021Q):
++	case htons(ETH_P_8021AD):
++		return flow_dissect_fast_vlan(skb, flow_dissector,
++					      target_container, data,
++					      inner_proto, nhoff, hlen,
++					      vlan_depth + 1);
+ 	default:
+ 		return false;
+ 	}
+@@ -1314,7 +1331,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+ 	case htons(ETH_P_8021AD):
+ 		return flow_dissect_fast_vlan(skb, flow_dissector,
+ 					      target_container, data,
+-					      proto, nhoff, hlen);
++					      proto, nhoff, hlen, 0);
+ 	case htons(ETH_P_IP):
+ 		return flow_dissect_fast_ipv4(skb, flow_dissector,
+ 					      target_container, data,
+-- 
+2.54.0
+

@@ -1,0 +1,113 @@
+From b616176231dc1513e24c6e62547e3124fbd9a4d5 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sun, 14 Jun 2026 14:55:20 -0700
+Subject: [RFC EXTENSIONS 0/3] net: flow_dissector: VLAN / QinQ / VXLAN-inner extensions to the opt-in fast-path
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These three patches are draft extensions to the
+"opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}" series (now in
+net-next as commit 8013aee91ccb). They cover the highest-leverage
+shapes the bare eth+IP fast-path doesn't match today.
+
+Status: drafts. They apply on top of the v2-inline base, build, and
+follow the same code structure as the parent series, but have not
+been put through selftests or run on the cake-soak rig. Posted for
+discussion of design and scope; expect them to need polishing
+before landing.
+
+Cross-reference doc:
+kernel-patches/series3-flowdis-fastpath/docs/packet-flow-context.md
+sections 9 and 10 (in the same repository) cover the eligibility
+checklist, recipe, and value-vs-effort ranking these patches act
+on.
+
+Patch 1 -- single VLAN
+  Adds a one-tag fast-path covering Eth + (ETH_P_8021Q |
+  ETH_P_8021AD) + IPv4/IPv6 + TCP/UDP. Handles both the
+  hardware-stripped form (skb_vlan_tag_present + skb->protocol) and
+  the in-band form (4-byte vlan_hdr at nhoff). Writes
+  FLOW_DISSECTOR_KEY_VLAN and optionally
+  FLOW_DISSECTOR_KEY_NUM_OF_VLANS. After the tag, control falls
+  through to the existing IPv4 / IPv6 fast-path bodies.
+
+  Byte-identical with the slow path for the shapes handled. Adds
+  ~3-5 ns on a single-VLAN packet to the IPv4 fast-path body,
+  saves ~30 ns total versus the slow path (graph walk +
+  proto_again rewind avoided).
+
+  Highest-leverage extension: VLAN-tagged traffic is dominant in
+  most data-centre LAN deployments and the bare eth+IP fast-path
+  never matched it.
+
+Patch 2 -- QinQ (incremental over patch 1)
+  Lifts patch 1's depth limit from 1 to 2 so two stacked tags (the
+  canonical S-TAG + C-TAG QinQ shape) are also fast-pathed. The
+  outer tag is written to FLOW_DISSECTOR_KEY_VLAN, the inner to
+  FLOW_DISSECTOR_KEY_CVLAN, mirroring the slow path's state
+  machine (dissector_vlan MAX -> VLAN -> CVLAN).
+
+  Byte-identical. Targets service-provider and carrier-grade
+  deployments where QinQ is the wire format.
+
+Patch 3 -- VXLAN inner (RFC EXPERIMENT, behaviour change)
+  THIS PATCH IS A BEHAVIOUR CHANGE, not a byte-identical fast-path.
+  The standard flow_keys_dissector stops at outer UDP today, so for
+  VXLAN traffic between two VTEPs every inner flow collapses onto a
+  single 5-tuple bucket -- bad for cake/fq fairness, RPS, RFS, ECMP
+  in k8s overlay deployments.
+
+  This patch makes the fast-path descend into the VXLAN inner Eth +
+  IPv4/IPv6 + TCP/UDP when outer UDP dst port == IANA_VXLAN_UDP_PORT
+  (4789). FLOW_DIS_ENCAPSULATION is set; inner addrs/ports/basic
+  overwrite outer; same shape as __skb_flow_dissect_gre()'s
+  slow-path descent.
+
+  Posted alongside patches 1 and 2 because k8s overlay hashing is a
+  real operational problem worth a public discussion. Open
+  questions in the commit message:
+
+    - Should this be a separate sysctl
+      (net.core.flow_dissector_descend_udp_encap) rather than
+      piggy-backed on the fast-path gate?
+    - Should the slow path also get UDP-encap descent so the
+      contract stays "fast-path output == slow-path output"?
+    - How should the configured VXLAN port(s) be discovered
+      (today hardcoded to 4789; production needs per-netns
+      lookup)?
+
+  Not landable as-is. Posted as a foothold for the discussion.
+
+Bases on net-next (HEAD = parent series + these three commits):
+
+  8013aee91ccb  net: flow_dissector: add opt-in fast-path for
+                eth + IPv{4,6} + {TCP,UDP}   (parent, in net-next)
+   ^
+  76e3e4647731  this patch 1 (single VLAN)
+  c984b9f514b9  this patch 2 (QinQ)
+  b616176231dc  this patch 3 (VXLAN inner, RFC EXPERIMENT)
+
+Each patch is +60 / +17 / +46 lines respectively, all in
+net/core/flow_dissector.c only. No header changes, no new sysctls,
+no new exports.
+
+Follow-ups not in this set:
+  - PPPoE (ISP edges; structurally similar to single-VLAN).
+  - MPLS single-label (SP networks; harder because depth varies).
+  - GTP-U (telco; harder because extension headers vary).
+  - Selftests at tools/testing/selftests/net/ comparing fast-path
+    output to slow-path output byte-by-byte for VLAN / QinQ.
+
+Dave Seddon (3):
+  net: flow_dissector: add fast-path for single Eth + VLAN + IP +
+    TCP/UDP
+  net: flow_dissector: extend VLAN fast-path to QinQ (depth-2)
+  RFC EXPERIMENT: net: flow_dissector: descend into VXLAN inner flow
+
+ net/core/flow_dissector.c | 111 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 111 insertions(+)
+
+-- 
+2.54.0
+

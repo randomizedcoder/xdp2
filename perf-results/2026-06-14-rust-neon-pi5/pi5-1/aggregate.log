@@ -1,0 +1,85 @@
+=== System ===
+Linux pi5-1 6.12.87
+Architecture:                            aarch64
+Model name:                              Cortex-A76
+CPU(s) scaling MHz:                      68%
+CPU max MHz:                             2400.0000
+schedutil
+               total        used        free      shared  buff/cache   available
+Mem:           7.9Gi       1.6Gi       6.3Gi        20Mi       1.1Gi       6.3Gi
+
+=== xdp2-bench binary ===
+-rwxr-xr-x 2 das users 1277440 Jun 14 11:30 /tmp/xdp2-rs-neon/target/release/xdp2-bench
+
+=== rust/cargo version ===
+rustc 1.91.1 (ed61e7d7e 2025-11-07) (built from a source tarball)
+cargo 1.91.0 (ea2d97820 2025-10-10)
+
+=== tcp_ipv4.pcap (11 packets, fast-path eligible), 5000 iter x 5 trials ===
+run=1 Rust graph    : 290 ns/pkt,  3 Mpps
+run=1 Rust graph-enum: 74 ns/pkt,  13 Mpps
+run=1 Rust mono     : 50 ns/pkt,  20 Mpps
+run=1 Rust compiled : 17 ns/pkt,  57 Mpps
+run=1 Rust simd     : 35 ns/pkt,  28 Mpps
+run=1 Rust template : 20 ns/pkt,  49 Mpps
+run=2 Rust graph    : 270 ns/pkt,  4 Mpps
+run=2 Rust graph-enum: 69 ns/pkt,  14 Mpps
+run=2 Rust mono     : 25 ns/pkt,  39 Mpps
+run=2 Rust compiled : 28 ns/pkt,  35 Mpps
+run=2 Rust simd     : 40 ns/pkt,  25 Mpps
+run=2 Rust template : 18 ns/pkt,  53 Mpps
+run=3 Rust graph    : 209 ns/pkt,  5 Mpps
+run=3 Rust graph-enum: 79 ns/pkt,  13 Mpps
+run=3 Rust mono     : 28 ns/pkt,  35 Mpps
+run=3 Rust compiled : 28 ns/pkt,  36 Mpps
+run=3 Rust simd     : 39 ns/pkt,  25 Mpps
+run=3 Rust template : 19 ns/pkt,  51 Mpps
+run=4 Rust graph    : 213 ns/pkt,  5 Mpps
+run=4 Rust graph-enum: 76 ns/pkt,  13 Mpps
+run=4 Rust mono     : 26 ns/pkt,  38 Mpps
+run=4 Rust compiled : 26 ns/pkt,  38 Mpps
+run=4 Rust simd     : 41 ns/pkt,  24 Mpps
+run=4 Rust template : 12 ns/pkt,  79 Mpps
+run=5 Rust graph    : 261 ns/pkt,  4 Mpps
+run=5 Rust graph-enum: 65 ns/pkt,  15 Mpps
+run=5 Rust mono     : 26 ns/pkt,  38 Mpps
+run=5 Rust compiled : 26 ns/pkt,  37 Mpps
+run=5 Rust simd     : 27 ns/pkt,  37 Mpps
+run=5 Rust template : 17 ns/pkt,  59 Mpps
+
+=== broad-coverage.pcap (5200 packets, mixed), 500 iter x 5 trials ===
+run=1 Rust graph    : 317 ns/pkt,  3 Mpps
+run=1 Rust graph-enum: 23 ns/pkt,  43 Mpps
+run=1 Rust mono     : 47 ns/pkt,  21 Mpps
+run=1 Rust compiled : 46 ns/pkt,  22 Mpps
+run=1 Rust simd     : 56 ns/pkt,  18 Mpps
+run=1 Rust template : 49 ns/pkt,  20 Mpps
+run=1 Rust template-simd: 43 ns/pkt,  23 Mpps
+run=2 Rust graph    : 316 ns/pkt,  3 Mpps
+run=2 Rust graph-enum: 22 ns/pkt,  44 Mpps
+run=2 Rust mono     : 47 ns/pkt,  21 Mpps
+run=2 Rust compiled : 46 ns/pkt,  21 Mpps
+run=2 Rust simd     : 57 ns/pkt,  17 Mpps
+run=2 Rust template : 50 ns/pkt,  20 Mpps
+run=2 Rust template-simd: 43 ns/pkt,  23 Mpps
+run=3 Rust graph    : 318 ns/pkt,  3 Mpps
+run=3 Rust graph-enum: 23 ns/pkt,  43 Mpps
+run=3 Rust mono     : 46 ns/pkt,  21 Mpps
+run=3 Rust compiled : 46 ns/pkt,  22 Mpps
+run=3 Rust simd     : 57 ns/pkt,  17 Mpps
+run=3 Rust template : 49 ns/pkt,  20 Mpps
+run=3 Rust template-simd: 44 ns/pkt,  23 Mpps
+run=4 Rust graph    : 319 ns/pkt,  3 Mpps
+run=4 Rust graph-enum: 21 ns/pkt,  47 Mpps
+run=4 Rust mono     : 46 ns/pkt,  21 Mpps
+run=4 Rust compiled : 45 ns/pkt,  22 Mpps
+run=4 Rust simd     : 56 ns/pkt,  18 Mpps
+run=4 Rust template : 48 ns/pkt,  21 Mpps
+run=4 Rust template-simd: 43 ns/pkt,  23 Mpps
+run=5 Rust graph    : 317 ns/pkt,  3 Mpps
+run=5 Rust graph-enum: 22 ns/pkt,  44 Mpps
+run=5 Rust mono     : 46 ns/pkt,  21 Mpps
+run=5 Rust compiled : 45 ns/pkt,  22 Mpps
+run=5 Rust simd     : 56 ns/pkt,  18 Mpps
+run=5 Rust template : 48 ns/pkt,  21 Mpps
+run=5 Rust template-simd: 42 ns/pkt,  23 Mpps

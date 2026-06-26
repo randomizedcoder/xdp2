@@ -1,0 +1,88 @@
+Subject: [PATCH RFC v4 0/3] net: flow_dissector: byte-identical fast-paths for PPPoE, single-label MPLS, IP-in-IP
+
+This series adds three more byte-identical fast-path shapes that extend
+the v3 series (eth_ip, vlan, qinq; in net-next as commits 74c6ea03a417
+.. 8504d0dca46b). Each shape is a separate static_branch with its own
+sysctl under /proc/sys/net/flow_dissector/ and is disabled by default.
+Each produces output byte-identical to the slow path for its shape.
+
+This series excludes the descent shapes that change behaviour (the v3
+vxlan_inner RFC EXPERIMENT, and the GRE, Geneve, and GTP-U inner
+shapes), so that the byte-identical shapes can be reviewed separately.
+
+Shapes:
+  - PPPoE session + IPv4/IPv6 + TCP/UDP. PPPoE is a common L2 on ISP
+    DSL and FTTH links. The slow path runs __skb_header_pointer and a
+    per-field switch on each packet. Patch 1 reads the session header
+    directly and calls the eth_ip fast-path for the PPP_IP and PPP_IPV6
+    inner cases. Other PPP protocols (PPP_MPLS_UC, PPP_MPLS_MC, and
+    PFC-compressed) return to the slow path.
+  - Single-label MPLS + IP. Patch 2 handles the bottom-of-stack
+    (BoS=1) single-label case in straight-line form. Multi-label stacks
+    return to the slow path.
+  - IP-in-IP (IPv4-in-IPv4, IPv6-in-IPv4, and IPv6-outer variants).
+    Patch 3 descends into the inner IP when the outer protocol is
+    IPPROTO_IPIP or IPPROTO_IPV6. The inner dissection overwrites the
+    outer address and basic keys (matching the slow path) and sets
+    FLOW_DIS_ENCAPSULATION.
+
+When a gate is disabled, that shape adds one not-taken branch on its
+cold path. The eth_ip hot path is unchanged.
+
+Safety:
+  - Each shape either writes the same flow keys as the slow path, or it
+    returns false and the slow path runs. Output was verified equal to
+    the slow path for each shape.
+
+Measurements. Dissector cost in isolation, userspace A/B test, in
+nanoseconds per packet, measured across seven microarchitectures
+(x86 Zen1, Zen2, Skylake; ARM Cortex-A53, A72, A76; RISC-V X60). Range
+of the reduction across those microarchitectures:
+
+    PPPoE     -8.6% to -28.0%   read session header, call eth_ip
+    MPLS      -6.7% to -15.0%   single-label read; with KEY_MPLS not
+                                requested, both paths stop after the
+                                label, so this measures the label read
+                                only
+    IP-in-IP  -36.8% to -47.0%  largest reduction; the slow path re-runs
+                                the full parser for the inner IP, while
+                                the fast-path does a second straight-line
+                                IP read
+
+Live-traffic measurements are within run-to-run noise (link- or
+queue-bound), consistent with v3. Full per-shape and per-architecture
+matrix and raw logs:
+https://github.com/randomizedcoder/xdp2 , under perf-results/2026-06-25-*
+
+Base: stacks on the byte-identical subset of v3 (commit 8504d0dca46b).
+Independent of the vxlan_inner RFC EXPERIMENT.
+
+Open questions:
+  - Multi-label MPLS: a separate sysctl (mpls_deep, disabled by
+    default), or fold it into the mpls gate with an auto-toggle like
+    qinq/vlan? We prefer a separate gate. The qinq/vlan auto-toggle
+    reflects a strict dependency (qinq requires vlan) that does not
+    apply here.
+  - IP-in-IP handles only the standalone IPIP and IPv6 protocols
+    (tunnels from "ip link add type ipip" / "type ip6tnl"). It does not
+    handle GRE-encapsulated IP-in-IP (a separate shape). Is the
+    standalone gate too narrow without GRE for any deployment?
+  - PPPoE writes FLOW_DISSECTOR_KEY_PPPOE only when the dissector
+    requests it. The common flow_keys_dissector does not request it, so
+    the typical hash path does not write it. A Documentation note may
+    help; we can add one.
+
+Dave Seddon (3):
+  net: flow_dissector: add fast-path for PPPoE session + IPv{4,6} +
+    TCP/UDP
+  net: flow_dissector: add fast-path for single MPLS label + IP
+  net: flow_dissector: add fast-path for IP-in-IP family (IPIP /
+    4in6 / 6in4)
+
+ Documentation/admin-guide/sysctl/net.rst |  44 +++++
+ include/net/flow_dissector.h             |   3 +
+ net/core/flow_dissector.c                | 211 +++++++++++++++++++++++
+ 3 files changed, 258 insertions(+), 0 deletions(-)
+
+--
+2.46.0

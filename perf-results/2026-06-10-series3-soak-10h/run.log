@@ -1,0 +1,33 @@
+2026-06-11T04:52:42Z === series3-soak-10h start  DUR=3600  COOLDOWN=120  cells=10 ===
+2026-06-11T04:52:42Z [cell 01] start  sender=pi5-1  recv=pi5-2  proto=iperf3-tcp  sysctl=0
+2026-06-11T05:52:44Z [cell 01] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-01-pi5-1-pi5-2-iperf3-tcp-sysctl0/summary.json
+2026-06-11T05:52:44Z [cell 01] cool-down 120s ...
+2026-06-11T05:54:44Z [cell 02] start  sender=pi5-1  recv=pi5-2  proto=iperf3-tcp  sysctl=1
+2026-06-11T06:54:45Z [cell 02] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-02-pi5-1-pi5-2-iperf3-tcp-sysctl1/summary.json
+2026-06-11T06:54:45Z [cell 02] cool-down 120s ...
+2026-06-11T06:56:45Z [cell 03] start  sender=pi5-2  recv=pi4-1  proto=iperf3-tcp  sysctl=0
+2026-06-11T07:56:48Z [cell 03] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-03-pi5-2-pi4-1-iperf3-tcp-sysctl0/summary.json
+2026-06-11T07:56:48Z [cell 03] cool-down 120s ...
+2026-06-11T07:58:48Z [cell 04] start  sender=pi5-2  recv=pi4-1  proto=iperf3-tcp  sysctl=1
+2026-06-11T08:58:50Z [cell 04] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-04-pi5-2-pi4-1-iperf3-tcp-sysctl1/summary.json
+2026-06-11T08:58:50Z [cell 04] cool-down 120s ...
+2026-06-11T09:00:50Z [cell 05] start  sender=pi5-2  recv=pi3-1  proto=iperf3-tcp  sysctl=0
+2026-06-11T10:00:52Z [cell 05] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-05-pi5-2-pi3-1-iperf3-tcp-sysctl0/summary.json
+2026-06-11T10:00:52Z [cell 05] cool-down 120s ...
+2026-06-11T10:02:53Z [cell 06] start  sender=pi5-2  recv=pi3-1  proto=iperf3-tcp  sysctl=1
+2026-06-11T11:02:55Z [cell 06] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-06-pi5-2-pi3-1-iperf3-tcp-sysctl1/summary.json
+2026-06-11T11:02:55Z [cell 06] cool-down 120s ...
+2026-06-11T11:04:55Z [cell 07] start  sender=pi5-1  recv=pi5-2  proto=iperf2-tcp  sysctl=0
+2026-06-11T12:04:57Z [cell 07] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-07-pi5-1-pi5-2-iperf2-tcp-sysctl0/summary.json
+2026-06-11T12:04:57Z [cell 07] cool-down 120s ...
+2026-06-11T12:06:57Z [cell 08] start  sender=pi5-1  recv=pi5-2  proto=iperf2-tcp  sysctl=1
+2026-06-11T13:06:59Z [cell 08] done   exit=0  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-08-pi5-1-pi5-2-iperf2-tcp-sysctl1/summary.json
+2026-06-11T13:06:59Z [cell 08] cool-down 120s ...
+2026-06-11T13:08:59Z [cell 09] start  sender=pi5-2  recv=pi3-1  proto=tcpreplay-vxlan  sysctl=0
+2026-06-11T15:06:11Z [cell 09] done   exit=255  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-09-pi5-2-pi3-1-tcpreplay-vxlan-sysctl0/summary.json
+2026-06-11T15:06:11Z [cell 09] cool-down 120s ...
+2026-06-11T15:08:11Z [cell 10] start  sender=pi5-2  recv=pi3-1  proto=tcpreplay-vxlan  sysctl=1
+2026-06-11T16:09:23Z [cell 10] done   exit=255  summary=perf-results/2026-06-10-series3-soak-10h/cells/cell-10-pi5-2-pi3-1-tcpreplay-vxlan-sysctl1/summary.json
+2026-06-11T16:09:23Z [cell 10] cool-down 120s ...
+2026-06-11T16:11:23Z === series3-soak-10h: all cells dispatched ===
+2026-06-11T16:11:23Z === series3-soak-10h finished ===

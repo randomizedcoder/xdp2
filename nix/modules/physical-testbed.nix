@@ -146,6 +146,27 @@ in
       '';
     };
 
+    dedicatedHost = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        If true (default), this host is dedicated to benchmarking and
+        gets aggressive always-on kernel-cmdline tuning that is
+        undesirable on a daily-driver workstation:
+          - processor.max_cstate=1 (keeps cores out of deep C-states
+            24/7 — higher idle power and heat),
+          - transparent_hugepage=never,
+          - audit=0.
+
+        Set false for a "generator-lite" host (e.g. a desktop that also
+        drives test traffic): NIC tuning, static addressing, hugepages
+        and optional CPU isolation still apply, but the three params
+        above are skipped so interactive use and idle power are
+        unaffected. Typically combined with disableMitigations=false,
+        disableNonEssentialServices=false, and lowJitter=false.
+      '';
+    };
+
     disableMitigations = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -313,15 +334,20 @@ in
 
     # ---- Kernel command line ----
     boot.kernelParams = [
-      "processor.max_cstate=1"
-      "transparent_hugepage=never"
-      "audit=0"
       "default_hugepagesz=2M"
       "hugepagesz=2M"
       # When dpdkBenchHost = true we need 1024 hugepages (2 GiB) for
       # DPDK pktgen lcores + mbuf pools; take the max of the two so we
       # never under-provision.
       "hugepages=${toString (lib.max cfg.hugepages2M (if cfg.dpdkBenchHost then 1024 else 0))}"
+    ]
+    # Always-on tuning that only belongs on a dedicated benchmark host —
+    # disabling deep C-states and THP 24/7 raises idle power/heat and is
+    # undesirable on a daily-driver workstation acting as a generator.
+    ++ lib.optionals cfg.dedicatedHost [
+      "processor.max_cstate=1"
+      "transparent_hugepage=never"
+      "audit=0"
     ]
     ++ lib.optional cfg.disableMitigations "mitigations=off"
     ++ lib.optionals cfg.dpdkBenchHost [

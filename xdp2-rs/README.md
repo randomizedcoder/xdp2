@@ -62,13 +62,19 @@ VXLAN/Geneve tunnel decapsulation, LLC/SNAP, FCoE, L2TP.
 | Rust graph (`&dyn` dispatch + ProtoTable) | 149 | 7 | Full parse + FlowMeta |
 | Rust mono (monomorphized) | 36 | 28 | Same work, no vtable dispatch |
 | Rust compiled (inline byte reads) | 33 | 29 | Same work, no trait overhead |
-| Rust simd (AVX2 batch classify) | 38 | 26 | Same work, SIMD classification |
+| Rust simd (batch classify — AVX2 on x86_64, NEON on aarch64) | 38 | 26 | Same work, SIMD classification |
 | Rust template (classify + extract + fallback) | 39 | 25 | 29% template, 71% compiled fallback |
 | Rust template-simd (batch + fallback) | 44 | 22 | Same as template, batch processing |
 
 All modes produce identical `FlowMeta` output (31 metadata fields: MACs, IPs,
 ports, VLAN, GRE, fragments, etc.). The `&dyn` dispatch + ProtoTable overhead
 costs ~4.5x (149 vs 33 ns).
+
+The `simd` row above is the **AVX2** measurement on the 3945WX. The same
+`--mode simd` runs on aarch64 via a **NEON** path added 2026-06-14, with
+the same fast-path coverage (Eth → IPv4 → TCP/UDP/ICMP/SCTP) and
+identical `FlowMeta` output — see [`docs/simd-batch-neon.md`](docs/simd-batch-neon.md)
+for the cross-arch implementation notes and Cortex-A76 measurements.
 
 ### Protocol coverage and template extraction
 

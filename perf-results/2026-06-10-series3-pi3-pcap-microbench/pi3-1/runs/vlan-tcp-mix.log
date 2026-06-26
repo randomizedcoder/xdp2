@@ -1,0 +1,12 @@
+=== PATCHED ===
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=734519583 ns ns_per_pkt=73.45
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=737824896 ns ns_per_pkt=73.78
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=735521874 ns ns_per_pkt=73.55
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=734299791 ns ns_per_pkt=73.43
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=736734271 ns ns_per_pkt=73.67
+=== BASELINE ===
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=642727969 ns ns_per_pkt=64.27
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=643517552 ns ns_per_pkt=64.35
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=633270000 ns ns_per_pkt=63.33
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=632440728 ns ns_per_pkt=63.24
+pcap=/root/microbench/pcap/vlan-tcp-mix.pcap n_packets=20000 iter=10000000 total=632203646 ns ns_per_pkt=63.22

@@ -1,0 +1,11 @@
+{
+	"start":	{
+		"connected":	[],
+		"version":	"iperf 3.20",
+		"system_info":	"Linux hp1 7.0.9 #1-NixOS SMP PREEMPT_DYNAMIC Sun May 17 15:16:34 UTC 2026 x86_64"
+	},
+	"intervals":	[],
+	"end":	{
+	},
+	"error":	"unable to connect to server - server may have stopped running or use a different port, firewall issue, etc.: Connection timed out"
+}

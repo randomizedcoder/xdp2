@@ -1,0 +1,43 @@
+uarch,host,shape,baseline_ns,patched_ns,speedup_pct
+x86 Zen2 (TR 3945WX),l,eth_ip,10.03,7.71,-23.1
+x86 Zen2 (TR 3945WX),l,vlan,16.24,9.98,-38.5
+x86 Zen2 (TR 3945WX),l,qinq,19.42,12.33,-36.5
+x86 Zen2 (TR 3945WX),l,pppoe,11.65,8.50,-27.0
+x86 Zen2 (TR 3945WX),l,mpls,4.71,4.22,-10.5
+x86 Zen2 (TR 3945WX),l,ipip,18.05,10.64,-41.1
+x86 Skylake (i9-10885H),t,eth_ip,9.83,6.82,-30.6
+x86 Skylake (i9-10885H),t,vlan,12.61,9.24,-26.8
+x86 Skylake (i9-10885H),t,qinq,14.72,11.79,-19.9
+x86 Skylake (i9-10885H),t,pppoe,10.29,7.76,-24.5
+x86 Skylake (i9-10885H),t,mpls,4.47,3.95,-11.6
+x86 Skylake (i9-10885H),t,ipip,16.00,9.33,-41.7
+x86 Zen1 (Ryzen 2400G),hp5,eth_ip,14.97,14.27,-4.7
+x86 Zen1 (Ryzen 2400G),hp5,vlan,21.59,17.68,-18.1
+x86 Zen1 (Ryzen 2400G),hp5,qinq,24.45,20.50,-16.1
+x86 Zen1 (Ryzen 2400G),hp5,pppoe,16.49,15.07,-8.6
+x86 Zen1 (Ryzen 2400G),hp5,mpls,7.26,6.56,-9.7
+x86 Zen1 (Ryzen 2400G),hp5,ipip,26.29,16.61,-36.8
+ARM Cortex-A76 (pi5),pi5-2,eth_ip,19.93,15.59,-21.8
+ARM Cortex-A76 (pi5),pi5-2,vlan,24.94,17.12,-31.3
+ARM Cortex-A76 (pi5),pi5-2,qinq,32.58,19.60,-39.8
+ARM Cortex-A76 (pi5),pi5-2,pppoe,21.26,15.97,-24.9
+ARM Cortex-A76 (pi5),pi5-2,mpls,8.34,7.09,-15.0
+ARM Cortex-A76 (pi5),pi5-2,ipip,35.46,19.07,-46.2
+ARM Cortex-A72 (pi4),pi4-1,eth_ip,42.08,33.15,-21.2
+ARM Cortex-A72 (pi4),pi4-1,vlan,52.60,35.70,-32.1
+ARM Cortex-A72 (pi4),pi4-1,qinq,66.36,40.78,-38.6
+ARM Cortex-A72 (pi4),pi4-1,pppoe,45.84,34.10,-25.6
+ARM Cortex-A72 (pi4),pi4-1,mpls,17.80,15.63,-12.2
+ARM Cortex-A72 (pi4),pi4-1,ipip,74.73,39.63,-47.0
+ARM Cortex-A53 (pi3),pi3-1,eth_ip,121.98,93.73,-23.2
+ARM Cortex-A53 (pi3),pi3-1,vlan,161.29,108.43,-32.8
+ARM Cortex-A53 (pi3),pi3-1,qinq,194.72,122.08,-37.3
+ARM Cortex-A53 (pi3),pi3-1,pppoe,133.50,102.50,-23.2
+ARM Cortex-A53 (pi3),pi3-1,mpls,43.79,40.85,-6.7
+ARM Cortex-A53 (pi3),pi3-1,ipip,200.70,121.63,-39.4
+RISC-V SpacemiT X60,bpi-f3,eth_ip,98.09,67.06,-31.6
+RISC-V SpacemiT X60,bpi-f3,vlan,131.91,86.61,-34.3
+RISC-V SpacemiT X60,bpi-f3,qinq,156.93,102.85,-34.5
+RISC-V SpacemiT X60,bpi-f3,pppoe,105.95,76.26,-28.0
+RISC-V SpacemiT X60,bpi-f3,mpls,37.30,33.06,-11.4
+RISC-V SpacemiT X60,bpi-f3,ipip,165.77,88.42,-46.7

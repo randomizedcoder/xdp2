@@ -1,0 +1,8 @@
+series3-pcap-microbench summary
+  pcap: tcp_ipv4
+  n_packets in pcap: 11
+  source: perf-results/2026-06-10-series3-pi3-pcap-microbench/pi3-1/micro_flowdis_pcap_tcp_ipv4.log
+
+patched : N=  1  mean=  71.220  stdev= 0.000  range=[71.22, 71.22]
+baseline: N=  1  mean=  64.550  stdev= 0.000  range=[64.55, 64.55]
+delta   : +6.670 ns/pkt (+10.33%)

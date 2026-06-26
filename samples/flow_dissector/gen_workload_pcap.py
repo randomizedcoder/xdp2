@@ -399,6 +399,55 @@ WORKLOADS = {
         (10, build_k8s_vxlan_icmp),
         ( 5, build_k8s_liveness_probe),
     ],
+
+    # Controlled-ratio mix workloads. Each has p% fast-path-eligible
+    # packets (bare eth+IPv4/IPv6+TCP/443, IHL=5, no fragmentation)
+    # and (1-p)% non-matching packets evenly split across three
+    # decline-reasons: ICMP (protocol != TCP/UDP), VLAN (non-IP
+    # ethertype), VXLAN-encap (outer UDP plus encap-port check).
+    # The eligible share splits ~80/20 between v4 and v6 to
+    # exercise both fast-path branches.
+    #
+    # Used by perf-results/2026-06-XX-series3-controlled-mix/ to
+    # demonstrate the linear-scaling claim from the cover letter:
+    # measured ns/pkt should sit at baseline + (1-p)*dispatcher_overhead
+    # − p*fast_path_savings. A clean monotone curve at five p-points
+    # confirms the per-packet cost model.
+    "series3-fast-vs-slow-10": [
+        ( 8, lambda: build_eth_ipv4_tcp(dport=443, server_side=True)),
+        ( 2, lambda: build_eth_ipv6_tcp(dport=443, server_side=True)),
+        (30, lambda: build_eth_ipv4_icmp()),
+        (30, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=True)),
+        (30, build_k8s_vxlan_grpc),
+    ],
+    "series3-fast-vs-slow-25": [
+        (20, lambda: build_eth_ipv4_tcp(dport=443, server_side=True)),
+        ( 5, lambda: build_eth_ipv6_tcp(dport=443, server_side=True)),
+        (25, lambda: build_eth_ipv4_icmp()),
+        (25, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=True)),
+        (25, build_k8s_vxlan_grpc),
+    ],
+    "series3-fast-vs-slow-50": [
+        (40, lambda: build_eth_ipv4_tcp(dport=443, server_side=True)),
+        (10, lambda: build_eth_ipv6_tcp(dport=443, server_side=True)),
+        (16, lambda: build_eth_ipv4_icmp()),
+        (17, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=True)),
+        (17, build_k8s_vxlan_grpc),
+    ],
+    "series3-fast-vs-slow-75": [
+        (60, lambda: build_eth_ipv4_tcp(dport=443, server_side=True)),
+        (15, lambda: build_eth_ipv6_tcp(dport=443, server_side=True)),
+        ( 8, lambda: build_eth_ipv4_icmp()),
+        ( 8, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=True)),
+        ( 9, build_k8s_vxlan_grpc),
+    ],
+    "series3-fast-vs-slow-90": [
+        (72, lambda: build_eth_ipv4_tcp(dport=443, server_side=True)),
+        (18, lambda: build_eth_ipv6_tcp(dport=443, server_side=True)),
+        ( 3, lambda: build_eth_ipv4_icmp()),
+        ( 3, lambda: build_eth_vlan_ipv4_tcp(dport=443, server_side=True)),
+        ( 4, build_k8s_vxlan_grpc),
+    ],
 }
 
 

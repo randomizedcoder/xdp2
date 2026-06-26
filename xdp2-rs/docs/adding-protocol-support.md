@@ -479,8 +479,8 @@ nix develop --command cargo run -p xdp2-compiler -- \
 
 ### SIMD Batch Parser (`simd_batch.rs`)
 
-The AVX2 batch parser only accelerates the fast path:
-`Ethernet(14B) → IPv4(IHL=5, 20B) → TCP/UDP/ICMP leaf`
+The SIMD batch parser (AVX2 on x86_64, NEON on aarch64) only accelerates
+the fast path: `Ethernet(14B) → IPv4(IHL=5, 20B) → TCP/UDP/ICMP leaf`
 
 All other packets fall back to the scalar compiled parser. New protocols
 generally require no changes here unless:

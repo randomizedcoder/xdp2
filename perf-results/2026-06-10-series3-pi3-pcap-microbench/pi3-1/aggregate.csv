@@ -1,0 +1,8 @@
+pcap,n_packets,patched_mean_ns,patched_stdev,baseline_mean_ns,baseline_stdev,delta_ns,delta_pct,note
+broad-coverage,5200,74.886,0.221,65.068,0.038,+9.818,+15.09,ok
+gre-within-gre,628,69.960,0.093,63.236,0.059,+6.724,+10.63,ok
+l2tp,38,74.342,0.004,67.354,0.061,+6.988,+10.38,ok
+tcp_ipv4,11,71.278,0.020,64.564,0.011,+6.714,+10.40,ok
+vlan-tcp-mix,20000,73.576,0.149,63.682,0.575,+9.894,+15.54,ok
+vxlan-k8s-pure,20000,69.354,0.161,62.518,0.102,+6.836,+10.93,ok
+vxlan,10,71.288,0.036,64.600,0.075,+6.688,+10.35,ok

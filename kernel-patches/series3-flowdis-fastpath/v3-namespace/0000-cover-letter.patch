@@ -1,0 +1,95 @@
+From bb1b8029b9cc3767fac5d2e90790134db4ce0955 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Mon, 15 Jun 2026 09:40:02 -0700
+Subject: [PATCH RFC v3 0/4] net: flow_dissector: opt-in fast-path for common eth+IP+TCP/UDP shapes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+__skb_flow_dissect() parses packet headers with a generic
+protocol-graph parser. This series adds an opt-in, straight-line
+fast-path for the most common packet shape: eth + IP + TCP/UDP, both
+IPv4 and IPv6. It is gated by a static_branch and is disabled by
+default. Its output is byte-identical to the slow path.
+
+What it does:
+  - Handles eth + IPv4/IPv6 + TCP/UDP. Any other input (IPv4 options or
+    fragments, IPv6 extension headers, any other shape) is handled by
+    the existing parser, unchanged.
+  - Per-shape gates under /proc/sys/net/flow_dissector/. eth_ip is the
+    base gate; vlan and qinq build on it. All are disabled by default.
+  - When a gate is disabled, the added cost is one not-taken branch per
+    dissect.
+
+Safety:
+  - The fast-path either writes the same flow keys as the slow path, or
+    it returns false and the slow path runs. These are the only two
+    outcomes, by construction. Output was verified to match the slow
+    path for each shape (IPv4, IPv6, VLAN, QinQ).
+
+Measurements. Dissector cost in isolation, measured with a userspace
+A/B test (the same dissector source compiled two ways). Input is
+eth + IPv4 + TCP. Values are nanoseconds per packet, lower is better:
+
+    x86 Zen 2  (Threadripper PRO 3945WX)   12.4 -> 6.6   -47%
+    x86 Skylake (Core i9-10885H)           10.6 -> 5.6   -47%
+    ARM Cortex-A53                        119.0 -> 61.3  -48%
+    ARM Cortex-A72                         42.4 -> 19.1  -55%
+    ARM Cortex-A76                         19.4 -> 9.3   -52%
+    RISC-V SpacemiT X60                    98.2 -> 49.3  -50%
+
+  - IPv6 uses the same gate and is also byte-identical (x86 -39%,
+    RISC-V -25%).
+  - The fast-path executes about half as many instructions per dissect.
+    This is consistent across architectures. The relative reduction is
+    largest on in-order cores. One exception is x86 Zen 1, where the
+    reduction is not measurable.
+
+Where the dissector runs:
+  - Callers of skb_get_hash(): RPS, RFS, the fq / fq_codel / cake
+    qdiscs, and tc-flower.
+  - Example, a WireGuard gateway with cake: __skb_flow_dissect ran
+    about 1.1 million times in 10 seconds on a 902 Mbit/s flow. cake
+    classifies the encrypted UDP transport, which is the eth_ip shape.
+
+Limitations:
+  - This is a per-packet CPU reduction. On a host limited by link rate
+    or queue depth, it appears as available CPU capacity, not as higher
+    throughput. Our live-traffic measurements are within run-to-run
+    noise.
+  - The absolute nanosecond values are per-architecture baselines. The
+    cross-architecture ratios are the relevant comparison.
+
+Patches:
+  1  eth + IPv4/IPv6 + TCP/UDP (eth_ip)    byte-identical
+  2  single VLAN                            byte-identical
+  3  QinQ (depth 2)                         byte-identical
+  4  VXLAN inner descent                    RFC EXPERIMENT; not
+                                            byte-identical; gated
+                                            separately
+
+Base: net-next c0aa5f13826d. Supersedes v1 (in net-next as
+eeca3eb493b8) and v2 (8013aee91ccb). Both are withdrawn.
+
+Supporting data (microbench harness, full per-shape and
+per-architecture matrix, perf-counter breakdown, WireGuard trace,
+byte-identical checks):
+https://github.com/randomizedcoder/xdp2 , under perf-results/2026-06-25-*
+
+Open question: the eth_ip shape is byte-identical and covers the common
+case. Is there interest in enabling it by default? This series keeps it
+disabled by default.
+
+Dave Seddon (4):
+  net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
+  net: flow_dissector: add fast-path for single Eth+VLAN+IP+TCP/UDP
+  net: flow_dissector: extend VLAN fast-path to QinQ (depth-2)
+  RFC EXPERIMENT: net: flow_dissector: descend into VXLAN inner flow
+
+ Documentation/admin-guide/sysctl/net.rst |  84 +++-
+ include/net/flow_dissector.h             |  11 +
+ net/core/flow_dissector.c                | 478 +++++++++++++++++++++++
+ 3 files changed, 572 insertions(+), 1 deletion(-)
+
+--
+2.54.0

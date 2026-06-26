@@ -436,6 +436,99 @@
         series3-pcap-microbench = import ./nix/series3-pcap-microbench.nix {
           inherit pkgs;
         };
+        # 10-cell × 1-hour real-traffic soak across the Pi pair fleet.
+        # Static matrix (pi5-1↔pi5-2, pi5-2↔pi4-1, pi5-2↔pi3-1) over
+        # iperf3 TCP + iperf2 TCP + tcpreplay vxlan, A/B on sysctl.
+        # ~10.3 h wall clock at default DUR=3600 / COOLDOWN=120.
+        series3-soak = import ./nix/series3-soak.nix {
+          inherit pkgs;
+        };
+        # 12-cell soak for the x86 back-to-back pair l (generator) <-> l2
+        # (DUT) over the Mellanox 25 GbE link. The high-performance
+        # analogue of series3-soak (Pi fleet): /sys+/proc sidecar,
+        # CPU-bound UDP + tunnelled tcpreplay cells, taskset-pinned
+        # generator. ~12 h at default DUR=3600.
+        series3-soak-l-l2 = import ./nix/series3-soak-x86.nix {
+          inherit pkgs;
+        };
+
+        # ===================================================================
+        # Network-config scenarios for the series3 extension patches.
+        # Each script reconfigures a host pair (over SSH) for a named
+        # encap shape (single VLAN, QinQ, VXLAN, PPPoE), runs an
+        # `up | down | verify` op, and emits scenario-specific env
+        # vars (L_SCENARIO_DEV, L_SCENARIO_V4, ...) on stdout for the
+        # orchestrator to ingest. The underlying NixOS-managed static
+        # config is never modified — these scripts add and remove
+        # sub-interfaces only.
+        #
+        # See nix/scenarios/lib.sh for shared helpers and
+        # kernel-patches/series3-flowdis-fastpath/docs/packet-flow-context.md
+        # section 9 for the design rationale.
+        netconf-eth_ip = import ./nix/scenarios/netconf-eth_ip.nix { inherit pkgs; };
+        netconf-vlan  = import ./nix/scenarios/netconf-vlan.nix  { inherit pkgs; };
+        netconf-qinq  = import ./nix/scenarios/netconf-qinq.nix  { inherit pkgs; };
+        netconf-vxlan = import ./nix/scenarios/netconf-vxlan.nix { inherit pkgs; };
+        netconf-pppoe = import ./nix/scenarios/netconf-pppoe.nix { inherit pkgs; };
+        netconf-mpls  = import ./nix/scenarios/netconf-mpls.nix  { inherit pkgs; };
+        netconf-ipip  = import ./nix/scenarios/netconf-ipip.nix  { inherit pkgs; };
+        netconf-gre   = import ./nix/scenarios/netconf-gre.nix   { inherit pkgs; };
+        netconf-geneve = import ./nix/scenarios/netconf-geneve.nix { inherit pkgs; };
+        netconf-gtpu   = import ./nix/scenarios/netconf-gtpu.nix   { inherit pkgs; };
+
+        # Phase 2 orchestrator: loops {pair × scenario × proto × sysctl},
+        # composing the netconf-<scenario> scripts with iperf3 A/B cells
+        # in the spirit of series3-soak-x86.nix. Emits matrix.csv.
+        series3-extensions-soak = import ./nix/series3-extensions-soak.nix {
+          inherit pkgs;
+        };
+
+        # 10-hour soak wrapper around series3-extensions-soak with
+        # DUR=600 across 60 cells (3 pairs × 5 scenarios × 4 cells).
+        # Goal: pin down recv_soft delta confidence intervals beyond
+        # the ±0.3pp noise floor of the DUR=60 runs.
+        series3-extensions-soak-10h = import ./nix/series3-extensions-soak-10h.nix {
+          inherit pkgs;
+        };
+
+        # Phase G: CPU-bound pktgen-driven matrix. Same shape as
+        # series3-extensions-soak but pktgen with random source ports
+        # replaces iperf3, and the per-cell artifacts include a
+        # ksoftirqd-targeted perf-stat trace so we get
+        # cycles_per_pkt + ins_per_pkt + branch_miss_per_pkt as
+        # architecture-independent numbers for the netdev cover
+        # letter alongside the recv_soft_pct mpstat deltas.
+        series3-cpu-bound-soak = import ./nix/series3-cpu-bound-soak.nix {
+          inherit pkgs;
+        };
+
+        # Phase H: cover-letter summary table generator. Reads one or
+        # more matrix.csv files from Phase F (iperf3) or Phase G
+        # (pktgen) and emits a kernel-team-ready markdown table with
+        # per-sysctl % improvement, sorted by |% improvement| desc so
+        # the strongest signal lands first. Pure awk.
+        series3-summary-report = import ./nix/series3-summary-report.nix {
+          inherit pkgs;
+        };
+
+        # Phase H comprehensive matrix wrappers. Defaults: 3 pairs *
+        # 8 scenarios (eth_ip..geneve) * REPLICATES=3 * DUR=60. Run
+        # iperf3 wrapper first (~5.6h), then pktgen wrapper (~2.8h),
+        # then series3-summary-report on both matrix.csv files.
+        series3-comprehensive-iperf3-soak =
+          import ./nix/series3-comprehensive-iperf3-soak.nix { inherit pkgs; };
+        series3-comprehensive-pktgen-soak =
+          import ./nix/series3-comprehensive-pktgen-soak.nix { inherit pkgs; };
+
+        # OFAT mlx5 offload investigation harness. Designed to isolate
+        # the cause of the IPIP +5.2% vs GRE -4% UDP throughput
+        # discrepancy on hp1<->hp3. Toggles one offload feature at a
+        # time (off, on) under both sysctl=0/1 and replicates each
+        # cell. Output CSV is suitable for sharing with the kernel
+        # team. See nix/mlx5-offload-investigate.nix for env knobs.
+        mlx5-offload-investigate = import ./nix/mlx5-offload-investigate.nix {
+          inherit pkgs;
+        };
 
         # R1.1 — focused perf-record on the post-S _opt path of the
         # flow-dissector benchmark. Outputs land in result/perf-hp5/
@@ -1202,6 +1295,14 @@
           workload-pcap-vlan-tcp-mix     = perfAnalysis.workload-pcap-vlan-tcp-mix;
           workload-pcap-pppoe-isp        = perfAnalysis.workload-pcap-pppoe-isp;
           workload-pcap-vxlan-k8s-pure   = perfAnalysis.workload-pcap-vxlan-k8s-pure;
+          # Series-3 controlled-ratio mixes (2026-06-10) — used by
+          # perf-results/2026-06-10-series3-controlled-mix/ to plot
+          # ns/pkt vs fast-path-eligible fraction p.
+          workload-pcap-series3-fast-vs-slow-10 = perfAnalysis.workload-pcap-series3-fast-vs-slow-10;
+          workload-pcap-series3-fast-vs-slow-25 = perfAnalysis.workload-pcap-series3-fast-vs-slow-25;
+          workload-pcap-series3-fast-vs-slow-50 = perfAnalysis.workload-pcap-series3-fast-vs-slow-50;
+          workload-pcap-series3-fast-vs-slow-75 = perfAnalysis.workload-pcap-series3-fast-vs-slow-75;
+          workload-pcap-series3-fast-vs-slow-90 = perfAnalysis.workload-pcap-series3-fast-vs-slow-90;
           gen-workload-pcap              = perfAnalysis.gen-workload-pcap;
           chain-histogram-workloads      = perfAnalysis.chain-histogram-workloads;
           sweep-workload-https-web       = perfAnalysis.sweep-workload-https-web;
@@ -1239,6 +1340,79 @@
           inherit series3-traffic-ab;
           inherit series3-microbench;
           inherit series3-pcap-microbench;
+          inherit series3-soak;
+          # x86 25 GbE soak for the l <-> l2 pair. Usage:
+          #   L2_V4=10.10.4.5 L2_V6=fd10:10:4::5 \
+          #     nix run .#series3-soak-l-l2
+          #   DUR=60 COOLDOWN=10 L2_V4=10.10.4.5 nix run .#series3-soak-l-l2  # smoke
+          inherit series3-soak-l-l2;
+
+          # Network-config scenarios for the series3 extension patches.
+          # Usage:
+          #   OP=up L=l L2=l2 GEN_DEV=enp35s0f0np0 DUT_DEV=enp35s0f0np0 \
+          #     nix run .#netconf-vlan
+          #   (symmetric: netconf-qinq, netconf-vxlan, netconf-pppoe,
+          #              netconf-mpls, netconf-ipip)
+          # See nix/scenarios/lib.sh and kernel-patches/series3-
+          # flowdis-fastpath/docs/packet-flow-context.md §9.
+          inherit netconf-eth_ip;
+          inherit netconf-vlan;
+          inherit netconf-qinq;
+          inherit netconf-vxlan;
+          inherit netconf-pppoe;
+          inherit netconf-mpls;
+          inherit netconf-ipip;
+          inherit netconf-gre;
+          inherit netconf-geneve;
+          inherit netconf-gtpu;
+
+          # Phase 2 orchestrator for the extension-patches scenario
+          # matrix. Usage:
+          #   PAIRS=pi5-pair SCENARIOS=vlan DUR=10 \
+          #     nix run .#series3-extensions-soak
+          inherit series3-extensions-soak;
+
+          # 10-hour soak across the v4 testbed fleet — same matrix
+          # shape as series3-extensions-soak but with DUR=600 to nail
+          # per-cell recv_soft confidence intervals beyond the
+          # ±0.3pp DUR=60 noise floor. Usage:
+          #   nix run .#series3-extensions-soak-10h
+          inherit series3-extensions-soak-10h;
+
+          # Phase G CPU-bound matrix: pktgen-driven, random source
+          # ports, 64-byte UDP, with perf-stat targeting ksoftirqd to
+          # produce architecture-independent cycles_per_pkt /
+          # ins_per_pkt / branch_miss_per_pkt numbers alongside
+          # mpstat recv_soft_pct. Usage:
+          #   PAIRS=hp1-hp3 SCENARIOS=ipip DUR=30 \
+          #     nix run .#series3-cpu-bound-soak
+          inherit series3-cpu-bound-soak;
+
+          # Phase H cover-letter table generator. Reads one or more
+          # matrix.csv paths and emits a single markdown summary with
+          # the strongest |% improvement| line first. Usage:
+          #   nix run .#series3-summary-report -- \
+          #     iperf3-matrix.csv pktgen-matrix.csv > SUMMARY.md
+          inherit series3-summary-report;
+
+          # Phase H comprehensive overnight wrappers. Run iperf3 first
+          # (~5.6h, all 3 pairs * 8 scenarios * tcp+udp * N=3), then
+          # pktgen (~2.8h, same shape minus tcp axis). Outputs land in
+          # perf-results/<date>-phase-h-{iperf3,pktgen}/. Usage:
+          #   nix run .#series3-comprehensive-iperf3-soak
+          #   nix run .#series3-comprehensive-pktgen-soak
+          inherit series3-comprehensive-iperf3-soak;
+          inherit series3-comprehensive-pktgen-soak;
+
+          # mlx5 offload investigation: OFAT (one-feature-at-a-time)
+          # harness for isolating the IPIP +5.2% / GRE -4% UDP
+          # throughput discrepancy on hp1<->hp3. Default config runs
+          # 36 cells (~18 min). Output is matrix.csv with all
+          # dimensions captured; safe to share with the kernel team.
+          # Usage:
+          #   nix run .#mlx5-offload-investigate
+          #   SCENARIO=gre nix run .#mlx5-offload-investigate
+          inherit mlx5-offload-investigate;
 
           # Kernel BPF flow dissector source (for updating vendored copy)
           # Usage: nix build .#kern-bpf-flow-src
@@ -1639,6 +1813,17 @@
           # hosts that don't need the full testbed treatment.
           # See nix/modules/nic-tuning.nix for the option surface.
           nixosModules.nicTuning = ./nix/modules/nic-tuning.nix;
+
+          # NixOS module: apply the series3 fast-path extension patches
+          # (single VLAN, QinQ, optionally VXLAN-inner) on top of the
+          # host's existing kernel. See nix/modules/flowdis-fastpath-
+          # extensions.nix for the option surface and consumer doc.
+          # Consumer:
+          #   imports = [ inputs.xdp2.nixosModules.flowdisFastpathExtensions ];
+          #   xdp2.flowdisFastpathExtensions.enable = true;
+          # Then: sudo nixos-rebuild boot && sudo reboot
+          nixosModules.flowdisFastpathExtensions =
+            ./nix/modules/flowdis-fastpath-extensions.nix;
 
           # ---- Testbed configurations ----
           #

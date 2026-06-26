@@ -1,0 +1,29 @@
+{
+  "nn": "10",
+  "sender": "pi5-2",
+  "recv": "pi3-1",
+  "proto": "tcpreplay-vxlan",
+  "sysctl": 1,
+  "exit_rc": 255,
+  "sender_sidecar": {
+    "samples": 3571,
+    "max_temp": 63.7,
+    "p95_temp": 63.7,
+    "mean_temp": 60.30873704844581,
+    "throttled_observed": [
+      "0xe0000"
+    ]
+  },
+  "recv_sidecar": {
+    "samples": 3354,
+    "max_temp": 42.9,
+    "p95_temp": 41.3,
+    "mean_temp": 39.707543231961836,
+    "throttled_observed": []
+  },
+  "note": "mpstat SSH died after 412s; tcpreplay wedged past --duration (script killed at +1h). Sidecar + recovered partial-mpstat numbers are valid.",
+  "thermal_clean": true,
+  "cpu_recv_mean_pct": 14.3024,
+  "cpu_recv_p95_pct": 18.14,
+  "mpstat_samples": 412
+}

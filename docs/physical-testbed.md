@@ -40,6 +40,8 @@ It is written so that someone new to the project can:
 18. [ARM testbed pair (pi5-1 ↔ pi5-2, BCM2712 Cortex-A76, 1 GbE switched)](#18-arm-testbed-pair-pi5-1--pi5-2-bcm2712-cortex-a76-1-gbe-switched)
 19. [Standalone ARM Cortex-A72 data point (pi4-1, BCM2711)](#19-standalone-arm-cortex-a72-data-point-pi4-1-bcm2711)
 20. [Standalone ARM Cortex-A53 data point (pi3-1, BCM2837)](#20-standalone-arm-cortex-a53-data-point-pi3-1-bcm2837)
+21. [x86 testbed pair (l ↔ l2, ConnectX-4 Lx 25 GbE back-to-back)](#21-x86-testbed-pair-l--l2-connectx-4-lx-25-gbe-back-to-back)
+22. [RISC-V testbed pair (pi5-1 → bpi-f3, SpacemiT K1, 1 GbE switched)](#22-risc-v-testbed-pair-pi5-1--bpi-f3-spacemit-k1-1-gbe-switched)
 
 [Appendix A — Known issues and gotchas](#appendix-a--known-issues-and-gotchas)
 [Appendix B — One-line cheatsheet](#appendix-b--one-line-cheatsheet)
@@ -1083,6 +1085,8 @@ This makes the v6 address derivable from the v4 address at a glance.
 | hp2 ↔ hp5 | `enp1s0f1np1` | hp2 `fd10:10:1::2/64` | hp5 `fd10:10:1::5/64` |
 | hp1 ↔ hp3 (mlx5 25 GbE) | `enp1s0f0np0` | hp1 `fd10:10:2::1/64` | hp3 `fd10:10:2::3/64` |
 | hp1 ↔ hp3 | `enp1s0f1np1` | hp1 `fd10:10:3::1/64` | hp3 `fd10:10:3::3/64` |
+| l ↔ l2 (mlx5 25 GbE) | `enp35s0f0np0` | l `fd10:10:4::2/64` | l2 `fd10:10:4::5/64` |
+| l ↔ l2 | `enp35s0f1np1` | l `fd10:10:5::2/64` | l2 `fd10:10:5::5/64` |
 
 The `/64` prefix is per-link (one link per cable). Each per-link
 subnet is independent so adding a third pair later (or a third
@@ -1850,6 +1854,297 @@ era and similar single-thread envelope) and the Pi 4 (Cortex-A72
 @ 1.8 GHz). The publishable signal from pi3-1 is the in-order
 ARM uarch row in the cross-uarch microbench table, not absolute
 throughput.
+
+---
+
+## 21. x86 testbed pair (l ↔ l2, ConnectX-4 Lx 25 GbE back-to-back)
+
+A fourth /29 subnet block (`10.10.4/5`) hosts the high-performance x86
+pair: **l** (the developer's main desktop, acting as generator) and
+**l2** (a dedicated DUT), each with a **Mellanox ConnectX-4 Lx 25 GbE**
+NIC, cabled back-to-back over two DAC links (`f0 ↔ f0` = link A,
+`f1 ↔ f1` = link B — same topology as hp1/hp3). Both run NixOS; configs
+live under `~/nixos/desktop/{l,l2}/`.
+
+The motivation is headroom. The Zen 1 hp1/hp3 pair is CPU-bound well
+below the 25 GbE line rate (~16.4 Gbit/s on the iperf3 macro), so the
+flow_dissector fast-path's macro signal is muted. l/l2 are AMD
+Threadripper PRO 3945WX (Zen 2, 12c/24t) — far more single-thread and
+aggregate throughput — so this pair is expected to drive much closer to
+25 GbE line rate and give a stronger demonstration of the series-3
+patch, plus the x86 long-soak analogue of the Pi fleet's
+`nix run .#series3-soak`.
+
+| | hp1 / hp3 (pair #2) | l / l2 (pair #4) |
+| --- | --- | --- |
+| CPU | AMD Ryzen 5 PRO 2400G (Zen 1, 4c/8t) | AMD Threadripper PRO 3945WX (Zen 2, 12c/24t) |
+| NIC | Mellanox ConnectX-4 Lx 25 GbE DAC | Mellanox ConnectX-4 Lx 25 GbE DAC |
+| Driver | `mlx5_core` | `mlx5_core` |
+| Iface names | `enp1s0f{0,1}np{0,1}` | `enp35s0f{0,1}np{0,1}` (PCI 23:00.x) |
+| Data-plane subnets | `10.10.2.0/29` + `10.10.3.0/29` | `10.10.4.0/29` + `10.10.5.0/29` |
+| Generator / DUT | hp1 (gen) ↔ hp3 (dut) | l (gen, `.2`) ↔ l2 (dut, `.5`) |
+| Dedicated? | both dedicated | l2 dedicated; l is a daily-driver desktop |
+| Testbed config | [`testbeds/hp1-hp3-mlx5.toml`](../testbeds/hp1-hp3-mlx5.toml) | [`testbeds/l-l2-mlx5.toml`](../testbeds/l-l2-mlx5.toml) |
+| Host config | `~/nixos/hp/hp{1,3}/` | `~/nixos/desktop/{l,l2}/` |
+
+### Generator-lite profile on `l`
+
+Unlike every other testbed host, `l` is the user's interactive
+workstation (NVIDIA GPU, GNOME, llama.cpp) and must stay usable. It
+imports `xdp2.nixosModules.physical-testbed` with a deliberately light
+profile:
+
+- `xdp2.testbed.dedicatedHost = false` — skips the always-on
+  `processor.max_cstate=1` / `transparent_hugepage=never` / `audit=0`
+  kernel params that raise idle power/heat on a desktop (see §7 and the
+  option doc in `nix/modules/physical-testbed.nix`).
+- `disableMitigations = false` — CPU mitigations stay **on** (daily
+  driver).
+- `disableNonEssentialServices = false` and `lowJitter = false` — GNOME,
+  printing, VPN, turbo all preserved.
+- `isolatedCpus = [ 2 3 4 5 ]` — only ~4 logical cores are isolated for
+  traffic generation; the remaining ~20 threads stay for the desktop.
+  The soak harness `taskset`-pins the generator load onto these cores.
+
+`l2` keeps the full dedicated profile (`dedicatedHost = true`,
+`lowJitter = true`, `isolatedCpus = 4-23`) and the series-3 patched
+kernel. Both hosts set `xdp2.nicTuning.driver = "mlx5_core"`.
+
+### Kernel patch on both ends
+
+The series-3 A/B flips `net.core.flow_dissector_fastpath` on **both**
+hosts, so both must boot a kernel carrying the gated patch:
+
+- `l2` builds it via `~/nixos/desktop/l2/test-kernel/` (the same 3
+  pinned patches hp1/hp2/hp3/hp5 use, on `linuxPackages_latest`).
+- `l` applies the same 3 canonical patches as a `boot.kernelPatches`
+  overlay on its existing NVIDIA-compatible `pkgs.linuxPackages` (no
+  net-next needed; `flow_dissector.c` is stable across 6.x/7.x). The
+  earlier squashed single-file backport was replaced because it omitted
+  the sysctl-gate hunk (`net/core/sysctl_net_core.c`), which would make
+  the runtime A/B impossible.
+
+### Long soak
+
+```bash
+# Smoke (~18 min): 12 cells × 60 s
+DUR=60 COOLDOWN=10 L2_V4=10.10.4.5 L2_V6=fd10:10:4::5 \
+  nix run .#series3-soak-l-l2
+
+# Full demonstration (~12 h): 12 cells × 3600 s
+L2_V4=10.10.4.5 L2_V6=fd10:10:4::5 nix run .#series3-soak-l-l2
+```
+
+The 12-cell matrix (iperf3 TCP/UDP v4+v6, iperf2 TCP, tcpreplay VXLAN ×
+sysctl 0/1) is weighted toward CPU-bound workloads — small-packet UDP
+and tunnelled tcpreplay — because a 25 GbE TCP elephant is GRO/PCIe-
+bound and runs the dissector only once per super-packet, hiding the
+per-packet win. Output layout matches the Pi soak
+(`cells/*/summary.json`, `aggregate.csv`) so the same analysis tooling
+applies. See `nix/series3-soak-x86.nix`.
+
+### Outstanding follow-up
+
+- The Mellanox links were `DOWN` (no carrier) at config time — connect
+  the two DAC cables and confirm `ethtool enp35s0f0np0 | grep Speed`
+  reports `25000Mb/s` on both ends.
+- `flowDirectorRules` on l2 are ethtool-ntuple-shaped; under
+  `mlx5_core` they translate to tc-flower (or drop them — they are not
+  needed for the cake-based soak).
+- For tcpreplay cells, copy a `vxlan-k8s-pure.pcap` onto `l` and rewrite
+  its dst MAC to l2's `enp35s0f0np0` MAC (see `series3-soak-x86.nix`
+  header).
+
+---
+
+## 22. RISC-V testbed pair (pi5-1 → bpi-f3, SpacemiT K1, 1 GbE switched)
+
+A seventh host joined the fleet on 2026-06-23: **bpi-f3**, a Banana Pi
+BPI-F3 (SpacemiT K1, octa-core RISC-V), brought in as the fleet's
+**third CPU architecture** alongside x86_64 (AMD Zen 1/2, Intel
+Haswell/Comet Lake) and ARM (Cortex-A53/A72/A76). With it the series-3
+flow_dissector fast-path is demonstrated across x86 + ARM + RISC-V.
+
+It is a single board, so it is driven as a DUT/receiver paired with an
+existing lab host as generator. The two share the lab switch on `end0`
+at 1 GbE (172.16.40.122 → 172.16.40.205), exactly like the pi5 pair —
+there is no back-to-back /29. The **generator is ARM (pi5-1)** and the
+**measured DUT is the RISC-V box (bpi-f3)**; the fast-path being
+measured runs on the DUT, which is what the cross-arch claim needs.
+
+| | pi5-1 (generator) | bpi-f3 (DUT, measured) |
+| --- | --- | --- |
+| Chassis | Raspberry Pi 5 SBC | Banana Pi BPI-F3 SBC |
+| SoC | Broadcom BCM2712 | SpacemiT K1 |
+| CPU | 4× ARM Cortex-A76 @ 2.4 GHz | 8× SpacemiT X60 RISC-V (RVA22 + RVV 1.0) |
+| Cores / threads | 4 / 4 (no SMT) | 8 / 8 (no SMT) |
+| ISA / page size | ARMv8-A / 16 KiB | rv64gcv (Sv39) / 4 KiB |
+| RAM | 8 GiB LPDDR4X | 8 GiB LPDDR4X |
+| Boot storage | SD card (NIXOS_SD) | SD card (extlinux / U-Boot + OpenSBI) |
+| Root / build storage | NVMe (not yet root) | **NVMe (root `/`, `/nix/store`)** |
+| NIC (end0) | onboard 1 GbE (BCM54213PE PHY) | onboard 1 GbE (`k1_emac` + RTL8211F PHY) |
+| MAC | `2c:cf:67:37:a1:b2` | `fe:fe:fe:e2:46:d4` |
+| Mgmt IPv4 | 172.16.40.122 | 172.16.40.205 |
+| Kernel | `linux_rpi5` (6.12.87 for pktgen) | `linuxPackages_latest` 7.0.12 + series-3 |
+
+Live verification:
+
+```bash
+ssh root@bpi-f3 'uname -a; mount | grep " / "; ls /proc/sys/net/flow_dissector/'
+# Expected:
+#   Linux bpi-f3 7.0.12 ... riscv64 GNU/Linux
+#   /dev/nvme0n1p1 on / type ext4 (rw,...)
+#   eth_ip geneve_inner gre gtpu_inner ipip mpls pppoe qinq vlan vxlan_inner
+```
+
+### What this pair can / cannot run
+
+- A–E, I (single-host parsers and matrices on the RISC-V DUT): ✅
+- F (live-traffic iperf3 receiver-side A/B): ✅ (1 GbE link) — the
+  **primary** measurement; runs with pi5-1 on its current kernel.
+- G (kernel-pktgen + ksoftirqd `perf stat` cycles/pkt): ✅ (1 GbE) —
+  **secondary**, gated on the generator: pi5-1 must run **6.12.87**,
+  because its 6.18 `bcmgenet` driver wedges the NIC under pktgen TX.
+- H (hardware ntuple offload): **N/A** — the `k1_emac` does not expose
+  Flow Director / ethtool-ntuple steering (same as the pi5/chromebox/t).
+
+The added value: the series-3 `static_branch` / `jump_label` runtime
+patching is arch-specific code in `arch/riscv/kernel/jump_label.c` —
+exercising it on real RISC-V hardware is direct evidence the patches
+generalise beyond x86 and ARM. The patches themselves touch only
+arch-independent code (`net/core/flow_dissector.c`,
+`include/net/flow_dissector.h`, `net/core/sysctl_net_core.c`, docs).
+
+### NixOS module deltas vs the hp pattern
+
+bpi-f3 is a per-host flake at `~/nixos/riscv/bpi-f3/`, **cross-compiled
+from x86_64 → riscv64** at `rv64gcv` (the K1's X60 cores implement RVV
+1.0). `rv64gcv` diverges from the riscv64 community caches, so the whole
+closure — kernel included — builds locally; build on a fast x86 host
+(`l`), not on-device. Custom bootloader inputs (`uboot-spacemit`,
+`opensbi-spacemit`) are built from source; the kernel is mainline
+`pkgs.linuxPackages_latest` (7.0.12) with the K1 drivers forced on.
+
+The same **10 v3/v4 flow_dissector patches** the x86/ARM hosts carry are
+appended to the inline `kernelPatches` list in
+`~/nixos/riscv/bpi-f3/nix/modules/kernel.nix` (no separate
+`test-kernel/` override needed — the flake already keeps a `kernelPatches`
+list for the K1 Kconfig + reboot fix). `nix/modules/sshd-INSECURE.nix`
+grants key-only root SSH (same `das` key as hp*/pi5) so the orchestrator
+can drive it; `perf` + `iperf3` are added to `base.nix`.
+
+The device runs the **NVMe-root mutable system** (`nixosConfigurations.
+bpi-f3-nvme`, `/` on `/dev/nvme0n1p1`). Deploys cross-build on `l` and
+push the closure to the device's fast NVMe store via
+`nixos-rebuild switch --target-host root@bpi-f3` — **no SD image is
+reflashed** (only extlinux on the SD `/boot/firmware` is regenerated).
+
+### Running the A/B
+
+```bash
+# Smoke (iperf3, no generator-kernel dependency):
+PAIRS=pi5-bpif3 SCENARIOS=eth_ip DUR=30 REPLICATES=1 CONSUMER_ALL=1 \
+  OUT=/tmp/bpif3-smoke nix run .#series3-extensions-soak
+
+# Phase F (iperf3 receiver-side A/B) — PRIMARY:
+PAIRS=pi5-bpif3 OUT=perf-results/<date>-riscv-bpif3-iperf3 \
+  nix run .#series3-comprehensive-iperf3-soak
+
+# Phase G (pktgen cycles/pkt) — after pi5-1 is on 6.12.87:
+PAIRS=pi5-bpif3 OUT=perf-results/<date>-riscv-bpif3-pktgen \
+  nix run .#series3-comprehensive-pktgen-soak
+```
+
+### Measured performance — userland libflowdis microbench (2026-06-25)
+
+**Headline: the fast-path roughly halves dissector cost on RISC-V —
+−48.88 ns/pkt, −49.8%** (patched 49.27 ± 0.32 vs baseline 98.16 ± 0.21
+ns/pkt, 10×10 M-iter runs, `taskset`-pinned). This is the single
+highest-signal A/B in the series — it isolates the dissector from the
+NIC/qdisc/scheduler, which is why it shows a clean result where the
+1 GbE-limited Phase F/G runs below could not. It lands squarely in the
+ARM range (A53 −48.5%, A72 −55.0%, A76 −52.3%) and completes the
+cross-architecture story: ~50% reduction on x86, ARM, **and RISC-V**.
+
+The two `libflowdis.so` variants (patched = current
+`src/lib/flowdis/flow_dissector.c`; baseline = the same file at
+`5960a9c6^`, before the port) were cross-compiled on `l` with
+`pkgsCross.riscv64.stdenv.cc` — the full `nix run .#xdp2-debug-riscv64`
+path fails on an unrelated `sox` cross-build and the K1 has no riscv64
+binary cache — then copied to bpi-f3 and run. Full writeup + raw runs:
+`perf-results/2026-06-25-series3-riscv-microbench/`.
+
+### Measured performance — series 3 A/B (2026-06-25, Phase F)
+
+First Phase F run: `PAIRS=pi5-bpif3`, all 8 scenarios (eth_ip, vlan, qinq,
+vxlan, mpls, ipip, gre, geneve) × tcp/udp × sysctl 0/1, N=3, DUR=60,
+CONSUMER_ALL=1. **96/96 cells `status=ok` — every scenario, including all
+five encap paths, set up and dissected correctly on riscv64.** This is the
+headline result: it is direct evidence the patches are functionally correct
+on a third architecture — the per-shape `net.flow_dissector.*` sysctls
+toggle, and the `static_branch`/`jump_label` gates resolve via
+`arch/riscv/kernel/jump_label.c`.
+
+Throughput is link-saturated at ~1 GbE on every scenario (TCP ~0.90–0.94
+Gbps, UDP ~0.91–0.95 Gbps; MPLS-over-`lo` TCP is the outlier at ~0.64
+Gbps), so — as on the pi5 and hp pairs — the A/B signal can only live in
+receiver CPU, not throughput. At 1 GbE the K1 is **not CPU-bound** (receiver
+softirq only ~15–39%), so the flow_dissector fast-path's per-packet saving
+sits below the run-to-run noise floor: the sysctl=0→1 receiver-softirq
+deltas are small (≈ ±0.3–4 pp) and **inconsistent in sign** across
+scenarios (e.g. vlan-udp −4.4 pp but geneve-udp +3.9 pp, ipip-tcp −2.9 pp
+but eth_ip-udp +1.7 pp). `series3-summary-report` tags essentially all rows
+`(noise)`; the few that pass the 2×stddev gate point in opposite
+directions — i.e. sampling noise, not a real effect or regression. Full
+matrix: `perf-results/2026-06-25-riscv-bpif3-iperf3/`, summary:
+`perf-results/2026-06-25-riscv-bpif3-summary.md`.
+
+This mirrors the fleet-wide finding (only the hp2-hp5 vlan-UDP cell is
+cleanly above noise anywhere). The RISC-V data point stands as a
+**correctness** demonstration, which is what the cross-architecture claim
+requires.
+
+### Measured performance — Phase G (2026-06-25, kernel-pktgen cycles/pkt)
+
+Phase G ran after rolling the **generator pi5-1 back to 6.12.87** — its
+6.18 `bcmgenet` driver reproducibly wedges the NIC within ~30 s of pktgen
+TX; 6.12.87 sends the flood without wedging. `PAIRS=pi5-bpif3`, 8
+scenarios × sysctl 0/1, N=3: **48/48 cells `status=ok`**, and the K1 PMU
+counts cleanly under perf (cycles, instructions, branches, branch-misses,
+L1-dcache loads/misses all populated on the riscv64 ksoftirqd).
+
+But there is **no usable cyc/pkt A/B on this pair**, for structural
+reasons rather than a patch problem:
+- The 1 GbE link can't make the 8-core K1 CPU-bound on dissection, so
+  the per-packet dissector cost never dominates.
+- ksoftirqd attribution is unreliable: several cells `perf stat` to 0
+  cyc/pkt because the K1 processed RX in NAPI-poll context on the RX CPU
+  rather than ksoftirqd (the PIDs perf was attached to).
+- pktgen's inner-encap delivery doesn't traverse this path for the
+  tunnels — geneve/vxlan cells received only ~8 packets.
+- pps_recv differs widely between the two sysctl states (e.g. vlan 1.56M
+  vs 0.55M), so cyc/pkt isn't comparable cell-to-cell.
+
+Consequently `series3-summary-report` tags every Phase G row `(noise)`
+(pooled stddev ±1000–3600 cyc/pkt vs deltas that bounce −54%…+64% with no
+consistent sign). Matrix retained for the record at
+`perf-results/2026-06-25-riscv-bpif3-pktgen/`. A clean RISC-V cyc/pkt
+number would need a faster link (so the CPU is the bottleneck) or a
+userspace dissector microbench — noted as future work; it does not change
+the correctness conclusion above.
+
+### Outstanding follow-ups / caveats
+
+- **Reboot may hang** at "Restarting system" (vendor OpenSBI lacks the
+  SBI System-Reset extension; the P1-PMIC reboot patch is applied but a
+  power-cycle is the reliable fallback).
+- **rv64gcv has no binary cache** — every kernel rebuild compiles
+  locally; build-gate `nix build .#nixosConfigurations.bpi-f3-nvme.\
+config.system.build.toplevel` on `l` before deploying.
+- **Phase G depends on pi5-1 @ 6.12.87** (its 6.18 `bcmgenet` wedges
+  under pktgen TX). Phase F (iperf3) is unblocked at any pi5-1 kernel.
+- Single RISC-V box: the generator is ARM, not RISC-V. Fine — the
+  measured fast-path is on the RISC-V DUT.
 
 ---
 

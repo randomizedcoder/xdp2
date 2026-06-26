@@ -1,0 +1,400 @@
+these 2 derivations will be built:
+  /nix/store/k6f5xldhnqis9mvjn8rjwxx4yya74v4n-series3-cpu-bound-soak.drv
+  /nix/store/hkc1whpic201ac8fkd1bhl2xqvbv25sv-series3-comprehensive-pktgen-soak.drv
+building '/nix/store/k6f5xldhnqis9mvjn8rjwxx4yya74v4n-series3-cpu-bound-soak.drv'...
+building '/nix/store/hkc1whpic201ac8fkd1bhl2xqvbv25sv-series3-comprehensive-pktgen-soak.drv'...
+[series3-comprehensive-pktgen-soak]
+  PAIRS=pi5-pair,hp1-hp3,hp2-hp5  SCENARIOS=eth_ip,vlan,qinq,vxlan,mpls,ipip,gre,geneve
+  DUR=60 REPLICATES=3
+  OUT=perf-results/2026-06-19-phase-h-pktgen
+  estimated wall-clock: 144 cells * ~70s = 168min (2h)
+2026-06-20T08:59:47Z [scenario] === series3-cpu-bound-soak start  PAIRS=pi5-pair,hp1-hp3,hp2-hp5  SCENARIOS=eth_ip,vlan,qinq,vxlan,mpls,ipip,gre,geneve  DUR=60  PKT_SIZE=64  THREADS=2  OUT=perf-results/2026-06-19-phase-h-pktgen ===
+2026-06-20T08:59:47Z [scenario] --- pair pi5-pair: L=pi5-1 L2=pi5-2 iface=end0 ---
+2026-06-20T08:59:48Z [scenario] >>> pi5-pair / eth_ip up
+2026-06-20T08:59:50Z [scenario] eth_ip up: pi5-1(172.16.40.122) <-> pi5-2(172.16.40.174) on underlay end0/end0 (no encap)
+2026-06-20T08:59:50Z [scenario] [pi5-pair/eth_ip] L=172.16.40.122 on end0 (2c:cf:67:37:a1:b2) ↔ L2=172.16.40.174 on end0 (2c:cf:67:31:df:b7)
+2026-06-20T09:00:53Z [scenario] [pi5-pair/eth_ip/cell1.rep1 sysctl=0] pps_sent=368921 pps_recv=369073 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=33.90% status=ok
+2026-06-20T09:02:00Z [scenario] [pi5-pair/eth_ip/cell1.rep2 sysctl=0] pps_sent=368086 pps_recv=368160 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.31% status=ok
+2026-06-20T09:03:08Z [scenario] [pi5-pair/eth_ip/cell1.rep3 sysctl=0] pps_sent=368354 pps_recv=368504 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.07% status=ok
+2026-06-20T09:04:15Z [scenario] [pi5-pair/eth_ip/cell2.rep1 sysctl=1] pps_sent=368489 pps_recv=368639 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=32.97% status=ok
+2026-06-20T09:05:22Z [scenario] [pi5-pair/eth_ip/cell2.rep2 sysctl=1] pps_sent=368404 pps_recv=368460 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.30% status=ok
+2026-06-20T09:06:30Z [scenario] [pi5-pair/eth_ip/cell2.rep3 sysctl=1] pps_sent=368457 pps_recv=368516 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.23% status=ok
+2026-06-20T09:06:35Z [scenario] <<< pi5-pair / eth_ip down
+2026-06-20T09:06:35Z [scenario] >>> pi5-pair / vlan up
+2026-06-20T09:06:38Z [scenario] vlan id=100 up: pi5-1(10.10.40.2) <-> pi5-2(10.10.40.5) on vlan100
+2026-06-20T09:06:38Z [scenario] [pi5-pair/vlan] L=10.10.40.2 on vlan100 (2c:cf:67:37:a1:b2) ↔ L2=10.10.40.5 on vlan100 (2c:cf:67:31:df:b7)
+2026-06-20T09:07:41Z [scenario] [pi5-pair/vlan/cell1.rep1 sysctl=0] pps_sent=368318 pps_recv=368471 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=33.21% status=ok
+2026-06-20T09:08:48Z [scenario] [pi5-pair/vlan/cell1.rep2 sysctl=0] pps_sent=368244 pps_recv=368313 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=33.46% status=ok
+2026-06-20T09:09:55Z [scenario] [pi5-pair/vlan/cell1.rep3 sysctl=0] pps_sent=368400 pps_recv=368428 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.79% status=ok
+2026-06-20T09:11:03Z [scenario] [pi5-pair/vlan/cell2.rep1 sysctl=1] pps_sent=368779 pps_recv=368924 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=31.15% status=ok
+2026-06-20T09:12:10Z [scenario] [pi5-pair/vlan/cell2.rep2 sysctl=1] pps_sent=368498 pps_recv=368550 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=31.31% status=ok
+2026-06-20T09:13:18Z [scenario] [pi5-pair/vlan/cell2.rep3 sysctl=1] pps_sent=368343 pps_recv=368218 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.54% status=ok
+2026-06-20T09:13:23Z [scenario] <<< pi5-pair / vlan down
+2026-06-20T09:13:23Z [scenario] >>> pi5-pair / qinq up
+2026-06-20T09:13:27Z [scenario] qinq S=10 C=100 up: pi5-1(10.10.41.2) <-> pi5-2(10.10.41.5) on cvlan100
+2026-06-20T09:13:27Z [scenario] [pi5-pair/qinq] L=10.10.41.2 on cvlan100 (2c:cf:67:37:a1:b2) ↔ L2=10.10.41.5 on cvlan100 (2c:cf:67:31:df:b7)
+2026-06-20T09:14:29Z [scenario] [pi5-pair/qinq/cell1.rep1 sysctl=0] pps_sent=368530 pps_recv=368571 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.63% status=ok
+2026-06-20T09:15:36Z [scenario] [pi5-pair/qinq/cell1.rep2 sysctl=0] pps_sent=368247 pps_recv=368307 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=32.60% status=ok
+2026-06-20T09:16:44Z [scenario] [pi5-pair/qinq/cell1.rep3 sysctl=0] pps_sent=368749 pps_recv=368895 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=33.14% status=ok
+2026-06-20T09:17:51Z [scenario] [pi5-pair/qinq/cell2.rep1 sysctl=1] pps_sent=368150 pps_recv=368298 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.77% status=ok
+2026-06-20T09:18:58Z [scenario] [pi5-pair/qinq/cell2.rep2 sysctl=1] pps_sent=368328 pps_recv=368473 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=33.31% status=ok
+2026-06-20T09:20:06Z [scenario] [pi5-pair/qinq/cell2.rep3 sysctl=1] pps_sent=368996 pps_recv=369145 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.51% status=ok
+2026-06-20T09:20:11Z [scenario] <<< pi5-pair / qinq down
+2026-06-20T09:20:11Z [scenario] >>> pi5-pair / vxlan up
+2026-06-20T09:20:15Z [scenario] vxlan VNI=10 dstport=4789 up: pi5-1(192.168.100.1) <-> pi5-2(192.168.100.2) on vxlan10
+2026-06-20T09:20:15Z [scenario] [pi5-pair/vxlan] L=192.168.100.1 on vxlan10 (66:ac:54:e6:5b:a9) ↔ L2=192.168.100.2 on vxlan10 (56:98:7e:10:9a:8f)
+2026-06-20T09:21:17Z [scenario] [pi5-pair/vxlan/cell1.rep1 sysctl=0] pps_sent=0 pps_recv=5 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:22:24Z [scenario] [pi5-pair/vxlan/cell1.rep2 sysctl=0] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.01% status=ok
+2026-06-20T09:23:31Z [scenario] [pi5-pair/vxlan/cell1.rep3 sysctl=0] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:24:38Z [scenario] [pi5-pair/vxlan/cell2.rep1 sysctl=1] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:25:46Z [scenario] [pi5-pair/vxlan/cell2.rep2 sysctl=1] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.01% status=ok
+2026-06-20T09:26:53Z [scenario] [pi5-pair/vxlan/cell2.rep3 sysctl=1] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:26:58Z [scenario] <<< pi5-pair / vxlan down
+2026-06-20T09:26:58Z [scenario] >>> pi5-pair / mpls up
+2026-06-20T09:27:02Z [scenario] mpls labels=100/200 up: pi5-1(10.10.43.2) <-> pi5-2(10.10.43.5)
+2026-06-20T09:27:02Z [scenario] [pi5-pair/mpls] L=10.10.43.2 on lo (2c:cf:67:37:a1:b2) ↔ L2=10.10.43.5 on lo (2c:cf:67:31:df:b7)
+2026-06-20T09:28:04Z [scenario] [pi5-pair/mpls/cell1.rep1 sysctl=0] pps_sent=368587 pps_recv=368668 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=31.19% status=ok
+2026-06-20T09:29:12Z [scenario] [pi5-pair/mpls/cell1.rep2 sysctl=0] pps_sent=368089 pps_recv=368242 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.13% status=ok
+2026-06-20T09:30:19Z [scenario] [pi5-pair/mpls/cell1.rep3 sysctl=0] pps_sent=368314 pps_recv=368383 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.48% status=ok
+2026-06-20T09:31:26Z [scenario] [pi5-pair/mpls/cell2.rep1 sysctl=1] pps_sent=368269 pps_recv=368421 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=31.17% status=ok
+2026-06-20T09:32:34Z [scenario] [pi5-pair/mpls/cell2.rep2 sysctl=1] pps_sent=368410 pps_recv=368557 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=33.42% status=ok
+2026-06-20T09:33:41Z [scenario] [pi5-pair/mpls/cell2.rep3 sysctl=1] pps_sent=367932 pps_recv=368084 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.53% status=ok
+2026-06-20T09:33:46Z [scenario] <<< pi5-pair / mpls down
+2026-06-20T09:33:46Z [scenario] >>> pi5-pair / ipip up
+2026-06-20T09:33:50Z [scenario] ipip ipip0 up: pi5-1(10.10.42.2) <-> pi5-2(10.10.42.5) over underlay 172.16.40.122<->172.16.40.174
+2026-06-20T09:33:50Z [scenario] [pi5-pair/ipip] L=10.10.42.2 on ipip0 (2c:cf:67:37:a1:b2) ↔ L2=10.10.42.5 on ipip0 (2c:cf:67:31:df:b7)
+2026-06-20T09:34:52Z [scenario] [pi5-pair/ipip/cell1.rep1 sysctl=0] pps_sent=368643 pps_recv=368796 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=28.35% status=ok
+2026-06-20T09:36:00Z [scenario] [pi5-pair/ipip/cell1.rep2 sysctl=0] pps_sent=368405 pps_recv=368553 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=28.23% status=ok
+2026-06-20T09:37:07Z [scenario] [pi5-pair/ipip/cell1.rep3 sysctl=0] pps_sent=368615 pps_recv=368762 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=28.41% status=ok
+2026-06-20T09:38:14Z [scenario] [pi5-pair/ipip/cell2.rep1 sysctl=1] pps_sent=368439 pps_recv=368486 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.18% status=ok
+2026-06-20T09:39:22Z [scenario] [pi5-pair/ipip/cell2.rep2 sysctl=1] pps_sent=368283 pps_recv=368322 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=28.76% status=ok
+2026-06-20T09:40:29Z [scenario] [pi5-pair/ipip/cell2.rep3 sysctl=1] pps_sent=368328 pps_recv=368375 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.52% status=ok
+2026-06-20T09:40:34Z [scenario] <<< pi5-pair / ipip down
+2026-06-20T09:40:35Z [scenario] >>> pi5-pair / gre up
+2026-06-20T09:40:38Z [scenario] gre gretest0 up: pi5-1(10.10.44.2) <-> pi5-2(10.10.44.5) over underlay 172.16.40.122<->172.16.40.174
+2026-06-20T09:40:38Z [scenario] [pi5-pair/gre] L=10.10.44.2 on gretest0 (2c:cf:67:37:a1:b2) ↔ L2=10.10.44.5 on gretest0 (2c:cf:67:31:df:b7)
+2026-06-20T09:41:41Z [scenario] [pi5-pair/gre/cell1.rep1 sysctl=0] pps_sent=368028 pps_recv=368159 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.24% status=ok
+2026-06-20T09:42:48Z [scenario] [pi5-pair/gre/cell1.rep2 sysctl=0] pps_sent=368345 pps_recv=368496 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=28.29% status=ok
+2026-06-20T09:43:55Z [scenario] [pi5-pair/gre/cell1.rep3 sysctl=0] pps_sent=368523 pps_recv=368670 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.42% status=ok
+2026-06-20T09:45:03Z [scenario] [pi5-pair/gre/cell2.rep1 sysctl=1] pps_sent=368350 pps_recv=368505 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.90% status=ok
+2026-06-20T09:46:10Z [scenario] [pi5-pair/gre/cell2.rep2 sysctl=1] pps_sent=368621 pps_recv=368773 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=30.86% status=ok
+2026-06-20T09:47:17Z [scenario] [pi5-pair/gre/cell2.rep3 sysctl=1] pps_sent=368267 pps_recv=368416 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=29.70% status=ok
+2026-06-20T09:47:22Z [scenario] <<< pi5-pair / gre down
+2026-06-20T09:47:23Z [scenario] >>> pi5-pair / geneve up
+2026-06-20T09:47:26Z [scenario] geneve geneve10 (VNI=10 dstport=6081) up: pi5-1(192.168.101.1) <-> pi5-2(192.168.101.2)
+2026-06-20T09:47:26Z [scenario] [pi5-pair/geneve] L=192.168.101.1 on geneve10 (6e:a6:1e:3d:43:20) ↔ L2=192.168.101.2 on geneve10 (d6:fc:f8:fd:03:81)
+2026-06-20T09:48:29Z [scenario] [pi5-pair/geneve/cell1.rep1 sysctl=0] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:49:36Z [scenario] [pi5-pair/geneve/cell1.rep2 sysctl=0] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.01% status=ok
+2026-06-20T09:50:43Z [scenario] [pi5-pair/geneve/cell1.rep3 sysctl=0] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:51:50Z [scenario] [pi5-pair/geneve/cell2.rep1 sysctl=1] pps_sent=0 pps_recv=4 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:52:57Z [scenario] [pi5-pair/geneve/cell2.rep2 sysctl=1] pps_sent=0 pps_recv=4 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.01% status=ok
+2026-06-20T09:54:04Z [scenario] [pi5-pair/geneve/cell2.rep3 sysctl=1] pps_sent=0 pps_recv=6 cyc/pkt=0.00 ins/pkt=0.00 recv_soft=0.00% status=ok
+2026-06-20T09:54:09Z [scenario] <<< pi5-pair / geneve down
+2026-06-20T09:54:10Z [scenario] --- pair hp1-hp3: L=hp1 L2=hp3 iface=enp1s0f0np0 ---
+2026-06-20T09:54:11Z [scenario] >>> hp1-hp3 / eth_ip up
+2026-06-20T09:54:13Z [scenario] eth_ip up: hp1(10.10.2.1) <-> hp3(10.10.2.3) on underlay enp1s0f0np0/enp1s0f0np0 (no encap)
+2026-06-20T09:54:13Z [scenario] [hp1-hp3/eth_ip] L=10.10.2.1 on enp1s0f0np0 (04:09:73:d4:d6:10) ↔ L2=10.10.2.3 on enp1s0f0np0 (98:f2:b3:df:1c:70)
+2026-06-20T09:55:17Z [scenario] [hp1-hp3/eth_ip/cell1.rep1 sysctl=0] pps_sent=4207613 pps_recv=3607903 cyc/pkt=2316.28 ins/pkt=2435.32 recv_soft=29.81% status=ok
+2026-06-20T09:56:26Z [scenario] [hp1-hp3/eth_ip/cell1.rep2 sysctl=0] pps_sent=4161726 pps_recv=3548109 cyc/pkt=2347.97 ins/pkt=2463.49 recv_soft=29.64% status=ok
+2026-06-20T09:57:35Z [scenario] [hp1-hp3/eth_ip/cell1.rep3 sysctl=0] pps_sent=4143730 pps_recv=3572103 cyc/pkt=2338.86 ins/pkt=2451.95 recv_soft=30.13% status=ok
+2026-06-20T09:58:45Z [scenario] [hp1-hp3/eth_ip/cell2.rep1 sysctl=1] pps_sent=4134135 pps_recv=3536257 cyc/pkt=2336.30 ins/pkt=2459.68 recv_soft=29.64% status=ok
+2026-06-20T09:59:53Z [scenario] [hp1-hp3/eth_ip/cell2.rep2 sysctl=1] pps_sent=4116113 pps_recv=3542749 cyc/pkt=2315.70 ins/pkt=2441.68 recv_soft=29.69% status=ok
+2026-06-20T10:01:02Z [scenario] [hp1-hp3/eth_ip/cell2.rep3 sysctl=1] pps_sent=4123033 pps_recv=3497656 cyc/pkt=2379.12 ins/pkt=2517.79 recv_soft=29.20% status=ok
+2026-06-20T10:01:07Z [scenario] <<< hp1-hp3 / eth_ip down
+2026-06-20T10:01:07Z [scenario] >>> hp1-hp3 / vlan up
+2026-06-20T10:01:11Z [scenario] vlan id=100 up: hp1(10.10.40.2) <-> hp3(10.10.40.5) on vlan100
+2026-06-20T10:01:11Z [scenario] [hp1-hp3/vlan] L=10.10.40.2 on vlan100 (04:09:73:d4:d6:10) ↔ L2=10.10.40.5 on vlan100 (98:f2:b3:df:1c:70)
+2026-06-20T10:02:15Z [scenario] [hp1-hp3/vlan/cell1.rep1 sysctl=0] pps_sent=4126808 pps_recv=3581539 cyc/pkt=2194.66 ins/pkt=2329.28 recv_soft=29.06% status=ok
+2026-06-20T10:03:23Z [scenario] [hp1-hp3/vlan/cell1.rep2 sysctl=0] pps_sent=4110866 pps_recv=3507633 cyc/pkt=2347.16 ins/pkt=2461.13 recv_soft=29.57% status=ok
+2026-06-20T10:04:32Z [scenario] [hp1-hp3/vlan/cell1.rep3 sysctl=0] pps_sent=4130765 pps_recv=3595245 cyc/pkt=2248.34 ins/pkt=2354.82 recv_soft=30.14% status=ok
+2026-06-20T10:05:41Z [scenario] [hp1-hp3/vlan/cell2.rep1 sysctl=1] pps_sent=4105373 pps_recv=3410398 cyc/pkt=2491.25 ins/pkt=2610.92 recv_soft=29.14% status=ok
+2026-06-20T10:06:50Z [scenario] [hp1-hp3/vlan/cell2.rep2 sysctl=1] pps_sent=4127080 pps_recv=3518731 cyc/pkt=2388.51 ins/pkt=2500.55 recv_soft=30.03% status=ok
+2026-06-20T10:07:59Z [scenario] [hp1-hp3/vlan/cell2.rep3 sysctl=1] pps_sent=4176644 pps_recv=3524098 cyc/pkt=2347.61 ins/pkt=2469.12 recv_soft=29.40% status=ok
+2026-06-20T10:08:04Z [scenario] <<< hp1-hp3 / vlan down
+2026-06-20T10:08:04Z [scenario] >>> hp1-hp3 / qinq up
+2026-06-20T10:08:08Z [scenario] qinq S=10 C=100 up: hp1(10.10.41.2) <-> hp3(10.10.41.5) on cvlan100
+2026-06-20T10:08:08Z [scenario] [hp1-hp3/qinq] L=10.10.41.2 on cvlan100 (04:09:73:d4:d6:10) ↔ L2=10.10.41.5 on cvlan100 (98:f2:b3:df:1c:70)
+2026-06-20T10:09:12Z [scenario] [hp1-hp3/qinq/cell1.rep1 sysctl=0] pps_sent=4131408 pps_recv=3544912 cyc/pkt=2271.87 ins/pkt=2408.77 recv_soft=29.28% status=ok
+2026-06-20T10:10:21Z [scenario] [hp1-hp3/qinq/cell1.rep2 sysctl=0] pps_sent=4151399 pps_recv=3597903 cyc/pkt=2308.29 ins/pkt=2427.19 recv_soft=30.36% status=ok
+2026-06-20T10:11:30Z [scenario] [hp1-hp3/qinq/cell1.rep3 sysctl=0] pps_sent=4162421 pps_recv=3521795 cyc/pkt=2364.63 ins/pkt=2501.71 recv_soft=29.51% status=ok
+2026-06-20T10:12:39Z [scenario] [hp1-hp3/qinq/cell2.rep1 sysctl=1] pps_sent=4102331 pps_recv=3527432 cyc/pkt=2331.29 ins/pkt=2450.43 recv_soft=29.84% status=ok
+2026-06-20T10:13:48Z [scenario] [hp1-hp3/qinq/cell2.rep2 sysctl=1] pps_sent=4158579 pps_recv=3607159 cyc/pkt=2255.36 ins/pkt=2381.77 recv_soft=30.00% status=ok
+2026-06-20T10:14:57Z [scenario] [hp1-hp3/qinq/cell2.rep3 sysctl=1] pps_sent=4115307 pps_recv=3547189 cyc/pkt=2343.08 ins/pkt=2457.36 recv_soft=30.26% status=ok
+2026-06-20T10:15:02Z [scenario] <<< hp1-hp3 / qinq down
+2026-06-20T10:15:02Z [scenario] >>> hp1-hp3 / vxlan up
+2026-06-20T10:15:06Z [scenario] vxlan VNI=10 dstport=4789 up: hp1(192.168.100.1) <-> hp3(192.168.100.2) on vxlan10
+2026-06-20T10:15:06Z [scenario] [hp1-hp3/vxlan] L=192.168.100.1 on vxlan10 (32:37:cc:4c:73:8a) ↔ L2=192.168.100.2 on vxlan10 (e6:8d:a5:c0:40:9e)
+2026-06-20T10:16:09Z [scenario] [hp1-hp3/vxlan/cell1.rep1 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=116546.60 ins/pkt=84199.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:17:17Z [scenario] [hp1-hp3/vxlan/cell1.rep2 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=340079.00 ins/pkt=270264.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:18:25Z [scenario] [hp1-hp3/vxlan/cell1.rep3 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=648697.67 ins/pkt=489687.00 recv_soft=0.01% status=overlay-unsupported
+2026-06-20T10:19:33Z [scenario] [hp1-hp3/vxlan/cell2.rep1 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=668208.67 ins/pkt=446995.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:20:42Z [scenario] [hp1-hp3/vxlan/cell2.rep2 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=427640.33 ins/pkt=343909.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:21:50Z [scenario] [hp1-hp3/vxlan/cell2.rep3 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=587171.00 ins/pkt=470105.33 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:21:55Z [scenario] <<< hp1-hp3 / vxlan down
+2026-06-20T10:21:55Z [scenario] >>> hp1-hp3 / mpls up
+2026-06-20T10:21:59Z [scenario] mpls labels=100/200 up: hp1(10.10.43.2) <-> hp3(10.10.43.5)
+2026-06-20T10:21:59Z [scenario] [hp1-hp3/mpls] L=10.10.43.2 on lo (04:09:73:d4:d6:10) ↔ L2=10.10.43.5 on lo (98:f2:b3:df:1c:70)
+2026-06-20T10:23:03Z [scenario] [hp1-hp3/mpls/cell1.rep1 sysctl=0] pps_sent=4176987 pps_recv=3600178 cyc/pkt=2359.43 ins/pkt=2449.53 recv_soft=30.49% status=ok
+2026-06-20T10:24:12Z [scenario] [hp1-hp3/mpls/cell1.rep2 sysctl=0] pps_sent=4104781 pps_recv=3536052 cyc/pkt=2323.91 ins/pkt=2450.82 recv_soft=29.82% status=ok
+2026-06-20T10:25:21Z [scenario] [hp1-hp3/mpls/cell1.rep3 sysctl=0] pps_sent=4160168 pps_recv=3543989 cyc/pkt=2371.60 ins/pkt=2471.58 recv_soft=29.94% status=ok
+2026-06-20T10:26:30Z [scenario] [hp1-hp3/mpls/cell2.rep1 sysctl=1] pps_sent=4149880 pps_recv=3543153 cyc/pkt=2375.15 ins/pkt=2479.13 recv_soft=30.19% status=ok
+2026-06-20T10:27:39Z [scenario] [hp1-hp3/mpls/cell2.rep2 sysctl=1] pps_sent=4120487 pps_recv=3522716 cyc/pkt=2290.57 ins/pkt=2438.92 recv_soft=28.81% status=ok
+2026-06-20T10:28:47Z [scenario] [hp1-hp3/mpls/cell2.rep3 sysctl=1] pps_sent=4108824 pps_recv=3569242 cyc/pkt=2274.66 ins/pkt=2416.25 recv_soft=29.58% status=ok
+2026-06-20T10:28:52Z [scenario] <<< hp1-hp3 / mpls down
+2026-06-20T10:28:53Z [scenario] >>> hp1-hp3 / ipip up
+2026-06-20T10:28:56Z [scenario] ipip ipip0 up: hp1(10.10.42.2) <-> hp3(10.10.42.5) over underlay 10.10.2.1<->10.10.2.3
+2026-06-20T10:28:56Z [scenario] [hp1-hp3/ipip] L=10.10.42.2 on ipip0 (04:09:73:d4:d6:10) ↔ L2=10.10.42.5 on ipip0 (98:f2:b3:df:1c:70)
+2026-06-20T10:30:00Z [scenario] [hp1-hp3/ipip/cell1.rep1 sysctl=0] pps_sent=4106566 pps_recv=3531998 cyc/pkt=2296.00 ins/pkt=2424.56 recv_soft=29.57% status=ok
+2026-06-20T10:31:09Z [scenario] [hp1-hp3/ipip/cell1.rep2 sysctl=0] pps_sent=4111455 pps_recv=3556309 cyc/pkt=2304.28 ins/pkt=2423.64 recv_soft=29.96% status=ok
+2026-06-20T10:32:18Z [scenario] [hp1-hp3/ipip/cell1.rep3 sysctl=0] pps_sent=4122421 pps_recv=3517715 cyc/pkt=2331.93 ins/pkt=2461.70 recv_soft=29.33% status=ok
+2026-06-20T10:33:27Z [scenario] [hp1-hp3/ipip/cell2.rep1 sysctl=1] pps_sent=4146803 pps_recv=3634881 cyc/pkt=2222.15 ins/pkt=2336.04 recv_soft=30.18% status=ok
+2026-06-20T10:34:36Z [scenario] [hp1-hp3/ipip/cell2.rep2 sysctl=1] pps_sent=4162154 pps_recv=3560380 cyc/pkt=2312.58 ins/pkt=2445.20 recv_soft=29.46% status=ok
+2026-06-20T10:35:45Z [scenario] [hp1-hp3/ipip/cell2.rep3 sysctl=1] pps_sent=4165084 pps_recv=3623485 cyc/pkt=2247.72 ins/pkt=2366.40 recv_soft=29.96% status=ok
+2026-06-20T10:35:50Z [scenario] <<< hp1-hp3 / ipip down
+2026-06-20T10:35:50Z [scenario] >>> hp1-hp3 / gre up
+2026-06-20T10:35:54Z [scenario] gre gretest0 up: hp1(10.10.44.2) <-> hp3(10.10.44.5) over underlay 10.10.2.1<->10.10.2.3
+2026-06-20T10:35:54Z [scenario] [hp1-hp3/gre] L=10.10.44.2 on gretest0 (04:09:73:d4:d6:10) ↔ L2=10.10.44.5 on gretest0 (98:f2:b3:df:1c:70)
+2026-06-20T10:36:58Z [scenario] [hp1-hp3/gre/cell1.rep1 sysctl=0] pps_sent=4138526 pps_recv=3579062 cyc/pkt=2259.73 ins/pkt=2375.12 recv_soft=29.87% status=ok
+2026-06-20T10:38:07Z [scenario] [hp1-hp3/gre/cell1.rep2 sysctl=0] pps_sent=4119132 pps_recv=3541928 cyc/pkt=2337.11 ins/pkt=2464.70 recv_soft=29.91% status=ok
+2026-06-20T10:39:16Z [scenario] [hp1-hp3/gre/cell1.rep3 sysctl=0] pps_sent=4135846 pps_recv=3554794 cyc/pkt=2272.92 ins/pkt=2405.25 recv_soft=29.27% status=ok
+2026-06-20T10:40:25Z [scenario] [hp1-hp3/gre/cell2.rep1 sysctl=1] pps_sent=4155859 pps_recv=3587814 cyc/pkt=2243.06 ins/pkt=2377.86 recv_soft=29.31% status=ok
+2026-06-20T10:41:34Z [scenario] [hp1-hp3/gre/cell2.rep2 sysctl=1] pps_sent=4126776 pps_recv=3415157 cyc/pkt=2454.82 ins/pkt=2591.36 recv_soft=28.96% status=ok
+2026-06-20T10:42:44Z [scenario] [hp1-hp3/gre/cell2.rep3 sysctl=1] pps_sent=4142561 pps_recv=3620188 cyc/pkt=2248.30 ins/pkt=2358.81 recv_soft=30.32% status=ok
+2026-06-20T10:42:49Z [scenario] <<< hp1-hp3 / gre down
+2026-06-20T10:42:49Z [scenario] >>> hp1-hp3 / geneve up
+2026-06-20T10:42:53Z [scenario] geneve geneve10 (VNI=10 dstport=6081) up: hp1(192.168.101.1) <-> hp3(192.168.101.2)
+2026-06-20T10:42:53Z [scenario] [hp1-hp3/geneve] L=192.168.101.1 on geneve10 (d2:e7:9a:2b:8d:5b) ↔ L2=192.168.101.2 on geneve10 (6e:12:8e:60:66:fc)
+2026-06-20T10:43:56Z [scenario] [hp1-hp3/geneve/cell1.rep1 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=81176.50 ins/pkt=59588.19 recv_soft=0.01% status=overlay-unsupported
+2026-06-20T10:45:04Z [scenario] [hp1-hp3/geneve/cell1.rep2 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=519140.33 ins/pkt=389691.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:46:12Z [scenario] [hp1-hp3/geneve/cell1.rep3 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=490951.00 ins/pkt=354213.67 recv_soft=0.01% status=overlay-unsupported
+2026-06-20T10:47:20Z [scenario] [hp1-hp3/geneve/cell2.rep1 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=559751.67 ins/pkt=459700.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:48:28Z [scenario] [hp1-hp3/geneve/cell2.rep2 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=402397.33 ins/pkt=308347.00 recv_soft=0.01% status=overlay-unsupported
+2026-06-20T10:49:37Z [scenario] [hp1-hp3/geneve/cell2.rep3 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=445147.33 ins/pkt=372342.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T10:49:42Z [scenario] <<< hp1-hp3 / geneve down
+2026-06-20T10:49:42Z [scenario] --- pair hp2-hp5: L=hp2 L2=hp5 iface=enp1s0f0np0 ---
+2026-06-20T10:49:43Z [scenario] >>> hp2-hp5 / eth_ip up
+2026-06-20T10:49:45Z [scenario] eth_ip up: hp2(10.10.0.2) <-> hp5(10.10.0.5) on underlay enp1s0f0np0/enp1s0f0np0 (no encap)
+2026-06-20T10:49:45Z [scenario] [hp2-hp5/eth_ip] L=10.10.0.2 on enp1s0f0np0 (f8:f2:1e:38:c3:50) ↔ L2=10.10.0.5 on enp1s0f0np0 (f8:f2:1e:38:ab:80)
+2026-06-20T10:50:50Z [scenario] [hp2-hp5/eth_ip/cell1.rep1 sysctl=0] pps_sent=4054583 pps_recv=2901086 cyc/pkt=3149.61 ins/pkt=2983.37 recv_soft=27.08% status=ok
+2026-06-20T10:51:59Z [scenario] [hp2-hp5/eth_ip/cell1.rep2 sysctl=0] pps_sent=3964094 pps_recv=2916828 cyc/pkt=3095.58 ins/pkt=3006.24 recv_soft=26.71% status=ok
+2026-06-20T10:53:08Z [scenario] [hp2-hp5/eth_ip/cell1.rep3 sysctl=0] pps_sent=3981571 pps_recv=2745019 cyc/pkt=3370.78 ins/pkt=3223.49 recv_soft=26.13% status=ok
+2026-06-20T10:54:16Z [scenario] [hp2-hp5/eth_ip/cell2.rep1 sysctl=1] pps_sent=3947019 pps_recv=2856081 cyc/pkt=3104.56 ins/pkt=3029.05 recv_soft=25.63% status=ok
+2026-06-20T10:55:25Z [scenario] [hp2-hp5/eth_ip/cell2.rep2 sysctl=1] pps_sent=3976033 pps_recv=2975536 cyc/pkt=2897.85 ins/pkt=2857.80 recv_soft=25.71% status=ok
+2026-06-20T10:56:35Z [scenario] [hp2-hp5/eth_ip/cell2.rep3 sysctl=1] pps_sent=3977218 pps_recv=2948539 cyc/pkt=3020.37 ins/pkt=2943.06 recv_soft=26.23% status=ok
+2026-06-20T10:56:40Z [scenario] <<< hp2-hp5 / eth_ip down
+2026-06-20T10:56:40Z [scenario] >>> hp2-hp5 / vlan up
+2026-06-20T10:56:43Z [scenario] vlan id=100 up: hp2(10.10.40.2) <-> hp5(10.10.40.5) on vlan100
+2026-06-20T10:56:43Z [scenario] [hp2-hp5/vlan] L=10.10.40.2 on vlan100 (f8:f2:1e:38:c3:50) ↔ L2=10.10.40.5 on vlan100 (f8:f2:1e:38:ab:80)
+2026-06-20T10:57:48Z [scenario] [hp2-hp5/vlan/cell1.rep1 sysctl=0] pps_sent=3978676 pps_recv=2985174 cyc/pkt=2957.92 ins/pkt=2891.76 recv_soft=26.43% status=ok
+2026-06-20T10:58:56Z [scenario] [hp2-hp5/vlan/cell1.rep2 sysctl=0] pps_sent=3932255 pps_recv=2862059 cyc/pkt=3071.13 ins/pkt=2966.31 recv_soft=25.92% status=ok
+2026-06-20T11:00:05Z [scenario] [hp2-hp5/vlan/cell1.rep3 sysctl=0] pps_sent=3951929 pps_recv=2884925 cyc/pkt=3132.00 ins/pkt=3018.46 recv_soft=26.67% status=ok
+2026-06-20T11:01:14Z [scenario] [hp2-hp5/vlan/cell2.rep1 sysctl=1] pps_sent=3949621 pps_recv=2990351 cyc/pkt=2959.48 ins/pkt=2879.24 recv_soft=26.82% status=ok
+2026-06-20T11:02:23Z [scenario] [hp2-hp5/vlan/cell2.rep2 sysctl=1] pps_sent=3946075 pps_recv=3022275 cyc/pkt=2887.82 ins/pkt=2849.12 recv_soft=26.33% status=ok
+2026-06-20T11:03:32Z [scenario] [hp2-hp5/vlan/cell2.rep3 sysctl=1] pps_sent=3972878 pps_recv=3001504 cyc/pkt=2869.17 ins/pkt=2810.50 recv_soft=26.16% status=ok
+2026-06-20T11:03:37Z [scenario] <<< hp2-hp5 / vlan down
+2026-06-20T11:03:37Z [scenario] >>> hp2-hp5 / qinq up
+2026-06-20T11:03:41Z [scenario] qinq S=10 C=100 up: hp2(10.10.41.2) <-> hp5(10.10.41.5) on cvlan100
+2026-06-20T11:03:41Z [scenario] [hp2-hp5/qinq] L=10.10.41.2 on cvlan100 (f8:f2:1e:38:c3:50) ↔ L2=10.10.41.5 on cvlan100 (f8:f2:1e:38:ab:80)
+2026-06-20T11:04:45Z [scenario] [hp2-hp5/qinq/cell1.rep1 sysctl=0] pps_sent=3937128 pps_recv=2855350 cyc/pkt=3166.84 ins/pkt=3039.65 recv_soft=26.63% status=ok
+2026-06-20T11:05:54Z [scenario] [hp2-hp5/qinq/cell1.rep2 sysctl=0] pps_sent=3937013 pps_recv=3000071 cyc/pkt=3008.18 ins/pkt=2925.12 recv_soft=27.18% status=ok
+2026-06-20T11:07:02Z [scenario] [hp2-hp5/qinq/cell1.rep3 sysctl=0] pps_sent=3929976 pps_recv=3030659 cyc/pkt=2894.15 ins/pkt=2862.31 recv_soft=26.48% status=ok
+2026-06-20T11:08:11Z [scenario] [hp2-hp5/qinq/cell2.rep1 sysctl=1] pps_sent=3934827 pps_recv=3002295 cyc/pkt=2924.51 ins/pkt=2861.12 recv_soft=26.48% status=ok
+2026-06-20T11:09:20Z [scenario] [hp2-hp5/qinq/cell2.rep2 sysctl=1] pps_sent=3968004 pps_recv=2914853 cyc/pkt=3050.19 ins/pkt=2929.84 recv_soft=26.40% status=ok
+2026-06-20T11:10:29Z [scenario] [hp2-hp5/qinq/cell2.rep3 sysctl=1] pps_sent=3934085 pps_recv=2864123 cyc/pkt=3252.43 ins/pkt=3118.69 recv_soft=27.30% status=ok
+2026-06-20T11:10:34Z [scenario] <<< hp2-hp5 / qinq down
+2026-06-20T11:10:34Z [scenario] >>> hp2-hp5 / vxlan up
+2026-06-20T11:10:38Z [scenario] vxlan VNI=10 dstport=4789 up: hp2(192.168.100.1) <-> hp5(192.168.100.2) on vxlan10
+2026-06-20T11:10:38Z [scenario] [hp2-hp5/vxlan] L=192.168.100.1 on vxlan10 (9e:e4:56:9f:db:12) ↔ L2=192.168.100.2 on vxlan10 (be:28:4e:2e:06:bc)
+2026-06-20T11:11:41Z [scenario] [hp2-hp5/vxlan/cell1.rep1 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=88887.31 ins/pkt=55529.50 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:12:49Z [scenario] [hp2-hp5/vxlan/cell1.rep2 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=463072.00 ins/pkt=360037.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:13:57Z [scenario] [hp2-hp5/vxlan/cell1.rep3 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=376328.00 ins/pkt=270673.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:15:05Z [scenario] [hp2-hp5/vxlan/cell2.rep1 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=524034.33 ins/pkt=386675.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:16:14Z [scenario] [hp2-hp5/vxlan/cell2.rep2 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=531938.67 ins/pkt=403514.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:17:22Z [scenario] [hp2-hp5/vxlan/cell2.rep3 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=412970.67 ins/pkt=297641.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:17:27Z [scenario] <<< hp2-hp5 / vxlan down
+2026-06-20T11:17:27Z [scenario] >>> hp2-hp5 / mpls up
+2026-06-20T11:17:31Z [scenario] mpls labels=100/200 up: hp2(10.10.43.2) <-> hp5(10.10.43.5)
+2026-06-20T11:17:31Z [scenario] [hp2-hp5/mpls] L=10.10.43.2 on lo (f8:f2:1e:38:c3:50) ↔ L2=10.10.43.5 on lo (f8:f2:1e:38:ab:80)
+2026-06-20T11:18:34Z [scenario] [hp2-hp5/mpls/cell1.rep1 sysctl=0] pps_sent=3971159 pps_recv=2945118 cyc/pkt=3006.86 ins/pkt=2938.42 recv_soft=26.21% status=ok
+2026-06-20T11:19:44Z [scenario] [hp2-hp5/mpls/cell1.rep2 sysctl=0] pps_sent=3999400 pps_recv=2879881 cyc/pkt=3094.05 ins/pkt=2969.62 recv_soft=26.08% status=ok
+2026-06-20T11:20:52Z [scenario] [hp2-hp5/mpls/cell1.rep3 sysctl=0] pps_sent=3948189 pps_recv=2885427 cyc/pkt=2929.16 ins/pkt=2868.68 recv_soft=25.25% status=ok
+2026-06-20T11:22:01Z [scenario] [hp2-hp5/mpls/cell2.rep1 sysctl=1] pps_sent=3965439 pps_recv=2898283 cyc/pkt=3085.50 ins/pkt=2970.34 recv_soft=26.53% status=ok
+2026-06-20T11:23:10Z [scenario] [hp2-hp5/mpls/cell2.rep2 sysctl=1] pps_sent=3941464 pps_recv=2966955 cyc/pkt=2988.44 ins/pkt=2926.34 recv_soft=26.48% status=ok
+2026-06-20T11:24:19Z [scenario] [hp2-hp5/mpls/cell2.rep3 sysctl=1] pps_sent=3972721 pps_recv=3002981 cyc/pkt=2897.33 ins/pkt=2852.55 recv_soft=26.28% status=ok
+2026-06-20T11:24:24Z [scenario] <<< hp2-hp5 / mpls down
+2026-06-20T11:24:25Z [scenario] >>> hp2-hp5 / ipip up
+2026-06-20T11:24:28Z [scenario] ipip ipip0 up: hp2(10.10.42.2) <-> hp5(10.10.42.5) over underlay 10.10.0.2<->10.10.0.5
+2026-06-20T11:24:28Z [scenario] [hp2-hp5/ipip] L=10.10.42.2 on ipip0 (f8:f2:1e:38:c3:50) ↔ L2=10.10.42.5 on ipip0 (f8:f2:1e:38:ab:80)
+2026-06-20T11:25:32Z [scenario] [hp2-hp5/ipip/cell1.rep1 sysctl=0] pps_sent=3936618 pps_recv=2849665 cyc/pkt=3161.63 ins/pkt=3032.83 recv_soft=26.49% status=ok
+2026-06-20T11:26:41Z [scenario] [hp2-hp5/ipip/cell1.rep2 sysctl=0] pps_sent=3953385 pps_recv=2929571 cyc/pkt=3020.85 ins/pkt=2962.81 recv_soft=26.25% status=ok
+2026-06-20T11:27:50Z [scenario] [hp2-hp5/ipip/cell1.rep3 sysctl=0] pps_sent=3932521 pps_recv=2890969 cyc/pkt=3080.82 ins/pkt=2957.61 recv_soft=26.57% status=ok
+2026-06-20T11:28:59Z [scenario] [hp2-hp5/ipip/cell2.rep1 sysctl=1] pps_sent=3969815 pps_recv=2937417 cyc/pkt=2971.88 ins/pkt=2896.78 recv_soft=25.82% status=ok
+2026-06-20T11:30:07Z [scenario] [hp2-hp5/ipip/cell2.rep2 sysctl=1] pps_sent=3932288 pps_recv=2753199 cyc/pkt=3383.33 ins/pkt=3192.98 recv_soft=26.84% status=ok
+2026-06-20T11:31:17Z [scenario] [hp2-hp5/ipip/cell2.rep3 sysctl=1] pps_sent=3987431 pps_recv=2963423 cyc/pkt=2977.87 ins/pkt=2906.14 recv_soft=26.36% status=ok
+2026-06-20T11:31:22Z [scenario] <<< hp2-hp5 / ipip down
+2026-06-20T11:31:22Z [scenario] >>> hp2-hp5 / gre up
+2026-06-20T11:31:26Z [scenario] gre gretest0 up: hp2(10.10.44.2) <-> hp5(10.10.44.5) over underlay 10.10.0.2<->10.10.0.5
+2026-06-20T11:31:26Z [scenario] [hp2-hp5/gre] L=10.10.44.2 on gretest0 (f8:f2:1e:38:c3:50) ↔ L2=10.10.44.5 on gretest0 (f8:f2:1e:38:ab:80)
+2026-06-20T11:32:30Z [scenario] [hp2-hp5/gre/cell1.rep1 sysctl=0] pps_sent=3948716 pps_recv=2843477 cyc/pkt=3152.87 ins/pkt=3019.99 recv_soft=26.07% status=ok
+2026-06-20T11:33:39Z [scenario] [hp2-hp5/gre/cell1.rep2 sysctl=0] pps_sent=3933148 pps_recv=2945389 cyc/pkt=3018.77 ins/pkt=2942.25 recv_soft=26.64% status=ok
+2026-06-20T11:34:47Z [scenario] [hp2-hp5/gre/cell1.rep3 sysctl=0] pps_sent=3952076 pps_recv=2928934 cyc/pkt=3167.71 ins/pkt=3038.17 recv_soft=27.59% status=ok
+2026-06-20T11:35:57Z [scenario] [hp2-hp5/gre/cell2.rep1 sysctl=1] pps_sent=3971594 pps_recv=2882999 cyc/pkt=3184.64 ins/pkt=3053.91 recv_soft=26.85% status=ok
+2026-06-20T11:37:06Z [scenario] [hp2-hp5/gre/cell2.rep2 sysctl=1] pps_sent=3964865 pps_recv=2913664 cyc/pkt=3072.32 ins/pkt=2977.94 recv_soft=26.44% status=ok
+2026-06-20T11:38:15Z [scenario] [hp2-hp5/gre/cell2.rep3 sysctl=1] pps_sent=3930004 pps_recv=2987386 cyc/pkt=2961.43 ins/pkt=2907.68 recv_soft=26.46% status=ok
+2026-06-20T11:38:20Z [scenario] <<< hp2-hp5 / gre down
+2026-06-20T11:38:20Z [scenario] >>> hp2-hp5 / geneve up
+2026-06-20T11:38:24Z [scenario] geneve geneve10 (VNI=10 dstport=6081) up: hp2(192.168.101.1) <-> hp5(192.168.101.2)
+2026-06-20T11:38:24Z [scenario] [hp2-hp5/geneve] L=192.168.101.1 on geneve10 (56:e9:70:6b:69:1a) ↔ L2=192.168.101.2 on geneve10 (8a:25:9f:c7:d9:7d)
+2026-06-20T11:39:27Z [scenario] [hp2-hp5/geneve/cell1.rep1 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=107813.00 ins/pkt=70992.29 recv_soft=0.01% status=overlay-unsupported
+2026-06-20T11:40:35Z [scenario] [hp2-hp5/geneve/cell1.rep2 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=512693.00 ins/pkt=382407.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:41:43Z [scenario] [hp2-hp5/geneve/cell1.rep3 sysctl=0] pps_sent=0 pps_recv=0 cyc/pkt=376616.33 ins/pkt=312505.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:42:51Z [scenario] [hp2-hp5/geneve/cell2.rep1 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=605926.33 ins/pkt=405104.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:43:59Z [scenario] [hp2-hp5/geneve/cell2.rep2 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=375039.33 ins/pkt=318422.00 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:45:08Z [scenario] [hp2-hp5/geneve/cell2.rep3 sysctl=1] pps_sent=0 pps_recv=0 cyc/pkt=396192.00 ins/pkt=278022.67 recv_soft=0.00% status=overlay-unsupported
+2026-06-20T11:45:13Z [scenario] <<< hp2-hp5 / geneve down
+2026-06-20T11:45:13Z [scenario] === matrix complete: perf-results/2026-06-19-phase-h-pktgen/matrix.csv ===
+pair      scenario  cell     rep  sysctl  dur_s  pkt_size  threads  scenario_iface  scenario_mac       pps_sent  pps_recv  cycles        instructions  branches     branch_misses  cycles_per_pkt  ins_per_pkt  branch_miss_per_pkt  recv_sys_pct  recv_soft_pct  rps  rfs  cake  flower  kernel_has_sysctl  status
+pi5-pair  eth_ip    cell-01  1    0       60     64        2        end0            2c:cf:67:31:df:b7  368921    369073    0             0             0            0              0.00            0.00         0.0000               0.10          33.90          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-01  2    0       60     64        2        end0            2c:cf:67:31:df:b7  368086    368160    0             0             0            0              0.00            0.00         0.0000               0.05          29.31          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-01  3    0       60     64        2        end0            2c:cf:67:31:df:b7  368354    368504    0             0             0            0              0.00            0.00         0.0000               0.07          29.07          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-02  1    1       60     64        2        end0            2c:cf:67:31:df:b7  368489    368639    0             0             0            0              0.00            0.00         0.0000               0.05          32.97          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-02  2    1       60     64        2        end0            2c:cf:67:31:df:b7  368404    368460    0             0             0            0              0.00            0.00         0.0000               0.05          30.30          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-02  3    1       60     64        2        end0            2c:cf:67:31:df:b7  368457    368516    0             0             0            0              0.00            0.00         0.0000               0.03          30.23          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-01  1    0       60     64        2        vlan100         2c:cf:67:31:df:b7  368318    368471    0             0             0            0              0.00            0.00         0.0000               0.05          33.21          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-01  2    0       60     64        2        vlan100         2c:cf:67:31:df:b7  368244    368313    0             0             0            0              0.00            0.00         0.0000               0.04          33.46          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-01  3    0       60     64        2        vlan100         2c:cf:67:31:df:b7  368400    368428    0             0             0            0              0.00            0.00         0.0000               0.06          30.79          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-02  1    1       60     64        2        vlan100         2c:cf:67:31:df:b7  368779    368924    0             0             0            0              0.00            0.00         0.0000               0.07          31.15          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-02  2    1       60     64        2        vlan100         2c:cf:67:31:df:b7  368498    368550    0             0             0            0              0.00            0.00         0.0000               0.09          31.31          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-02  3    1       60     64        2        vlan100         2c:cf:67:31:df:b7  368343    368218    0             0             0            0              0.00            0.00         0.0000               0.05          30.54          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-01  1    0       60     64        2        cvlan100        2c:cf:67:31:df:b7  368530    368571    0             0             0            0              0.00            0.00         0.0000               0.07          29.63          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-01  2    0       60     64        2        cvlan100        2c:cf:67:31:df:b7  368247    368307    0             0             0            0              0.00            0.00         0.0000               0.10          32.60          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-01  3    0       60     64        2        cvlan100        2c:cf:67:31:df:b7  368749    368895    0             0             0            0              0.00            0.00         0.0000               0.07          33.14          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-02  1    1       60     64        2        cvlan100        2c:cf:67:31:df:b7  368150    368298    0             0             0            0              0.00            0.00         0.0000               0.07          29.77          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-02  2    1       60     64        2        cvlan100        2c:cf:67:31:df:b7  368328    368473    0             0             0            0              0.00            0.00         0.0000               0.08          33.31          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-02  3    1       60     64        2        cvlan100        2c:cf:67:31:df:b7  368996    369145    0             0             0            0              0.00            0.00         0.0000               0.06          30.51          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-01  1    0       60     64        2        vxlan10         56:98:7e:10:9a:8f  0         5         0             0             0            0              0.00            0.00         0.0000               0.04          0.00           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-01  2    0       60     64        2        vxlan10         56:98:7e:10:9a:8f  0         6         0             0             0            0              0.00            0.00         0.0000               0.03          0.01           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-01  3    0       60     64        2        vxlan10         56:98:7e:10:9a:8f  0         6         0             0             0            0              0.00            0.00         0.0000               0.04          0.00           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-02  1    1       60     64        2        vxlan10         56:98:7e:10:9a:8f  0         6         0             0             0            0              0.00            0.00         0.0000               0.05          0.00           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-02  2    1       60     64        2        vxlan10         56:98:7e:10:9a:8f  0         6         0             0             0            0              0.00            0.00         0.0000               0.03          0.01           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-02  3    1       60     64        2        vxlan10         56:98:7e:10:9a:8f  0         6         0             0             0            0              0.00            0.00         0.0000               0.03          0.00           1    1    1     1       yes                ok
+pi5-pair  mpls      cell-01  1    0       60     64        2        lo              2c:cf:67:31:df:b7  368587    368668    0             0             0            0              0.00            0.00         0.0000               0.06          31.19          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-01  2    0       60     64        2        lo              2c:cf:67:31:df:b7  368089    368242    0             0             0            0              0.00            0.00         0.0000               0.07          30.13          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-01  3    0       60     64        2        lo              2c:cf:67:31:df:b7  368314    368383    0             0             0            0              0.00            0.00         0.0000               0.04          29.48          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-02  1    1       60     64        2        lo              2c:cf:67:31:df:b7  368269    368421    0             0             0            0              0.00            0.00         0.0000               0.07          31.17          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-02  2    1       60     64        2        lo              2c:cf:67:31:df:b7  368410    368557    0             0             0            0              0.00            0.00         0.0000               0.05          33.42          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-02  3    1       60     64        2        lo              2c:cf:67:31:df:b7  367932    368084    0             0             0            0              0.00            0.00         0.0000               0.08          30.53          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-01  1    0       60     64        2        ipip0           2c:cf:67:31:df:b7  368643    368796    0             0             0            0              0.00            0.00         0.0000               0.05          28.35          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-01  2    0       60     64        2        ipip0           2c:cf:67:31:df:b7  368405    368553    0             0             0            0              0.00            0.00         0.0000               0.07          28.23          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-01  3    0       60     64        2        ipip0           2c:cf:67:31:df:b7  368615    368762    0             0             0            0              0.00            0.00         0.0000               0.08          28.41          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-02  1    1       60     64        2        ipip0           2c:cf:67:31:df:b7  368439    368486    0             0             0            0              0.00            0.00         0.0000               0.08          29.18          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-02  2    1       60     64        2        ipip0           2c:cf:67:31:df:b7  368283    368322    0             0             0            0              0.00            0.00         0.0000               0.07          28.76          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-02  3    1       60     64        2        ipip0           2c:cf:67:31:df:b7  368328    368375    0             0             0            0              0.00            0.00         0.0000               0.05          29.52          1    1    1     1       yes                ok
+pi5-pair  gre       cell-01  1    0       60     64        2        gretest0        2c:cf:67:31:df:b7  368028    368159    0             0             0            0              0.00            0.00         0.0000               0.07          30.24          1    1    1     1       yes                ok
+pi5-pair  gre       cell-01  2    0       60     64        2        gretest0        2c:cf:67:31:df:b7  368345    368496    0             0             0            0              0.00            0.00         0.0000               0.04          28.29          1    1    1     1       yes                ok
+pi5-pair  gre       cell-01  3    0       60     64        2        gretest0        2c:cf:67:31:df:b7  368523    368670    0             0             0            0              0.00            0.00         0.0000               0.07          29.42          1    1    1     1       yes                ok
+pi5-pair  gre       cell-02  1    1       60     64        2        gretest0        2c:cf:67:31:df:b7  368350    368505    0             0             0            0              0.00            0.00         0.0000               0.06          30.90          1    1    1     1       yes                ok
+pi5-pair  gre       cell-02  2    1       60     64        2        gretest0        2c:cf:67:31:df:b7  368621    368773    0             0             0            0              0.00            0.00         0.0000               0.08          30.86          1    1    1     1       yes                ok
+pi5-pair  gre       cell-02  3    1       60     64        2        gretest0        2c:cf:67:31:df:b7  368267    368416    0             0             0            0              0.00            0.00         0.0000               0.07          29.70          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-01  1    0       60     64        2        geneve10        d6:fc:f8:fd:03:81  0         6         0             0             0            0              0.00            0.00         0.0000               0.06          0.00           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-01  2    0       60     64        2        geneve10        d6:fc:f8:fd:03:81  0         6         0             0             0            0              0.00            0.00         0.0000               0.06          0.01           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-01  3    0       60     64        2        geneve10        d6:fc:f8:fd:03:81  0         6         0             0             0            0              0.00            0.00         0.0000               0.04          0.00           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-02  1    1       60     64        2        geneve10        d6:fc:f8:fd:03:81  0         4         0             0             0            0              0.00            0.00         0.0000               0.04          0.00           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-02  2    1       60     64        2        geneve10        d6:fc:f8:fd:03:81  0         4         0             0             0            0              0.00            0.00         0.0000               0.06          0.01           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-02  3    1       60     64        2        geneve10        d6:fc:f8:fd:03:81  0         6         0             0             0            0              0.00            0.00         0.0000               0.06          0.00           1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-01  1    0       60     64        2        enp1s0f0np0     98:f2:b3:df:1c:70  4207613   3607903   501415159442  527184061678  98651621507  246447627      2316.28         2435.32      1.1385               9.65          29.81          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-01  2    0       60     64        2        enp1s0f0np0     98:f2:b3:df:1c:70  4161726   3548109   499851304307  524443738996  98170385891  242324381      2347.97         2463.49      1.1383               9.96          29.64          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-01  3    0       60     64        2        enp1s0f0np0     98:f2:b3:df:1c:70  4143730   3572103   501278632809  525517310882  98349885467  245399817      2338.86         2451.95      1.1450               9.72          30.13          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-02  1    1       60     64        2        enp1s0f0np0     98:f2:b3:df:1c:70  4134135   3536257   495706093229  521883440449  97677718312  243508070      2336.30         2459.68      1.1477               9.67          29.64          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-02  2    1       60     64        2        enp1s0f0np0     98:f2:b3:df:1c:70  4116113   3542749   492235785626  519015195950  97174332896  241144285      2315.70         2441.68      1.1344               9.60          29.69          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-02  3    1       60     64        2        enp1s0f0np0     98:f2:b3:df:1c:70  4123033   3497656   499280581209  528382525307  98875053982  244706890      2379.12         2517.79      1.1661               9.91          29.20          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-01  1    0       60     64        2        vlan100         98:f2:b3:df:1c:70  4126808   3581539   471615820020  500544297869  93454792533  228001569      2194.66         2329.28      1.0610               9.37          29.06          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-01  2    0       60     64        2        vlan100         98:f2:b3:df:1c:70  4110866   3507633   493978539430  517964789034  96722934783  239433482      2347.16         2461.13      1.1377               9.72          29.57          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-01  3    0       60     64        2        vlan100         98:f2:b3:df:1c:70  4130765   3595245   484999579869  507968602584  94938730234  234239326      2248.34         2354.82      1.0859               9.35          30.14          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-02  1    1       60     64        2        vlan100         98:f2:b3:df:1c:70  4105373   3410398   509768844845  534256242081  99799566728  242865771      2491.25         2610.92      1.1869               10.12         29.14          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-02  2    1       60     64        2        vlan100         98:f2:b3:df:1c:70  4127080   3518731   504271400860  527925311045  98619138343  243447709      2388.51         2500.55      1.1531               9.73          30.03          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-02  3    1       60     64        2        vlan100         98:f2:b3:df:1c:70  4176644   3524098   496393252454  522085195771  97462639357  238262941      2347.61         2469.12      1.1268               9.72          29.40          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-01  1    0       60     64        2        cvlan100        98:f2:b3:df:1c:70  4131408   3544912   483215041364  512333192900  95672112561  240606764      2271.87         2408.77      1.1312               9.59          29.28          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-01  2    0       60     64        2        cvlan100        98:f2:b3:df:1c:70  4151399   3597903   498299496309  523966864733  97897958908  248361185      2308.29         2427.19      1.1505               9.52          30.36          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-01  3    0       60     64        2        cvlan100        98:f2:b3:df:1c:70  4162421   3521795   499663958888  528630846540  98702013306  249395766      2364.63         2501.71      1.1802               9.88          29.51          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-02  1    1       60     64        2        cvlan100        98:f2:b3:df:1c:70  4102331   3527432   493407572997  518623694260  96912025169  247392303      2331.29         2450.43      1.1689               9.68          29.84          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-02  2    1       60     64        2        cvlan100        98:f2:b3:df:1c:70  4158579   3607159   488127281480  515485126870  96292344623  244169383      2255.36         2381.77      1.1282               9.58          30.00          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-02  3    1       60     64        2        cvlan100        98:f2:b3:df:1c:70  4115307   3547189   498680393830  523002929454  97702381506  247991154      2343.08         2457.36      1.1652               9.57          30.26          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-01  1    0       60     64        2        vxlan10         e6:8d:a5:c0:40:9e  0         0         1748199       1262995       257698       5307           116546.60       84199.67     353.8000             0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   vxlan     cell-01  2    0       60     64        2        vxlan10         e6:8d:a5:c0:40:9e  0         0         1020237       810792        164845       3031           340079.00       270264.00    1010.3333            0.01          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   vxlan     cell-01  3    0       60     64        2        vxlan10         e6:8d:a5:c0:40:9e  0         0         1946093       1469061       295970       5704           648697.67       489687.00    1901.3333            0.03          0.01           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   vxlan     cell-02  1    1       60     64        2        vxlan10         e6:8d:a5:c0:40:9e  0         0         2004626       1340987       273244       5005           668208.67       446995.67    1668.3333            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   vxlan     cell-02  2    1       60     64        2        vxlan10         e6:8d:a5:c0:40:9e  0         0         1282921       1031729       211216       4124           427640.33       343909.67    1374.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   vxlan     cell-02  3    1       60     64        2        vxlan10         e6:8d:a5:c0:40:9e  0         0         1761513       1410316       286250       5407           587171.00       470105.33    1802.3333            0.03          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   mpls      cell-01  1    0       60     64        2        lo              98:f2:b3:df:1c:70  4176987   3600178   509662482279  529123789632  98826006571  251346868      2359.43         2449.53      1.1636               9.70          30.49          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-01  2    0       60     64        2        lo              98:f2:b3:df:1c:70  4104781   3536052   493047891805  519972658132  97126457355  242857877      2323.91         2450.82      1.1447               9.44          29.82          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-01  3    0       60     64        2        lo              98:f2:b3:df:1c:70  4160168   3543989   504295461370  525554831226  98152578308  247597529      2371.60         2471.58      1.1644               9.91          29.94          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-02  1    1       60     64        2        lo              98:f2:b3:df:1c:70  4149880   3543153   504931001734  527036012234  98438494845  248889487      2375.15         2479.13      1.1708               9.63          30.19          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-02  2    1       60     64        2        lo              98:f2:b3:df:1c:70  4120487   3522716   484142284402  515497983643  96287852186  240324765      2290.57         2438.92      1.1370               9.67          28.81          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-02  3    1       60     64        2        lo              98:f2:b3:df:1c:70  4108824   3569242   487129580136  517451320347  96638034225  244274879      2274.66         2416.25      1.1406               9.55          29.58          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-01  1    0       60     64        2        ipip0           98:f2:b3:df:1c:70  4106566   3531998   486567227768  513811762641  95969655125  239527828      2296.00         2424.56      1.1303               9.50          29.57          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-01  2    0       60     64        2        ipip0           98:f2:b3:df:1c:70  4111455   3556309   491684019379  517151985402  96612690288  242447681      2304.28         2423.64      1.1362               9.50          29.96          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-01  3    0       60     64        2        ipip0           98:f2:b3:df:1c:70  4122421   3517715   492184635293  519573836305  97047815668  243685139      2331.93         2461.70      1.1546               9.70          29.33          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-02  1    1       60     64        2        ipip0           98:f2:b3:df:1c:70  4146803   3634881   484635750647  509473172139  95161179424  239845911      2222.15         2336.04      1.0997               9.32          30.18          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-02  2    1       60     64        2        ipip0           98:f2:b3:df:1c:70  4162154   3560380   494019971903  522350400997  97552059870  245232446      2312.58         2445.20      1.1480               9.79          29.46          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-02  3    1       60     64        2        ipip0           98:f2:b3:df:1c:70  4165084   3623485   488674928740  514477951225  96103779190  241185277      2247.72         2366.40      1.1094               9.44          29.96          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-01  1    0       60     64        2        gretest0        98:f2:b3:df:1c:70  4138526   3579062   485263071200  510042523205  95316819921  235560636      2259.73         2375.12      1.0969               9.42          29.87          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-01  2    0       60     64        2        gretest0        98:f2:b3:df:1c:70  4119132   3541928   496673256421  523786777416  97844137787  243254566      2337.11         2464.70      1.1446               9.64          29.91          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-01  3    0       60     64        2        gretest0        98:f2:b3:df:1c:70  4135846   3554794   484784874732  513010245325  95794729780  234931935      2272.92         2405.25      1.1015               9.60          29.27          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-02  1    1       60     64        2        gretest0        98:f2:b3:df:1c:70  4155859   3587814   482860901868  511879699948  95578377366  233472699      2243.06         2377.86      1.0846               9.69          29.31          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-02  2    1       60     64        2        gretest0        98:f2:b3:df:1c:70  4126776   3415157   503015879677  530993193222  99177024883  242755653      2454.82         2591.36      1.1847               10.10         28.96          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-02  3    1       60     64        2        gretest0        98:f2:b3:df:1c:70  4142561   3620188   488356787098  512360337783  95725389611  236925660      2248.30         2358.81      1.0908               9.35          30.32          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-01  1    0       60     64        2        geneve10        6e:12:8e:60:66:fc  0         0         1298824       953411        191558       4516           81176.50        59588.19     282.2500             0.02          0.01           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   geneve    cell-01  2    0       60     64        2        geneve10        6e:12:8e:60:66:fc  0         0         1557421       1169073       238177       5397           519140.33       389691.00    1799.0000            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   geneve    cell-01  3    0       60     64        2        geneve10        6e:12:8e:60:66:fc  0         0         1472853       1062641       218323       4664           490951.00       354213.67    1554.6667            0.02          0.01           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   geneve    cell-02  1    1       60     64        2        geneve10        6e:12:8e:60:66:fc  0         0         1679255       1379102       282200       5680           559751.67       459700.67    1893.3333            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   geneve    cell-02  2    1       60     64        2        geneve10        6e:12:8e:60:66:fc  0         0         1207192       925041        188648       3867           402397.33       308347.00    1289.0000            0.01          0.01           1    1    1     1       yes                overlay-unsupported
+hp1-hp3   geneve    cell-02  3    1       60     64        2        geneve10        6e:12:8e:60:66:fc  0         0         1335442       1117026       228615       4711           445147.33       372342.00    1570.3333            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   eth_ip    cell-01  1    0       60     64        2        enp1s0f0np0     f8:f2:1e:38:ab:80  4054583   2901086   548237046173  519301364884  96025841588  128407586      3149.61         2983.37      0.7377               11.98         27.08          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-01  2    0       60     64        2        enp1s0f0np0     f8:f2:1e:38:ab:80  3964094   2916828   541756291946  526120624267  97298281445  131732173      3095.58         3006.24      0.7527               11.81         26.71          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-01  3    0       60     64        2        enp1s0f0np0     f8:f2:1e:38:ab:80  3981571   2745019   555171278301  530911724148  98165186998  131643962      3370.78         3223.49      0.7993               12.21         26.13          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-02  1    1       60     64        2        enp1s0f0np0     f8:f2:1e:38:ab:80  3947019   2856081   532011729919  519072534411  95991651586  127924243      3104.56         3029.05      0.7465               11.67         25.63          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-02  2    1       60     64        2        enp1s0f0np0     f8:f2:1e:38:ab:80  3976033   2975536   517358659164  510208817212  94348300562  125683096      2897.85         2857.80      0.7040               11.34         25.71          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-02  3    1       60     64        2        enp1s0f0np0     f8:f2:1e:38:ab:80  3977218   2948539   534340658972  520664516139  96290888952  130143313      3020.37         2943.06      0.7356               11.56         26.23          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-01  1    0       60     64        2        vlan100         f8:f2:1e:38:ab:80  3978676   2985174   529793952399  517945037502  95592007111  128335194      2957.92         2891.76      0.7165               11.42         26.43          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-01  2    0       60     64        2        vlan100         f8:f2:1e:38:ab:80  3932255   2862059   527384659682  509385602028  94025789105  125162592      3071.13         2966.31      0.7289               11.38         25.92          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-01  3    0       60     64        2        vlan100         f8:f2:1e:38:ab:80  3951929   2884925   542135718967  522482440843  96446959369  129421977      3132.00         3018.46      0.7477               11.60         26.67          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-02  1    1       60     64        2        vlan100         f8:f2:1e:38:ab:80  3949621   2990351   530993875545  516595754981  95375404131  129193233      2959.48         2879.24      0.7201               11.33         26.82          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-02  2    1       60     64        2        vlan100         f8:f2:1e:38:ab:80  3946075   3022275   523667620094  516649443565  95386630796  129307083      2887.82         2849.12      0.7131               11.19         26.33          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-02  3    1       60     64        2        vlan100         f8:f2:1e:38:ab:80  3972878   3001504   516709370721  506143903282  93423555808  124239717      2869.17         2810.50      0.6899               11.19         26.16          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-01  1    0       60     64        2        cvlan100        f8:f2:1e:38:ab:80  3937128   2855350   542545901279  520756361073  96128606751  129577503      3166.84         3039.65      0.7563               11.62         26.63          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-01  2    0       60     64        2        cvlan100        f8:f2:1e:38:ab:80  3937013   3000071   541485911056  526534532260  97198531961  131831322      3008.18         2925.12      0.7324               11.54         27.18          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-01  3    0       60     64        2        cvlan100        f8:f2:1e:38:ab:80  3929976   3030659   526270705015  520481170270  96083563489  129738030      2894.15         2862.31      0.7135               11.25         26.48          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-02  1    1       60     64        2        cvlan100        f8:f2:1e:38:ab:80  3934827   3002295   526814667300  515395299092  95145064083  126392704      2924.51         2861.12      0.7016               11.32         26.48          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-02  2    1       60     64        2        cvlan100        f8:f2:1e:38:ab:80  3968004   2914853   533451916670  512404003611  94583453493  125575938      3050.19         2929.84      0.7180               11.52         26.40          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-02  3    1       60     64        2        cvlan100        f8:f2:1e:38:ab:80  3934085   2864123   558921360181  535938304916  98920929476  135418412      3252.43         3118.69      0.7880               11.89         27.30          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-01  1    0       60     64        2        vxlan10         be:28:4e:2e:06:bc  0         0         1422197       888472        179315       3839           88887.31        55529.50     239.9375             0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   vxlan     cell-01  2    0       60     64        2        vxlan10         be:28:4e:2e:06:bc  0         0         1389216       1080111       223327       4509           463072.00       360037.00    1503.0000            0.01          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   vxlan     cell-01  3    0       60     64        2        vxlan10         be:28:4e:2e:06:bc  0         0         1128984       812019        165814       3833           376328.00       270673.00    1277.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   vxlan     cell-02  1    1       60     64        2        vxlan10         be:28:4e:2e:06:bc  0         0         1572103       1160027       236688       3989           524034.33       386675.67    1329.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   vxlan     cell-02  2    1       60     64        2        vxlan10         be:28:4e:2e:06:bc  0         0         1595816       1210544       241308       4649           531938.67       403514.67    1549.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   vxlan     cell-02  3    1       60     64        2        vxlan10         be:28:4e:2e:06:bc  0         0         1238912       892925        177187       3797           412970.67       297641.67    1265.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   mpls      cell-01  1    0       60     64        2        lo              f8:f2:1e:38:ab:80  3971159   2945118   531333563591  519240169477  95831244565  127405754      3006.86         2938.42      0.7210               11.51         26.21          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-01  2    0       60     64        2        lo              f8:f2:1e:38:ab:80  3999400   2879881   534629760489  513129717497  94707612494  127849125      3094.05         2969.62      0.7399               11.66         26.08          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-01  3    0       60     64        2        lo              f8:f2:1e:38:ab:80  3948189   2885427   507113470834  496642685860  91665935691  119747553      2929.16         2868.68      0.6917               11.03         25.25          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-02  1    1       60     64        2        lo              f8:f2:1e:38:ab:80  3965439   2898283   536559013502  516532417785  95342709175  127372555      3085.50         2970.34      0.7325               11.53         26.53          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-02  2    1       60     64        2        lo              f8:f2:1e:38:ab:80  3941464   2966955   531993397258  520939657944  96165026968  130169069      2988.44         2926.34      0.7312               11.38         26.48          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-02  3    1       60     64        2        lo              f8:f2:1e:38:ab:80  3972721   3002981   522038565511  513969429586  94875626149  126645977      2897.33         2852.55      0.7029               11.15         26.28          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-01  1    0       60     64        2        ipip0           f8:f2:1e:38:ab:80  3936618   2849665   540575293203  518552386476  95695337284  128382076      3161.63         3032.83      0.7509               11.77         26.49          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-01  2    0       60     64        2        ipip0           f8:f2:1e:38:ab:80  3953385   2929571   530987905545  520786453215  96123337056  129627090      3020.85         2962.81      0.7375               11.42         26.25          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-01  3    0       60     64        2        ipip0           f8:f2:1e:38:ab:80  3932521   2890969   534394138954  513021394553  94697530618  126377665      3080.82         2957.61      0.7286               11.52         26.57          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-02  1    1       60     64        2        ipip0           f8:f2:1e:38:ab:80  3969815   2937417   523779754019  510543510887  94240264102  127006468      2971.88         2896.78      0.7206               11.38         25.82          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-02  2    1       60     64        2        ipip0           f8:f2:1e:38:ab:80  3932288   2753199   558899026078  527455367537  97336990387  133015954      3383.33         3192.98      0.8052               12.14         26.84          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-02  3    1       60     64        2        ipip0           f8:f2:1e:38:ab:80  3987431   2963423   529480611559  516728047515  95372809863  127025557      2977.87         2906.14      0.7144               11.43         26.36          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-01  1    0       60     64        2        gretest0        f8:f2:1e:38:ab:80  3948716   2843477   537906877493  515236273594  95091124873  126322695      3152.87         3019.99      0.7404               11.72         26.07          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-01  2    0       60     64        2        gretest0        f8:f2:1e:38:ab:80  3933148   2945389   533487657208  519963827788  95975702384  129662996      3018.77         2942.25      0.7337               11.40         26.64          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-01  3    0       60     64        2        gretest0        f8:f2:1e:38:ab:80  3952076   2928934   556681504187  533915744849  98560162683  134548231      3167.71         3038.17      0.7656               11.72         27.59          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-02  1    1       60     64        2        gretest0        f8:f2:1e:38:ab:80  3971594   2882999   550878560566  528265196721  97501036884  132539244      3184.64         3053.91      0.7662               11.85         26.85          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-02  2    1       60     64        2        gretest0        f8:f2:1e:38:ab:80  3964865   2913664   537103026950  520603566774  96088978925  128974378      3072.32         2977.94      0.7378               11.61         26.44          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-02  3    1       60     64        2        gretest0        f8:f2:1e:38:ab:80  3930004   2987386   530815535693  521182688004  96215091668  131101832      2961.43         2907.68      0.7314               11.26         26.46          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-01  1    0       60     64        2        geneve10        8a:25:9f:c7:d9:7d  0         0         1832821       1206869       236766       5178           107813.00       70992.29     304.5882             0.02          0.01           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   geneve    cell-01  2    0       60     64        2        geneve10        8a:25:9f:c7:d9:7d  0         0         1538079       1147223       232385       4436           512693.00       382407.67    1478.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   geneve    cell-01  3    0       60     64        2        geneve10        8a:25:9f:c7:d9:7d  0         0         1129849       937515        192428       3764           376616.33       312505.00    1254.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   geneve    cell-02  1    1       60     64        2        geneve10        8a:25:9f:c7:d9:7d  0         0         1817779       1215314       240289       4329           605926.33       405104.67    1443.0000            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   geneve    cell-02  2    1       60     64        2        geneve10        8a:25:9f:c7:d9:7d  0         0         1125118       955266        189536       3563           375039.33       318422.00    1187.6667            0.02          0.00           1    1    1     1       yes                overlay-unsupported
+hp2-hp5   geneve    cell-02  3    1       60     64        2        geneve10        8a:25:9f:c7:d9:7d  0         0         1188576       834068        167836       3173           396192.00       278022.67    1057.6667            0.01          0.00           1    1    1     1       yes                overlay-unsupported

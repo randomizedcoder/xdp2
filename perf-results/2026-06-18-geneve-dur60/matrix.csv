@@ -1,0 +1,13 @@
+pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,recv_sys_pct,recv_soft_pct,kernel_has_sysctl,status
+pi5-pair,geneve,cell-01,tcp,0,60,geneve10,192.168.101.2,908.9,0,0.96,5.88,yes,ok
+pi5-pair,geneve,cell-02,tcp,1,60,geneve10,192.168.101.2,908.9,0,0.92,5.88,yes,ok
+pi5-pair,geneve,cell-03,udp,0,60,geneve10,192.168.101.2,911.8,0,2.95,15.81,yes,ok
+pi5-pair,geneve,cell-04,udp,1,60,geneve10,192.168.101.2,911.9,0,3.03,15.78,yes,ok
+hp1-hp3,geneve,cell-01,tcp,0,60,geneve10,192.168.101.2,15930.8,8873,26.28,7.23,yes,ok
+hp1-hp3,geneve,cell-02,tcp,1,60,geneve10,192.168.101.2,16845.2,6081,21.06,12.98,yes,ok
+hp1-hp3,geneve,cell-03,udp,0,60,geneve10,192.168.101.2,6042.9,0,15.88,7.75,yes,ok
+hp1-hp3,geneve,cell-04,udp,1,60,geneve10,192.168.101.2,6165.5,0,15.85,7.88,yes,ok
+hp2-hp5,geneve,cell-01,tcp,0,60,geneve10,192.168.101.2,9089.2,1646,20.91,5.74,yes,ok
+hp2-hp5,geneve,cell-02,tcp,1,60,geneve10,192.168.101.2,9087.4,11075,20.70,6.07,yes,ok
+hp2-hp5,geneve,cell-03,udp,0,60,geneve10,192.168.101.2,6287.4,0,17.68,8.39,yes,ok
+hp2-hp5,geneve,cell-04,udp,1,60,geneve10,192.168.101.2,6330.0,0,17.71,8.36,yes,ok

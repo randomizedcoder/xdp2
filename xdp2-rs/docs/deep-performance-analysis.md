@@ -223,7 +223,7 @@ Every technique from the Open Markets Initiative
 | 7 | **Avoid Float/Double Mixing** | N/A | Hot path uses zero floating-point.  All operations are integer/bitwise. | N/A. |
 | 8 | **Branch Prediction/Reduction** | Done (95%) | Branch-miss 0.05% (small PCAP), 6.54% (445K mixed).  Jump tables confirmed in asm (`.LJTI` sections). | Minor: `#[cold]` on error paths, `likely`/`unlikely` hints. |
 | 9 | **Slowpath Removal** | Partial (70%) | Error paths return `Err` early.  `bench_mono_x4` uses `#[inline(never)]`. | Add `#[cold]` to `ParseError` handling.  `#[inline(never)]` on error formatters. |
-| 10 | **SIMD** | Done (AVX2) | `simd_batch.rs`: 8-packet classification. `template_simd.rs`: 8-packet extraction (493 Mpps). | AVX-512: projected 1–2 cyc/pkt template.  Requires Zen 4+ or Intel. |
+| 10 | **SIMD** | Done (AVX2 + NEON) | `simd_batch.rs`: 8-packet classification on x86_64 (AVX2) and aarch64 (NEON, 2× 4-lane `vceqq_u32`). `template_simd.rs`: 8-packet extraction (493 Mpps, x86_64). | AVX-512: projected 1–2 cyc/pkt template (needs Zen 4+ or Intel). SVE2 on aarch64: follow-up tier when Neoverse V2 / Cortex-X2 hardware joins the testbed. |
 | 11 | **Prefetching** | **Not started** | Zero `_mm_prefetch` calls in codebase. | **High priority**: prefetch next packet in batch loops.  ~10–20% potential, especially with AF_XDP UMEM. |
 | 12 | **Lock-free Programming** | Done (100%) | MT benchmark: zero locks, disjoint partitions, private `FlowMeta` per thread.  AF_XDP rings are inherently lock-free. | None for parsing.  AF_XDP ring integration uses lock-free ring buffer pattern. |
 | 13 | **Inlining** | Done (100%) | 254+ `#[inline]` annotations.  Fat LTO enables cross-crate inlining.  46% combined improvement. | None — well calibrated. |
@@ -256,8 +256,10 @@ bypass and ring buffers) are addressed by the AF_XDP integration plan.
 
 | Technique | Status | Impact | Effort | Notes |
 |-----------|--------|--------|--------|-------|
-| AVX2 SIMD (256-bit) | Done | — | — | 8-packet batch classify + extract |
+| AVX2 SIMD (256-bit, x86_64) | Done | — | — | 8-packet batch classify + extract |
+| NEON SIMD (128-bit, aarch64) | Done | — | — | 8-packet batch classify (2× 4-lane `vceqq_u32`); same fast-path coverage as AVX2 |
 | AVX-512 SIMD (512-bit) | Not started | High | Med | Projected 1–2 cyc/pkt template.  Needs Zen 4+ |
+| SVE2 SIMD (128–2048-bit, aarch64) | Not started | Med | Med | Needs Neoverse V2 / Cortex-X2+; cheaper gather than NEON |
 | Branch reduction | Done | — | — | 0.05% miss rate, jump tables in compiled parser |
 | Slowpath removal (`#[cold]`) | Done | Low | Low | `#[cold] #[inline(never)]` on error conversion functions |
 | ILP exploitation (software pipelining) | Partial | Low | Med | mono-x4: +9%, regressed with metadata (register pressure) |

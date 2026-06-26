@@ -1,0 +1,13 @@
+pair,scenario,cell,proto,sysctl,dur_s,scenario_iface,scenario_v4,mbps,retransmits,kernel_has_sysctl,status
+pi5-pair,vlan,cell-01,tcp,0,30,vlan100,10.10.40.5,938.9,0,yes,ok
+pi5-pair,vlan,cell-02,tcp,1,30,vlan100,10.10.40.5,938.9,0,yes,ok
+pi5-pair,vlan,cell-03,udp,0,30,vlan100,10.10.40.5,944.9,0,yes,ok
+pi5-pair,vlan,cell-04,udp,1,30,vlan100,10.10.40.5,944.9,0,yes,ok
+pi5-pair,qinq,cell-01,tcp,0,30,cvlan100,10.10.41.5,936.4,0,yes,ok
+pi5-pair,qinq,cell-02,tcp,1,30,cvlan100,10.10.41.5,936.4,0,yes,ok
+pi5-pair,qinq,cell-03,udp,0,30,cvlan100,10.10.41.5,942.0,0,yes,ok
+pi5-pair,qinq,cell-04,udp,1,30,cvlan100,10.10.41.5,942.0,0,yes,ok
+pi5-pair,vxlan,cell-01,tcp,0,30,vxlan10,192.168.100.2,908.9,0,yes,ok
+pi5-pair,vxlan,cell-02,tcp,1,30,vxlan10,192.168.100.2,908.9,0,yes,ok
+pi5-pair,vxlan,cell-03,udp,0,30,vxlan10,192.168.100.2,911.9,0,yes,ok
+pi5-pair,vxlan,cell-04,udp,1,30,vxlan10,192.168.100.2,911.9,0,yes,ok

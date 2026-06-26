@@ -1,0 +1,156 @@
+From b616176231dc1513e24c6e62547e3124fbd9a4d5 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sun, 14 Jun 2026 14:54:36 -0700
+Subject: [RFC EXTENSIONS 3/3] RFC EXPERIMENT: net: flow_dissector: descend
+ into VXLAN inner flow
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+THIS IS A BEHAVIOUR CHANGE, not a byte-identical fast-path. It is
+posted for discussion alongside the VLAN / QinQ extensions, not as
+something landable in its current form.
+
+Today's flow_keys_dissector dissects to the *outer* of a VXLAN packet
+(Eth + IPv4 + UDP, dst port 4789); the dissector has no UDP encap
+descent for the standard dissector configuration. That means
+overlay traffic between two VTEPs hashes onto a single 5-tuple
+(outer src/dst + outer UDP src/dst + IPPROTO_UDP), which collapses
+every inner flow into one bucket. Cake, fq, fq_codel, RPS, RFS, ECMP
+— all of them see one flow.
+
+This patch makes the dissector descend into the VXLAN payload when:
+
+- The fast-path was entered (so the dispatcher gate is held).
+- Outer is eth + IPv4 + UDP, dst port == IANA_VXLAN_UDP_PORT (4789).
+- enough bytes remain for udphdr + vxlanhdr + ETH_HLEN.
+- This is the first encap descent (encap_depth == 0; no nested-
+  encap walk).
+
+On match: set FLOW_DIS_ENCAPSULATION in key_control, advance nhoff
+past udphdr + vxlanhdr + the inner Ethernet header, set proto from
+the inner ethertype, and re-enter the dispatcher loop. The inner
+ETH_P_IP / ETH_P_IPV6 fast-path overwrites key_basic / key_addrs /
+key_ports / (and key_control->addr_type / thoff) with the inner
+values — same shape as the slow-path encap descent in
+__skb_flow_dissect_gre() etc.
+
+What this gets you (operator-visible):
+
+- Per-inner-flow hashing for VXLAN overlays in k8s. cake's
+  per-flow fairness no longer collapses for east-west traffic
+  between two VTEPs. RPS gets per-flow steering. ECMP between
+  CNIs gets per-flow distribution.
+
+What this breaks:
+
+- Byte-identical with current behaviour. The contract of the
+  parent fast-path series was "fast-path output == slow-path
+  output." This patch knowingly violates that contract because
+  the slow path doesn't have UDP-encap descent.
+- Behaviour-on / behaviour-off symmetry. Today's
+  net.core.flow_dissector_fastpath = 0 mode does not descend;
+  today's = 1 mode (with this patch) does descend. That's an
+  observable difference. The right shape for this work is
+  probably:
+
+    1) A separate sysctl, e.g.
+       net.core.flow_dissector_descend_udp_encap, that gates
+       the descent independently of the fast-path knob.
+    2) Or a per-dissector flag (FLOW_DISSECTOR_F_DESCEND_VXLAN)
+       that callers opt into.
+    3) Or a UDP-encap descent in the slow path too, so the
+       fast-path stays byte-identical.
+
+- VXLAN port configurability. This patch hardcodes 4789. Real
+  deployments often run on different ports (Cilium uses 8472
+  for example). A landable version needs to consult the
+  per-netns configured VXLAN ports.
+
+- Nested encap (VXLAN-in-VXLAN, geneve-in-VXLAN) — guarded
+  against here by encap_depth == 0 but not handled.
+
+Posting this here primarily as a foothold to discuss whether the
+flow_dissector's "stops at outer UDP" behaviour is the right
+default. If consensus is no, this code shows what the descent
+would look like; if yes, we have a clean record of the trade-off.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ net/core/flow_dissector.c | 46 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 044dc7c57406..83db01f9aba0 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -14,6 +14,7 @@
+ #include <net/gre.h>
+ #include <net/pptp.h>
+ #include <net/tipc.h>
++#include <net/vxlan.h>
+ #include <linux/igmp.h>
+ #include <linux/icmp.h>
+ #include <linux/sctp.h>
+@@ -1215,6 +1216,7 @@ bool __skb_flow_dissect(const struct net *net,
+ 		enum flow_dissector_key_id vlan_key;
+ 		int thoff;
+ 		int vlan_depth = 0;
++		int encap_depth = 0;
+ 
+ try_inner:
+ 		/* Up to two 802.1Q / 802.1ad tags (single VLAN + QinQ).
+@@ -1334,6 +1336,50 @@ bool __skb_flow_dissect(const struct net *net,
+ 								      target_container);
+ 				key_ports->ports = *ports;
+ 			}
++
++			/* EXPERIMENT: descend into VXLAN inner for hashing.
++			 * This is *not* byte-identical with the existing slow
++			 * path — the standard flow_keys dissector stops at the
++			 * outer UDP today. Descending into the inner flow is a
++			 * behaviour change with operator-visible impact (k8s
++			 * overlays would get per-inner-flow fairness in cake
++			 * instead of per-VTEP-pair hashing). See the cover
++			 * letter; this commit is for discussion, not landable
++			 * as-is without wider review and likely an opt-in
++			 * flag.
++			 */
++			if (encap_depth == 0 &&
++			    iph->protocol == IPPROTO_UDP &&
++			    hlen - thoff >= (int)(sizeof(struct udphdr) +
++						  sizeof(struct vxlanhdr) +
++						  ETH_HLEN)) {
++				const __be16 *udp_ports = (const __be16 *)
++					((const u8 *)data + thoff);
++
++				if (udp_ports[1] == htons(IANA_VXLAN_UDP_PORT)) {
++					const struct ethhdr *inner_eth =
++						(const struct ethhdr *)
++						((const u8 *)data + thoff +
++						 sizeof(struct udphdr) +
++						 sizeof(struct vxlanhdr));
++
++					if (dissector_uses_key(flow_dissector,
++							       FLOW_DISSECTOR_KEY_CONTROL)) {
++						key_control = skb_flow_dissector_target(flow_dissector,
++											FLOW_DISSECTOR_KEY_CONTROL,
++											target_container);
++						key_control->flags |= FLOW_DIS_ENCAPSULATION;
++					}
++
++					nhoff = thoff + sizeof(struct udphdr) +
++						sizeof(struct vxlanhdr) +
++						ETH_HLEN;
++					proto = inner_eth->h_proto;
++					vlan_depth = 0;
++					encap_depth++;
++					goto try_inner;
++				}
++			}
+ 			return true;
+ 		}
+ 
+-- 
+2.54.0
+

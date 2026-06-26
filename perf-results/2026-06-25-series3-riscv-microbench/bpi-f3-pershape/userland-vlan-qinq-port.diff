@@ -1,0 +1,68 @@
+1242a1243,1303
+> 
+> /* Series 3 per-shape userland port: single VLAN + QinQ (depth-2).
+>  * Adapted from kernel v3 patches 2-3. skb is always NULL in the
+>  * userland lib, so only the read-from-data path is kept. Outer tag ->
+>  * KEY_VLAN, inner tag -> KEY_CVLAN; then tail-call the eth_ip fast-path.
+>  */
+> static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+> 				   struct flow_dissector *flow_dissector,
+> 				   void *target_container,
+> 				   const void *data,
+> 				   __be16 proto, int nhoff, int hlen,
+> 				   int vlan_depth)
+> {
+> 	struct flow_dissector_key_vlan *key_vlan;
+> 	enum flow_dissector_key_id vlan_key_id;
+> 	const struct vlan_hdr *vlan;
+> 	__be16 inner_proto;
+> 	__be16 saved_tpid = proto;
+> 	u16 tci_id, tci_prio;
+> 
+> 	if (unlikely(hlen - nhoff < (int)sizeof(*vlan)))
+> 		return false;
+> 	vlan = (const struct vlan_hdr *)((const u8 *)data + nhoff);
+> 	tci_id = ntohs(vlan->h_vlan_TCI) & VLAN_VID_MASK;
+> 	tci_prio = (ntohs(vlan->h_vlan_TCI) & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
+> 	inner_proto = vlan->h_vlan_encapsulated_proto;
+> 	nhoff += (int)sizeof(*vlan);
+> 
+> 	vlan_key_id = (vlan_depth == 0) ? FLOW_DISSECTOR_KEY_VLAN
+> 					: FLOW_DISSECTOR_KEY_CVLAN;
+> 	if (dissector_uses_key(flow_dissector, vlan_key_id)) {
+> 		key_vlan = skb_flow_dissector_target(flow_dissector,
+> 						     vlan_key_id,
+> 						     target_container);
+> 		key_vlan->vlan_id = tci_id;
+> 		key_vlan->vlan_priority = tci_prio;
+> 		key_vlan->vlan_tpid = saved_tpid;
+> 	}
+> 
+> 	switch (inner_proto) {
+> 	case htons(ETH_P_8021Q):
+> 	case htons(ETH_P_8021AD):
+> 		if (vlan_depth == 0)
+> 			return flow_dissect_fast_vlan(skb, flow_dissector,
+> 						      target_container, data,
+> 						      inner_proto, nhoff, hlen,
+> 						      vlan_depth + 1);
+> 		return false;
+> 	case htons(ETH_P_IP):
+> 		return flow_dissect_fast_ipv4(skb, flow_dissector,
+> 					      target_container, data,
+> 					      nhoff, hlen);
+> 	case htons(ETH_P_IPV6):
+> 		return flow_dissect_fast_ipv6(skb, flow_dissector,
+> 					      target_container, data,
+> 					      nhoff, hlen);
+> 	default:
+> 		return false;
+> 	}
+> }
+> 
+1265a1327,1331
+> 	case htons(ETH_P_8021Q):
+> 	case htons(ETH_P_8021AD):
+> 		return flow_dissect_fast_vlan(skb, flow_dissector,
+> 					      target_container, data,
+> 					      proto, nhoff, hlen, 0);

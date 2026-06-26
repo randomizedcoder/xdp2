@@ -164,12 +164,30 @@ keeping the fast-path body in the hot text section.
                                   GRE-within-GRE, VXLAN, IPIP, L2TP,
                                   6in4, 6to4, SRv6 family)
 
-    Breakeven hit fraction p ≈ 10-20 %. Above 10-20 % of packets
-    eligible, sysctl=1 wins on average. Below, it's a small
-    per-call cost on the non-matching majority. The exact crossover
-    shifts slightly between uarchs but the order of magnitude is
-    stable because both numerator and denominator scale with core
-    speed.
+    Cross-uarch dispatcher_overhead on miss (key parameter for
+    breakeven on encap-heavy workloads):
+
+      uarch                              | dispatcher_overhead
+      -----------------------------------|--------------------
+      Intel Comet Lake-H i9-10885H (OoO) | ~0.2 ns / pkt
+      Cortex-A76 (Pi 5, OoO, 2.4 GHz)    | ~0.3 - 0.9 ns / pkt
+      Cortex-A53 (Pi 3, in-order, 1.2 GHz)| ~6.7 - 9.9 ns / pkt
+
+    The Cortex-A53 number is ~14-27x the Cortex-A76 number, while
+    the body cost ratio (patched / baseline single-shape) is only
+    ~6x. An in-order pipeline pays disproportionately more per
+    dispatcher branch chain than an out-of-order one, because the
+    dispatcher is exactly the workload pattern (short dependent
+    load+compare chain) that OoO execution covers best.
+
+    Breakeven hit fraction p ≈ 10-20 % on Cortex-A76 / x86; on
+    Cortex-A53 the breakeven shifts higher — closer to p ≈ 50 %
+    — because the dispatcher_overhead/fast_path_savings ratio is
+    larger. Above breakeven, sysctl=1 wins on average. Below, it's
+    a per-call cost on the non-matching majority. The order of
+    magnitude is stable on OoO hardware (numerator and denominator
+    both scale with core speed); on in-order ARM the operator
+    should be more conservative.
 
     Operator guidance:
 
@@ -184,16 +202,31 @@ keeping the fast-path body in the hot text section.
       through, anti-DDoS scrubbers):
         --> leave sysctl=0 (default)
 
+      Small in-order ARM hosts (Cortex-A53, Cortex-A55,
+      Cortex-A7, Raspberry Pi 3 / Pi Zero 2W / many low-end
+      ARM CPE and edge appliances):
+        --> the dispatcher_overhead/fast_path_savings ratio is
+            ~10x worse than on OoO cores; the breakeven hit
+            fraction shifts up to ~50 %. Operators with mixed
+            traffic on these CPUs should default to sysctl=0
+            unless they have measured their workload as
+            >50 % fast-path-eligible. Bare-eth TCP/UDP-only
+            fleets on these CPUs still benefit; everyone else
+            should leave it off.
+
       Mixed workloads: the patches expose this on a per-host
       basis via the sysctl — measure your hit fraction against
-      ~10-20 % and decide. The cost is per-packet, so the
+      the breakeven for your uarch (~10-20 % on OoO, ~50 % on
+      in-order ARM) and decide. The cost is per-packet, so the
       decision is independent of bandwidth.
 
     Numbers above are from
-    perf-results/2026-06-10-series3-non-fast-path/ (single-shape
-    non-fast-path PCAPs) and
-    perf-results/2026-06-10-series3-mixed-traffic/ (real workload
-    PCAPs) in
+    perf-results/2026-06-10-series3-non-fast-path/ (Cortex-A76,
+    34 single-shape non-fast-path PCAPs),
+    perf-results/2026-06-10-series3-mixed-traffic/ (Cortex-A76,
+    real workload PCAPs), and
+    perf-results/2026-06-10-series3-pi3-pcap-microbench/ (Cortex-A53
+    cross-uarch confirmation, 7-PCAP subset) in
     https://github.com/randomizedcoder/xdp2/tree/main/perf-results/.
 
 Output byte-equivalence is enforced by field-by-field matching of
@@ -287,6 +320,99 @@ Tested
 
     Details: perf-results/2026-06-09-series3-arm-ab/ in the
     project repo.
+
+      * Cross-uarch kernel macro from pi5-2 (A76 sender) to
+        pi4-1 (A72) and pi3-1 (A53, 100 Mbit USB-eth, in-order
+        pipeline — the slowest receiver in the fleet, intentionally
+        the worst case for the dispatcher's per-call cost). N=3
+        per cell, 30 s, sysctl set on receiver:
+
+          recv    proto              sysctl=0      sysctl=1     delta
+          pi4-1   iperf3 TCP         936.37 Mb/s   936.38 Mb/s  +0.00 %
+                  iperf3 UDP -l 64    97.89 Mb/s    98.26 Mb/s  +0.38 %
+                  iperf2 TCP         936.29 Mb/s   936.15 Mb/s  -0.02 %
+          pi3-1   iperf3 TCP          93.83 Mb/s    93.81 Mb/s  -0.01 %
+                  iperf3 UDP -l 64    29.54 Mb/s    29.88 Mb/s  +1.15 %
+                  iperf2 TCP          93.85 Mb/s    93.85 Mb/s  +0.00 %
+
+        Receiver CPU% delta (iperf3 reports cpu_recv): -0.0 to
+        -0.1 pp on TCP wire-rate cells, +0.7 pp on the pi3-1 UDP
+        small-packet cell — the worst kernel-macro signal in the
+        whole matrix, well below cell-to-cell noise.
+
+      * Mixed-packet kernel macro via tcpreplay from pi5-2 to
+        pi4-1 / pi3-1. Replay rates 500 Mbit/s (pi4-1) and 80
+        Mbit/s (pi3-1) against rewritten broad-coverage.pcap
+        (5200-packet diverse non-eligible mix) and
+        vxlan-k8s-pure.pcap (20 000-packet VXLAN-encap K8s mix).
+        Receiver-side mean CPU% across all 4 cores over 20 s
+        replay window, A/B sysctl:
+
+          recv    pcap             cpu=0    cpu=1    Δ pp
+          pi4-1   broad-coverage   16.54 %  15.86 %  -0.68
+                  vxlan-k8s-pure   17.18 %  17.18 %  +0.00
+          pi3-1   broad-coverage   14.53 %  14.10 %  -0.42
+                  vxlan-k8s-pure   12.26 %  12.15 %  -0.11
+
+        All four cells: |Δ| ≤ 0.7 pp, both directions of sign —
+        within mpstat noise on a heavy-rx-drop softirq workload.
+        The userspace PCAP microbench's +10-15 % per-call
+        dispatcher cost on Cortex-A53 (see
+        perf-results/2026-06-10-series3-pi3-pcap-microbench/)
+        does not translate to a measurable kernel macro signal
+        because the dissector is only ~5-10 % of total kernel
+        receive cost — the relative microbench cost compresses
+        to fraction-of-a-percent at macro.
+
+        Details: perf-results/2026-06-10-series3-cross-uarch-perf/
+        and perf-results/2026-06-10-series3-tcpreplay-mixed/.
+
+      * 10-hour sustained-load ARM cross-uarch soak, repeated
+        twice (2026-06-10/11 and 2026-06-11/12) via `nix run
+        .#series3-soak` for reproducibility: pi5-1<->pi5-2
+        (A76<->A76), pi5-2<->pi4-1 (A76<->A72) and pi5-2<->pi3-1
+        (A76<->A53) over 1 GbE switched + 100 Mbit USB-eth.  10
+        cells per run: 6 x iperf3 TCP + 2 x iperf2 TCP + 2 x
+        tcpreplay vxlan-k8s-pure, 60 min each, sysctl=0 vs
+        sysctl=1 paired.  1 Hz vcgencmd telemetry on both ends.
+
+        Both runs thermal clean -- max receiver temp 65.3 C / 64.8 C
+        (pi5-2), well below the Pi 5 soft-temp limit; no current
+        throttle bits set in any 1 Hz sample over the full 20 h.
+        Per-cell drift <= 0.08 %/hour; CV 0.41-1.00 % on 1 GbE.
+
+        Throughput delta sysctl=0 -> sysctl=1: <= +/- 0.001 %
+        across every cell, both runs (every TCP cell
+        link-saturated in both modes; retransmits identical within
+        USB-Ethernet jitter).
+
+        Receiver-CPU% delta at sysctl=1 over 1-h sustained load
+        (showing both runs):
+          A76 receiver:    -0.05 pp / -0.05 pp   (within noise;
+                           dissector small fraction of rx budget)
+          A72 receiver:    -1.30 pp / -3.90 pp   (-2.0 % / -5.9 %
+                           of rx budget) -- per-packet fast-path
+                           body savings visible where the
+                           slower-clock receive-side core makes
+                           the dissector a larger fraction of rx
+                           cost
+          A53 receiver:    +0.01 pp / +0.03 pp on iperf3 TCP;
+                           +0.02 pp on tcpreplay vxlan
+                           (all within noise)
+
+        No regression on any receiver under sustained load. The
+        Cortex-A72 cell is the cleanest measurable kernel-macro
+        signal of the fast-path body savings on real wire-rate
+        traffic -- the per-packet cycle saving manifests as a
+        measurable CPU% reduction on the in-between uarch where
+        the dissector is large enough to matter but cache thrash
+        isn't yet masking it.
+
+        Reproducible via `nix run .#series3-soak`.
+
+        Details:
+          perf-results/2026-06-10-series3-soak-10h/  (1st run)
+          perf-results/2026-06-11-series3-soak/      (2nd run)
 
 This is sent as RFC for feedback on:
 

@@ -1,0 +1,704 @@
+[series3-comprehensive-iperf3-soak]
+  PAIRS=pi5-pair,hp1-hp3,hp2-hp5  SCENARIOS=eth_ip,vlan,qinq,vxlan,mpls,ipip,gre,geneve
+  DUR=60 REPLICATES=3 CONSUMER_ALL=1
+  OUT=perf-results/2026-06-19-phase-h-iperf3
+  estimated wall-clock: 288 cells * ~70s = 336min (5h)
+2026-06-20T03:32:21Z [scenario] === series3-extensions-soak start  PAIRS=pi5-pair,hp1-hp3,hp2-hp5  SCENARIOS=eth_ip,vlan,qinq,vxlan,mpls,ipip,gre,geneve  DUR=60  OUT=perf-results/2026-06-19-phase-h-iperf3 ===
+2026-06-20T03:32:21Z [scenario] --- pair pi5-pair: L=pi5-1 L2=pi5-2 iface=end0 ---
+2026-06-20T03:32:22Z [scenario] >>> pi5-pair / eth_ip up
+2026-06-20T03:32:26Z [scenario] eth_ip up: pi5-1(172.16.40.122) <-> pi5-2(172.16.40.174) on underlay end0/end0 (no encap)
+2026-06-20T03:32:26Z [scenario] [pi5-pair/eth_ip] L=172.16.40.122 on end0  ↔  L2=172.16.40.174 on end0
+2026-06-20T03:33:29Z [scenario] [pi5-pair/eth_ip/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 936.407186002358 Mbps (retr=0, recv_sys=2.97%, recv_soft=6.45%, has_sysctl=yes, status=ok)
+2026-06-20T03:34:36Z [scenario] [pi5-pair/eth_ip/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 936.396718149855 Mbps (retr=0, recv_sys=2.94%, recv_soft=6.47%, has_sysctl=yes, status=ok)
+2026-06-20T03:35:44Z [scenario] [pi5-pair/eth_ip/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 936.4033347888203 Mbps (retr=0, recv_sys=2.96%, recv_soft=6.44%, has_sysctl=yes, status=ok)
+2026-06-20T03:36:51Z [scenario] [pi5-pair/eth_ip/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 936.416533627236 Mbps (retr=0, recv_sys=2.96%, recv_soft=6.46%, has_sysctl=yes, status=ok)
+2026-06-20T03:37:59Z [scenario] [pi5-pair/eth_ip/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 936.398980905018 Mbps (retr=0, recv_sys=3.06%, recv_soft=6.50%, has_sysctl=yes, status=ok)
+2026-06-20T03:39:07Z [scenario] [pi5-pair/eth_ip/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 936.4193582384144 Mbps (retr=0, recv_sys=2.93%, recv_soft=6.49%, has_sysctl=yes, status=ok)
+2026-06-20T03:40:14Z [scenario] [pi5-pair/eth_ip/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 947.8600701909656 Mbps (retr=0, recv_sys=3.42%, recv_soft=13.35%, has_sysctl=yes, status=ok)
+2026-06-20T03:41:22Z [scenario] [pi5-pair/eth_ip/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 947.861796324452 Mbps (retr=0, recv_sys=3.63%, recv_soft=13.31%, has_sysctl=yes, status=ok)
+2026-06-20T03:42:29Z [scenario] [pi5-pair/eth_ip/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 947.8615285401247 Mbps (retr=0, recv_sys=3.53%, recv_soft=13.32%, has_sysctl=yes, status=ok)
+2026-06-20T03:43:37Z [scenario] [pi5-pair/eth_ip/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 947.8606826272074 Mbps (retr=25, recv_sys=3.62%, recv_soft=13.32%, has_sysctl=yes, status=ok)
+2026-06-20T03:44:44Z [scenario] [pi5-pair/eth_ip/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 947.8618005766725 Mbps (retr=0, recv_sys=3.68%, recv_soft=13.32%, has_sysctl=yes, status=ok)
+2026-06-20T03:45:52Z [scenario] [pi5-pair/eth_ip/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 947.8630785226279 Mbps (retr=17, recv_sys=3.63%, recv_soft=14.06%, has_sysctl=yes, status=ok)
+2026-06-20T03:45:57Z [scenario] <<< pi5-pair / eth_ip down
+2026-06-20T03:45:57Z [scenario] >>> pi5-pair / vlan up
+2026-06-20T03:46:02Z [scenario] vlan id=100 up: pi5-1(10.10.40.2) <-> pi5-2(10.10.40.5) on vlan100
+2026-06-20T03:46:02Z [scenario] [pi5-pair/vlan] L=10.10.40.2 on vlan100  ↔  L2=10.10.40.5 on vlan100
+2026-06-20T03:47:05Z [scenario] [pi5-pair/vlan/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 938.9666186938188 Mbps (retr=0, recv_sys=1.21%, recv_soft=4.86%, has_sysctl=yes, status=ok)
+2026-06-20T03:48:12Z [scenario] [pi5-pair/vlan/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 938.9316536998492 Mbps (retr=0, recv_sys=1.17%, recv_soft=4.87%, has_sysctl=yes, status=ok)
+2026-06-20T03:49:20Z [scenario] [pi5-pair/vlan/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 938.9630822553399 Mbps (retr=0, recv_sys=1.24%, recv_soft=4.81%, has_sysctl=yes, status=ok)
+2026-06-20T03:50:27Z [scenario] [pi5-pair/vlan/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 938.9625032834363 Mbps (retr=0, recv_sys=1.21%, recv_soft=4.83%, has_sysctl=yes, status=ok)
+2026-06-20T03:51:35Z [scenario] [pi5-pair/vlan/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 938.940256196547 Mbps (retr=0, recv_sys=1.09%, recv_soft=4.87%, has_sysctl=yes, status=ok)
+2026-06-20T03:52:42Z [scenario] [pi5-pair/vlan/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 938.9373770783741 Mbps (retr=0, recv_sys=1.15%, recv_soft=4.86%, has_sysctl=yes, status=ok)
+2026-06-20T03:53:50Z [scenario] [pi5-pair/vlan/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 944.8796214685485 Mbps (retr=0, recv_sys=3.65%, recv_soft=13.91%, has_sysctl=yes, status=ok)
+2026-06-20T03:54:57Z [scenario] [pi5-pair/vlan/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 944.8762968322707 Mbps (retr=38, recv_sys=3.40%, recv_soft=13.93%, has_sysctl=yes, status=ok)
+2026-06-20T03:56:05Z [scenario] [pi5-pair/vlan/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 944.8789927805781 Mbps (retr=0, recv_sys=3.56%, recv_soft=13.92%, has_sysctl=yes, status=ok)
+2026-06-20T03:57:13Z [scenario] [pi5-pair/vlan/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 944.8778583109874 Mbps (retr=0, recv_sys=3.57%, recv_soft=13.92%, has_sysctl=yes, status=ok)
+2026-06-20T03:58:20Z [scenario] [pi5-pair/vlan/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 944.8807874286555 Mbps (retr=0, recv_sys=3.50%, recv_soft=13.92%, has_sysctl=yes, status=ok)
+2026-06-20T03:59:28Z [scenario] [pi5-pair/vlan/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 944.8798954825955 Mbps (retr=0, recv_sys=3.53%, recv_soft=13.94%, has_sysctl=yes, status=ok)
+2026-06-20T03:59:33Z [scenario] <<< pi5-pair / vlan down
+2026-06-20T03:59:33Z [scenario] >>> pi5-pair / qinq up
+2026-06-20T03:59:38Z [scenario] qinq S=10 C=100 up: pi5-1(10.10.41.2) <-> pi5-2(10.10.41.5) on cvlan100
+2026-06-20T03:59:38Z [scenario] [pi5-pair/qinq] L=10.10.41.2 on cvlan100  ↔  L2=10.10.41.5 on cvlan100
+2026-06-20T04:00:41Z [scenario] [pi5-pair/qinq/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 936.1753670225415 Mbps (retr=0, recv_sys=0.86%, recv_soft=5.60%, has_sysctl=yes, status=ok)
+2026-06-20T04:01:48Z [scenario] [pi5-pair/qinq/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 936.1949954731309 Mbps (retr=0, recv_sys=0.85%, recv_soft=5.59%, has_sysctl=yes, status=ok)
+2026-06-20T04:02:56Z [scenario] [pi5-pair/qinq/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 936.1964308271532 Mbps (retr=0, recv_sys=0.96%, recv_soft=5.58%, has_sysctl=yes, status=ok)
+2026-06-20T04:04:04Z [scenario] [pi5-pair/qinq/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 936.195338709562 Mbps (retr=0, recv_sys=0.97%, recv_soft=5.58%, has_sysctl=yes, status=ok)
+2026-06-20T04:05:11Z [scenario] [pi5-pair/qinq/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 936.195931573081 Mbps (retr=0, recv_sys=0.92%, recv_soft=5.60%, has_sysctl=yes, status=ok)
+2026-06-20T04:06:19Z [scenario] [pi5-pair/qinq/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 936.1963528186692 Mbps (retr=0, recv_sys=0.93%, recv_soft=5.59%, has_sysctl=yes, status=ok)
+2026-06-20T04:07:26Z [scenario] [pi5-pair/qinq/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 941.9149402896335 Mbps (retr=0, recv_sys=3.05%, recv_soft=15.72%, has_sysctl=yes, status=ok)
+2026-06-20T04:08:34Z [scenario] [pi5-pair/qinq/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 941.9135945140541 Mbps (retr=0, recv_sys=3.05%, recv_soft=15.66%, has_sysctl=yes, status=ok)
+2026-06-20T04:09:41Z [scenario] [pi5-pair/qinq/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 941.9169013096033 Mbps (retr=0, recv_sys=2.96%, recv_soft=15.70%, has_sysctl=yes, status=ok)
+2026-06-20T04:10:49Z [scenario] [pi5-pair/qinq/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 941.9160693038629 Mbps (retr=0, recv_sys=3.07%, recv_soft=15.70%, has_sysctl=yes, status=ok)
+2026-06-20T04:11:56Z [scenario] [pi5-pair/qinq/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 941.913842043897 Mbps (retr=45, recv_sys=2.98%, recv_soft=15.72%, has_sysctl=yes, status=ok)
+2026-06-20T04:13:04Z [scenario] [pi5-pair/qinq/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 941.913290220054 Mbps (retr=0, recv_sys=3.08%, recv_soft=15.72%, has_sysctl=yes, status=ok)
+2026-06-20T04:13:09Z [scenario] <<< pi5-pair / qinq down
+2026-06-20T04:13:09Z [scenario] >>> pi5-pair / vxlan up
+2026-06-20T04:13:15Z [scenario] vxlan VNI=10 dstport=4789 up: pi5-1(192.168.100.1) <-> pi5-2(192.168.100.2) on vxlan10
+2026-06-20T04:13:15Z [scenario] [pi5-pair/vxlan] L=192.168.100.1 on vxlan10  ↔  L2=192.168.100.2 on vxlan10
+2026-06-20T04:14:17Z [scenario] [pi5-pair/vxlan/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 908.9013094813271 Mbps (retr=0, recv_sys=1.03%, recv_soft=5.60%, has_sysctl=yes, status=ok)
+2026-06-20T04:15:25Z [scenario] [pi5-pair/vxlan/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 908.9000522723228 Mbps (retr=0, recv_sys=1.01%, recv_soft=5.63%, has_sysctl=yes, status=ok)
+2026-06-20T04:16:32Z [scenario] [pi5-pair/vxlan/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 908.8891512097282 Mbps (retr=0, recv_sys=1.03%, recv_soft=5.58%, has_sysctl=yes, status=ok)
+2026-06-20T04:17:40Z [scenario] [pi5-pair/vxlan/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 908.8934529790447 Mbps (retr=0, recv_sys=1.02%, recv_soft=5.69%, has_sysctl=yes, status=ok)
+2026-06-20T04:18:47Z [scenario] [pi5-pair/vxlan/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 908.8675715283753 Mbps (retr=0, recv_sys=1.02%, recv_soft=5.64%, has_sysctl=yes, status=ok)
+2026-06-20T04:19:55Z [scenario] [pi5-pair/vxlan/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 908.8776744064194 Mbps (retr=0, recv_sys=1.02%, recv_soft=5.62%, has_sysctl=yes, status=ok)
+2026-06-20T04:21:02Z [scenario] [pi5-pair/vxlan/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 911.8564928074909 Mbps (retr=0, recv_sys=4.29%, recv_soft=20.85%, has_sysctl=yes, status=ok)
+2026-06-20T04:22:10Z [scenario] [pi5-pair/vxlan/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 911.85237244394 Mbps (retr=0, recv_sys=3.40%, recv_soft=19.91%, has_sysctl=yes, status=ok)
+2026-06-20T04:23:18Z [scenario] [pi5-pair/vxlan/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 911.8557815022759 Mbps (retr=0, recv_sys=3.48%, recv_soft=19.89%, has_sysctl=yes, status=ok)
+2026-06-20T04:24:25Z [scenario] [pi5-pair/vxlan/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 911.8510879337942 Mbps (retr=22, recv_sys=3.59%, recv_soft=19.86%, has_sysctl=yes, status=ok)
+2026-06-20T04:25:33Z [scenario] [pi5-pair/vxlan/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 911.8530339467807 Mbps (retr=0, recv_sys=3.41%, recv_soft=19.89%, has_sysctl=yes, status=ok)
+2026-06-20T04:26:40Z [scenario] [pi5-pair/vxlan/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 911.8519372832101 Mbps (retr=0, recv_sys=3.38%, recv_soft=19.91%, has_sysctl=yes, status=ok)
+2026-06-20T04:26:45Z [scenario] <<< pi5-pair / vxlan down
+2026-06-20T04:26:46Z [scenario] >>> pi5-pair / mpls up
+2026-06-20T04:26:51Z [scenario] mpls labels=100/200 up: pi5-1(10.10.43.2) <-> pi5-2(10.10.43.5)
+2026-06-20T04:26:51Z [scenario] [pi5-pair/mpls] L=10.10.43.2 on lo  ↔  L2=10.10.43.5 on lo
+2026-06-20T04:27:54Z [scenario] [pi5-pair/mpls/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 938.7787139489011 Mbps (retr=0, recv_sys=5.95%, recv_soft=17.79%, has_sysctl=yes, status=ok)
+2026-06-20T04:29:01Z [scenario] [pi5-pair/mpls/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 938.7703760795956 Mbps (retr=0, recv_sys=5.96%, recv_soft=17.77%, has_sysctl=yes, status=ok)
+2026-06-20T04:30:09Z [scenario] [pi5-pair/mpls/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 938.7972831798846 Mbps (retr=0, recv_sys=6.14%, recv_soft=17.73%, has_sysctl=yes, status=ok)
+2026-06-20T04:31:16Z [scenario] [pi5-pair/mpls/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 938.793778779592 Mbps (retr=0, recv_sys=5.83%, recv_soft=17.77%, has_sysctl=yes, status=ok)
+2026-06-20T04:32:24Z [scenario] [pi5-pair/mpls/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 938.7959533820504 Mbps (retr=0, recv_sys=5.89%, recv_soft=17.69%, has_sysctl=yes, status=ok)
+2026-06-20T04:33:32Z [scenario] [pi5-pair/mpls/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 938.796485300732 Mbps (retr=0, recv_sys=5.70%, recv_soft=17.83%, has_sysctl=yes, status=ok)
+2026-06-20T04:34:39Z [scenario] [pi5-pair/mpls/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 944.8755931812661 Mbps (retr=0, recv_sys=2.75%, recv_soft=14.70%, has_sysctl=yes, status=ok)
+2026-06-20T04:35:47Z [scenario] [pi5-pair/mpls/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 944.8659025465905 Mbps (retr=0, recv_sys=2.83%, recv_soft=14.70%, has_sysctl=yes, status=ok)
+2026-06-20T04:36:54Z [scenario] [pi5-pair/mpls/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 944.8691984444409 Mbps (retr=0, recv_sys=2.83%, recv_soft=14.74%, has_sysctl=yes, status=ok)
+2026-06-20T04:38:02Z [scenario] [pi5-pair/mpls/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 944.872364344054 Mbps (retr=0, recv_sys=2.82%, recv_soft=14.71%, has_sysctl=yes, status=ok)
+2026-06-20T04:39:09Z [scenario] [pi5-pair/mpls/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 944.8742118097897 Mbps (retr=0, recv_sys=2.82%, recv_soft=14.71%, has_sysctl=yes, status=ok)
+2026-06-20T04:40:17Z [scenario] [pi5-pair/mpls/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 944.8721495421493 Mbps (retr=0, recv_sys=2.89%, recv_soft=15.74%, has_sysctl=yes, status=ok)
+2026-06-20T04:40:22Z [scenario] <<< pi5-pair / mpls down
+2026-06-20T04:40:22Z [scenario] >>> pi5-pair / ipip up
+2026-06-20T04:40:28Z [scenario] ipip ipip0 up: pi5-1(10.10.42.2) <-> pi5-2(10.10.42.5) over underlay 172.16.40.122<->172.16.40.174
+2026-06-20T04:40:28Z [scenario] [pi5-pair/ipip] L=10.10.42.2 on ipip0  ↔  L2=10.10.42.5 on ipip0
+2026-06-20T04:41:30Z [scenario] [pi5-pair/ipip/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 928.3808181183276 Mbps (retr=0, recv_sys=0.89%, recv_soft=5.84%, has_sysctl=yes, status=ok)
+2026-06-20T04:42:38Z [scenario] [pi5-pair/ipip/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 928.393442695074 Mbps (retr=0, recv_sys=0.82%, recv_soft=5.75%, has_sysctl=yes, status=ok)
+2026-06-20T04:43:45Z [scenario] [pi5-pair/ipip/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 928.397542662116 Mbps (retr=0, recv_sys=0.84%, recv_soft=5.73%, has_sysctl=yes, status=ok)
+2026-06-20T04:44:53Z [scenario] [pi5-pair/ipip/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 928.3735239241045 Mbps (retr=0, recv_sys=0.82%, recv_soft=5.76%, has_sysctl=yes, status=ok)
+2026-06-20T04:46:00Z [scenario] [pi5-pair/ipip/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 928.4023302529263 Mbps (retr=0, recv_sys=0.86%, recv_soft=5.75%, has_sysctl=yes, status=ok)
+2026-06-20T04:47:08Z [scenario] [pi5-pair/ipip/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 928.3887239099058 Mbps (retr=0, recv_sys=0.82%, recv_soft=5.73%, has_sysctl=yes, status=ok)
+2026-06-20T04:48:15Z [scenario] [pi5-pair/ipip/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 933.1217587390643 Mbps (retr=32, recv_sys=3.01%, recv_soft=18.84%, has_sysctl=yes, status=ok)
+2026-06-20T04:49:23Z [scenario] [pi5-pair/ipip/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 933.1217707365355 Mbps (retr=0, recv_sys=3.04%, recv_soft=18.43%, has_sysctl=yes, status=ok)
+2026-06-20T04:50:31Z [scenario] [pi5-pair/ipip/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 933.1146698928086 Mbps (retr=8, recv_sys=3.01%, recv_soft=18.42%, has_sysctl=yes, status=ok)
+2026-06-20T04:51:38Z [scenario] [pi5-pair/ipip/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 933.1208475308259 Mbps (retr=17, recv_sys=3.04%, recv_soft=18.44%, has_sysctl=yes, status=ok)
+2026-06-20T04:52:46Z [scenario] [pi5-pair/ipip/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 933.1244963355167 Mbps (retr=0, recv_sys=3.14%, recv_soft=19.92%, has_sysctl=yes, status=ok)
+2026-06-20T04:53:53Z [scenario] [pi5-pair/ipip/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 933.123279834489 Mbps (retr=0, recv_sys=3.00%, recv_soft=19.90%, has_sysctl=yes, status=ok)
+2026-06-20T04:53:58Z [scenario] <<< pi5-pair / ipip down
+2026-06-20T04:53:59Z [scenario] >>> pi5-pair / gre up
+2026-06-20T04:54:04Z [scenario] gre gretest0 up: pi5-1(10.10.44.2) <-> pi5-2(10.10.44.5) over underlay 172.16.40.122<->172.16.40.174
+2026-06-20T04:54:04Z [scenario] [pi5-pair/gre] L=10.10.44.2 on gretest0  ↔  L2=10.10.44.5 on gretest0
+2026-06-20T04:55:06Z [scenario] [pi5-pair/gre/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 925.7838746839184 Mbps (retr=0, recv_sys=0.85%, recv_soft=5.76%, has_sysctl=yes, status=ok)
+2026-06-20T04:56:14Z [scenario] [pi5-pair/gre/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 925.785263198732 Mbps (retr=2543, recv_sys=0.95%, recv_soft=5.83%, has_sysctl=yes, status=ok)
+2026-06-20T04:57:22Z [scenario] [pi5-pair/gre/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 925.791187575401 Mbps (retr=0, recv_sys=0.78%, recv_soft=5.79%, has_sysctl=yes, status=ok)
+2026-06-20T04:58:29Z [scenario] [pi5-pair/gre/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 925.791228102832 Mbps (retr=0, recv_sys=0.85%, recv_soft=5.77%, has_sysctl=yes, status=ok)
+2026-06-20T04:59:37Z [scenario] [pi5-pair/gre/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 925.8005929165445 Mbps (retr=0, recv_sys=0.87%, recv_soft=5.83%, has_sysctl=yes, status=ok)
+2026-06-20T05:00:44Z [scenario] [pi5-pair/gre/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 925.790780694728 Mbps (retr=0, recv_sys=0.87%, recv_soft=5.78%, has_sysctl=yes, status=ok)
+2026-06-20T05:01:52Z [scenario] [pi5-pair/gre/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 930.2369350845207 Mbps (retr=0, recv_sys=3.06%, recv_soft=20.02%, has_sysctl=yes, status=ok)
+2026-06-20T05:02:59Z [scenario] [pi5-pair/gre/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 930.2363217853804 Mbps (retr=0, recv_sys=3.04%, recv_soft=19.98%, has_sysctl=yes, status=ok)
+2026-06-20T05:04:07Z [scenario] [pi5-pair/gre/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 930.2350213359858 Mbps (retr=14, recv_sys=3.09%, recv_soft=18.60%, has_sysctl=yes, status=ok)
+2026-06-20T05:05:14Z [scenario] [pi5-pair/gre/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 930.235139160711 Mbps (retr=0, recv_sys=2.98%, recv_soft=20.01%, has_sysctl=yes, status=ok)
+2026-06-20T05:06:22Z [scenario] [pi5-pair/gre/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 930.2379322737632 Mbps (retr=0, recv_sys=3.06%, recv_soft=18.58%, has_sysctl=yes, status=ok)
+2026-06-20T05:07:29Z [scenario] [pi5-pair/gre/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 930.2344582479577 Mbps (retr=21, recv_sys=3.12%, recv_soft=18.56%, has_sysctl=yes, status=ok)
+2026-06-20T05:07:34Z [scenario] <<< pi5-pair / gre down
+2026-06-20T05:07:35Z [scenario] >>> pi5-pair / geneve up
+2026-06-20T05:07:40Z [scenario] geneve geneve10 (VNI=10 dstport=6081) up: pi5-1(192.168.101.1) <-> pi5-2(192.168.101.2)
+2026-06-20T05:07:40Z [scenario] [pi5-pair/geneve] L=192.168.101.1 on geneve10  ↔  L2=192.168.101.2 on geneve10
+2026-06-20T05:08:43Z [scenario] [pi5-pair/geneve/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 908.900239355954 Mbps (retr=0, recv_sys=0.85%, recv_soft=6.15%, has_sysctl=yes, status=ok)
+2026-06-20T05:09:50Z [scenario] [pi5-pair/geneve/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 908.873965348074 Mbps (retr=0, recv_sys=0.91%, recv_soft=6.16%, has_sysctl=yes, status=ok)
+2026-06-20T05:10:58Z [scenario] [pi5-pair/geneve/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 908.8658363169314 Mbps (retr=0, recv_sys=0.87%, recv_soft=6.20%, has_sysctl=yes, status=ok)
+2026-06-20T05:12:05Z [scenario] [pi5-pair/geneve/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 908.867971898794 Mbps (retr=0, recv_sys=0.83%, recv_soft=6.19%, has_sysctl=yes, status=ok)
+2026-06-20T05:13:13Z [scenario] [pi5-pair/geneve/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 908.8961043804585 Mbps (retr=0, recv_sys=0.79%, recv_soft=6.18%, has_sysctl=yes, status=ok)
+2026-06-20T05:14:20Z [scenario] [pi5-pair/geneve/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 908.8991942487046 Mbps (retr=0, recv_sys=0.85%, recv_soft=6.15%, has_sysctl=yes, status=ok)
+2026-06-20T05:15:28Z [scenario] [pi5-pair/geneve/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 911.854253978065 Mbps (retr=0, recv_sys=2.95%, recv_soft=21.63%, has_sysctl=yes, status=ok)
+2026-06-20T05:16:36Z [scenario] [pi5-pair/geneve/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 911.8546579802585 Mbps (retr=0, recv_sys=2.92%, recv_soft=20.40%, has_sysctl=yes, status=ok)
+2026-06-20T05:17:43Z [scenario] [pi5-pair/geneve/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 911.8556162555843 Mbps (retr=0, recv_sys=2.89%, recv_soft=20.39%, has_sysctl=yes, status=ok)
+2026-06-20T05:18:51Z [scenario] [pi5-pair/geneve/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 911.8519950703289 Mbps (retr=0, recv_sys=2.93%, recv_soft=20.36%, has_sysctl=yes, status=ok)
+2026-06-20T05:19:58Z [scenario] [pi5-pair/geneve/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 911.8555411199814 Mbps (retr=0, recv_sys=2.84%, recv_soft=21.64%, has_sysctl=yes, status=ok)
+2026-06-20T05:21:06Z [scenario] [pi5-pair/geneve/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 911.8556202841554 Mbps (retr=0, recv_sys=3.10%, recv_soft=21.59%, has_sysctl=yes, status=ok)
+2026-06-20T05:21:11Z [scenario] <<< pi5-pair / geneve down
+2026-06-20T05:21:11Z [scenario] --- pair hp1-hp3: L=hp1 L2=hp3 iface=enp1s0f0np0 ---
+2026-06-20T05:21:12Z [scenario] >>> hp1-hp3 / eth_ip up
+2026-06-20T05:21:15Z [scenario] eth_ip up: hp1(10.10.2.1) <-> hp3(10.10.2.3) on underlay enp1s0f0np0/enp1s0f0np0 (no encap)
+2026-06-20T05:21:15Z [scenario] [hp1-hp3/eth_ip] L=10.10.2.1 on enp1s0f0np0  ↔  L2=10.10.2.3 on enp1s0f0np0
+2026-06-20T05:22:18Z [scenario] [hp1-hp3/eth_ip/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 17793.52125951975 Mbps (retr=8852, recv_sys=9.35%, recv_soft=23.51%, has_sysctl=yes, status=ok)
+2026-06-20T05:23:25Z [scenario] [hp1-hp3/eth_ip/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 16324.710663128124 Mbps (retr=5634, recv_sys=9.45%, recv_soft=22.19%, has_sysctl=yes, status=ok)
+2026-06-20T05:24:33Z [scenario] [hp1-hp3/eth_ip/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 17857.4396285227 Mbps (retr=13697, recv_sys=9.81%, recv_soft=23.08%, has_sysctl=yes, status=ok)
+2026-06-20T05:25:41Z [scenario] [hp1-hp3/eth_ip/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 17518.58584365656 Mbps (retr=9708, recv_sys=9.60%, recv_soft=23.13%, has_sysctl=yes, status=ok)
+2026-06-20T05:26:49Z [scenario] [hp1-hp3/eth_ip/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9709.286071060307 Mbps (retr=277, recv_sys=12.11%, recv_soft=16.66%, has_sysctl=yes, status=ok)
+2026-06-20T05:27:56Z [scenario] [hp1-hp3/eth_ip/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 17703.983521296843 Mbps (retr=15718, recv_sys=9.60%, recv_soft=23.17%, has_sysctl=yes, status=ok)
+2026-06-20T05:29:04Z [scenario] [hp1-hp3/eth_ip/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 8696.77957024704 Mbps (retr=0, recv_sys=13.10%, recv_soft=10.45%, has_sysctl=yes, status=ok)
+2026-06-20T05:30:12Z [scenario] [hp1-hp3/eth_ip/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 8752.05859931044 Mbps (retr=0, recv_sys=12.55%, recv_soft=11.14%, has_sysctl=yes, status=ok)
+2026-06-20T05:31:19Z [scenario] [hp1-hp3/eth_ip/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 8767.72308480706 Mbps (retr=0, recv_sys=12.97%, recv_soft=10.64%, has_sysctl=yes, status=ok)
+2026-06-20T05:32:27Z [scenario] [hp1-hp3/eth_ip/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 8825.747045701883 Mbps (retr=0, recv_sys=12.88%, recv_soft=10.85%, has_sysctl=yes, status=ok)
+2026-06-20T05:33:35Z [scenario] [hp1-hp3/eth_ip/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 8840.35186080232 Mbps (retr=0, recv_sys=12.89%, recv_soft=10.66%, has_sysctl=yes, status=ok)
+2026-06-20T05:34:42Z [scenario] [hp1-hp3/eth_ip/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 8612.36677620392 Mbps (retr=0, recv_sys=12.96%, recv_soft=10.63%, has_sysctl=yes, status=ok)
+2026-06-20T05:34:47Z [scenario] <<< hp1-hp3 / eth_ip down
+2026-06-20T05:34:48Z [scenario] >>> hp1-hp3 / vlan up
+2026-06-20T05:34:51Z [scenario] vlan id=100 up: hp1(10.10.40.2) <-> hp3(10.10.40.5) on vlan100
+2026-06-20T05:34:51Z [scenario] [hp1-hp3/vlan] L=10.10.40.2 on vlan100  ↔  L2=10.10.40.5 on vlan100
+2026-06-20T05:35:54Z [scenario] [hp1-hp3/vlan/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 10429.892091212963 Mbps (retr=222, recv_sys=12.14%, recv_soft=16.98%, has_sysctl=yes, status=ok)
+2026-06-20T05:37:02Z [scenario] [hp1-hp3/vlan/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 17552.503893443893 Mbps (retr=6882, recv_sys=9.53%, recv_soft=22.78%, has_sysctl=yes, status=ok)
+2026-06-20T05:38:09Z [scenario] [hp1-hp3/vlan/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 15782.263362945343 Mbps (retr=10164, recv_sys=9.43%, recv_soft=21.34%, has_sysctl=yes, status=ok)
+2026-06-20T05:39:17Z [scenario] [hp1-hp3/vlan/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 17056.861100981274 Mbps (retr=9560, recv_sys=9.05%, recv_soft=22.69%, has_sysctl=yes, status=ok)
+2026-06-20T05:40:25Z [scenario] [hp1-hp3/vlan/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 16373.463979921156 Mbps (retr=10070, recv_sys=8.91%, recv_soft=21.28%, has_sysctl=yes, status=ok)
+2026-06-20T05:41:32Z [scenario] [hp1-hp3/vlan/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 17940.003473408928 Mbps (retr=9404, recv_sys=9.22%, recv_soft=23.59%, has_sysctl=yes, status=ok)
+2026-06-20T05:42:40Z [scenario] [hp1-hp3/vlan/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 7186.465600230586 Mbps (retr=0, recv_sys=14.26%, recv_soft=9.27%, has_sysctl=yes, status=ok)
+2026-06-20T05:43:48Z [scenario] [hp1-hp3/vlan/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6902.273561995459 Mbps (retr=0, recv_sys=15.13%, recv_soft=8.83%, has_sysctl=yes, status=ok)
+2026-06-20T05:44:55Z [scenario] [hp1-hp3/vlan/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 7153.715282450198 Mbps (retr=0, recv_sys=14.22%, recv_soft=9.26%, has_sysctl=yes, status=ok)
+2026-06-20T05:46:03Z [scenario] [hp1-hp3/vlan/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 7146.48889163554 Mbps (retr=0, recv_sys=14.34%, recv_soft=9.11%, has_sysctl=yes, status=ok)
+2026-06-20T05:47:11Z [scenario] [hp1-hp3/vlan/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 6929.722588956411 Mbps (retr=0, recv_sys=14.33%, recv_soft=9.09%, has_sysctl=yes, status=ok)
+2026-06-20T05:48:18Z [scenario] [hp1-hp3/vlan/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 6907.243333260556 Mbps (retr=0, recv_sys=14.43%, recv_soft=9.04%, has_sysctl=yes, status=ok)
+2026-06-20T05:48:23Z [scenario] <<< hp1-hp3 / vlan down
+2026-06-20T05:48:24Z [scenario] >>> hp1-hp3 / qinq up
+2026-06-20T05:48:27Z [scenario] qinq S=10 C=100 up: hp1(10.10.41.2) <-> hp3(10.10.41.5) on cvlan100
+2026-06-20T05:48:27Z [scenario] [hp1-hp3/qinq] L=10.10.41.2 on cvlan100  ↔  L2=10.10.41.5 on cvlan100
+2026-06-20T05:49:30Z [scenario] [hp1-hp3/qinq/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 13817.488552376111 Mbps (retr=7484, recv_sys=9.02%, recv_soft=22.21%, has_sysctl=yes, status=ok)
+2026-06-20T05:50:38Z [scenario] [hp1-hp3/qinq/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 15673.19665597743 Mbps (retr=11108, recv_sys=8.37%, recv_soft=23.88%, has_sysctl=yes, status=ok)
+2026-06-20T05:51:46Z [scenario] [hp1-hp3/qinq/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 13208.033745946823 Mbps (retr=6212, recv_sys=9.52%, recv_soft=21.43%, has_sysctl=yes, status=ok)
+2026-06-20T05:52:53Z [scenario] [hp1-hp3/qinq/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 8163.976198393951 Mbps (retr=192, recv_sys=12.13%, recv_soft=16.00%, has_sysctl=yes, status=ok)
+2026-06-20T05:54:01Z [scenario] [hp1-hp3/qinq/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 8666.350126335261 Mbps (retr=347, recv_sys=11.63%, recv_soft=16.76%, has_sysctl=yes, status=ok)
+2026-06-20T05:55:09Z [scenario] [hp1-hp3/qinq/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 15513.18780571911 Mbps (retr=10195, recv_sys=8.41%, recv_soft=24.00%, has_sysctl=yes, status=ok)
+2026-06-20T05:56:16Z [scenario] [hp1-hp3/qinq/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 5772.77826300967 Mbps (retr=0, recv_sys=14.18%, recv_soft=9.52%, has_sysctl=yes, status=ok)
+2026-06-20T05:57:24Z [scenario] [hp1-hp3/qinq/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6023.862859556537 Mbps (retr=0, recv_sys=13.42%, recv_soft=10.19%, has_sysctl=yes, status=ok)
+2026-06-20T05:58:32Z [scenario] [hp1-hp3/qinq/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 5762.083781015036 Mbps (retr=0, recv_sys=14.33%, recv_soft=9.40%, has_sysctl=yes, status=ok)
+2026-06-20T05:59:39Z [scenario] [hp1-hp3/qinq/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 5801.67597373376 Mbps (retr=0, recv_sys=14.28%, recv_soft=9.46%, has_sysctl=yes, status=ok)
+2026-06-20T06:00:47Z [scenario] [hp1-hp3/qinq/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 5738.198016441644 Mbps (retr=0, recv_sys=14.33%, recv_soft=9.38%, has_sysctl=yes, status=ok)
+2026-06-20T06:01:55Z [scenario] [hp1-hp3/qinq/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 5906.9524330370705 Mbps (retr=0, recv_sys=14.08%, recv_soft=9.63%, has_sysctl=yes, status=ok)
+2026-06-20T06:02:00Z [scenario] <<< hp1-hp3 / qinq down
+2026-06-20T06:02:00Z [scenario] >>> hp1-hp3 / vxlan up
+2026-06-20T06:02:04Z [scenario] vxlan VNI=10 dstport=4789 up: hp1(192.168.100.1) <-> hp3(192.168.100.2) on vxlan10
+2026-06-20T06:02:04Z [scenario] [hp1-hp3/vxlan] L=192.168.100.1 on vxlan10  ↔  L2=192.168.100.2 on vxlan10
+2026-06-20T06:03:07Z [scenario] [hp1-hp3/vxlan/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 11071.644235754877 Mbps (retr=5157, recv_sys=9.19%, recv_soft=19.53%, has_sysctl=yes, status=ok)
+2026-06-20T06:04:14Z [scenario] [hp1-hp3/vxlan/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 8200.307847783737 Mbps (retr=549, recv_sys=10.95%, recv_soft=15.22%, has_sysctl=yes, status=ok)
+2026-06-20T06:05:22Z [scenario] [hp1-hp3/vxlan/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 7753.62942955614 Mbps (retr=290, recv_sys=10.69%, recv_soft=14.87%, has_sysctl=yes, status=ok)
+2026-06-20T06:06:30Z [scenario] [hp1-hp3/vxlan/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 12985.65902835864 Mbps (retr=8452, recv_sys=8.51%, recv_soft=22.31%, has_sysctl=yes, status=ok)
+2026-06-20T06:07:37Z [scenario] [hp1-hp3/vxlan/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 13430.162429216092 Mbps (retr=8853, recv_sys=7.78%, recv_soft=22.99%, has_sysctl=yes, status=ok)
+2026-06-20T06:08:45Z [scenario] [hp1-hp3/vxlan/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 7700.35841177462 Mbps (retr=6167, recv_sys=11.04%, recv_soft=14.34%, has_sysctl=yes, status=ok)
+2026-06-20T06:09:53Z [scenario] [hp1-hp3/vxlan/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 5786.257828203553 Mbps (retr=0, recv_sys=9.91%, recv_soft=14.27%, has_sysctl=yes, status=ok)
+2026-06-20T06:11:01Z [scenario] [hp1-hp3/vxlan/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 5795.6379047803 Mbps (retr=0, recv_sys=9.72%, recv_soft=14.40%, has_sysctl=yes, status=ok)
+2026-06-20T06:12:08Z [scenario] [hp1-hp3/vxlan/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6019.012386723473 Mbps (retr=0, recv_sys=9.72%, recv_soft=14.48%, has_sysctl=yes, status=ok)
+2026-06-20T06:13:16Z [scenario] [hp1-hp3/vxlan/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 5780.149644674396 Mbps (retr=0, recv_sys=9.85%, recv_soft=14.30%, has_sysctl=yes, status=ok)
+2026-06-20T06:14:24Z [scenario] [hp1-hp3/vxlan/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 5746.65108479366 Mbps (retr=0, recv_sys=9.88%, recv_soft=14.26%, has_sysctl=yes, status=ok)
+2026-06-20T06:15:31Z [scenario] [hp1-hp3/vxlan/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 5982.289386105504 Mbps (retr=0, recv_sys=9.69%, recv_soft=14.45%, has_sysctl=yes, status=ok)
+2026-06-20T06:15:36Z [scenario] <<< hp1-hp3 / vxlan down
+2026-06-20T06:15:37Z [scenario] >>> hp1-hp3 / mpls up
+2026-06-20T06:15:40Z [scenario] mpls labels=100/200 up: hp1(10.10.43.2) <-> hp3(10.10.43.5)
+2026-06-20T06:15:40Z [scenario] [hp1-hp3/mpls] L=10.10.43.2 on lo  ↔  L2=10.10.43.5 on lo
+2026-06-20T06:16:43Z [scenario] [hp1-hp3/mpls/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 17072.642109535987 Mbps (retr=15513, recv_sys=9.01%, recv_soft=23.65%, has_sysctl=yes, status=ok)
+2026-06-20T06:17:51Z [scenario] [hp1-hp3/mpls/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 16857.442655273066 Mbps (retr=14349, recv_sys=8.92%, recv_soft=23.56%, has_sysctl=yes, status=ok)
+2026-06-20T06:18:58Z [scenario] [hp1-hp3/mpls/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 17101.490762324032 Mbps (retr=16818, recv_sys=8.99%, recv_soft=23.72%, has_sysctl=yes, status=ok)
+2026-06-20T06:20:06Z [scenario] [hp1-hp3/mpls/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 15691.403455525211 Mbps (retr=29582, recv_sys=8.22%, recv_soft=22.26%, has_sysctl=yes, status=ok)
+2026-06-20T06:21:14Z [scenario] [hp1-hp3/mpls/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 16779.893267002404 Mbps (retr=14746, recv_sys=9.08%, recv_soft=23.35%, has_sysctl=yes, status=ok)
+2026-06-20T06:22:22Z [scenario] [hp1-hp3/mpls/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 16776.80736068368 Mbps (retr=9192, recv_sys=9.41%, recv_soft=23.31%, has_sysctl=yes, status=ok)
+2026-06-20T06:23:30Z [scenario] [hp1-hp3/mpls/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 6439.567170078266 Mbps (retr=0, recv_sys=4.62%, recv_soft=10.53%, has_sysctl=yes, status=ok)
+2026-06-20T06:24:37Z [scenario] [hp1-hp3/mpls/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6582.0275018910625 Mbps (retr=0, recv_sys=5.08%, recv_soft=11.24%, has_sysctl=yes, status=ok)
+2026-06-20T06:25:45Z [scenario] [hp1-hp3/mpls/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6580.4996122689345 Mbps (retr=0, recv_sys=4.76%, recv_soft=11.22%, has_sysctl=yes, status=ok)
+2026-06-20T06:26:53Z [scenario] [hp1-hp3/mpls/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 6434.05954184593 Mbps (retr=0, recv_sys=4.87%, recv_soft=10.54%, has_sysctl=yes, status=ok)
+2026-06-20T06:28:00Z [scenario] [hp1-hp3/mpls/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 6459.034961742813 Mbps (retr=0, recv_sys=4.82%, recv_soft=11.14%, has_sysctl=yes, status=ok)
+2026-06-20T06:29:08Z [scenario] [hp1-hp3/mpls/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 6547.868302612175 Mbps (retr=0, recv_sys=5.01%, recv_soft=11.20%, has_sysctl=yes, status=ok)
+2026-06-20T06:29:13Z [scenario] <<< hp1-hp3 / mpls down
+2026-06-20T06:29:13Z [scenario] >>> hp1-hp3 / ipip up
+2026-06-20T06:29:17Z [scenario] ipip ipip0 up: hp1(10.10.42.2) <-> hp3(10.10.42.5) over underlay 10.10.2.1<->10.10.2.3
+2026-06-20T06:29:17Z [scenario] [hp1-hp3/ipip] L=10.10.42.2 on ipip0  ↔  L2=10.10.42.5 on ipip0
+2026-06-20T06:30:20Z [scenario] [hp1-hp3/ipip/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 11200.332839843035 Mbps (retr=378, recv_sys=11.56%, recv_soft=13.92%, has_sysctl=yes, status=ok)
+2026-06-20T06:31:28Z [scenario] [hp1-hp3/ipip/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 11047.360134991357 Mbps (retr=981, recv_sys=11.73%, recv_soft=14.16%, has_sysctl=yes, status=ok)
+2026-06-20T06:32:35Z [scenario] [hp1-hp3/ipip/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 10967.318139249786 Mbps (retr=800, recv_sys=11.73%, recv_soft=13.71%, has_sysctl=yes, status=ok)
+2026-06-20T06:33:43Z [scenario] [hp1-hp3/ipip/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 10923.586872852951 Mbps (retr=650, recv_sys=11.83%, recv_soft=14.09%, has_sysctl=yes, status=ok)
+2026-06-20T06:34:51Z [scenario] [hp1-hp3/ipip/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 11221.24080947223 Mbps (retr=848, recv_sys=11.55%, recv_soft=14.18%, has_sysctl=yes, status=ok)
+2026-06-20T06:35:58Z [scenario] [hp1-hp3/ipip/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 10970.312530381774 Mbps (retr=920, recv_sys=11.85%, recv_soft=13.57%, has_sysctl=yes, status=ok)
+2026-06-20T06:37:06Z [scenario] [hp1-hp3/ipip/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 7128.06979980284 Mbps (retr=0, recv_sys=10.51%, recv_soft=13.48%, has_sysctl=yes, status=ok)
+2026-06-20T06:38:14Z [scenario] [hp1-hp3/ipip/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6763.822823922464 Mbps (retr=0, recv_sys=10.73%, recv_soft=13.22%, has_sysctl=yes, status=ok)
+2026-06-20T06:39:21Z [scenario] [hp1-hp3/ipip/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6796.389379630685 Mbps (retr=0, recv_sys=10.95%, recv_soft=13.20%, has_sysctl=yes, status=ok)
+2026-06-20T06:40:29Z [scenario] [hp1-hp3/ipip/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 6785.503113148757 Mbps (retr=0, recv_sys=11.02%, recv_soft=13.24%, has_sysctl=yes, status=ok)
+2026-06-20T06:41:37Z [scenario] [hp1-hp3/ipip/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 6698.660902496839 Mbps (retr=0, recv_sys=11.07%, recv_soft=13.17%, has_sysctl=yes, status=ok)
+2026-06-20T06:42:44Z [scenario] [hp1-hp3/ipip/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 6759.83704847671 Mbps (retr=0, recv_sys=11.03%, recv_soft=13.21%, has_sysctl=yes, status=ok)
+2026-06-20T06:42:49Z [scenario] <<< hp1-hp3 / ipip down
+2026-06-20T06:42:50Z [scenario] >>> hp1-hp3 / gre up
+2026-06-20T06:42:53Z [scenario] gre gretest0 up: hp1(10.10.44.2) <-> hp3(10.10.44.5) over underlay 10.10.2.1<->10.10.2.3
+2026-06-20T06:42:53Z [scenario] [hp1-hp3/gre] L=10.10.44.2 on gretest0  ↔  L2=10.10.44.5 on gretest0
+2026-06-20T06:43:56Z [scenario] [hp1-hp3/gre/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 10955.816788161925 Mbps (retr=695, recv_sys=11.46%, recv_soft=14.57%, has_sysctl=yes, status=ok)
+2026-06-20T06:45:04Z [scenario] [hp1-hp3/gre/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 10895.99013856518 Mbps (retr=648, recv_sys=11.52%, recv_soft=13.95%, has_sysctl=yes, status=ok)
+2026-06-20T06:46:11Z [scenario] [hp1-hp3/gre/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 10868.404195284804 Mbps (retr=1253, recv_sys=11.52%, recv_soft=14.07%, has_sysctl=yes, status=ok)
+2026-06-20T06:47:19Z [scenario] [hp1-hp3/gre/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 10773.569976588531 Mbps (retr=649, recv_sys=11.51%, recv_soft=14.11%, has_sysctl=yes, status=ok)
+2026-06-20T06:48:27Z [scenario] [hp1-hp3/gre/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 11108.378120673584 Mbps (retr=515, recv_sys=11.22%, recv_soft=14.62%, has_sysctl=yes, status=ok)
+2026-06-20T06:49:35Z [scenario] [hp1-hp3/gre/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 10902.925548059926 Mbps (retr=420, recv_sys=11.39%, recv_soft=14.90%, has_sysctl=yes, status=ok)
+2026-06-20T06:50:42Z [scenario] [hp1-hp3/gre/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 6666.69088404284 Mbps (retr=0, recv_sys=10.80%, recv_soft=13.24%, has_sysctl=yes, status=ok)
+2026-06-20T06:51:50Z [scenario] [hp1-hp3/gre/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6664.370169516813 Mbps (retr=0, recv_sys=10.74%, recv_soft=13.25%, has_sysctl=yes, status=ok)
+2026-06-20T06:52:58Z [scenario] [hp1-hp3/gre/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6908.458430736126 Mbps (retr=0, recv_sys=10.67%, recv_soft=13.41%, has_sysctl=yes, status=ok)
+2026-06-20T06:54:05Z [scenario] [hp1-hp3/gre/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 6635.84560107523 Mbps (retr=0, recv_sys=10.72%, recv_soft=13.26%, has_sysctl=yes, status=ok)
+2026-06-20T06:55:13Z [scenario] [hp1-hp3/gre/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 6636.718520184921 Mbps (retr=0, recv_sys=10.69%, recv_soft=13.28%, has_sysctl=yes, status=ok)
+2026-06-20T06:56:21Z [scenario] [hp1-hp3/gre/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 6680.0148710988105 Mbps (retr=0, recv_sys=10.68%, recv_soft=13.30%, has_sysctl=yes, status=ok)
+2026-06-20T06:56:26Z [scenario] <<< hp1-hp3 / gre down
+2026-06-20T06:56:26Z [scenario] >>> hp1-hp3 / geneve up
+2026-06-20T06:56:30Z [scenario] geneve geneve10 (VNI=10 dstport=6081) up: hp1(192.168.101.1) <-> hp3(192.168.101.2)
+2026-06-20T06:56:30Z [scenario] [hp1-hp3/geneve] L=192.168.101.1 on geneve10  ↔  L2=192.168.101.2 on geneve10
+2026-06-20T06:57:32Z [scenario] [hp1-hp3/geneve/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 14016.090024770145 Mbps (retr=9325, recv_sys=8.49%, recv_soft=22.84%, has_sysctl=yes, status=ok)
+2026-06-20T06:58:40Z [scenario] [hp1-hp3/geneve/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 11811.915328693025 Mbps (retr=12562, recv_sys=9.62%, recv_soft=19.91%, has_sysctl=yes, status=ok)
+2026-06-20T06:59:48Z [scenario] [hp1-hp3/geneve/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 14291.457284103308 Mbps (retr=7919, recv_sys=8.24%, recv_soft=23.39%, has_sysctl=yes, status=ok)
+2026-06-20T07:00:55Z [scenario] [hp1-hp3/geneve/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 14295.62625311675 Mbps (retr=11119, recv_sys=8.28%, recv_soft=23.46%, has_sysctl=yes, status=ok)
+2026-06-20T07:02:03Z [scenario] [hp1-hp3/geneve/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 14169.653113378641 Mbps (retr=8605, recv_sys=8.49%, recv_soft=23.18%, has_sysctl=yes, status=ok)
+2026-06-20T07:03:11Z [scenario] [hp1-hp3/geneve/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 14536.87292949757 Mbps (retr=8558, recv_sys=8.14%, recv_soft=23.59%, has_sysctl=yes, status=ok)
+2026-06-20T07:04:19Z [scenario] [hp1-hp3/geneve/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 6064.3638659044045 Mbps (retr=0, recv_sys=9.86%, recv_soft=14.23%, has_sysctl=yes, status=ok)
+2026-06-20T07:05:26Z [scenario] [hp1-hp3/geneve/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 5999.531957403383 Mbps (retr=0, recv_sys=9.98%, recv_soft=14.11%, has_sysctl=yes, status=ok)
+2026-06-20T07:06:34Z [scenario] [hp1-hp3/geneve/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6018.863530542617 Mbps (retr=0, recv_sys=9.83%, recv_soft=14.25%, has_sysctl=yes, status=ok)
+2026-06-20T07:07:42Z [scenario] [hp1-hp3/geneve/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 6000.9024092462905 Mbps (retr=0, recv_sys=10.27%, recv_soft=14.08%, has_sysctl=yes, status=ok)
+2026-06-20T07:08:49Z [scenario] [hp1-hp3/geneve/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 5996.084065578761 Mbps (retr=0, recv_sys=9.96%, recv_soft=14.15%, has_sysctl=yes, status=ok)
+2026-06-20T07:09:57Z [scenario] [hp1-hp3/geneve/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 5962.965881059023 Mbps (retr=0, recv_sys=10.03%, recv_soft=14.09%, has_sysctl=yes, status=ok)
+2026-06-20T07:10:02Z [scenario] <<< hp1-hp3 / geneve down
+2026-06-20T07:10:19Z [scenario] --- pair hp2-hp5: L=hp2 L2=hp5 iface=enp1s0f0np0 ---
+2026-06-20T07:10:20Z [scenario] >>> hp2-hp5 / eth_ip up
+this derivation will be built:
+  /nix/store/448336rvspng92zm0sphqqksc9hvv7vk-netconf-eth_ip.drv
+building '/nix/store/448336rvspng92zm0sphqqksc9hvv7vk-netconf-eth_ip.drv'...
+2026-06-20T07:10:24Z [scenario] eth_ip up: hp2(10.10.0.2) <-> hp5(10.10.0.5) on underlay enp1s0f0np0/enp1s0f0np0 (no encap)
+2026-06-20T07:10:24Z [scenario] [hp2-hp5/eth_ip] L=10.10.0.2 on enp1s0f0np0  ↔  L2=10.10.0.5 on enp1s0f0np0
+2026-06-20T07:11:27Z [scenario] [hp2-hp5/eth_ip/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9412.248640679813 Mbps (retr=5330, recv_sys=14.25%, recv_soft=11.37%, has_sysctl=yes, status=ok)
+2026-06-20T07:12:34Z [scenario] [hp2-hp5/eth_ip/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9411.766595972183 Mbps (retr=4557, recv_sys=14.17%, recv_soft=11.50%, has_sysctl=yes, status=ok)
+2026-06-20T07:13:42Z [scenario] [hp2-hp5/eth_ip/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9412.67919997327 Mbps (retr=4555, recv_sys=14.24%, recv_soft=11.39%, has_sysctl=yes, status=ok)
+2026-06-20T07:14:50Z [scenario] [hp2-hp5/eth_ip/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9410.300505376801 Mbps (retr=7251, recv_sys=14.19%, recv_soft=11.49%, has_sysctl=yes, status=ok)
+2026-06-20T07:15:58Z [scenario] [hp2-hp5/eth_ip/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9411.707617295275 Mbps (retr=2690, recv_sys=14.19%, recv_soft=11.50%, has_sysctl=yes, status=ok)
+2026-06-20T07:17:06Z [scenario] [hp2-hp5/eth_ip/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9411.71212922153 Mbps (retr=9015, recv_sys=14.25%, recv_soft=11.40%, has_sysctl=yes, status=ok)
+2026-06-20T07:18:13Z [scenario] [hp2-hp5/eth_ip/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 8969.228908739035 Mbps (retr=1031350, recv_sys=12.75%, recv_soft=13.62%, has_sysctl=yes, status=ok)
+2026-06-20T07:19:21Z [scenario] [hp2-hp5/eth_ip/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 9052.401022285641 Mbps (retr=3002542, recv_sys=12.74%, recv_soft=16.16%, has_sysctl=yes, status=ok)
+2026-06-20T07:20:29Z [scenario] [hp2-hp5/eth_ip/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 9058.609592278706 Mbps (retr=2349451, recv_sys=12.71%, recv_soft=15.25%, has_sysctl=yes, status=ok)
+2026-06-20T07:21:37Z [scenario] [hp2-hp5/eth_ip/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 9001.27393940507 Mbps (retr=2229638, recv_sys=12.80%, recv_soft=14.03%, has_sysctl=yes, status=ok)
+2026-06-20T07:22:45Z [scenario] [hp2-hp5/eth_ip/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 8866.90251762445 Mbps (retr=1227139, recv_sys=13.02%, recv_soft=12.85%, has_sysctl=yes, status=ok)
+2026-06-20T07:23:53Z [scenario] [hp2-hp5/eth_ip/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 8992.96308764748 Mbps (retr=1845047, recv_sys=12.76%, recv_soft=14.13%, has_sysctl=yes, status=ok)
+2026-06-20T07:23:58Z [scenario] <<< hp2-hp5 / eth_ip down
+2026-06-20T07:23:58Z [scenario] >>> hp2-hp5 / vlan up
+this derivation will be built:
+  /nix/store/q4rb2z3gl52i2zfs30n879w4di6y96x8-netconf-vlan.drv
+building '/nix/store/q4rb2z3gl52i2zfs30n879w4di6y96x8-netconf-vlan.drv'...
+2026-06-20T07:24:03Z [scenario] vlan id=100 up: hp2(10.10.40.2) <-> hp5(10.10.40.5) on vlan100
+2026-06-20T07:24:03Z [scenario] [hp2-hp5/vlan] L=10.10.40.2 on vlan100  ↔  L2=10.10.40.5 on vlan100
+2026-06-20T07:25:06Z [scenario] [hp2-hp5/vlan/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9386.27482974767 Mbps (retr=7028, recv_sys=14.74%, recv_soft=10.90%, has_sysctl=yes, status=ok)
+2026-06-20T07:26:14Z [scenario] [hp2-hp5/vlan/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9387.54263887474 Mbps (retr=5307, recv_sys=14.78%, recv_soft=10.87%, has_sysctl=yes, status=ok)
+2026-06-20T07:27:22Z [scenario] [hp2-hp5/vlan/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9386.837859267176 Mbps (retr=8337, recv_sys=14.77%, recv_soft=10.97%, has_sysctl=yes, status=ok)
+2026-06-20T07:28:30Z [scenario] [hp2-hp5/vlan/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9383.175416420401 Mbps (retr=8544, recv_sys=14.73%, recv_soft=10.91%, has_sysctl=yes, status=ok)
+2026-06-20T07:29:37Z [scenario] [hp2-hp5/vlan/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9387.09996964245 Mbps (retr=8129, recv_sys=14.84%, recv_soft=10.80%, has_sysctl=yes, status=ok)
+2026-06-20T07:30:45Z [scenario] [hp2-hp5/vlan/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9387.742738724199 Mbps (retr=5804, recv_sys=14.74%, recv_soft=10.94%, has_sysctl=yes, status=ok)
+2026-06-20T07:31:53Z [scenario] [hp2-hp5/vlan/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 7027.23084713019 Mbps (retr=0, recv_sys=15.29%, recv_soft=8.84%, has_sysctl=yes, status=ok)
+2026-06-20T07:33:01Z [scenario] [hp2-hp5/vlan/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 7015.666386245884 Mbps (retr=0, recv_sys=15.41%, recv_soft=8.84%, has_sysctl=yes, status=ok)
+2026-06-20T07:34:09Z [scenario] [hp2-hp5/vlan/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 7106.92716905871 Mbps (retr=0, recv_sys=15.30%, recv_soft=8.90%, has_sysctl=yes, status=ok)
+2026-06-20T07:35:16Z [scenario] [hp2-hp5/vlan/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 7119.576674145138 Mbps (retr=0, recv_sys=15.04%, recv_soft=9.04%, has_sysctl=yes, status=ok)
+2026-06-20T07:36:24Z [scenario] [hp2-hp5/vlan/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 7109.460036123857 Mbps (retr=0, recv_sys=15.35%, recv_soft=8.91%, has_sysctl=yes, status=ok)
+2026-06-20T07:37:32Z [scenario] [hp2-hp5/vlan/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 7018.974234420918 Mbps (retr=0, recv_sys=15.27%, recv_soft=8.90%, has_sysctl=yes, status=ok)
+2026-06-20T07:37:37Z [scenario] <<< hp2-hp5 / vlan down
+2026-06-20T07:37:37Z [scenario] >>> hp2-hp5 / qinq up
+this derivation will be built:
+  /nix/store/d3q2jybj6gd5iwd2w6pkfqzsfhaslkfp-netconf-qinq.drv
+building '/nix/store/d3q2jybj6gd5iwd2w6pkfqzsfhaslkfp-netconf-qinq.drv'...
+2026-06-20T07:37:43Z [scenario] qinq S=10 C=100 up: hp2(10.10.41.2) <-> hp5(10.10.41.5) on cvlan100
+2026-06-20T07:37:43Z [scenario] [hp2-hp5/qinq] L=10.10.41.2 on cvlan100  ↔  L2=10.10.41.5 on cvlan100
+2026-06-20T07:38:46Z [scenario] [hp2-hp5/qinq/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9302.92788681678 Mbps (retr=11731, recv_sys=9.53%, recv_soft=17.32%, has_sysctl=yes, status=ok)
+2026-06-20T07:39:54Z [scenario] [hp2-hp5/qinq/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9274.432344712104 Mbps (retr=13288, recv_sys=9.54%, recv_soft=17.34%, has_sysctl=yes, status=ok)
+2026-06-20T07:41:01Z [scenario] [hp2-hp5/qinq/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9345.829132759689 Mbps (retr=11511, recv_sys=9.70%, recv_soft=16.65%, has_sysctl=yes, status=ok)
+2026-06-20T07:42:09Z [scenario] [hp2-hp5/qinq/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9009.469343848645 Mbps (retr=12538, recv_sys=9.95%, recv_soft=17.39%, has_sysctl=yes, status=ok)
+2026-06-20T07:43:17Z [scenario] [hp2-hp5/qinq/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9281.17270286822 Mbps (retr=10719, recv_sys=9.63%, recv_soft=17.24%, has_sysctl=yes, status=ok)
+2026-06-20T07:44:25Z [scenario] [hp2-hp5/qinq/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 8989.462370264237 Mbps (retr=12313, recv_sys=9.79%, recv_soft=17.79%, has_sysctl=yes, status=ok)
+2026-06-20T07:45:33Z [scenario] [hp2-hp5/qinq/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 5826.605465047984 Mbps (retr=0, recv_sys=14.33%, recv_soft=9.75%, has_sysctl=yes, status=ok)
+2026-06-20T07:46:40Z [scenario] [hp2-hp5/qinq/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 5780.358193076358 Mbps (retr=0, recv_sys=14.41%, recv_soft=9.63%, has_sysctl=yes, status=ok)
+2026-06-20T07:47:48Z [scenario] [hp2-hp5/qinq/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 5801.794235060133 Mbps (retr=0, recv_sys=14.40%, recv_soft=9.67%, has_sysctl=yes, status=ok)
+2026-06-20T07:48:56Z [scenario] [hp2-hp5/qinq/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 5794.321867842332 Mbps (retr=0, recv_sys=14.35%, recv_soft=9.66%, has_sysctl=yes, status=ok)
+2026-06-20T07:50:04Z [scenario] [hp2-hp5/qinq/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 5756.386770585212 Mbps (retr=0, recv_sys=14.44%, recv_soft=9.57%, has_sysctl=yes, status=ok)
+2026-06-20T07:51:12Z [scenario] [hp2-hp5/qinq/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 5795.511609570052 Mbps (retr=0, recv_sys=14.35%, recv_soft=9.71%, has_sysctl=yes, status=ok)
+2026-06-20T07:51:17Z [scenario] <<< hp2-hp5 / qinq down
+2026-06-20T07:51:17Z [scenario] >>> hp2-hp5 / vxlan up
+this derivation will be built:
+  /nix/store/s2jmkmd7acnix3fmlk8j1yi3aqya84pg-netconf-vxlan.drv
+building '/nix/store/s2jmkmd7acnix3fmlk8j1yi3aqya84pg-netconf-vxlan.drv'...
+2026-06-20T07:51:23Z [scenario] vxlan VNI=10 dstport=4789 up: hp2(192.168.100.1) <-> hp5(192.168.100.2) on vxlan10
+2026-06-20T07:51:23Z [scenario] [hp2-hp5/vxlan] L=192.168.100.1 on vxlan10  ↔  L2=192.168.100.2 on vxlan10
+2026-06-20T07:52:25Z [scenario] [hp2-hp5/vxlan/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9085.208479455036 Mbps (retr=5398, recv_sys=11.45%, recv_soft=14.67%, has_sysctl=yes, status=ok)
+2026-06-20T07:53:33Z [scenario] [hp2-hp5/vxlan/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9083.252255990205 Mbps (retr=8573, recv_sys=11.52%, recv_soft=14.39%, has_sysctl=yes, status=ok)
+2026-06-20T07:54:41Z [scenario] [hp2-hp5/vxlan/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9084.014824452699 Mbps (retr=5863, recv_sys=11.48%, recv_soft=14.55%, has_sysctl=yes, status=ok)
+2026-06-20T07:55:49Z [scenario] [hp2-hp5/vxlan/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9083.091303208064 Mbps (retr=9534, recv_sys=11.52%, recv_soft=14.35%, has_sysctl=yes, status=ok)
+2026-06-20T07:56:57Z [scenario] [hp2-hp5/vxlan/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9088.221965749504 Mbps (retr=3812, recv_sys=11.30%, recv_soft=14.88%, has_sysctl=yes, status=ok)
+2026-06-20T07:58:04Z [scenario] [hp2-hp5/vxlan/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9085.94016284655 Mbps (retr=4887, recv_sys=11.30%, recv_soft=15.00%, has_sysctl=yes, status=ok)
+2026-06-20T07:59:12Z [scenario] [hp2-hp5/vxlan/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 5915.884190508647 Mbps (retr=0, recv_sys=10.03%, recv_soft=14.61%, has_sysctl=yes, status=ok)
+2026-06-20T08:00:20Z [scenario] [hp2-hp5/vxlan/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 5921.1843864818775 Mbps (retr=0, recv_sys=10.04%, recv_soft=14.73%, has_sysctl=yes, status=ok)
+2026-06-20T08:01:28Z [scenario] [hp2-hp5/vxlan/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 5851.739165934547 Mbps (retr=0, recv_sys=10.43%, recv_soft=14.39%, has_sysctl=yes, status=ok)
+2026-06-20T08:02:36Z [scenario] [hp2-hp5/vxlan/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 5940.37695410588 Mbps (retr=0, recv_sys=10.01%, recv_soft=14.63%, has_sysctl=yes, status=ok)
+2026-06-20T08:03:44Z [scenario] [hp2-hp5/vxlan/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 5961.579435048633 Mbps (retr=0, recv_sys=10.00%, recv_soft=14.76%, has_sysctl=yes, status=ok)
+2026-06-20T08:04:51Z [scenario] [hp2-hp5/vxlan/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 5913.632208234176 Mbps (retr=55, recv_sys=10.06%, recv_soft=14.75%, has_sysctl=yes, status=ok)
+2026-06-20T08:04:56Z [scenario] <<< hp2-hp5 / vxlan down
+2026-06-20T08:04:57Z [scenario] >>> hp2-hp5 / mpls up
+this derivation will be built:
+  /nix/store/l94kiwj8692r2c37h5ivvfp3dyki8kql-netconf-mpls.drv
+building '/nix/store/l94kiwj8692r2c37h5ivvfp3dyki8kql-netconf-mpls.drv'...
+2026-06-20T08:05:02Z [scenario] mpls labels=100/200 up: hp2(10.10.43.2) <-> hp5(10.10.43.5)
+2026-06-20T08:05:02Z [scenario] [hp2-hp5/mpls] L=10.10.43.2 on lo  ↔  L2=10.10.43.5 on lo
+2026-06-20T08:06:05Z [scenario] [hp2-hp5/mpls/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9354.21679397201 Mbps (retr=69847, recv_sys=8.60%, recv_soft=15.08%, has_sysctl=yes, status=ok)
+2026-06-20T08:07:13Z [scenario] [hp2-hp5/mpls/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9356.872908831128 Mbps (retr=59898, recv_sys=8.92%, recv_soft=15.45%, has_sysctl=yes, status=ok)
+2026-06-20T08:08:21Z [scenario] [hp2-hp5/mpls/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9344.615480633418 Mbps (retr=80910, recv_sys=8.98%, recv_soft=15.47%, has_sysctl=yes, status=ok)
+2026-06-20T08:09:28Z [scenario] [hp2-hp5/mpls/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9347.68128076849 Mbps (retr=77808, recv_sys=8.75%, recv_soft=15.44%, has_sysctl=yes, status=ok)
+2026-06-20T08:10:36Z [scenario] [hp2-hp5/mpls/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9365.668049986025 Mbps (retr=46522, recv_sys=8.52%, recv_soft=15.11%, has_sysctl=yes, status=ok)
+2026-06-20T08:11:44Z [scenario] [hp2-hp5/mpls/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9364.135962767165 Mbps (retr=50645, recv_sys=8.61%, recv_soft=15.23%, has_sysctl=yes, status=ok)
+2026-06-20T08:12:52Z [scenario] [hp2-hp5/mpls/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 6602.609471637793 Mbps (retr=0, recv_sys=4.88%, recv_soft=12.03%, has_sysctl=yes, status=ok)
+2026-06-20T08:14:00Z [scenario] [hp2-hp5/mpls/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6606.42495702784 Mbps (retr=0, recv_sys=4.73%, recv_soft=11.42%, has_sysctl=yes, status=ok)
+2026-06-20T08:15:08Z [scenario] [hp2-hp5/mpls/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6627.784415880769 Mbps (retr=0, recv_sys=4.65%, recv_soft=12.04%, has_sysctl=yes, status=ok)
+2026-06-20T08:16:15Z [scenario] [hp2-hp5/mpls/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 6562.326672727017 Mbps (retr=0, recv_sys=5.15%, recv_soft=12.02%, has_sysctl=yes, status=ok)
+2026-06-20T08:17:23Z [scenario] [hp2-hp5/mpls/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 6619.973665510652 Mbps (retr=0, recv_sys=4.65%, recv_soft=12.32%, has_sysctl=yes, status=ok)
+2026-06-20T08:18:31Z [scenario] [hp2-hp5/mpls/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 6628.083511244857 Mbps (retr=0, recv_sys=4.73%, recv_soft=12.32%, has_sysctl=yes, status=ok)
+2026-06-20T08:18:36Z [scenario] <<< hp2-hp5 / mpls down
+2026-06-20T08:18:36Z [scenario] >>> hp2-hp5 / ipip up
+this derivation will be built:
+  /nix/store/q2cgd644gg1pbnfq19psk8dgdz2jg66w-netconf-ipip.drv
+building '/nix/store/q2cgd644gg1pbnfq19psk8dgdz2jg66w-netconf-ipip.drv'...
+2026-06-20T08:18:42Z [scenario] ipip ipip0 up: hp2(10.10.42.2) <-> hp5(10.10.42.5) over underlay 10.10.0.2<->10.10.0.5
+2026-06-20T08:18:42Z [scenario] [hp2-hp5/ipip] L=10.10.42.2 on ipip0  ↔  L2=10.10.42.5 on ipip0
+2026-06-20T08:19:45Z [scenario] [hp2-hp5/ipip/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9276.35192984142 Mbps (retr=1863, recv_sys=13.14%, recv_soft=13.77%, has_sysctl=yes, status=ok)
+2026-06-20T08:20:53Z [scenario] [hp2-hp5/ipip/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9271.95182773116 Mbps (retr=4925, recv_sys=11.68%, recv_soft=15.13%, has_sysctl=yes, status=ok)
+2026-06-20T08:22:00Z [scenario] [hp2-hp5/ipip/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9277.082450163145 Mbps (retr=1744, recv_sys=13.74%, recv_soft=13.65%, has_sysctl=yes, status=ok)
+2026-06-20T08:23:08Z [scenario] [hp2-hp5/ipip/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9274.834880932884 Mbps (retr=3441, recv_sys=13.73%, recv_soft=13.60%, has_sysctl=yes, status=ok)
+2026-06-20T08:24:16Z [scenario] [hp2-hp5/ipip/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9278.68218359371 Mbps (retr=1338, recv_sys=12.52%, recv_soft=14.37%, has_sysctl=yes, status=ok)
+2026-06-20T08:25:24Z [scenario] [hp2-hp5/ipip/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9274.60848326793 Mbps (retr=1852, recv_sys=11.77%, recv_soft=14.76%, has_sysctl=yes, status=ok)
+2026-06-20T08:26:32Z [scenario] [hp2-hp5/ipip/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 7075.617065685535 Mbps (retr=0, recv_sys=10.50%, recv_soft=14.26%, has_sysctl=yes, status=ok)
+2026-06-20T08:27:40Z [scenario] [hp2-hp5/ipip/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 7076.784627432832 Mbps (retr=0, recv_sys=10.43%, recv_soft=14.49%, has_sysctl=yes, status=ok)
+2026-06-20T08:28:47Z [scenario] [hp2-hp5/ipip/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 7110.812781183935 Mbps (retr=0, recv_sys=10.21%, recv_soft=14.62%, has_sysctl=yes, status=ok)
+2026-06-20T08:29:55Z [scenario] [hp2-hp5/ipip/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 7121.264898750347 Mbps (retr=0, recv_sys=10.64%, recv_soft=14.18%, has_sysctl=yes, status=ok)
+2026-06-20T08:31:03Z [scenario] [hp2-hp5/ipip/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 7173.430744528091 Mbps (retr=0, recv_sys=10.35%, recv_soft=14.53%, has_sysctl=yes, status=ok)
+2026-06-20T08:32:11Z [scenario] [hp2-hp5/ipip/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 7153.420118665087 Mbps (retr=0, recv_sys=10.12%, recv_soft=14.81%, has_sysctl=yes, status=ok)
+2026-06-20T08:32:16Z [scenario] <<< hp2-hp5 / ipip down
+2026-06-20T08:32:16Z [scenario] >>> hp2-hp5 / gre up
+this derivation will be built:
+  /nix/store/zdmd2bl33c8vfj3g3n766y8kkl25cqnh-netconf-gre.drv
+building '/nix/store/zdmd2bl33c8vfj3g3n766y8kkl25cqnh-netconf-gre.drv'...
+2026-06-20T08:32:22Z [scenario] gre gretest0 up: hp2(10.10.44.2) <-> hp5(10.10.44.5) over underlay 10.10.0.2<->10.10.0.5
+2026-06-20T08:32:22Z [scenario] [hp2-hp5/gre] L=10.10.44.2 on gretest0  ↔  L2=10.10.44.5 on gretest0
+2026-06-20T08:33:25Z [scenario] [hp2-hp5/gre/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9247.970274436775 Mbps (retr=1540, recv_sys=12.49%, recv_soft=14.44%, has_sysctl=yes, status=ok)
+2026-06-20T08:34:32Z [scenario] [hp2-hp5/gre/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9242.172548006456 Mbps (retr=462, recv_sys=13.34%, recv_soft=14.08%, has_sysctl=yes, status=ok)
+2026-06-20T08:35:40Z [scenario] [hp2-hp5/gre/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9246.45299397971 Mbps (retr=2159, recv_sys=12.76%, recv_soft=14.14%, has_sysctl=yes, status=ok)
+2026-06-20T08:36:48Z [scenario] [hp2-hp5/gre/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9251.697347156709 Mbps (retr=5182, recv_sys=13.21%, recv_soft=14.43%, has_sysctl=yes, status=ok)
+2026-06-20T08:37:56Z [scenario] [hp2-hp5/gre/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9247.198444851721 Mbps (retr=60, recv_sys=12.39%, recv_soft=14.95%, has_sysctl=yes, status=ok)
+2026-06-20T08:39:04Z [scenario] [hp2-hp5/gre/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9250.15150881533 Mbps (retr=1272, recv_sys=13.20%, recv_soft=14.19%, has_sysctl=yes, status=ok)
+2026-06-20T08:40:12Z [scenario] [hp2-hp5/gre/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 7077.942698515713 Mbps (retr=0, recv_sys=9.99%, recv_soft=14.78%, has_sysctl=yes, status=ok)
+2026-06-20T08:41:19Z [scenario] [hp2-hp5/gre/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 7055.191618448488 Mbps (retr=0, recv_sys=10.27%, recv_soft=14.62%, has_sysctl=yes, status=ok)
+2026-06-20T08:42:27Z [scenario] [hp2-hp5/gre/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 7093.645441204343 Mbps (retr=0, recv_sys=10.18%, recv_soft=14.71%, has_sysctl=yes, status=ok)
+2026-06-20T08:43:35Z [scenario] [hp2-hp5/gre/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 7097.9029782617945 Mbps (retr=0, recv_sys=10.13%, recv_soft=14.80%, has_sysctl=yes, status=ok)
+2026-06-20T08:44:43Z [scenario] [hp2-hp5/gre/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 7060.106731254256 Mbps (retr=0, recv_sys=10.15%, recv_soft=14.73%, has_sysctl=yes, status=ok)
+2026-06-20T08:45:51Z [scenario] [hp2-hp5/gre/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 7082.251952826796 Mbps (retr=0, recv_sys=10.33%, recv_soft=14.65%, has_sysctl=yes, status=ok)
+2026-06-20T08:45:56Z [scenario] <<< hp2-hp5 / gre down
+2026-06-20T08:45:56Z [scenario] >>> hp2-hp5 / geneve up
+2026-06-20T08:46:00Z [scenario] geneve geneve10 (VNI=10 dstport=6081) up: hp2(192.168.101.1) <-> hp5(192.168.101.2)
+2026-06-20T08:46:00Z [scenario] [hp2-hp5/geneve] L=192.168.101.1 on geneve10  ↔  L2=192.168.101.2 on geneve10
+2026-06-20T08:47:02Z [scenario] [hp2-hp5/geneve/cell1.rep1 tcp sysctl=0 rps=1 cake=1 flower=1] 9084.6644760259 Mbps (retr=8994, recv_sys=11.96%, recv_soft=13.91%, has_sysctl=yes, status=ok)
+2026-06-20T08:48:10Z [scenario] [hp2-hp5/geneve/cell1.rep2 tcp sysctl=0 rps=1 cake=1 flower=1] 9086.81952395125 Mbps (retr=8268, recv_sys=11.71%, recv_soft=14.53%, has_sysctl=yes, status=ok)
+2026-06-20T08:49:18Z [scenario] [hp2-hp5/geneve/cell1.rep3 tcp sysctl=0 rps=1 cake=1 flower=1] 9085.87234634453 Mbps (retr=5682, recv_sys=12.05%, recv_soft=13.66%, has_sysctl=yes, status=ok)
+2026-06-20T08:50:26Z [scenario] [hp2-hp5/geneve/cell2.rep1 tcp sysctl=1 rps=1 cake=1 flower=1] 9082.969627402661 Mbps (retr=9279, recv_sys=12.03%, recv_soft=13.61%, has_sysctl=yes, status=ok)
+2026-06-20T08:51:34Z [scenario] [hp2-hp5/geneve/cell2.rep2 tcp sysctl=1 rps=1 cake=1 flower=1] 9082.745002197735 Mbps (retr=11728, recv_sys=12.03%, recv_soft=13.58%, has_sysctl=yes, status=ok)
+2026-06-20T08:52:42Z [scenario] [hp2-hp5/geneve/cell2.rep3 tcp sysctl=1 rps=1 cake=1 flower=1] 9076.485711874824 Mbps (retr=11714, recv_sys=12.09%, recv_soft=13.50%, has_sysctl=yes, status=ok)
+2026-06-20T08:53:49Z [scenario] [hp2-hp5/geneve/cell3.rep1 udp sysctl=0 rps=1 cake=1 flower=1] 6196.975388563796 Mbps (retr=0, recv_sys=9.85%, recv_soft=14.93%, has_sysctl=yes, status=ok)
+2026-06-20T08:54:57Z [scenario] [hp2-hp5/geneve/cell3.rep2 udp sysctl=0 rps=1 cake=1 flower=1] 6223.628114603198 Mbps (retr=0, recv_sys=10.02%, recv_soft=14.88%, has_sysctl=yes, status=ok)
+2026-06-20T08:56:05Z [scenario] [hp2-hp5/geneve/cell3.rep3 udp sysctl=0 rps=1 cake=1 flower=1] 6231.590989237062 Mbps (retr=0, recv_sys=9.85%, recv_soft=14.98%, has_sysctl=yes, status=ok)
+2026-06-20T08:57:13Z [scenario] [hp2-hp5/geneve/cell4.rep1 udp sysctl=1 rps=1 cake=1 flower=1] 6263.079273890675 Mbps (retr=0, recv_sys=9.89%, recv_soft=15.04%, has_sysctl=yes, status=ok)
+2026-06-20T08:58:21Z [scenario] [hp2-hp5/geneve/cell4.rep2 udp sysctl=1 rps=1 cake=1 flower=1] 6247.80990778316 Mbps (retr=0, recv_sys=10.02%, recv_soft=14.95%, has_sysctl=yes, status=ok)
+2026-06-20T08:59:29Z [scenario] [hp2-hp5/geneve/cell4.rep3 udp sysctl=1 rps=1 cake=1 flower=1] 6256.860739843425 Mbps (retr=0, recv_sys=9.80%, recv_soft=15.00%, has_sysctl=yes, status=ok)
+2026-06-20T08:59:34Z [scenario] <<< hp2-hp5 / geneve down
+2026-06-20T08:59:34Z [scenario] === matrix complete: perf-results/2026-06-19-phase-h-iperf3/matrix.csv ===
+pair      scenario  cell     rep  proto  sysctl  dur_s  scenario_iface  scenario_v4    mbps     retransmits  recv_sys_pct  recv_soft_pct  rps  rfs  cake  flower  kernel_has_sysctl  status
+pi5-pair  eth_ip    cell-01  1    tcp    0       60     end0            172.16.40.174  936.4    0            2.97          6.45           1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-01  2    tcp    0       60     end0            172.16.40.174  936.4    0            2.94          6.47           1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-01  3    tcp    0       60     end0            172.16.40.174  936.4    0            2.96          6.44           1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-02  1    tcp    1       60     end0            172.16.40.174  936.4    0            2.96          6.46           1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-02  2    tcp    1       60     end0            172.16.40.174  936.4    0            3.06          6.50           1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-02  3    tcp    1       60     end0            172.16.40.174  936.4    0            2.93          6.49           1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-03  1    udp    0       60     end0            172.16.40.174  947.9    0            3.42          13.35          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-03  2    udp    0       60     end0            172.16.40.174  947.9    0            3.63          13.31          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-03  3    udp    0       60     end0            172.16.40.174  947.9    0            3.53          13.32          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-04  1    udp    1       60     end0            172.16.40.174  947.9    25           3.62          13.32          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-04  2    udp    1       60     end0            172.16.40.174  947.9    0            3.68          13.32          1    1    1     1       yes                ok
+pi5-pair  eth_ip    cell-04  3    udp    1       60     end0            172.16.40.174  947.9    17           3.63          14.06          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-01  1    tcp    0       60     vlan100         10.10.40.5     939.0    0            1.21          4.86           1    1    1     1       yes                ok
+pi5-pair  vlan      cell-01  2    tcp    0       60     vlan100         10.10.40.5     938.9    0            1.17          4.87           1    1    1     1       yes                ok
+pi5-pair  vlan      cell-01  3    tcp    0       60     vlan100         10.10.40.5     939.0    0            1.24          4.81           1    1    1     1       yes                ok
+pi5-pair  vlan      cell-02  1    tcp    1       60     vlan100         10.10.40.5     939.0    0            1.21          4.83           1    1    1     1       yes                ok
+pi5-pair  vlan      cell-02  2    tcp    1       60     vlan100         10.10.40.5     938.9    0            1.09          4.87           1    1    1     1       yes                ok
+pi5-pair  vlan      cell-02  3    tcp    1       60     vlan100         10.10.40.5     938.9    0            1.15          4.86           1    1    1     1       yes                ok
+pi5-pair  vlan      cell-03  1    udp    0       60     vlan100         10.10.40.5     944.9    0            3.65          13.91          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-03  2    udp    0       60     vlan100         10.10.40.5     944.9    38           3.40          13.93          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-03  3    udp    0       60     vlan100         10.10.40.5     944.9    0            3.56          13.92          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-04  1    udp    1       60     vlan100         10.10.40.5     944.9    0            3.57          13.92          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-04  2    udp    1       60     vlan100         10.10.40.5     944.9    0            3.50          13.92          1    1    1     1       yes                ok
+pi5-pair  vlan      cell-04  3    udp    1       60     vlan100         10.10.40.5     944.9    0            3.53          13.94          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-01  1    tcp    0       60     cvlan100        10.10.41.5     936.2    0            0.86          5.60           1    1    1     1       yes                ok
+pi5-pair  qinq      cell-01  2    tcp    0       60     cvlan100        10.10.41.5     936.2    0            0.85          5.59           1    1    1     1       yes                ok
+pi5-pair  qinq      cell-01  3    tcp    0       60     cvlan100        10.10.41.5     936.2    0            0.96          5.58           1    1    1     1       yes                ok
+pi5-pair  qinq      cell-02  1    tcp    1       60     cvlan100        10.10.41.5     936.2    0            0.97          5.58           1    1    1     1       yes                ok
+pi5-pair  qinq      cell-02  2    tcp    1       60     cvlan100        10.10.41.5     936.2    0            0.92          5.60           1    1    1     1       yes                ok
+pi5-pair  qinq      cell-02  3    tcp    1       60     cvlan100        10.10.41.5     936.2    0            0.93          5.59           1    1    1     1       yes                ok
+pi5-pair  qinq      cell-03  1    udp    0       60     cvlan100        10.10.41.5     941.9    0            3.05          15.72          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-03  2    udp    0       60     cvlan100        10.10.41.5     941.9    0            3.05          15.66          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-03  3    udp    0       60     cvlan100        10.10.41.5     941.9    0            2.96          15.70          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-04  1    udp    1       60     cvlan100        10.10.41.5     941.9    0            3.07          15.70          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-04  2    udp    1       60     cvlan100        10.10.41.5     941.9    45           2.98          15.72          1    1    1     1       yes                ok
+pi5-pair  qinq      cell-04  3    udp    1       60     cvlan100        10.10.41.5     941.9    0            3.08          15.72          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-01  1    tcp    0       60     vxlan10         192.168.100.2  908.9    0            1.03          5.60           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-01  2    tcp    0       60     vxlan10         192.168.100.2  908.9    0            1.01          5.63           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-01  3    tcp    0       60     vxlan10         192.168.100.2  908.9    0            1.03          5.58           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-02  1    tcp    1       60     vxlan10         192.168.100.2  908.9    0            1.02          5.69           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-02  2    tcp    1       60     vxlan10         192.168.100.2  908.9    0            1.02          5.64           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-02  3    tcp    1       60     vxlan10         192.168.100.2  908.9    0            1.02          5.62           1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-03  1    udp    0       60     vxlan10         192.168.100.2  911.9    0            4.29          20.85          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-03  2    udp    0       60     vxlan10         192.168.100.2  911.9    0            3.40          19.91          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-03  3    udp    0       60     vxlan10         192.168.100.2  911.9    0            3.48          19.89          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-04  1    udp    1       60     vxlan10         192.168.100.2  911.9    22           3.59          19.86          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-04  2    udp    1       60     vxlan10         192.168.100.2  911.9    0            3.41          19.89          1    1    1     1       yes                ok
+pi5-pair  vxlan     cell-04  3    udp    1       60     vxlan10         192.168.100.2  911.9    0            3.38          19.91          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-01  1    tcp    0       60     lo              10.10.43.5     938.8    0            5.95          17.79          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-01  2    tcp    0       60     lo              10.10.43.5     938.8    0            5.96          17.77          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-01  3    tcp    0       60     lo              10.10.43.5     938.8    0            6.14          17.73          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-02  1    tcp    1       60     lo              10.10.43.5     938.8    0            5.83          17.77          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-02  2    tcp    1       60     lo              10.10.43.5     938.8    0            5.89          17.69          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-02  3    tcp    1       60     lo              10.10.43.5     938.8    0            5.70          17.83          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-03  1    udp    0       60     lo              10.10.43.5     944.9    0            2.75          14.70          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-03  2    udp    0       60     lo              10.10.43.5     944.9    0            2.83          14.70          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-03  3    udp    0       60     lo              10.10.43.5     944.9    0            2.83          14.74          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-04  1    udp    1       60     lo              10.10.43.5     944.9    0            2.82          14.71          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-04  2    udp    1       60     lo              10.10.43.5     944.9    0            2.82          14.71          1    1    1     1       yes                ok
+pi5-pair  mpls      cell-04  3    udp    1       60     lo              10.10.43.5     944.9    0            2.89          15.74          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-01  1    tcp    0       60     ipip0           10.10.42.5     928.4    0            0.89          5.84           1    1    1     1       yes                ok
+pi5-pair  ipip      cell-01  2    tcp    0       60     ipip0           10.10.42.5     928.4    0            0.82          5.75           1    1    1     1       yes                ok
+pi5-pair  ipip      cell-01  3    tcp    0       60     ipip0           10.10.42.5     928.4    0            0.84          5.73           1    1    1     1       yes                ok
+pi5-pair  ipip      cell-02  1    tcp    1       60     ipip0           10.10.42.5     928.4    0            0.82          5.76           1    1    1     1       yes                ok
+pi5-pair  ipip      cell-02  2    tcp    1       60     ipip0           10.10.42.5     928.4    0            0.86          5.75           1    1    1     1       yes                ok
+pi5-pair  ipip      cell-02  3    tcp    1       60     ipip0           10.10.42.5     928.4    0            0.82          5.73           1    1    1     1       yes                ok
+pi5-pair  ipip      cell-03  1    udp    0       60     ipip0           10.10.42.5     933.1    32           3.01          18.84          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-03  2    udp    0       60     ipip0           10.10.42.5     933.1    0            3.04          18.43          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-03  3    udp    0       60     ipip0           10.10.42.5     933.1    8            3.01          18.42          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-04  1    udp    1       60     ipip0           10.10.42.5     933.1    17           3.04          18.44          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-04  2    udp    1       60     ipip0           10.10.42.5     933.1    0            3.14          19.92          1    1    1     1       yes                ok
+pi5-pair  ipip      cell-04  3    udp    1       60     ipip0           10.10.42.5     933.1    0            3.00          19.90          1    1    1     1       yes                ok
+pi5-pair  gre       cell-01  1    tcp    0       60     gretest0        10.10.44.5     925.8    0            0.85          5.76           1    1    1     1       yes                ok
+pi5-pair  gre       cell-01  2    tcp    0       60     gretest0        10.10.44.5     925.8    2543         0.95          5.83           1    1    1     1       yes                ok
+pi5-pair  gre       cell-01  3    tcp    0       60     gretest0        10.10.44.5     925.8    0            0.78          5.79           1    1    1     1       yes                ok
+pi5-pair  gre       cell-02  1    tcp    1       60     gretest0        10.10.44.5     925.8    0            0.85          5.77           1    1    1     1       yes                ok
+pi5-pair  gre       cell-02  2    tcp    1       60     gretest0        10.10.44.5     925.8    0            0.87          5.83           1    1    1     1       yes                ok
+pi5-pair  gre       cell-02  3    tcp    1       60     gretest0        10.10.44.5     925.8    0            0.87          5.78           1    1    1     1       yes                ok
+pi5-pair  gre       cell-03  1    udp    0       60     gretest0        10.10.44.5     930.2    0            3.06          20.02          1    1    1     1       yes                ok
+pi5-pair  gre       cell-03  2    udp    0       60     gretest0        10.10.44.5     930.2    0            3.04          19.98          1    1    1     1       yes                ok
+pi5-pair  gre       cell-03  3    udp    0       60     gretest0        10.10.44.5     930.2    14           3.09          18.60          1    1    1     1       yes                ok
+pi5-pair  gre       cell-04  1    udp    1       60     gretest0        10.10.44.5     930.2    0            2.98          20.01          1    1    1     1       yes                ok
+pi5-pair  gre       cell-04  2    udp    1       60     gretest0        10.10.44.5     930.2    0            3.06          18.58          1    1    1     1       yes                ok
+pi5-pair  gre       cell-04  3    udp    1       60     gretest0        10.10.44.5     930.2    21           3.12          18.56          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-01  1    tcp    0       60     geneve10        192.168.101.2  908.9    0            0.85          6.15           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-01  2    tcp    0       60     geneve10        192.168.101.2  908.9    0            0.91          6.16           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-01  3    tcp    0       60     geneve10        192.168.101.2  908.9    0            0.87          6.20           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-02  1    tcp    1       60     geneve10        192.168.101.2  908.9    0            0.83          6.19           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-02  2    tcp    1       60     geneve10        192.168.101.2  908.9    0            0.79          6.18           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-02  3    tcp    1       60     geneve10        192.168.101.2  908.9    0            0.85          6.15           1    1    1     1       yes                ok
+pi5-pair  geneve    cell-03  1    udp    0       60     geneve10        192.168.101.2  911.9    0            2.95          21.63          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-03  2    udp    0       60     geneve10        192.168.101.2  911.9    0            2.92          20.40          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-03  3    udp    0       60     geneve10        192.168.101.2  911.9    0            2.89          20.39          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-04  1    udp    1       60     geneve10        192.168.101.2  911.9    0            2.93          20.36          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-04  2    udp    1       60     geneve10        192.168.101.2  911.9    0            2.84          21.64          1    1    1     1       yes                ok
+pi5-pair  geneve    cell-04  3    udp    1       60     geneve10        192.168.101.2  911.9    0            3.10          21.59          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-01  1    tcp    0       60     enp1s0f0np0     10.10.2.3      17793.5  8852         9.35          23.51          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-01  2    tcp    0       60     enp1s0f0np0     10.10.2.3      16324.7  5634         9.45          22.19          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-01  3    tcp    0       60     enp1s0f0np0     10.10.2.3      17857.4  13697        9.81          23.08          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-02  1    tcp    1       60     enp1s0f0np0     10.10.2.3      17518.6  9708         9.60          23.13          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-02  2    tcp    1       60     enp1s0f0np0     10.10.2.3      9709.3   277          12.11         16.66          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-02  3    tcp    1       60     enp1s0f0np0     10.10.2.3      17704.0  15718        9.60          23.17          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-03  1    udp    0       60     enp1s0f0np0     10.10.2.3      8696.8   0            13.10         10.45          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-03  2    udp    0       60     enp1s0f0np0     10.10.2.3      8752.1   0            12.55         11.14          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-03  3    udp    0       60     enp1s0f0np0     10.10.2.3      8767.7   0            12.97         10.64          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-04  1    udp    1       60     enp1s0f0np0     10.10.2.3      8825.7   0            12.88         10.85          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-04  2    udp    1       60     enp1s0f0np0     10.10.2.3      8840.4   0            12.89         10.66          1    1    1     1       yes                ok
+hp1-hp3   eth_ip    cell-04  3    udp    1       60     enp1s0f0np0     10.10.2.3      8612.4   0            12.96         10.63          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-01  1    tcp    0       60     vlan100         10.10.40.5     10429.9  222          12.14         16.98          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-01  2    tcp    0       60     vlan100         10.10.40.5     17552.5  6882         9.53          22.78          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-01  3    tcp    0       60     vlan100         10.10.40.5     15782.3  10164        9.43          21.34          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-02  1    tcp    1       60     vlan100         10.10.40.5     17056.9  9560         9.05          22.69          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-02  2    tcp    1       60     vlan100         10.10.40.5     16373.5  10070        8.91          21.28          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-02  3    tcp    1       60     vlan100         10.10.40.5     17940.0  9404         9.22          23.59          1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-03  1    udp    0       60     vlan100         10.10.40.5     7186.5   0            14.26         9.27           1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-03  2    udp    0       60     vlan100         10.10.40.5     6902.3   0            15.13         8.83           1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-03  3    udp    0       60     vlan100         10.10.40.5     7153.7   0            14.22         9.26           1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-04  1    udp    1       60     vlan100         10.10.40.5     7146.5   0            14.34         9.11           1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-04  2    udp    1       60     vlan100         10.10.40.5     6929.7   0            14.33         9.09           1    1    1     1       yes                ok
+hp1-hp3   vlan      cell-04  3    udp    1       60     vlan100         10.10.40.5     6907.2   0            14.43         9.04           1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-01  1    tcp    0       60     cvlan100        10.10.41.5     13817.5  7484         9.02          22.21          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-01  2    tcp    0       60     cvlan100        10.10.41.5     15673.2  11108        8.37          23.88          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-01  3    tcp    0       60     cvlan100        10.10.41.5     13208.0  6212         9.52          21.43          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-02  1    tcp    1       60     cvlan100        10.10.41.5     8164.0   192          12.13         16.00          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-02  2    tcp    1       60     cvlan100        10.10.41.5     8666.4   347          11.63         16.76          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-02  3    tcp    1       60     cvlan100        10.10.41.5     15513.2  10195        8.41          24.00          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-03  1    udp    0       60     cvlan100        10.10.41.5     5772.8   0            14.18         9.52           1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-03  2    udp    0       60     cvlan100        10.10.41.5     6023.9   0            13.42         10.19          1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-03  3    udp    0       60     cvlan100        10.10.41.5     5762.1   0            14.33         9.40           1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-04  1    udp    1       60     cvlan100        10.10.41.5     5801.7   0            14.28         9.46           1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-04  2    udp    1       60     cvlan100        10.10.41.5     5738.2   0            14.33         9.38           1    1    1     1       yes                ok
+hp1-hp3   qinq      cell-04  3    udp    1       60     cvlan100        10.10.41.5     5907.0   0            14.08         9.63           1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-01  1    tcp    0       60     vxlan10         192.168.100.2  11071.6  5157         9.19          19.53          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-01  2    tcp    0       60     vxlan10         192.168.100.2  8200.3   549          10.95         15.22          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-01  3    tcp    0       60     vxlan10         192.168.100.2  7753.6   290          10.69         14.87          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-02  1    tcp    1       60     vxlan10         192.168.100.2  12985.7  8452         8.51          22.31          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-02  2    tcp    1       60     vxlan10         192.168.100.2  13430.2  8853         7.78          22.99          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-02  3    tcp    1       60     vxlan10         192.168.100.2  7700.4   6167         11.04         14.34          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-03  1    udp    0       60     vxlan10         192.168.100.2  5786.3   0            9.91          14.27          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-03  2    udp    0       60     vxlan10         192.168.100.2  5795.6   0            9.72          14.40          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-03  3    udp    0       60     vxlan10         192.168.100.2  6019.0   0            9.72          14.48          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-04  1    udp    1       60     vxlan10         192.168.100.2  5780.1   0            9.85          14.30          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-04  2    udp    1       60     vxlan10         192.168.100.2  5746.7   0            9.88          14.26          1    1    1     1       yes                ok
+hp1-hp3   vxlan     cell-04  3    udp    1       60     vxlan10         192.168.100.2  5982.3   0            9.69          14.45          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-01  1    tcp    0       60     lo              10.10.43.5     17072.6  15513        9.01          23.65          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-01  2    tcp    0       60     lo              10.10.43.5     16857.4  14349        8.92          23.56          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-01  3    tcp    0       60     lo              10.10.43.5     17101.5  16818        8.99          23.72          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-02  1    tcp    1       60     lo              10.10.43.5     15691.4  29582        8.22          22.26          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-02  2    tcp    1       60     lo              10.10.43.5     16779.9  14746        9.08          23.35          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-02  3    tcp    1       60     lo              10.10.43.5     16776.8  9192         9.41          23.31          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-03  1    udp    0       60     lo              10.10.43.5     6439.6   0            4.62          10.53          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-03  2    udp    0       60     lo              10.10.43.5     6582.0   0            5.08          11.24          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-03  3    udp    0       60     lo              10.10.43.5     6580.5   0            4.76          11.22          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-04  1    udp    1       60     lo              10.10.43.5     6434.1   0            4.87          10.54          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-04  2    udp    1       60     lo              10.10.43.5     6459.0   0            4.82          11.14          1    1    1     1       yes                ok
+hp1-hp3   mpls      cell-04  3    udp    1       60     lo              10.10.43.5     6547.9   0            5.01          11.20          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-01  1    tcp    0       60     ipip0           10.10.42.5     11200.3  378          11.56         13.92          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-01  2    tcp    0       60     ipip0           10.10.42.5     11047.4  981          11.73         14.16          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-01  3    tcp    0       60     ipip0           10.10.42.5     10967.3  800          11.73         13.71          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-02  1    tcp    1       60     ipip0           10.10.42.5     10923.6  650          11.83         14.09          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-02  2    tcp    1       60     ipip0           10.10.42.5     11221.2  848          11.55         14.18          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-02  3    tcp    1       60     ipip0           10.10.42.5     10970.3  920          11.85         13.57          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-03  1    udp    0       60     ipip0           10.10.42.5     7128.1   0            10.51         13.48          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-03  2    udp    0       60     ipip0           10.10.42.5     6763.8   0            10.73         13.22          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-03  3    udp    0       60     ipip0           10.10.42.5     6796.4   0            10.95         13.20          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-04  1    udp    1       60     ipip0           10.10.42.5     6785.5   0            11.02         13.24          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-04  2    udp    1       60     ipip0           10.10.42.5     6698.7   0            11.07         13.17          1    1    1     1       yes                ok
+hp1-hp3   ipip      cell-04  3    udp    1       60     ipip0           10.10.42.5     6759.8   0            11.03         13.21          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-01  1    tcp    0       60     gretest0        10.10.44.5     10955.8  695          11.46         14.57          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-01  2    tcp    0       60     gretest0        10.10.44.5     10896.0  648          11.52         13.95          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-01  3    tcp    0       60     gretest0        10.10.44.5     10868.4  1253         11.52         14.07          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-02  1    tcp    1       60     gretest0        10.10.44.5     10773.6  649          11.51         14.11          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-02  2    tcp    1       60     gretest0        10.10.44.5     11108.4  515          11.22         14.62          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-02  3    tcp    1       60     gretest0        10.10.44.5     10902.9  420          11.39         14.90          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-03  1    udp    0       60     gretest0        10.10.44.5     6666.7   0            10.80         13.24          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-03  2    udp    0       60     gretest0        10.10.44.5     6664.4   0            10.74         13.25          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-03  3    udp    0       60     gretest0        10.10.44.5     6908.5   0            10.67         13.41          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-04  1    udp    1       60     gretest0        10.10.44.5     6635.8   0            10.72         13.26          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-04  2    udp    1       60     gretest0        10.10.44.5     6636.7   0            10.69         13.28          1    1    1     1       yes                ok
+hp1-hp3   gre       cell-04  3    udp    1       60     gretest0        10.10.44.5     6680.0   0            10.68         13.30          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-01  1    tcp    0       60     geneve10        192.168.101.2  14016.1  9325         8.49          22.84          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-01  2    tcp    0       60     geneve10        192.168.101.2  11811.9  12562        9.62          19.91          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-01  3    tcp    0       60     geneve10        192.168.101.2  14291.5  7919         8.24          23.39          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-02  1    tcp    1       60     geneve10        192.168.101.2  14295.6  11119        8.28          23.46          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-02  2    tcp    1       60     geneve10        192.168.101.2  14169.7  8605         8.49          23.18          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-02  3    tcp    1       60     geneve10        192.168.101.2  14536.9  8558         8.14          23.59          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-03  1    udp    0       60     geneve10        192.168.101.2  6064.4   0            9.86          14.23          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-03  2    udp    0       60     geneve10        192.168.101.2  5999.5   0            9.98          14.11          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-03  3    udp    0       60     geneve10        192.168.101.2  6018.9   0            9.83          14.25          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-04  1    udp    1       60     geneve10        192.168.101.2  6000.9   0            10.27         14.08          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-04  2    udp    1       60     geneve10        192.168.101.2  5996.1   0            9.96          14.15          1    1    1     1       yes                ok
+hp1-hp3   geneve    cell-04  3    udp    1       60     geneve10        192.168.101.2  5963.0   0            10.03         14.09          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-01  1    tcp    0       60     enp1s0f0np0     10.10.0.5      9412.2   5330         14.25         11.37          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-01  2    tcp    0       60     enp1s0f0np0     10.10.0.5      9411.8   4557         14.17         11.50          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-01  3    tcp    0       60     enp1s0f0np0     10.10.0.5      9412.7   4555         14.24         11.39          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-02  1    tcp    1       60     enp1s0f0np0     10.10.0.5      9410.3   7251         14.19         11.49          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-02  2    tcp    1       60     enp1s0f0np0     10.10.0.5      9411.7   2690         14.19         11.50          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-02  3    tcp    1       60     enp1s0f0np0     10.10.0.5      9411.7   9015         14.25         11.40          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-03  1    udp    0       60     enp1s0f0np0     10.10.0.5      8969.2   1031350      12.75         13.62          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-03  2    udp    0       60     enp1s0f0np0     10.10.0.5      9052.4   3002542      12.74         16.16          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-03  3    udp    0       60     enp1s0f0np0     10.10.0.5      9058.6   2349451      12.71         15.25          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-04  1    udp    1       60     enp1s0f0np0     10.10.0.5      9001.3   2229638      12.80         14.03          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-04  2    udp    1       60     enp1s0f0np0     10.10.0.5      8866.9   1227139      13.02         12.85          1    1    1     1       yes                ok
+hp2-hp5   eth_ip    cell-04  3    udp    1       60     enp1s0f0np0     10.10.0.5      8993.0   1845047      12.76         14.13          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-01  1    tcp    0       60     vlan100         10.10.40.5     9386.3   7028         14.74         10.90          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-01  2    tcp    0       60     vlan100         10.10.40.5     9387.5   5307         14.78         10.87          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-01  3    tcp    0       60     vlan100         10.10.40.5     9386.8   8337         14.77         10.97          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-02  1    tcp    1       60     vlan100         10.10.40.5     9383.2   8544         14.73         10.91          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-02  2    tcp    1       60     vlan100         10.10.40.5     9387.1   8129         14.84         10.80          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-02  3    tcp    1       60     vlan100         10.10.40.5     9387.7   5804         14.74         10.94          1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-03  1    udp    0       60     vlan100         10.10.40.5     7027.2   0            15.29         8.84           1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-03  2    udp    0       60     vlan100         10.10.40.5     7015.7   0            15.41         8.84           1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-03  3    udp    0       60     vlan100         10.10.40.5     7106.9   0            15.30         8.90           1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-04  1    udp    1       60     vlan100         10.10.40.5     7119.6   0            15.04         9.04           1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-04  2    udp    1       60     vlan100         10.10.40.5     7109.5   0            15.35         8.91           1    1    1     1       yes                ok
+hp2-hp5   vlan      cell-04  3    udp    1       60     vlan100         10.10.40.5     7019.0   0            15.27         8.90           1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-01  1    tcp    0       60     cvlan100        10.10.41.5     9302.9   11731        9.53          17.32          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-01  2    tcp    0       60     cvlan100        10.10.41.5     9274.4   13288        9.54          17.34          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-01  3    tcp    0       60     cvlan100        10.10.41.5     9345.8   11511        9.70          16.65          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-02  1    tcp    1       60     cvlan100        10.10.41.5     9009.5   12538        9.95          17.39          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-02  2    tcp    1       60     cvlan100        10.10.41.5     9281.2   10719        9.63          17.24          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-02  3    tcp    1       60     cvlan100        10.10.41.5     8989.5   12313        9.79          17.79          1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-03  1    udp    0       60     cvlan100        10.10.41.5     5826.6   0            14.33         9.75           1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-03  2    udp    0       60     cvlan100        10.10.41.5     5780.4   0            14.41         9.63           1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-03  3    udp    0       60     cvlan100        10.10.41.5     5801.8   0            14.40         9.67           1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-04  1    udp    1       60     cvlan100        10.10.41.5     5794.3   0            14.35         9.66           1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-04  2    udp    1       60     cvlan100        10.10.41.5     5756.4   0            14.44         9.57           1    1    1     1       yes                ok
+hp2-hp5   qinq      cell-04  3    udp    1       60     cvlan100        10.10.41.5     5795.5   0            14.35         9.71           1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-01  1    tcp    0       60     vxlan10         192.168.100.2  9085.2   5398         11.45         14.67          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-01  2    tcp    0       60     vxlan10         192.168.100.2  9083.3   8573         11.52         14.39          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-01  3    tcp    0       60     vxlan10         192.168.100.2  9084.0   5863         11.48         14.55          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-02  1    tcp    1       60     vxlan10         192.168.100.2  9083.1   9534         11.52         14.35          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-02  2    tcp    1       60     vxlan10         192.168.100.2  9088.2   3812         11.30         14.88          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-02  3    tcp    1       60     vxlan10         192.168.100.2  9085.9   4887         11.30         15.00          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-03  1    udp    0       60     vxlan10         192.168.100.2  5915.9   0            10.03         14.61          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-03  2    udp    0       60     vxlan10         192.168.100.2  5921.2   0            10.04         14.73          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-03  3    udp    0       60     vxlan10         192.168.100.2  5851.7   0            10.43         14.39          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-04  1    udp    1       60     vxlan10         192.168.100.2  5940.4   0            10.01         14.63          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-04  2    udp    1       60     vxlan10         192.168.100.2  5961.6   0            10.00         14.76          1    1    1     1       yes                ok
+hp2-hp5   vxlan     cell-04  3    udp    1       60     vxlan10         192.168.100.2  5913.6   55           10.06         14.75          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-01  1    tcp    0       60     lo              10.10.43.5     9354.2   69847        8.60          15.08          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-01  2    tcp    0       60     lo              10.10.43.5     9356.9   59898        8.92          15.45          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-01  3    tcp    0       60     lo              10.10.43.5     9344.6   80910        8.98          15.47          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-02  1    tcp    1       60     lo              10.10.43.5     9347.7   77808        8.75          15.44          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-02  2    tcp    1       60     lo              10.10.43.5     9365.7   46522        8.52          15.11          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-02  3    tcp    1       60     lo              10.10.43.5     9364.1   50645        8.61          15.23          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-03  1    udp    0       60     lo              10.10.43.5     6602.6   0            4.88          12.03          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-03  2    udp    0       60     lo              10.10.43.5     6606.4   0            4.73          11.42          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-03  3    udp    0       60     lo              10.10.43.5     6627.8   0            4.65          12.04          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-04  1    udp    1       60     lo              10.10.43.5     6562.3   0            5.15          12.02          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-04  2    udp    1       60     lo              10.10.43.5     6620.0   0            4.65          12.32          1    1    1     1       yes                ok
+hp2-hp5   mpls      cell-04  3    udp    1       60     lo              10.10.43.5     6628.1   0            4.73          12.32          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-01  1    tcp    0       60     ipip0           10.10.42.5     9276.4   1863         13.14         13.77          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-01  2    tcp    0       60     ipip0           10.10.42.5     9272.0   4925         11.68         15.13          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-01  3    tcp    0       60     ipip0           10.10.42.5     9277.1   1744         13.74         13.65          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-02  1    tcp    1       60     ipip0           10.10.42.5     9274.8   3441         13.73         13.60          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-02  2    tcp    1       60     ipip0           10.10.42.5     9278.7   1338         12.52         14.37          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-02  3    tcp    1       60     ipip0           10.10.42.5     9274.6   1852         11.77         14.76          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-03  1    udp    0       60     ipip0           10.10.42.5     7075.6   0            10.50         14.26          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-03  2    udp    0       60     ipip0           10.10.42.5     7076.8   0            10.43         14.49          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-03  3    udp    0       60     ipip0           10.10.42.5     7110.8   0            10.21         14.62          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-04  1    udp    1       60     ipip0           10.10.42.5     7121.3   0            10.64         14.18          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-04  2    udp    1       60     ipip0           10.10.42.5     7173.4   0            10.35         14.53          1    1    1     1       yes                ok
+hp2-hp5   ipip      cell-04  3    udp    1       60     ipip0           10.10.42.5     7153.4   0            10.12         14.81          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-01  1    tcp    0       60     gretest0        10.10.44.5     9248.0   1540         12.49         14.44          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-01  2    tcp    0       60     gretest0        10.10.44.5     9242.2   462          13.34         14.08          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-01  3    tcp    0       60     gretest0        10.10.44.5     9246.5   2159         12.76         14.14          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-02  1    tcp    1       60     gretest0        10.10.44.5     9251.7   5182         13.21         14.43          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-02  2    tcp    1       60     gretest0        10.10.44.5     9247.2   60           12.39         14.95          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-02  3    tcp    1       60     gretest0        10.10.44.5     9250.2   1272         13.20         14.19          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-03  1    udp    0       60     gretest0        10.10.44.5     7077.9   0            9.99          14.78          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-03  2    udp    0       60     gretest0        10.10.44.5     7055.2   0            10.27         14.62          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-03  3    udp    0       60     gretest0        10.10.44.5     7093.6   0            10.18         14.71          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-04  1    udp    1       60     gretest0        10.10.44.5     7097.9   0            10.13         14.80          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-04  2    udp    1       60     gretest0        10.10.44.5     7060.1   0            10.15         14.73          1    1    1     1       yes                ok
+hp2-hp5   gre       cell-04  3    udp    1       60     gretest0        10.10.44.5     7082.3   0            10.33         14.65          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-01  1    tcp    0       60     geneve10        192.168.101.2  9084.7   8994         11.96         13.91          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-01  2    tcp    0       60     geneve10        192.168.101.2  9086.8   8268         11.71         14.53          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-01  3    tcp    0       60     geneve10        192.168.101.2  9085.9   5682         12.05         13.66          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-02  1    tcp    1       60     geneve10        192.168.101.2  9083.0   9279         12.03         13.61          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-02  2    tcp    1       60     geneve10        192.168.101.2  9082.7   11728        12.03         13.58          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-02  3    tcp    1       60     geneve10        192.168.101.2  9076.5   11714        12.09         13.50          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-03  1    udp    0       60     geneve10        192.168.101.2  6197.0   0            9.85          14.93          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-03  2    udp    0       60     geneve10        192.168.101.2  6223.6   0            10.02         14.88          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-03  3    udp    0       60     geneve10        192.168.101.2  6231.6   0            9.85          14.98          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-04  1    udp    1       60     geneve10        192.168.101.2  6263.1   0            9.89          15.04          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-04  2    udp    1       60     geneve10        192.168.101.2  6247.8   0            10.02         14.95          1    1    1     1       yes                ok
+hp2-hp5   geneve    cell-04  3    udp    1       60     geneve10        192.168.101.2  6256.9   0            9.80          15.00          1    1    1     1       yes                ok

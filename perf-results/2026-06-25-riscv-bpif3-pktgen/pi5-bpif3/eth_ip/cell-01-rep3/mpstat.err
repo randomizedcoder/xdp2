@@ -1,0 +1,2 @@
+mux_client_request_session: read from master failed: Broken pipe
+Connection to 172.16.40.205 port 22 timed out

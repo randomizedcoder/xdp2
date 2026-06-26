@@ -65,6 +65,17 @@ let
   workload-pcap-vlan-tcp-mix     = workloadPcap { name = "vlan-tcp-mix"; };
   workload-pcap-pppoe-isp        = workloadPcap { name = "pppoe-isp"; };
   workload-pcap-vxlan-k8s-pure   = workloadPcap { name = "vxlan-k8s-pure"; };
+  # Series-3 controlled-ratio mix workloads (2026-06-10). Each has
+  # p% fast-path-eligible packets (bare eth+IPv4/IPv6+TCP/443) and
+  # (1-p)% non-matching packets (ICMP, VLAN+TCP, VXLAN-encap, equal
+  # split). Used by perf-results/2026-06-10-series3-controlled-mix/
+  # to plot ns/pkt vs p — the linear-scaling demonstration of the
+  # cover letter's per-packet cost model.
+  workload-pcap-series3-fast-vs-slow-10 = workloadPcap { name = "series3-fast-vs-slow-10"; };
+  workload-pcap-series3-fast-vs-slow-25 = workloadPcap { name = "series3-fast-vs-slow-25"; };
+  workload-pcap-series3-fast-vs-slow-50 = workloadPcap { name = "series3-fast-vs-slow-50"; };
+  workload-pcap-series3-fast-vs-slow-75 = workloadPcap { name = "series3-fast-vs-slow-75"; };
+  workload-pcap-series3-fast-vs-slow-90 = workloadPcap { name = "series3-fast-vs-slow-90"; };
 
   # ── Cached: merged mixed-protocol PCAP from real captures ──────────
   mixed-pcap = pkgs.runCommand "xdp2-mixed-pcap" {
@@ -112,7 +123,12 @@ in
     workload-pcap-k8s-microservices
     workload-pcap-vlan-tcp-mix
     workload-pcap-pppoe-isp
-    workload-pcap-vxlan-k8s-pure;
+    workload-pcap-vxlan-k8s-pure
+    workload-pcap-series3-fast-vs-slow-10
+    workload-pcap-series3-fast-vs-slow-25
+    workload-pcap-series3-fast-vs-slow-50
+    workload-pcap-series3-fast-vs-slow-75
+    workload-pcap-series3-fast-vs-slow-90;
 
   # ── Sweep: tcp_ipv4.pcap (baseline, fast) ────────────────────────
   #
