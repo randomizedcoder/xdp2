@@ -144,6 +144,24 @@ Measured - dissector cost in isolation (microbench):
   footprint shifts the hot path's icache - an honest, documented
   effect, same direction on a kernel carrying the full series.)
 
+Real-world relevance - WireGuard:
+
+  The eth_ip shape isn't just synthetic. WireGuard's encrypted
+  transport is eth + IP + UDP, i.e. the eth_ip shape, and real
+  WireGuard servers/gateways run it through cake/fq for QoS - which
+  classifies every packet via skb_get_hash() -> the flow dissector.
+  Measured on a live WireGuard sender (Cortex-A76, cake on egress,
+  902 Mbit/s iperf3 over wg0): __skb_flow_dissect fired 1,111,528
+  times in 10 s (~once per wire packet), dominated by cake_enqueue on
+  the physical TX path (plus tc_classify and RPS). WireGuard also
+  force-calls skb_get_hash() on the inner packet before encryption
+  (drivers/net/wireguard/send.c). So the fast-path's per-call saving
+  applies to ~100% of WireGuard traffic on any host doing software
+  qdisc/RPS - a per-packet win that scales with pps on high-rate
+  concentrators. (The dissector is a small fraction of WireGuard's
+  crypto cost, so this is per-packet CPU headroom, not a throughput
+  multiplier. Detail: xdp2 perf-results/2026-06-25-wireguard-flowdis/.)
+
 Open items not addressed in this RFC:
 
   - Selftests at tools/testing/selftests/net/ comparing fast-path

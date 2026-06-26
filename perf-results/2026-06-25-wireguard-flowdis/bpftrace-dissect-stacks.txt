@@ -1,0 +1,32 @@
+
+
+@[
+        __skb_flow_dissect+0
+        encrypt_packet+540
+        wg_packet_encrypt_worker+180
+        process_one_work+376
+]: 1
+@[
+        __skb_flow_dissect+0
+        get_rps_cpu+384
+        netif_receive_skb_list_internal+756
+        gro_receive_skb+616
+]: 18656
+@[
+        __skb_flow_dissect+0
+        get_rps_cpu+384
+        netif_receive_skb_list_internal+756
+        napi_complete_done+136
+]: 66841
+@[
+        __skb_flow_dissect+0
+        __tcf_classify.constprop.0+116
+        tcf_classify+52
+        tc_run+268
+]: 85453
+@[
+        __skb_flow_dissect+0
+        cake_enqueue+448
+        dev_qdisc_enqueue+48
+        __dev_queue_xmit+1208
+]: 493218
