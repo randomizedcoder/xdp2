@@ -1,117 +1,49 @@
 From bb1b8029b9cc3767fac5d2e90790134db4ce0955 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:40:02 -0700
-Subject: [PATCH RFC v3 0/4] net: flow_dissector: per-shape fast-path sysctls under /proc/sys/net/flow_dissector/
+Subject: [PATCH RFC v3 0/4] net: flow_dissector: byte-identical fast-path for eth + IP + TCP/UDP (~40-50%, x86/ARM/RISC-V)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-v3 of the flow_dissector fast-path series. Supersedes v1 (three-patch
-split applied via net-next as eeca3eb493b8) and v2-experiment (single
-inline patch 8013aee91ccb).
+The short version
+=================
 
-What changed since v2-inline:
+The flow dissector runs on close to every packet Linux forwards or
+shapes: skb_get_hash() from RPS/RFS, the fq / fq_codel / cake qdiscs,
+tc-flower, RSS software fallback, and more. The overwhelmingly common
+packet shape it walks is eth + IP + TCP/UDP - and today it walks it
+with a generic, protocol-graph parser (loop iterations, per-field
+__skb_header_pointer, indirect dispatch).
 
-  - Single sysctl net.core.flow_dissector_fastpath replaced by a new
-    per-shape subtree at /proc/sys/net/flow_dissector/{eth_ip, vlan,
-    qinq, vxlan_inner}. Each is a separate DEFINE_STATIC_KEY_FALSE
-    with its own sysctl. Operators enable only the shapes their
-    deployment uses.
+This series adds a straight-line fast-path for exactly that common
+shape - IPv4 and IPv6, TCP and UDP - that is **byte-identical** with
+the slow path: it either produces bit-for-bit the same flow keys, or
+it defers to the slow path. There is no third outcome. Anything it
+does not handle (IPv4 options/fragments, IPv6 extension headers,
+requested non-zero flow label, any non-eth/IP/L4 shape) falls through
+to the existing code unchanged.
 
-  - Hard rename. net.core.flow_dissector_fastpath is gone; its
-    replacement is net.flow_dissector.eth_ip. The old knob only ever
-    existed in net-next 7.1-rc4 so no released kernel had it.
+Measured **~40-50% reduction in dissector cost** across AMD/Intel x86,
+three ARM uarches, and RISC-V - largest on the narrow in-order cores
+RISC-V is now bringing into networking. Because it is byte-identical,
+it is safe to enable broadly; we think there is a real argument for
+enabling the common-case shape by default. It ships opt-in
+(default-off; one not-taken branch when off) behind per-shape sysctls
+under /proc/sys/net/flow_dissector/ so it can be adopted conservatively
+- net.flow_dissector.eth_ip is the common-case knob, and extension
+shapes (vlan, qinq, ...) stack on it.
 
-  - New extension patches stack on the parent and ship their own
-    sysctl + helper:
-      * patch 2 - single VLAN (8021Q / 8021AD outer tag) - byte-
-        identical with slow path
-      * patch 3 - QinQ depth-2 (8021AD + 8021Q stack) - byte-identical
-        with slow path; auto-toggle proc_handlers tie qinq <-> vlan
-        so writing qinq=1 enables vlan and writing vlan=0 clears qinq
-      * patch 4 - RFC EXPERIMENT, VXLAN inner descent. Independent
-        knob. NOT byte-identical with the slow path; gated separately
-        so operators who want only the byte-identical knobs don't
-        inherit the behaviour change.
+(Supersedes v1, applied to net-next as eeca3eb493b8, and v2-experiment,
+8013aee91ccb. Both withdrawn; this replaces them.)
 
-Why per-shape:
+Cross-architecture measurements
+===============================
 
-  Different deployments want different shapes. A data-centre operator
-  running cake on VLAN-tagged switch trunks wants vlan + qinq. A k8s
-  overlay operator wants vxlan_inner. An ISP running PPPoE will
-  eventually want a fifth knob (not in this series). One coarse "all
-  or nothing" sysctl doesn't fit.
-
-  Each per-shape gate is a separate static_branch — the slow-path
-  cost when a shape is disabled is one forward not-taken JMP in the
-  dispatcher switch, same as the v1/v2 "umbrella" gate.
-
-Base / where it applies:
-
-  Patches are against net-next at c0aa5f13826d (the commit immediately
-  before v2-inline 8013aee91ccb was applied). The previous series was
-  withdrawn; this replaces it.
-
-Patch-by-patch shape:
-
-  Patch 1: opt-in fast-path for eth + IPv4/IPv6 + TCP/UDP. Same
-  functionality as v2-inline but reorganised:
-    - flow_dissect_fast_ipv4 / _ipv6 are separate static helpers (not
-      inline in __skb_flow_dissect) — makes patches 2-4 add cleanly
-    - forward declarations anchored at top of file (right after
-      includes) so patch 2's VLAN helper can call them regardless of
-      where the patch tool lands the helper body relative to the
-      parent definitions on stable-kernel backports
-    - DEFINE_STATIC_KEY_FALSE(flow_dissector_eth_ip_key), sysctl
-      /proc/sys/net/flow_dissector/eth_ip
-    - new late_initcall flow_dissector_sysctl_init in flow_dissector.c
-      registers the net/flow_dissector subtree (pattern from
-      net/mpls/af_mpls.c)
-
-  Patch 2: single VLAN. Adds flow_dissect_fast_vlan helper +
-  dispatcher case for ETH_P_8021Q / ETH_P_8021AD. Own sysctl
-  /proc/sys/net/flow_dissector/vlan. Custom proc_handler
-  proc_set_vlan_key (a thin wrapper today; patch 3 gives it the
-  sibling-clear behaviour).
-
-  Patch 3: QinQ. Adds vlan_depth parameter to flow_dissect_fast_vlan,
-  outer tag -> KEY_VLAN, inner tag -> KEY_CVLAN. New sysctl
-  /proc/sys/net/flow_dissector/qinq. Custom proc_set_qinq_key
-  auto-enables vlan on write of 1; the updated proc_set_vlan_key
-  clears qinq on write of 0. So `echo 1 > qinq` is enough to get
-  both knobs wired up.
-
-  Patch 4: VXLAN inner descent, RFC EXPERIMENT. Gated independently.
-  Behaviour change called out in the commit message and in the
-  vxlan_inner sysctl paragraph. Open design questions on slow-path
-  symmetry and per-netns port discovery.
-
-Measured - real workload (macro):
-
-  Receiver-side CPU on the xdp2 testbed pair pi5-1 <-> pi5-2
-  (Cortex-A76, 1 GbE genet, 4 parallel iperf3, 30 s cells):
-
-    vlan UDP host_system  68.11% -> 63.66%  (-6.5%)  sysctl 0 -> 1
-    qinq UDP host_system  75.87% -> 70.98%  (-6.4%)  sysctl 0 -> 1
-    vxlan UDP             ~zero net (outer fast-path saving offset by
-                                     inner-descent work, as designed)
-
-  These cells are wire-saturated, so the dissector saving shows up
-  as receiver CPU headroom, not throughput. On the faster links the
-  per-cell macro delta sits within run-to-run noise (within ~2 pp at
-  single-30 s-cell granularity on the 10/25 GbE x86 pairs) - there
-  the link, not the dissector, is the bottleneck, and longer DUR +
-  repeats are needed to lift the signal above x86 variance. Macro
-  tables across the fleet (hp1-hp3 25 GbE mlx5 Zen 1; hp2-hp5 10 GbE
-  i40e Zen 1; l-l2 25 GbE Zen 2; pi5 1 GbE Cortex-A76; bpi-f3 1 GbE
-  RISC-V) live under perf-results/ in the xdp2 repo.
-
-Measured - dissector cost in isolation (microbench):
-
-  To show where the saving comes from, independent of NIC / qdisc /
-  scheduler, a userspace libflowdis A/B (identical dissector source,
-  fast-path .so vs baseline .so, synthetic eth+IPv4+TCP, 10 x 10 M
-  iterations, taskset-pinned) was run on every uarch in the fleet:
+Userspace libflowdis A/B - identical dissector source built two ways
+(fast-path .so vs baseline .so), so it isolates the dissector from the
+NIC / qdisc / scheduler. Synthetic eth+IPv4+TCP, 10 x 10 M iterations,
+core-pinned, ns/pkt (lower is better):
 
     uarch                          baseline  patched  speedup
     x86 Zen 2  (TR PRO 3945WX)       12.44     6.56    -47.3%
@@ -120,59 +52,134 @@ Measured - dissector cost in isolation (microbench):
     ARM Cortex-A72 (pi4-1)           42.37    19.05    -55.0%
     ARM Cortex-A76 (pi5-2)           19.37     9.25    -52.3%
     RISC-V SpacemiT X60 (bpi-f3)     98.16    49.27    -49.8%
-                                              (ns/pkt, lower is better)
 
-  ~47-55% reduction in the dissector cost itself across AMD/Intel
-  x86, three ARM uarches, and RISC-V - i.e. the fast-path generalises
-  across ISAs (the static_branch gate resolves through each arch's
-  jump_label implementation). One honest exception: x86 Zen 1
-  (Ryzen 5 PRO 2400G) shows ~0% at p50 - the saving is masked on that
-  older uarch (documented in the xdp2 perf-results). Default-off cost
-  remains one not-taken JMP per dissector call on every arch.
+IPv6 - the other ~half of real traffic - is covered by the same knob
+and is also byte-identical (verified: same addrs, addr_type, ports):
+x86 Zen2 eth+IPv6+TCP -39% (vs -42% IPv4); RISC-V X60 -25% (vs -50%).
+The smaller IPv6 win on the narrow core is the unavoidable 32-byte
+IPv6 address copy - both paths must do it - dominating the v6
+fast-path; x86's wider core hides it, so v6 ~ v4 there.
 
-  Per-shape, full matrix (every byte-identical shape x every fleet
-  uarch, fast-path .so vs pure slow-path .so, byte-identical output
-  verified per shape). vlan / qinq span -16%..-40% across x86 Zen1/
-  Zen2/Skylake, ARM A53/A72/A76, and RISC-V X60; the saving grows with
-  header complexity (the slow path does progressively more generic
-  per-layer work). The complete table - including the v4 pppoe / mpls /
-  ipip shapes, where ipip is the largest win everywhere (-37%..-47%,
-  the slow path re-dissects the inner IP via a full second dispatch) -
-  is at perf-results/2026-06-25-series3-allshapes-microbench/. (Per-shape
-  eth_ip is below the -49.8% headline above because that figure is the
-  eth_ip-only lib; with all fast-paths compiled in, the larger code
-  footprint shifts the hot path's icache - an honest, documented
-  effect, same direction on a kernel carrying the full series.)
+Two honest notes from the data:
 
-Real-world relevance - WireGuard:
+  - The win is algorithmic - the fast-path retires roughly half the
+    instructions (RISC-V X60: 220 -> 112 insn/pkt; x86 Zen2: 175 ->
+    99) - so it reproduces across ISAs. Per-shape detail and the full
+    cross-arch matrix (eth_ip/vlan/qinq/pppoe/mpls/ipip x 7 uarches)
+    are in the xdp2 repo perf-results/2026-06-25-series3-allshapes-
+    microbench/ and .../riscv-deep-dive/.
 
-  The eth_ip shape isn't just synthetic. WireGuard's encrypted
-  transport is eth + IP + UDP, i.e. the eth_ip shape, and real
-  WireGuard servers/gateways run it through cake/fq for QoS - which
-  classifies every packet via skb_get_hash() -> the flow dissector.
-  Measured on a live WireGuard sender (Cortex-A76, cake on egress,
-  902 Mbit/s iperf3 over wg0): __skb_flow_dissect fired 1,111,528
-  times in 10 s (~once per wire packet), dominated by cake_enqueue on
-  the physical TX path (plus tc_classify and RPS). WireGuard also
-  force-calls skb_get_hash() on the inner packet before encryption
-  (drivers/net/wireguard/send.c). So the fast-path's per-call saving
-  applies to ~100% of WireGuard traffic on any host doing software
-  qdisc/RPS - a per-packet win that scales with pps on high-rate
-  concentrators. (The dissector is a small fraction of WireGuard's
-  crypto cost, so this is per-packet CPU headroom, not a throughput
-  multiplier. Detail: xdp2 perf-results/2026-06-25-wireguard-flowdis/.)
+  - One exception: x86 Zen 1 (Ryzen 2400G) shows ~0% at p50 - the
+    saving is masked on that older uarch.
 
-Open items not addressed in this RFC:
+Why narrow cores gain most (RISC-V)
+-----------------------------------
+
+The X60 runs at IPC ~1.4, flat between slow and fast: a narrow core
+cannot hide the slow path's extra instructions behind ILP, so each
+removed instruction removes a cycle ~1:1 (-50%). Zen2 at IPC ~4.2
+actually runs the *slow* path at slightly higher IPC than the fast
+path - its wide OoO engine absorbs some of the slow path's redundancy
+as ILP, masking it - so its relative win is smaller (-41%). In
+absolute terms the X60 spends ~8x the wall-clock per dissect (~98 ns
+vs ~10 ns), so the fast-path returns ~48 ns/pkt to RISC-V vs ~4 ns to
+x86. As the kernel's hot paths increasingly run on narrower edge cores
+than the x86 servers they were tuned on, leaning them out is
+disproportionately valuable - and measurable today.
+
+The case for enabling the common case by default
+================================================
+
+  - Safe: byte-identical, by construction (same keys, or defer). It
+    cannot change observable behaviour, only speed.
+  - Broad: eth + IPv4/IPv6 + TCP/UDP is the shape of nearly all Linux
+    traffic, and the dissector runs on it per-packet on any host doing
+    software hashing/classification (RPS, fq/cake, tc-flower).
+  - Cheap when off: one not-taken branch per call.
+
+The series still ships default-off/opt-in by netdev convention; the
+data above is offered as the argument to reconsider that default for
+the common-case (eth_ip) shape.
+
+Real-world relevance - WireGuard
+================================
+
+Not just a synthetic shape. WireGuard's encrypted transport is
+eth + IP + UDP (the eth_ip shape), and real WireGuard servers/gateways
+run it through cake/fq for QoS, which classifies every packet via
+skb_get_hash() -> the flow dissector. Measured on a live WireGuard
+sender (Cortex-A76, cake on egress, 902 Mbit/s over wg0):
+__skb_flow_dissect fired 1,111,528 times in 10 s (~once per wire
+packet) - dominated by cake_enqueue on the physical TX path, plus
+tc_classify and RPS. WireGuard also force-calls skb_get_hash() on the
+inner packet before encryption (drivers/net/wireguard/send.c). So the
+fast-path applies to ~100% of WireGuard traffic on any host doing
+software qdisc/RPS, returning per-packet CPU to the crypto that is the
+actual bottleneck. (Detail: perf-results/2026-06-25-wireguard-flowdis/.)
+
+Honest caveats
+==============
+
+  - The macro (live-traffic) A/B is link- or queue-bound on our
+    testbeds, so the dissector saving shows up as receiver CPU
+    headroom, not throughput, and sits within run-to-run noise at
+    single-cell granularity. (On the RISC-V board the in-tree
+    single-RX-queue k1_emac queue-saturates at ~17% CPU, so a flood
+    cannot even make the dissector the bottleneck - the microbench is
+    the right instrument.) The per-packet win is real; it converts to
+    throughput only where the CPU, not the link/queue, is the limit.
+  - Absolute ns/pkt above are per-ISA baselines; the cross-arch
+    *ratios* are the claim.
+
+Mechanism / what changed since v2-inline
+========================================
+
+  - The single sysctl net.core.flow_dissector_fastpath is replaced by
+    a per-shape subtree at /proc/sys/net/flow_dissector/{eth_ip, vlan,
+    qinq, vxlan_inner}. Each is its own DEFINE_STATIC_KEY_FALSE +
+    sysctl; operators enable only the shapes they use. (Hard rename;
+    the old knob only existed in net-next 7.1-rc4, no released kernel.)
+  - Why per-shape: different deployments want different shapes (DC cake
+    on VLAN trunks -> vlan/qinq; k8s overlay -> vxlan_inner; ISP ->
+    pppoe later). One coarse all-or-nothing knob doesn't fit. Each gate
+    is a separate static_branch (one not-taken JMP when off).
+
+Patch-by-patch
+==============
+
+  Patch 1: opt-in fast-path for eth + IPv4/IPv6 + TCP/UDP (the
+  common-case eth_ip shape). flow_dissect_fast_ipv4/_ipv6 are separate
+  static helpers; forward-declared at top of file so the extension
+  patches add cleanly. DEFINE_STATIC_KEY_FALSE(flow_dissector_eth_ip_key),
+  sysctl /proc/sys/net/flow_dissector/eth_ip; a late_initcall registers
+  the net/flow_dissector subtree (pattern from net/mpls/af_mpls.c).
+
+  Patch 2: single VLAN (ETH_P_8021Q/8021AD outer tag). byte-identical.
+  Own sysctl .../vlan.
+
+  Patch 3: QinQ depth-2 (outer -> KEY_VLAN, inner -> KEY_CVLAN).
+  byte-identical. Own sysctl .../qinq; auto-toggle proc_handlers tie
+  qinq<->vlan (echo 1 > qinq enables vlan; vlan=0 clears qinq).
+
+  Patch 4: VXLAN inner descent, RFC EXPERIMENT. Independently gated.
+  NOT byte-identical (it descends into the inner flow) - gated
+  separately so the byte-identical knobs don't inherit the behaviour
+  change. Open questions on slow-path symmetry and per-netns port
+  discovery.
+
+  Base: net-next at c0aa5f13826d.
+
+Open items
+==========
 
   - Selftests at tools/testing/selftests/net/ comparing fast-path
-    output byte-for-byte to slow-path output across the eligible
-    shapes.
-  - PPPoE, MPLS, GRE shape extensions (candidate table in
-    packet-flow-context.md §10 in the xdp2 repo).
+    output byte-for-byte to slow-path output across the eligible shapes
+    (we verify this in userspace today; an in-tree selftest is the
+    right home).
+  - Further byte-identical shapes (pppoe, mpls, ipip) - separate v4
+    series; gre/geneve/gtpu inner descent is RFC-experiment.
   - VXLAN port per-netns discovery (still hardcoded IANA 4789).
   - slow-path UDP-encap descent symmetry for patch 4.
-
-Dave Seddon (4):
 
 Dave Seddon (4):
   net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
@@ -185,6 +192,5 @@ Dave Seddon (4):
  net/core/flow_dissector.c                | 478 +++++++++++++++++++++++
  3 files changed, 572 insertions(+), 1 deletion(-)
 
--- 
+--
 2.54.0
-
