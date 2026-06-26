@@ -93,3 +93,39 @@ the patched (eth_ip fast-path) and baseline (`5960a9c6^`, no fast-path)
 `pkgsCross.riscv64.stdenv.cc` (rv64gc); x86 native. Same `micro_flowdis.c`
 as the rest of the series. The K1 PMU exposes these counters via
 `sscofpmf` + the SBI PMU extension.
+
+## 5. IPv6 — the other half of "the common case"
+
+IPv6 is ~half of global traffic, so a "default-on for eth+IP" argument
+lives or dies on IPv6. The eth_ip knob already covers it: the same
+sysctl gates `flow_dissect_fast_ipv6`, which handles eth + IPv6
+(no extension headers, nexthdr directly TCP/UDP — the common case) and
+defers ext-header / requested-nonzero-flow-label packets to the slow
+path to stay byte-identical.
+
+Measured (eth + IPv6 + TCP, 20 M iters, byte-identical verified — same
+addr fingerprint, addr_type, and ports patched vs baseline):
+
+| | IPv4 base→fast | IPv6 base→fast |
+|---|---|---|
+| x86 Zen2 (l) | 10.10 → 5.86 ns (**−42%**) | 10.22 → 6.25 ns (**−39%**) |
+| RISC-V X60 (bpi-f3) | 97.56 → 48.60 ns (**−50%**) | 123.41 → 92.34 ns (**−25%**) |
+
+On x86 the IPv6 win ≈ the IPv4 win. **On RISC-V the IPv6 win is about
+half the IPv4 win** (−25% vs −50%). The cause is the **unavoidable
+32-byte IPv6 address copy** (two 16-byte addresses into the flow key):
+both the fast and slow paths must do it, so for IPv6 it is a larger,
+fixed fraction of the work that the fast-path cannot remove — leaving
+less generic overhead to cut. On the narrow X60 (IPC ~1.4, ~1.6 GHz)
+that copy stands out; x86's wider core and faster memcpy hide it, so
+v6 ≈ v4 there. Note the v6 fast-path absolute (92 ns) is still well
+below the v6 slow path (123 ns), and byte-identical.
+
+**Implication for default-on:** the eth_ip fast-path is a net,
+byte-identical win for *both* IPv4 and IPv6 on every arch tested — so it
+does cover "the common case." But the per-arch/per-family size varies:
+biggest on narrow cores for IPv4 (−50%), smallest for IPv6 on narrow
+cores (−25%, address-copy-bound). A future refinement specifically for
+narrow cores would be to speed the IPv6 address copy itself (it now
+dominates the v6 fast-path); that is orthogonal to the dispatch
+fast-path and would lift the v6 number toward the v4 number.
