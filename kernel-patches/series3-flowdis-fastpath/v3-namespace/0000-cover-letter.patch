@@ -6,70 +6,78 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-__skb_flow_dissect() walks every packet with the generic protocol-graph
-parser. This adds an opt-in, straight-line fast-path for the common
-eth + IP + TCP/UDP shape (IPv4 and IPv6), gated by a static_branch and
-default off. Output is byte-identical to the slow path.
+__skb_flow_dissect() parses every packet with the generic
+protocol-graph parser. This series adds an opt-in, straight-line
+fast-path for the most common packet shape: eth + IP + TCP/UDP, both
+IPv4 and IPv6. It is gated by a static_branch and is disabled by
+default. Its output is byte-identical to the slow path.
 
-What it does
-  - Fast-path for eth + IPv{4,6} + {TCP,UDP}. Anything else (IPv4
-    options/frags, IPv6 ext headers, other shapes) falls through to the
+What it does:
+  - Handles eth + IPv4/IPv6 + TCP/UDP. All other input (IPv4 options or
+    fragments, IPv6 extension headers, any other shape) returns to the
     existing parser unchanged.
-  - Per-shape gates under /proc/sys/net/flow_dissector/ (eth_ip is the
-    base; vlan/qinq stack on it). All default off.
-  - Cost when off: one not-taken branch per dissect.
+  - Per-shape gates under /proc/sys/net/flow_dissector/. eth_ip is the
+    base gate; vlan and qinq build on it. All are disabled by default.
+  - When a gate is disabled, the added cost is one not-taken branch per
+    dissect.
 
-Safety
-  - Byte-identical by construction: the fast-path either writes the same
-    flow keys as the slow path, or returns false and defers to it -
-    there is no third outcome. Verified against the slow path per shape
-    (v4, v6, vlan, qinq).
+Safety:
+  - The fast-path either writes the same flow keys as the slow path, or
+    it returns false and the slow path runs. These are the only two
+    outcomes, by construction. Output was verified equal to the slow
+    path for each shape (IPv4, IPv6, VLAN, QinQ).
 
-Numbers - dissector cost in isolation (userspace A/B, same source built
-two ways, eth+IPv4+TCP, ns/pkt, lower is better):
+Measurements. Dissector cost in isolation, measured with a userspace
+A/B test (the same dissector source compiled two ways). Input is
+eth + IPv4 + TCP. Values are nanoseconds per packet, lower is better:
 
-    x86 Zen2 (TR 3945WX)      12.4 -> 6.6    -47%
-    x86 Skylake (i9-10885H)   10.6 -> 5.6    -47%
-    ARM Cortex-A53           119.0 -> 61.3   -48%
-    ARM Cortex-A72            42.4 -> 19.1   -55%
-    ARM Cortex-A76            19.4 -> 9.3    -52%
-    RISC-V SpacemiT X60       98.2 -> 49.3   -50%
+    x86 Zen 2  (Threadripper PRO 3945WX)   12.4 -> 6.6   -47%
+    x86 Skylake (Core i9-10885H)           10.6 -> 5.6   -47%
+    ARM Cortex-A53                        119.0 -> 61.3  -48%
+    ARM Cortex-A72                         42.4 -> 19.1  -55%
+    ARM Cortex-A76                         19.4 -> 9.3   -52%
+    RISC-V SpacemiT X60                    98.2 -> 49.3  -50%
 
-  - IPv6 uses the same gate, also byte-identical (x86 -39%, RISC-V -25%).
-  - It is ~half the retired instructions, so it holds across ISAs;
-    largest on narrow in-order cores. (Zen 1 is the exception: ~0%,
-    masked on that uarch.)
+  - IPv6 uses the same gate and is also byte-identical (x86 -39%,
+    RISC-V -25%).
+  - The fast-path retires about half as many instructions per dissect.
+    This is consistent across architectures. The relative reduction is
+    largest on narrow in-order cores. One exception is x86 Zen 1, where
+    the reduction is not measurable.
 
-Where it runs in practice
-  - skb_get_hash() callers: RPS/RFS, fq / fq_codel / cake, tc-flower.
-  - Example: a WireGuard gateway with cake - __skb_flow_dissect fired
-    ~1.1M times in 10 s on a 902 Mbit/s flow (cake classifying the
-    encrypted UDP transport, which is the eth_ip shape).
+Where the dissector runs:
+  - Callers of skb_get_hash(): RPS, RFS, the fq / fq_codel / cake
+    qdiscs, and tc-flower.
+  - Example, a WireGuard gateway with cake: __skb_flow_dissect ran
+    about 1.1 million times in 10 seconds on a 902 Mbit/s flow. cake
+    classifies the encrypted UDP transport, which is the eth_ip shape.
 
-Limitations (honest)
-  - This is a per-packet CPU saving. On a link- or queue-bound host it
-    appears as CPU headroom, not throughput; our macro testbed deltas
-    are within run-to-run noise.
-  - Absolute ns/pkt are per-ISA baselines; the cross-arch ratios are the
-    point.
+Limitations:
+  - This is a per-packet CPU reduction. On a host limited by link rate
+    or queue depth it appears as spare CPU, not as higher throughput.
+    Our live-traffic measurements are within run-to-run noise.
+  - The absolute nanosecond values are per-architecture baselines. The
+    cross-architecture ratios are the relevant figure.
 
-Patches
-  1  eth + IPv{4,6} + {TCP,UDP}  (eth_ip)      byte-identical
-  2  + single VLAN                              byte-identical
-  3  + QinQ (depth-2)                           byte-identical
-  4  VXLAN inner descent                        RFC EXPERIMENT (not b-i,
-                                                gated separately)
+Patches:
+  1  eth + IPv4/IPv6 + TCP/UDP (eth_ip)    byte-identical
+  2  single VLAN                            byte-identical
+  3  QinQ (depth 2)                         byte-identical
+  4  VXLAN inner descent                    RFC EXPERIMENT; not
+                                            byte-identical; gated
+                                            separately
 
-  Base: net-next c0aa5f13826d. Supersedes v1 (in net-next as
-  eeca3eb493b8) and v2 (8013aee91ccb); both withdrawn.
+Base: net-next c0aa5f13826d. Supersedes v1 (in net-next as
+eeca3eb493b8) and v2 (8013aee91ccb). Both are withdrawn.
 
-Backup detail (microbench harness, full per-shape x per-uarch matrix,
-per-uarch perf counters, WireGuard bpftrace, byte-identical checks):
-https://github.com/randomizedcoder/xdp2  (perf-results/2026-06-25-*)
+Supporting data (microbench harness, full per-shape and
+per-architecture matrix, perf-counter breakdown, WireGuard trace,
+byte-identical checks):
+https://github.com/randomizedcoder/xdp2 , under perf-results/2026-06-25-*
 
-Open question for the list: given the byte-identical guarantee and that
-eth+IP+TCP/UDP is the common case, is there interest in eth_ip defaulting
-to on? Shipping default-off here to stay conservative.
+Open question: the eth_ip shape is byte-identical and covers the common
+case. Is there interest in enabling it by default? This series keeps it
+disabled by default.
 
 Dave Seddon (4):
   net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}

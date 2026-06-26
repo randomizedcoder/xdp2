@@ -1,120 +1,75 @@
-Subject: [PATCH RFC v4 0/3] flow_dissector: byte-identical fast-paths for PPPoE, single-label MPLS, IP-in-IP family
+Subject: [PATCH RFC v4 0/3] net: flow_dissector: byte-identical fast-paths for PPPoE, single-label MPLS, IP-in-IP
 
-This series extends the v3-namespace per-shape fast-path machinery
-(in net-next as commits 74c6ea03a417 .. 8504d0dca46b for the byte-
-identical eth_ip / vlan / qinq trio) with three more byte-identical
-shapes. Each new shape is its own DEFINE_STATIC_KEY_FALSE, its own
-sysctl entry under /proc/sys/net/flow_dissector/, and is gated
-independently so operators only enable what their deployment uses.
+This series adds three more byte-identical fast-path shapes on top of
+the v3 series (eth_ip, vlan, qinq; in net-next as commits 74c6ea03a417
+.. 8504d0dca46b). Each shape is a separate static_branch with its own
+sysctl under /proc/sys/net/flow_dissector/ and is disabled by default.
+Each produces output byte-identical to the slow path for its shape.
 
-All three are byte-identical with the slow path's output for the
-eligible shape: no behaviour change. The series intentionally
-excludes the descent-style behaviour-change patches (the vxlan_inner
-RFC EXPERIMENT in v3 and the GRE-inner / Geneve-inner / GTP-U-inner
-companions in the parallel Phase E RFC), which carry their own cover
-letter so reviewers can review descent semantics separately from the
-byte-identical perf wins.
+This series excludes the descent shapes that change behaviour (the v3
+vxlan_inner RFC EXPERIMENT, and the GRE, Geneve, and GTP-U inner
+shapes), so that the byte-identical shapes can be reviewed separately.
 
-Why these three:
+Shapes:
+  - PPPoE session + IPv4/IPv6 + TCP/UDP. PPPoE is a common L2 on ISP
+    DSL and FTTH links. The slow path runs __skb_header_pointer and a
+    per-field switch on each packet. Patch 1 reads the session header
+    directly and calls the eth_ip fast-path for the PPP_IP and PPP_IPV6
+    inner cases. Other PPP protocols (PPP_MPLS_UC, PPP_MPLS_MC, and
+    PFC-compressed) return to the slow path.
+  - Single-label MPLS + IP. Patch 2 handles the bottom-of-stack
+    (BoS=1) single-label case in straight-line form. Multi-label stacks
+    return to the slow path.
+  - IP-in-IP (IPv4-in-IPv4, IPv6-in-IPv4, and IPv6-outer variants).
+    Patch 3 descends into the inner IP when the outer protocol is
+    IPPROTO_IPIP or IPPROTO_IPV6. The inner overwrites the outer address
+    and basic keys (matching the slow path) and sets
+    FLOW_DIS_ENCAPSULATION.
 
-  PPPoE session - the dominant L2 on millions of ISP last-mile
-    DSL / FTTH links. The existing slow path's ETH_P_PPP_SES case
-    does __skb_header_pointer + per-field switch on every packet.
-    Patch 1 replaces it with a straight-line read + tail-call into
-    the eth_ip fast-path for the common PPP_IP / PPP_IPV6 inner
-    case. PPP_MPLS_UC / PPP_MPLS_MC and PFC-compressed PPP proto
-    fields defer to slow path.
+When a gate is disabled, its shape adds one not-taken branch on its
+cold path. The eth_ip hot path is unchanged.
 
-  MPLS single-label - the dominant L2.5 on SP backbones. Slow
-    path __skb_flow_dissect_mpls() runs per-label even when the
-    consumer just wants the label-stack flow key. Patch 2's fast-
-    path handles the single-label (BoS=1 on the first label) case
-    in straight-line form. Multi-label stacks defer; a depth-2+
-    extension can land later, mirroring the vlan -> qinq staging
-    in v3.
+Safety:
+  - Each shape either writes the same flow keys as the slow path, or it
+    returns false and the slow path runs. Output was verified equal to
+    the slow path for each shape.
 
-  IP-in-IP family - IPv4-in-IPv4, IPv6-in-IPv4 (6in4), and the
-    IPv6-outer variants. Common in legacy 6to4 tunnels, simple
-    GRE-less tunnels, and some VPN gateways. Patch 3 adds a small
-    inner helper that the existing v3 v4 / v6 helpers tail-call to
-    when the outer protocol/nexthdr is IPPROTO_IPIP / IPPROTO_IPV6
-    and the gate is on. The inner overwrites outer addrs/basic
-    (matching slow-path behaviour); ENCAP is stamped on
-    key_control->flags after the inner returns.
+Measurements. Dissector cost in isolation, userspace A/B test, in
+nanoseconds per packet, measured across seven microarchitectures
+(x86 Zen1, Zen2, Skylake; ARM Cortex-A53, A72, A76; RISC-V X60). Range
+of the reduction across those microarchitectures:
 
-Each patch is self-contained: own DEFINE, own extern in
-flow_dissector.h, own sysctl table entry, own Documentation
-paragraph under the existing /proc/sys/net/flow_dissector/
-chapter that v3 created.
+    PPPoE     -8.6% to -28.0%   read session header, call eth_ip
+    MPLS      -6.7% to -15.0%   single-label read; with KEY_MPLS not
+                                requested both paths then stop, so this
+                                measures the label read only
+    IP-in-IP  -36.8% to -47.0%  largest reduction; the slow path re-runs
+                                the full parser for the inner IP, the
+                                fast-path does a second straight-line
+                                IP read
 
-Cost when off: each new shape adds at most a forward not-taken JMP
-on the relevant cold path. The hot eth_ip path (TCP/UDP over
-plain IPv4/IPv6, the largest share of real traffic) is unchanged.
+Live-traffic measurements are within run-to-run noise (link- or
+queue-bound), consistent with v3. Full per-shape and per-architecture
+matrix and raw logs:
+https://github.com/randomizedcoder/xdp2 , under perf-results/2026-06-25-*
 
-Base: stacks on flow-dissector-namespace-v3's HEAD-1 (commit
-8504d0dca46b, the qinq patch), i.e. the byte-identical subset of
-v3. Doesn't depend on the vxlan_inner RFC EXPERIMENT.
+Base: stacks on the byte-identical subset of v3 (commit 8504d0dca46b).
+Independent of the vxlan_inner RFC EXPERIMENT.
 
-Measurements:
-  Macro (real workload): captured across the xdp2 testbed fleet -
-  4x HP-class x86_64 7.0.x (Zen 1, 10/25 GbE), l-l2 (Zen 2, 25 GbE),
-  2x Raspberry Pi 5 (Cortex-A76, 1 GbE), and a Banana Pi BPI-F3
-  (SpacemiT K1, RISC-V, 1 GbE) - via the series3-extensions-soak
-  orchestrator, which collects per-cell mpstat softirq/sys on the
-  receiver alongside iperf3 throughput. The MPLS and IP-in-IP shapes
-  run clean across the fleet (status=ok every cell); as with v3,
-  these workloads are wire-saturated, so the per-shape macro delta
-  is within run-to-run noise and the saving manifests as receiver
-  CPU headroom rather than throughput. Full matrices under
-  perf-results/ in the xdp2 repo.
-
-  Microbench (dissector cost in isolation): the per-call cost of the
-  fast-path mechanism these byte-identical shapes share is quantified
-  by the userspace libflowdis A/B in the v3 cover letter - ~47-55%
-  reduction across AMD/Intel x86, Cortex-A53/A72/A76, and RISC-V
-  SpacemiT X60 (49.8%). The PPPoE / MPLS / IPIP helpers are the same
-  straight-line shape as the eth_ip / vlan fast-paths measured there.
-  Per-shape microbench isolation is now done for all six byte-identical
-  shapes across the whole fleet (x86 Zen1/Zen2/Skylake, ARM A53/A72/A76,
-  RISC-V X60), byte-identical output verified per shape. For the three
-  shapes in THIS series, the userland-libflowdis A/B (fast .so vs pure
-  slow-path .so, ns/pkt, across the seven uarches) gives:
-
-    PPPoE :  -8.6% .. -28.0%   (strip session+PPP, tail-call eth_ip)
-    MPLS  :  -6.7% .. -15.0%   (single-label read; both paths then stop
-                                with KEY_MPLS not requested, so this is
-                                the label-shortcut cost only)
-    IPIP  : -36.8% .. -47.0%   (largest win on every uarch - the slow
-                                path re-dispatches the full dissector
-                                for the inner IP; the fast-path does a
-                                straight-line second IP read)
-
-  Full table + raw logs: perf-results/2026-06-25-series3-allshapes-
-  microbench/. (Absolute ns/pkt are generic per-ISA baselines; the
-  cross-arch ratios are the claim.)
-
-Open questions for reviewers:
-
-  - Should multi-label MPLS be a separate sysctl (mpls_deep, default
-    off) or fold into the same `mpls` knob with an auto-toggle
-    matching the qinq <-> vlan pattern? Leaning towards "separate
-    knob" because vlan/qinq's auto-toggle was driven by a strict
-    extension semantic (qinq requires vlan) that doesn't apply here.
-
-  - For IP-in-IP, only the standalone IPIP / IPV6 protocols are
-    handled - explicit user-mode tunnels created via ip link add
-    type ipip / type ip6tnl. The fast-path does NOT handle
-    GRE-encapsulated IP-in-IP (that's the Phase E gre_inner patch).
-    Is there a deployment where the standalone IPIP gate is too
-    narrow without also fast-pathing GRE? Real-world feedback
-    welcome.
-
+Open questions:
+  - Multi-label MPLS: a separate sysctl (mpls_deep, disabled by
+    default), or fold it into the mpls gate with an auto-toggle like
+    qinq/vlan? We prefer a separate gate. The qinq/vlan auto-toggle
+    reflects a strict dependency (qinq requires vlan) that does not
+    apply here.
+  - IP-in-IP handles only the standalone IPIP and IPv6 protocols
+    (tunnels from "ip link add type ipip" / "type ip6tnl"). It does not
+    handle GRE-encapsulated IP-in-IP (a separate shape). Is the
+    standalone gate too narrow without GRE for any deployment?
   - PPPoE writes FLOW_DISSECTOR_KEY_PPPOE only when the dissector
-    requests it; the existing flow_keys_dissector doesn't include
-    that key, so the typical hash path skips the write. A user-
-    visible doc clarification of "this fast-path is invisible to
-    consumers that don't request KEY_PPPOE" might be warranted in
-    the Documentation; happy to add if reviewers want it.
+    requests it. The common flow_keys_dissector does not request it, so
+    the typical hash path does not write it. A Documentation note may
+    help; we can add one.
 
 Dave Seddon (3):
   net: flow_dissector: add fast-path for PPPoE session + IPv{4,6} +
