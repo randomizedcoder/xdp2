@@ -1869,11 +1869,23 @@ live under `~/nixos/desktop/{l,l2}/`.
 The motivation is headroom. The Zen 1 hp1/hp3 pair is CPU-bound well
 below the 25 GbE line rate (~16.4 Gbit/s on the iperf3 macro), so the
 flow_dissector fast-path's macro signal is muted. l/l2 are AMD
-Threadripper PRO 3945WX (Zen 2, 12c/24t) — far more single-thread and
-aggregate throughput — so this pair is expected to drive much closer to
-25 GbE line rate and give a stronger demonstration of the series-3
-patch, plus the x86 long-soak analogue of the Pi fleet's
-`nix run .#series3-soak`.
+Threadripper PRO 3945WX (Zen 2, 12c/24t) — far more raw throughput — and
+the x86 long-soak analogue of the Pi fleet's `nix run .#series3-soak`.
+
+> **Measured (2026-06-30, first live run — see
+> [`perf-results/2026-06-30-phase-h-l-l2-summary/`](../perf-results/2026-06-30-phase-h-l-l2-summary/)).**
+> The pair still caps **~16 Gbps**, *not* because of the Zen 2 silicon
+> (the iperf3 sender uses <1 core; l2 idles) but because **l2 is tuned
+> for AF_XDP, not kernel-stack throughput**: `isolcpus`+`nohz_full`+
+> `rcu_nocbs` on cores 4-23 leave only 4 schedulable cores for the RX
+> stack, NIC offloads are off (GRO/TSO/GSO), and NIC queues/IRQs are
+> pinned to the isolated cores. Relaxing these at runtime made throughput
+> *worse* (nohz_full cores reject softirq/RPS). So the fast-path's
+> **macro signal is measured as receiver CPU/cycles saved, not as higher
+> throughput** — headline **eth_ip pktgen −112 cyc/pkt (−4.9%)**, and
+> encap-TCP softirq savings up to −15.5% (vxlan). Reaching 25 GbE
+> kernel-stack would require re-tuning l2 (offloads on, isolation off,
+> queues spread) + reboot — a separate effort tracked in the findings.
 
 | | hp1 / hp3 (pair #2) | l / l2 (pair #4) |
 | --- | --- | --- |
@@ -1945,9 +1957,13 @@ applies. See `nix/series3-soak-x86.nix`.
 
 ### Outstanding follow-up
 
-- The Mellanox links were `DOWN` (no carrier) at config time — connect
-  the two DAC cables and confirm `ethtool enp35s0f0np0 | grep Speed`
-  reports `25000Mb/s` on both ends.
+- **NIC swap resolved (2026-06-30).** The Mellanox links were `DOWN` (no
+  carrier) at config time because l2's original **generic-OEM** card
+  (PSID `MT_…`) refused to read the DAC's I²C EEPROM (`err -5`). Swapping
+  in an **HP-OEM** ConnectX-4 Lx (PSID `HP_2420110034`, fw `14.27.4000`,
+  whose firmware skips that verification) brought both back-to-back DACs
+  up at `25000Mb/s`. `ethtool -i` now shows the `HP_…` PSID on both ends.
+  See `perf-results/2026-06-15-l-l2-dac-eeprom-issue.md` (closed).
 - `flowDirectorRules` on l2 are ethtool-ntuple-shaped; under
   `mlx5_core` they translate to tc-flower (or drop them — they are not
   needed for the cake-based soak).

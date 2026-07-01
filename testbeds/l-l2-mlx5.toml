@@ -59,7 +59,13 @@ mitigations    = "on"
 
 [nic]
 driver          = "mlx5_core"
-model           = "Mellanox ConnectX-4 Lx"
+# HP-OEM ConnectX-4 Lx (PSID HP_2420110034, fw 14.27.4000). The earlier
+# generic-OEM card on l2 (PSID MT_...) refused to read the DAC's I2C
+# EEPROM (err -5), so the 25 GbE link would not come up; swapping in the
+# HP-OEM card (whose firmware skips that verification) fixed it. Link
+# verified up at 25000Mb/s on both back-to-back DACs (2026-06-30). See
+# perf-results/2026-06-15-l-l2-dac-eeprom-issue.md (now resolved).
+model           = "Mellanox ConnectX-4 Lx (HP-OEM)"
 # Both hosts name the data-plane ports enp35s0f0np0 / enp35s0f1np1
 # (PCI 23:00.0 / 23:00.1). enp35s0f0np0 is link A (10.10.4/fd10:10:4);
 # enp35s0f1np1 is link B (10.10.5/fd10:10:5).
