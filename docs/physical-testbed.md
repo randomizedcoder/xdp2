@@ -1866,26 +1866,28 @@ NIC, cabled back-to-back over two DAC links (`f0 ↔ f0` = link A,
 `f1 ↔ f1` = link B — same topology as hp1/hp3). Both run NixOS; configs
 live under `~/nixos/desktop/{l,l2}/`.
 
-The motivation is headroom. The Zen 1 hp1/hp3 pair is CPU-bound well
-below the 25 GbE line rate (~16.4 Gbit/s on the iperf3 macro), so the
-flow_dissector fast-path's macro signal is muted. l/l2 are AMD
-Threadripper PRO 3945WX (Zen 2, 12c/24t) — far more raw throughput — and
-the x86 long-soak analogue of the Pi fleet's `nix run .#series3-soak`.
+The motivation was headroom — l/l2 are AMD Threadripper PRO 3945WX
+(Zen 2, 12c/24t), far more raw throughput than the Zen 1 hp1/hp3 pair —
+plus the x86 long-soak analogue of the Pi fleet's `nix run .#series3-soak`.
+(As it turned out, CPU was never the throughput limit — see below.)
 
 > **Measured (2026-06-30, first live run — see
 > [`perf-results/2026-06-30-phase-h-l-l2-summary/`](../perf-results/2026-06-30-phase-h-l-l2-summary/)).**
-> The pair still caps **~16 Gbps**, *not* because of the Zen 2 silicon
-> (the iperf3 sender uses <1 core; l2 idles) but because **l2 is tuned
-> for AF_XDP, not kernel-stack throughput**: `isolcpus`+`nohz_full`+
-> `rcu_nocbs` on cores 4-23 leave only 4 schedulable cores for the RX
-> stack, NIC offloads are off (GRO/TSO/GSO), and NIC queues/IRQs are
-> pinned to the isolated cores. Relaxing these at runtime made throughput
-> *worse* (nohz_full cores reject softirq/RPS). So the fast-path's
-> **macro signal is measured as receiver CPU/cycles saved, not as higher
-> throughput** — headline **eth_ip pktgen −112 cyc/pkt (−4.9%)**, and
-> encap-TCP softirq savings up to −15.5% (vxlan). Reaching 25 GbE
-> kernel-stack would require re-tuning l2 (offloads on, isolation off,
-> queues spread) + reboot — a separate effort tracked in the findings.
+> At **MTU 1500** the pair caps **~16–18 Gbps** — the *same* as the far
+> weaker Zen 1 hp1/hp3 pair, which is the tell that this is **not** a CPU
+> limit (the iperf3 sender uses <1 core; l2's receiver never saturates).
+> It is a **mlx5 RX packet-rate wall (~1.4 Mpps)** shared by both pairs
+> (same ConnectX-4 Lx, same MTU, same offloads-off tuning); adding cores
+> on l2 did not move it. Confirmed with **jumbo frames**: at **MTU 9000**
+> (6× fewer packets) throughput jumps to **~24.75 Gbps = 25 GbE line
+> rate** at just 4 streams and ~1 CPU core (MTU 9216 is identical — the
+> link, not packets, is now the limit). So the pair *does* line rate.
+> The flow_dissector fast-path is a **per-packet** saving, so its signal
+> is measured at MTU 1500 / small packets (the high-pps regime where the
+> dissector runs) — headline **eth_ip pktgen −112 cyc/pkt (−4.9%)**, plus
+> encap-TCP softirq savings up to −15.5% (vxlan). Jumbo would hide the
+> patch (6× fewer dissect calls); the two goals sit at opposite ends of
+> the packet-size axis.
 
 | | hp1 / hp3 (pair #2) | l / l2 (pair #4) |
 | --- | --- | --- |

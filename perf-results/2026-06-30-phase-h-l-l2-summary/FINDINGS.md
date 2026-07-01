@@ -30,17 +30,38 @@ fast-path helps. Method: same-kernel sysctl A/B (`net.flow_dissector.*`
 | GRO/LRO on (runtime) | 7.4 Gbps | worse (LRO misbehaves on mlx5) |
 | Flipped (l2→l) | 13.1 Gbps | l receiver saturated (608% CPU) |
 
-The generator is **not** CPU-bound (sender uses <1 core; TSO offload). The cap
-is the **receiver `l2`**, which is configured for **AF_XDP**, not kernel-stack
-throughput: `isolcpus=4-23` + `nohz_full=4-23` + `rcu_nocbs=4-23` leave only 4
-schedulable cores for the RX stack + iperf3 server; NIC offloads are **off**
-(GRO/TSO/GSO, for parser reproducibility); and NIC queues/IRQs are pinned to
-the isolated cores. Relaxing these at runtime made throughput *worse* (the
-`nohz_full` cores are hostile to softirq/RPS). Reaching 25 GbE kernel-stack
-would require re-tuning l2 (offloads on, isolation off, queues/IRQs spread) +
-a reboot — a separate effort, orthogonal to the patch test. **Decision:** ran
-the patch campaign in the clean-measurement config; ~16 Gbps is the honest
-line-rate number for it. The Zen 2 silicon and the link are not the limit.
+The generator is **not** CPU-bound (sender uses <1 core; TSO offload). Removing
+l2's isolation (rebooted with `isolatedCpus=[]`, turbo on, 24 cores) and layering
+aRFS+GRO+big-buffers only reached **~18 Gbps at -P64** and then *declined* — with
+**nothing saturated** (sender 0.7 cores, receiver 4 of 24, ~0 loss). A plateau
+with headroom everywhere is not a CPU limit.
+
+### Resolution: the ceiling is **packet rate**, not CPU
+
+The tell (spotted by the user): the Zen 1 **hp1/hp3** pair and the Zen 2 **l/l2**
+pair hit the *same* ~16 Gbps despite l/l2 having 3× the cores. A CPU limit would
+not do that; a **shared NIC/pps limit** would — same ConnectX-4 Lx / mlx5, same
+MTU 1500, same offloads-off tuning. Confirmed directly with **jumbo frames**:
+
+| MTU | 25 Gbps needs | Measured (l→l2) | Limited by |
+|---|---|---|---|
+| 1500 | ~2.06 Mpps | ~16–18 Gbps (~1.4 Mpps) | mlx5 RX packet-rate wall |
+| 9000 | ~0.35 Mpps | **24.75 Gbps** (line rate), sender ~1 core | the 25 GbE link |
+| 9216 | ~0.30 Mpps | 24.75 Gbps (same) | the 25 GbE link |
+
+At MTU 9000 the ~16 Gbps wall vanishes and the pair reaches **line rate
+(~24.75 Gbps = ~99% of 25.0; the last ~1% is Ethernet/IP/TCP header + IFG + ACK
+overhead)** at just 4 streams and ~1 CPU core. So the Zen 2 silicon and the link
+were never the limit — the MTU-1500 ceiling is a mlx5 RX **pps** limit shared
+with the hp boxes, which is exactly why more/faster CPUs didn't move it.
+
+**Implication for the patch test:** these are opposite ends of the packet-size
+axis. Line rate needs *jumbo* (few large packets); the flow_dissector fast-path
+is a *per-packet* saving, so it is measured at *MTU 1500 / small packets* (the
+high-pps regime where the dissector actually runs — pktgen eth_ip −4.9% cyc/pkt).
+Jumbo would hide the patch (6× fewer dissect calls). Hence the campaign's
+MTU-1500 config is correct for the patch; jumbo answers "how close to 25 GbE".
+The Zen 2 silicon and the link are not the limit in either case.
 
 ## Patch results
 
