@@ -1,0 +1,13 @@
+ksoftirqd PIDs (L2=l2): 15,28,35,42,49,56,63,71,78,85,92,99,106,115,122,129,136,143,150,158,165,172,179,186
+
+ Performance counter stats for process id '15,28,35,42,49,56,63,71,78,85,92,99,106,115,122,129,136,143,150,158,165,172,179,186':
+
+   423,989,484,058      cycles                                                                
+   614,707,605,722      instructions                                                          
+   119,849,165,516      branches                                                              
+       107,305,596      branch-misses                                                         
+   261,782,263,574      L1-dcache-loads                                                       
+     2,525,958,271      L1-dcache-load-misses                                                 
+
+      60.000656499 seconds time elapsed
+
