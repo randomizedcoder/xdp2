@@ -1831,6 +1831,36 @@ ip_proto_again:
 	case IPPROTO_L2TP:
 		goto out_good;
 
+#ifdef FLOWDIS_INNER_DESCENT
+	/* Validation-only: descend into the VXLAN inner Ethernet frame, to
+	 * confirm the kernel vxlan_inner patch's flow-keys output matches
+	 * dissecting the inner frame standalone (the "inner-stripped"
+	 * method used by the flow-distribution study). Compile-gated; the
+	 * default build is byte-identical to mainline. dport 4789 only. */
+	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE: {
+		struct udphdr *_uh, __uh;
+
+		_uh = __skb_header_pointer(skb, nhoff, sizeof(__uh),
+					   data, hlen, &__uh);
+		if (_uh && _uh->dest == htons(4789)) {
+			int ioff = nhoff + sizeof(struct udphdr) + 8; /* udp+vxlan */
+			struct ethhdr *_ie, __ie;
+
+			_ie = __skb_header_pointer(skb, ioff, sizeof(__ie),
+						   data, hlen, &__ie);
+			if (_ie) {
+				proto = _ie->h_proto;
+				nhoff = ioff + ETH_HLEN;
+				key_control->flags |= FLOW_DIS_ENCAPSULATION;
+				fdret = FLOW_DISSECT_INTERNAL_PROTO_AGAIN();
+				break;
+			}
+		}
+		break;
+	}
+#endif
+
 	case IPPROTO_TCP:
 		__skb_flow_dissect_tcp(skb, flow_dissector, target_container,
 				       data, nhoff, hlen);

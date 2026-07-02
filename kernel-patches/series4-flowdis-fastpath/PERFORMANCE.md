@@ -84,6 +84,14 @@ descent restores full spread. Kernel-sourced VXLAN/Geneve already spreads for
 RSS/ECMP (outer sport = f(inner)); descent's value there is inner-flow *identity*
 for classifiers (tc-flower/CT/policy), which the outer sport cannot provide.
 
+Comprehensive follow-up (`ANALYSIS2.md`, `results2.txt`): the result holds across
+inner/outer IPv4 **and** IPv6; the hot-bucket imbalance for the collapse cases is
+up to **512x** (all flows on one queue/path) vs ~1.4x with descent; fixed-sport
+outer resolves only **#VTEP-pairs** (1/4/16), not #flows; and a **flow-count
+sweep** shows kernel-sourced VXLAN hits the 14-bit outer source-port ceiling at
+scale (50k flows: outer resolves 14.4k vs inner 34.9k). The inner-stripped method
+was **validated byte-identical to the real ported descent** (`VALIDATION.md`).
+
 ## 5. Worst case + no-regression
 
 - PCAP miss-cost microbench (`2026-06-10-series3-pi3-pcap-microbench/`): A53

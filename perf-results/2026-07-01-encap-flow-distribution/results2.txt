@@ -1,0 +1,374 @@
+############ PART 1 — address-family matrix (flows=2000, pkts=10000) ############
+
+###### vxlan-kernelsport-inipv4-outipv4 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1878 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.03x        6.9   1.000
+     4      4/4        1.05x       11.7   1.000
+     8      8/8        1.08x       13.9   1.000
+    16     16/16       1.11x       41.8   0.999
+    32     32/32       1.20x      155.3   0.998
+    64     64/64       1.59x      485.8   0.994
+   128    128/128      1.77x      802.8   0.992
+   256    255/256      2.36x     1905.5   0.983
+   512    499/512      3.43x     3767.5   0.969
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1991 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.04x       17.5   0.999
+     4      4/4        1.07x       35.2   0.999
+     8      8/8        1.09x       36.3   0.999
+    16     16/16       1.12x       95.0   0.998
+    32     32/32       1.24x      205.0   0.997
+    64     64/64       1.41x      325.2   0.996
+   128    128/128      1.75x      735.6   0.992
+   256    256/256      2.15x     1487.2   0.986
+   512    500/512      3.02x     2967.8   0.974
+
+
+###### vxlan-fixedsport-inipv4-outipv4 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1983 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.03x       10.9   0.999
+     4      4/4        1.04x       20.2   0.999
+     8      8/8        1.08x       33.7   0.999
+    16     16/16       1.13x       90.1   0.998
+    32     32/32       1.28x      218.5   0.997
+    64     64/64       1.50x      394.2   0.995
+   128    128/128      1.74x      791.7   0.992
+   256    256/256      2.18x     1628.6   0.985
+   512    500/512      3.12x     3184.5   0.973
+
+
+###### gtpu-fixedsport-inipv4-outipv4 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1989 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.04x       15.2   0.999
+     4      4/4        1.06x       43.3   0.998
+     8      8/8        1.07x       49.6   0.999
+    16     16/16       1.13x      113.1   0.998
+    32     32/32       1.25x      235.2   0.996
+    64     64/64       1.39x      360.3   0.995
+   128    128/128      1.75x      804.7   0.991
+   256    256/256      2.18x     1560.4   0.986
+   512    501/512      2.97x     3160.0   0.973
+
+
+###### vxlan-kernelsport-inipv6-outipv4 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1882 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.06x       30.7   0.998
+     4      4/4        1.06x       43.4   0.998
+     8      8/8        1.16x       92.9   0.998
+    16     16/16       1.18x      128.3   0.998
+    32     32/32       1.21x      200.9   0.997
+    64     64/64       1.57x      472.4   0.994
+   128    128/128      1.80x      856.3   0.991
+   256    256/256      1.97x     1468.0   0.986
+   512    499/512      2.71x     2957.5   0.974
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1991 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.00x        0.1   1.000
+     4      4/4        1.03x        6.8   1.000
+     8      8/8        1.07x       12.1   1.000
+    16     16/16       1.18x       65.8   0.999
+    32     32/32       1.20x      117.5   0.998
+    64     64/64       1.61x      317.7   0.996
+   128    128/128      1.88x      623.3   0.994
+   256    256/256      2.15x     1360.8   0.988
+   512    502/512      2.82x     2798.1   0.976
+
+
+###### vxlan-fixedsport-inipv6-outipv4 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1983 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.02x        5.9   1.000
+     4      4/4        1.06x       13.5   1.000
+     8      8/8        1.12x       32.5   0.999
+    16     16/16       1.20x       94.8   0.998
+    32     32/32       1.28x      130.4   0.998
+    64     64/64       1.44x      339.1   0.996
+   128    128/128      1.77x      630.7   0.994
+   256    256/256      2.00x     1300.2   0.988
+   512    503/512      2.87x     2719.1   0.977
+
+
+###### gtpu-fixedsport-inipv6-outipv4 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1989 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.01x        0.7   1.000
+     4      4/4        1.04x        5.3   1.000
+     8      8/8        1.10x       23.7   0.999
+    16     16/16       1.11x       80.8   0.998
+    32     32/32       1.21x      150.0   0.998
+    64     64/64       1.43x      310.9   0.996
+   128    128/128      1.60x      539.0   0.994
+   256    256/256      1.89x     1191.1   0.989
+   512    503/512      2.66x     2523.5   0.978
+
+
+###### vxlan-kernelsport-inipv4-outipv6 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1878 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.02x        2.4   1.000
+     4      4/4        1.08x       23.8   0.999
+     8      8/8        1.16x       73.2   0.998
+    16     16/16       1.22x      109.1   0.998
+    32     32/32       1.30x      199.5   0.997
+    64     64/64       1.42x      500.8   0.994
+   128    128/128      2.02x     1062.6   0.989
+   256    256/256      2.20x     1693.4   0.985
+   512    501/512      3.94x     3382.0   0.972
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1991 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.04x       17.5   0.999
+     4      4/4        1.07x       35.2   0.999
+     8      8/8        1.09x       36.3   0.999
+    16     16/16       1.12x       95.0   0.998
+    32     32/32       1.24x      205.0   0.997
+    64     64/64       1.41x      325.2   0.996
+   128    128/128      1.75x      735.6   0.992
+   256    256/256      2.15x     1487.2   0.986
+   512    500/512      3.02x     2967.8   0.974
+
+
+###### vxlan-fixedsport-inipv4-outipv6 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1983 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.03x       10.9   0.999
+     4      4/4        1.04x       20.2   0.999
+     8      8/8        1.08x       33.7   0.999
+    16     16/16       1.13x       90.1   0.998
+    32     32/32       1.28x      218.5   0.997
+    64     64/64       1.50x      394.2   0.995
+   128    128/128      1.74x      791.7   0.992
+   256    256/256      2.18x     1628.6   0.985
+   512    500/512      3.12x     3184.5   0.973
+
+
+###### gtpu-fixedsport-inipv4-outipv6 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1989 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.04x       15.2   0.999
+     4      4/4        1.06x       43.3   0.998
+     8      8/8        1.07x       49.6   0.999
+    16     16/16       1.13x      113.1   0.998
+    32     32/32       1.25x      235.2   0.996
+    64     64/64       1.39x      360.3   0.995
+   128    128/128      1.75x      804.7   0.991
+   256    256/256      2.18x     1560.4   0.986
+   512    501/512      2.97x     3160.0   0.973
+
+
+###### vxlan-kernelsport-inipv6-outipv6 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1882 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.00x        0.0   1.000
+     4      4/4        1.06x       30.2   0.999
+     8      8/8        1.08x       47.6   0.999
+    16     16/16       1.22x      122.3   0.998
+    32     32/32       1.25x      200.7   0.997
+    64     64/64       1.48x      455.4   0.994
+   128    128/128      1.89x      911.5   0.990
+   256    256/256      2.53x     1804.3   0.984
+   512    495/512      3.12x     3656.5   0.969
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1991 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.00x        0.1   1.000
+     4      4/4        1.03x        6.8   1.000
+     8      8/8        1.07x       12.1   1.000
+    16     16/16       1.18x       65.8   0.999
+    32     32/32       1.20x      117.5   0.998
+    64     64/64       1.61x      317.7   0.996
+   128    128/128      1.88x      623.3   0.994
+   256    256/256      2.15x     1360.8   0.988
+   512    502/512      2.82x     2798.1   0.976
+
+
+###### vxlan-fixedsport-inipv6-outipv6 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1983 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.02x        5.9   1.000
+     4      4/4        1.06x       13.5   1.000
+     8      8/8        1.12x       32.5   0.999
+    16     16/16       1.20x       94.8   0.998
+    32     32/32       1.28x      130.4   0.998
+    64     64/64       1.44x      339.1   0.996
+   128    128/128      1.77x      630.7   0.994
+   256    256/256      2.00x     1300.2   0.988
+   512    503/512      2.87x     2719.1   0.977
+
+
+###### gtpu-fixedsport-inipv6-outipv6 ######
+== OUTER-only (today) ==  packets=10000  distinct-hashes=1 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      1/2        2.00x    10000.0   0.000
+     4      1/4        4.00x    30000.0   0.000
+     8      1/8        8.00x    70000.0   0.000
+    16      1/16      16.00x   150000.0   0.000
+    32      1/32      32.00x   310000.0   0.000
+    64      1/64      64.00x   630000.0   0.000
+   128      1/128    128.00x  1270000.0   0.000
+   256      1/256    256.00x  2550000.0   0.000
+   512      1/512    512.00x  5110000.0   0.000
+
+== INNER-descent (patch) ==  packets=10000  distinct-hashes=1989 (flow-identity resolution)
+     N   occupied   max/mean    chi2    entropy
+     2      2/2        1.01x        0.7   1.000
+     4      4/4        1.04x        5.3   1.000
+     8      8/8        1.10x       23.7   0.999
+    16     16/16       1.11x       80.8   0.998
+    32     32/32       1.21x      150.0   0.998
+    64     64/64       1.43x      310.9   0.996
+   128    128/128      1.60x      539.0   0.994
+   256    256/256      1.89x     1191.1   0.989
+   512    503/512      2.66x     2523.5   0.978
+
+
+############ PART 2 — flow-count scaling (inner v4, vxlan-kernelsport & gtpu-fixedsport) ############
+# shows the kernel-sport 14-bit source-port ceiling vs inner scaling
+-- flows=100 --
+ [vxlan-kernelsport-f100]
+  OUTER-only (today)       distinct=95      imbalance@64=3.68x
+  INNER-descent (patch)    distinct=97      imbalance@64=4.16x
+ [gtpu-fixedsport-f100]
+  OUTER-only (today)       distinct=1       imbalance@64=64.00x
+  INNER-descent (patch)    distinct=98      imbalance@64=3.52x
+-- flows=1000 --
+ [vxlan-kernelsport-f1000]
+  OUTER-only (today)       distinct=961     imbalance@64=1.98x
+  INNER-descent (patch)    distinct=987     imbalance@64=1.47x
+ [gtpu-fixedsport-f1000]
+  OUTER-only (today)       distinct=1       imbalance@64=64.00x
+  INNER-descent (patch)    distinct=979     imbalance@64=1.50x
+-- flows=10000 --
+ [vxlan-kernelsport-f10000]
+  OUTER-only (today)       distinct=7425    imbalance@64=1.22x
+  INNER-descent (patch)    distinct=9821    imbalance@64=1.29x
+ [gtpu-fixedsport-f10000]
+  OUTER-only (today)       distinct=1       imbalance@64=64.00x
+  INNER-descent (patch)    distinct=9818    imbalance@64=1.28x
+-- flows=50000 --
+ [vxlan-kernelsport-f50000]
+  OUTER-only (today)       distinct=14434   imbalance@64=1.16x
+  INNER-descent (patch)    distinct=34872   imbalance@64=1.15x
+ [gtpu-fixedsport-f50000]
+  OUTER-only (today)       distinct=1       imbalance@64=64.00x
+  INNER-descent (patch)    distinct=34944   imbalance@64=1.11x
+
+############ PART 3 — VTEP-pair topology (vxlan-fixedsport, flows=2000, pkts=10000) ############
+# fixed-sport outer resolves ~#VTEP-pairs regardless of inner flow count
+
+###### vxlan-fixedsport-vt1 ######
+  OUTER-only (today)       distinct=1       imbalance@64=64.00x
+  INNER-descent (patch)    distinct=1983    imbalance@64=1.50x
+
+###### vxlan-fixedsport-vt4 ######
+  OUTER-only (today)       distinct=4       imbalance@64=16.15x
+  INNER-descent (patch)    distinct=1983    imbalance@64=1.50x
+
+###### vxlan-fixedsport-vt16 ######
+  OUTER-only (today)       distinct=16      imbalance@64=4.49x
+  INNER-descent (patch)    distinct=1983    imbalance@64=1.50x
+
+############ PART 4 — Cilium VXLAN port 8472 (patch-limit: descent hardcodes 4789) ############
+# NOTE: the descent patch matches dport==4789 only, so for 8472 it FALLS BACK
+# to outer-only. The .inner column here is the *potential* if the port were
+# recognised (the open per-netns port-config question), NOT current patch output.
+
+###### vxlan-fixedsport-cilium8472 ######
+  OUTER-only (today)       distinct=1       imbalance@64=64.00x
+  INNER-descent (patch)    distinct=1983    imbalance@64=1.50x
+
+###### vxlan-kernelsport-cilium8472 ######
+  OUTER-only (today)       distinct=1878    imbalance@64=1.56x
+  INNER-descent (patch)    distinct=1991    imbalance@64=1.41x
+
+DONE
