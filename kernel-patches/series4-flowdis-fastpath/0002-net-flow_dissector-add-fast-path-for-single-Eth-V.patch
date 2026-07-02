@@ -1,7 +1,7 @@
-From 3df1846c1604a1033a94ec92c89cd980436d9e84 Mon Sep 17 00:00:00 2001
+From 298816256cdab6aa1669dfe039411405b23119bf Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:35:58 -0700
-Subject: [PATCH net-next v1 02/10] net: flow_dissector: add fast-path for single
+Subject: [PATCH v1 02/10] net: flow_dissector: add fast-path for single
  Eth+VLAN+IP+TCP/UDP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -59,10 +59,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 110 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index b9bdf2284b7a..07cff612d5fb 100644
+index d184e279103a..c3f8e0d63c6e 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -486,6 +486,20 @@ when this is 0.
+@@ -485,6 +485,20 @@ when this is 0.
  
  Default: 0
  
@@ -96,7 +96,7 @@ index d5a19fd69853..22e7ab0153de 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index ddb4179c99f0..7c11c942417c 100644
+index cc1ceb6e2e17..062a35f0a981 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -45,6 +45,8 @@
@@ -198,7 +198,7 @@ index ddb4179c99f0..7c11c942417c 100644
  	case htons(ETH_P_IP):
  		if (!static_branch_likely(&flow_dissector_eth_ip_key))
  			return false;
-@@ -2349,6 +2427,16 @@ core_initcall(init_default_flow_dissectors);
+@@ -2357,6 +2435,16 @@ core_initcall(init_default_flow_dissectors);
   * /proc/sys/net/flow_dissector/. See Documentation/admin-guide/sysctl/
   * net.rst for the operator-facing description.
   */
@@ -215,7 +215,7 @@ index ddb4179c99f0..7c11c942417c 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -2357,6 +2445,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2365,6 +2453,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

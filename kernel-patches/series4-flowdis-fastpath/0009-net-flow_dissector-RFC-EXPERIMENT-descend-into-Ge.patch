@@ -1,8 +1,8 @@
-From 1ccdeb669b3412cbe4aab633c859cc8aee8c2496 Mon Sep 17 00:00:00 2001
+From 11c88357b5b24f8233fc7ef0ec3627d37167ad56 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
-Subject: [PATCH net-next v1 09/10] net: flow_dissector: RFC EXPERIMENT: descend into Geneve
- inner flow
+Subject: [PATCH v1 09/10] net: flow_dissector: RFC EXPERIMENT: descend into
+ Geneve inner flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -54,10 +54,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 98 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index f8b172056848..9f4bc5c97ce7 100644
+index d46f7373291c..6e05d8080b72 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -624,6 +624,32 @@ additional 4-byte key field read and a write to
+@@ -620,6 +620,32 @@ Open design questions (see the cover letter):
  
  Default: 0
  
@@ -91,19 +91,19 @@ index f8b172056848..9f4bc5c97ce7 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index b99fde02c756..25472428bff6 100644
+index c9d2fb26e2eb..b8f43018e38e 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -439,6 +439,7 @@ extern struct static_key_false flow_dissector_pppoe_key;
- extern struct static_key_false flow_dissector_mpls_key;
+@@ -439,6 +439,7 @@ extern struct static_key_false flow_dissector_mpls_key;
  extern struct static_key_false flow_dissector_ipip_key;
  extern struct static_key_false flow_dissector_gre_key;
+ extern struct static_key_false flow_dissector_vxlan_inner_key;
 +extern struct static_key_false flow_dissector_geneve_inner_key;
  
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 641172362904..fc887673b931 100644
+index 16c7cee92b1a..6e1f3a914d7f 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -114,10 +114,10 @@ index 641172362904..fc887673b931 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -60,6 +61,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_ipip_key);
- EXPORT_SYMBOL(flow_dissector_ipip_key);
- DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
+@@ -60,6 +61,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
  EXPORT_SYMBOL(flow_dissector_gre_key);
+ DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
+ EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_geneve_inner_key);
 +EXPORT_SYMBOL(flow_dissector_geneve_inner_key);
  
@@ -191,7 +191,7 @@ index 641172362904..fc887673b931 100644
  	return true;
  }
  
-@@ -2943,6 +3007,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2951,6 +3015,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

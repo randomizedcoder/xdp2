@@ -1,8 +1,8 @@
-From d0d2a89bef1b624845f21f3bbcb2bed57f80a9d8 Mon Sep 17 00:00:00 2001
+From 13b471b87e9d01d0d54ffda8f655928bf62f6aab Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
-Subject: [PATCH net-next v1 05/10] net: flow_dissector: add fast-path for single MPLS label
- + IP
+Subject: [PATCH v1 05/10] net: flow_dissector: add fast-path for single MPLS
+ label + IP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -50,10 +50,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 96 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 99fafa9d339c..f7a0fd5fbe08 100644
+index b5402a9d5392..47fd2eb4992b 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -561,6 +561,25 @@ code != 0).
+@@ -534,6 +534,25 @@ code != 0).
  
  Default: 0
  
@@ -80,23 +80,23 @@ index 99fafa9d339c..f7a0fd5fbe08 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 35172d723baa..df1a95fe0c28 100644
+index c792de78a2cb..775fd9c119f9 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -436,6 +436,7 @@ extern struct static_key_false flow_dissector_vlan_key;
+@@ -435,6 +435,7 @@ extern struct static_key_false flow_dissector_eth_ip_key;
+ extern struct static_key_false flow_dissector_vlan_key;
  extern struct static_key_false flow_dissector_qinq_key;
- extern struct static_key_false flow_dissector_vxlan_inner_key;
  extern struct static_key_false flow_dissector_pppoe_key;
 +extern struct static_key_false flow_dissector_mpls_key;
  
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 96e60348e85a..adab0f4a53ab 100644
+index 7d2840dbd081..31b02c388c4f 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -54,6 +54,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
- EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
+@@ -51,6 +51,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
+ EXPORT_SYMBOL(flow_dissector_qinq_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_pppoe_key);
  EXPORT_SYMBOL(flow_dissector_pppoe_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_mpls_key);
@@ -104,7 +104,7 @@ index 96e60348e85a..adab0f4a53ab 100644
  
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
-@@ -1460,6 +1462,66 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1405,6 +1407,66 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  				      nhoff, hlen);
  }
  
@@ -171,7 +171,7 @@ index 96e60348e85a..adab0f4a53ab 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1505,6 +1567,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1450,6 +1512,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_pppoe(skb, flow_dissector,
  					       target_container, data,
  					       nhoff, hlen);
@@ -185,7 +185,7 @@ index 96e60348e85a..adab0f4a53ab 100644
  	default:
  		return false;
  	}
-@@ -2657,6 +2726,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2603,6 +2672,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

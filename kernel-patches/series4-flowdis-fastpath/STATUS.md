@@ -36,23 +36,31 @@ drop patches 8-10 to a follow-up RFC series and post 1-7 as `[PATCH net-next]`.
 Do not split preemptively — the whole point of series4 is to show the full
 intent, with the encapsulation value proposition front and centre.
 
-## Assembly note (IMPORTANT — regenerate before sending)
+## Provenance + verification (2026-07-01)
 
-These .patch files were **assembled** from the v3/v4 bodies (namespace scheme;
-v1/v2 umbrella-knob code is subsumed by v3's namespaced eth_ip) and had only
-their `Subject:` prefixes normalised to a contiguous `[PATCH net-next v1 N/10]`.
-They are NOT yet a clean git history. Before `git send-email`:
+These `0001..0010` are **real `git format-patch -v1` output** generated against
+net-next **`d6e815297491`** (base-commit line present in each). They were built
+by cherry-picking the actual commits from the `flow-dissector-namespace-v3/v4`
+branches onto current net-next and reordering vxlan_inner from the middle to the
+RFC tail so the byte-identical core (1-7) is independently landable. The
+reordering conflicts were purely in the registration lists (static keys, sysctl
+table, header externs, docs) — the fast-path *code* applied without conflict.
 
-1. Apply/rebase all ten onto a current net-next checkout as one contiguous
-   series (resolve any context overlap — patches 8/1 (vxlan) and 4-7 all touch
-   `flow_dissect_fast_ipv4` in `net/core/flow_dissector.c`; original ordering had
-   vxlan_inner independent of the v4 byte-identical shapes).
-2. `git format-patch --cover-letter -v1 --base=<net-next hash>` to fill
-   From/Date/base and produce a real diffstat (the cover letter's diffstat is
-   approximate: ~830 insertions across the same 3 files as v3+v4 combined).
-3. Verify each patch applies and the tree builds; run the byte-identical checks.
-4. Reconcile the RFC-EXPERIMENT subject wording (patch 8 vs 9/10 place the tag
-   slightly differently).
+**Verified** (a full kernel build was blocked by a local host-toolchain issue —
+nix binutils vs libelf ABI in objtool — unrelated to the patches):
+- order-independent line comparison of the final `net/core/flow_dissector.c`
+  and `include/net/flow_dissector.h` against the already-tested
+  `flow-dissector-namespace-v4` branch: **flow_dissector.h identical; the only
+  flow_dissector.c delta is net-next's own eth_addrs refactor between the two
+  bases — no flowdis fast-path line, static key, or sysctl entry differs.** So
+  the series is line-equivalent to the tested branch, just reordered.
+- all 10 `net.flow_dissector.*` sysctl entries present and well-formed; no
+  conflict markers.
+
+Remaining before `git send-email`: a clean-tree kernel build on a working
+toolchain (the author's usual net-next setup), then send. Optionally reconcile
+the RFC-EXPERIMENT subject wording (patch 8 vs 9/10 place the tag slightly
+differently).
 
 ## Docs
 `docs/deployment.md`, `docs/packet-flow-context.md` (carried from series3;

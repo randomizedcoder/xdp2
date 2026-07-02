@@ -1,7 +1,7 @@
-From d60c5470e46349fd9277dfcab8a8fc89981a6b15 Mon Sep 17 00:00:00 2001
+From 9efeabcf16f6862e7f82a6439b84d4df8c39260d Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
-Subject: [PATCH net-next v1 08/10] RFC EXPERIMENT: net: flow_dissector: descend into
+Subject: [PATCH v1 08/10] RFC EXPERIMENT: net: flow_dissector: descend into
  VXLAN inner flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -55,19 +55,19 @@ hash distribution, which this matrix run did not measure).
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst | 26 ++++++++++
+ Documentation/admin-guide/sysctl/net.rst | 23 +++++++++
  include/net/flow_dissector.h             |  1 +
  net/core/flow_dissector.c                | 62 ++++++++++++++++++++++++
- 3 files changed, 89 insertions(+)
+ 3 files changed, 86 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index f470f5382ac5..18c052446365 100644
+index 576bba763f13..d46f7373291c 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -517,6 +517,32 @@ is off).
- 
- Default: 0
- 
+@@ -594,6 +594,29 @@ GRE-with-KEY (common in MPLS-over-GRE deployments and some cloud
+ overlays) is a follow-up patch — same descent shape with an
+ additional 4-byte key field read and a write to
+ ``FLOW_DISSECTOR_KEY_GRE_KEYID``.
 +vxlan_inner
 +~~~~~~~~~~~
 +
@@ -91,26 +91,23 @@ index f470f5382ac5..18c052446365 100644
 +  IANA_VXLAN_UDP_PORT);
 +- whether the slow path should grow the same descent so the
 +  fast-path / slow-path contract remains invariant.
-+
-+Default: 0
-+
- 3. /proc/sys/net/unix - Parameters for Unix domain sockets
- ----------------------------------------------------------
+ 
+ Default: 0
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 6b48103c36e5..73262708277a 100644
+index b1334cdb668e..c9d2fb26e2eb 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -434,6 +434,7 @@ extern struct flow_dissector flow_keys_basic_dissector;
- extern struct static_key_false flow_dissector_eth_ip_key;
- extern struct static_key_false flow_dissector_vlan_key;
- extern struct static_key_false flow_dissector_qinq_key;
+@@ -438,6 +438,7 @@ extern struct static_key_false flow_dissector_pppoe_key;
+ extern struct static_key_false flow_dissector_mpls_key;
+ extern struct static_key_false flow_dissector_ipip_key;
+ extern struct static_key_false flow_dissector_gre_key;
 +extern struct static_key_false flow_dissector_vxlan_inner_key;
  
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f89af877dbc8..87a5b71f150a 100644
+index 920bdc6b1e16..16c7cee92b1a 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -121,16 +118,16 @@ index f89af877dbc8..87a5b71f150a 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -49,6 +50,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vlan_key);
- EXPORT_SYMBOL(flow_dissector_vlan_key);
- DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
- EXPORT_SYMBOL(flow_dissector_qinq_key);
+@@ -57,6 +58,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_ipip_key);
+ EXPORT_SYMBOL(flow_dissector_ipip_key);
+ DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
+ EXPORT_SYMBOL(flow_dissector_gre_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
 +EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
  
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
-@@ -1153,6 +1156,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1196,6 +1199,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -189,9 +186,9 @@ index f89af877dbc8..87a5b71f150a 100644
  	return true;
  }
  
-@@ -2511,6 +2566,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2889,6 +2944,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
- 		.proc_handler	= proc_set_qinq_key,
+ 		.proc_handler	= proc_do_static_key,
  	},
 +	{
 +		.procname	= "vxlan_inner",

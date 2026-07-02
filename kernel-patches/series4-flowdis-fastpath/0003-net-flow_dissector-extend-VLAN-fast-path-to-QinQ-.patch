@@ -1,7 +1,7 @@
-From 8504d0dca46b799d78141ed6bf55c97cb04205ad Mon Sep 17 00:00:00 2001
+From f732792dd9bc6577d802cf12d732e54826b551ad Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:38:13 -0700
-Subject: [PATCH net-next v1 03/10] net: flow_dissector: extend VLAN fast-path to QinQ
+Subject: [PATCH v1 03/10] net: flow_dissector: extend VLAN fast-path to QinQ
  (depth-2)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -51,10 +51,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 91 insertions(+), 14 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 07cff612d5fb..f470f5382ac5 100644
+index c3f8e0d63c6e..67abfe5c8d51 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -500,6 +500,23 @@ sysctl).
+@@ -499,6 +499,23 @@ sysctl).
  
  Default: 0
  
@@ -91,7 +91,7 @@ index 22e7ab0153de..6b48103c36e5 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 7c11c942417c..f89af877dbc8 100644
+index 062a35f0a981..2e23ea4ddd9c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -47,6 +47,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_eth_ip_key);
@@ -192,7 +192,7 @@ index 7c11c942417c..f89af877dbc8 100644
  	case htons(ETH_P_IP):
  		if (!static_branch_likely(&flow_dissector_eth_ip_key))
  			return false;
-@@ -2427,14 +2454,39 @@ core_initcall(init_default_flow_dissectors);
+@@ -2435,14 +2462,39 @@ core_initcall(init_default_flow_dissectors);
   * /proc/sys/net/flow_dissector/. See Documentation/admin-guide/sysctl/
   * net.rst for the operator-facing description.
   */
@@ -236,7 +236,7 @@ index 7c11c942417c..f89af877dbc8 100644
  }
  
  static struct ctl_table flow_dissector_sysctl_table[] = {
-@@ -2452,6 +2504,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2460,6 +2512,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_vlan_key,
  	},

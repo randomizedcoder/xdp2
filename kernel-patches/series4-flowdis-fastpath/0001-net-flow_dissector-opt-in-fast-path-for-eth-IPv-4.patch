@@ -1,7 +1,7 @@
-From 74c6ea03a4171f59ab0111aea5422d3deba0c3e4 Mon Sep 17 00:00:00 2001
+From b3e2887b2f3d67e4d699a0e6adb3fa0eee6f006c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
-Subject: [PATCH net-next v1 01/10] net: flow_dissector: opt-in fast-path for eth +
+Subject: [PATCH v1 01/10] net: flow_dissector: opt-in fast-path for eth +
  IPv{4,6} + {TCP,UDP}
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -74,10 +74,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 305 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 0724a793798f..b9bdf2284b7a 100644
+index e586e17fc7a5..d184e279103a 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -461,7 +461,32 @@ historical importance.
+@@ -460,7 +460,32 @@ historical importance.
  
  Default: 0
  
@@ -131,7 +131,7 @@ index ced79dc8e856..d5a19fd69853 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2a98f5fa74eb..ddb4179c99f0 100644
+index 8aa4f9b4df81..cc1ceb6e2e17 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -37,6 +37,41 @@
@@ -401,8 +401,8 @@ index 2a98f5fa74eb..ddb4179c99f0 100644
 +
  	if (dissector_uses_key(flow_dissector,
  			       FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
- 		struct ethhdr *eth = eth_hdr(skb);
-@@ -2096,3 +2343,27 @@ static int __init init_default_flow_dissectors(void)
+ 		struct flow_dissector_key_eth_addrs *key_eth_addrs;
+@@ -2104,3 +2351,27 @@ static int __init init_default_flow_dissectors(void)
  	return 0;
  }
  core_initcall(init_default_flow_dissectors);

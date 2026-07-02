@@ -169,7 +169,8 @@ Limitations
   - The kernel-sourced-VXLAN case already spreads (stated above); we do
     not overclaim it.
 
-Base: net-next <TBD>. This supersedes the earlier iterations of this work.
+Base: net-next d6e815297491. This supersedes the earlier iterations of
+this work.
 
 Supporting data (microbench harness and full per-shape/per-arch matrix,
 the encapsulation flow-distribution study, perf-counter breakdowns,
@@ -188,10 +189,10 @@ Dave Seddon (10):
   RFC EXPERIMENT: net: flow_dissector: descend into Geneve inner flow
   RFC EXPERIMENT: net: flow_dissector: descend into GTP-U inner flow
 
- Documentation/admin-guide/sysctl/net.rst |  ~200 +++
- include/net/flow_dissector.h             |   ~13 +
- net/core/flow_dissector.c                |  ~620 +++++
- 3 files changed, ~830 insertions(+), 1 deletion(-)
+ Documentation/admin-guide/sysctl/net.rst |  214 ++++-
+ include/net/flow_dissector.h             |   17 +
+ net/core/flow_dissector.c                | 1008 ++++++++++++++++++++++
+ 3 files changed, 1238 insertions(+), 1 deletion(-)
 
 --
 2.54.0
