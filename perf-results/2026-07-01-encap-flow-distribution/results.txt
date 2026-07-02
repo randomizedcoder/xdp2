@@ -1,0 +1,91 @@
+# generating pcaps (flows=2000 packets=20000) ...
+inner flows: 2000 distinct
+wrote /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/vxlan-kernelsport.pcap (20000) + /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/vxlan-kernelsport.inner.pcap (20000)
+wrote /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/vxlan-fixedsport.pcap (20000) + /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/vxlan-fixedsport.inner.pcap (20000)
+wrote /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/geneve-kernelsport.pcap (20000) + /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/geneve-kernelsport.inner.pcap (20000)
+wrote /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/geneve-fixedsport.pcap (20000) + /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/geneve-fixedsport.inner.pcap (20000)
+wrote /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/gtpu-fixedsport.pcap (20000) + /home/das/Downloads/xdp2/perf-results/2026-07-01-encap-flow-distribution/pcaps/gtpu-fixedsport.inner.pcap (20000)
+
+# flow-hash distribution: OUTER-only (today) vs INNER-descent (patch)
+# real kernel flow_hash_from_keys via test_parser -c flowdis -H
+# flows=2000 packets=20000  (generated 2026-07-01T21:07:27Z)
+
+############################## vxlan-kernelsport ##############################
+== OUTER-only (today) ==  packets=20000  distinct-hashes=1883 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          87.4   0.999    0.037
+    16     16/16        198.2   0.998    0.057
+    64     64/64        779.6   0.995    0.112
+   256    255/256      3345.7   0.984    0.228
+
+== INNER-descent (patch) ==  packets=20000  distinct-hashes=2000 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          71.3   0.999    0.033
+    16     16/16        105.8   0.999    0.040
+    64     64/64        802.1   0.995    0.114
+   256    256/256      3188.7   0.986    0.223
+
+
+############################## vxlan-fixedsport ##############################
+== OUTER-only (today) ==  packets=20000  distinct-hashes=1 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      1/8      140000.0   0.000    0.875
+    16      1/16     300000.0   0.000    0.938
+    64      1/64    1260000.0   0.000    0.984
+   256      1/256   5100000.0   0.000    0.996
+
+== INNER-descent (patch) ==  packets=20000  distinct-hashes=2000 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          48.6   0.999    0.026
+    16     16/16        100.0   0.999    0.038
+    64     64/64        760.6   0.995    0.110
+   256    256/256      3213.3   0.985    0.223
+
+
+############################## geneve-kernelsport ##############################
+== OUTER-only (today) ==  packets=20000  distinct-hashes=1883 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          70.8   0.999    0.033
+    16     16/16        221.1   0.998    0.060
+    64     64/64        860.2   0.995    0.118
+   256    256/256      3308.6   0.985    0.226
+
+== INNER-descent (patch) ==  packets=20000  distinct-hashes=2000 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          47.9   0.999    0.025
+    16     16/16         98.2   0.999    0.037
+    64     64/64        753.9   0.995    0.109
+   256    256/256      3127.3   0.986    0.219
+
+
+############################## geneve-fixedsport ##############################
+== OUTER-only (today) ==  packets=20000  distinct-hashes=1 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      1/8      140000.0   0.000    0.875
+    16      1/16     300000.0   0.000    0.938
+    64      1/64    1260000.0   0.000    0.984
+   256      1/256   5100000.0   0.000    0.996
+
+== INNER-descent (patch) ==  packets=20000  distinct-hashes=1999 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          70.2   0.999    0.029
+    16     16/16        115.8   0.999    0.040
+    64     64/64        756.5   0.995    0.110
+   256    256/256      3160.9   0.986    0.220
+
+
+############################## gtpu-fixedsport ##############################
+== OUTER-only (today) ==  packets=20000  distinct-hashes=1 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      1/8      140000.0   0.000    0.875
+    16      1/16     300000.0   0.000    0.938
+    64      1/64    1260000.0   0.000    0.984
+   256      1/256   5100000.0   0.000    0.996
+
+== INNER-descent (patch) ==  packets=20000  distinct-hashes=2000 (flow-identity resolution)
+   N    occupied     chi2     entropy   gini
+     8      8/8          40.0   1.000    0.022
+    16     16/16         75.0   0.999    0.031
+    64     64/64        832.6   0.995    0.115
+   256    256/256      3171.6   0.986    0.221
+
