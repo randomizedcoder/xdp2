@@ -13,6 +13,40 @@ shape has its own gate under /proc/sys/net/flow_dissector/, every gate is
 disabled by default, and when a gate is off the added cost is one
 not-taken branch per dissect.
 
+Performance summary (wins first)
+--------------------------------
+Two kinds of win, measured across 3 ISAs and 8 microarchitectures, with
+N=3 replicates in-kernel and per-shape byte-identical verification.
+
+(a) Byte-identical shapes — reduction in dissector CPU cost (isolated
+    per-shape microbench, all fast-paths compiled in; range across the 7
+    measurable uarches):
+
+      eth_ip    -4.7% .. -31.6%   (isolated eth+IPv4+TCP: -47% .. -55%)
+      vlan     -18.1% .. -38.5%
+      qinq     -16.1% .. -39.8%
+      pppoe     -8.6% .. -28.0%
+      mpls      -6.7% .. -15.0%
+      ipip     -36.8% .. -47.0%   (largest; slow path re-parses inner IP)
+      gre       byte-identical descent family (~ipip)
+
+    In-kernel, cleanly above the N=3 noise floor: eth_ip -112 cyc/pkt
+    (-4.9%) and vlan -148 cyc/pkt (-4.9%) on 25 GbE pairs. Consistent
+    across architectures; largest on in-order cores.
+
+(b) Encapsulation descent (vxlan_inner / geneve_inner / gtpu_inner) —
+    CPU is ~net-zero; the win is flow distribution/identity for overlay
+    traffic, on the real flow_hash_from_keys():
+
+      today the outer tunnel collapses every inner flow onto ONE hash
+      bucket (up to 512x hot-bucket imbalance — one queue/path doing all
+      the work; GTP-U and fixed-source-port tunnels at any scale).
+      Descent restores full per-inner-flow spread (~1.4x imbalance).
+      Holds for IPv4 and IPv6 inner flows and underlays.
+
+Detail, methodology, and honest caveats (including where kernel-sourced
+VXLAN already spreads) follow.
+
 It is presented as one framework, up front, rather than shape-by-shape,
 so the intent is clear: land a byte-identical fast-path for the common
 L2/L3/L4 shapes, and — the part datacenter and telco operators have asked
