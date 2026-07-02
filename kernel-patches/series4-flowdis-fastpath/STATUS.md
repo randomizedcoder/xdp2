@@ -63,5 +63,9 @@ the RFC-EXPERIMENT subject wording (patch 8 vs 9/10 place the tag slightly
 differently).
 
 ## Docs
-`docs/deployment.md`, `docs/packet-flow-context.md` (carried from series3;
-already namespace-aware). See `PERFORMANCE.md` and `TESTING.md`.
+- `docs/RECOMMENDATIONS.md` — **definitive per-feature enablement guide**: which
+  gate to turn on for which traffic pattern (all 10 shapes), byte-identical vs
+  behaviour-changing, and the honest caveats. The go-to "when to enable" reference.
+- `docs/deployment.md`, `docs/packet-flow-context.md` — deployment recipe +
+  stack-placement architecture (carried from series3; namespace-aware).
+- `PERFORMANCE.md`, `TESTING.md` — full data + method catalogue.

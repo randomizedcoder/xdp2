@@ -190,6 +190,17 @@ tc-flower, hardware aRFS (mlx5/ice/bnxt/...), then the qdiscs
 and keys, so it applies to all of them at once; no single consumer is the
 mechanism.
 
+Enabling
+--------
+Every gate defaults off; an unused gate is one not-taken branch. Enable the
+shapes present in your traffic: the byte-identical gates (eth_ip, vlan, qinq,
+pppoe, mpls, ipip, gre) are safe to turn on wherever that shape appears; the
+descent gates (vxlan/geneve/gtpu_inner) change hashing behaviour and are
+enabled deliberately for overlay (k8s) and telco (GTP-U) deployments. Each
+sysctl is documented in Documentation/admin-guide/sysctl/net.rst; a
+per-feature "when to enable, by traffic pattern" guide (all ten shapes, with
+caveats) accompanies the supporting data.
+
 Limitations
 -----------
   - This is a per-packet CPU reduction (byte-identical shapes) and a

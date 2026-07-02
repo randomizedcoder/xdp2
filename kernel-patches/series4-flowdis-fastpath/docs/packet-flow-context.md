@@ -242,6 +242,12 @@ git grep -nE '__skb_flow_dissect|skb_flow_dissect_flow_keys|skb_get_hash' \
 
 About 30 high-signal callers shown; the full grep yields ~50.
 
+> **Note (series4):** the shipped set now covers VLAN, QinQ, PPPoE, MPLS,
+> IP-in-IP, GRE and the VXLAN/Geneve/GTP-U inner-descent gates, so the
+> "partial/neutral" and "future candidate" framing below (written when only
+> eth_ip existed) is superseded for those shapes. For the definitive
+> per-feature "when to enable" guidance see `RECOMMENDATIONS.md`.
+
 ## 5. Which callers does the patch improve — and by how much?
 
 The fast-path is **inside `__skb_flow_dissect()` itself**, so its benefit is uniform per *call*. The interesting variation is at the *workload* level — how often a caller hits the dissector and how often the packets match the eligible shape.
