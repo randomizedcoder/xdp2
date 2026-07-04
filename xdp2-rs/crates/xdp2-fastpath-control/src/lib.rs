@@ -38,12 +38,14 @@ use std::mem;
 
 pub mod bpf;
 pub mod controller;
+pub mod flowdis_auto;
 pub mod hysteresis;
 pub mod proc_net;
 pub mod reconciler;
 pub mod security;
 
 pub use controller::{ControllerError, TemplateController, CHAIN_DYNAMIC, FIRST_DYNAMIC_SLOT};
+pub use flowdis_auto::{Config as FlowdisAutoConfig, Policy as FlowdisAutoPolicy, Shape};
 pub use hysteresis::{Hysteresis, ListenerKey, DEFAULT_RETIRE_GRACE};
 pub use proc_net::{enumerate_procfs, enumerate_procfs_all};
 pub use reconciler::{Backend, ReconcileError, Reconciler, SlotAssigner, TickStats};
