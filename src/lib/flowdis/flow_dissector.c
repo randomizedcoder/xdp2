@@ -131,6 +131,88 @@ struct flow_dissect_internal {
 
 #define FLOW_DISSECT_INTERNAL__CLASS(x) ((x).class)
 
+/* Per-shape counters — userspace mirror of the kernel series4 counters patch
+ * (net/core/flow_dissector.c). Same enum, same increment placement, so
+ * test_parser can validate the classification/counting logic on real pcaps
+ * without a kernel build. Single-threaded test harness → plain globals, no
+ * per-cpu. occurrences[] is the slow-path count, fast_hits[] the fast body;
+ * (occurrences + fast_hits) per shape is the gate-invariant composition.
+ */
+enum flowdis_shape {
+	FLOWDIS_SHAPE_ETH_IP,
+	FLOWDIS_SHAPE_VLAN,
+	FLOWDIS_SHAPE_QINQ,
+	FLOWDIS_SHAPE_PPPOE,
+	FLOWDIS_SHAPE_MPLS,
+	FLOWDIS_SHAPE_IPIP,
+	FLOWDIS_SHAPE_GRE,
+	FLOWDIS_SHAPE__MAX,
+};
+
+static const char * const flowdis_shape_names[FLOWDIS_SHAPE__MAX] = {
+	[FLOWDIS_SHAPE_ETH_IP] = "eth_ip",
+	[FLOWDIS_SHAPE_VLAN]   = "vlan",
+	[FLOWDIS_SHAPE_QINQ]   = "qinq",
+	[FLOWDIS_SHAPE_PPPOE]  = "pppoe",
+	[FLOWDIS_SHAPE_MPLS]   = "mpls",
+	[FLOWDIS_SHAPE_IPIP]   = "ipip",
+	[FLOWDIS_SHAPE_GRE]    = "gre",
+};
+
+static struct {
+	u64 occurrences[FLOWDIS_SHAPE__MAX];
+	u64 fast_hits[FLOWDIS_SHAPE__MAX];
+	u64 dissects;
+} flowdis_stats;
+
+/* Set by flowdis_fastpath_set(0) to force every packet through the slow path,
+ * so occurrences[] alone equals the full composition (the pure gate-off signal
+ * the kernel measures). Default: fast path on (matches normal dissection).
+ */
+static int flowdis_fastpath_on = 1;
+
+static inline void flowdis_count_slow(enum flowdis_shape shape)
+{
+	flowdis_stats.occurrences[shape]++;
+}
+
+static inline void flowdis_count_fast(enum flowdis_shape shape)
+{
+	flowdis_stats.fast_hits[shape]++;
+}
+
+void flowdis_fastpath_set(int on)
+{
+	flowdis_fastpath_on = !!on;
+}
+
+void flowdis_stats_reset(void)
+{
+	memset(&flowdis_stats, 0, sizeof(flowdis_stats));
+}
+
+void flowdis_stats_dump(FILE *f)
+{
+	int i;
+
+	fprintf(f, "%-8s %16s %16s %16s %10s\n",
+		"shape", "occurrences", "fast_hits", "total", "eligible%");
+	for (i = 0; i < FLOWDIS_SHAPE__MAX; i++) {
+		u64 total = flowdis_stats.occurrences[i] +
+			    flowdis_stats.fast_hits[i];
+		double pct = flowdis_stats.dissects ?
+			100.0 * (double)total / (double)flowdis_stats.dissects : 0.0;
+
+		fprintf(f, "%-8s %16llu %16llu %16llu %9.2f%%\n",
+			flowdis_shape_names[i],
+			(unsigned long long)flowdis_stats.occurrences[i],
+			(unsigned long long)flowdis_stats.fast_hits[i],
+			(unsigned long long)total, pct);
+	}
+	fprintf(f, "dissects: %llu\n",
+		(unsigned long long)flowdis_stats.dissects);
+}
+
 static void dissector_set_key(struct flow_dissector *flow_dissector,
 			      enum flow_dissector_key_id key_id)
 {
@@ -1240,6 +1322,19 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  * to fall back. Only the two standard dissectors are eligible; custom
  * dissectors and slow-path-only flags defer unconditionally.
  */
+static bool flowdis_fast_is_encap(struct flow_dissector *flow_dissector,
+				  void *target_container)
+{
+	struct flow_dissector_key_control *key_control;
+
+	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_CONTROL))
+		return false;
+	key_control = skb_flow_dissector_target(flow_dissector,
+						FLOW_DISSECTOR_KEY_CONTROL,
+						target_container);
+	return key_control->flags & FLOW_DIS_ENCAPSULATION;
+}
+
 static bool flow_dissect_fast(const struct sk_buff *skb,
 			      struct flow_dissector *flow_dissector,
 			      void *target_container,
@@ -1256,13 +1351,21 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
 
 	switch (proto) {
 	case htons(ETH_P_IP):
-		return flow_dissect_fast_ipv4(skb, flow_dissector,
-					      target_container, data,
-					      nhoff, hlen);
+		if (!flow_dissect_fast_ipv4(skb, flow_dissector,
+					    target_container, data,
+					    nhoff, hlen))
+			return false;
+		if (!flowdis_fast_is_encap(flow_dissector, target_container))
+			flowdis_count_fast(FLOWDIS_SHAPE_ETH_IP);
+		return true;
 	case htons(ETH_P_IPV6):
-		return flow_dissect_fast_ipv6(skb, flow_dissector,
-					      target_container, data,
-					      nhoff, hlen);
+		if (!flow_dissect_fast_ipv6(skb, flow_dissector,
+					    target_container, data,
+					    nhoff, hlen))
+			return false;
+		if (!flowdis_fast_is_encap(flow_dissector, target_container))
+			flowdis_count_fast(FLOWDIS_SHAPE_ETH_IP);
+		return true;
 	default:
 		return false;
 	}
@@ -1313,6 +1416,8 @@ bool __skb_flow_dissect_err(const struct sk_buff *skb,
 	struct flow_dissect_internal fdret;
 	enum flow_dissector_key_id dissector_vlan = FLOW_DISSECTOR_KEY_MAX;
 	int num_hdrs = 0;
+	int nhoff_init = 0;
+	bool eth_ip_top = false;
 	u8 ip_proto = 0;
 
 	if (!data) {
@@ -1401,11 +1506,15 @@ bool __skb_flow_dissect_err(const struct sk_buff *skb,
 		proto = skb->protocol;
 #endif
 
+	flowdis_stats.dissects++;
+
 	/* Series 3 fast-path: straight-line extractor for common L3+L4
 	 * shapes. On a hit, populates target_container byte-identically
-	 * to the slow path. On a miss, falls through.
+	 * to the slow path. On a miss, falls through. Disabled via
+	 * flowdis_fastpath_set(0) to force pure slow-path composition counts.
 	 */
-	if (flow_dissect_fast(skb, flow_dissector, target_container,
+	if (flowdis_fastpath_on &&
+	    flow_dissect_fast(skb, flow_dissector, target_container,
 			      data, proto, nhoff, hlen, flags))
 		return true;
 
@@ -1440,6 +1549,8 @@ bool __skb_flow_dissect_err(const struct sk_buff *skb,
 		memcpy(key_eth_addrs, &eth->h_dest, sizeof(*key_eth_addrs));
 	}
 
+	nhoff_init = nhoff;
+
 proto_again:
 	fdret = FLOW_DISSECT_INTERNAL_CONTINUE();
 
@@ -1455,6 +1566,9 @@ proto_again:
 					"__skb_header_pointer failed (IPv4)");
 			break;
 		}
+
+		if (nhoff == nhoff_init)
+			eth_ip_top = true;
 
 		nhoff += iph->ihl * 4;
 
@@ -1504,6 +1618,9 @@ proto_again:
 					"__skb_header_pointer failed (IPv6)");
 			break;
 		}
+
+		if (nhoff == nhoff_init)
+			eth_ip_top = true;
 
 		ip_proto = iph->nexthdr;
 		nhoff += sizeof(struct ipv6hdr);
@@ -1567,8 +1684,10 @@ proto_again:
 
 		if (dissector_vlan == FLOW_DISSECTOR_KEY_MAX) {
 			dissector_vlan = FLOW_DISSECTOR_KEY_VLAN;
+			flowdis_count_slow(FLOWDIS_SHAPE_VLAN);
 		} else if (dissector_vlan == FLOW_DISSECTOR_KEY_VLAN) {
 			dissector_vlan = FLOW_DISSECTOR_KEY_CVLAN;
+			flowdis_count_slow(FLOWDIS_SHAPE_QINQ);
 		} else {
 			fdret = FLOW_DISSECT_INTERNAL_PROTO_AGAIN();
 			break;
@@ -1623,6 +1742,8 @@ proto_again:
 			break;
 		}
 
+		flowdis_count_slow(FLOWDIS_SHAPE_PPPOE);
+
 		proto = hdr->proto;
 		nhoff += PPPOE_SES_HLEN;
 		switch (proto) {
@@ -1665,6 +1786,7 @@ proto_again:
 
 	case htons(ETH_P_MPLS_UC):
 	case htons(ETH_P_MPLS_MC):
+		flowdis_count_slow(FLOWDIS_SHAPE_MPLS);
 		fdret = __skb_flow_dissect_mpls(skb, flow_dissector,
 						target_container, data,
 						nhoff, hlen);
@@ -1719,6 +1841,7 @@ ip_proto_again:
 
 	switch (ip_proto) {
 	case IPPROTO_GRE:
+		flowdis_count_slow(FLOWDIS_SHAPE_GRE);
 		fdret = __skb_flow_dissect_gre(skb, key_control, flow_dissector,
 					       target_container, data,
 					       &proto, &nhoff, &hlen, flags);
@@ -1780,6 +1903,7 @@ ip_proto_again:
 		break;
 	}
 	case IPPROTO_IPIP:
+		flowdis_count_slow(FLOWDIS_SHAPE_IPIP);
 		proto = htons(ETH_P_IP);
 
 		key_control->flags |= FLOW_DIS_ENCAPSULATION;
@@ -1903,6 +2027,15 @@ out:
 	key_control->thoff = min_t(u16, nhoff, skb ? skb->len : hlen);
 	key_basic->n_proto = proto;
 	key_basic->ip_proto = ip_proto;
+
+	/* eth_ip shape (slow path): top-level eth+IP, L4 TCP/UDP, no encap —
+	 * mirrors the kernel out: gate. The fast path returns earlier, so with
+	 * the fast path off this is the pure eth_ip composition count.
+	 */
+	if (fdret.class != FLOW_DISSECT_RET_OUT_BAD && eth_ip_top &&
+	    !(key_control->flags & FLOW_DIS_ENCAPSULATION) &&
+	    (ip_proto == IPPROTO_TCP || ip_proto == IPPROTO_UDP))
+		flowdis_count_slow(FLOWDIS_SHAPE_ETH_IP);
 
 	if (fdret.class == FLOW_DISSECT_RET_OUT_BAD) {
 		*errmsg = fdret.badmsg;

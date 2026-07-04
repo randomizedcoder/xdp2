@@ -3,6 +3,7 @@
 #define __FLOWDIS_DISSECTOR_H__
 
 #include <arpa/inet.h>
+#include <stdio.h>
 
 /* Adapted from kernel include/net/flow_dissector.h and include/linux/skbuff.h
  * with some customizations.
@@ -631,5 +632,14 @@ void flowdis_hash_secret_init(siphash_key_t *init_key);
 
 void flowdis_print_metadata(const struct flow_keys *flow);
 void flowdis_print_hash_input(const struct flow_keys *flow);
+
+/* Per-shape counters (mirror of the kernel series4 counters patch) — lets
+ * test_parser validate the classification/counting logic on real pcaps.
+ * flowdis_fastpath_set(0) forces every packet through the slow path so
+ * occurrences[] alone equals the full composition.
+ */
+void flowdis_fastpath_set(int on);
+void flowdis_stats_reset(void);
+void flowdis_stats_dump(FILE *f);
 
 #endif /* __FLOWDIS_DISSECTOR_H__ */

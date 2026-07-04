@@ -445,5 +445,8 @@ int main(int argc, char **argv)
 		printf("Total avg %lld ns/packet %lld Mpps\n", avg,
 			avg ? 1000 / avg : 0);
 
+	if (core && core->done)
+		(*core->done)(carg);
+
 	return 0;
 }
