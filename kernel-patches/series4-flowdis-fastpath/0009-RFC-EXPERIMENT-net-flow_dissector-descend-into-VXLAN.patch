@@ -1,8 +1,8 @@
-From 9efeabcf16f6862e7f82a6439b84d4df8c39260d Mon Sep 17 00:00:00 2001
+From 4aaab1f1abbc4233cd2f95d4c8fde2bda6953cfe Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
-Subject: [PATCH v1 08/10] RFC EXPERIMENT: net: flow_dissector: descend into
- VXLAN inner flow
+Subject: [PATCH 09/11] RFC EXPERIMENT: net: flow_dissector: descend into VXLAN
+ inner flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -95,7 +95,7 @@ index 576bba763f13..d46f7373291c 100644
  Default: 0
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index b1334cdb668e..c9d2fb26e2eb 100644
+index c55c0f83e74e..988d3fa3a7ce 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
 @@ -438,6 +438,7 @@ extern struct static_key_false flow_dissector_pppoe_key;
@@ -104,10 +104,10 @@ index b1334cdb668e..c9d2fb26e2eb 100644
  extern struct static_key_false flow_dissector_gre_key;
 +extern struct static_key_false flow_dissector_vxlan_inner_key;
  
- /* struct flow_keys_digest:
-  *
+ /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
+  * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 920bdc6b1e16..16c7cee92b1a 100644
+index 11ca303eaf27..6b9e881f1e55 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -118,16 +118,16 @@ index 920bdc6b1e16..16c7cee92b1a 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -57,6 +58,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_ipip_key);
+@@ -60,6 +61,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_ipip_key);
  EXPORT_SYMBOL(flow_dissector_ipip_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
  EXPORT_SYMBOL(flow_dissector_gre_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
 +EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
  
- /* Forward declarations for the per-shape fast-path helpers, anchored
-  * at the top of the file. Subsequent patches in this series add new
-@@ -1196,6 +1199,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* Per-shape traffic counters (mechanism only; do not affect dissection).
+  * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
+@@ -1222,6 +1225,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -186,7 +186,7 @@ index 920bdc6b1e16..16c7cee92b1a 100644
  	return true;
  }
  
-@@ -2889,6 +2944,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3003,6 +3058,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -199,7 +199,7 @@ index 920bdc6b1e16..16c7cee92b1a 100644
 +	},
  };
  
- static int __init flow_dissector_sysctl_init(void)
+ static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
 -- 
 2.54.0
 
