@@ -1,7 +1,7 @@
 From b3e2887b2f3d67e4d699a0e6adb3fa0eee6f006c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
-Subject: [PATCH 01/11] net: flow_dissector: opt-in fast-path for eth +
+Subject: [PATCH 01/12] net: flow_dissector: opt-in fast-path for eth +
  IPv{4,6} + {TCP,UDP}
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

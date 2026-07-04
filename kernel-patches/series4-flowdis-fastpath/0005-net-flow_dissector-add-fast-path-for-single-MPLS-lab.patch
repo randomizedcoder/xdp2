@@ -1,7 +1,7 @@
 From 13b471b87e9d01d0d54ffda8f655928bf62f6aab Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
-Subject: [PATCH 05/11] net: flow_dissector: add fast-path for single MPLS
+Subject: [PATCH 05/12] net: flow_dissector: add fast-path for single MPLS
  label + IP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

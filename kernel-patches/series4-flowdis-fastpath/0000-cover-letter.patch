@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 1 Jul 2026 00:00:00 -0700
-Subject: [PATCH net-next v1 00/10] net: flow_dissector: opt-in fast-path framework for common + encapsulated shapes
+Subject: [PATCH net-next v1 00/12] net: flow_dissector: opt-in fast-path framework for common + encapsulated shapes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -151,9 +151,15 @@ flow_keys as the slow path, or it returns false and the slow path runs.
 These are the only two outcomes, by construction; output was verified to
 match the slow path per shape. They are proposed for merge.
 
-Patches 8-10 (VXLAN/Geneve/GTP-U inner) are a behaviour change: the slow
+Patch 8 (per-shape counters) does not change dissection at all — it adds
+per-cpu counters and a read-only /proc/net/flow_dissector_stats. It is the
+observability surface (see "Observability & adaptive enablement" below) and
+is also proposed for merge.
+
+Patches 9-11 (VXLAN/Geneve/GTP-U inner) are a behaviour change: the slow
 path stops at the outer tunnel today, so descending makes fast-path output
-differ from slow-path output. Open questions for the list:
+differ from slow-path output. Patch 12 (adaptive auto-enable) is an RFC that
+adds a policy loop, not a new dissection path. Open questions for the list:
 
   - Should the slow path grow the same descent, so the contract stays
     "fast == slow" and the behaviour is available without the fast-path?
@@ -201,6 +207,50 @@ sysctl is documented in Documentation/admin-guide/sysctl/net.rst; a
 per-feature "when to enable, by traffic pattern" guide (all ten shapes, with
 caveats) accompanies the supporting data.
 
+Observability & adaptive enablement
+-----------------------------------
+Ten opt-in gates raise two operator questions: "how do I see this working?"
+and "how do I avoid hand-tuning ten knobs?" Both are answered by counters the
+operator wants anyway.
+
+Patch 8 adds per-cpu per-shape counters and a read-only
+/proc/net/flow_dissector_stats: for each byte-identical shape, how many
+packets the slow path handled (occurrences), how many the fast body handled
+(fast_hits), and the resulting eligible fraction, plus the current gate state.
+Because the fast path returns before the slow-path classification, exactly one
+of the two is incremented per shaped packet depending on gate state, so
+(occurrences + fast_hits) / dissects is a gate-invariant measure of how much
+traffic each shape's fast body *would* handle — the signal for whether a gate
+is worth enabling. Cost is one this_cpu_inc on the already-hot path, summed
+only on read.
+
+That signal makes enablement decidable rather than guessed, because we
+measured *both* halves of the per-packet cost model: the per-match saving S
+(per shape per uarch) and the hot-path miss cost C (the penalty a non-matching
+packet pays when a gate is on). Enabling a shape is net-positive exactly when
+its matching fraction exceeds the break-even p_be = C / (S + C) — a derived,
+measured number per shape per uarch, not a heuristic (2-12% for the mainstream
+byte-identical shapes on out-of-order cores, 8-19% on in-order; MPLS is the
+high-bar exception).
+
+Patch 12 (RFC) turns that into an in-kernel "auto" mode so the operator sets
+one knob instead of ten. Decisions are driven by a packet-count window
+(net.flow_dissector.auto_window_packets), not a wall-clock tick: every N
+dissects the kernel compares each byte-identical shape's windowed eligible
+fraction to its measured break-even and flips the gate, with hysteresis, a
+dwell of several windows, and a flip rate cap. This is traffic-proportional
+(a busy link adapts in milliseconds, an idle link does not churn) and adaptation
+speed is one intuitive knob. The hot path only samples; the static_branch flips
+happen in a workqueue. MPLS is not auto-managed (its saving barely exceeds the
+miss cost on in-order cores) and the descent shapes are never auto-managed
+(they change hashing — that must stay a deliberate operator action).
+
+The same policy is also shipped as a userspace reference agent (reads the
+stats file, writes the sysctls, identical thresholds), so the RFC presents
+both homes — in-kernel loop vs "mechanism not policy" userspace agent — and
+lets the list decide where the loop belongs. The counters (patch 8) are the
+common, uncontroversial foundation for either.
+
 Limitations
 -----------
   - This is a per-packet CPU reduction (byte-identical shapes) and a
@@ -222,7 +272,7 @@ the encapsulation flow-distribution study, perf-counter breakdowns,
 byte-identical checks, WireGuard trace):
 https://github.com/randomizedcoder/xdp2 , under perf-results/ .
 
-Dave Seddon (10):
+Dave Seddon (12):
   net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
   net: flow_dissector: add fast-path for single Eth+VLAN+IP+TCP/UDP
   net: flow_dissector: extend VLAN fast-path to QinQ (depth-2)
@@ -230,14 +280,16 @@ Dave Seddon (10):
   net: flow_dissector: add fast-path for single MPLS label
   net: flow_dissector: add fast-path for IP-in-IP family
   net: flow_dissector: add byte-identical fast-path for plain GRE
+  net: flow_dissector: per-shape counters + /proc/net/flow_dissector_stats
   RFC EXPERIMENT: net: flow_dissector: descend into VXLAN inner flow
   RFC EXPERIMENT: net: flow_dissector: descend into Geneve inner flow
   RFC EXPERIMENT: net: flow_dissector: descend into GTP-U inner flow
+  RFC: net: flow_dissector: adaptive auto-enable (packet-window controller)
 
  Documentation/admin-guide/sysctl/net.rst |  214 ++++-
- include/net/flow_dissector.h             |   17 +
- net/core/flow_dissector.c                | 1008 ++++++++++++++++++++++
- 3 files changed, 1238 insertions(+), 1 deletion(-)
+ include/net/flow_dissector.h             |   36 +
+ net/core/flow_dissector.c                | 1439 +++++++++++++++++++++++++++++
+ 3 files changed, 1688 insertions(+), 1 deletion(-)
 
 --
 2.54.0

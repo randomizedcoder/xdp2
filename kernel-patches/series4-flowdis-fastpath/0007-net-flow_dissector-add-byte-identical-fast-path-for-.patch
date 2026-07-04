@@ -1,7 +1,7 @@
 From 4b91d91d97446c0f252d920d3aff4cb5a7446eab Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
-Subject: [PATCH 07/11] net: flow_dissector: add byte-identical fast-path for
+Subject: [PATCH 07/12] net: flow_dissector: add byte-identical fast-path for
  plain GRE inner
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

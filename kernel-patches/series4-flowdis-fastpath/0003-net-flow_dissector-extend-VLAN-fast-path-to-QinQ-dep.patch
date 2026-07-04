@@ -1,7 +1,7 @@
 From f732792dd9bc6577d802cf12d732e54826b551ad Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:38:13 -0700
-Subject: [PATCH 03/11] net: flow_dissector: extend VLAN fast-path to QinQ
+Subject: [PATCH 03/12] net: flow_dissector: extend VLAN fast-path to QinQ
  (depth-2)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
