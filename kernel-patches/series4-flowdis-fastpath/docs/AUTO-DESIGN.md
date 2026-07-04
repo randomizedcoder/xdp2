@@ -88,15 +88,22 @@ per-uarch threshold basis.
 
 ## Two policy homes (RFC presents both; list decides)
 
-- **Home A — userspace reference agent.** Kernel stays mechanism-only (counters +
-  the manual sysctls). A small agent samples `/proc/net/flow_dissector_stats`,
-  runs the identical policy core, writes the per-shape sysctls. Tunable without
-  kernel review; "mechanism not policy." (Reuse the control shape from
-  `xdp2-rs/crates/xdp2-fastpath-control`.)
-- **Home B — in-kernel `auto` knob.** The packet-window worker above lives in
-  `net/core/flow_dissector.c`. Ten knobs collapse to one (`auto`); no userspace
-  dependency. Cost: the adaptive loop lives in the kernel (the maintainer
-  tradeoff).
+- **Home A — userspace reference agent.** *(implemented)* Kernel stays
+  mechanism-only (counters + the manual sysctls). The agent samples
+  `/proc/net/flow_dissector_stats`, runs the identical policy core, writes the
+  per-shape sysctls. Tunable without kernel review; "mechanism not policy."
+  Shipped as `xdp2-rs/crates/xdp2-fastpath-control/src/flowdis_auto.rs` (pure
+  `Policy::decide` core + parser + sysctl writer, 8 unit tests) with a runnable
+  `examples/flowdis-auto-agent.rs` poll/decide/apply loop.
+- **Home B — in-kernel `auto` knob.** *(implemented, RFC patch)* The
+  packet-window worker above lives in `net/core/flow_dissector.c`
+  (`net.flow_dissector.auto` + `auto_window_packets`). Ten knobs collapse to one;
+  no userspace dependency. Cost: the adaptive loop lives in the kernel (the
+  maintainer tradeoff). Compile-verified (objtool-clean).
+
+Both homes use **byte-for-byte the same** policy constants (break-even table,
+`DWELL=3`, `+10pp`/`-5pp` margins, ≥1s flip cap, mpls/descent exclusions), so
+they make the same decision on the same input.
 
 The counters (patch 08/11) are the common, uncontroversial foundation for either.
 
