@@ -1,8 +1,8 @@
-From 921a20513f9da8513806e14740731e5023511caa Mon Sep 17 00:00:00 2001
+From 5d23eedbfbbbfd83a58af9161cb1afd3c8b5480e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
-Subject: [PATCH 12/12] RFC: net: flow_dissector: adaptive auto-enable
- (packet-window controller)
+Subject: [PATCH] RFC: net: flow_dissector: adaptive auto-enable (packet-window
+ controller)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -46,9 +46,73 @@ Compile-verified (objtool-clean) against net-next.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 ---
- net/core/flow_dissector.c | 239 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 239 insertions(+)
+ Documentation/admin-guide/sysctl/net.rst |  52 +++++
+ net/core/flow_dissector.c                | 239 +++++++++++++++++++++++
+ 2 files changed, 291 insertions(+)
 
+diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
+index f347dfe8b477..b5be949f0fac 100644
+--- a/Documentation/admin-guide/sysctl/net.rst
++++ b/Documentation/admin-guide/sysctl/net.rst
+@@ -672,6 +672,58 @@ GTP-U over IPv6 outer.
+ 
+ Default: 0
+ 
++auto
++~~~~
++
++RFC. Adaptive auto-enablement of the byte-identical fast-path gates
++(``eth_ip``, ``vlan``, ``qinq``, ``pppoe``, ``ipip``, ``gre``). When set
++to 1 the kernel manages those gates itself from the per-shape counters
++(see ``/proc/net/flow_dissector_stats`` below), so the operator sets one
++knob instead of one per shape. When 0 (default) the manual per-shape
++sysctls above apply.
++
++Decisions are driven by a packet-count window, not a timer (see
++``auto_window_packets``): every window the kernel compares each shape's
++windowed eligible fraction to its measured break-even and enables the
++gate when the shape is comfortably above it, disables when comfortably
++below, with hysteresis, a multi-window dwell, and a flip rate cap so a
++crafted rare-shape burst cannot force static-key patch storms. Sampling
++is on the packet path; the static-branch flips run in a workqueue.
++
++``mpls`` is not auto-managed (its fast-path saving barely exceeds the
++miss cost on in-order cores) and the ``*_inner`` descent gates are never
++auto-managed (they change hashing behaviour — enable them deliberately).
++The vlan/qinq coupling is respected.
++
++Default: 0
++
++auto_window_packets
++~~~~~~~~~~~~~~~~~~~~~
++
++The decision window for ``auto``, in packets: after roughly this many
++dissects the kernel re-evaluates and may flip a gate. This is the single
++knob for how fast auto adapts — larger is smoother/slower, smaller is
++faster/twitchier. Because it counts packets, adaptation is
++traffic-proportional: a busy link adapts in milliseconds, an idle link
++does not churn. Only consulted when ``auto`` is 1.
++
++Default: 1000000
++
++The ``/proc/net/flow_dissector_stats`` observability file
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++Read-only. Reports, per byte-identical shape, the number of packets the
++slow path handled (``occurrences``), the number the fast body handled
++(``fast_hits``), the resulting eligible fraction, and the current gate
++state, plus a total dissect count. Because the fast path returns before
++the slow-path classification, exactly one of the two counters is
++incremented per shaped packet depending on gate state, so
++``(occurrences + fast_hits) / dissects`` is a gate-invariant measure of
++how much traffic each shape's fast body would handle — the signal an
++operator (or ``auto``) uses to decide whether a gate is worth enabling.
++The counters are per-cpu and summed on read; the per-packet cost is one
++increment on the already-hot classification path.
++
+ 3. /proc/sys/net/unix - Parameters for Unix domain sockets
+ ----------------------------------------------------------
+ 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
 index 2f93bf9e69d1..18d8bd1ff035 100644
 --- a/net/core/flow_dissector.c

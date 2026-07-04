@@ -286,10 +286,10 @@ Dave Seddon (12):
   RFC EXPERIMENT: net: flow_dissector: descend into GTP-U inner flow
   RFC: net: flow_dissector: adaptive auto-enable (packet-window controller)
 
- Documentation/admin-guide/sysctl/net.rst |  214 ++++-
+ Documentation/admin-guide/sysctl/net.rst |  266 +++++-
  include/net/flow_dissector.h             |   36 +
  net/core/flow_dissector.c                | 1439 +++++++++++++++++++++++++++++
- 3 files changed, 1688 insertions(+), 1 deletion(-)
+ 3 files changed, 1740 insertions(+), 1 deletion(-)
 
 --
 2.54.0
