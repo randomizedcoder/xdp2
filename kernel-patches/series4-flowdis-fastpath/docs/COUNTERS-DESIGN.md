@@ -85,8 +85,24 @@ thresholds against the break-even table (`perf-results/2026-07-02-fastpath-break
 
 ## Status
 
-Infrastructure (enum, per-cpu struct, helpers, `dissects`) is staged in the
-net-next `series4-send` working branch. Remaining: the six `occurrences[]`
-increments + the `fast_hits[]` set (per the resolved placement above) and the
-seq_file, then compile + `git format-patch` into series4 as the landable
-"per-shape counters" patch (before the RFC tail).
+**Done.** The full patch — enum, per-cpu struct/helpers, `dissects`, all seven
+`occurrences[]` increments, the `fast_hits[]` set (per the resolved placement
+above), and the `/proc/net/flow_dissector_stats` seq_file — is implemented in
+`net/core/flow_dissector.c` + `include/net/flow_dissector.h` and **compile-
+verified against net-next** (`make net/core/flow_dissector.o`, objtool-clean;
+the objtool/libelf build blocker was fixed by pointing `PKG_CONFIG_PATH` at
+elfutils-0.194). It sits in the series as patch **08/11** (between the
+byte-identical fast-paths and the RFC descent tail); the `.patch` files are
+regenerated under `kernel-patches/series4-flowdis-fastpath/`.
+
+`fast_hits[]` semantics note: each shape is counted only on the fast path's
+*success* return (a fall-through to slow is counted there instead), so
+`occurrences + fast_hits` is a gate-invariant per-shape total. eth_ip is counted
+in the dispatcher gated on `!encap`, so ipip/gre descents count under their own
+shape; the one documented interaction is that manually enabling an RFC overlay
+descent (vxlan/geneve/gtpu) moves that outer packet out of the eth_ip count
+(descent sets ENCAP) — descent shapes are manual/separate and not auto-managed.
+
+Remaining (later tasks): userspace mirror counters for `test_parser` unit-testing
+(Part 1 tail), the adaptive controller RFC (Part 2), and cover-letter/docs
+integration (Part 3).
