@@ -1,5 +1,44 @@
 # series4-flowdis-fastpath — status
 
+## Byte-identical descent + promote-to-landable round (2026-07-06)
+
+The tunnel descents (vxlan/geneve/gtpu/fou/gue) are no longer RFC. The
+slow path now grows the **same** descent as the fast path
+(`__skb_flow_dissect_udp_encap()` mirrors `flow_dissect_fast_udp_inner()`),
+so fast == slow holds and the descents become byte-identical, opt-in
+features. They moved into the **main [PATCH net-next] series**, which is
+now **15 patches**: prelude, 7 shapes, counters, bound-recursion, then
+vxlan/geneve/gtpu/fou-gue (11-14), then the KUnit suite (15, extended to
+cover the descents). The RFC thread is now **1 patch** (the adaptive
+auto controller only) in `../series4-rfc-auto/`.
+
+Two real bugs surfaced and were fixed as part of this (both folded into
+the descent patches, both caught by the now-extended KUnit suite):
+- **ENCAP dead-store:** vxlan/geneve/gtpu fast descents stamped
+  FLOW_DIS_ENCAPSULATION *before* the inner leaf, which unconditionally
+  zeroes `key_control->flags` — so those three never actually set ENCAP
+  (and were miscounted as SHAPE_ETH_IP). Fixed by routing all five
+  descents through the shared `flow_dissect_fast_udp_inner()` tail, which
+  stamps ENCAP after the inner returns.
+- **Missing recursion cap:** none of the five UDP-tunnel fast descents
+  bounded num_hdrs (only ipip/gre did) — a stack-exhaustion DoS once a
+  gate is on, and a depth divergence from the now-descending slow path.
+  The shared tail carries the MAX_FLOW_DISSECT_HDRS cap; the slow path is
+  bounded by the loop's skb_flow_dissect_allowed().
+
+KUnit: **53/53** (5 new descent-equivalence cases: pin the descent gate
+on, toggle the entry gates so one pass descends via fast and the other
+via slow, memcmp; corpus includes inner UDP, fou/gue IPv6-outer/IPv4-
+inner residue, inner ICMP / out-of-subset deferral, and a 16-level VXLAN
+nest at the cap). Both negative controls proven (wrong slow offset ->
+vxlan case fails; cap disabled -> nest case fails). Per-commit compile +
+checkpatch --strict 0 errors on the 4 descent patches. The slow descent
+honours STOP_BEFORE/AT_ENCAP (RPS/RFS/tc callers keep the outer tuple).
+
+Branches: net-next `series4-final-v2` (15, base b73bc9ca), branch
+`series4-rfc-tail-v2` (+ auto). Work branch `series4-descent-wip` holds
+the verified monolithic tree.
+
 ## FOU/GUE inner descent round (2026-07-05, later)
 
 Added an RFC descent for Tom Herbert's UDP encapsulations (he is a likely
