@@ -1,4 +1,4 @@
-From 97ebdde245b86beb8a1a28502b676818732d0745 Mon Sep 17 00:00:00 2001
+From 2bc325a73648510373f4a854dc3430c56be34457 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 4/4] net: flow_dissector: adaptive auto-enable
@@ -126,7 +126,7 @@ index f347dfe8b477..b5be949f0fac 100644
  ----------------------------------------------------------
  
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index d8180eb7695e..91174ca6501c 100644
+index a565a84c738f..4cc52970270d 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -42,6 +42,7 @@
@@ -173,7 +173,7 @@ index d8180eb7695e..91174ca6501c 100644
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -2208,6 +2238,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2225,6 +2255,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
@@ -182,7 +182,7 @@ index d8180eb7695e..91174ca6501c 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -3217,6 +3249,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3247,6 +3279,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -196,7 +196,7 @@ index d8180eb7695e..91174ca6501c 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3288,6 +3327,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3318,6 +3357,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -226,7 +226,7 @@ index d8180eb7695e..91174ca6501c 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3362,6 +3424,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3392,6 +3454,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

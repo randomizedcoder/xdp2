@@ -1,4 +1,4 @@
-From ef843f23ddd45a0bc4c297baa46b9286ab76fca5 Mon Sep 17 00:00:00 2001
+From bda2a3895e7424b51dc0c5399ba440ae912cc9cd Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
 Subject: [RFC net-next v1 1/4] net: flow_dissector: descend into VXLAN inner
@@ -107,7 +107,7 @@ index c55c0f83e74e..988d3fa3a7ce 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 723e631639ec..36b8d9741812 100644
+index 7ac64cefcd97..12a19c61f715 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -127,7 +127,7 @@ index 723e631639ec..36b8d9741812 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1231,6 +1234,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1232,6 +1235,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -171,11 +171,11 @@ index 723e631639ec..36b8d9741812 100644
 +			case htons(ETH_P_IP):
 +				return flow_dissect_fast_ipv4(skb, flow_dissector,
 +							      target_container, data,
-+							      inner_nhoff, hlen);
++							      inner_nhoff, hlen, num_hdrs);
 +			case htons(ETH_P_IPV6):
 +				return flow_dissect_fast_ipv6(skb, flow_dissector,
 +							      target_container, data,
-+							      inner_nhoff, hlen);
++							      inner_nhoff, hlen, num_hdrs);
 +			}
 +			/* Inner ethertype not fast-pathable; defer and
 +			 * keep the outer keys.
@@ -186,7 +186,7 @@ index 723e631639ec..36b8d9741812 100644
  	return true;
  }
  
-@@ -3073,6 +3128,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3103,6 +3158,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

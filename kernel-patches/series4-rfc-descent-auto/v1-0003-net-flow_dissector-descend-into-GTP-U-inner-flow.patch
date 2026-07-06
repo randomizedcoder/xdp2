@@ -1,4 +1,4 @@
-From 0e26e1b51bbb8fff76f79961061b86d2a3b40de9 Mon Sep 17 00:00:00 2001
+From ea543f136fd6885855c22607995c75113193bfe6 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:16:00 -0700
 Subject: [RFC net-next v1 3/4] net: flow_dissector: descend into GTP-U inner
@@ -106,7 +106,7 @@ index 1464b518679b..583c7bc45ebc 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 71920ffcea03..d8180eb7695e 100644
+index 080f009f413a..a565a84c738f 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,7 @@
@@ -126,7 +126,7 @@ index 71920ffcea03..d8180eb7695e 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1351,6 +1354,77 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1352,6 +1355,77 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -190,11 +190,11 @@ index 71920ffcea03..d8180eb7695e 100644
 +				case 4:
 +					return flow_dissect_fast_ipv4(skb, flow_dissector,
 +								      target_container, data,
-+								      inner_nhoff, hlen);
++								      inner_nhoff, hlen, num_hdrs);
 +				case 6:
 +					return flow_dissect_fast_ipv6(skb, flow_dissector,
 +								      target_container, data,
-+								      inner_nhoff, hlen);
++								      inner_nhoff, hlen, num_hdrs);
 +				}
 +				/* Unknown inner IP version; defer. */
 +			}
@@ -204,7 +204,7 @@ index 71920ffcea03..d8180eb7695e 100644
  	return true;
  }
  
-@@ -3207,6 +3281,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3237,6 +3311,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

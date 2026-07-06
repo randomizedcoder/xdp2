@@ -1,7 +1,7 @@
-From 406ee26df6e8b49bd5c916ad6e9b00222ea46f34 Mon Sep 17 00:00:00 2001
+From 82a005c96198f9f4f0b70e6a1b7861760d5f5968 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
-Subject: [PATCH net-next v1 08/10] net: flow_dissector: add byte-identical
+Subject: [PATCH net-next v1 08/11] net: flow_dissector: add byte-identical
  fast-path for plain GRE inner
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -118,7 +118,7 @@ index f4f203efbc1f..b1334cdb668e 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 67bb13ff7bc5..7d39191546d2 100644
+index 503f0066f500..32151dc5a6a3 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -55,6 +55,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_mpls_key);
@@ -154,7 +154,7 @@ index 67bb13ff7bc5..7d39191546d2 100644
  		return false;
  	}
  
-@@ -1231,8 +1243,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1232,8 +1244,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		bool ipip = static_branch_unlikely(&flow_dissector_ipip_key) &&
  			    (iph->nexthdr == IPPROTO_IPIP ||
  			     iph->nexthdr == IPPROTO_IPV6);
@@ -166,7 +166,7 @@ index 67bb13ff7bc5..7d39191546d2 100644
  			return false;
  
  		/* Mirror the slow path's outer-IPv6 writes before the
-@@ -1269,11 +1283,15 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1270,11 +1284,15 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  			key_tags->flow_label = ntohl(ip6_flowlabel(iph));
  		}
  
@@ -187,7 +187,7 @@ index 67bb13ff7bc5..7d39191546d2 100644
  				nhoff + (int)sizeof(*iph), hlen);
  	}
  
-@@ -1623,6 +1641,93 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1625,6 +1643,93 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  	return true;
  }
  
@@ -281,7 +281,7 @@ index 67bb13ff7bc5..7d39191546d2 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -2846,6 +2951,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2848,6 +2953,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

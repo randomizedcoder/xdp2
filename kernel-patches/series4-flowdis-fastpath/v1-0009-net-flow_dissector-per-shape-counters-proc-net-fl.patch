@@ -1,7 +1,7 @@
-From 48f99230f87b96af2015547a2130bac4a1d6c9b2 Mon Sep 17 00:00:00 2001
+From 707e91542a192968c1ecb755511950d999b4325e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 2 Jul 2026 17:44:43 -0700
-Subject: [PATCH net-next v1 09/10] net: flow_dissector: per-shape counters +
+Subject: [PATCH net-next v1 09/11] net: flow_dissector: per-shape counters +
  /proc/net/flow_dissector_stats
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -84,7 +84,7 @@ index b1334cdb668e..c55c0f83e74e 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 7d39191546d2..723e631639ec 100644
+index 32151dc5a6a3..5b8096f2fbce 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -36,6 +36,9 @@
@@ -128,7 +128,7 @@ index 7d39191546d2..723e631639ec 100644
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -1375,6 +1402,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1377,6 +1404,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	__be16 saved_tpid;
  	u16 tci_id;
  	u16 tci_prio;
@@ -136,7 +136,7 @@ index 7d39191546d2..723e631639ec 100644
  
  	if (vlan_depth >= 1 &&
  	    !static_branch_likely(&flow_dissector_qinq_key))
-@@ -1424,22 +1452,37 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1426,22 +1454,37 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  
  	switch (inner_proto) {
  	case htons(ETH_P_IP):
@@ -184,7 +184,7 @@ index 7d39191546d2..723e631639ec 100644
  }
  
  /* Strip a PPPoE session header (RFC 2516) + the 2-byte PPP protocol
-@@ -1468,6 +1511,7 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1470,6 +1513,7 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	} *hdr;
  	__be16 inner_eth_proto;
  	u16 ppp_proto;
@@ -192,7 +192,7 @@ index 7d39191546d2..723e631639ec 100644
  
  	if (unlikely(hlen - nhoff < (int)sizeof(*hdr)))
  		return false;
-@@ -1503,12 +1547,17 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1505,12 +1549,17 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	nhoff += PPPOE_SES_HLEN;
  
  	if (inner_eth_proto == htons(ETH_P_IP))
@@ -216,7 +216,7 @@ index 7d39191546d2..723e631639ec 100644
  }
  
  /* Single MPLS label (BoS=1) fast-path. Byte-identical with the slow
-@@ -1590,6 +1639,7 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+@@ -1592,6 +1641,7 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
  		key_basic->ip_proto = 0;
  	}
  
@@ -224,7 +224,7 @@ index 7d39191546d2..723e631639ec 100644
  	return true;
  }
  
-@@ -1638,6 +1688,7 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1640,6 +1690,7 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -232,7 +232,7 @@ index 7d39191546d2..723e631639ec 100644
  	return true;
  }
  
-@@ -1725,9 +1776,28 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1727,9 +1778,28 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -261,7 +261,7 @@ index 7d39191546d2..723e631639ec 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1758,15 +1828,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1760,15 +1830,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	case htons(ETH_P_IP):
  		if (!static_branch_likely(&flow_dissector_eth_ip_key))
  			return false;
@@ -294,7 +294,7 @@ index 7d39191546d2..723e631639ec 100644
  	case htons(ETH_P_PPP_SES):
  		if (!static_branch_likely(&flow_dissector_pppoe_key))
  			return false;
-@@ -1820,6 +1901,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1822,6 +1903,8 @@ bool __skb_flow_dissect(const struct net *net,
  	bool mpls_el = false;
  	int mpls_lse = 0;
  	int num_hdrs = 0;
@@ -303,7 +303,7 @@ index 7d39191546d2..723e631639ec 100644
  	u8 ip_proto = 0;
  	bool ret;
  
-@@ -1930,6 +2013,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1932,6 +2015,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * see flow_dissect_fast() and Documentation/admin-guide/sysctl/
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
@@ -312,7 +312,7 @@ index 7d39191546d2..723e631639ec 100644
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
  		return true;
-@@ -1963,6 +2048,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1965,6 +2050,8 @@ bool __skb_flow_dissect(const struct net *net,
  		key_num_of_vlans->num_of_vlans = 0;
  	}
  
@@ -321,7 +321,7 @@ index 7d39191546d2..723e631639ec 100644
  proto_again:
  	fdret = FLOW_DISSECT_RET_CONTINUE;
  
-@@ -1977,6 +2064,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1979,6 +2066,12 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -334,7 +334,7 @@ index 7d39191546d2..723e631639ec 100644
  		nhoff += iph->ihl * 4;
  
  		ip_proto = iph->protocol;
-@@ -2025,6 +2118,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2027,6 +2120,9 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -344,7 +344,7 @@ index 7d39191546d2..723e631639ec 100644
  		ip_proto = iph->nexthdr;
  		nhoff += sizeof(struct ipv6hdr);
  
-@@ -2098,8 +2194,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2100,8 +2196,12 @@ bool __skb_flow_dissect(const struct net *net,
  
  		if (dissector_vlan == FLOW_DISSECTOR_KEY_MAX) {
  			dissector_vlan = FLOW_DISSECTOR_KEY_VLAN;
@@ -357,7 +357,7 @@ index 7d39191546d2..723e631639ec 100644
  		} else {
  			fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
  			break;
-@@ -2145,6 +2245,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2147,6 +2247,8 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -366,7 +366,7 @@ index 7d39191546d2..723e631639ec 100644
  		/* PFC (compressed 1-byte protocol) frames are not processed.
  		 * A compressed protocol field has the least significant bit of
  		 * the most significant octet set, which will fail the following
-@@ -2209,6 +2311,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2211,6 +2313,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	case htons(ETH_P_MPLS_UC):
  	case htons(ETH_P_MPLS_MC):
@@ -374,7 +374,7 @@ index 7d39191546d2..723e631639ec 100644
  		fdret = __skb_flow_dissect_mpls(skb, flow_dissector,
  						target_container, data,
  						nhoff, hlen, mpls_lse,
-@@ -2302,6 +2405,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2304,6 +2407,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	switch (ip_proto) {
  	case IPPROTO_GRE:
@@ -382,7 +382,7 @@ index 7d39191546d2..723e631639ec 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2364,6 +2468,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2366,6 +2470,7 @@ bool __skb_flow_dissect(const struct net *net,
  		break;
  	}
  	case IPPROTO_IPIP:
@@ -390,7 +390,7 @@ index 7d39191546d2..723e631639ec 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2459,6 +2564,16 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2461,6 +2566,16 @@ bool __skb_flow_dissect(const struct net *net,
  	key_basic->n_proto = proto;
  	key_basic->ip_proto = ip_proto;
  
@@ -407,7 +407,7 @@ index 7d39191546d2..723e631639ec 100644
  	return ret;
  
  out_bad:
-@@ -2960,11 +3075,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2962,11 +3077,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  	},
  };
  

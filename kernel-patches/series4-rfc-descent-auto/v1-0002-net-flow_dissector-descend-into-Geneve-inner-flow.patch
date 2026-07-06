@@ -1,4 +1,4 @@
-From a9ca0a01a75eb576882b8a65e9df504771544ace Mon Sep 17 00:00:00 2001
+From c2fbca35cee44cc5756ccde05bd09ab7ac3988c5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
 Subject: [RFC net-next v1 2/4] net: flow_dissector: descend into Geneve inner
@@ -103,7 +103,7 @@ index 988d3fa3a7ce..1464b518679b 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 36b8d9741812..71920ffcea03 100644
+index 12a19c61f715..080f009f413a 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -123,7 +123,7 @@ index 36b8d9741812..71920ffcea03 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1286,6 +1289,68 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1287,6 +1290,68 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -176,11 +176,11 @@ index 36b8d9741812..71920ffcea03 100644
 +				case htons(ETH_P_IP):
 +					return flow_dissect_fast_ipv4(skb, flow_dissector,
 +								      target_container, data,
-+								      inner_nhoff, hlen);
++								      inner_nhoff, hlen, num_hdrs);
 +				case htons(ETH_P_IPV6):
 +					return flow_dissect_fast_ipv6(skb, flow_dissector,
 +								      target_container, data,
-+								      inner_nhoff, hlen);
++								      inner_nhoff, hlen, num_hdrs);
 +				}
 +				/* Inner ethertype not fast-pathable; fall
 +				 * through and keep the outer keys.
@@ -192,7 +192,7 @@ index 36b8d9741812..71920ffcea03 100644
  	return true;
  }
  
-@@ -3135,6 +3200,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3165,6 +3230,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

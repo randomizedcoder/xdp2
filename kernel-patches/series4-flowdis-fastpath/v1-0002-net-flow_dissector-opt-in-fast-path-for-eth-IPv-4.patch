@@ -1,7 +1,7 @@
-From 725463ec80062719e43fd4771f6e1ede6eedb49b Mon Sep 17 00:00:00 2001
+From a8326e048ff218a5efb6bc72d6e72a6a07aba6aa Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
-Subject: [PATCH net-next v1 02/10] net: flow_dissector: opt-in fast-path for
+Subject: [PATCH net-next v1 02/11] net: flow_dissector: opt-in fast-path for
  eth + IPv{4,6} + {TCP,UDP}
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -77,8 +77,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  27 ++-
  include/net/flow_dissector.h             |   8 +
- net/core/flow_dissector.c                | 271 +++++++++++++++++++++++
- 3 files changed, 305 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 273 +++++++++++++++++++++++
+ 3 files changed, 307 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index e586e17fc7a5..d184e279103a 100644
@@ -138,7 +138,7 @@ index ced79dc8e856..d5a19fd69853 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b8c59209b460..fe39d33365e6 100644
+index b8c59209b460..7c46dacdcc96 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -37,6 +37,41 @@
@@ -183,7 +183,7 @@ index b8c59209b460..fe39d33365e6 100644
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1043,6 +1078,209 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
+@@ -1043,6 +1078,211 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
  	return hdr->ver == 1 && hdr->type == 1 && hdr->code == 0;
  }
  
@@ -234,7 +234,8 @@ index b8c59209b460..fe39d33365e6 100644
 +							FLOW_DISSECTOR_KEY_CONTROL,
 +							target_container);
 +		key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-+		key_control->thoff = (u16)thoff;
++		key_control->thoff = min_t(u16, thoff,
++					   skb ? skb->len : hlen);
 +		key_control->flags = 0;
 +	}
 +	if (dissector_uses_key(flow_dissector,
@@ -318,7 +319,8 @@ index b8c59209b460..fe39d33365e6 100644
 +							FLOW_DISSECTOR_KEY_CONTROL,
 +							target_container);
 +		key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
-+		key_control->thoff = (u16)thoff;
++		key_control->thoff = min_t(u16, thoff,
++					   skb ? skb->len : hlen);
 +		key_control->flags = 0;
 +	}
 +	if (dissector_uses_key(flow_dissector,
@@ -393,7 +395,7 @@ index b8c59209b460..fe39d33365e6 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -1183,6 +1421,15 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1183,6 +1423,15 @@ bool __skb_flow_dissect(const struct net *net,
  		rcu_read_unlock();
  	}
  
@@ -409,7 +411,7 @@ index b8c59209b460..fe39d33365e6 100644
  	if (dissector_uses_key(flow_dissector,
  			       FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
  		struct flow_dissector_key_eth_addrs *key_eth_addrs;
-@@ -2116,3 +2363,27 @@ static int __init init_default_flow_dissectors(void)
+@@ -2116,3 +2365,27 @@ static int __init init_default_flow_dissectors(void)
  	return 0;
  }
  core_initcall(init_default_flow_dissectors);

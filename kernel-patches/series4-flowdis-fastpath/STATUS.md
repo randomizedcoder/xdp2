@@ -1,5 +1,40 @@
 # series4-flowdis-fastpath — status
 
+## Test-hardening + security round (2026-07-05, later)
+
+An adversarial/coverage audit of the KUnit suite and the fast-path helpers
+found one real security bug and expanded the tests substantially:
+
+- **Security (fixed, new patch 10 "bound fast-path tunnel recursion").** The
+  fast tunnel helpers (flow_dissect_fast_{ipv4,ipv6,ipip_inner,gre_inner})
+  recursed on nested IPIP/GRE with **no MAX_FLOW_DISSECT_HDRS cap** — a crafted
+  deeply nested tunnel frame drove one C stack frame per ~20 bytes of linear
+  header (hlen = skb_headlen), a kernel-stack-exhaustion DoS once the ipip/gre
+  gate is on, plus a >15-header output divergence from the slow path. Fixed by
+  threading a num_hdrs counter and deferring to the slow path past the cap
+  (byte-identical: <=cap both descend, >cap fast defers to the slow result).
+  Series is now **11 patches** (bound is 10, KUnit tests 11).
+- **Test expansion (patch 11).** 32 -> 46 tests: every case now runs against
+  BOTH eligible dissectors (added a test-only accessor for the file-static
+  flow_keys_dissector_symmetric — different used_keys, exercises the
+  no-VLAN/no-flow-label branches); a deep-nest IPIP/GRE regression across the
+  cap boundary (guards the fix — fails at 16 levels without it); a non-linear
+  /frag skb fallback case; corner protocols (GRE SEQ/KEY/version/TEB, IPv6
+  ext-header chains, VLAN 8021Q->8021AD, larger IPv4 options, PPPoE PFC); more
+  skb-mode shapes; an ineligible-dissector-defers negative; and a seeded
+  deterministic fuzzer (4000 iters x 2 dissectors, fixed seed).
+- **Byte-identity nit (folded into patch 2).** _ipv4/_ipv6 now clamp thoff with
+  min_t like the slow path and the MPLS helper (was a plain (u16) truncation).
+- **Negative controls run:** removing the cap makes the deep-nest test fail at
+  16 levels; injecting a ports bug makes the fuzzer fail. Both restored.
+- **Design note:** the MPLS/PPPoE/CVLAN/num_of_vlans key-write branches are
+  unreachable by design (neither eligible dissector requests those keys) —
+  defensive dead code, not test-coverable.
+- Branches: series4-final (11, base b73bc9ca3686), series4-rfc-tail (4, onto it;
+  descents thread num_hdrs too). KUnit 46/46; per-commit compile clean;
+  checkpatch --strict 0 errors.
+
+
 Unified, definitive submission of the flow_dissector opt-in fast-path work.
 Supersedes the earlier iterations (v1 umbrella-knob; v2 inline; v3 namespace
 eth_ip/vlan/qinq; v4 pppoe/mpls/ipip/gre + descent RFCs). Nothing from those was

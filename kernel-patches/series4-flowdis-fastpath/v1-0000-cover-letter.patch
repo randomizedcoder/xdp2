@@ -1,7 +1,7 @@
 From 4a905e8cf01ff6b61a2ca80b29f0b95d7125e64a Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 17:42:08 -0700
-Subject: [PATCH net-next v1 00/10] net: flow_dissector: opt-in byte-identical fast paths for common shapes
+Subject: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -145,7 +145,7 @@ Safety and the byte-identical contract
 --------------------------------------
 Patches 2-8 are byte-identical: the fast path either writes the same
 flow_keys as the slow path, or it returns false and the slow path runs.
-These are the only two outcomes, by construction, and patch 10 enforces
+These are the only two outcomes, by construction, and patch 11 enforces
 them in-tree.
 
 Patch 9 (per-shape counters) does not change dissection at all — it adds
@@ -168,18 +168,38 @@ p_be = C / (S + C) — a derived, measured number per shape per uarch (2-12%
 for the mainstream byte-identical shapes on out-of-order cores, 8-19% on
 in-order; MPLS is the high-bar exception).
 
+Robustness and safety limits
+----------------------------
+The fast path descends into IP-in-IP and GRE tunnels by recursion. The
+slow path bounds header descents at MAX_FLOW_DISSECT_HDRS; patch 10
+gives the fast path the same bound (skb_flow_dissect_allowed semantics):
+once the descended-header count exceeds the limit the helper returns
+false and the dissect falls back to the slow path, which caps at the
+same point. This bounds the recursion regardless of packet size (a
+crafted deeply nested tunnel chain can otherwise drive one C stack
+frame per ~20 bytes of linear header) and keeps the output identical to
+the slow path past the cap. The audit that found this also confirmed the
+header reads are safe for non-linear skbs (the fast path reads only the
+linear head and defers to the slow path's __skb_header_pointer
+otherwise), that the bounds checks are signed-correct, and that an
+attached BPF program is consulted first. The KUnit suite covers the
+tunnel-bound boundary, the non-linear-skb fallback, and adds a seeded
+fuzzer as a general guard.
+
 Testing
 -------
 This series has been tested across three ISAs and eight microarchitectures
 (x86 Zen1/Zen2/Skylake/Haswell, ARM Cortex-A53/A72/A76, RISC-V X60), with
 N=3 replicates on the in-kernel runs and byte-identical verification per
-shape both in-tree (patch 10; run with
+shape both in-tree (patch 11; run with
 ./tools/testing/kunit/kunit.py run --arch=x86_64 --kconfig_add CONFIG_NET=y
 --kconfig_add CONFIG_FLOW_DISSECTOR_KUNIT_TEST=y flow_dissector_fastpath)
 and out of tree. Methods:
 
-  - the KUnit fast/slow equivalence suite (32 tests: shapes, misses,
-    truncation sweep, skb-mode);
+  - the KUnit fast/slow equivalence suite (46 tests: shapes, misses,
+    a truncation sweep, both eligible dissectors, a deep-nest
+    tunnel-recursion bound check, a non-linear/frag skb, corner
+    protocols, and a seeded fuzzer);
   - userspace A/B dissector microbench (isolated ns/pkt), per shape;
   - kernel-pktgen cycles/pkt via ksoftirqd perf-stat (the clean CPU signal);
   - iperf3 wire-saturated macro (receiver softirq % under RSS/RPS/RFS and
@@ -211,7 +231,7 @@ Supporting data (microbench harness and full per-shape/per-arch matrix,
 perf-counter breakdowns, byte-identical checks, WireGuard trace):
 https://github.com/randomizedcoder/xdp2 , under perf-results/ .
 
-Dave Seddon (10):
+Dave Seddon (11):
   net: flow_dissector: gate BPF program lookup behind a static key
   net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
   net: flow_dissector: add fast-path for single Eth+VLAN+IP+TCP/UDP
@@ -224,6 +244,7 @@ Dave Seddon (10):
   net: flow_dissector: add byte-identical fast-path for plain GRE inner
   net: flow_dissector: per-shape counters +
     /proc/net/flow_dissector_stats
+  net: flow_dissector: bound fast-path tunnel recursion
   net: flow_dissector: add KUnit fast/slow path equivalence tests
 
  Documentation/admin-guide/sysctl/net.rst |  139 ++-
@@ -232,13 +253,12 @@ Dave Seddon (10):
  kernel/bpf/net_namespace.c               |   17 +-
  net/Kconfig                              |   12 +
  net/core/Makefile                        |    1 +
- net/core/flow_dissector.c                | 1147 +++++++++++++++++++++-
- net/core/flow_dissector_test.c           |  617 ++++++++++++
- 8 files changed, 1920 insertions(+), 47 deletions(-)
+ net/core/flow_dissector.c                | 1177 +++++++++++++++++++++-
+ net/core/flow_dissector_test.c           |  951 +++++++++++++++++
+ 8 files changed, 2284 insertions(+), 47 deletions(-)
  create mode 100644 net/core/flow_dissector_test.c
 
 
 base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
---
+-- 
 2.54.0
-

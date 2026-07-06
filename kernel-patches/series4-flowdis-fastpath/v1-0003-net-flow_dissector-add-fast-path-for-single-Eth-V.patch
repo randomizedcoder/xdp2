@@ -1,7 +1,7 @@
-From 4f2c33043611fae0165d717057428ca2358ba2f3 Mon Sep 17 00:00:00 2001
+From 9e75992ab526f7c2078b70a68c6623849a4bff80 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:35:58 -0700
-Subject: [PATCH net-next v1 03/10] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 03/11] net: flow_dissector: add fast-path for
  single Eth+VLAN+IP+TCP/UDP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -96,7 +96,7 @@ index d5a19fd69853..22e7ab0153de 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index fe39d33365e6..35eff2267359 100644
+index 7c46dacdcc96..36d3d8b714f5 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -45,6 +45,8 @@
@@ -108,7 +108,7 @@ index fe39d33365e6..35eff2267359 100644
  
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
-@@ -1244,6 +1246,75 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1246,6 +1248,75 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  	return true;
  }
  
@@ -184,7 +184,7 @@ index fe39d33365e6..35eff2267359 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1264,6 +1335,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1266,6 +1337,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return false;
  
  	switch (proto) {
@@ -198,7 +198,7 @@ index fe39d33365e6..35eff2267359 100644
  	case htons(ETH_P_IP):
  		if (!static_branch_likely(&flow_dissector_eth_ip_key))
  			return false;
-@@ -2369,6 +2447,16 @@ core_initcall(init_default_flow_dissectors);
+@@ -2371,6 +2449,16 @@ core_initcall(init_default_flow_dissectors);
   * /proc/sys/net/flow_dissector/. See Documentation/admin-guide/sysctl/
   * net.rst for the operator-facing description.
   */
@@ -215,7 +215,7 @@ index fe39d33365e6..35eff2267359 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -2377,6 +2465,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2379,6 +2467,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

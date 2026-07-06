@@ -1,7 +1,7 @@
-From 385f3c44bb8427b87e06b11fac539b096e40a137 Mon Sep 17 00:00:00 2001
+From c73747fdf3a550c18d0333a147c309290a4dd78e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
-Subject: [PATCH net-next v1 07/10] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 07/11] net: flow_dissector: add fast-path for
  IP-in-IP family (IPIP / 4in6 / 6in4)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -109,7 +109,7 @@ index 775fd9c119f9..f4f203efbc1f 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index dcf2e123e91a..67bb13ff7bc5 100644
+index cad06685df30..503f0066f500 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -53,6 +53,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_pppoe_key);
@@ -163,7 +163,7 @@ index dcf2e123e91a..67bb13ff7bc5 100644
  
  	thoff = nhoff + (int)sizeof(*iph);
  
-@@ -1196,8 +1223,59 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1197,8 +1224,59 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		return false;
  
  	if (unlikely(iph->nexthdr != IPPROTO_TCP &&
@@ -225,7 +225,7 @@ index dcf2e123e91a..67bb13ff7bc5 100644
  
  	/* Slow path writes key_tags->flow_label when the dissector
  	 * requests it and the label is non-zero; defer to stay byte-
-@@ -1497,6 +1575,54 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+@@ -1499,6 +1577,54 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
  	return true;
  }
  
@@ -280,7 +280,7 @@ index dcf2e123e91a..67bb13ff7bc5 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -2713,6 +2839,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2715,6 +2841,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

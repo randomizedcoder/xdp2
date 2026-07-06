@@ -61,6 +61,10 @@ fast-path output differ from slow-path output — a deliberate behaviour
 change, never auto-enabled, excluded from the byte-identical KUnit
 contract in the base series.
 
+Like the base series' tunnel fast paths, the descents thread the
+MAX_FLOW_DISSECT_HDRS budget (num_hdrs), so a crafted overlay-in-overlay
+chain defers to the slow path rather than recursing without bound.
+
 Open questions for the list:
 
   - Should the slow path grow the same descent, so the contract stays
@@ -111,7 +115,6 @@ Dave Seddon (4):
  3 files changed, 584 insertions(+)
 
 
-base-commit: 4a905e8cf01ff6b61a2ca80b29f0b95d7125e64a
---
+base-commit: 6d93455b7e581b20ecfb26768731edaa90096965
+-- 
 2.54.0
-

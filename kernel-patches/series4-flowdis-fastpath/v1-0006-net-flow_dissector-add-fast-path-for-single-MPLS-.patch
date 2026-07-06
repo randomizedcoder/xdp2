@@ -1,7 +1,7 @@
-From 16660085f6ddb5d2834309a14e8c1d95e703f41e Mon Sep 17 00:00:00 2001
+From e59392e3e1078a3ed51a21aca665f546ef1dc7dd Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
-Subject: [PATCH net-next v1 06/10] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 06/11] net: flow_dissector: add fast-path for
  single MPLS label + IP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -101,7 +101,7 @@ index c792de78a2cb..775fd9c119f9 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5af1925c873a..dcf2e123e91a 100644
+index c116b47b8f58..cad06685df30 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -51,6 +51,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
@@ -113,7 +113,7 @@ index 5af1925c873a..dcf2e123e91a 100644
  
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
-@@ -1413,6 +1415,88 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1415,6 +1417,88 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  				      nhoff, hlen);
  }
  
@@ -202,7 +202,7 @@ index 5af1925c873a..dcf2e123e91a 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1458,6 +1542,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1460,6 +1544,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_pppoe(skb, flow_dissector,
  					       target_container, data,
  					       nhoff, hlen);
@@ -216,7 +216,7 @@ index 5af1925c873a..dcf2e123e91a 100644
  	default:
  		return false;
  	}
-@@ -2615,6 +2706,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2617,6 +2708,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
