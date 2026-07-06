@@ -129,6 +129,14 @@ static void *core_flowdis_init(const char *args)
 	init_default_flow_dissectors();
 	skb_flow_dissector_init(&p->fd, fdk, ARRAY_SIZE(fdk));
 
+	/* Per-shape counter validation (series4 counters mirror):
+	 *   FLOWDIS_STATS=1   dump the flow_dissector_stats-style table at end
+	 *   FLOWDIS_NOFAST=1  force slow path so occurrences[] == full composition
+	 */
+	flowdis_stats_reset();
+	if (getenv("FLOWDIS_NOFAST"))
+		flowdis_fastpath_set(0);
+
 	return p;
 }
 
@@ -269,6 +277,8 @@ static const char *core_flowdis_process(void *pv, void *data, size_t len,
 
 static void core_flowdis_done(void *pv)
 {
+	if (getenv("FLOWDIS_STATS"))
+		flowdis_stats_dump(stderr);
 	free(pv);
 }
 
