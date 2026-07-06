@@ -1,8 +1,8 @@
-From b3e2887b2f3d67e4d699a0e6adb3fa0eee6f006c Mon Sep 17 00:00:00 2001
+From 725463ec80062719e43fd4771f6e1ede6eedb49b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
-Subject: [PATCH 01/12] net: flow_dissector: opt-in fast-path for eth +
- IPv{4,6} + {TCP,UDP}
+Subject: [PATCH net-next v1 02/10] net: flow_dissector: opt-in fast-path for
+ eth + IPv{4,6} + {TCP,UDP}
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -14,11 +14,18 @@ eth + IPv4/IPv6 + TCP/UDP packet shapes. On any miss, falls back to the
 existing graph walk. Output is byte-identical to the slow path for the
 shapes handled.
 
-This is the parent of a four-patch series. Subsequent patches add per-
-shape extensions for single VLAN, QinQ, and VXLAN-inner descent. Each
-patch ships its own per-shape sysctl in the new
+This is the parent of the fast-path series. Subsequent patches add
+per-shape extensions for single VLAN, QinQ, PPPoE, MPLS, IP-in-IP and
+GRE. Each patch ships its own per-shape sysctl in the new
 ``/proc/sys/net/flow_dissector/`` subtree; this patch establishes the
 subtree and registers the first entry, ``eth_ip``.
+
+The fast path is invoked strictly after the netns BPF flow dissector
+hook: if a BPF program is attached and returns a verdict other than
+BPF_FLOW_DISSECTOR_CONTINUE, __skb_flow_dissect() returns before
+flow_dissect_fast() is reached. Attached BPF dissectors therefore
+always take precedence and observe no behaviour change from this
+series.
 
   - What this does. Adds an opt-in fast-path for eth + IPv4 (IHL=5,
     not fragmented) + TCP/UDP and eth + IPv6 (no extension headers) +
@@ -131,7 +138,7 @@ index ced79dc8e856..d5a19fd69853 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 8aa4f9b4df81..cc1ceb6e2e17 100644
+index b8c59209b460..fe39d33365e6 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -37,6 +37,41 @@
@@ -176,7 +183,7 @@ index 8aa4f9b4df81..cc1ceb6e2e17 100644
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1035,6 +1070,209 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
+@@ -1043,6 +1078,209 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
  	return hdr->ver == 1 && hdr->type == 1 && hdr->code == 0;
  }
  
@@ -386,9 +393,9 @@ index 8aa4f9b4df81..cc1ceb6e2e17 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -1171,6 +1409,15 @@ bool __skb_flow_dissect(const struct net *net,
- 
- 	rcu_read_unlock();
+@@ -1183,6 +1421,15 @@ bool __skb_flow_dissect(const struct net *net,
+ 		rcu_read_unlock();
+ 	}
  
 +	/* Opt-in fast-path. Dispatcher itself does the eligibility check
 +	 * (standard dissector + flag subset) and per-shape sysctl gating;
@@ -402,7 +409,7 @@ index 8aa4f9b4df81..cc1ceb6e2e17 100644
  	if (dissector_uses_key(flow_dissector,
  			       FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
  		struct flow_dissector_key_eth_addrs *key_eth_addrs;
-@@ -2104,3 +2351,27 @@ static int __init init_default_flow_dissectors(void)
+@@ -2116,3 +2363,27 @@ static int __init init_default_flow_dissectors(void)
  	return 0;
  }
  core_initcall(init_default_flow_dissectors);

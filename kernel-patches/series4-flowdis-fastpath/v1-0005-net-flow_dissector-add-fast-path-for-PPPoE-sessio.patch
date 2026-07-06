@@ -1,8 +1,8 @@
-From 71535b10e099cbb57640ef733b59e25e2a8de0e0 Mon Sep 17 00:00:00 2001
+From 54d169ce5f266d5bfa3a6ae606e2da89456da6e5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
-Subject: [PATCH 04/12] net: flow_dissector: add fast-path for PPPoE session +
- IPv{4,6} + TCP/UDP
+Subject: [PATCH net-next v1 05/10] net: flow_dissector: add fast-path for
+ PPPoE session + IPv{4,6} + TCP/UDP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -94,7 +94,7 @@ index 6b48103c36e5..c792de78a2cb 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2e23ea4ddd9c..7d2840dbd081 100644
+index e6203b4387cc..5af1925c873a 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -49,6 +49,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vlan_key);
@@ -106,7 +106,7 @@ index 2e23ea4ddd9c..7d2840dbd081 100644
  
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
-@@ -1334,6 +1336,75 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1342,6 +1344,75 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	}
  }
  
@@ -182,7 +182,7 @@ index 2e23ea4ddd9c..7d2840dbd081 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1373,6 +1444,12 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1381,6 +1452,12 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_ipv6(skb, flow_dissector,
  					      target_container, data,
  					      nhoff, hlen);
@@ -195,7 +195,7 @@ index 2e23ea4ddd9c..7d2840dbd081 100644
  	default:
  		return false;
  	}
-@@ -2519,6 +2596,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2531,6 +2608,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_qinq_key,
  	},

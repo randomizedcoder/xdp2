@@ -1,7 +1,7 @@
-From 7403271f75202d6585c2f5f2ae4d83890e182a79 Mon Sep 17 00:00:00 2001
+From 48f99230f87b96af2015547a2130bac4a1d6c9b2 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 2 Jul 2026 17:44:43 -0700
-Subject: [PATCH 08/12] net: flow_dissector: per-shape counters +
+Subject: [PATCH net-next v1 09/10] net: flow_dissector: per-shape counters +
  /proc/net/flow_dissector_stats
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -36,15 +36,22 @@ one line per shape with occurrences, fast_hits, computed eligible%, and
 the current gate state. Counters and the file are global (init_net),
 matching the global gates; per-netns is a noted follow-up.
 
+Dissects fully handled by an attached netns BPF flow dissector program
+are deliberately not counted: the dissects increment sits after the BPF
+hook's early return, so the file counts only dissects that reach the
+in-kernel dissector. That keeps fast_hits/dissects an undiluted
+hit-rate for the code these gates control — the signal an operator (or
+the RFC auto controller later in this series) acts on.
+
 Cost is one this_cpu_inc on the already-hot classification path, summed
 only on read — within the pktgen cyc/pkt noise floor, and an off gate
 stays a NOP.
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  include/net/flow_dissector.h |  19 +++
- net/core/flow_dissector.c    | 236 +++++++++++++++++++++++++++++++----
- 2 files changed, 233 insertions(+), 22 deletions(-)
+ net/core/flow_dissector.c    | 237 +++++++++++++++++++++++++++++++----
+ 2 files changed, 234 insertions(+), 22 deletions(-)
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index b1334cdb668e..c55c0f83e74e 100644
@@ -77,7 +84,7 @@ index b1334cdb668e..c55c0f83e74e 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 920bdc6b1e16..11ca303eaf27 100644
+index 7d39191546d2..723e631639ec 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -36,6 +36,9 @@
@@ -90,7 +97,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  
  /* Per-shape gates for the opt-in flow_dissector fast-path. Each is a
   * separate static_branch so operators enable only the shapes their
-@@ -58,6 +61,29 @@ EXPORT_SYMBOL(flow_dissector_ipip_key);
+@@ -58,6 +61,30 @@ EXPORT_SYMBOL(flow_dissector_ipip_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
  EXPORT_SYMBOL(flow_dissector_gre_key);
  
@@ -105,6 +112,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
 +	u64 fast_hits[FLOW_DISSECTOR_SHAPE__MAX];
 +	u64 dissects;
 +};
++
 +static DEFINE_PER_CPU(struct flow_dissector_stats, flow_dissector_pcpu_stats);
 +
 +static inline void flow_dissector_count_slow(enum flow_dissector_shape shape)
@@ -120,7 +128,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -1332,6 +1358,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1375,6 +1402,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	__be16 saved_tpid;
  	u16 tci_id;
  	u16 tci_prio;
@@ -128,7 +136,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  
  	if (vlan_depth >= 1 &&
  	    !static_branch_likely(&flow_dissector_qinq_key))
-@@ -1381,22 +1408,37 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1424,22 +1452,37 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  
  	switch (inner_proto) {
  	case htons(ETH_P_IP):
@@ -162,8 +170,8 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		return false;
  	}
 +
-+	/* Count only on full success — a false return falls through to the
-+	 * slow path, which counts the occurrence instead. This frame's tag
++	/* Count only on full success — a false return defers to the slow
++	 * path, which counts the occurrence instead. This frame's tag
 +	 * is the outer (vlan) at depth 0, the second tag (qinq) at depth >= 1;
 +	 * a double-tagged hit counts both, mirroring the slow-path ETH_P_8021Q
 +	 * case.
@@ -176,7 +184,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  }
  
  /* Strip a PPPoE session header (RFC 2516) + the 2-byte PPP protocol
-@@ -1425,6 +1467,7 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1468,6 +1511,7 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	} *hdr;
  	__be16 inner_eth_proto;
  	u16 ppp_proto;
@@ -184,7 +192,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  
  	if (unlikely(hlen - nhoff < (int)sizeof(*hdr)))
  		return false;
-@@ -1460,12 +1503,17 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1503,12 +1547,17 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	nhoff += PPPOE_SES_HLEN;
  
  	if (inner_eth_proto == htons(ETH_P_IP))
@@ -208,15 +216,15 @@ index 920bdc6b1e16..11ca303eaf27 100644
  }
  
  /* Single MPLS label (BoS=1) fast-path. Byte-identical with the slow
-@@ -1525,6 +1573,7 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
- 		dissector_set_mpls_lse(key_mpls, 0);
+@@ -1590,6 +1639,7 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+ 		key_basic->ip_proto = 0;
  	}
  
 +	flow_dissector_count_fast(FLOW_DISSECTOR_SHAPE_MPLS);
  	return true;
  }
  
-@@ -1573,6 +1622,7 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1638,6 +1688,7 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -224,7 +232,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  	return true;
  }
  
-@@ -1660,9 +1710,28 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1725,9 +1776,28 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -253,7 +261,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1693,15 +1762,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1758,15 +1828,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	case htons(ETH_P_IP):
  		if (!static_branch_likely(&flow_dissector_eth_ip_key))
  			return false;
@@ -286,7 +294,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  	case htons(ETH_P_PPP_SES):
  		if (!static_branch_likely(&flow_dissector_pppoe_key))
  			return false;
-@@ -1755,6 +1835,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1820,6 +1901,8 @@ bool __skb_flow_dissect(const struct net *net,
  	bool mpls_el = false;
  	int mpls_lse = 0;
  	int num_hdrs = 0;
@@ -295,7 +303,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  	u8 ip_proto = 0;
  	bool ret;
  
-@@ -1861,6 +1943,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1930,6 +2013,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * see flow_dissect_fast() and Documentation/admin-guide/sysctl/
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
@@ -304,7 +312,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
  		return true;
-@@ -1894,6 +1978,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1963,6 +2048,8 @@ bool __skb_flow_dissect(const struct net *net,
  		key_num_of_vlans->num_of_vlans = 0;
  	}
  
@@ -313,7 +321,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  proto_again:
  	fdret = FLOW_DISSECT_RET_CONTINUE;
  
-@@ -1908,6 +1994,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1977,6 +2064,12 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -326,7 +334,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		nhoff += iph->ihl * 4;
  
  		ip_proto = iph->protocol;
-@@ -1956,6 +2048,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2025,6 +2118,9 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -336,7 +344,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		ip_proto = iph->nexthdr;
  		nhoff += sizeof(struct ipv6hdr);
  
-@@ -2029,8 +2124,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2098,8 +2194,12 @@ bool __skb_flow_dissect(const struct net *net,
  
  		if (dissector_vlan == FLOW_DISSECTOR_KEY_MAX) {
  			dissector_vlan = FLOW_DISSECTOR_KEY_VLAN;
@@ -349,7 +357,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		} else {
  			fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
  			break;
-@@ -2076,6 +2175,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2145,6 +2245,8 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -358,7 +366,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		/* PFC (compressed 1-byte protocol) frames are not processed.
  		 * A compressed protocol field has the least significant bit of
  		 * the most significant octet set, which will fail the following
-@@ -2140,6 +2241,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2209,6 +2311,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	case htons(ETH_P_MPLS_UC):
  	case htons(ETH_P_MPLS_MC):
@@ -366,7 +374,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		fdret = __skb_flow_dissect_mpls(skb, flow_dissector,
  						target_container, data,
  						nhoff, hlen, mpls_lse,
-@@ -2233,6 +2335,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2302,6 +2405,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	switch (ip_proto) {
  	case IPPROTO_GRE:
@@ -374,7 +382,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2295,6 +2398,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2364,6 +2468,7 @@ bool __skb_flow_dissect(const struct net *net,
  		break;
  	}
  	case IPPROTO_IPIP:
@@ -382,7 +390,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2390,6 +2494,16 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2459,6 +2564,16 @@ bool __skb_flow_dissect(const struct net *net,
  	key_basic->n_proto = proto;
  	key_basic->ip_proto = ip_proto;
  
@@ -399,7 +407,7 @@ index 920bdc6b1e16..11ca303eaf27 100644
  	return ret;
  
  out_bad:
-@@ -2891,11 +3005,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2960,11 +3075,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  	},
  };
  

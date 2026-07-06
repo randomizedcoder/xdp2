@@ -101,3 +101,11 @@ was **validated byte-identical to the real ported descent** (`VALIDATION.md`).
   ±0.7pp; no regression on the diverse non-eligible mix.
 - v4 10h soak (`2026-06-18-v4-soak-10h/`): |Δmbps| ≤ 3.3% across 84 cells;
   throughput parity (per-packet CPU saving, not a throughput change).
+- **Counters overhead A/B** (`2026-07-05-series3-cpu-bound-soak/results.md`):
+  pktgen cyc/pkt gold standard, l→l2 mlx5 25 GbE, eth_ip, net-next 7.2-rc1.
+  Pristine baseline (no series4) 2129.0 ± 80.0 cyc/pkt (n=10); series4
+  gate-off (counters run, fast paths NOP'd) 2144.8 ± 57.9 (n=5). Counter
+  overhead = **+15.8 cyc/pkt (+0.74%, +0.44σ)** — within the ~3.8% CV noise
+  floor, statistically indistinguishable from zero. The always-on per-shape
+  `this_cpu_inc` counters add no measurable regression, matching the
+  userspace A/B upper bound (~3 ns/pkt, Zen 2).

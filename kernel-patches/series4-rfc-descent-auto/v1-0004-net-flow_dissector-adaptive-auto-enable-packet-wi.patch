@@ -1,14 +1,16 @@
-From 5d23eedbfbbbfd83a58af9161cb1afd3c8b5480e Mon Sep 17 00:00:00 2001
+From 97ebdde245b86beb8a1a28502b676818732d0745 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
-Subject: [PATCH] RFC: net: flow_dissector: adaptive auto-enable (packet-window
- controller)
+Subject: [RFC net-next v1 4/4] net: flow_dissector: adaptive auto-enable
+ (packet-window controller)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-Ten opt-in gates are ten policy decisions the operator has to get right. This
-RFC lets the kernel manage the byte-identical gates itself from the per-shape
+Ten opt-in gates are ten policy decisions the operator has to get right.
+This
+RFC lets the kernel manage the byte-identical gates itself from the per-
+shape
 counters, so "turn on the fast path" becomes one knob instead of ten.
 
 Decisions are driven by a packet-count window, not a wall-clock tick:
@@ -16,11 +18,14 @@ Decisions are driven by a packet-count window, not a wall-clock tick:
   net.flow_dissector.auto                 0/1 (mode; manual knobs apply when 0)
   net.flow_dissector.auto_window_packets  decision window (default 1,000,000)
 
-Every ~auto_window_packets dissects the worker re-evaluates each byte-identical
+Every ~auto_window_packets dissects the worker re-evaluates each byte-
+identical
 shape's windowed eligible fraction (occurrences+fast_hits over the window)
 against its measured break-even p_be = C/(S+C) and flips the gate. This is
-traffic-proportional: a busy link adapts in milliseconds, an idle link does not
-churn; adaptation speed is one intuitive knob. (Same shape as lib/dim/ interrupt
+traffic-proportional: a busy link adapts in milliseconds, an idle link does
+not
+churn; adaptation speed is one intuitive knob. (Same shape as lib/dim/
+interrupt
 moderation.)
 
 Two design points:
@@ -28,23 +33,30 @@ Two design points:
 - Decide on window *deltas*, never cumulative counters — a since-boot ratio
   asymptotically freezes and stops adapting. The worker snapshots the counters
   each decision and diffs.
-- Sample on the hot path, flip in process context. The packet path only does the
+- Sample on the hot path, flip in process context. The packet path only
+does the
   existing per-cpu inc plus a branch-predictable "did my cpu cross window/ncpus"
   check that schedule_work()s; the summation and static_branch flips (text_poke,
   which can sleep) run in the worker.
 
-Policy uses the measured break-even table (conservative in-order row, so it is
-safe on out-of-order cores too) with hysteresis (enable > p_be+10pp, disable <
-p_be-5pp), a dwell of 3 consecutive windows, and a >=1s global flip rate cap so
+Policy uses the measured break-even table (conservative in-order row, so it
+is
+safe on out-of-order cores too) with hysteresis (enable > p_be+10pp,
+disable <
+p_be-5pp), a dwell of 3 consecutive windows, and a >=1s global flip rate
+cap so
 a crafted rare-shape burst cannot force text_poke storms. mpls is not
-auto-managed (S ~ C on in-order), and the descent shapes are excluded entirely
-(they change hashing — enabling them must stay a deliberate operator action).
-The vlan/qinq coupling is respected. Global (init_net) for now; per-netns is a
+auto-managed (S ~ C on in-order), and the descent shapes are excluded
+entirely
+(they change hashing — enabling them must stay a deliberate operator
+action).
+The vlan/qinq coupling is respected. Global (init_net) for now; per-netns
+is a
 noted follow-up.
 
 Compile-verified (objtool-clean) against net-next.
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  52 +++++
  net/core/flow_dissector.c                | 239 +++++++++++++++++++++++
@@ -114,7 +126,7 @@ index f347dfe8b477..b5be949f0fac 100644
  ----------------------------------------------------------
  
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2f93bf9e69d1..18d8bd1ff035 100644
+index d8180eb7695e..91174ca6501c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -42,6 +42,7 @@
@@ -125,7 +137,7 @@ index 2f93bf9e69d1..18d8bd1ff035 100644
  
  /* Per-shape gates for the opt-in flow_dissector fast-path. Each is a
   * separate static_branch so operators enable only the shapes their
-@@ -93,6 +94,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
+@@ -94,6 +95,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
  	this_cpu_inc(flow_dissector_pcpu_stats.fast_hits[shape]);
  }
  
@@ -161,7 +173,7 @@ index 2f93bf9e69d1..18d8bd1ff035 100644
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -2136,6 +2166,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2208,6 +2238,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
@@ -170,7 +182,7 @@ index 2f93bf9e69d1..18d8bd1ff035 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -3145,6 +3177,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3217,6 +3249,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -184,7 +196,7 @@ index 2f93bf9e69d1..18d8bd1ff035 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3216,6 +3255,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3288,6 +3327,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -214,7 +226,7 @@ index 2f93bf9e69d1..18d8bd1ff035 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3290,6 +3352,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3362,6 +3424,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

@@ -6,71 +6,127 @@ eth_ip/vlan/qinq; v4 pppoe/mpls/ipip/gre + descent RFCs). Nothing from those was
 ever emailed to netdev or merged — the "in net-next as <hash>" language in the v3
 and v4 cover letters described an imagined future and does not apply.
 
+## De-risking round (2026-07-05) — split send + BPF narrative + in-tree test
+
+The single 12-patch posting was restructured into **two sends** after a
+pre-submission review of anticipated pushback (eBPF flow dissector not
+mentioned anywhere; maintenance-burden/"two paths" concern unaddressed;
+byte-identical verification out-of-tree only):
+
+1. **Main series `[PATCH net-next v1 00-10/10]`** (this directory,
+   `v1-00*.patch`, branch `series4-final`, base `b73bc9ca3686`):
+   - **NEW patch 01** — prelude: static-key gate
+     (`netns_bpf_flow_dissector_enabled`) skipping the rcu_read_lock + two
+     rcu_dereference netns-BPF run_array loads on every dissect when no BPF
+     flow dissector program is attached anywhere. Mirrors
+     `bpf_sk_lookup_enabled`; also covers the legacy BPF_PROG_ATTACH paths
+     the sk_lookup sibling doesn't have. The honest "we improved the
+     existing path too" patch.
+   - patches 02-08 — the seven byte-identical fast paths (unchanged
+     content except the two bug fixes below).
+   - patch 09 — per-shape counters + `/proc/net/flow_dissector_stats`.
+     Commit message now documents that BPF-handled dissects are
+     deliberately not counted (the increment sits after the BPF early
+     return — correct denominator for the fast-hit-rate signal).
+   - **NEW patch 10** — KUnit fast/slow equivalence suite
+     (`net/core/flow_dissector_test.c`, `CONFIG_FLOW_DISSECTOR_KUNIT_TEST`).
+     32 tests: eligible shapes, deliberate misses, truncation sweep at
+     every byte boundary, skb-mode (hwaccel VLAN) cases. Run:
+     `./tools/testing/kunit/kunit.py run --arch=x86_64 --kconfig_add
+     CONFIG_NET=y --kconfig_add CONFIG_FLOW_DISSECTOR_KUNIT_TEST=y
+     flow_dissector_fastpath`
+   - Cover letter gained "Relationship to the BPF flow dissector",
+     "Maintenance burden: why two paths won't diverge", and "Why not just
+     optimise the existing loop" sections; patch 02's message now states
+     the BPF-hook ordering (fast path runs after it; attached programs
+     always win — verified in code at the flow_dissect_fast call site).
+
+2. **RFC thread `[RFC net-next v1 0-4/4]`**
+   (`../series4-rfc-descent-auto/`, branch `series4-rfc-tail`, applies on
+   the main series): vxlan/geneve/gtpu inner descent + adaptive
+   auto-enable. Subjects normalized to plain `net: flow_dissector:` (the
+   RFC marker lives in the email prefix). The operator-problem
+   flow-distribution story and the open questions moved from the main
+   cover into this thread's cover.
+
+**The KUnit suite caught two real byte-identical violations** the
+out-of-tree A/B harness had missed; both fixed in place (folded into the
+patches that introduced them, each intermediate commit still
+compile-verified, final tree byte-identical to the KUnit-green tree):
+
+- **MPLS (patch 06)**: the fast helper skipped the slow path's `out_good`
+  terminal writes. For the standard flow_keys dissectors (no MPLS key
+  requested) the slow path returns OUT_GOOD after the first LSE with
+  nhoff advanced, so `thoff`, `n_proto` (the MPLS ethertype) and
+  `ip_proto` (0) still get written at the exit label. Fast helper now
+  mirrors that (and takes `proto` as a parameter).
+- **4in6 / v6-outer descent (patch 07)**: the slow path writes the outer
+  IPv6 addresses (32 B into the flow_keys addrs union) and outer flow
+  label before descending; an inner IPv4 then overwrites only the first
+  8 B, leaving outer-v6 residue that the fast path (which skipped outer
+  writes) did not reproduce. Functionally benign (the hash only covers
+  v4addrs when addr_type is IPv4) but a byte-identical violation. The
+  v6-outer descent now mirrors the slow path's outer writes; corpus
+  gained 4in6_flowlabel, 6in6 and gre6_ipv4 cases.
+
+Signed-off-by added to the counters and auto commits (was missing);
+the auto commit's Co-Authored-By trailer (a GitHub convention checkpatch
+rejects) was dropped during normalization — re-add AI attribution in
+whatever form is preferred before sending, if desired.
+
+Verification status of this round: all 14 commits checkpatch --strict
+**0 errors** (remaining warnings: the ctl_table-const false positive —
+`register_net_sysctl_sz` takes non-const in this tree; the KUnit
+MAINTAINERS notice; one >75-col commit-message table line in the auto
+RFC). `net/core/flow_dissector.o` compiles at every edited intermediate
+commit and at both branch tips. KUnit 32/32 at the main-series tip.
+
 ## The series (all gates under /proc/sys/net/flow_dissector/, default 0)
 
 | # | patch | sysctl | tier | verified |
 |---|---|---|---|---|
-| 01 | eth + IPv{4,6} + {TCP,UDP} | `eth_ip` | byte-identical (base gate) | output == slow path |
-| 02 | single Eth+VLAN | `vlan` | byte-identical | output == slow path |
-| 03 | QinQ (depth-2) | `qinq` | byte-identical | output == slow path |
-| 04 | PPPoE session | `pppoe` | byte-identical | output == slow path |
-| 05 | single-label MPLS | `mpls` | byte-identical | output == slow path |
-| 06 | IP-in-IP family (IPIP/4in6/6in4) | `ipip` | byte-identical | output == slow path |
-| 07 | plain GRE (no flags) | `gre` | byte-identical | output == slow path |
-| 08 | per-shape counters + `/proc/net/flow_dissector_stats` | (none) | mechanism-only (no dissection change) | compile-clean; counting validated via test_parser (docs/COUNTERS-VALIDATION.md) |
-| 09 | VXLAN inner descent | `vxlan_inner` | **RFC EXPERIMENT** | behaviour change; flow-distribution measured |
-| 10 | Geneve inner descent | `geneve_inner` | **RFC EXPERIMENT** | behaviour change; flow-distribution measured |
-| 11 | GTP-U inner descent | `gtpu_inner` | **RFC EXPERIMENT** | behaviour change; flow-distribution measured |
-| 12 | adaptive auto-enable (`auto` + `auto_window_packets`) | `auto` | **RFC** (policy loop) | compile-clean; policy core unit-tested (userspace agent, 8 tests) |
+| 01 | netns-BPF lookup static key (prelude) | (none) | existing-path optimisation | compile-clean; no-prog case skips the lookup |
+| 02 | eth + IPv{4,6} + {TCP,UDP} | `eth_ip` | byte-identical (base gate) | KUnit + output == slow path |
+| 03 | single Eth+VLAN | `vlan` | byte-identical | KUnit + output == slow path |
+| 04 | QinQ (depth-2) | `qinq` | byte-identical | KUnit + output == slow path |
+| 05 | PPPoE session | `pppoe` | byte-identical | KUnit + output == slow path |
+| 06 | single-label MPLS | `mpls` | byte-identical | KUnit (bug found+fixed) |
+| 07 | IP-in-IP family (IPIP/4in6/6in4) | `ipip` | byte-identical | KUnit (4in6 bug found+fixed) |
+| 08 | plain GRE (no flags) | `gre` | byte-identical | KUnit + output == slow path |
+| 09 | per-shape counters + `/proc/net/flow_dissector_stats` | (none) | mechanism-only | compile-clean; counting validated via test_parser (docs/COUNTERS-VALIDATION.md) |
+| 10 | KUnit fast/slow equivalence suite | (none) | test | 32/32 pass; divergence = CI failure |
+
+RFC thread (`../series4-rfc-descent-auto/`):
+
+| # | patch | sysctl | tier |
+|---|---|---|---|
+| 1 | VXLAN inner descent | `vxlan_inner` | RFC (behaviour change) |
+| 2 | Geneve inner descent | `geneve_inner` | RFC (behaviour change) |
+| 3 | GTP-U inner descent | `gtpu_inner` | RFC (behaviour change) |
+| 4 | adaptive auto-enable (`auto` + `auto_window_packets`) | `auto` | RFC (policy loop) |
 
 `vlan`/`qinq` carry the dependency auto-toggle (`proc_set_vlan_key` /
 `proc_set_qinq_key`); `eth_ip` is the parent gate.
 
-## Landable core vs RFC tail
+## Provenance + verification (updated 2026-07-05)
 
-Patches 1-8 are proposed for merge: 1-7 byte-identical (fast == slow or
-fall-through), and 8 mechanism-only (per-cpu counters + a read-only proc file;
-does not change dissection). Patches 9-11 change behaviour (inner vs outer keys)
-and are posted RFC EXPERIMENT for design discussion (see the cover letter's open
-questions), backed by the flow-distribution data
-(`perf-results/2026-07-01-encap-flow-distribution/`). Patch 12 (adaptive
-auto-enable) is an RFC policy loop on top of the counters (docs/AUTO-DESIGN.md);
-the same policy also ships as a userspace reference agent
-(`xdp2-rs/crates/xdp2-fastpath-control`, both homes share identical thresholds).
+These `v1-0000..v1-0010` (and `../series4-rfc-descent-auto/v1-0000..v1-0004`)
+are **real `git format-patch` output** from the local net-next tree
+(`/home/das/Downloads/net-next`):
 
-**Fallback if a maintainer objects to mixing landable + RFC in one posting:**
-drop patches 9-12 to a follow-up RFC series and post 1-8 as `[PATCH net-next]`.
-Do not split preemptively — the whole point of series4 is to show the full
-intent, with the encapsulation value proposition front and centre.
+- main: `git format-patch --subject-prefix='PATCH net-next' -v1
+  --cover-letter --base=b73bc9ca3686 b73bc9ca3686..series4-final`
+- RFC: `git format-patch --subject-prefix='RFC net-next' -v1
+  --cover-letter series4-final..series4-rfc-tail`
+- Cover-letter bodies are maintained in the two `v1-0000-*` files (hand
+  restored after regeneration; format-patch emits a blank blurb).
+- The old 12-patch branch `series4-send` (9efb44752a0c) is kept for
+  history and because l2's netnext-kernel.nix pins it by rev; the new
+  canonical branches are `series4-final` (main) + `series4-rfc-tail`.
 
-## Provenance + verification (updated 2026-07-03)
-
-These `0001..0012` are **real `git format-patch -v1` output** generated against
-net-next **`d6e815297491`** (base-commit line present in each), in order:
-byte-identical (1-7), counters (8), descent RFC (9-11), auto RFC (12).
-
-**Verified — the series now compiles.** The earlier host-toolchain blocker
-(objtool failing on `gelf_getsymshndx` because the nix shell's ancient
-libelf-0.8.13 shadowed elfutils via pkg-config) is resolved by pointing
-`PKG_CONFIG_PATH` at elfutils-0.194-dev:
-
-- `make net/core/flow_dissector.o` builds **objtool-clean** at the series tip
-  (all 12 commits applied) — the counters and auto code are real-compile-verified,
-  not just line-compared.
-- Counters (patch 8) counting logic validated end-to-end via the userspace mirror
-  in `test_parser` on ground-truthed pcaps — see `docs/COUNTERS-VALIDATION.md`
-  (eth_ip top-level gate, vlan/qinq first/second tag, all seven shapes).
-- Auto (patch 12) policy core unit-tested in the userspace reference agent
-  (8 tests: dwell, hysteresis, disable, mpls-exclusion, rate-cap, window-gate,
-  parse) — `xdp2-rs/crates/xdp2-fastpath-control`.
-- all `net.flow_dissector.*` sysctl entries (10 gates + `auto` +
-  `auto_window_packets`) present and well-formed; no conflict markers.
-
-Remaining before `git send-email`: the author's usual net-next full-build + boot
-smoke on real hardware, then send. Minor polish options: reconcile the
-RFC-EXPERIMENT subject-tag placement across 9/10/11, and (optional) move the
-`/proc/net/flow_dissector_stats` net.rst paragraph from patch 12 into patch 8
-so the doc lands with the mechanism it describes.
+Remaining before `git send-email`: the author's usual net-next full-build
++ boot smoke on real hardware, then send the main series; send the RFC
+thread referencing the main series' lore link.
 
 ## Docs
 - `docs/RECOMMENDATIONS.md` — **definitive per-feature enablement guide**: which

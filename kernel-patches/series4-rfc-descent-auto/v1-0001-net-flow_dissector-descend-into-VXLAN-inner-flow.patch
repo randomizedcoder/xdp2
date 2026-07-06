@@ -1,8 +1,8 @@
-From 4aaab1f1abbc4233cd2f95d4c8fde2bda6953cfe Mon Sep 17 00:00:00 2001
+From ef843f23ddd45a0bc4c297baa46b9286ab76fca5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
-Subject: [PATCH 09/12] RFC EXPERIMENT: net: flow_dissector: descend into VXLAN
- inner flow
+Subject: [RFC net-next v1 1/4] net: flow_dissector: descend into VXLAN inner
+ flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -107,7 +107,7 @@ index c55c0f83e74e..988d3fa3a7ce 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 11ca303eaf27..6b9e881f1e55 100644
+index 723e631639ec..36b8d9741812 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -127,7 +127,7 @@ index 11ca303eaf27..6b9e881f1e55 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1222,6 +1225,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1231,6 +1234,58 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -177,8 +177,8 @@ index 11ca303eaf27..6b9e881f1e55 100644
 +							      target_container, data,
 +							      inner_nhoff, hlen);
 +			}
-+			/* Inner ethertype not fast-pathable; fall through
-+			 * and keep the outer keys.
++			/* Inner ethertype not fast-pathable; defer and
++			 * keep the outer keys.
 +			 */
 +		}
 +	}
@@ -186,7 +186,7 @@ index 11ca303eaf27..6b9e881f1e55 100644
  	return true;
  }
  
-@@ -3003,6 +3058,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3073,6 +3128,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

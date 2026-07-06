@@ -1,8 +1,8 @@
-From 13b471b87e9d01d0d54ffda8f655928bf62f6aab Mon Sep 17 00:00:00 2001
+From 16660085f6ddb5d2834309a14e8c1d95e703f41e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
-Subject: [PATCH 05/12] net: flow_dissector: add fast-path for single MPLS
- label + IP
+Subject: [PATCH net-next v1 06/10] net: flow_dissector: add fast-path for
+ single MPLS label + IP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -42,12 +42,21 @@ patches.
 Documentation/admin-guide/sysctl/net.rst grows an `mpls` subsection
 under /proc/sys/net/flow_dissector/.
 
+The helper also mirrors the slow path's out_good terminal writes: for
+the standard flow_keys dissectors (which request no MPLS key), the
+slow path returns OUT_GOOD after the first LSE with nhoff advanced
+past it, so thoff, n_proto (the MPLS ethertype) and ip_proto (0) are
+still written at the exit label. Skipping those writes is observable
+in struct flow_keys and would break the byte-identical contract; the
+in-tree KUnit equivalence test added later in this series catches
+exactly this.
+
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst | 19 ++++++
+ Documentation/admin-guide/sysctl/net.rst | 19 +++++
  include/net/flow_dissector.h             |  1 +
- net/core/flow_dissector.c                | 76 ++++++++++++++++++++++++
- 3 files changed, 96 insertions(+)
+ net/core/flow_dissector.c                | 98 ++++++++++++++++++++++++
+ 3 files changed, 118 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index b5402a9d5392..47fd2eb4992b 100644
@@ -92,7 +101,7 @@ index c792de78a2cb..775fd9c119f9 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 7d2840dbd081..31b02c388c4f 100644
+index 5af1925c873a..dcf2e123e91a 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -51,6 +51,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
@@ -104,7 +113,7 @@ index 7d2840dbd081..31b02c388c4f 100644
  
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
-@@ -1405,6 +1407,66 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1413,6 +1415,88 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  				      nhoff, hlen);
  }
  
@@ -127,8 +136,10 @@ index 7d2840dbd081..31b02c388c4f 100644
 +				   struct flow_dissector *flow_dissector,
 +				   void *target_container,
 +				   const void *data,
-+				   int nhoff, int hlen)
++				   __be16 proto, int nhoff, int hlen)
 +{
++	struct flow_dissector_key_control *key_control;
++	struct flow_dissector_key_basic *key_basic;
 +	struct flow_dissector_key_mpls *key_mpls;
 +	struct flow_dissector_mpls_lse *lse;
 +	const struct mpls_label *hdr;
@@ -146,10 +157,9 @@ index 7d2840dbd081..31b02c388c4f 100644
 +
 +	/* Slow path's early-out at __skb_flow_dissect_mpls top: if
 +	 * neither MPLS nor MPLS_ENTROPY is requested, the parse returns
-+	 * OUT_GOOD without writing. Our path produces the same
-+	 * observable output (no MPLS-key writes) by skipping the write
-+	 * block via dissector_uses_key — no need for an explicit
-+	 * early-out.
++	 * OUT_GOOD without writing the MPLS key. Our path produces the
++	 * same MPLS-key output by skipping the write block via
++	 * dissector_uses_key.
 +	 */
 +	label = (entry & MPLS_LS_LABEL_MASK) >> MPLS_LS_LABEL_SHIFT;
 +
@@ -165,13 +175,34 @@ index 7d2840dbd081..31b02c388c4f 100644
 +		dissector_set_mpls_lse(key_mpls, 0);
 +	}
 +
++	/* Mirror the slow path's out_good terminal: it advances nhoff
++	 * past the LSE before exiting the loop, then writes thoff and
++	 * basic from the final proto/ip_proto (ip_proto never set on
++	 * the MPLS path).
++	 */
++	nhoff += (int)sizeof(*hdr);
++	if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
++		key_control = skb_flow_dissector_target(flow_dissector,
++							FLOW_DISSECTOR_KEY_CONTROL,
++							target_container);
++		key_control->thoff = min_t(u16, nhoff,
++					   skb ? skb->len : hlen);
++	}
++	if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_BASIC)) {
++		key_basic = skb_flow_dissector_target(flow_dissector,
++						      FLOW_DISSECTOR_KEY_BASIC,
++						      target_container);
++		key_basic->n_proto = proto;
++		key_basic->ip_proto = 0;
++	}
++
 +	return true;
 +}
 +
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1450,6 +1512,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1458,6 +1542,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_pppoe(skb, flow_dissector,
  					       target_container, data,
  					       nhoff, hlen);
@@ -181,11 +212,11 @@ index 7d2840dbd081..31b02c388c4f 100644
 +			return false;
 +		return flow_dissect_fast_mpls(skb, flow_dissector,
 +					      target_container, data,
-+					      nhoff, hlen);
++					      proto, nhoff, hlen);
  	default:
  		return false;
  	}
-@@ -2603,6 +2672,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2615,6 +2706,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

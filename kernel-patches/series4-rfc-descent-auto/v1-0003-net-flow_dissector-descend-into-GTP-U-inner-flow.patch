@@ -1,8 +1,8 @@
-From b07e421a62a3524e4b7d71dd2e50acc7e4c016a7 Mon Sep 17 00:00:00 2001
+From 0e26e1b51bbb8fff76f79961061b86d2a3b40de9 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:16:00 -0700
-Subject: [PATCH 11/12] net: flow_dissector: RFC EXPERIMENT: descend into GTP-U
- inner flow
+Subject: [RFC net-next v1 3/4] net: flow_dissector: descend into GTP-U inner
+ flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -53,8 +53,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst | 26 ++++++++
  include/net/flow_dissector.h             |  1 +
- net/core/flow_dissector.c                | 80 ++++++++++++++++++++++++
- 3 files changed, 107 insertions(+)
+ net/core/flow_dissector.c                | 81 ++++++++++++++++++++++++
+ 3 files changed, 108 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 6e05d8080b72..f347dfe8b477 100644
@@ -106,7 +106,7 @@ index 1464b518679b..583c7bc45ebc 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f65afd829dc1..2f93bf9e69d1 100644
+index 71920ffcea03..d8180eb7695e 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,7 @@
@@ -126,7 +126,7 @@ index f65afd829dc1..2f93bf9e69d1 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1341,6 +1344,76 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1351,6 +1354,77 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -179,9 +179,10 @@ index f65afd829dc1..2f93bf9e69d1 100644
 +
 +				if (dissector_uses_key(flow_dissector,
 +						       FLOW_DISSECTOR_KEY_CONTROL)) {
-+					key_control = skb_flow_dissector_target(flow_dissector,
-+										FLOW_DISSECTOR_KEY_CONTROL,
-+										target_container);
++					key_control = skb_flow_dissector_target(
++							flow_dissector,
++							FLOW_DISSECTOR_KEY_CONTROL,
++							target_container);
 +					key_control->flags |= FLOW_DIS_ENCAPSULATION;
 +				}
 +
@@ -195,7 +196,7 @@ index f65afd829dc1..2f93bf9e69d1 100644
 +								      target_container, data,
 +								      inner_nhoff, hlen);
 +				}
-+				/* Unknown inner IP version; fall through. */
++				/* Unknown inner IP version; defer. */
 +			}
 +		}
 +	}
@@ -203,7 +204,7 @@ index f65afd829dc1..2f93bf9e69d1 100644
  	return true;
  }
  
-@@ -3136,6 +3209,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3207,6 +3281,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

@@ -1,8 +1,8 @@
-From 4b91d91d97446c0f252d920d3aff4cb5a7446eab Mon Sep 17 00:00:00 2001
+From 406ee26df6e8b49bd5c916ad6e9b00222ea46f34 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
-Subject: [PATCH 07/12] net: flow_dissector: add byte-identical fast-path for
- plain GRE inner
+Subject: [PATCH net-next v1 08/10] net: flow_dissector: add byte-identical
+ fast-path for plain GRE inner
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -66,8 +66,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  25 +++++
  include/net/flow_dissector.h             |   1 +
- net/core/flow_dissector.c                | 111 +++++++++++++++++++++++
- 3 files changed, 137 insertions(+)
+ net/core/flow_dissector.c                | 124 +++++++++++++++++++++--
+ 3 files changed, 144 insertions(+), 6 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index b484e02d4a2a..576bba763f13 100644
@@ -118,7 +118,7 @@ index f4f203efbc1f..b1334cdb668e 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 52cacd2a9c59..920bdc6b1e16 100644
+index 67bb13ff7bc5..7d39191546d2 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -55,6 +55,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_mpls_key);
@@ -142,7 +142,7 @@ index 52cacd2a9c59..920bdc6b1e16 100644
  
  /* Forward declaration: flow_keys_dissector_symmetric is defined later
   * in this file (it is static, not extern'd through the header). The
-@@ -1141,6 +1148,11 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1149,6 +1156,11 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  						data, htons(ETH_P_IPV6),
  						nhoff + (int)sizeof(*iph), hlen);
  		}
@@ -154,19 +154,40 @@ index 52cacd2a9c59..920bdc6b1e16 100644
  		return false;
  	}
  
-@@ -1232,6 +1244,11 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
- 						data, htons(ETH_P_IPV6),
- 						nhoff + (int)sizeof(*iph), hlen);
+@@ -1231,8 +1243,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+ 		bool ipip = static_branch_unlikely(&flow_dissector_ipip_key) &&
+ 			    (iph->nexthdr == IPPROTO_IPIP ||
+ 			     iph->nexthdr == IPPROTO_IPV6);
++		bool gre = static_branch_unlikely(&flow_dissector_gre_key) &&
++			   iph->nexthdr == IPPROTO_GRE;
+ 
+-		if (!ipip)
++		if (!ipip && !gre)
+ 			return false;
+ 
+ 		/* Mirror the slow path's outer-IPv6 writes before the
+@@ -1269,11 +1283,15 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+ 			key_tags->flow_label = ntohl(ip6_flowlabel(iph));
  		}
-+		if (static_branch_unlikely(&flow_dissector_gre_key) &&
-+		    iph->nexthdr == IPPROTO_GRE)
-+			return flow_dissect_fast_gre_inner(skb, flow_dissector,
-+					target_container, data,
+ 
+-		return flow_dissect_fast_ipip_inner(skb,
+-				flow_dissector, target_container,
+-				data,
+-				iph->nexthdr == IPPROTO_IPIP ?
+-				htons(ETH_P_IP) : htons(ETH_P_IPV6),
++		if (ipip)
++			return flow_dissect_fast_ipip_inner(skb,
++					flow_dissector, target_container,
++					data,
++					iph->nexthdr == IPPROTO_IPIP ?
++					htons(ETH_P_IP) : htons(ETH_P_IPV6),
 +					nhoff + (int)sizeof(*iph), hlen);
- 		return false;
++		return flow_dissect_fast_gre_inner(skb, flow_dissector,
++				target_container, data,
+ 				nhoff + (int)sizeof(*iph), hlen);
  	}
  
-@@ -1559,6 +1576,93 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1623,6 +1641,93 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  	return true;
  }
  
@@ -260,7 +281,7 @@ index 52cacd2a9c59..920bdc6b1e16 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -2778,6 +2882,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2846,6 +2951,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
