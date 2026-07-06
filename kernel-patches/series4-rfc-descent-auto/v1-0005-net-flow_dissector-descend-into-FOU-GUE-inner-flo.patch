@@ -1,0 +1,726 @@
+From 391a0f126837536db8f63b7549d97a66b34f3d1f Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sun, 5 Jul 2026 20:38:45 -0700
+Subject: [RFC net-next v1 5/5] net: flow_dissector: descend into FOU/GUE inner
+ flow
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add opt-in inner-flow descent for Foo-over-UDP (FOU) and Generic UDP
+Encapsulation (GUE), the UDP encapsulations added by Tom Herbert.
+
+Unlike VXLAN/Geneve/GTP-U, FOU and GUE have no well-known UDP port, so
+the dissector cannot identify them from the packet alone — it must map
+the UDP destination port to its configured encapsulation. That config
+lives in the (tristate) fou module, so a struct flow_dissector_fou_ops
+is registered by fou and consulted (under RCU) by the dissector only
+when a gate is on:
+
+  - GUE (net.flow_dissector.gue_inner) is self-describing: once the port
+    resolves to a GUE tunnel, guehdr->proto_ctype gives the inner IP
+    protocol. Only version-0 data messages with an IPIP/IPv6 inner are
+    descended; control messages, unknown versions/flags and non-IP
+    inners defer.
+  - Direct FOU (net.flow_dissector.fou_inner) is bare: the inner
+    protocol is not on the wire, it is per-tunnel config, so the fou
+    table supplies both "this is FOU" and the inner IP protocol.
+
+The descent reuses the IPv4/IPv6 fast helpers for the inner header and
+is bounded by the same num_hdrs limit as the other tunnel descents; it
+stamps FLOW_DIS_ENCAPSULATION. Both are behaviour-changing (inner vs
+outer identity), gated off by default, and never auto-managed — same
+posture as the other *_inner knobs.
+
+fou_core: fou_list add/del switch to the _rcu variants (entries were
+already kfree_rcu()'d) so the dissector can walk it locklessly from the
+packet path; fou registers the ops on init and unregisters on exit.
+
+RFC / design questions for the list:
+  - Is a per-packet fou-table walk on the UDP path acceptable, or should
+    the mapping be indexed (e.g. a port hash)? It is gated by a
+    static_branch so it is zero-cost when off.
+  - Direct FOU dissection is fundamentally stateful (inner protocol is
+    not in the packet); is that in scope for the stateless dissector, or
+    should only self-describing GUE descend?
+  - Same tunnel-port-discovery question as vxlan_inner: the mapping here
+    is exact (from the fou table) rather than a hardcoded port, which is
+    arguably the right model for the others too.
+
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ Documentation/admin-guide/sysctl/net.rst |  42 ++++
+ include/net/flow_dissector.h             |  24 +++
+ net/core/flow_dissector.c                | 261 +++++++++++++++++++++++
+ net/core/flow_dissector_test.c           | 140 ++++++++++++
+ net/ipv4/fou_core.c                      |  48 ++++-
+ 5 files changed, 511 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
+index b5be949f0fac..ebddc0736ae5 100644
+--- a/Documentation/admin-guide/sysctl/net.rst
++++ b/Documentation/admin-guide/sysctl/net.rst
+@@ -672,6 +672,48 @@ GTP-U over IPv6 outer.
+ 
+ Default: 0
+ 
++gue_inner
++~~~~~~~~~
++
++RFC EXPERIMENT. Descends into the inner IPv4/IPv6 + TCP/UDP flow of a
++GUE (Generic UDP Encapsulation) packet for hashing. Unlike
++``vxlan_inner``/``geneve_inner``/``gtpu_inner``, GUE has no well-known
++UDP port, so the packet cannot be identified from the wire alone: the
++dissector consults the per-netns FOU table (in the ``fou`` module) to
++map the UDP destination port to a GUE tunnel. GUE is self-describing —
++the ``guehdr`` ``proto_ctype`` field gives the inner IP protocol — so
++once the tunnel is matched the inner offset and protocol come from the
++packet. Only GUE version-0 data messages with an IPIP/IPv6 inner are
++handled; control messages, unknown versions/flags and non-IP inners
++defer to the slow path. When enabled the inner 5-tuple replaces the
++outer UDP one and key_control->flags gets FLOW_DIS_ENCAPSULATION.
++
++**This is a behaviour change**, not a byte-identical fast-path, and it
++depends on the ``fou`` module being loaded (it registers the port
++lookup). Same operator-facing posture as the other ``*_inner`` knobs.
++
++Default: 0
++
++fou_inner
++~~~~~~~~~
++
++RFC EXPERIMENT. Descends into the inner IP flow of a direct
++Foo-over-UDP (FOU) packet. Direct FOU is bare — there is no
++encapsulation header and **the inner protocol is not on the wire**; it
++is per-tunnel configuration. The dissector therefore consults the
++per-netns FOU table (``fou`` module) to map the UDP destination port to
++both "this is FOU" and the configured inner IP protocol, then descends
++into the inner IPv4/IPv6 flow. When enabled the inner 5-tuple replaces
++the outer UDP one and key_control->flags gets FLOW_DIS_ENCAPSULATION.
++
++**This is a behaviour change** and, because the inner protocol is not in
++the packet, it is fundamentally stateful: it needs the ``fou`` table, so
++it only works while the ``fou`` module is loaded and the tunnel is
++configured. It defers to the slow path for any port that is not a
++configured direct-FOU tunnel, or whose inner protocol is not IP.
++
++Default: 0
++
+ auto
+ ~~~~
+ 
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index 583c7bc45ebc..91d229053c21 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -441,6 +441,30 @@ extern struct static_key_false flow_dissector_gre_key;
+ extern struct static_key_false flow_dissector_vxlan_inner_key;
+ extern struct static_key_false flow_dissector_geneve_inner_key;
+ extern struct static_key_false flow_dissector_gtpu_inner_key;
++extern struct static_key_false flow_dissector_gue_inner_key;
++extern struct static_key_false flow_dissector_fou_inner_key;
++
++/* RFC: FOU/GUE inner-flow descent.
++ *
++ * Unlike VXLAN/Geneve/GTP-U, FOU and GUE have no well-known UDP port, so
++ * the dissector cannot identify them from the packet alone — it must map
++ * the UDP destination port to its configured encapsulation. That config
++ * lives in the (tristate) fou module, which registers these ops so the
++ * built-in dissector can reach it without a direct module symbol
++ * reference. ->encap_lookup() is called under RCU from the packet path.
++ */
++struct flow_dissector_fou_ops {
++	/* Return the encapsulation (FOU_ENCAP_*, uapi/linux/fou.h) bound to
++	 * UDP @port in @net for @family (AF_INET/AF_INET6), or
++	 * FOU_ENCAP_UNSPEC if none. For FOU_ENCAP_DIRECT the inner IP
++	 * protocol is not on the wire; it is returned in *protocol.
++	 */
++	u16 (*encap_lookup)(const struct net *net, u8 family, __be16 port,
++			    u8 *protocol);
++};
++
++int flow_dissector_fou_ops_register(const struct flow_dissector_fou_ops *ops);
++void flow_dissector_fou_ops_unregister(const struct flow_dissector_fou_ops *ops);
+ 
+ /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
+  * Byte-identical shapes only — the shapes the adaptive controller may
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 4cc52970270d..7dd8a7d001c1 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -15,6 +15,8 @@
+ #include <net/tipc.h>
+ #include <net/vxlan.h>
+ #include <net/geneve.h>
++#include <net/gue.h>
++#include <uapi/linux/fou.h>
+ #include <net/gtp.h>
+ #include <linux/igmp.h>
+ #include <linux/icmp.h>
+@@ -70,6 +72,68 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_geneve_inner_key);
+ EXPORT_SYMBOL(flow_dissector_geneve_inner_key);
+ DEFINE_STATIC_KEY_FALSE(flow_dissector_gtpu_inner_key);
+ EXPORT_SYMBOL(flow_dissector_gtpu_inner_key);
++DEFINE_STATIC_KEY_FALSE(flow_dissector_gue_inner_key);
++EXPORT_SYMBOL(flow_dissector_gue_inner_key);
++DEFINE_STATIC_KEY_FALSE(flow_dissector_fou_inner_key);
++EXPORT_SYMBOL(flow_dissector_fou_inner_key);
++
++/* RFC: FOU/GUE inner descent needs the per-netns UDP-port -> encap
++ * config, which lives in the tristate fou module. It registers ops here;
++ * the descent calls ->encap_lookup() under RCU only when a gate is on.
++ */
++static const struct flow_dissector_fou_ops __rcu *flow_dissector_fou_ops;
++static DEFINE_MUTEX(flow_dissector_fou_ops_mutex);
++
++int flow_dissector_fou_ops_register(const struct flow_dissector_fou_ops *ops)
++{
++	int ret = 0;
++
++	mutex_lock(&flow_dissector_fou_ops_mutex);
++	if (rcu_access_pointer(flow_dissector_fou_ops))
++		ret = -EBUSY;
++	else
++		rcu_assign_pointer(flow_dissector_fou_ops, ops);
++	mutex_unlock(&flow_dissector_fou_ops_mutex);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(flow_dissector_fou_ops_register);
++
++void flow_dissector_fou_ops_unregister(const struct flow_dissector_fou_ops *ops)
++{
++	mutex_lock(&flow_dissector_fou_ops_mutex);
++	if (rcu_access_pointer(flow_dissector_fou_ops) == ops)
++		rcu_assign_pointer(flow_dissector_fou_ops, NULL);
++	mutex_unlock(&flow_dissector_fou_ops_mutex);
++	synchronize_rcu();
++}
++EXPORT_SYMBOL_GPL(flow_dissector_fou_ops_unregister);
++
++/* Resolve the packet's netns (skb-mode only; the fou table is per-netns)
++ * and map a UDP dst port to its FOU/GUE encapsulation via the registered
++ * fou ops (RFC). Returns FOU_ENCAP_UNSPEC when there is no fou module, no
++ * netns (raw-buffer dissection), or no match. For FOU_ENCAP_DIRECT the
++ * inner IP protocol is not on the wire and is returned in *protocol.
++ */
++static u16 flow_dissect_fou_lookup(const struct sk_buff *skb, u8 family,
++				   __be16 port, u8 *protocol)
++{
++	const struct flow_dissector_fou_ops *ops;
++	u16 type = FOU_ENCAP_UNSPEC;
++	const struct net *net = NULL;
++
++	rcu_read_lock();
++	if (skb) {
++		if (skb->dev)
++			net = dev_net_rcu(skb->dev);
++		else if (skb->sk)
++			net = sock_net(skb->sk);
++	}
++	ops = rcu_dereference(flow_dissector_fou_ops);
++	if (net && ops)
++		type = ops->encap_lookup(net, family, port, protocol);
++	rcu_read_unlock();
++	return type;
++}
+ 
+ /* Per-shape traffic counters (mechanism only; do not affect dissection).
+  * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
+@@ -161,6 +225,165 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+  */
+ static struct flow_dissector flow_keys_dissector_symmetric;
+ 
++/* Descend into the inner IP of a GUE-encapsulated packet (RFC). GUE is
++ * self-describing: guehdr->proto_ctype gives the inner IP protocol, so
++ * once the UDP port has been resolved to a GUE tunnel the inner offset
++ * and protocol come from the packet. Only version-0 data messages are
++ * handled (control messages and unknown versions defer). @thoff is the
++ * outer UDP header offset. Bounded by num_hdrs like the other tunnel
++ * descents; stamps FLOW_DIS_ENCAPSULATION after the inner pass.
++ */
++static bool flow_dissect_fast_gue_inner(const struct sk_buff *skb,
++					struct flow_dissector *flow_dissector,
++					void *target_container,
++					const void *data,
++					int thoff, int hlen, int num_hdrs)
++{
++	struct flow_dissector_key_control *key_control;
++	const struct guehdr *guehdr;
++	__be16 inner_proto;
++	int gue_off, inner_nhoff, hdrlen;
++	bool ok;
++
++	gue_off = thoff + (int)sizeof(struct udphdr);
++	if (unlikely(hlen - gue_off < (int)sizeof(*guehdr)))
++		return false;
++	guehdr = (const struct guehdr *)((const u8 *)data + gue_off);
++
++	/* Version 0 data message only; no control, no unknown flags. */
++	if (guehdr->version != 0 || guehdr->control ||
++	    (guehdr->flags & ~GUE_FLAGS_ALL))
++		return false;
++
++	switch (guehdr->proto_ctype) {
++	case IPPROTO_IPIP:
++		inner_proto = htons(ETH_P_IP);
++		break;
++	case IPPROTO_IPV6:
++		inner_proto = htons(ETH_P_IPV6);
++		break;
++	default:
++		return false;
++	}
++
++	hdrlen = (int)sizeof(*guehdr) + guehdr->hlen * 4;
++	if (unlikely(hlen - gue_off < hdrlen))
++		return false;
++	inner_nhoff = gue_off + hdrlen;
++
++	if (inner_proto == htons(ETH_P_IP))
++		ok = flow_dissect_fast_ipv4(skb, flow_dissector, target_container,
++					    data, inner_nhoff, hlen, num_hdrs);
++	else
++		ok = flow_dissect_fast_ipv6(skb, flow_dissector, target_container,
++					    data, inner_nhoff, hlen, num_hdrs);
++	if (!ok)
++		return false;
++
++	if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
++		key_control = skb_flow_dissector_target(flow_dissector,
++							FLOW_DISSECTOR_KEY_CONTROL,
++							target_container);
++		key_control->flags |= FLOW_DIS_ENCAPSULATION;
++	}
++	return true;
++}
++
++/* Descend into the inner IP of a direct-FOU packet (RFC). Direct FOU is
++ * bare — the inner protocol is NOT on the wire; @inner_ipproto comes from
++ * the fou table (via flow_dissect_fou_lookup). @thoff is the outer UDP
++ * header offset; the inner header follows the UDP header immediately.
++ */
++static bool flow_dissect_fast_fou_inner(const struct sk_buff *skb,
++					struct flow_dissector *flow_dissector,
++					void *target_container,
++					const void *data,
++					int thoff, int hlen, int num_hdrs,
++					u8 inner_ipproto)
++{
++	struct flow_dissector_key_control *key_control;
++	__be16 inner_proto;
++	int inner_nhoff;
++	bool ok;
++
++	switch (inner_ipproto) {
++	case IPPROTO_IPIP:
++		inner_proto = htons(ETH_P_IP);
++		break;
++	case IPPROTO_IPV6:
++		inner_proto = htons(ETH_P_IPV6);
++		break;
++	default:
++		return false;
++	}
++
++	inner_nhoff = thoff + (int)sizeof(struct udphdr);
++	if (inner_proto == htons(ETH_P_IP))
++		ok = flow_dissect_fast_ipv4(skb, flow_dissector, target_container,
++					    data, inner_nhoff, hlen, num_hdrs);
++	else
++		ok = flow_dissect_fast_ipv6(skb, flow_dissector, target_container,
++					    data, inner_nhoff, hlen, num_hdrs);
++	if (!ok)
++		return false;
++
++	if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
++		key_control = skb_flow_dissector_target(flow_dissector,
++							FLOW_DISSECTOR_KEY_CONTROL,
++							target_container);
++		key_control->flags |= FLOW_DIS_ENCAPSULATION;
++	}
++	return true;
++}
++
++/* Shared GUE/FOU descent hook, called from the IPv4/IPv6 fast helpers
++ * after the outer UDP ports. Resolves the UDP dst port to a FOU/GUE
++ * tunnel (per-netns fou table) and descends when the matching gate is
++ * on. @thoff is the UDP header offset, @family the outer IP family.
++ * Returns true if it consumed the packet (descended); *handled reports
++ * whether a descent was attempted so the caller can propagate the inner
++ * return value.
++ */
++static bool flow_dissect_fast_fou_gue(const struct sk_buff *skb,
++				      struct flow_dissector *flow_dissector,
++				      void *target_container, const void *data,
++				      int thoff, int hlen, int num_hdrs,
++				      u8 family, bool *descended)
++{
++	const __be16 *udp_ports;
++	__be16 dport;
++	u8 ipproto = 0;
++	u16 type;
++
++	*descended = false;
++	if (!static_branch_unlikely(&flow_dissector_gue_inner_key) &&
++	    !static_branch_unlikely(&flow_dissector_fou_inner_key))
++		return false;
++	if (hlen - thoff < (int)sizeof(struct udphdr))
++		return false;
++
++	udp_ports = (const __be16 *)((const u8 *)data + thoff);
++	dport = udp_ports[1];
++	type = flow_dissect_fou_lookup(skb, family, dport, &ipproto);
++
++	if (type == FOU_ENCAP_GUE &&
++	    static_branch_unlikely(&flow_dissector_gue_inner_key)) {
++		*descended = true;
++		return flow_dissect_fast_gue_inner(skb, flow_dissector,
++						   target_container, data,
++						   thoff, hlen, num_hdrs);
++	}
++	if (type == FOU_ENCAP_DIRECT &&
++	    static_branch_unlikely(&flow_dissector_fou_inner_key)) {
++		*descended = true;
++		return flow_dissect_fast_fou_inner(skb, flow_dissector,
++						   target_container, data,
++						   thoff, hlen, num_hdrs,
++						   ipproto);
++	}
++	return false;
++}
++
+ static void dissector_set_key(struct flow_dissector *flow_dissector,
+ 			      enum flow_dissector_key_id key_id)
+ {
+@@ -1456,6 +1679,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	if (iph->protocol == IPPROTO_UDP &&
++	    (static_branch_unlikely(&flow_dissector_gue_inner_key) ||
++	     static_branch_unlikely(&flow_dissector_fou_inner_key))) {
++		bool descended;
++		bool r = flow_dissect_fast_fou_gue(skb, flow_dissector,
++						   target_container, data, thoff,
++						   hlen, num_hdrs, AF_INET,
++						   &descended);
++		if (descended)
++			return r;
++	}
++
+ 	return true;
+ }
+ 
+@@ -1598,6 +1833,18 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+ 		key_ports->ports = *ports;
+ 	}
+ 
++	if (iph->nexthdr == IPPROTO_UDP &&
++	    (static_branch_unlikely(&flow_dissector_gue_inner_key) ||
++	     static_branch_unlikely(&flow_dissector_fou_inner_key))) {
++		bool descended;
++		bool r = flow_dissect_fast_fou_gue(skb, flow_dissector,
++						   target_container, data, thoff,
++						   hlen, num_hdrs, AF_INET6,
++						   &descended);
++		if (descended)
++			return r;
++	}
++
+ 	return true;
+ }
+ 
+@@ -3357,6 +3604,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_do_static_key,
+ 	},
++	{
++		.procname	= "gue_inner",
++		.data		= &flow_dissector_gue_inner_key.key,
++		.maxlen		= sizeof(flow_dissector_gue_inner_key),
++		.mode		= 0644,
++		.proc_handler	= proc_do_static_key,
++	},
++	{
++		.procname	= "fou_inner",
++		.data		= &flow_dissector_fou_inner_key.key,
++		.maxlen		= sizeof(flow_dissector_fou_inner_key),
++		.mode		= 0644,
++		.proc_handler	= proc_do_static_key,
++	},
+ 	{
+ 		/* RFC: adaptive auto-enablement. When on, the byte-identical
+ 		 * gates above are managed automatically from the per-shape
+diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
+index d316571a12fa..6c3a18044fb2 100644
+--- a/net/core/flow_dissector_test.c
++++ b/net/core/flow_dissector_test.c
+@@ -29,6 +29,7 @@
+ 
+ #include <kunit/test.h>
+ 
++#include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_pppox.h>
+ #include <linux/if_tunnel.h>
+@@ -36,13 +37,17 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/mpls.h>
++#include <linux/netdevice.h>
+ #include <linux/ppp_defs.h>
+ #include <linux/prandom.h>
+ #include <linux/skbuff.h>
++#include <linux/udp.h>
+ #include <net/flow_dissector.h>
+ #include <net/gre.h>
++#include <net/gue.h>
+ #include <net/ip.h>
+ #include <net/net_namespace.h>
++#include <uapi/linux/fou.h>
+ 
+ #define FD_TEST_BUF_LEN 512
+ #define FD_FUZZ_ITERS 4000
+@@ -913,6 +918,139 @@ static void fd_fast_fuzz_test(struct kunit *test)
+ 	}
+ }
+ 
++/* --- RFC: FOU/GUE inner-descent tests ---
++ *
++ * FOU/GUE have no well-known UDP port, so the descent resolves the port
++ * through the fou module's registered ops. The test registers a mock
++ * ops (so no real fou config / socket is needed) and dissects in skb
++ * mode with a dummy netdev (the lookup derives the netns from the skb).
++ * Unlike the byte-identical tests, descent changes the output, so these
++ * assert the *inner* 5-tuple is what came out.
++ */
++static __be16 fd_mock_port;
++static u16 fd_mock_type;
++static u8 fd_mock_proto;
++
++static u16 fd_mock_encap_lookup(const struct net *net, u8 family,
++				__be16 port, u8 *protocol)
++{
++	if (port != fd_mock_port)
++		return FOU_ENCAP_UNSPEC;
++	*protocol = fd_mock_proto;
++	return fd_mock_type;
++}
++
++static const struct flow_dissector_fou_ops fd_mock_fou_ops = {
++	.encap_lookup = fd_mock_encap_lookup,
++};
++
++static int put_udp(u8 *buf, __be16 dport)
++{
++	struct udphdr *uh = (struct udphdr *)buf;
++
++	uh->source = htons(0x9999);
++	uh->dest = dport;
++	uh->len = 0;
++	uh->check = 0;
++	return sizeof(*uh);
++}
++
++static int put_gue(u8 *buf, u8 proto_ctype)
++{
++	struct guehdr *gh = (struct guehdr *)buf;
++
++	gh->word = 0;
++	gh->proto_ctype = proto_ctype;	/* version 0, control 0, hlen 0 */
++	return sizeof(*gh);
++}
++
++/* Build outer IPv4+UDP(dport) + optional GUE shim + inner IPv4+TCP. The
++ * outer IP uses distinct addresses (10.0.0.x) from the inner (192.168.x,
++ * from put_ipv4) so the test can tell inner-descent from the outer parse.
++ */
++static int build_fou_gue_pkt(u8 *buf, __be16 dport, bool gue)
++{
++	struct iphdr *outer = (struct iphdr *)buf;
++	int n = put_ipv4(buf, IPPROTO_UDP, 5, 0);
++
++	outer->saddr = htonl(0x0a000001);	/* 10.0.0.1 */
++	outer->daddr = htonl(0x0a000002);	/* 10.0.0.2 */
++	n += put_udp(buf + n, dport);
++	if (gue)
++		n += put_gue(buf + n, IPPROTO_IPIP);
++	n += put_ipv4(buf + n, IPPROTO_TCP, 5, 0);
++	return n + put_ports(buf + n);
++}
++
++static void fd_fou_gue_descend(struct kunit *test, bool gue,
++			       struct static_key_false *gate)
++{
++	struct flow_keys keys;
++	struct net_device *dev;
++	struct sk_buff *skb;
++	__be16 dport = htons(0x17c0);
++	u8 *buf;
++	int len;
++
++	buf = kunit_kzalloc(test, FD_TEST_BUF_LEN, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++	len = build_fou_gue_pkt(buf, dport, gue);
++
++	dev = alloc_netdev(0, "fdtest%d", NET_NAME_UNKNOWN, ether_setup);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
++
++	skb = alloc_skb(FD_TEST_BUF_LEN + NET_SKB_PAD, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, skb);
++	skb_reserve(skb, NET_SKB_PAD);
++	skb_put_data(skb, buf, len);
++	skb->protocol = htons(ETH_P_IP);
++	skb->dev = dev;
++	skb_reset_network_header(skb);
++
++	fd_mock_port = dport;
++	fd_mock_type = gue ? FOU_ENCAP_GUE : FOU_ENCAP_DIRECT;
++	fd_mock_proto = IPPROTO_IPIP;
++	KUNIT_ASSERT_EQ(test, 0,
++			flow_dissector_fou_ops_register(&fd_mock_fou_ops));
++
++	/* The descent lives inside the eth_ip fast path, so that gate must
++	 * be on too for the dispatcher to reach it.
++	 */
++	static_branch_enable(&flow_dissector_eth_ip_key);
++	static_branch_enable(gate);
++	memset(&keys, 0, sizeof(keys));
++	__skb_flow_dissect(&init_net, skb, &flow_keys_dissector, &keys,
++			   NULL, 0, 0, 0, 0);
++	static_branch_disable(gate);
++	static_branch_disable(&flow_dissector_eth_ip_key);
++	flow_dissector_fou_ops_unregister(&fd_mock_fou_ops);
++
++	/* Descent must have reached the inner IPv4 header: ENCAP stamped,
++	 * inner v4 addrs (192.168.1.1 -> 192.168.2.2 from put_ipv4), inner
++	 * ports (0x1234/0x5678 from put_ports) — i.e. the inner 5-tuple,
++	 * not the outer UDP one.
++	 */
++	KUNIT_EXPECT_TRUE(test, keys.control.flags & FLOW_DIS_ENCAPSULATION);
++	KUNIT_EXPECT_EQ(test, keys.basic.ip_proto, IPPROTO_TCP);
++	KUNIT_EXPECT_EQ(test, keys.addrs.v4addrs.src, htonl(0xc0a80101));
++	KUNIT_EXPECT_EQ(test, keys.addrs.v4addrs.dst, htonl(0xc0a80202));
++	KUNIT_EXPECT_EQ(test, keys.ports.src, htons(0x1234));
++	KUNIT_EXPECT_EQ(test, keys.ports.dst, htons(0x5678));
++
++	kfree_skb(skb);
++	free_netdev(dev);
++}
++
++static void fd_fast_gue_descend_test(struct kunit *test)
++{
++	fd_fou_gue_descend(test, true, &flow_dissector_gue_inner_key);
++}
++
++static void fd_fast_fou_descend_test(struct kunit *test)
++{
++	fd_fou_gue_descend(test, false, &flow_dissector_fou_inner_key);
++}
++
+ static int fd_fast_suite_init(struct kunit_suite *suite)
+ {
+ 	fd_fast_gates_set(false);
+@@ -935,6 +1073,8 @@ static struct kunit_case fd_fast_test_cases[] = {
+ 	KUNIT_CASE(fd_fast_skb_hwaccel_vlan_qinq_test),
+ 	KUNIT_CASE(fd_fast_skb_shapes_test),
+ 	KUNIT_CASE(fd_fast_fuzz_test),
++	KUNIT_CASE(fd_fast_gue_descend_test),
++	KUNIT_CASE(fd_fast_fou_descend_test),
+ 	{}
+ };
+ 
+diff --git a/net/ipv4/fou_core.c b/net/ipv4/fou_core.c
+index 865bd7205122..70ad0e532e98 100644
+--- a/net/ipv4/fou_core.c
++++ b/net/ipv4/fou_core.c
+@@ -12,6 +12,7 @@
+ #include <net/gro.h>
+ #include <net/gue.h>
+ #include <net/fou.h>
++#include <net/flow_dissector.h>
+ #include <net/ip.h>
+ #include <net/protocol.h>
+ #include <net/udp.h>
+@@ -550,7 +551,7 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou,
+ 		}
+ 	}
+ 
+-	list_add(&fou->list, &fn->fou_list);
++	list_add_tail_rcu(&fou->list, &fn->fou_list);
+ 	mutex_unlock(&fn->fou_lock);
+ 
+ 	return 0;
+@@ -558,11 +559,42 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou,
+ 
+ static void fou_release(struct fou *fou)
+ {
+-	list_del(&fou->list);
++	list_del_rcu(&fou->list);
+ 	udp_tunnel_sock_release(fou->sk);
+ 	kfree_rcu(fou, rcu);
+ }
+ 
++/* RFC: flow-dissector FOU/GUE inner-descent hook.
++ *
++ * FOU/GUE have no well-known UDP port, so the flow dissector cannot
++ * identify them from the packet alone — it must map the UDP dst port to
++ * its configured encapsulation. That config lives here, in the
++ * (tristate) fou module, so the dissector reaches it through a
++ * registered ops table rather than a direct symbol reference. Called
++ * under RCU from the packet path; fou_list add/del use the _rcu variants
++ * above and freed entries are kfree_rcu()'d.
++ */
++static u16 fou_flow_encap_lookup(const struct net *net, u8 family,
++				 __be16 port, u8 *protocol)
++{
++	struct fou_net *fn = net_generic(net, fou_net_id);
++	u16 type = FOU_ENCAP_UNSPEC;
++	struct fou *fou;
++
++	list_for_each_entry_rcu(fou, &fn->fou_list, list) {
++		if (fou->port == port && fou->family == family) {
++			*protocol = fou->protocol;
++			type = fou->type;
++			break;
++		}
++	}
++	return type;
++}
++
++static const struct flow_dissector_fou_ops fou_flow_ops = {
++	.encap_lookup = fou_flow_encap_lookup,
++};
++
+ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 		      struct socket **sockp)
+ {
+@@ -1255,8 +1287,15 @@ static int __init fou_init(void)
+ 		goto kfunc_failed;
+ 
+ 	ret = ip_tunnel_encap_add_fou_ops();
+-	if (ret == 0)
+-		return 0;
++	if (ret)
++		goto kfunc_failed;
++
++	/* Best-effort: the flow-dissector FOU/GUE descent is an
++	 * optional consumer; failure to register (another owner) must
++	 * not fail fou init.
++	 */
++	flow_dissector_fou_ops_register(&fou_flow_ops);
++	return 0;
+ 
+ kfunc_failed:
+ 	genl_unregister_family(&fou_nl_family);
+@@ -1268,6 +1307,7 @@ static int __init fou_init(void)
+ 
+ static void __exit fou_fini(void)
+ {
++	flow_dissector_fou_ops_unregister(&fou_flow_ops);
+ 	ip_tunnel_encap_del_fou_ops();
+ 	genl_unregister_family(&fou_nl_family);
+ 	unregister_pernet_device(&fou_net_ops);
+-- 
+2.54.0
+

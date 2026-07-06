@@ -1,7 +1,7 @@
 From bda2a3895e7424b51dc0c5399ba440ae912cc9cd Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
-Subject: [RFC net-next v1 1/4] net: flow_dissector: descend into VXLAN inner
+Subject: [RFC net-next v1 1/5] net: flow_dissector: descend into VXLAN inner
  flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

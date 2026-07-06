@@ -1,5 +1,31 @@
 # series4-flowdis-fastpath — status
 
+## FOU/GUE inner descent round (2026-07-05, later)
+
+Added an RFC descent for Tom Herbert's UDP encapsulations (he is a likely
+reviewer, having authored FOU/GUE and much of the flow dissector). RFC
+thread is now **5 patches** (fou/gue is patch 5, after auto).
+
+- **New RFC patch: "descend into FOU/GUE inner flow"** (gates
+  `net.flow_dissector.gue_inner` + `fou_inner`). The crux vs
+  vxlan/geneve/gtpu: FOU/GUE have **no well-known UDP port**, so the
+  packet can't be identified from the wire — the dissector consults the
+  per-netns fou table via a registered `struct flow_dissector_fou_ops`
+  (fou is tristate, so a hook not a direct call). GUE is self-describing
+  (guehdr->proto_ctype = inner proto); direct FOU is bare (inner proto is
+  per-tunnel config, so dissection is stateful). Bounded by num_hdrs;
+  stamps ENCAP. fou_core: fou_list add/del -> _rcu for the lockless
+  data-path walk. KUnit: mock fou-ops + dummy netdev, GUE+FOU descent
+  tests assert the inner 5-tuple (48/48 total). checkpatch 0/0.
+- Implemented as ONE patch (not two): FOU and GUE share the whole
+  mechanism (hook, lookup, dispatcher, call sites), so splitting would
+  have both patches editing the same lines. Both gates/features are
+  delivered.
+- The RFC cover has a "Patch 4: FOU/GUE inner descent (Tom Herbert's UDP
+  encapsulations)" section raising the design questions (per-packet
+  fou-table walk cost; is stateful direct-FOU dissection in scope; exact
+  port match vs the others' hardcoded ports).
+
 ## Test-hardening + security round (2026-07-05, later)
 
 An adversarial/coverage audit of the KUnit suite and the fast-path helpers

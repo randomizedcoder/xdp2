@@ -1,7 +1,7 @@
 From c2fbca35cee44cc5756ccde05bd09ab7ac3988c5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
-Subject: [RFC net-next v1 2/4] net: flow_dissector: descend into Geneve inner
+Subject: [RFC net-next v1 2/5] net: flow_dissector: descend into Geneve inner
  flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
