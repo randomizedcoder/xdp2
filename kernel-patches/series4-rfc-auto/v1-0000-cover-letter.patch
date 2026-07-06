@@ -32,6 +32,37 @@ in-order cores). The tunnel inner-descent gates from the base series are
 never auto-managed: they change hashing, so enabling them must stay a
 deliberate operator action.
 
+Could auto manage the tunnel descents too?
+------------------------------------------
+Now that the base series makes the vxlan/geneve/gtpu/fou/gue descents
+byte-identical (fast == slow), there is no longer a fast/slow-divergence
+reason to keep them out of an auto loop -- so it is worth saying
+explicitly why we are still holding off, deliberately, for now:
+
+  - auto's decision is a CPU break-even: enable a shape when its matching
+    fraction exceeds p_be = C / (S + C). The descents are ~net-zero CPU
+    (the inner work cancels the outer saving, S ~ 0), so that model gives
+    auto no signal to act on. The reason to descend is hash
+    *distribution* -- spreading inner flows that otherwise collapse onto
+    one bucket -- which auto does not measure.
+  - enabling a descent changes skb->hash for that traffic, so it must
+    stay a deliberate operator action, not a side effect of turning on a
+    performance knob.
+
+A controller that auto-enabled a descent would therefore need a
+different signal (e.g. detecting that a tunnel's outer tuple is
+collapsing many inner flows onto a few hash buckets) and would be a
+behaviour-changing action, not the invisible fast/slow flip auto does
+here. We think that is a genuinely interesting direction but out of
+scope for this posting, and are happy to discuss it in more detail.
+
+Worth noting: the fast-vs-slow *implementation* of an operator-enabled
+descent already follows the eth_ip gate that auto manages -- with
+vxlan_inner on, an eth_ip-on window runs the fast descent and an
+eth_ip-off window the slow one, both byte-identical. So opting into a
+descent already inherits auto's fast-path decision for free; only the
+descend/don't-descend policy is left to the operator.
+
 The open question for the list: where should this loop live? The same
 policy can run in a userspace agent (read the stats file, write the
 sysctls, identical thresholds), so this is "single in-kernel knob" vs
