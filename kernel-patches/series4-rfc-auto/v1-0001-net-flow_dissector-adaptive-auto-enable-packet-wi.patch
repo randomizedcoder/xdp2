@@ -1,7 +1,7 @@
-From 2bc325a73648510373f4a854dc3430c56be34457 Mon Sep 17 00:00:00 2001
+From a208f86be2ce6dc7e38c240386b30c92417d859e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
-Subject: [RFC net-next v1 4/5] net: flow_dissector: adaptive auto-enable
+Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
  (packet-window controller)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -58,15 +58,15 @@ Compile-verified (objtool-clean) against net-next.
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst |  52 +++++
+ Documentation/admin-guide/sysctl/net.rst |  45 ++++-
  net/core/flow_dissector.c                | 239 +++++++++++++++++++++++
- 2 files changed, 291 insertions(+)
+ 2 files changed, 280 insertions(+), 4 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index f347dfe8b477..b5be949f0fac 100644
+index d4eab4c826a0..ead2e353c296 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -672,6 +672,58 @@ GTP-U over IPv6 outer.
+@@ -711,6 +711,43 @@ byte-identical between the fast and slow paths once on.
  
  Default: 0
  
@@ -107,29 +107,29 @@ index f347dfe8b477..b5be949f0fac 100644
 +
 +Default: 1000000
 +
-+The ``/proc/net/flow_dissector_stats`` observability file
-+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-+
-+Read-only. Reports, per byte-identical shape, the number of packets the
-+slow path handled (``occurrences``), the number the fast body handled
-+(``fast_hits``), the resulting eligible fraction, and the current gate
-+state, plus a total dissect count. Because the fast path returns before
-+the slow-path classification, exactly one of the two counters is
-+incremented per shaped packet depending on gate state, so
-+``(occurrences + fast_hits) / dissects`` is a gate-invariant measure of
+ The ``/proc/net/flow_dissector_stats`` observability file
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 
+@@ -721,10 +758,10 @@ state, plus a total dissect count. Because the fast path returns before
+ the slow-path classification, exactly one of the two counters is
+ incremented per shaped packet depending on gate state, so
+ ``(occurrences + fast_hits) / dissects`` is a gate-invariant measure of
+-how much traffic each shape's fast body would handle -- the signal an
+-operator uses to decide whether a gate is worth enabling. The counters
+-are per-cpu and summed on read; the per-packet cost is one increment on
+-the already-hot classification path.
 +how much traffic each shape's fast body would handle — the signal an
 +operator (or ``auto``) uses to decide whether a gate is worth enabling.
 +The counters are per-cpu and summed on read; the per-packet cost is one
 +increment on the already-hot classification path.
-+
+ 
  3. /proc/sys/net/unix - Parameters for Unix domain sockets
  ----------------------------------------------------------
- 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index a565a84c738f..4cc52970270d 100644
+index f70be023435e..82cf8534763b 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -42,6 +42,7 @@
+@@ -44,6 +44,7 @@
  #include <linux/proc_fs.h>
  #include <linux/seq_file.h>
  #include <linux/math64.h>
@@ -137,7 +137,7 @@ index a565a84c738f..4cc52970270d 100644
  
  /* Per-shape gates for the opt-in flow_dissector fast-path. Each is a
   * separate static_branch so operators enable only the shapes their
-@@ -94,6 +95,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
+@@ -158,6 +159,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
  	this_cpu_inc(flow_dissector_pcpu_stats.fast_hits[shape]);
  }
  
@@ -173,7 +173,7 @@ index a565a84c738f..4cc52970270d 100644
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -2225,6 +2255,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2626,6 +2656,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
@@ -182,7 +182,7 @@ index a565a84c738f..4cc52970270d 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -3247,6 +3279,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3671,6 +3703,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -196,7 +196,7 @@ index a565a84c738f..4cc52970270d 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3318,6 +3357,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3756,6 +3795,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -226,7 +226,7 @@ index a565a84c738f..4cc52970270d 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3392,6 +3454,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3830,6 +3892,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

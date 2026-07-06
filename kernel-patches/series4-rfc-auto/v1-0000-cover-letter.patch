@@ -1,0 +1,84 @@
+From a208f86be2ce6dc7e38c240386b30c92417d859e Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Mon, 6 Jul 2026 09:34:08 -0700
+Subject: [RFC net-next v1 0/1] net: flow_dissector: adaptive auto-enable for the fast-path gates
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This RFC applies on top of "[PATCH net-next] net: flow_dissector: opt-in
+byte-identical fast paths + tunnel inner descent" and is posted
+separately because, unlike that series, it is a policy question rather
+than a merge request.
+
+The base series adds per-shape counters (/proc/net/flow_dissector_stats)
+and a measured cost model: enabling a byte-identical shape gate is
+net-positive exactly when the shape's matching fraction exceeds its
+break-even p_be = C / (S + C), where S is the per-match saving and C the
+hot-path miss cost -- both measured per shape per uarch. That makes "is
+this gate worth turning on?" a derived number rather than a guess.
+
+This patch turns that into an in-kernel "auto" mode so the operator sets
+one knob instead of many. Decisions are driven by a packet-count window
+(net.flow_dissector.auto_window_packets), not a wall-clock tick: every N
+dissects the kernel compares each byte-identical shape's windowed
+eligible fraction to its break-even and flips the gate, with hysteresis,
+a multi-window dwell, and a flip-rate cap. It is traffic-proportional (a
+busy link adapts in milliseconds, an idle link does not churn); the hot
+path only samples, and the static_branch flips run in a workqueue.
+
+MPLS is not auto-managed (its saving barely exceeds the miss cost on
+in-order cores). The tunnel inner-descent gates from the base series are
+never auto-managed: they change hashing, so enabling them must stay a
+deliberate operator action.
+
+Could auto manage the tunnel descents too?
+------------------------------------------
+Now that the base series makes the vxlan/geneve/gtpu/fou/gue descents
+byte-identical (fast == slow), there is no longer a fast/slow-divergence
+reason to keep them out of an auto loop -- so it is worth saying
+explicitly why we are still holding off, deliberately, for now:
+
+  - auto's decision is a CPU break-even: enable a shape when its matching
+    fraction exceeds p_be = C / (S + C). The descents are ~net-zero CPU
+    (the inner work cancels the outer saving, S ~ 0), so that model gives
+    auto no signal to act on. The reason to descend is hash
+    *distribution* -- spreading inner flows that otherwise collapse onto
+    one bucket -- which auto does not measure.
+  - enabling a descent changes skb->hash for that traffic, so it must
+    stay a deliberate operator action, not a side effect of turning on a
+    performance knob.
+
+A controller that auto-enabled a descent would therefore need a
+different signal (e.g. detecting that a tunnel's outer tuple is
+collapsing many inner flows onto a few hash buckets) and would be a
+behaviour-changing action, not the invisible fast/slow flip auto does
+here. We think that is a genuinely interesting direction but out of
+scope for this posting, and are happy to discuss it in more detail.
+
+Worth noting: the fast-vs-slow *implementation* of an operator-enabled
+descent already follows the eth_ip gate that auto manages -- with
+vxlan_inner on, an eth_ip-on window runs the fast descent and an
+eth_ip-off window the slow one, both byte-identical. So opting into a
+descent already inherits auto's fast-path decision for free; only the
+descend/don't-descend policy is left to the operator.
+
+The open question for the list: where should this loop live? The same
+policy can run in a userspace agent (read the stats file, write the
+sysctls, identical thresholds), so this is "single in-kernel knob" vs
+"mechanism not policy + a reference agent". The counters in the base
+series are the common foundation for either.
+
+Supporting data (per-shape/per-arch break-even derivation):
+https://github.com/randomizedcoder/xdp2 , under perf-results/ .
+
+Dave Seddon (1):
+  net: flow_dissector: adaptive auto-enable (packet-window controller)
+
+ Documentation/admin-guide/sysctl/net.rst |  45 ++++-
+ net/core/flow_dissector.c                | 239 +++++++++++++++++++++++
+ 2 files changed, 280 insertions(+), 4 deletions(-)
+
+-- 
+2.54.0
+

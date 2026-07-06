@@ -1,7 +1,7 @@
-From 6d93455b7e581b20ecfb26768731edaa90096965 Mon Sep 17 00:00:00 2001
+From 21ec32a66678e5eb4fdb3d619b6eadbabc85d69b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 17:15:20 -0700
-Subject: [PATCH net-next v1 11/11] net: flow_dissector: add KUnit fast/slow
+Subject: [PATCH net-next v1 15/15] net: flow_dissector: add KUnit fast/slow
  path equivalence tests
 
 The per-shape fast paths contract to be byte-identical with the slow
@@ -26,9 +26,18 @@ packet at every byte boundary, and skb-mode cases for the
 hardware-stripped VLAN tag entry conditions raw-data mode cannot
 reach.
 
-The descent gates (vxlan/geneve/gtpu inner) are deliberately not
-tested here: they change dissection output by design and are outside
-the byte-identical contract.
+The UDP-tunnel descents (vxlan/geneve/gtpu/fou/gue inner) are covered
+too. Because a descent changes the output relative to not descending,
+the equivalence is checked the other way round: the descent gate is
+pinned on and the entry gates are toggled, so one pass descends via the
+fast path and the other descends via the slow path (the fast
+dispatcher defers with the entry gates off). Both must produce the same
+flow_keys. The corpus exercises inner TCP/UDP, IPv6-outer/IPv4-inner
+residue for fou/gue, inner ICMP and Geneve/GTP-U out-of-subset packets
+(both keep the outer keys), and a nested VXLAN chain past
+MAX_FLOW_DISSECT_HDRS (both bail at the same depth). A dummy netdev and
+a mock flow_dissector_fou_ops provider drive the FOU/GUE lookup without
+real fou config.
 
 Run with:
 
@@ -39,11 +48,11 @@ Run with:
 
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/Kconfig                    |  12 +
- net/core/Makefile              |   1 +
- net/core/flow_dissector.c      |  13 +
- net/core/flow_dissector_test.c | 951 +++++++++++++++++++++++++++++++++
- 4 files changed, 977 insertions(+)
+ net/Kconfig                    |   12 +
+ net/core/Makefile              |    1 +
+ net/core/flow_dissector.c      |   13 +
+ net/core/flow_dissector_test.c | 1448 ++++++++++++++++++++++++++++++++
+ 4 files changed, 1474 insertions(+)
  create mode 100644 net/core/flow_dissector_test.c
 
 diff --git a/net/Kconfig b/net/Kconfig
@@ -80,10 +89,10 @@ index b3fdcb4e355f..b27c69580d2c 100644
  obj-$(CONFIG_DEBUG_NET) += lock_debug.o
  obj-$(CONFIG_FAIL_SKB_REALLOC) += skb_fault_injection.o
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index e4ac32158a2c..7ac64cefcd97 100644
+index fc460c1af009..f70be023435e 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -2985,6 +2985,19 @@ EXPORT_SYMBOL(flow_keys_dissector);
+@@ -3603,6 +3603,19 @@ EXPORT_SYMBOL(flow_keys_dissector);
  struct flow_dissector flow_keys_basic_dissector __read_mostly;
  EXPORT_SYMBOL(flow_keys_basic_dissector);
  
@@ -105,10 +114,10 @@ index e4ac32158a2c..7ac64cefcd97 100644
  	skb_flow_dissector_init(&flow_keys_dissector,
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
 new file mode 100644
-index 000000000000..d316571a12fa
+index 000000000000..0855a83b2d61
 --- /dev/null
 +++ b/net/core/flow_dissector_test.c
-@@ -0,0 +1,951 @@
+@@ -0,0 +1,1448 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * KUnit equivalence tests for the flow dissector opt-in fast paths.
@@ -140,6 +149,7 @@ index 000000000000..d316571a12fa
 +
 +#include <kunit/test.h>
 +
++#include <linux/etherdevice.h>
 +#include <linux/if_ether.h>
 +#include <linux/if_pppox.h>
 +#include <linux/if_tunnel.h>
@@ -147,13 +157,20 @@ index 000000000000..d316571a12fa
 +#include <linux/ip.h>
 +#include <linux/ipv6.h>
 +#include <linux/mpls.h>
++#include <linux/netdevice.h>
 +#include <linux/ppp_defs.h>
 +#include <linux/prandom.h>
 +#include <linux/skbuff.h>
++#include <linux/udp.h>
 +#include <net/flow_dissector.h>
++#include <net/geneve.h>
 +#include <net/gre.h>
++#include <net/gtp.h>
++#include <net/gue.h>
 +#include <net/ip.h>
 +#include <net/net_namespace.h>
++#include <net/vxlan.h>
++#include <uapi/linux/fou.h>
 +
 +#define FD_TEST_BUF_LEN 512
 +#define FD_FUZZ_ITERS 4000
@@ -1024,6 +1041,488 @@ index 000000000000..d316571a12fa
 +	}
 +}
 +
++/* --- RFC: FOU/GUE inner-descent tests ---
++ *
++ * FOU/GUE have no well-known UDP port, so the descent resolves the port
++ * through the fou module's registered ops. The test registers a mock
++ * ops (so no real fou config / socket is needed) and dissects in skb
++ * mode with a dummy netdev (the lookup derives the netns from the skb).
++ * Unlike the byte-identical tests, descent changes the output, so these
++ * assert the *inner* 5-tuple is what came out.
++ */
++static __be16 fd_mock_port;
++static u16 fd_mock_type;
++static u8 fd_mock_proto;
++
++static u16 fd_mock_encap_lookup(const struct net *net, u8 family,
++				__be16 port, u8 *protocol)
++{
++	if (port != fd_mock_port)
++		return FOU_ENCAP_UNSPEC;
++	*protocol = fd_mock_proto;
++	return fd_mock_type;
++}
++
++static const struct flow_dissector_fou_ops fd_mock_fou_ops = {
++	.encap_lookup = fd_mock_encap_lookup,
++};
++
++static int put_udp(u8 *buf, __be16 dport)
++{
++	struct udphdr *uh = (struct udphdr *)buf;
++
++	uh->source = htons(0x9999);
++	uh->dest = dport;
++	uh->len = 0;
++	uh->check = 0;
++	return sizeof(*uh);
++}
++
++static int put_gue(u8 *buf, u8 proto_ctype)
++{
++	struct guehdr *gh = (struct guehdr *)buf;
++
++	gh->word = 0;
++	gh->proto_ctype = proto_ctype;	/* version 0, control 0, hlen 0 */
++	return sizeof(*gh);
++}
++
++/* Build outer IPv4+UDP(dport) + optional GUE shim + inner IPv4+TCP. The
++ * outer IP uses distinct addresses (10.0.0.x) from the inner (192.168.x,
++ * from put_ipv4) so the test can tell inner-descent from the outer parse.
++ */
++static int build_fou_gue_pkt(u8 *buf, __be16 dport, bool gue)
++{
++	struct iphdr *outer = (struct iphdr *)buf;
++	int n = put_ipv4(buf, IPPROTO_UDP, 5, 0);
++
++	outer->saddr = htonl(0x0a000001);	/* 10.0.0.1 */
++	outer->daddr = htonl(0x0a000002);	/* 10.0.0.2 */
++	n += put_udp(buf + n, dport);
++	if (gue)
++		n += put_gue(buf + n, IPPROTO_IPIP);
++	n += put_ipv4(buf + n, IPPROTO_TCP, 5, 0);
++	return n + put_ports(buf + n);
++}
++
++static void fd_fou_gue_descend(struct kunit *test, bool gue,
++			       struct static_key_false *gate)
++{
++	struct flow_keys keys;
++	struct net_device *dev;
++	struct sk_buff *skb;
++	__be16 dport = htons(0x17c0);
++	u8 *buf;
++	int len;
++
++	buf = kunit_kzalloc(test, FD_TEST_BUF_LEN, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++	len = build_fou_gue_pkt(buf, dport, gue);
++
++	dev = alloc_netdev(0, "fdtest%d", NET_NAME_UNKNOWN, ether_setup);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
++
++	skb = alloc_skb(FD_TEST_BUF_LEN + NET_SKB_PAD, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, skb);
++	skb_reserve(skb, NET_SKB_PAD);
++	skb_put_data(skb, buf, len);
++	skb->protocol = htons(ETH_P_IP);
++	skb->dev = dev;
++	skb_reset_network_header(skb);
++
++	fd_mock_port = dport;
++	fd_mock_type = gue ? FOU_ENCAP_GUE : FOU_ENCAP_DIRECT;
++	fd_mock_proto = IPPROTO_IPIP;
++	KUNIT_ASSERT_EQ(test, 0,
++			flow_dissector_fou_ops_register(&fd_mock_fou_ops));
++
++	/* The descent lives inside the eth_ip fast path, so that gate must
++	 * be on too for the dispatcher to reach it.
++	 */
++	static_branch_enable(&flow_dissector_eth_ip_key);
++	static_branch_enable(gate);
++	memset(&keys, 0, sizeof(keys));
++	__skb_flow_dissect(&init_net, skb, &flow_keys_dissector, &keys,
++			   NULL, 0, 0, 0, 0);
++	static_branch_disable(gate);
++	static_branch_disable(&flow_dissector_eth_ip_key);
++	flow_dissector_fou_ops_unregister(&fd_mock_fou_ops);
++
++	/* Descent must have reached the inner IPv4 header: ENCAP stamped,
++	 * inner v4 addrs (192.168.1.1 -> 192.168.2.2 from put_ipv4), inner
++	 * ports (0x1234/0x5678 from put_ports) — i.e. the inner 5-tuple,
++	 * not the outer UDP one.
++	 */
++	KUNIT_EXPECT_TRUE(test, keys.control.flags & FLOW_DIS_ENCAPSULATION);
++	KUNIT_EXPECT_EQ(test, keys.basic.ip_proto, IPPROTO_TCP);
++	KUNIT_EXPECT_EQ(test, keys.addrs.v4addrs.src, htonl(0xc0a80101));
++	KUNIT_EXPECT_EQ(test, keys.addrs.v4addrs.dst, htonl(0xc0a80202));
++	KUNIT_EXPECT_EQ(test, keys.ports.src, htons(0x1234));
++	KUNIT_EXPECT_EQ(test, keys.ports.dst, htons(0x5678));
++
++	kfree_skb(skb);
++	free_netdev(dev);
++}
++
++static void fd_fast_gue_descend_test(struct kunit *test)
++{
++	fd_fou_gue_descend(test, true, &flow_dissector_gue_inner_key);
++}
++
++static void fd_fast_fou_descend_test(struct kunit *test)
++{
++	fd_fou_gue_descend(test, false, &flow_dissector_fou_inner_key);
++}
++
++/* ---- UDP-tunnel descent fast/slow equivalence ------------------------
++ *
++ * Once the slow path descends into UDP tunnels too (gated, off by
++ * default), the descents are byte-identical like every other shape: with
++ * a descent gate pinned on, the fast path (entry gates on) and the slow
++ * path (entry gates off, so the fast dispatcher defers) must descend into
++ * the same inner flow and produce identical flow_keys. These use skb mode
++ * (the FOU/GUE port lookup derives the netns from the skb; VXLAN/Geneve/
++ * GTP-U work in skb mode too) with a dummy netdev.
++ */
++
++#define FD_FOU_DPORT	htons(0x17c0)
++
++static int put_vxlanhdr(u8 *buf)
++{
++	struct vxlanhdr *vh = (struct vxlanhdr *)buf;
++
++	vh->vx_flags = htonl(VXLAN_HF_VNI);
++	vh->vx_vni = htonl(0x123400);
++	return sizeof(*vh);
++}
++
++static int put_genevehdr(u8 *buf, __be16 proto_type, u8 opt_len)
++{
++	struct genevehdr *gnv = (struct genevehdr *)buf;
++
++	memset(gnv, 0, sizeof(*gnv));		/* ver = 0 */
++	gnv->opt_len = opt_len;
++	gnv->proto_type = proto_type;
++	return sizeof(*gnv) + opt_len * 4;
++}
++
++static int put_gtp1(u8 *buf, u8 type)
++{
++	struct gtp1_header *gtp = (struct gtp1_header *)buf;
++
++	memset(gtp, 0, sizeof(*gtp));
++	gtp->flags = 0x30;			/* version 1, PT 1, no options */
++	gtp->type = type;			/* 0xff = G-PDU */
++	return sizeof(*gtp);
++}
++
++static int put_inner_eth(u8 *buf, __be16 proto)
++{
++	struct ethhdr *eth = (struct ethhdr *)buf;
++
++	memset(eth, 0, sizeof(*eth));
++	eth->h_proto = proto;
++	return ETH_HLEN;
++}
++
++static int put_outer_ipv4_udp(u8 *buf, __be16 dport)
++{
++	struct iphdr *o = (struct iphdr *)buf;
++	int n = put_ipv4(buf, IPPROTO_UDP, 5, 0);
++
++	o->saddr = htonl(0x0a000001);		/* 10.0.0.1 (distinct outer) */
++	o->daddr = htonl(0x0a000002);		/* 10.0.0.2 */
++	return n + put_udp(buf + n, dport);
++}
++
++static int put_outer_ipv6_udp(u8 *buf, __be16 dport)
++{
++	struct ipv6hdr *o = (struct ipv6hdr *)buf;
++	int n = put_ipv6(buf, IPPROTO_UDP, 0);
++
++	o->saddr.s6_addr32[1] = htonl(0x0a0a0a0a);	/* distinct outer */
++	o->daddr.s6_addr32[1] = htonl(0x0b0b0b0b);
++	return n + put_udp(buf + n, dport);
++}
++
++static int put_inner_ip(u8 *buf, bool inner_v6, u8 inner_l4)
++{
++	int n;
++
++	if (inner_v6)
++		n = put_ipv6(buf, inner_l4, 0);
++	else
++		n = put_ipv4(buf, inner_l4, 5, 0);
++	return n + put_ports(buf + n);
++}
++
++static int build_vxlan(u8 *buf, bool inner_v6, u8 inner_l4)
++{
++	int n = put_outer_ipv4_udp(buf, htons(IANA_VXLAN_UDP_PORT));
++
++	n += put_vxlanhdr(buf + n);
++	n += put_inner_eth(buf + n, inner_v6 ? htons(ETH_P_IPV6)
++					     : htons(ETH_P_IP));
++	return n + put_inner_ip(buf + n, inner_v6, inner_l4);
++}
++
++static int build_geneve(u8 *buf, bool inner_v6, u8 inner_l4, u8 opt_len)
++{
++	int n = put_outer_ipv4_udp(buf, htons(GENEVE_UDP_PORT));
++
++	n += put_genevehdr(buf + n, htons(ETH_P_TEB), opt_len);
++	n += put_inner_eth(buf + n, inner_v6 ? htons(ETH_P_IPV6)
++					     : htons(ETH_P_IP));
++	return n + put_inner_ip(buf + n, inner_v6, inner_l4);
++}
++
++static int build_gtpu(u8 *buf, bool inner_v6, u8 inner_l4, u8 gtp_type)
++{
++	int n = put_outer_ipv4_udp(buf, htons(GTP1U_PORT));
++
++	n += put_gtp1(buf + n, gtp_type);
++	return n + put_inner_ip(buf + n, inner_v6, inner_l4);
++}
++
++static int build_fou_gue(u8 *buf, bool gue, bool outer_v6, bool inner_v6,
++			 u8 inner_l4)
++{
++	int n = outer_v6 ? put_outer_ipv6_udp(buf, FD_FOU_DPORT)
++			 : put_outer_ipv4_udp(buf, FD_FOU_DPORT);
++
++	if (gue)
++		n += put_gue(buf + n, inner_v6 ? IPPROTO_IPV6 : IPPROTO_IPIP);
++	return n + put_inner_ip(buf + n, inner_v6, inner_l4);
++}
++
++static int build_vxlan_nest(u8 *buf, int levels)
++{
++	int n = 0, i;
++
++	for (i = 0; i < levels; i++) {
++		n += put_outer_ipv4_udp(buf + n, htons(IANA_VXLAN_UDP_PORT));
++		n += put_vxlanhdr(buf + n);
++		n += put_inner_eth(buf + n, htons(ETH_P_IP));
++	}
++	return n + put_inner_ip(buf + n, false, IPPROTO_TCP);
++}
++
++/* Descent gate pinned on; entry gates off (slow descends) vs on (fast
++ * descends). The two must be byte-identical.
++ */
++static void fd_descent_check(struct kunit *test, struct sk_buff *skb,
++			     struct static_key_false *descent_gate)
++{
++	struct flow_keys keys_slow, keys_fast;
++	bool ret_slow, ret_fast;
++
++	static_branch_enable(descent_gate);
++
++	fd_fast_gates_set(false);
++	memset(&keys_slow, 0, sizeof(keys_slow));
++	ret_slow = __skb_flow_dissect(&init_net, skb, &flow_keys_dissector,
++				      &keys_slow, NULL, 0, 0, 0, 0);
++
++	fd_fast_gates_set(true);
++	memset(&keys_fast, 0, sizeof(keys_fast));
++	ret_fast = __skb_flow_dissect(&init_net, skb, &flow_keys_dissector,
++				      &keys_fast, NULL, 0, 0, 0, 0);
++	fd_fast_gates_set(false);
++
++	static_branch_disable(descent_gate);
++
++	KUNIT_EXPECT_EQ(test, ret_slow, ret_fast);
++	KUNIT_EXPECT_MEMEQ(test, &keys_slow, &keys_fast, sizeof(keys_slow));
++}
++
++static struct sk_buff *fd_descent_skb(struct kunit *test, const u8 *buf,
++				      int len, __be16 outer_proto,
++				      struct net_device *dev)
++{
++	struct sk_buff *skb = alloc_skb(len + NET_SKB_PAD, GFP_KERNEL);
++
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, skb);
++	skb_reserve(skb, NET_SKB_PAD);
++	skb_put_data(skb, buf, len);
++	skb->protocol = outer_proto;
++	skb->dev = dev;
++	skb_reset_network_header(skb);
++	return skb;
++}
++
++static void fd_descent_run(struct kunit *test, const u8 *buf, int len,
++			   __be16 outer_proto, struct static_key_false *gate)
++{
++	struct net_device *dev;
++	struct sk_buff *skb;
++
++	dev = alloc_netdev(0, "fdtest%d", NET_NAME_UNKNOWN, ether_setup);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
++	skb = fd_descent_skb(test, buf, len, outer_proto, dev);
++	fd_descent_check(test, skb, gate);
++	kfree_skb(skb);
++	free_netdev(dev);
++}
++
++/* Assert the fast path actually reached the inner 5-tuple (guards against
++ * fast and slow being wrong in the same way, which equivalence can't see).
++ */
++static void fd_descent_assert_inner(struct kunit *test, const u8 *buf, int len,
++				    __be16 outer_proto,
++				    struct static_key_false *gate, bool inner_v6)
++{
++	struct net_device *dev;
++	struct sk_buff *skb;
++	struct flow_keys keys;
++
++	dev = alloc_netdev(0, "fdtest%d", NET_NAME_UNKNOWN, ether_setup);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
++	skb = fd_descent_skb(test, buf, len, outer_proto, dev);
++
++	static_branch_enable(&flow_dissector_eth_ip_key);
++	static_branch_enable(gate);
++	memset(&keys, 0, sizeof(keys));
++	__skb_flow_dissect(&init_net, skb, &flow_keys_dissector, &keys,
++			   NULL, 0, 0, 0, 0);
++	static_branch_disable(gate);
++	static_branch_disable(&flow_dissector_eth_ip_key);
++
++	KUNIT_EXPECT_TRUE(test, keys.control.flags & FLOW_DIS_ENCAPSULATION);
++	KUNIT_EXPECT_EQ(test, keys.basic.ip_proto, IPPROTO_TCP);
++	if (inner_v6) {
++		KUNIT_EXPECT_EQ(test, keys.addrs.v6addrs.src.s6_addr32[3],
++				htonl(1));
++		KUNIT_EXPECT_EQ(test, keys.addrs.v6addrs.dst.s6_addr32[3],
++				htonl(2));
++	} else {
++		KUNIT_EXPECT_EQ(test, keys.addrs.v4addrs.src, htonl(0xc0a80101));
++		KUNIT_EXPECT_EQ(test, keys.addrs.v4addrs.dst, htonl(0xc0a80202));
++	}
++	KUNIT_EXPECT_EQ(test, keys.ports.src, htons(0x1234));
++	KUNIT_EXPECT_EQ(test, keys.ports.dst, htons(0x5678));
++
++	kfree_skb(skb);
++	free_netdev(dev);
++}
++
++static void fd_descent_vxlan_test(struct kunit *test)
++{
++	struct static_key_false *g = &flow_dissector_vxlan_inner_key;
++	u8 *buf;
++	int len;
++
++	buf = kunit_kzalloc(test, FD_TEST_BUF_LEN, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++
++	len = build_vxlan(buf, false, IPPROTO_TCP);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++	fd_descent_assert_inner(test, buf, len, htons(ETH_P_IP), g, false);
++
++	len = build_vxlan(buf, false, IPPROTO_UDP);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++
++	len = build_vxlan(buf, true, IPPROTO_TCP);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++	fd_descent_assert_inner(test, buf, len, htons(ETH_P_IP), g, true);
++
++	/* inner ICMP: fast defers (inner not TCP/UDP) -> both run slow. */
++	len = build_vxlan(buf, false, IPPROTO_ICMP);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++}
++
++static void fd_descent_geneve_test(struct kunit *test)
++{
++	struct static_key_false *g = &flow_dissector_geneve_inner_key;
++	u8 *buf;
++	int len;
++
++	buf = kunit_kzalloc(test, FD_TEST_BUF_LEN, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++
++	len = build_geneve(buf, false, IPPROTO_TCP, 0);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++	fd_descent_assert_inner(test, buf, len, htons(ETH_P_IP), g, false);
++
++	len = build_geneve(buf, true, IPPROTO_UDP, 0);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++
++	/* opt_len != 0: outside the fast subset -> both keep outer keys. */
++	len = build_geneve(buf, false, IPPROTO_TCP, 1);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++}
++
++static void fd_descent_gtpu_test(struct kunit *test)
++{
++	struct static_key_false *g = &flow_dissector_gtpu_inner_key;
++	u8 *buf;
++	int len;
++
++	buf = kunit_kzalloc(test, FD_TEST_BUF_LEN, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++
++	len = build_gtpu(buf, false, IPPROTO_TCP, 0xff);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++	fd_descent_assert_inner(test, buf, len, htons(ETH_P_IP), g, false);
++
++	len = build_gtpu(buf, true, IPPROTO_TCP, 0xff);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++	fd_descent_assert_inner(test, buf, len, htons(ETH_P_IP), g, true);
++
++	/* not a G-PDU (type != 0xff): outside the fast subset. */
++	len = build_gtpu(buf, false, IPPROTO_TCP, 0xfe);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++}
++
++static void fd_descent_fou_gue_test(struct kunit *test)
++{
++	static const struct { bool gue; bool outer_v6; bool inner_v6; } v[] = {
++		{ true,  false, false }, { true,  false, true  },
++		{ true,  true,  false }, { true,  true,  true  },
++		{ false, false, false }, { false, true,  false },
++	};
++	u8 *buf;
++	int i, len;
++
++	buf = kunit_kzalloc(test, FD_TEST_BUF_LEN, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++
++	for (i = 0; i < ARRAY_SIZE(v); i++) {
++		struct static_key_false *g = v[i].gue ?
++			&flow_dissector_gue_inner_key :
++			&flow_dissector_fou_inner_key;
++
++		len = build_fou_gue(buf, v[i].gue, v[i].outer_v6, v[i].inner_v6,
++				    IPPROTO_TCP);
++		fd_mock_port = FD_FOU_DPORT;
++		fd_mock_type = v[i].gue ? FOU_ENCAP_GUE : FOU_ENCAP_DIRECT;
++		fd_mock_proto = v[i].inner_v6 ? IPPROTO_IPV6 : IPPROTO_IPIP;
++		KUNIT_ASSERT_EQ(test, 0,
++				flow_dissector_fou_ops_register(&fd_mock_fou_ops));
++		fd_descent_run(test, buf, len,
++			       v[i].outer_v6 ? htons(ETH_P_IPV6) :
++					       htons(ETH_P_IP), g);
++		flow_dissector_fou_ops_unregister(&fd_mock_fou_ops);
++	}
++}
++
++/* Nested VXLAN past MAX_FLOW_DISSECT_HDRS: the fast path bails at the cap
++ * and defers to slow, the slow loop stops at the same depth -> identical.
++ */
++static void fd_descent_nest_test(struct kunit *test)
++{
++	const int cap = 1024;
++	u8 *buf;
++	int len;
++
++	buf = kunit_kzalloc(test, cap, GFP_KERNEL);
++	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
++
++	len = build_vxlan_nest(buf, 16);
++	KUNIT_ASSERT_LE(test, len, cap);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP),
++		       &flow_dissector_vxlan_inner_key);
++}
++
 +static int fd_fast_suite_init(struct kunit_suite *suite)
 +{
 +	fd_fast_gates_set(false);
@@ -1046,6 +1545,13 @@ index 000000000000..d316571a12fa
 +	KUNIT_CASE(fd_fast_skb_hwaccel_vlan_qinq_test),
 +	KUNIT_CASE(fd_fast_skb_shapes_test),
 +	KUNIT_CASE(fd_fast_fuzz_test),
++	KUNIT_CASE(fd_fast_gue_descend_test),
++	KUNIT_CASE(fd_fast_fou_descend_test),
++	KUNIT_CASE(fd_descent_vxlan_test),
++	KUNIT_CASE(fd_descent_geneve_test),
++	KUNIT_CASE(fd_descent_gtpu_test),
++	KUNIT_CASE(fd_descent_fou_gue_test),
++	KUNIT_CASE(fd_descent_nest_test),
 +	{}
 +};
 +
