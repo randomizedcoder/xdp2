@@ -1,7 +1,7 @@
 From dafe0bd1a0f6a2b987d46d4e8329264182b1b538 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
-Subject: [PATCH net-next v1 12/15] net: flow_dissector: descend into Geneve
+Subject: [PATCH net-next v1 12/16] net: flow_dissector: descend into Geneve
  inner flow
 
 Opt-in, off by default, byte-identical between the fast and slow paths.

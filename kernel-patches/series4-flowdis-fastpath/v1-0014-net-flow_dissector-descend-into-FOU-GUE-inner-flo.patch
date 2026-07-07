@@ -1,7 +1,7 @@
 From e42dc18dc122227186379531a72edfc7b184910d Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 20:38:45 -0700
-Subject: [PATCH net-next v1 14/15] net: flow_dissector: descend into FOU/GUE
+Subject: [PATCH net-next v1 14/16] net: flow_dissector: descend into FOU/GUE
  inner flow
 
 Opt-in, off by default, byte-identical between the fast and slow paths.

@@ -1,7 +1,7 @@
 From 452f5fb2090fca182245e014c810957b43ac5677 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:16:00 -0700
-Subject: [PATCH net-next v1 13/15] net: flow_dissector: descend into GTP-U
+Subject: [PATCH net-next v1 13/16] net: flow_dissector: descend into GTP-U
  inner flow
 
 Opt-in, off by default, byte-identical between the fast and slow paths.

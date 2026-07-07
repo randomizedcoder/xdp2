@@ -1,7 +1,7 @@
 From 5d9bf0cae82bfcccf141ef237aa99dc430d1abc0 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
-Subject: [PATCH net-next v1 11/15] net: flow_dissector: descend into VXLAN
+Subject: [PATCH net-next v1 11/16] net: flow_dissector: descend into VXLAN
  inner flow
 
 Opt-in, off by default, and byte-identical between the fast and slow
