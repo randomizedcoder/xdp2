@@ -1,7 +1,7 @@
 From c73747fdf3a550c18d0333a147c309290a4dd78e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
-Subject: [PATCH net-next v1 07/15] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 07/16] net: flow_dissector: add fast-path for
  IP-in-IP family (IPIP / 4in6 / 6in4)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

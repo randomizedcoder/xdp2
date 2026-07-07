@@ -1,4 +1,4 @@
-From a208f86be2ce6dc7e38c240386b30c92417d859e Mon Sep 17 00:00:00 2001
+From cd260b07ede6a92bf5cec0afb27fa82580c6bd0f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable

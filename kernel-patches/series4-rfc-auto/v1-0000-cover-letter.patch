@@ -1,6 +1,6 @@
-From a208f86be2ce6dc7e38c240386b30c92417d859e Mon Sep 17 00:00:00 2001
+From cd260b07ede6a92bf5cec0afb27fa82580c6bd0f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Mon, 6 Jul 2026 09:34:08 -0700
+Date: Tue, 7 Jul 2026 09:34:50 -0700
 Subject: [RFC net-next v1 0/1] net: flow_dissector: adaptive auto-enable for the fast-path gates
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -79,6 +79,8 @@ Dave Seddon (1):
  net/core/flow_dissector.c                | 239 +++++++++++++++++++++++
  2 files changed, 280 insertions(+), 4 deletions(-)
 
+
+base-commit: 55d5547fae55fe56b08303d92dda96855b18a20f
 -- 
 2.54.0
 

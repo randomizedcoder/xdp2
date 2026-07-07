@@ -1,5 +1,22 @@
 # series4-flowdis-fastpath — status
 
+## Documentation round (2026-07-07)
+
+Added **patch 16**: `Documentation: networking: add flow_dissector overview
+and fast-path guide`. The kernel had no general flow_dissector doc — only
+`Documentation/bpf/prog_flow_dissector.rst` (BPF override only, and itself
+orphaned from every toctree). New `Documentation/networking/flow_dissector.rst`:
+overview (what the dissector is, struct flow_keys, the skb->hash consumers),
+the dissection path, the BPF-override relationship, the opt-in fast paths, the
+tunnel inner-flow descents, and the when-to-enable break-even model + auto
+controller. Indexed in `networking/index.rst`; also indexes the orphaned
+`prog_flow_dissector.rst` and cross-links the two. Per-knob reference stays in
+`admin-guide/sysctl/net.rst` (the doc links to it, no duplication). Verified:
+`make htmldocs` builds `flow_dissector.html` with **0 warnings on the new/edited
+files**, all `:doc:` cross-refs resolve, orphan warning gone. Main series now
+**16 patches** (net-next `series4-final-v2`, tip 55d5547); RFC auto rebased onto
+it (`series4-rfc-tail-v2`). No kernel/code change — Documentation only.
+
 ## Byte-identical descent + promote-to-landable round (2026-07-06)
 
 The tunnel descents (vxlan/geneve/gtpu/fou/gue) are no longer RFC. The

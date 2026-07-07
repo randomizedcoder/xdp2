@@ -1,7 +1,7 @@
-From 21ec32a66678e5eb4fdb3d619b6eadbabc85d69b Mon Sep 17 00:00:00 2001
+From 55d5547fae55fe56b08303d92dda96855b18a20f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Mon, 6 Jul 2026 09:33:53 -0700
-Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
+Date: Tue, 7 Jul 2026 09:34:19 -0700
+Subject: [PATCH net-next v1 00/16] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -155,13 +155,20 @@ on the patch-9 counters (it manages only the byte-identical shape gates;
 the descent gates are never auto-managed, since enabling them changes
 hashing and must stay a deliberate operator action).
 
+Patch 16 adds Documentation/networking/flow_dissector.rst -- there was no
+general flow_dissector overview in the tree. It explains what the dissector
+is and who consumes its output, then documents this series' fast paths: the
+byte-identical contract, the tunnel descents, and the break-even model for
+when a gate is worth enabling. The per-knob reference stays in
+Documentation/admin-guide/sysctl/net.rst; the new doc links to it.
+
 Testing: 3 ISAs / 8 uarches (x86 Zen1/Zen2/Skylake/Haswell, ARM
 Cortex-A53/A72/A76, RISC-V X60), N=3 in-kernel replicates, in-tree KUnit
 (patch 15) and out-of-tree A/B. Supporting data (flow-distribution study,
 per-shape/per-arch matrix, break-even derivation):
 https://github.com/randomizedcoder/xdp2 , under perf-results/ .
 
-Dave Seddon (15):
+Dave Seddon (16):
   net: flow_dissector: gate BPF program lookup behind a static key
   net: flow_dissector: opt-in fast-path for eth + IPv{4,6} + {TCP,UDP}
   net: flow_dissector: add fast-path for single Eth+VLAN+IP+TCP/UDP
@@ -180,19 +187,28 @@ Dave Seddon (15):
   net: flow_dissector: descend into GTP-U inner flow
   net: flow_dissector: descend into FOU/GUE inner flow
   net: flow_dissector: add KUnit fast/slow path equivalence tests
+  Documentation: networking: add flow_dissector overview and fast-path
+    guide
 
- Documentation/admin-guide/sysctl/net.rst |  268 +++-
- include/linux/skbuff.h                   |    1 +
- include/net/flow_dissector.h             |   60 +
- kernel/bpf/net_namespace.c               |   17 +-
- net/Kconfig                              |   12 +
- net/core/Makefile                        |    1 +
- net/core/flow_dissector.c                | 1840 +++++++++++++++++++++-
- net/core/flow_dissector_test.c           | 1448 +++++++++++++++++
- net/ipv4/fou_core.c                      |   48 +-
- 9 files changed, 3639 insertions(+), 56 deletions(-)
+ Documentation/admin-guide/sysctl/net.rst    |  268 ++-
+ Documentation/bpf/index.rst                 |    1 +
+ Documentation/bpf/prog_flow_dissector.rst   |    2 +
+ Documentation/networking/flow_dissector.rst |  153 ++
+ Documentation/networking/index.rst          |    1 +
+ include/linux/skbuff.h                      |    1 +
+ include/net/flow_dissector.h                |   60 +
+ kernel/bpf/net_namespace.c                  |   17 +-
+ net/Kconfig                                 |   12 +
+ net/core/Makefile                           |    1 +
+ net/core/flow_dissector.c                   | 1840 ++++++++++++++++++-
+ net/core/flow_dissector_test.c              | 1448 +++++++++++++++
+ net/ipv4/fou_core.c                         |   48 +-
+ 13 files changed, 3796 insertions(+), 56 deletions(-)
+ create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 
+
+base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
 -- 
 2.54.0
 

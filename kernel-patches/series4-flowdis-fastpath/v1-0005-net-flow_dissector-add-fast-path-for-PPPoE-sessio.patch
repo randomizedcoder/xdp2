@@ -1,7 +1,7 @@
 From 6798b1ed9238a57b2c781b1e32ab0484bdabc35b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
-Subject: [PATCH net-next v1 05/15] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 05/16] net: flow_dissector: add fast-path for
  PPPoE session + IPv{4,6} + TCP/UDP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
