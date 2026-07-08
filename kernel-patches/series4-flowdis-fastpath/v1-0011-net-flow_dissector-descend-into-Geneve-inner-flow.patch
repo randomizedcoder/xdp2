@@ -1,4 +1,4 @@
-From efdbf26f10d3b2dd5a2456bbab3390bf476a13ae Mon Sep 17 00:00:00 2001
+From afb514394d990ef8cc700e9fa874ab83f38ba5fe Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
 Subject: [PATCH net-next v1 11/15] net: flow_dissector: descend into Geneve
@@ -85,7 +85,7 @@ index 988d3fa3a7ce..1464b518679b 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index e882031ff724..acf53c466f5a 100644
+index 3cd3d2306924..219b845e1840 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -105,7 +105,7 @@ index e882031ff724..acf53c466f5a 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1331,6 +1334,60 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1346,6 +1349,60 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -166,7 +166,7 @@ index e882031ff724..acf53c466f5a 100644
  	return true;
  }
  
-@@ -2039,6 +2096,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2054,6 +2111,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -202,7 +202,7 @@ index e882031ff724..acf53c466f5a 100644
  	return false;
  }
  
-@@ -2726,7 +2812,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2741,7 +2827,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(key_control->flags & FLOW_DIS_IS_FRAGMENT) &&
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
@@ -212,7 +212,7 @@ index e882031ff724..acf53c466f5a 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3275,6 +3362,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3290,6 +3377,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

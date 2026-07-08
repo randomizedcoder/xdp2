@@ -1,5 +1,38 @@
 # series4-flowdis-fastpath — status
 
+## Readability-polish round (2026-07-07, evening)
+
+A dedicated clean-code review pass over the final series, then the small
+mechanical items applied (still 15 patches, branch `series4-final-v3`
+rewritten in place; pre-polish tip kept as `series4-final-v3-prepolish`):
+
+- **Suite hygiene (patch 14):** `fd_descent_gates[]` array + `fd_all_gates_off()`
+  — suite init/exit now clears the five descent gates too, so a failing test
+  can never leak an enabled gate into its successors (previously
+  correct-by-ordering only).
+- **Accessor prototypes (patch 14):** the two test-only accessor prototypes
+  moved from the test .c into `include/net/flow_dissector.h` under
+  `#if IS_ENABLED(CONFIG_FLOW_DISSECTOR_KUNIT_TEST)` — kills the checkpatch
+  "externs in .c" warning legitimately (now 3 benign warnings total).
+- **Kernel polish:** `FLOW_DIS_IPV4_VIHL_NOOPT` named constant for the 0x45
+  version+IHL byte (patch 02; anchored next to the fast-helper forward
+  declarations — NOT next to MAX_FLOW_DISSECT_HDRS, which patch 10 moves);
+  GTP-U slow path pre-extracts ver/pt/low3 to match the fast path (patch 12);
+  a where-each-shape-is-counted comment above the counter helpers (patch 08);
+  a @num_hdrs-threading doc paragraph on the forward declarations (patch 09).
+
+Deliberately NOT done (recorded as the prepared answer if a reviewer asks):
+shared tunnel-header classification helpers used by both fast and slow paths
+— would make byte-identity structural instead of by-parallel-editing and
+shrink flow_dissect_fast_ipv4; deferred as it restructures patches 10-13.
+
+Verified: KUnit 61/61 on the polished tree; per-commit compile ×15;
+checkpatch 0 errors / 3 benign warnings; W=1 + sparse clean on
+flow_dissector.o and flow_dissector_test.o. Replay gotcha for future rounds:
+anchor early-patch insertions on series-owned text that later patches don't
+move (the MAX_FLOW_DISSECT_HDRS block moves in patch 10; the counters block
+lands adjacent in patch 08).
+
 ## Pre-submission hardening round (2026-07-07, later)
 
 Full adversarial review from the net-next-reviewer perspective, then fixes.

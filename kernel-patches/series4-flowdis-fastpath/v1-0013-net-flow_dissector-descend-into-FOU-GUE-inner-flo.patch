@@ -1,4 +1,4 @@
-From 878c3a62b8382bcf20756c559a29857a274ddfb4 Mon Sep 17 00:00:00 2001
+From 12f79fadd59276078e57925bffdd046510b2c1e1 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 20:38:45 -0700
 Subject: [PATCH net-next v1 13/15] net: flow_dissector: descend into FOU/GUE
@@ -154,7 +154,7 @@ index 583c7bc45ebc..91d229053c21 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5fa6a60b8547..1b3e78bd535b 100644
+index 21945294324c..d2a2b1336504 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,8 @@
@@ -235,7 +235,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -181,6 +245,136 @@ static bool flow_dissect_fast_udp_inner(const struct sk_buff *skb,
+@@ -197,6 +261,136 @@ static bool flow_dissect_fast_udp_inner(const struct sk_buff *skb,
  	return true;
  }
  
@@ -372,7 +372,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1457,6 +1651,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1472,6 +1666,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -391,7 +391,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  	return true;
  }
  
-@@ -1599,6 +1805,18 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1614,6 +1820,18 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -410,7 +410,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  	return true;
  }
  
-@@ -2024,8 +2242,9 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -2039,8 +2257,9 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  
  /* Did a fast-path leaf stamp FLOW_DIS_ENCAPSULATION? Used by the dispatcher
   * to count eth_ip fast_hits for plain top-level IP only — an ipip/gre/overlay
@@ -422,7 +422,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
   */
  static bool flow_dissect_fast_is_encap(struct flow_dissector *flow_dissector,
  				       void *target_container)
-@@ -2220,6 +2439,65 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2240,6 +2459,65 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -488,7 +488,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  	return false;
  }
  
-@@ -2909,7 +3187,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2929,7 +3207,9 @@ bool __skb_flow_dissect(const struct net *net,
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
  	     static_branch_unlikely(&flow_dissector_geneve_inner_key) ||
@@ -499,7 +499,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3472,6 +3752,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3492,6 +3772,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -520,7 +520,7 @@ index 5fa6a60b8547..1b3e78bd535b 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3553,7 +3847,7 @@ static int __init flow_dissector_sysctl_init(void)
+@@ -3573,7 +3867,7 @@ static int __init flow_dissector_sysctl_init(void)
  		return -ENOMEM;
  
  	/* Global (init_net) counters — matches the global gates; per-netns is

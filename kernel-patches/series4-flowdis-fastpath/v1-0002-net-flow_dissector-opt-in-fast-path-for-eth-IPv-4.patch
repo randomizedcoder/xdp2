@@ -1,4 +1,4 @@
-From 677286c4150d60ec82d15fe968895f8ef365d7d1 Mon Sep 17 00:00:00 2001
+From e61767a4ef9fe644ee56556c46884e6489ebcdc9 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
 Subject: [PATCH net-next v1 02/15] net: flow_dissector: opt-in fast-path for
@@ -78,8 +78,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  27 ++-
  include/net/flow_dissector.h             |   8 +
- net/core/flow_dissector.c                | 273 +++++++++++++++++++++++
- 3 files changed, 307 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 275 +++++++++++++++++++++++
+ 3 files changed, 309 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index e586e17fc7a5..d184e279103a 100644
@@ -139,10 +139,10 @@ index ced79dc8e856..d5a19fd69853 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b8c59209b460..63b08a5b8277 100644
+index b8c59209b460..d62a36dd2f36 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -37,6 +37,41 @@
+@@ -37,6 +37,44 @@
  #endif
  #include <linux/bpf-netns.h>
  
@@ -154,6 +154,9 @@ index b8c59209b460..63b08a5b8277 100644
 + */
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_eth_ip_key);
 +EXPORT_SYMBOL(flow_dissector_eth_ip_key);
++
++/* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
++#define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
 +
 +/* Forward declarations for the per-shape fast-path helpers, anchored
 + * at the top of the file. Subsequent patches in this series add new
@@ -184,7 +187,7 @@ index b8c59209b460..63b08a5b8277 100644
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1043,6 +1078,211 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
+@@ -1043,6 +1081,210 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
  	return hdr->ver == 1 && hdr->type == 1 && hdr->code == 0;
  }
  
@@ -216,8 +219,7 @@ index b8c59209b460..63b08a5b8277 100644
 +
 +	iph = (const struct iphdr *)((const u8 *)data + nhoff);
 +
-+	/* version == 4 and IHL == 5 packed in the first byte. */
-+	if (unlikely(*(const u8 *)iph != 0x45))
++	if (unlikely(*(const u8 *)iph != FLOW_DIS_IPV4_VIHL_NOOPT))
 +		return false;
 +
 +	if (unlikely(iph->frag_off & htons(IP_MF | IP_OFFSET)))
@@ -396,7 +398,7 @@ index b8c59209b460..63b08a5b8277 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -1183,6 +1423,15 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1183,6 +1425,15 @@ bool __skb_flow_dissect(const struct net *net,
  		rcu_read_unlock();
  	}
  
@@ -412,7 +414,7 @@ index b8c59209b460..63b08a5b8277 100644
  	if (dissector_uses_key(flow_dissector,
  			       FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
  		struct flow_dissector_key_eth_addrs *key_eth_addrs;
-@@ -2116,3 +2365,27 @@ static int __init init_default_flow_dissectors(void)
+@@ -2116,3 +2367,27 @@ static int __init init_default_flow_dissectors(void)
  	return 0;
  }
  core_initcall(init_default_flow_dissectors);

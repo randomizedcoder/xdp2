@@ -1,4 +1,4 @@
-From 51401f685fc660ad5f1da3ae217afa82b6add40e Mon Sep 17 00:00:00 2001
+From 95daa523e279fce1cb8e4bb7d7e1203aab48290c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:16:00 -0700
 Subject: [PATCH net-next v1 12/15] net: flow_dissector: descend into GTP-U
@@ -32,8 +32,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  26 ++++++
  include/net/flow_dissector.h             |   1 +
- net/core/flow_dissector.c                | 105 ++++++++++++++++++++++-
- 3 files changed, 131 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 110 ++++++++++++++++++++++-
+ 3 files changed, 136 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 3c3319bb229f..1dd895d14b12 100644
@@ -85,7 +85,7 @@ index 1464b518679b..583c7bc45ebc 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index acf53c466f5a..5fa6a60b8547 100644
+index 219b845e1840..21945294324c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,7 @@
@@ -105,7 +105,7 @@ index acf53c466f5a..5fa6a60b8547 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1388,6 +1391,72 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1403,6 +1406,72 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -178,7 +178,7 @@ index acf53c466f5a..5fa6a60b8547 100644
  	return true;
  }
  
-@@ -2125,6 +2194,32 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2140,6 +2209,37 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -190,9 +190,14 @@ index acf53c466f5a..5fa6a60b8547 100644
 +				  sizeof(struct iphdr))) {
 +		const struct gtp1_header *gtp = (const struct gtp1_header *)
 +			((const u8 *)data + thoff + sizeof(struct udphdr));
++		const u8 ver = gtp->flags >> 5;
++		const u8 pt  = (gtp->flags >> 4) & 0x1;
++		const u8 low3 = gtp->flags & GTP1_F_MASK;
 +
-+		if ((gtp->flags >> 5) == 1 && ((gtp->flags >> 4) & 0x1) == 1 &&
-+		    (gtp->flags & GTP1_F_MASK) == 0 && gtp->type == 0xff) {
++		/* GTPv1 (ver=1), PT=1 (GTP not GTP'), no optional fields,
++		 * G-PDU — the same subset as the fast path.
++		 */
++		if (ver == 1 && pt == 1 && low3 == 0 && gtp->type == 0xff) {
 +			int inner_nhoff = thoff + sizeof(struct udphdr) +
 +					  sizeof(struct gtp1_header);
 +			u8 inner_ver = *((const u8 *)data + inner_nhoff) >> 4;
@@ -211,7 +216,7 @@ index acf53c466f5a..5fa6a60b8547 100644
  	return false;
  }
  
-@@ -2813,7 +2908,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2828,7 +2928,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
@@ -221,7 +226,7 @@ index acf53c466f5a..5fa6a60b8547 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3369,6 +3465,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3384,6 +3485,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
