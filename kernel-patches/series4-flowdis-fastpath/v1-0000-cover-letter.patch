@@ -1,6 +1,6 @@
-From d08561e73cd0ed9610a612f151b66a128ddf9fb7 Mon Sep 17 00:00:00 2001
+From d013d01eed293b7f54e57c2408d14e686c87dd0f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Tue, 7 Jul 2026 18:44:21 -0700
+Date: Tue, 7 Jul 2026 20:58:48 -0700
 Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -88,8 +88,9 @@ holds for IPv4 and IPv6 inner flows and underlays.
 
 Performance summary
 ===================
-Measured across 3 ISAs and 8 microarchitectures, with N=3 replicates
-in-kernel and byte-identical verification per shape. Two instruments,
+Measured across 3 ISAs and 8 microarchitectures with byte-identical
+verification per shape (userspace A/B harness compiling the dissector
+both ways from the same source). Two instruments,
 labelled below: "allshapes" compiles every fast path in (the realistic
 icache footprint) and measures each shape in isolation; "isolated A/B"
 compiles one shape's path against the unmodified dissector (the upper
@@ -168,9 +169,13 @@ The test earns its place: during development it caught real divergences
 the out-of-tree A/B harness had missed -- the MPLS fast path skipping the
 slow path's out_good terminal writes, the 4in6 descent not reproducing
 the outer-IPv6 residue, the VXLAN/Geneve/GTP-U fast path failing to set
-FLOW_DIS_ENCAPSULATION because the inner leaf zeroed it, and a VXLAN
-test builder double-byte-swapping the header flags. All fixed in this
-posting.
+FLOW_DIS_ENCAPSULATION because the inner leaf zeroed it, a VXLAN
+test builder double-byte-swapping the header flags, and -- caught by a
+hardware boot smoke with counter positive-controls, then pinned by a
+regression test -- the dispatcher rejecting the STOP_AT_FLOW_LABEL
+flag that skb_get_hash() passes on every dissect, which had made the
+fast path unreachable from RPS/RFS/fq/cake entirely. All fixed in
+this posting.
 
 Robustness and safety limits
 ============================
@@ -209,7 +214,7 @@ contract is enforced mechanically by the in-tree KUnit suite rather
 than by trust in either the tool or the author.
 
 Testing: 3 ISAs / 8 uarches (x86 Zen1/Zen2/Skylake/Haswell, ARM
-Cortex-A53/A72/A76, RISC-V X60), N=3 in-kernel replicates, in-tree KUnit
+Cortex-A53/A72/A76, RISC-V X60), in-tree KUnit
 (patch 14: 61 tests, also run under KASAN+UBSAN; per-patch W=1, sparse
 and smatch clean) and out-of-tree A/B. Supporting data
 (flow-distribution study, per-shape/per-arch matrix, break-even
@@ -247,10 +252,10 @@ Dave Seddon (15):
  kernel/bpf/net_namespace.c                  |   17 +-
  net/Kconfig                                 |   12 +
  net/core/Makefile                           |    1 +
- net/core/flow_dissector.c                   | 1903 ++++++++++++++++++-
- net/core/flow_dissector_test.c              | 1702 +++++++++++++++++
+ net/core/flow_dissector.c                   | 1905 ++++++++++++++++++-
+ net/core/flow_dissector_test.c              | 1722 +++++++++++++++++
  net/ipv4/fou_core.c                         |   48 +-
- 13 files changed, 4122 insertions(+), 56 deletions(-)
+ 13 files changed, 4144 insertions(+), 56 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 

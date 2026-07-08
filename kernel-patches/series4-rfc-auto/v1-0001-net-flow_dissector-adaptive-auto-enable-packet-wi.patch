@@ -1,4 +1,4 @@
-From cd260b07ede6a92bf5cec0afb27fa82580c6bd0f Mon Sep 17 00:00:00 2001
+From 86974579a80886f8a5f23ce367bca666c60ea46b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -15,8 +15,10 @@ counters, so "turn on the fast path" becomes one knob instead of ten.
 
 Decisions are driven by a packet-count window, not a wall-clock tick:
 
-  net.flow_dissector.auto                 0/1 (mode; manual knobs apply when 0)
-  net.flow_dissector.auto_window_packets  decision window (default 1,000,000)
+  net.flow_dissector.auto            0/1 (mode; manual knobs
+                                     apply when 0)
+  net.flow_dissector.auto_window_packets  decision window
+                                          (default 1,000,000)
 
 Every ~auto_window_packets dissects the worker re-evaluates each byte-
 identical
@@ -30,13 +32,17 @@ moderation.)
 
 Two design points:
 
-- Decide on window *deltas*, never cumulative counters — a since-boot ratio
-  asymptotically freezes and stops adapting. The worker snapshots the counters
+- Decide on window *deltas*, never cumulative counters — a
+  since-boot ratio
+  asymptotically freezes and stops adapting. The worker snapshots the
+  counters
   each decision and diffs.
 - Sample on the hot path, flip in process context. The packet path only
 does the
-  existing per-cpu inc plus a branch-predictable "did my cpu cross window/ncpus"
-  check that schedule_work()s; the summation and static_branch flips (text_poke,
+  existing per-cpu inc plus a branch-predictable "did my cpu cross
+  window/ncpus"
+  check that schedule_work()s; the summation and static_branch flips
+  (text_poke,
   which can sleep) run in the worker.
 
 Policy uses the measured break-even table (conservative in-order row, so it
@@ -56,6 +62,7 @@ noted follow-up.
 
 Compile-verified (objtool-clean) against net-next.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  45 ++++-
@@ -126,7 +133,7 @@ index d4eab4c826a0..ead2e353c296 100644
  3. /proc/sys/net/unix - Parameters for Unix domain sockets
  ----------------------------------------------------------
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f70be023435e..82cf8534763b 100644
+index 3085cf6f07f8..c249db2f87df 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -44,6 +44,7 @@
@@ -137,9 +144,9 @@ index f70be023435e..82cf8534763b 100644
  
  /* Per-shape gates for the opt-in flow_dissector fast-path. Each is a
   * separate static_branch so operators enable only the shapes their
-@@ -158,6 +159,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
- 	this_cpu_inc(flow_dissector_pcpu_stats.fast_hits[shape]);
- }
+@@ -169,6 +170,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
+ /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
+ #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
  
 +/* RFC: adaptive auto-enablement (Home B — in-kernel).
 + *
@@ -173,7 +180,7 @@ index f70be023435e..82cf8534763b 100644
  /* Forward declarations for the per-shape fast-path helpers, anchored
   * at the top of the file. Subsequent patches in this series add new
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -2626,6 +2656,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2671,6 +2701,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
@@ -182,7 +189,7 @@ index f70be023435e..82cf8534763b 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -3671,6 +3703,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3736,6 +3768,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -196,7 +203,7 @@ index f70be023435e..82cf8534763b 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3756,6 +3795,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3821,6 +3860,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -226,7 +233,7 @@ index f70be023435e..82cf8534763b 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3830,6 +3892,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3895,6 +3957,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

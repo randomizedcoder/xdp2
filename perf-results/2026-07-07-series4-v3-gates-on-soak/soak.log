@@ -1,0 +1,159 @@
+[21:35:34] == setup: consumers + all gates on (hp5) ==
+[21:35:35] -- round 1 --
+[21:37:07] round 1: dissects=53762538 eth_ip_fast_hits=4206722 dmesg_hits=0
+[21:37:07] -- round 2 --
+[21:38:40] round 2: dissects=104342315 eth_ip_fast_hits=6796790 dmesg_hits=0
+[21:38:40] -- round 3 --
+[21:40:13] round 3: dissects=161049945 eth_ip_fast_hits=60821942 dmesg_hits=0
+[21:40:13] -- round 4 --
+[21:41:45] round 4: dissects=211423018 eth_ip_fast_hits=63411994 dmesg_hits=0
+[21:41:45] -- round 5 --
+[21:43:18] round 5: dissects=266987602 eth_ip_fast_hits=116294103 dmesg_hits=0
+[21:43:18] -- round 6 --
+[21:44:51] round 6: dissects=319356346 eth_ip_fast_hits=118884250 dmesg_hits=0
+[21:44:51] -- round 7 --
+[21:46:23] round 7: dissects=371689275 eth_ip_fast_hits=121474343 dmesg_hits=0
+[21:46:23] -- round 8 --
+[21:47:56] round 8: dissects=428530225 eth_ip_fast_hits=175632799 dmesg_hits=0
+[21:47:56] -- round 9 --
+[21:49:28] round 9: dissects=468918674 eth_ip_fast_hits=178222901 dmesg_hits=0
+[21:49:28] -- round 10 --
+[21:51:01] round 10: dissects=519137145 eth_ip_fast_hits=180812967 dmesg_hits=0
+[21:51:01] -- round 11 --
+[21:52:34] round 11: dissects=575914589 eth_ip_fast_hits=234907926 dmesg_hits=0
+[21:52:34] -- round 12 --
+[21:54:06] round 12: dissects=632351768 eth_ip_fast_hits=288662616 dmesg_hits=0
+[21:54:06] -- round 13 --
+[21:55:39] round 13: dissects=682770321 eth_ip_fast_hits=291252708 dmesg_hits=0
+[21:55:39] -- round 14 --
+[21:57:12] round 14: dissects=739678934 eth_ip_fast_hits=345478806 dmesg_hits=0
+[21:57:12] -- round 15 --
+[21:58:44] round 15: dissects=790170440 eth_ip_fast_hits=348068952 dmesg_hits=0
+[21:58:44] -- round 16 --
+[22:00:17] round 16: dissects=846411215 eth_ip_fast_hits=401627222 dmesg_hits=0
+[22:00:17] -- round 17 --
+[22:01:50] round 17: dissects=896806647 eth_ip_fast_hits=404217336 dmesg_hits=0
+[22:01:50] -- round 18 --
+[22:03:22] round 18: dissects=953438363 eth_ip_fast_hits=458166544 dmesg_hits=0
+[22:03:22] -- round 19 --
+[22:04:55] round 19: dissects=1005902382 eth_ip_fast_hits=460756695 dmesg_hits=0
+[22:04:55] -- round 20 --
+[22:06:28] round 20: dissects=1058085719 eth_ip_fast_hits=463346813 dmesg_hits=0
+[22:06:28] -- round 21 --
+[22:08:00] round 21: dissects=1110463786 eth_ip_fast_hits=465936930 dmesg_hits=0
+[22:08:00] -- round 22 --
+[22:09:33] round 22: dissects=1167401909 eth_ip_fast_hits=520192575 dmesg_hits=0
+[22:09:33] -- round 23 --
+[22:11:06] round 23: dissects=1219725787 eth_ip_fast_hits=522782586 dmesg_hits=0
+[22:11:06] -- round 24 --
+[22:12:38] round 24: dissects=1276476773 eth_ip_fast_hits=576851106 dmesg_hits=0
+[22:12:38] -- round 25 --
+[22:14:11] round 25: dissects=1326900211 eth_ip_fast_hits=579441224 dmesg_hits=0
+[22:14:11] -- round 26 --
+[22:15:44] round 26: dissects=1383605514 eth_ip_fast_hits=633464027 dmesg_hits=0
+[22:15:44] -- round 27 --
+[22:17:16] round 27: dissects=1440146159 eth_ip_fast_hits=687322189 dmesg_hits=0
+[22:17:16] -- round 28 --
+[22:18:49] round 28: dissects=1492440248 eth_ip_fast_hits=689912352 dmesg_hits=0
+[22:18:49] -- round 29 --
+[22:20:22] round 29: dissects=1542998251 eth_ip_fast_hits=692502444 dmesg_hits=0
+[22:20:22] -- round 30 --
+[22:21:54] round 30: dissects=1593482528 eth_ip_fast_hits=695092572 dmesg_hits=0
+[22:21:54] -- round 31 --
+[22:23:27] round 31: dissects=1650082206 eth_ip_fast_hits=749009767 dmesg_hits=0
+[22:23:27] -- round 32 --
+[22:25:00] round 32: dissects=1707159452 eth_ip_fast_hits=803404513 dmesg_hits=0
+[22:25:00] -- round 33 --
+[22:26:32] round 33: dissects=1757553935 eth_ip_fast_hits=805994587 dmesg_hits=0
+[22:26:32] -- round 34 --
+[22:28:05] round 34: dissects=1813964326 eth_ip_fast_hits=859722467 dmesg_hits=0
+[22:28:05] -- round 35 --
+[22:29:38] round 35: dissects=1866402382 eth_ip_fast_hits=862312493 dmesg_hits=0
+[22:29:38] -- round 36 --
+[22:31:10] round 36: dissects=1922963145 eth_ip_fast_hits=916190751 dmesg_hits=0
+[22:31:10] -- round 37 --
+[22:32:43] round 37: dissects=1979859585 eth_ip_fast_hits=970404705 dmesg_hits=0
+[22:32:43] -- round 38 --
+[22:34:16] round 38: dissects=2036824117 eth_ip_fast_hits=1024686735 dmesg_hits=0
+[22:34:16] -- round 39 --
+[22:35:48] round 39: dissects=2087074207 eth_ip_fast_hits=1027276784 dmesg_hits=0
+[22:35:48] -- round 40 --
+[22:37:21] round 40: dissects=2143842679 eth_ip_fast_hits=1081362760 dmesg_hits=0
+[22:37:21] -- round 41 --
+[22:38:54] round 41: dissects=2200709436 eth_ip_fast_hits=1135547020 dmesg_hits=0
+[22:38:54] -- round 42 --
+[22:40:26] round 42: dissects=2257450058 eth_ip_fast_hits=1189605173 dmesg_hits=0
+[22:40:26] -- round 43 --
+[22:41:59] round 43: dissects=2309616952 eth_ip_fast_hits=1192195243 dmesg_hits=0
+[22:41:59] -- round 44 --
+[22:43:32] round 44: dissects=2366283583 eth_ip_fast_hits=1246179387 dmesg_hits=0
+[22:43:32] -- round 45 --
+[22:45:05] round 45: dissects=2422823180 eth_ip_fast_hits=1300036474 dmesg_hits=0
+[22:45:05] -- round 46 --
+[22:46:37] round 46: dissects=2479457345 eth_ip_fast_hits=1353988160 dmesg_hits=0
+[22:46:37] -- round 47 --
+[22:48:10] round 47: dissects=2529796975 eth_ip_fast_hits=1356578226 dmesg_hits=0
+[22:48:10] -- round 48 --
+[22:49:43] round 48: dissects=2582294390 eth_ip_fast_hits=1359168327 dmesg_hits=0
+[22:49:43] -- round 49 --
+[22:51:15] round 49: dissects=2639150857 eth_ip_fast_hits=1413342325 dmesg_hits=0
+[22:51:15] -- round 50 --
+[22:52:48] round 50: dissects=2695603994 eth_ip_fast_hits=1467112997 dmesg_hits=0
+[22:52:48] -- round 51 --
+[22:54:21] round 51: dissects=2752491728 eth_ip_fast_hits=1521318262 dmesg_hits=0
+[22:54:21] -- round 52 --
+[22:55:53] round 52: dissects=2802802633 eth_ip_fast_hits=1523908403 dmesg_hits=0
+[22:55:53] -- round 53 --
+[22:57:26] round 53: dissects=2859602461 eth_ip_fast_hits=1578025744 dmesg_hits=0
+[22:57:26] -- round 54 --
+[22:58:59] round 54: dissects=2911266208 eth_ip_fast_hits=1580615876 dmesg_hits=0
+[22:58:59] -- round 55 --
+[23:00:31] round 55: dissects=2961779685 eth_ip_fast_hits=1583206045 dmesg_hits=0
+[23:00:31] -- round 56 --
+[23:02:04] round 56: dissects=3011884611 eth_ip_fast_hits=1585796096 dmesg_hits=0
+[23:02:04] -- round 57 --
+[23:03:37] round 57: dissects=3068717472 eth_ip_fast_hits=1639946488 dmesg_hits=0
+[23:03:37] -- round 58 --
+[23:05:09] round 58: dissects=3125348892 eth_ip_fast_hits=1693895409 dmesg_hits=0
+[23:05:09] -- round 59 --
+[23:06:42] round 59: dissects=3177233260 eth_ip_fast_hits=1696485395 dmesg_hits=0
+[23:06:42] -- round 60 --
+[23:08:15] round 60: dissects=3233770451 eth_ip_fast_hits=1750340105 dmesg_hits=0
+[23:08:15] -- round 61 --
+[23:09:47] round 61: dissects=3284149009 eth_ip_fast_hits=1752930166 dmesg_hits=0
+[23:09:47] -- round 62 --
+[23:11:20] round 62: dissects=3341101516 eth_ip_fast_hits=1807200222 dmesg_hits=0
+[23:11:20] -- round 63 --
+[23:12:53] round 63: dissects=3391441018 eth_ip_fast_hits=1809790303 dmesg_hits=0
+[23:12:53] -- round 64 --
+[23:14:25] round 64: dissects=3441856157 eth_ip_fast_hits=1812380389 dmesg_hits=0
+[23:14:25] -- round 65 --
+[23:15:58] round 65: dissects=3494234682 eth_ip_fast_hits=1814970544 dmesg_hits=0
+[23:15:58] -- round 66 --
+[23:17:31] round 66: dissects=3546736145 eth_ip_fast_hits=1817560620 dmesg_hits=0
+[23:17:31] -- round 67 --
+[23:19:03] round 67: dissects=3597323122 eth_ip_fast_hits=1820150715 dmesg_hits=0
+[23:19:03] -- round 68 --
+[23:20:36] round 68: dissects=3647841482 eth_ip_fast_hits=1822740881 dmesg_hits=0
+[23:20:36] -- round 69 --
+[23:22:09] round 69: dissects=3698053724 eth_ip_fast_hits=1825330971 dmesg_hits=0
+[23:22:09] -- round 70 --
+[23:23:41] round 70: dissects=3754661921 eth_ip_fast_hits=1879256670 dmesg_hits=0
+[23:23:41] -- round 71 --
+[23:25:14] round 71: dissects=3811156569 eth_ip_fast_hits=1933068845 dmesg_hits=0
+[23:25:14] -- round 72 --
+[23:26:47] round 72: dissects=3867850968 eth_ip_fast_hits=1987080764 dmesg_hits=0
+[23:26:47] -- round 73 --
+[23:28:19] round 73: dissects=3918244828 eth_ip_fast_hits=1989670805 dmesg_hits=0
+[23:28:19] -- round 74 --
+[23:29:52] round 74: dissects=3975039237 eth_ip_fast_hits=2043782702 dmesg_hits=0
+[23:29:52] -- round 75 --
+[23:31:25] round 75: dissects=4027371502 eth_ip_fast_hits=2046372855 dmesg_hits=0
+[23:31:25] -- round 76 --
+[23:32:57] round 76: dissects=4077498346 eth_ip_fast_hits=2048963008 dmesg_hits=0
+[23:32:57] -- round 77 --
+[23:34:30] round 77: dissects=4127793734 eth_ip_fast_hits=2051553031 dmesg_hits=0
+[23:34:30] -- round 78 --
+[23:36:03] round 78: dissects=4184496105 eth_ip_fast_hits=2105572919 dmesg_hits=0
+[23:36:03] == teardown ==
+[23:36:03] SOAK PASS (78 rounds, 2h)

@@ -1,4 +1,4 @@
-From d08561e73cd0ed9610a612f151b66a128ddf9fb7 Mon Sep 17 00:00:00 2001
+From d013d01eed293b7f54e57c2408d14e686c87dd0f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 09:32:01 -0700
 Subject: [PATCH net-next v1 15/15] Documentation: networking: add

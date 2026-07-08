@@ -1,0 +1,9 @@
+shape         occurrences        fast_hits  eligible%  gate
+eth_ip            1614092       2105572919      50.35    on
+vlan                    0                0       0.00    on
+qinq                    0                0       0.00    on
+pppoe                   0                0       0.00    on
+mpls                    0                0       0.00    on
+ipip                    0                0       0.00    on
+gre                     0                0       0.00    on
+dissects: 4184496105

@@ -1,5 +1,99 @@
 # series4-flowdis-fastpath — status
 
+## THE flag bug: fast path was unreachable from skb_get_hash (2026-07-07, night)
+
+**The hardware boot smoke found the most important bug of the entire series.**
+With the v3 kernel deployed on hp5, RPS enabled, NIC rxhash off and the eth_ip
+gate ON, 5 seconds of iperf3 TCP produced 4,065,493 eligible eth_ip dissects —
+occurrences grew by 4M (slow path counting the shape) and **fast_hits stayed 0**.
+
+Root cause: `___skb_get_hash()` — behind `skb_get_hash()`, i.e. **RPS, RFS,
+fq, fq_codel** — and **cake** pass `FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL` on
+every dissect, and the fast dispatcher rejected any flag except
+PARSE_1ST_FRAG. The strict check dates back to **series3 v1** (verified in
+kernel-patches/series3-flowdis-fastpath/v1/), so **the fast path has never
+run on the kernel's standard receive path in any in-kernel measurement**:
+- All in-kernel A/B numbers (Phase F/G, the pi5 “-6.5pp host_system” claims,
+  the 2026-07-05 counters-regression soak) were measured with an inert fast
+  path — they were noise, which TESTING.md’s own “only two Phase G rows clear
+  noise” honesty note corroborates. Those claims are REMOVED from the commit
+  messages; **Phase F/G must be re-measured on the fixed kernel before send**.
+- The userspace A/B and allshapes microbench numbers are unaffected (they
+  call the dissector directly) and remain the cover letter’s perf claims.
+- tc-flower was never affected either way (custom dissector, ineligible by
+  design); bonding passes flags=0 and did reach the fast path.
+
+Fix (small, distributed into patches 02/06/14):
+- Dispatcher admits `PARSE_1ST_FRAG | STOP_AT_FLOW_LABEL` (patch 02).
+- The IPv6 fast path defers on **any non-zero flow label**, hoisted above the
+  tunnel descents (a labeled 4in6 outer must not descend when the slow path
+  stops at the label). This subsumes the flag’s only semantic without
+  threading flags through the helpers; zero-label IPv6 and all IPv4 keep the
+  fast path. The v6-outer label-residue write became dead and was removed
+  (patch 06’s residue story updated).
+- KUnit: every equivalence case now runs with and without
+  STOP_AT_FLOW_LABEL (x2 both dissectors — this immediately caught the
+  labeled-4in6-descent divergence, fixed by the hoist), and the gates-off
+  test gained the flagship positive control (fast path MUST hit for the
+  skb_get_hash flag shape). 61/61; negative control proven (old mask →
+  flagship control fails). Cover letter updated (eligibility paragraph,
+  caught-bugs list, perf-section wording de-claiming in-kernel replicates).
+
+## Hardware validation round — results (2026-07-07/08, night)
+
+All on the flag-fixed kernel (`series4-rfc-tail-v3` @ 86974579 = the 15-patch
+v3 series + auto RFC):
+
+- **x86 boot smoke (hp5+hp2, Zen 1, X710): PASS.** Kernel boots, 14 sysctls
+  present/default-off, dmesg clean, qinq/vlan proc coupling verified live,
+  and the positive controls prove the fix: gate off → 1.61M TCP dissects all
+  slow-path-counted; gate on → fast_hits 0 → 1,616,624. (Smoke gotchas
+  encoded in the script: `ethtool -K rxhash off` or the NIC's RSS hash
+  short-circuits dissection entirely; ICMP is not an eligible shape — use
+  TCP; `pkill -f 'iperf3 -s'` self-matches the ssh command line — use -x.)
+- **Gates-on soak (2 h, 78 rounds): PASS.** 4.18B dissects, 2.11B eth_ip
+  fast hits, 0 kernel warnings. All 12 gates + RPS/RFS/cake/flower, plain +
+  real VXLAN/Geneve overlay traffic. perf-results/2026-07-07-series4-v3-
+  gates-on-soak/results.md.
+- **BPF precedence (mid-soak): PASS.** In-tree bpf_flow.bpf.o attached via a
+  minimal loader → `dissects` froze entirely for 10 s under full traffic
+  (BPF handles everything before the fast path/counters), resumed on detach.
+  The test_progs monolith was NOT built (nix env: bpf_testmod wants
+  /lib/modules of the running host + bpftool bootstrap link issues); the
+  targeted test covers the submission claim. Build recipe for the artifacts
+  (elfutils CPATH + NIX_HARDENING_ENABLE='' + headers_install) in
+  /tmp/s4msgs, loader source s4_flow_loader.c.
+- **RISC-V (bpi-f3, SpacemiT K1 rv64gcv): PASS.** Cross-built, booted,
+  gates present, dmesg clean; positive control: 100 MB TCP-over-ssh with
+  gate on → fast_hits 10 → 3,243 with occurrences frozen — riscv64
+  jump-label patching + fast path verified on hardware.
+- **ARM (pi5-2, linux_rpi5 6.18 + v3 patches 0001-0012): build/deploy in
+  progress** (qemu-emulated kernel build; patches apply cleanly - the
+  fold-aware default.nix is in ~/nixos/arm/pi5-2/test-kernel/).
+- **Pending before send: Phase F/G perf re-measurement on the fixed kernel**
+  (all historical in-kernel numbers were taken with the fast path inert).
+
+## Hardware validation round (2026-07-07, night — earlier notes)
+
+- **RFC auto thread rebased**: `series4-rfc-tail-v3` = series4-final-v3 + the
+  1-commit adaptive-auto RFC (rebased from v2; one conflict at the counters
+  comment anchor, resolved keeping both). Compiles; KUnit 61/61 at the RFC
+  tip. `../series4-rfc-auto/` regenerated — both files now checkpatch
+  --strict **0 errors 0 warnings** (added the Assisted-by trailer, rewrapped
+  4 long message lines incl. a 3-byte-em-dash one, `=` underlines in the
+  cover).
+- **Host kernel pins bumped**: `~/nixos/hp/{hp2,hp5}/netnext-kernel.nix` now
+  fetchGit-pin `series4-rfc-tail-v3` @ 1f817f662516 (was rfc-tail-v2
+  @ a208f86b). hp1/hp3/l2 still on the old pin.
+- Boot-smoke + all-gates-on soak scripts prepared (`/tmp/s4msgs/boot-smoke.sh`,
+  `/tmp/s4msgs/gates-on-soak.sh`); testbed = hp2 (gen, 10.10.0.2) ↔ hp5
+  (DUT, 10.10.0.5) on enp1s0f0np0 X710 back-to-back.
+- Note from pre-deploy poke at hp5's OLD kernel: gates showed "on" with
+  fast_hits=0 — benign (counters were from the 2026-07-05 gates-off
+  counters-regression soak; no dissection consumer was active). The v3 boot
+  smoke includes explicit positive controls (dissects grows under RPS;
+  fast_hits grows with gate on) so this can't be mistaken for a bug again.
+
 ## Readability-polish round (2026-07-07, evening)
 
 A dedicated clean-code review pass over the final series, then the small
