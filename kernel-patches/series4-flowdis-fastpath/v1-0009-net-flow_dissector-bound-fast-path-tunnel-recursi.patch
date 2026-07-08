@@ -1,7 +1,7 @@
-From 23292518f5eca1b0d7cc07359a8363c3722cdd9c Mon Sep 17 00:00:00 2001
+From d9c136201ef7bc5a0be814eb35bcfd258982b9d3 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 19:30:16 -0700
-Subject: [PATCH net-next v1 10/16] net: flow_dissector: bound fast-path tunnel
+Subject: [PATCH net-next v1 09/15] net: flow_dissector: bound fast-path tunnel
  recursion
 
 The opt-in fast path descends into IP-in-IP and GRE tunnels by
@@ -39,13 +39,14 @@ The added KUnit equivalence test's deep-nest case exercises IPIP and
 GRE chains across the cap boundary; with the bound removed it fails at
 16 levels, confirming it guards this fix.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  net/core/flow_dissector.c | 61 ++++++++++++++++++++++++---------------
  1 file changed, 38 insertions(+), 23 deletions(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5b8096f2fbce..e4ac32158a2c 100644
+index dd26c2775206..e7681e0af7df 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -95,23 +95,23 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
@@ -83,8 +84,8 @@ index 5b8096f2fbce..e4ac32158a2c 100644
 -				   int nhoff, int hlen)
 +				   int nhoff, int hlen, int num_hdrs)
  {
- 	struct flow_dissector_key_addrs *key_addrs;
  	struct flow_dissector_key_control *key_control;
+ 	struct flow_dissector_key_addrs *key_addrs;
 @@ -1176,18 +1176,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  				return flow_dissect_fast_ipip_inner(skb,
  						flow_dissector, target_container,
@@ -114,8 +115,8 @@ index 5b8096f2fbce..e4ac32158a2c 100644
 -				   int nhoff, int hlen)
 +				   int nhoff, int hlen, int num_hdrs)
  {
- 	struct flow_dissector_key_addrs *key_addrs;
  	struct flow_dissector_key_control *key_control;
+ 	struct flow_dissector_key_addrs *key_addrs;
 @@ -1317,10 +1317,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  					data,
  					iph->nexthdr == IPPROTO_IPIP ?

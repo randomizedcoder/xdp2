@@ -1,5 +1,85 @@
 # series4-flowdis-fastpath — status
 
+## Pre-submission hardening round (2026-07-07, later)
+
+Full adversarial review from the net-next-reviewer perspective, then fixes.
+The series is now **15 patches** (branch net-next `series4-final-v3`, base
+b73bc9ca3686 unchanged), regenerated in this directory.
+
+**Restructure.** netdev's process doc caps a series at 15 patches; 16 would
+bounce. Folded old patches 03+04 (VLAN + QinQ) into one (~+201/−18, smaller
+than patch 02; they were the most intertwined pair — QinQ edits the proc
+handler VLAN introduces, and the vlan/qinq sysctl auto-toggle coupling is now
+explained in one message). New numbering: 01 prelude, 02 eth_ip, 03 vlan+qinq,
+04 pppoe, 05 mpls, 06 ipip, 07 gre, 08 counters, 09 bound, 10–13 descents
+(vxlan/geneve/gtpu/fou-gue), 14 KUnit, 15 docs.
+
+**Code fixes distributed into their originating commits:**
+- **static_branch hints (02–05):** dispatcher gates used
+  `static_branch_likely` on DEFINE_STATIC_KEY_FALSE keys (default-off case
+  compiled as a taken jump, contradicting the "off = not-taken JMP" claim;
+  07–13 already used `unlikely`). All now `static_branch_unlikely`.
+- **VXLAN header validation (10):** neither path checked the RFC 7348 I flag
+  before descending — GBP/GPE/nonconforming frames to port 4789 were parsed
+  as plain VXLAN. Both paths now require `vx_flags == VXLAN_HF_VNI` (byte-
+  identity preserved). Negative control proven: with the check knocked out,
+  the new KUnit case fails 6 expectations.
+- **Geneve OAM (11):** OAM control frames (RFC 8926 §3.1) now defer on both
+  paths.
+- **Reverse-xmas-tree:** declaration ordering fixed across the series (the
+  eth_ip key blocks, vlan tci pair, gue block, and the test file) — netdev
+  enforces it and checkpatch doesn't catch it.
+- **Test-builder bug found:** `put_vxlanhdr()` wrote
+  `htonl(VXLAN_HF_VNI)` — a double byte-swap (VXLAN_HF_VNI is already
+  cpu_to_be32). Latent while nothing read vx_flags; became live with the
+  I-flag check. Fixed; also converted all be-typed KUNIT_EXPECT_EQs to
+  host-order compares (sparse-clean).
+
+**KUnit 53 → 61 tests** (still one patch, 14): STOP_AT/BEFORE_ENCAP contract
+(descent gate on, callers keep outer tuple); gates-off negative over the whole
+corpus observed via a new fast-hits test accessor + positive control;
+`flow_hash_from_keys()` equality asserted in every equivalence check; new
+corpus shapes (mid-stream fragment ±1st-frag flag, GRE CSUM|KEY and
+CSUM|KEY|SEQ, priority-tagged VID 0, IPv6 routing header); descent-validation
+negatives (VXLAN I=0 and GBP bits, Geneve OAM, GTP-U S flag) with
+assert-outer helpers.
+
+**AI attribution (user decision):** every commit carries
+`Assisted-by: Claude:claude-fable-5 sparse` per the in-tree
+Documentation/process/coding-assistants.rst format (checkpatch validates it);
+the cover letter has an explicit "On tooling" section (Shutsemau-style, per
+LWN 2026-07-02). Authorship/Signed-off-by remain Dave Seddon (DCO).
+
+**Cover letter:** renumbered; the two eth_ip measurement contexts are now
+labelled (allshapes vs isolated A/B — they read as contradictory before);
+restored "Why not just optimise the existing loop"; added header-validation +
+STOP-flag + tc-flower-ENC-keys paragraph (verified: enc keys come from tunnel
+metadata via skb_flow_dissect_tunnel_info(), untouched by the descents);
+added global-vs-per-netns gates rationale; "about half the instructions"
+re-anchored to the measured 47–55%; checkpatch-clean (underlines switched
+to `=`; `---` underlines read as commit separators).
+
+**Verification of this round:** KUnit 61/61 on the exact final tree, plus a
+KASAN+UBSAN run (truncation sweep + fuzzer under KASAN); per-commit compile
+of flow_dissector.o (+ fou_core.o, net_namespace.o where touched) across all
+15 commits; checkpatch --strict **0 errors** on all 15 + cover (remaining
+warnings, all benign: ctl_table-const false positive ×1, MAINTAINERS
+new-file notices ×2 — there is no flow_dissector MAINTAINERS section,
+net/core is NETWORKING [GENERAL] —, test-accessor extern ×1); W=1 (gcc),
+sparse and smatch clean on all touched objects (smatch's only output is a
+container_of parser quirk in include/net/neighbour.h, not ours).
+Build-env notes: kernel builds need the elfutils pkg-config fix AND the
+x86-64 elfutils store path (aarch64 twins exist); KUnit runs from the
+`/home/das/Downloads/net-next-kunit` worktree to avoid mrproper-ing the
+in-tree build.
+
+Branches: `series4-final-v3` (send this), scratch `series4-hardening-wip`
+(byte-identical tree, kept for reference). **The RFC auto thread
+(`series4-rfc-tail-v2`) still needs rebasing onto v3 before it is sent.**
+Remaining before `git send-email`: full-build + boot smoke on real hardware,
+gates-on soak (syzbot never exercises default-off gates), BPF flow-dissector
+selftests on a booted kernel, get_maintainer Cc list, check net-next is open.
+
 ## Documentation round (2026-07-07)
 
 Added **patch 16**: `Documentation: networking: add flow_dissector overview
@@ -198,7 +278,7 @@ MAINTAINERS notice; one >75-col commit-message table line in the auto
 RFC). `net/core/flow_dissector.o` compiles at every edited intermediate
 commit and at both branch tips. KUnit 32/32 at the main-series tip.
 
-## The series (all gates under /proc/sys/net/flow_dissector/, default 0)
+## The series (historical 2026-07-05 numbering — see the top section for the current 15-patch layout; all gates under /proc/sys/net/flow_dissector/, default 0)
 
 | # | patch | sysctl | tier | verified |
 |---|---|---|---|---|
@@ -225,11 +305,20 @@ RFC thread (`../series4-rfc-descent-auto/`):
 `vlan`/`qinq` carry the dependency auto-toggle (`proc_set_vlan_key` /
 `proc_set_qinq_key`); `eth_ip` is the parent gate.
 
-## Provenance + verification (updated 2026-07-05)
+## Provenance + verification (updated 2026-07-07)
 
-These `v1-0000..v1-0010` (and `../series4-rfc-descent-auto/v1-0000..v1-0004`)
-are **real `git format-patch` output** from the local net-next tree
-(`/home/das/Downloads/net-next`):
+These `v1-0000..v1-0015` are **real `git format-patch` output** from the
+local net-next tree (`/home/das/Downloads/net-next`):
+
+- main: `git format-patch --subject-prefix='PATCH net-next' -v1
+  --cover-letter --base=b73bc9ca3686 b73bc9ca3686..series4-final-v3`
+- The cover body is maintained in `/tmp/s4msgs/cover-letter-body.txt`
+  during a round and hand-inserted after regeneration (format-patch
+  emits a blank blurb); the commit-message sources for the round live
+  in `/tmp/s4msgs/*.txt` (regenerate them from the branch if lost —
+  git is the source of truth).
+
+Historical (2026-07-05) provenance:
 
 - main: `git format-patch --subject-prefix='PATCH net-next' -v1
   --cover-letter --base=b73bc9ca3686 b73bc9ca3686..series4-final`

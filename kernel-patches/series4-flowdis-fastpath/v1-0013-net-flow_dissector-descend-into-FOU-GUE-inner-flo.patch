@@ -1,7 +1,7 @@
-From e42dc18dc122227186379531a72edfc7b184910d Mon Sep 17 00:00:00 2001
+From 878c3a62b8382bcf20756c559a29857a274ddfb4 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 20:38:45 -0700
-Subject: [PATCH net-next v1 14/16] net: flow_dissector: descend into FOU/GUE
+Subject: [PATCH net-next v1 13/15] net: flow_dissector: descend into FOU/GUE
  inner flow
 
 Opt-in, off by default, byte-identical between the fast and slow paths.
@@ -16,6 +16,11 @@ struct flow_dissector_fou_ops (registered/unregistered by fou_core.c,
 which switches its fou_list to the _rcu list helpers for the lockless
 walk). The netns is derived from the skb, so no signature threading; a
 raw-buffer dissect (skb == NULL) does not descend.
+
+The port lookup is an RCU list walk of the per-netns fou table --
+O(configured fou/gue tunnels), typically a handful -- and runs per
+outer-UDP packet only while a gate is on. Switching the table to a
+hash is a noted follow-up if large tunnel counts appear.
 
   - GUE is self-describing: guehdr->proto_ctype gives the inner IP
     protocol. Only version-0 data messages with an IPIP/IPv6 inner are
@@ -34,6 +39,7 @@ real fou config is needed).
 Gated by flow_dissector.{gue,fou}_inner, off by default; enabling
 changes hashing and depends on the fou module being loaded.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  59 +++++
@@ -148,7 +154,7 @@ index 583c7bc45ebc..91d229053c21 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 753cc24674f0..fc460c1af009 100644
+index 5fa6a60b8547..1b3e78bd535b 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,8 @@
@@ -247,9 +253,9 @@ index 753cc24674f0..fc460c1af009 100644
 +					const void *data,
 +					int thoff, int hlen, int num_hdrs)
 +{
++	int gue_off, inner_nhoff, hdrlen;
 +	const struct guehdr *guehdr;
 +	__be16 inner_proto;
-+	int gue_off, inner_nhoff, hdrlen;
 +
 +	gue_off = thoff + (int)sizeof(struct udphdr);
 +	if (unlikely(hlen - gue_off < (int)sizeof(*guehdr)))
@@ -366,7 +372,7 @@ index 753cc24674f0..fc460c1af009 100644
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1443,6 +1637,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1457,6 +1651,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -385,7 +391,7 @@ index 753cc24674f0..fc460c1af009 100644
  	return true;
  }
  
-@@ -1585,6 +1791,18 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1599,6 +1805,18 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -404,7 +410,7 @@ index 753cc24674f0..fc460c1af009 100644
  	return true;
  }
  
-@@ -2010,8 +2228,9 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -2024,8 +2242,9 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  
  /* Did a fast-path leaf stamp FLOW_DIS_ENCAPSULATION? Used by the dispatcher
   * to count eth_ip fast_hits for plain top-level IP only — an ipip/gre/overlay
@@ -416,7 +422,7 @@ index 753cc24674f0..fc460c1af009 100644
   */
  static bool flow_dissect_fast_is_encap(struct flow_dissector *flow_dissector,
  				       void *target_container)
-@@ -2197,6 +2416,65 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2220,6 +2439,65 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -482,7 +488,7 @@ index 753cc24674f0..fc460c1af009 100644
  	return false;
  }
  
-@@ -2886,7 +3164,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2909,7 +3187,9 @@ bool __skb_flow_dissect(const struct net *net,
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
  	     static_branch_unlikely(&flow_dissector_geneve_inner_key) ||
@@ -493,7 +499,7 @@ index 753cc24674f0..fc460c1af009 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3449,6 +3729,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3472,6 +3752,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -514,7 +520,7 @@ index 753cc24674f0..fc460c1af009 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3530,7 +3824,7 @@ static int __init flow_dissector_sysctl_init(void)
+@@ -3553,7 +3847,7 @@ static int __init flow_dissector_sysctl_init(void)
  		return -ENOMEM;
  
  	/* Global (init_net) counters — matches the global gates; per-netns is

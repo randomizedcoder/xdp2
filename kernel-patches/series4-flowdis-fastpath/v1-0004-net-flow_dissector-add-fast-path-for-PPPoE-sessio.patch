@@ -1,7 +1,7 @@
-From 6798b1ed9238a57b2c781b1e32ab0484bdabc35b Mon Sep 17 00:00:00 2001
+From 1d246f2795709fad23af552759eda47d943969ea Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
-Subject: [PATCH net-next v1 05/16] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 04/15] net: flow_dissector: add fast-path for
  PPPoE session + IPv{4,6} + TCP/UDP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -45,6 +45,7 @@ Documentation/admin-guide/sysctl/net.rst grows a `pppoe` subsection
 under the existing `/proc/sys/net/flow_dissector/` chapter, between
 qinq and the next chapter, matching the v3-namespace layout.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst | 18 +++++
@@ -94,7 +95,7 @@ index 6b48103c36e5..c792de78a2cb 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f6947a0af1b0..c116b47b8f58 100644
+index 5ee7ea3806eb..6fdc9e6f864f 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -49,6 +49,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vlan_key);
@@ -187,7 +188,7 @@ index f6947a0af1b0..c116b47b8f58 100644
  					      target_container, data,
  					      nhoff, hlen);
 +	case htons(ETH_P_PPP_SES):
-+		if (!static_branch_likely(&flow_dissector_pppoe_key))
++		if (!static_branch_unlikely(&flow_dissector_pppoe_key))
 +			return false;
 +		return flow_dissect_fast_pppoe(skb, flow_dissector,
 +					       target_container, data,

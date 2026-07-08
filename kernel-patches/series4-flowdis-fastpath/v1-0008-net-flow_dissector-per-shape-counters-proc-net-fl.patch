@@ -1,7 +1,7 @@
-From 707e91542a192968c1ecb755511950d999b4325e Mon Sep 17 00:00:00 2001
+From e0b92799b39d4009eb8f0ca2db40a788c8724c3e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 2 Jul 2026 17:44:43 -0700
-Subject: [PATCH net-next v1 09/16] net: flow_dissector: per-shape counters +
+Subject: [PATCH net-next v1 08/15] net: flow_dissector: per-shape counters +
  /proc/net/flow_dissector_stats
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -34,7 +34,8 @@ fall-through to the slow path is never double-counted.
 Expose the summed counters read-only at /proc/net/flow_dissector_stats,
 one line per shape with occurrences, fast_hits, computed eligible%, and
 the current gate state. Counters and the file are global (init_net),
-matching the global gates; per-netns is a noted follow-up.
+matching the global gates; the file is visible in the init netns only,
+so containers do not see it. Per-netns is a noted follow-up.
 
 Dissects fully handled by an attached netns BPF flow dissector program
 are deliberately not counted: the dissects increment sits after the BPF
@@ -47,6 +48,7 @@ Cost is one this_cpu_inc on the already-hot classification path, summed
 only on read — within the pktgen cyc/pkt noise floor, and an off gate
 stays a NOP.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  include/net/flow_dissector.h |  19 +++
@@ -84,7 +86,7 @@ index b1334cdb668e..c55c0f83e74e 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 32151dc5a6a3..5b8096f2fbce 100644
+index b20b9c2e6c97..dd26c2775206 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -36,6 +36,9 @@
@@ -130,12 +132,12 @@ index 32151dc5a6a3..5b8096f2fbce 100644
   * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
 @@ -1377,6 +1404,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	__be16 saved_tpid;
- 	u16 tci_id;
  	u16 tci_prio;
+ 	u16 tci_id;
 +	bool ok;
  
  	if (vlan_depth >= 1 &&
- 	    !static_branch_likely(&flow_dissector_qinq_key))
+ 	    !static_branch_unlikely(&flow_dissector_qinq_key))
 @@ -1426,22 +1454,37 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  
  	switch (inner_proto) {
@@ -263,7 +265,7 @@ index 32151dc5a6a3..5b8096f2fbce 100644
   * static_branch gating. Each case's branch is a forward not-taken JMP
 @@ -1760,15 +1830,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	case htons(ETH_P_IP):
- 		if (!static_branch_likely(&flow_dissector_eth_ip_key))
+ 		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
  			return false;
 -		return flow_dissect_fast_ipv4(skb, flow_dissector,
 -					      target_container, data,
@@ -279,7 +281,7 @@ index 32151dc5a6a3..5b8096f2fbce 100644
 +			flow_dissector_count_fast(FLOW_DISSECTOR_SHAPE_ETH_IP);
 +		return true;
  	case htons(ETH_P_IPV6):
- 		if (!static_branch_likely(&flow_dissector_eth_ip_key))
+ 		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
  			return false;
 -		return flow_dissect_fast_ipv6(skb, flow_dissector,
 -					      target_container, data,
@@ -292,7 +294,7 @@ index 32151dc5a6a3..5b8096f2fbce 100644
 +			flow_dissector_count_fast(FLOW_DISSECTOR_SHAPE_ETH_IP);
 +		return true;
  	case htons(ETH_P_PPP_SES):
- 		if (!static_branch_likely(&flow_dissector_pppoe_key))
+ 		if (!static_branch_unlikely(&flow_dissector_pppoe_key))
  			return false;
 @@ -1822,6 +1903,8 @@ bool __skb_flow_dissect(const struct net *net,
  	bool mpls_el = false;
