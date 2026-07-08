@@ -1,7 +1,7 @@
-From dafe0bd1a0f6a2b987d46d4e8329264182b1b538 Mon Sep 17 00:00:00 2001
+From efdbf26f10d3b2dd5a2456bbab3390bf476a13ae Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
-Subject: [PATCH net-next v1 12/16] net: flow_dissector: descend into Geneve
+Subject: [PATCH net-next v1 11/15] net: flow_dissector: descend into Geneve
  inner flow
 
 Opt-in, off by default, byte-identical between the fast and slow paths.
@@ -20,18 +20,20 @@ Both paths grow the same descent:
 
 Kept out of the descended set on both paths (so both keep the outer
 keys, and fast == slow holds): Geneve with options (opt_len > 0),
+OAM control frames (the O bit; RFC 8926 says these are not data),
 proto_type other than ETH_P_TEB, and Geneve-over-IPv6 outer. Covered
 by the KUnit equivalence suite.
 
 CPU is ~net-zero; the operator benefit is the inner-flow hash
 distribution.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst | 26 +++++++
  include/net/flow_dissector.h             |  1 +
- net/core/flow_dissector.c                | 92 +++++++++++++++++++++++-
- 3 files changed, 118 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 96 +++++++++++++++++++++++-
+ 3 files changed, 122 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 4e327e28085b..3c3319bb229f 100644
@@ -83,7 +85,7 @@ index 988d3fa3a7ce..1464b518679b 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 180959a5ef8d..43f1f9e7f341 100644
+index e882031ff724..acf53c466f5a 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -103,7 +105,7 @@ index 180959a5ef8d..43f1f9e7f341 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1320,6 +1323,57 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1331,6 +1334,60 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -131,7 +133,10 @@ index 180959a5ef8d..43f1f9e7f341 100644
 +				((const u8 *)data + thoff +
 +				 sizeof(struct udphdr));
 +
-+			if (gnv->ver == 0 && gnv->opt_len == 0 &&
++			/* OAM frames are control traffic, not data (RFC 8926
++			 * §3.1): never descend into them.
++			 */
++			if (gnv->ver == 0 && gnv->opt_len == 0 && !gnv->oam &&
 +			    gnv->proto_type == htons(ETH_P_TEB)) {
 +				const struct ethhdr *inner_eth = (const struct ethhdr *)
 +					((const u8 *)data + thoff +
@@ -161,7 +166,7 @@ index 180959a5ef8d..43f1f9e7f341 100644
  	return true;
  }
  
-@@ -2020,6 +2074,34 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2039,6 +2096,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -173,7 +178,8 @@ index 180959a5ef8d..43f1f9e7f341 100644
 +		const struct genevehdr *gnv = (const struct genevehdr *)
 +			((const u8 *)data + thoff + sizeof(struct udphdr));
 +
-+		if (gnv->ver == 0 && gnv->opt_len == 0 &&
++		/* OAM frames are control traffic, not data (RFC 8926 §3.1). */
++		if (gnv->ver == 0 && gnv->opt_len == 0 && !gnv->oam &&
 +		    gnv->proto_type == htons(ETH_P_TEB)) {
 +			const struct ethhdr *inner_eth = (const struct ethhdr *)
 +				((const u8 *)data + thoff +
@@ -196,7 +202,7 @@ index 180959a5ef8d..43f1f9e7f341 100644
  	return false;
  }
  
-@@ -2707,7 +2789,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2726,7 +2812,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(key_control->flags & FLOW_DIS_IS_FRAGMENT) &&
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
@@ -206,7 +212,7 @@ index 180959a5ef8d..43f1f9e7f341 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3256,6 +3339,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3275,6 +3362,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

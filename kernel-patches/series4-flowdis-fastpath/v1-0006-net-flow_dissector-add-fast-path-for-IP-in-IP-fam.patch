@@ -1,7 +1,7 @@
-From c73747fdf3a550c18d0333a147c309290a4dd78e Mon Sep 17 00:00:00 2001
+From 331505fe05730bed3d861465749e9d7de0e913e1 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
-Subject: [PATCH net-next v1 07/16] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 06/15] net: flow_dissector: add fast-path for
  IP-in-IP family (IPIP / 4in6 / 6in4)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -59,6 +59,7 @@ equivalence test's 4in6 cases fail otherwise. (The IPv4-outer descent
 needs no such mirroring: an inner IPv4 or IPv6 write always fully
 covers the outer's 8 address bytes.)
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  19 ++++
@@ -109,7 +110,7 @@ index 775fd9c119f9..f4f203efbc1f 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index cad06685df30..503f0066f500 100644
+index ce701e79d085..82ab76aa78d3 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -53,6 +53,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_pppoe_key);

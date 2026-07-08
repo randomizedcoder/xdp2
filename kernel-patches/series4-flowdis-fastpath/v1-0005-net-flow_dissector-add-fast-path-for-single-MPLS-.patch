@@ -1,7 +1,7 @@
-From e59392e3e1078a3ed51a21aca665f546ef1dc7dd Mon Sep 17 00:00:00 2001
+From 7daf2507ecf38e2edfadef97d518943454669c7d Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
-Subject: [PATCH net-next v1 06/16] net: flow_dissector: add fast-path for
+Subject: [PATCH net-next v1 05/15] net: flow_dissector: add fast-path for
  single MPLS label + IP
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -51,6 +51,7 @@ in struct flow_keys and would break the byte-identical contract; the
 in-tree KUnit equivalence test added later in this series catches
 exactly this.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst | 19 +++++
@@ -101,7 +102,7 @@ index c792de78a2cb..775fd9c119f9 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index c116b47b8f58..cad06685df30 100644
+index 6fdc9e6f864f..ce701e79d085 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -51,6 +51,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
@@ -208,7 +209,7 @@ index c116b47b8f58..cad06685df30 100644
  					       nhoff, hlen);
 +	case htons(ETH_P_MPLS_UC):
 +	case htons(ETH_P_MPLS_MC):
-+		if (!static_branch_likely(&flow_dissector_mpls_key))
++		if (!static_branch_unlikely(&flow_dissector_mpls_key))
 +			return false;
 +		return flow_dissect_fast_mpls(skb, flow_dissector,
 +					      target_container, data,

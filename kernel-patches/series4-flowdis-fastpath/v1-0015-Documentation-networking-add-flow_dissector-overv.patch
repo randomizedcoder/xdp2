@@ -1,14 +1,15 @@
-From 55d5547fae55fe56b08303d92dda96855b18a20f Mon Sep 17 00:00:00 2001
+From 7f3965b0b9df75d78c06d8f851a643a4a577da5b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 09:32:01 -0700
-Subject: [PATCH net-next v1 16/16] Documentation: networking: add
+Subject: [PATCH net-next v1 15/15] Documentation: networking: add
  flow_dissector overview and fast-path guide
 
 The kernel has no general flow_dissector documentation: Documentation/bpf/
 prog_flow_dissector.rst covers only the BPF override mechanism (and was
 itself in no toctree). Add Documentation/networking/flow_dissector.rst as a
 standalone overview -- what the flow dissector is, struct flow_keys and the
-consumers of skb->hash (RSS/RPS/RFS, ECMP/multipath, bonding/LAG, tc-flower,
+consumers of skb->hash (RSS/RPS/RFS, ECMP/multipath, bonding/LAG,
+tc-flower,
 aRFS), the generic protocol-graph parser, and the relationship to the BPF
 flow dissector -- and document the opt-in fast paths added by this series:
 the byte-identical per-shape gates, the tunnel inner-flow descents, the
@@ -17,10 +18,12 @@ break-even model for when to enable a gate (with the observable
 reference stays in Documentation/admin-guide/sysctl/net.rst; this doc links
 to it rather than duplicating it.
 
-Also index the previously-orphaned Documentation/bpf/prog_flow_dissector.rst
-and cross-link it with the new overview (the bpf/index.rst hunk can be split
-out if the BPF maintainers prefer).
+Also index the previously-orphaned
+Documentation/bpf/prog_flow_dissector.rst and cross-link it with the
+new overview (the bpf/index.rst hunk can be split out if the BPF
+maintainers prefer).
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/bpf/index.rst                 |   1 +

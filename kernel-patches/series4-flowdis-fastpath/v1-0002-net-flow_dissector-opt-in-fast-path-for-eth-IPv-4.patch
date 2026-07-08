@@ -1,7 +1,7 @@
-From a8326e048ff218a5efb6bc72d6e72a6a07aba6aa Mon Sep 17 00:00:00 2001
+From 677286c4150d60ec82d15fe968895f8ef365d7d1 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
-Subject: [PATCH net-next v1 02/16] net: flow_dissector: opt-in fast-path for
+Subject: [PATCH net-next v1 02/15] net: flow_dissector: opt-in fast-path for
  eth + IPv{4,6} + {TCP,UDP}
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -73,6 +73,7 @@ form. See cover letter for the rename rationale
 (net.core.flow_dissector_fastpath → /proc/sys/net/flow_dissector/
 subtree).
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  27 ++-
@@ -138,7 +139,7 @@ index ced79dc8e856..d5a19fd69853 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b8c59209b460..7c46dacdcc96 100644
+index b8c59209b460..63b08a5b8277 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -37,6 +37,41 @@
@@ -203,8 +204,8 @@ index b8c59209b460..7c46dacdcc96 100644
 +				   const void *data,
 +				   int nhoff, int hlen)
 +{
-+	struct flow_dissector_key_addrs *key_addrs;
 +	struct flow_dissector_key_control *key_control;
++	struct flow_dissector_key_addrs *key_addrs;
 +	struct flow_dissector_key_basic *key_basic;
 +	struct flow_dissector_key_ports *key_ports;
 +	const struct iphdr *iph;
@@ -282,8 +283,8 @@ index b8c59209b460..7c46dacdcc96 100644
 +				   const void *data,
 +				   int nhoff, int hlen)
 +{
-+	struct flow_dissector_key_addrs *key_addrs;
 +	struct flow_dissector_key_control *key_control;
++	struct flow_dissector_key_addrs *key_addrs;
 +	struct flow_dissector_key_basic *key_basic;
 +	struct flow_dissector_key_ports *key_ports;
 +	const struct ipv6hdr *iph;
@@ -376,13 +377,13 @@ index b8c59209b460..7c46dacdcc96 100644
 +
 +	switch (proto) {
 +	case htons(ETH_P_IP):
-+		if (!static_branch_likely(&flow_dissector_eth_ip_key))
++		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
 +			return false;
 +		return flow_dissect_fast_ipv4(skb, flow_dissector,
 +					      target_container, data,
 +					      nhoff, hlen);
 +	case htons(ETH_P_IPV6):
-+		if (!static_branch_likely(&flow_dissector_eth_ip_key))
++		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
 +			return false;
 +		return flow_dissect_fast_ipv6(skb, flow_dissector,
 +					      target_container, data,

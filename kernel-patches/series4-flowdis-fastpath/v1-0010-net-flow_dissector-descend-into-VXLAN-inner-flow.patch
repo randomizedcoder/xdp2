@@ -1,7 +1,7 @@
-From 5d9bf0cae82bfcccf141ef237aa99dc430d1abc0 Mon Sep 17 00:00:00 2001
+From f612b1380a72aef4977226219de13d4c8a1b3851 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
-Subject: [PATCH net-next v1 11/16] net: flow_dissector: descend into VXLAN
+Subject: [PATCH net-next v1 10/15] net: flow_dissector: descend into VXLAN
  inner flow
 
 Opt-in, off by default, and byte-identical between the fast and slow
@@ -19,8 +19,11 @@ Both paths grow the same descent so the "fast == slow" contract holds:
 
   - flow_dissect_fast_ipv4() descends when the outer is eth + IPv4 +
     UDP, dst port == IANA_VXLAN_UDP_PORT (4789), enough bytes remain
-    for udphdr + vxlanhdr + ETH_HLEN, and the vxlan_inner static_branch
-    is on. It routes the inner Eth + IPv4/IPv6 through the shared
+    for udphdr + vxlanhdr + ETH_HLEN, the VXLAN header is plain
+    RFC 7348 (vx_flags == VXLAN_HF_VNI: I flag set, every other flag
+    bit zero -- GBP / GPE frames keep the outer keys), and the
+    vxlan_inner static_branch is on. It routes the inner Eth +
+    IPv4/IPv6 through the shared
     flow_dissect_fast_udp_inner() tail, which bounds the
     MAX_FLOW_DISSECT_HDRS budget (a crafted overlay-in-overlay chain
     must not recurse without bound, and must stop at the same depth as
@@ -40,15 +43,30 @@ Port discovery is hardcoded to IANA_VXLAN_UDP_PORT (4789); non-standard
 VXLAN ports (e.g. Cilium's 8472) are not descended. Consulting the
 tunnel netdev for per-netns port config is left as a follow-up.
 
+Matching is by destination port alone, so with the gate on a non-VXLAN
+UDP packet sent to port 4789 is inspected -- and, if its payload
+happens to validate as VXLAN-with-inner-IP, hashed by that inner flow.
+This ambiguity is inherent to on-wire tunnel recognition and is one
+reason the gate is opt-in: an operator enables it for deployments
+where port 4789 is VXLAN by policy. The header validation above
+bounds what a spoofed payload can influence to the same flow_keys
+fields any UDP flow already influences.
+
+tc-flower tunnel matching (FLOW_DISSECTOR_KEY_ENC_*) is unaffected:
+those keys are filled from decap tunnel metadata by
+skb_flow_dissect_tunnel_info(), not by this packet-parsing descent.
+What changes is the plain 5-tuple seen by skb->hash consumers.
+
 CPU is ~net-zero (the inner work cancels the outer fast-path saving);
 the operator benefit is the inner-flow hash distribution.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  18 +++
  include/net/flow_dissector.h             |   1 +
- net/core/flow_dissector.c                | 176 ++++++++++++++++++++++-
- 3 files changed, 190 insertions(+), 5 deletions(-)
+ net/core/flow_dissector.c                | 195 ++++++++++++++++++++++-
+ 3 files changed, 209 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 576bba763f13..4e327e28085b 100644
@@ -92,7 +110,7 @@ index c55c0f83e74e..988d3fa3a7ce 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index e4ac32158a2c..180959a5ef8d 100644
+index e7681e0af7df..e882031ff724 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -181,7 +199,7 @@ index e4ac32158a2c..180959a5ef8d 100644
  static bool skb_flow_dissect_allowed(int *num_hdrs)
  {
  	++*num_hdrs;
-@@ -1232,6 +1280,46 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1232,6 +1280,57 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
@@ -202,6 +220,10 @@ index e4ac32158a2c..180959a5ef8d 100644
 +			((const u8 *)data + thoff);
 +
 +		if (udp_ports[1] == htons(IANA_VXLAN_UDP_PORT)) {
++			const struct vxlanhdr *vxh =
++				(const struct vxlanhdr *)
++				((const u8 *)data + thoff +
++				 sizeof(struct udphdr));
 +			const struct ethhdr *inner_eth =
 +				(const struct ethhdr *)
 +				((const u8 *)data + thoff +
@@ -211,6 +233,13 @@ index e4ac32158a2c..180959a5ef8d 100644
 +			int inner_nhoff = thoff +
 +				sizeof(struct udphdr) +
 +				sizeof(struct vxlanhdr) + ETH_HLEN;
++
++			/* Only plain RFC 7348 VXLAN descends: I flag set,
++			 * every other flag bit zero (GBP / GPE / anything
++			 * with reserved bits set keeps the outer keys).
++			 */
++			if (vxh->vx_flags != VXLAN_HF_VNI)
++				return false;
 +
 +			/* Descend (v4/v6 inner), or defer to the slow path
 +			 * if the inner ethertype is not fast-pathable.
@@ -228,7 +257,7 @@ index e4ac32158a2c..180959a5ef8d 100644
  	return true;
  }
  
-@@ -1883,6 +1971,58 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1883,6 +1982,66 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	}
  }
  
@@ -265,10 +294,18 @@ index e4ac32158a2c..180959a5ef8d 100644
 +	    family == AF_INET && dport == htons(IANA_VXLAN_UDP_PORT) &&
 +	    hlen - thoff >= (int)(sizeof(struct udphdr) +
 +				  sizeof(struct vxlanhdr) + ETH_HLEN)) {
++		const struct vxlanhdr *vxh = (const struct vxlanhdr *)
++			((const u8 *)data + thoff + sizeof(struct udphdr));
 +		const struct ethhdr *inner_eth = (const struct ethhdr *)
 +			((const u8 *)data + thoff + sizeof(struct udphdr) +
 +			 sizeof(struct vxlanhdr));
 +		__be16 inner_proto = inner_eth->h_proto;
++
++		/* Only plain RFC 7348 VXLAN descends: I flag set, every
++		 * other flag bit zero (GBP / GPE keep the outer keys).
++		 */
++		if (vxh->vx_flags != VXLAN_HF_VNI)
++			return false;
 +
 +		if (inner_proto == htons(ETH_P_IP) ||
 +		    inner_proto == htons(ETH_P_IPV6)) {
@@ -287,7 +324,7 @@ index e4ac32158a2c..180959a5ef8d 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -2555,6 +2695,25 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2555,6 +2714,25 @@ bool __skb_flow_dissect(const struct net *net,
  		__skb_flow_dissect_ports(skb, flow_dissector, target_container,
  					 data, nhoff, ip_proto, hlen);
  
@@ -313,7 +350,7 @@ index e4ac32158a2c..180959a5ef8d 100644
  	/* Process result of IP proto processing */
  	switch (fdret) {
  	case FLOW_DISSECT_RET_PROTO_AGAIN:
-@@ -3090,6 +3249,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3090,6 +3268,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

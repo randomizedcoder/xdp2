@@ -1,7 +1,7 @@
-From 452f5fb2090fca182245e014c810957b43ac5677 Mon Sep 17 00:00:00 2001
+From 51401f685fc660ad5f1da3ae217afa82b6add40e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:16:00 -0700
-Subject: [PATCH net-next v1 13/16] net: flow_dissector: descend into GTP-U
+Subject: [PATCH net-next v1 12/15] net: flow_dissector: descend into GTP-U
  inner flow
 
 Opt-in, off by default, byte-identical between the fast and slow paths.
@@ -27,6 +27,7 @@ outer. Covered by the KUnit equivalence suite.
 
 CPU is ~net-zero; the operator benefit is per-subscriber hash spread.
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  26 ++++++
@@ -84,7 +85,7 @@ index 1464b518679b..583c7bc45ebc 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 43f1f9e7f341..753cc24674f0 100644
+index acf53c466f5a..5fa6a60b8547 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,7 @@
@@ -104,7 +105,7 @@ index 43f1f9e7f341..753cc24674f0 100644
  
  /* Per-shape traffic counters (mechanism only; do not affect dissection).
   * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1374,6 +1377,72 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1388,6 +1391,72 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
@@ -177,7 +178,7 @@ index 43f1f9e7f341..753cc24674f0 100644
  	return true;
  }
  
-@@ -2102,6 +2171,32 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2125,6 +2194,32 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -210,7 +211,7 @@ index 43f1f9e7f341..753cc24674f0 100644
  	return false;
  }
  
-@@ -2790,7 +2885,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2813,7 +2908,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
@@ -220,7 +221,7 @@ index 43f1f9e7f341..753cc24674f0 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3346,6 +3442,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3369,6 +3465,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

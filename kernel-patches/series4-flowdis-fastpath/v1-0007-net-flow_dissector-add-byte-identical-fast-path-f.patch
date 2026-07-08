@@ -1,7 +1,7 @@
-From 82a005c96198f9f4f0b70e6a1b7861760d5f5968 Mon Sep 17 00:00:00 2001
+From 6bc157481fdfe5793aa3b83bbcbaa391edfe0eb2 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
-Subject: [PATCH net-next v1 08/16] net: flow_dissector: add byte-identical
+Subject: [PATCH net-next v1 07/15] net: flow_dissector: add byte-identical
  fast-path for plain GRE inner
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -62,6 +62,7 @@ bundle that contains VXLAN inner, Geneve inner, and GTP-U inner
 (those genuinely change behaviour because slow path stops at outer
 UDP for them).
 
+Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  25 +++++
@@ -118,7 +119,7 @@ index f4f203efbc1f..b1334cdb668e 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 503f0066f500..32151dc5a6a3 100644
+index 82ab76aa78d3..b20b9c2e6c97 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -55,6 +55,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_mpls_key);
