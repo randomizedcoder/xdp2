@@ -1,4 +1,4 @@
-From 85b2983d80170b03ccf66a83aa36f9a76bd68b69 Mon Sep 17 00:00:00 2001
+From 665bcc4920ac3094514ca18c888ccf49c36a1a8c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 17:15:20 -0700
 Subject: [PATCH net-next v1 14/15] net: flow_dissector: add KUnit fast/slow
@@ -62,13 +62,34 @@ Run with:
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
+ include/net/flow_dissector.h   |    9 +
  net/Kconfig                    |   12 +
  net/core/Makefile              |    1 +
  net/core/flow_dissector.c      |   33 +
- net/core/flow_dissector_test.c | 1689 ++++++++++++++++++++++++++++++++
- 4 files changed, 1735 insertions(+)
+ net/core/flow_dissector_test.c | 1702 ++++++++++++++++++++++++++++++++
+ 5 files changed, 1757 insertions(+)
  create mode 100644 net/core/flow_dissector_test.c
 
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index 91d229053c21..4151b68bd731 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -485,6 +485,15 @@ enum flow_dissector_shape {
+ 	FLOW_DISSECTOR_SHAPE__MAX,
+ };
+ 
++#if IS_ENABLED(CONFIG_FLOW_DISSECTOR_KUNIT_TEST)
++/* Test-only accessors, defined in flow_dissector.c: the file-static
++ * symmetric dissector (the second dissector the fast path admits) and
++ * the summed fast-hit counters (observable for the gates-off negative).
++ */
++struct flow_dissector *flow_keys_dissector_symmetric_kunit(void);
++u64 flow_dissector_fast_hits_kunit(void);
++#endif
++
+ /* struct flow_keys_digest:
+  *
+  * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/Kconfig b/net/Kconfig
 index e38477393551..d0ce8fc34429 100644
 --- a/net/Kconfig
@@ -103,10 +124,10 @@ index b3fdcb4e355f..b27c69580d2c 100644
  obj-$(CONFIG_DEBUG_NET) += lock_debug.o
  obj-$(CONFIG_FAIL_SKB_REALLOC) += skb_fault_injection.o
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1b3e78bd535b..ab4a0c71c3d7 100644
+index d2a2b1336504..4bfdf269ee4d 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -3626,6 +3626,39 @@ EXPORT_SYMBOL(flow_keys_dissector);
+@@ -3646,6 +3646,39 @@ EXPORT_SYMBOL(flow_keys_dissector);
  struct flow_dissector flow_keys_basic_dissector __read_mostly;
  EXPORT_SYMBOL(flow_keys_basic_dissector);
  
@@ -148,10 +169,10 @@ index 1b3e78bd535b..ab4a0c71c3d7 100644
  	skb_flow_dissector_init(&flow_keys_dissector,
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
 new file mode 100644
-index 000000000000..82e52cd62f99
+index 000000000000..d6a1173489c4
 --- /dev/null
 +++ b/net/core/flow_dissector_test.c
-@@ -0,0 +1,1689 @@
+@@ -0,0 +1,1702 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * KUnit equivalence tests for the flow dissector opt-in fast paths.
@@ -209,14 +230,6 @@ index 000000000000..82e52cd62f99
 +#define FD_TEST_BUF_LEN 512
 +#define FD_FUZZ_ITERS 4000
 +
-+/* Test-only accessor for the file-static symmetric dissector (see
-+ * flow_dissector.c). It is the second dissector the fast path's
-+ * eligibility gate admits, with a different used_keys set (no VLAN,
-+ * no flow label), so every corpus case is checked against both.
-+ */
-+struct flow_dissector *flow_keys_dissector_symmetric_kunit(void);
-+u64 flow_dissector_fast_hits_kunit(void);
-+
 +/* The byte-identical fast-path gates (descent gates excluded: those
 + * change dissection output by design and are never part of the
 + * byte-identical contract).
@@ -229,6 +242,18 @@ index 000000000000..82e52cd62f99
 +	&flow_dissector_mpls_key,
 +	&flow_dissector_ipip_key,
 +	&flow_dissector_gre_key,
++};
++
++/* The behaviour-changing descent gates: individual tests pin these on
++ * and restore them; suite init/exit clears them too so a failing test
++ * can never leak an enabled gate into its successors.
++ */
++static struct static_key_false * const fd_descent_gates[] = {
++	&flow_dissector_vxlan_inner_key,
++	&flow_dissector_geneve_inner_key,
++	&flow_dissector_gtpu_inner_key,
++	&flow_dissector_gue_inner_key,
++	&flow_dissector_fou_inner_key,
 +};
 +
 +static void fd_fast_gates_set(bool on)
@@ -1796,15 +1821,24 @@ index 000000000000..82e52cd62f99
 +	KUNIT_EXPECT_GT(test, flow_dissector_fast_hits_kunit(), before);
 +}
 +
++static void fd_all_gates_off(void)
++{
++	int i;
++
++	fd_fast_gates_set(false);
++	for (i = 0; i < ARRAY_SIZE(fd_descent_gates); i++)
++		static_branch_disable(fd_descent_gates[i]);
++}
++
 +static int fd_fast_suite_init(struct kunit_suite *suite)
 +{
-+	fd_fast_gates_set(false);
++	fd_all_gates_off();
 +	return 0;
 +}
 +
 +static void fd_fast_suite_exit(struct kunit_suite *suite)
 +{
-+	fd_fast_gates_set(false);
++	fd_all_gates_off();
 +}
 +
 +static struct kunit_case fd_fast_test_cases[] = {
