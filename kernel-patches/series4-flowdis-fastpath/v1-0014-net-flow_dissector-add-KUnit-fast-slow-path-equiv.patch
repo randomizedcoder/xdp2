@@ -1,4 +1,4 @@
-From 665bcc4920ac3094514ca18c888ccf49c36a1a8c Mon Sep 17 00:00:00 2001
+From 47814a796a96df4ca74dacc35524844d20920554 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 17:15:20 -0700
 Subject: [PATCH net-next v1 14/15] net: flow_dissector: add KUnit fast/slow
@@ -39,6 +39,14 @@ MAX_FLOW_DISSECT_HDRS (both bail at the same depth). A dummy netdev and
 a mock flow_dissector_fou_ops provider drive the FOU/GUE lookup without
 real fou config.
 
+Every equivalence case runs both with and without
+FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL -- the flag skb_get_hash()
+passes on every dissect -- against both dissectors, and the
+gates-off test's positive control asserts the fast path actually
+hits for that flagship flag shape (it caught the dispatcher
+rejecting the flag outright, which had made the fast path
+unreachable from RPS/RFS/fq/cake).
+
 Beyond byte equality, every check also asserts
 flow_hash_from_keys() equality (the hash is what consumers act on),
 and dedicated cases pin down the control surfaces: STOP_AT_ENCAP /
@@ -65,9 +73,9 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  include/net/flow_dissector.h   |    9 +
  net/Kconfig                    |   12 +
  net/core/Makefile              |    1 +
- net/core/flow_dissector.c      |   33 +
- net/core/flow_dissector_test.c | 1702 ++++++++++++++++++++++++++++++++
- 5 files changed, 1757 insertions(+)
+ net/core/flow_dissector.c      |   37 +-
+ net/core/flow_dissector_test.c | 1722 ++++++++++++++++++++++++++++++++
+ 5 files changed, 1777 insertions(+), 4 deletions(-)
  create mode 100644 net/core/flow_dissector_test.c
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
@@ -124,10 +132,21 @@ index b3fdcb4e355f..b27c69580d2c 100644
  obj-$(CONFIG_DEBUG_NET) += lock_debug.o
  obj-$(CONFIG_FAIL_SKB_REALLOC) += skb_fault_injection.o
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index d2a2b1336504..4bfdf269ee4d 100644
+index dcb327d94870..3085cf6f07f8 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -3646,6 +3646,39 @@ EXPORT_SYMBOL(flow_keys_dissector);
+@@ -1773,10 +1773,6 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+ 				nhoff + (int)sizeof(*iph), hlen, num_hdrs);
+ 	}
+ 
+-	if (unlikely(iph->nexthdr != IPPROTO_TCP &&
+-		     iph->nexthdr != IPPROTO_UDP))
+-		return false;
+-
+ 	thoff = nhoff + (int)sizeof(*iph);
+ 
+ 	if (dissector_uses_key(flow_dissector,
+@@ -3652,6 +3648,39 @@ EXPORT_SYMBOL(flow_keys_dissector);
  struct flow_dissector flow_keys_basic_dissector __read_mostly;
  EXPORT_SYMBOL(flow_keys_basic_dissector);
  
@@ -169,10 +188,10 @@ index d2a2b1336504..4bfdf269ee4d 100644
  	skb_flow_dissector_init(&flow_keys_dissector,
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
 new file mode 100644
-index 000000000000..d6a1173489c4
+index 000000000000..bc4c5703dac5
 --- /dev/null
 +++ b/net/core/flow_dissector_test.c
-@@ -0,0 +1,1702 @@
+@@ -0,0 +1,1722 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * KUnit equivalence tests for the flow dissector opt-in fast paths.
@@ -872,9 +891,18 @@ index 000000000000..d6a1173489c4
 +static void fd_fast_check_equiv(struct kunit *test, const u8 *data,
 +				__be16 proto, int hlen, unsigned int flags)
 +{
++	/* skb_get_hash() -- RPS/RFS, fq, cake -- passes
++	 * FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL on every dissect, so each
++	 * case must hold with and without it, against both dissectors.
++	 */
++	unsigned int fl = flags | FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL;
++
 +	fd_check_one(test, &flow_keys_dissector, data, proto, hlen, flags);
 +	fd_check_one(test, flow_keys_dissector_symmetric_kunit(),
 +		     data, proto, hlen, flags);
++	fd_check_one(test, &flow_keys_dissector, data, proto, hlen, fl);
++	fd_check_one(test, flow_keys_dissector_symmetric_kunit(),
++		     data, proto, hlen, fl);
 +}
 +
 +static void fd_fast_equiv_test(struct kunit *test)
@@ -1817,6 +1845,17 @@ index 000000000000..d6a1173489c4
 +	memset(&keys, 0, sizeof(keys));
 +	__skb_flow_dissect(&init_net, NULL, &flow_keys_dissector, &keys,
 +			   buf, htons(ETH_P_IP), 0, len, 0);
++	KUNIT_EXPECT_GT(test, flow_dissector_fast_hits_kunit(), before);
++
++	/* The flagship consumer shape: skb_get_hash() (RPS/RFS, fq, cake)
++	 * passes STOP_AT_FLOW_LABEL -- the fast path must hit for it, or
++	 * it never runs on the kernel's standard receive path.
++	 */
++	before = flow_dissector_fast_hits_kunit();
++	memset(&keys, 0, sizeof(keys));
++	__skb_flow_dissect(&init_net, NULL, &flow_keys_dissector, &keys,
++			   buf, htons(ETH_P_IP), 0, len,
++			   FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL);
 +	fd_fast_gates_set(false);
 +	KUNIT_EXPECT_GT(test, flow_dissector_fast_hits_kunit(), before);
 +}

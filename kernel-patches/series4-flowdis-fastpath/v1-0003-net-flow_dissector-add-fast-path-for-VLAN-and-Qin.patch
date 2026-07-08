@@ -1,4 +1,4 @@
-From efa2af6af2628c74c56beee1fe9900d3a7c55afa Mon Sep 17 00:00:00 2001
+From cb784e874d3c428a77967eae66045bc052062bab Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 17:52:21 -0700
 Subject: [PATCH net-next v1 03/15] net: flow_dissector: add fast-path for VLAN
@@ -45,13 +45,10 @@ ethertype.
     transition + proto_again rewind) is skipped -- net saving
     ~30 ns/skb on the single-VLAN shape and ~50 ns/skb on QinQ.
 
-Verified on the xdp2 testbed pair pi5-1 <-> pi5-2 (Cortex-A76, 1 GbE
-genet, NixOS 6.12.87): -6.5 / -6.4 percentage points of host_system
-CPU on the VLAN / QinQ UDP cells with the respective sysctl flipped
-on (4 parallel iperf3 streams, 30 s, line-rate saturated, the
-dissector saving converts to CPU headroom rather than throughput).
-See perf-results/2026-06-15-extensions-cross-testbed-summary.md in
-the xdp2 repo for the cross-uarch table.
+Verified byte-identical by the KUnit equivalence suite. Isolated
+dissector cost on the allshapes microbench (all fast paths compiled
+in, range across 7 measured microarchitectures): vlan -18.1%..-38.5%,
+qinq -16.1%..-39.8% -- see the cover letter's performance summary.
 
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
@@ -117,7 +114,7 @@ index d5a19fd69853..6b48103c36e5 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index d62a36dd2f36..ac1c92daa8b6 100644
+index 3492a0d4f3c7..41504c087cdf 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -45,6 +45,10 @@
@@ -131,7 +128,7 @@ index d62a36dd2f36..ac1c92daa8b6 100644
  
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
-@@ -1248,6 +1252,100 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1252,6 +1256,100 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  	return true;
  }
  
@@ -232,7 +229,7 @@ index d62a36dd2f36..ac1c92daa8b6 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1268,6 +1366,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1280,6 +1378,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return false;
  
  	switch (proto) {
@@ -246,7 +243,7 @@ index d62a36dd2f36..ac1c92daa8b6 100644
  	case htons(ETH_P_IP):
  		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
  			return false;
-@@ -2373,6 +2478,41 @@ core_initcall(init_default_flow_dissectors);
+@@ -2385,6 +2490,41 @@ core_initcall(init_default_flow_dissectors);
   * /proc/sys/net/flow_dissector/. See Documentation/admin-guide/sysctl/
   * net.rst for the operator-facing description.
   */
@@ -288,7 +285,7 @@ index d62a36dd2f36..ac1c92daa8b6 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -2381,6 +2521,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2393,6 +2533,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
