@@ -73,7 +73,19 @@ v3 series + auto RFC):
   no fou/gue on 6.x, no auto), dmesg clean; positive control: 100 MB TCP
   with gate on → fast_hits 0 → 3,211, occurrences frozen — aarch64
   jump-label patching + fast path verified.
-- **Pending before send: Phase F/G perf re-measurement on the fixed kernel**
+- **Perf validation (2026-07-08): hints layout A/B + first real in-kernel
+  Phase G — DONE.** A-B-A controlled: likely→unlikely has no measurable
+  in-kernel impact (a ~5% boot-to-boot floor dominates; adjacent-boot deltas
+  mixed-sign/noise). Same-boot gate on/off (pooled N=6): eth_ip −0.5%,
+  vlan −1.1%, gre −2.7%, rest noise — direction right, no regression; the
+  dissector is a 1–2% end-to-end effect in a ~6.7k-cycle software-RPS path,
+  so the cover letter keeps the isolated microbench as the perf claim and
+  never quotes cross-boot in-kernel numbers. Engagement trap documented:
+  Phase G with rxhash on measures only tc-flower's ineligible dissects
+  (fast_hits +52/hour) — every historical run had this. See
+  perf-results/2026-07-08-series4-hints-ab-phase-g/RESULTS.md. A/B branch
+  `series4-hints-ab` kept for provenance (marked do-not-ship).
+- **Pending before send: Phase F re-measurement (iperf3 macro) if wanted**
   (all historical in-kernel numbers were taken with the fast path inert).
 
 ## Hardware validation round (2026-07-07, night — earlier notes)
