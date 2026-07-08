@@ -67,9 +67,12 @@ v3 series + auto RFC):
   gates present, dmesg clean; positive control: 100 MB TCP-over-ssh with
   gate on → fast_hits 10 → 3,243 with occurrences frozen — riscv64
   jump-label patching + fast path verified on hardware.
-- **ARM (pi5-2, linux_rpi5 6.18 + v3 patches 0001-0012): build/deploy in
-  progress** (qemu-emulated kernel build; patches apply cleanly - the
-  fold-aware default.nix is in ~/nixos/arm/pi5-2/test-kernel/).
+- **ARM (pi5-2, Cortex-A76, linux_rpi5 6.18 + v3 patches 0001-0012): PASS.**
+  Patches apply + compile on the 6.x base (fold-aware default.nix in
+  ~/nixos/arm/pi5-2/test-kernel/), boots, 10 gates present (correct subset —
+  no fou/gue on 6.x, no auto), dmesg clean; positive control: 100 MB TCP
+  with gate on → fast_hits 0 → 3,211, occurrences frozen — aarch64
+  jump-label patching + fast path verified.
 - **Pending before send: Phase F/G perf re-measurement on the fixed kernel**
   (all historical in-kernel numbers were taken with the fast path inert).
 
