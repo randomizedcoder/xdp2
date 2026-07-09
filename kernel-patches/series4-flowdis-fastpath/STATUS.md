@@ -1,5 +1,50 @@
 # series4-flowdis-fastpath — status
 
+## Send rehearsal DONE + staged real-send commands (2026-07-09)
+
+`git send-email` is configured and live-verified on `l` (Gmail app password
+in GNOME keyring via `~/.local/bin/git-credential-gnome-smtp`; see the
+claude profile memory "git send-email setup"). Rehearsal to
+dave.seddon@runpod.io, all with `--suppress-cc=all`: dry-run → 1-patch auth
+probe → **full 16-mail main thread** → **2-mail RFC thread**, every message
+250-accepted. Remaining human check: eyeball threading/rendering in the
+runpod inbox; optionally save an .eml to /tmp for a `git am --check`.
+
+**Staged real-send commands** (fire only after: inbox eyeball OK, net-next
+open per https://netdev.bots.linux.dev/net-next.html, and rebase-to-tip
+check). To-set per user intent: Tom Herbert first; net maintainers (incl.
+Simon Horman, 15/15 in get_maintainer) present because they apply the tree.
+NOTE the three manually-added addresses (Herbert/Willem/Fomichev — not
+emitted by get_maintainer since flow_dissector has no MAINTAINERS section):
+verify against their recent lore.kernel.org postings before sending.
+
+```
+cd kernel-patches/series4-flowdis-fastpath
+git send-email \
+  --to='Tom Herbert <tom@herbertland.com>' \
+  --to='Jakub Kicinski <kuba@kernel.org>' \
+  --to='Eric Dumazet <edumazet@google.com>' \
+  --to='Paolo Abeni <pabeni@redhat.com>' \
+  --to='"David S. Miller" <davem@davemloft.net>' \
+  --to='Simon Horman <horms@kernel.org>' \
+  --cc='netdev@vger.kernel.org' \
+  --cc='linux-kernel@vger.kernel.org' \
+  --cc='Willem de Bruijn <willemb@google.com>' \
+  --cc='Stanislav Fomichev <sdf@fomichev.me>' \
+  --cc='bpf@vger.kernel.org' \
+  --cc='Alexei Starovoitov <ast@kernel.org>' \
+  --cc='Daniel Borkmann <daniel@iogearbox.net>' \
+  --cc='Andrii Nakryiko <andrii@kernel.org>' \
+  --cc='Jonathan Corbet <corbet@lwn.net>' \
+  --cc='linux-doc@vger.kernel.org' \
+  v1-*.patch
+```
+
+RFC thread: after the main series lands on lore, add its lore URL to the
+RFC cover body, then the same command shape from `../series4-rfc-auto/`
+(same To/Cc minus doc/bpf lists; keep netdev@ + Tom Herbert first).
+Rules: never repost within 24 h; resends = full renumbered series.
+
 ## THE flag bug: fast path was unreachable from skb_get_hash (2026-07-07, night)
 
 **The hardware boot smoke found the most important bug of the entire series.**
