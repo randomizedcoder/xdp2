@@ -217,12 +217,18 @@ months of runs across the hardware above, and the byte-identical
 contract is enforced mechanically by the in-tree KUnit suite rather
 than by trust in either the tool or the author.
 
+This series grew out of work on Tom Herbert's XDP2 parser project:
+porting the kernel flow dissector into XDP2's userspace benchmarking
+harness, to compare parsers on equal footing, is what made the
+per-shape cost of the generic loop visible -- this opt-in fast path is
+the kernel-side result of that analysis.
+
 Testing: 3 ISAs / 8 uarches (x86 Zen1/Zen2/Skylake/Haswell, ARM
 Cortex-A53/A72/A76, RISC-V X60), in-tree KUnit
 (patch 14: 61 tests, also run under KASAN+UBSAN; per-patch W=1, sparse
 and smatch clean) and out-of-tree A/B. Supporting data
 (flow-distribution study, per-shape/per-arch matrix, break-even
-derivation):
+derivation) lives in the author's XDP2 fork:
 https://github.com/randomizedcoder/xdp2 , under perf-results/ .
 
 Dave Seddon (15):
