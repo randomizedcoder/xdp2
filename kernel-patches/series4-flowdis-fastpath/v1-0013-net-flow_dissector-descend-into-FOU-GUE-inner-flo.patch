@@ -1,4 +1,4 @@
-From 5c62be92a5dcaaa99b9fd39162210d35fabe4740 Mon Sep 17 00:00:00 2001
+From fe26863af8f3e8a0a8783eecd26321d20bc848f6 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 20:38:45 -0700
 Subject: [PATCH net-next v1 13/15] net: flow_dissector: descend into FOU/GUE
@@ -44,9 +44,9 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  59 +++++
  include/net/flow_dissector.h             |  24 ++
- net/core/flow_dissector.c                | 302 ++++++++++++++++++++++-
+ net/core/flow_dissector.c                | 303 ++++++++++++++++++++++-
  net/ipv4/fou_core.c                      |  48 +++-
- 4 files changed, 425 insertions(+), 8 deletions(-)
+ 4 files changed, 425 insertions(+), 9 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 1dd895d14b12..d4eab4c826a0 100644
@@ -119,7 +119,7 @@ index 1dd895d14b12..d4eab4c826a0 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 583c7bc45ebc..91d229053c21 100644
+index 583c7bc45ebc..476c17cc7249 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
 @@ -441,6 +441,30 @@ extern struct static_key_false flow_dissector_gre_key;
@@ -129,7 +129,7 @@ index 583c7bc45ebc..91d229053c21 100644
 +extern struct static_key_false flow_dissector_gue_inner_key;
 +extern struct static_key_false flow_dissector_fou_inner_key;
 +
-+/* RFC: FOU/GUE inner-flow descent.
++/* FOU/GUE inner-flow descent.
 + *
 + * Unlike VXLAN/Geneve/GTP-U, FOU and GUE have no well-known UDP port, so
 + * the dissector cannot identify them from the packet alone — it must map
@@ -154,7 +154,7 @@ index 583c7bc45ebc..91d229053c21 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 040dc5d51d20..dcb327d94870 100644
+index 4acb49100ad7..dcb327d94870 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,8 @@
@@ -410,19 +410,18 @@ index 040dc5d51d20..dcb327d94870 100644
  	return true;
  }
  
-@@ -2037,8 +2255,9 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
- 
+@@ -2038,8 +2256,8 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  /* Did a fast-path leaf stamp FLOW_DIS_ENCAPSULATION? Used by the dispatcher
   * to count eth_ip fast_hits for plain top-level IP only — an ipip/gre/overlay
-- * descent sets ENCAP and is counted under its own shape (or, for the RFC
-- * overlay shapes, not counted). Mirrors the slow-path out: eth_ip gate.
-+ * descent sets ENCAP and is counted under its own shape (or, for the
+  * descent sets ENCAP and is counted under its own shape (or, for the
+- * UDP-tunnel overlay shapes, not counted). Mirrors the slow-path
+- * out: eth_ip gate.
 + * UDP-tunnel overlay shapes, not counted). Mirrors the slow-path out:
 + * eth_ip gate.
   */
  static bool flow_dissect_fast_is_encap(struct flow_dissector *flow_dissector,
  				       void *target_container)
-@@ -2246,6 +2465,65 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2247,6 +2465,65 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -488,7 +487,7 @@ index 040dc5d51d20..dcb327d94870 100644
  	return false;
  }
  
-@@ -2935,7 +3213,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2936,7 +3213,9 @@ bool __skb_flow_dissect(const struct net *net,
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
  	     static_branch_unlikely(&flow_dissector_geneve_inner_key) ||
@@ -499,7 +498,7 @@ index 040dc5d51d20..dcb327d94870 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3498,6 +3778,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3499,6 +3778,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -520,17 +519,19 @@ index 040dc5d51d20..dcb327d94870 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3579,7 +3873,7 @@ static int __init flow_dissector_sysctl_init(void)
+@@ -3579,8 +3872,8 @@ static int __init flow_dissector_sysctl_init(void)
+ 				 flow_dissector_sysctl_table))
  		return -ENOMEM;
  
- 	/* Global (init_net) counters — matches the global gates; per-netns is
--	 * a noted follow-up (see the RFC). A missing proc file is not fatal.
+-	/* Global (init_net) counters — matches the global gates; per-netns
+-	 * is a noted follow-up. A missing proc file is not fatal.
++	/* Global (init_net) counters — matches the global gates; per-netns is
 +	 * a noted follow-up. A missing proc file is not fatal.
  	 */
  	proc_create_single("flow_dissector_stats", 0444, init_net.proc_net,
  			   flow_dissector_stats_show);
 diff --git a/net/ipv4/fou_core.c b/net/ipv4/fou_core.c
-index 865bd7205122..70ad0e532e98 100644
+index 865bd7205122..faaf96990c1d 100644
 --- a/net/ipv4/fou_core.c
 +++ b/net/ipv4/fou_core.c
 @@ -12,6 +12,7 @@
@@ -560,7 +561,7 @@ index 865bd7205122..70ad0e532e98 100644
  	kfree_rcu(fou, rcu);
  }
  
-+/* RFC: flow-dissector FOU/GUE inner-descent hook.
++/* Flow-dissector FOU/GUE inner-descent hook.
 + *
 + * FOU/GUE have no well-known UDP port, so the flow dissector cannot
 + * identify them from the packet alone — it must map the UDP dst port to

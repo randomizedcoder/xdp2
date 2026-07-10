@@ -1,4 +1,4 @@
-From 3091400cacf6816670494aae7f2827083bb4f849 Mon Sep 17 00:00:00 2001
+From d0ffa8d8e42e282db9d20aea428d3a2f5c1be33f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 19:30:16 -0700
 Subject: [PATCH net-next v1 09/15] net: flow_dissector: bound fast-path tunnel
@@ -46,7 +46,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  1 file changed, 43 insertions(+), 23 deletions(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 33dbe9ecc2e9..82d0eced86c1 100644
+index a8c2b8c4bbd6..8fb56c40df1f 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -101,28 +101,33 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
@@ -237,7 +237,7 @@ index 33dbe9ecc2e9..82d0eced86c1 100644
  
  	if (!ok)
  		return false;
-@@ -1848,7 +1868,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1849,7 +1869,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  			return false;
  		if (!flow_dissect_fast_ipv4(skb, flow_dissector,
  					    target_container, data,
@@ -246,7 +246,7 @@ index 33dbe9ecc2e9..82d0eced86c1 100644
  			return false;
  		/* Plain top-level eth+IP only; a descent set ENCAP and was
  		 * counted under its own shape (ipip/gre).
-@@ -1861,7 +1881,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1862,7 +1882,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  			return false;
  		if (!flow_dissect_fast_ipv6(skb, flow_dissector,
  					    target_container, data,

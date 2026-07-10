@@ -1,6 +1,6 @@
-From 818aa433d8c778dff0ec5ffee2c23e0dfe5c78b7 Mon Sep 17 00:00:00 2001
+From 93d839cf9afff60c71a58808e6afaa30cb4bb73b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Thu, 9 Jul 2026 18:02:08 -0700
+Date: Thu, 9 Jul 2026 18:29:22 -0700
 Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

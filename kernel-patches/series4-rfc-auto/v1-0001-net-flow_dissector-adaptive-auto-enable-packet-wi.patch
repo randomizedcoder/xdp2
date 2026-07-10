@@ -1,4 +1,4 @@
-From 94522355d7af9339dfae0e725608ca58694ede04 Mon Sep 17 00:00:00 2001
+From 43c9d9f1d9300ea455ff7fa053bf8055ccbea0e0 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -70,7 +70,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  2 files changed, 280 insertions(+), 4 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index d4eab4c826a0..ead2e353c296 100644
+index d4eab4c826a0..ea7cee6f2bb2 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -711,6 +711,43 @@ byte-identical between the fast and slow paths once on.
@@ -80,7 +80,7 @@ index d4eab4c826a0..ead2e353c296 100644
 +auto
 +~~~~
 +
-+RFC. Adaptive auto-enablement of the byte-identical fast-path gates
++Adaptive auto-enablement of the byte-identical fast-path gates
 +(``eth_ip``, ``vlan``, ``qinq``, ``pppoe``, ``ipip``, ``gre``). When set
 +to 1 the kernel manages those gates itself from the per-shape counters
 +(see ``/proc/net/flow_dissector_stats`` below), so the operator sets one
@@ -133,7 +133,7 @@ index d4eab4c826a0..ead2e353c296 100644
  3. /proc/sys/net/unix - Parameters for Unix domain sockets
  ----------------------------------------------------------
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 3085cf6f07f8..c249db2f87df 100644
+index 3085cf6f07f8..9b2a7d27e941 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -44,6 +44,7 @@
@@ -148,7 +148,7 @@ index 3085cf6f07f8..c249db2f87df 100644
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
  
-+/* RFC: adaptive auto-enablement (Home B — in-kernel).
++/* Adaptive auto-enablement of the byte-identical gates.
 + *
 + * Decision is driven by a packet-count window, not a wall-clock tick: every
 + * ~fd_auto_window dissects the worker re-evaluates each byte-identical shape's
@@ -193,7 +193,7 @@ index 3085cf6f07f8..c249db2f87df 100644
  	return ret;
  }
  
-+/* RFC auto knob — handler and window floor are defined after the worker below;
++/* Auto knob — handler and window floor are defined after the worker below;
 + * forward-declare them for the sysctl table.
 + */
 +static int proc_set_auto(const struct ctl_table *table, int write,
@@ -208,7 +208,7 @@ index 3085cf6f07f8..c249db2f87df 100644
  		.proc_handler	= proc_do_static_key,
  	},
 +	{
-+		/* RFC: adaptive auto-enablement. When on, the byte-identical
++		/* Adaptive auto-enablement. When on, the byte-identical
 +		 * gates above are managed automatically from the per-shape
 +		 * counters (mpls and the descent shapes excluded). Manual
 +		 * per-shape writes apply when off.
@@ -237,7 +237,7 @@ index 3085cf6f07f8..c249db2f87df 100644
  	return 0;
  }
  
-+/* --- RFC: adaptive auto-enablement worker (Home B) ----------------------- */
++/* --- Adaptive auto-enablement worker ------------------------------------ */
 +
 +#define FD_AUTO_DWELL		3	/* consecutive windows before a flip */
 +#define FD_AUTO_MARGIN_HI	1000	/* enable at break-even + 10.00pp */

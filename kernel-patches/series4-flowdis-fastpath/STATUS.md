@@ -1,5 +1,21 @@
 # series4-flowdis-fastpath — status
 
+## RFC-marker scrub in code + messages (2026-07-09, second reread)
+
+Follow-up sweep for "RFC" found stale markers in the SHIPPED CODE, not just
+prose: `/* RFC: ... */` headers on the FOU/GUE ops (flow_dissector.h,
+fou_core.c — landable patch 13, not RFC), the KUnit FOU/GUE section header,
+and the auto patch's comments incl. internal jargon ("Home B") plus a
+net.rst paragraph literally starting "RFC." (absurd if ever merged). Patch
+08's message also said the auto controller is "later in this series" (it is
+the separate thread). All fixed and redistributed (commits 8-15 replayed;
+tree == scratch; per-commit compile clean; KUnit 61/61 at the cleaned RFC
+tip). Remaining "RFC" mentions are protocol specs (RFC 7348 etc.) and two
+accurate "separate RFC thread" pointers. Worktree gotcha recorded: the BPF
+selftests build drops `arch/x86/include/generated` + `usr/include` +
+`scripts/{unifdef,basic/fixdep}` into the SOURCE tree, which trips
+kunit.py's clean-tree check — remove those, not mrproper.
+
 ## Phantom-history scrub (2026-07-09, after rehearsal reread)
 
 User reread caught references to internal-only iterations that were never

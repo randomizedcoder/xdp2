@@ -1,4 +1,4 @@
-From 26011f4b8dad38200f7ea5d29a5a8f394703609e Mon Sep 17 00:00:00 2001
+From c9ba3d14bdf3e10f89c044d9eb85b72789bababa Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
 Subject: [PATCH net-next v1 10/15] net: flow_dissector: descend into VXLAN
@@ -110,7 +110,7 @@ index c55c0f83e74e..988d3fa3a7ce 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 82d0eced86c1..cd2f79819baf 100644
+index 8fb56c40df1f..2ca722f3111d 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -257,7 +257,7 @@ index 82d0eced86c1..cd2f79819baf 100644
  	return true;
  }
  
-@@ -1904,6 +2003,66 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1905,6 +2004,66 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	}
  }
  
@@ -324,7 +324,7 @@ index 82d0eced86c1..cd2f79819baf 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -2576,6 +2735,25 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2577,6 +2736,25 @@ bool __skb_flow_dissect(const struct net *net,
  		__skb_flow_dissect_ports(skb, flow_dissector, target_container,
  					 data, nhoff, ip_proto, hlen);
  
@@ -350,7 +350,7 @@ index 82d0eced86c1..cd2f79819baf 100644
  	/* Process result of IP proto processing */
  	switch (fdret) {
  	case FLOW_DISSECT_RET_PROTO_AGAIN:
-@@ -3111,6 +3289,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3112,6 +3290,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
