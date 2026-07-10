@@ -1,4 +1,4 @@
-From 05334346b50aa36f7dac118e9d9a64aa406f5849 Mon Sep 17 00:00:00 2001
+From bc3295552e8f46a8c30052344f997b7a500f58f8 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 17:15:20 -0700
 Subject: [PATCH net-next v1 14/15] net: flow_dissector: add KUnit fast/slow
@@ -79,7 +79,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  create mode 100644 net/core/flow_dissector_test.c
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 91d229053c21..4151b68bd731 100644
+index 476c17cc7249..4dbe93c7e06c 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
 @@ -485,6 +485,15 @@ enum flow_dissector_shape {
@@ -188,7 +188,7 @@ index dcb327d94870..3085cf6f07f8 100644
  	skb_flow_dissector_init(&flow_keys_dissector,
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
 new file mode 100644
-index 000000000000..bc4c5703dac5
+index 000000000000..00893dd6d30a
 --- /dev/null
 +++ b/net/core/flow_dissector_test.c
 @@ -0,0 +1,1722 @@
@@ -1194,7 +1194,7 @@ index 000000000000..bc4c5703dac5
 +	}
 +}
 +
-+/* --- RFC: FOU/GUE inner-descent tests ---
++/* --- FOU/GUE inner-descent tests ---
 + *
 + * FOU/GUE have no well-known UDP port, so the descent resolves the port
 + * through the fou module's registered ops. The test registers a mock

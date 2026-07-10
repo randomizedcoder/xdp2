@@ -1,4 +1,4 @@
-From 216973e9e05f43f4ea4661133a08fdf3184d4d12 Mon Sep 17 00:00:00 2001
+From 02e45ef4ae29471df31ec64c47d3cb802383a6da Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
 Subject: [PATCH net-next v1 11/15] net: flow_dissector: descend into Geneve
@@ -85,7 +85,7 @@ index 988d3fa3a7ce..1464b518679b 100644
  /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
   * Byte-identical shapes only — the shapes the adaptive controller may
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index cd2f79819baf..ccd5e862cecc 100644
+index 2ca722f3111d..9529f6b69a6c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -166,7 +166,7 @@ index cd2f79819baf..ccd5e862cecc 100644
  	return true;
  }
  
-@@ -2060,6 +2117,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2061,6 +2118,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -202,7 +202,7 @@ index cd2f79819baf..ccd5e862cecc 100644
  	return false;
  }
  
-@@ -2747,7 +2833,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2748,7 +2834,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(key_control->flags & FLOW_DIS_IS_FRAGMENT) &&
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
@@ -212,7 +212,7 @@ index cd2f79819baf..ccd5e862cecc 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3296,6 +3383,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3297,6 +3384,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

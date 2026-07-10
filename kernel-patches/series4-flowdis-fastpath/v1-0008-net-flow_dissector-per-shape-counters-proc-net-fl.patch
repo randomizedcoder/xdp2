@@ -1,4 +1,4 @@
-From dde3b125b63b07187a341963771edc74faa87e15 Mon Sep 17 00:00:00 2001
+From f05933dc3d6e96c15c9986465a259ee5e36d65e2 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 2 Jul 2026 17:44:43 -0700
 Subject: [PATCH net-next v1 08/15] net: flow_dissector: per-shape counters +
@@ -10,8 +10,9 @@ Content-Transfer-Encoding: 8bit
 The opt-in fast-path (this series) gates each byte-identical shape behind
 its own net.flow_dissector.* sysctl. Operators need to see how traffic is
 actually composed to decide which gates to enable — and that same signal
-lets a policy layer (userspace agent or the in-kernel auto knob in the RFC
-tail) enable/disable the gates automatically instead of hand-tuning knobs.
+lets a policy layer (a userspace agent, or the auto controller
+proposed in a separate RFC thread) enable/disable the gates
+automatically instead of hand-tuning knobs.
 
 Add per-cpu counters, keyed by a small enum flow_dissector_shape covering
 the byte-identical shapes (eth_ip, vlan, qinq, pppoe, mpls, ipip, gre):
@@ -42,7 +43,7 @@ are deliberately not counted: the dissects increment sits after the BPF
 hook's early return, so the file counts only dissects that reach the
 in-kernel dissector. That keeps fast_hits/dissects an undiluted
 hit-rate for the code these gates control — the signal an operator (or
-the RFC auto controller later in this series) acts on.
+the auto controller proposed in a separate RFC thread) acts on.
 
 Cost is one this_cpu_inc on the already-hot classification path, summed
 only on read — within the pktgen cyc/pkt noise floor, and an off gate
@@ -52,8 +53,8 @@ Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  include/net/flow_dissector.h |  19 +++
- net/core/flow_dissector.c    | 245 +++++++++++++++++++++++++++++++----
- 2 files changed, 242 insertions(+), 22 deletions(-)
+ net/core/flow_dissector.c    | 246 +++++++++++++++++++++++++++++++----
+ 2 files changed, 243 insertions(+), 22 deletions(-)
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index b1334cdb668e..c55c0f83e74e 100644
@@ -86,7 +87,7 @@ index b1334cdb668e..c55c0f83e74e 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b7d51c70545c..33dbe9ecc2e9 100644
+index b7d51c70545c..a8c2b8c4bbd6 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -36,6 +36,9 @@
@@ -242,7 +243,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  	return true;
  }
  
-@@ -1727,9 +1786,28 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1727,9 +1786,29 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -252,8 +253,9 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  
 +/* Did a fast-path leaf stamp FLOW_DIS_ENCAPSULATION? Used by the dispatcher
 + * to count eth_ip fast_hits for plain top-level IP only — an ipip/gre/overlay
-+ * descent sets ENCAP and is counted under its own shape (or, for the RFC
-+ * overlay shapes, not counted). Mirrors the slow-path out: eth_ip gate.
++ * descent sets ENCAP and is counted under its own shape (or, for the
++ * UDP-tunnel overlay shapes, not counted). Mirrors the slow-path
++ * out: eth_ip gate.
 + */
 +static bool flow_dissect_fast_is_encap(struct flow_dissector *flow_dissector,
 +				       void *target_container)
@@ -271,7 +273,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1768,15 +1846,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1768,15 +1847,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	case htons(ETH_P_IP):
  		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
  			return false;
@@ -304,7 +306,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  	case htons(ETH_P_PPP_SES):
  		if (!static_branch_unlikely(&flow_dissector_pppoe_key))
  			return false;
-@@ -1830,6 +1919,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1830,6 +1920,8 @@ bool __skb_flow_dissect(const struct net *net,
  	bool mpls_el = false;
  	int mpls_lse = 0;
  	int num_hdrs = 0;
@@ -313,7 +315,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  	u8 ip_proto = 0;
  	bool ret;
  
-@@ -1940,6 +2031,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1940,6 +2032,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * see flow_dissect_fast() and Documentation/admin-guide/sysctl/
  	 * net.rst (/proc/sys/net/flow_dissector/).
  	 */
@@ -322,7 +324,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
  		return true;
-@@ -1973,6 +2066,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1973,6 +2067,8 @@ bool __skb_flow_dissect(const struct net *net,
  		key_num_of_vlans->num_of_vlans = 0;
  	}
  
@@ -331,7 +333,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  proto_again:
  	fdret = FLOW_DISSECT_RET_CONTINUE;
  
-@@ -1987,6 +2082,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1987,6 +2083,12 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -344,7 +346,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		nhoff += iph->ihl * 4;
  
  		ip_proto = iph->protocol;
-@@ -2035,6 +2136,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2035,6 +2137,9 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -354,7 +356,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		ip_proto = iph->nexthdr;
  		nhoff += sizeof(struct ipv6hdr);
  
-@@ -2108,8 +2212,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2108,8 +2213,12 @@ bool __skb_flow_dissect(const struct net *net,
  
  		if (dissector_vlan == FLOW_DISSECTOR_KEY_MAX) {
  			dissector_vlan = FLOW_DISSECTOR_KEY_VLAN;
@@ -367,7 +369,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		} else {
  			fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
  			break;
-@@ -2155,6 +2263,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2155,6 +2264,8 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -376,7 +378,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		/* PFC (compressed 1-byte protocol) frames are not processed.
  		 * A compressed protocol field has the least significant bit of
  		 * the most significant octet set, which will fail the following
-@@ -2219,6 +2329,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2219,6 +2330,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	case htons(ETH_P_MPLS_UC):
  	case htons(ETH_P_MPLS_MC):
@@ -384,7 +386,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		fdret = __skb_flow_dissect_mpls(skb, flow_dissector,
  						target_container, data,
  						nhoff, hlen, mpls_lse,
-@@ -2312,6 +2423,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2312,6 +2424,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	switch (ip_proto) {
  	case IPPROTO_GRE:
@@ -392,7 +394,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2374,6 +2486,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2374,6 +2487,7 @@ bool __skb_flow_dissect(const struct net *net,
  		break;
  	}
  	case IPPROTO_IPIP:
@@ -400,7 +402,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2469,6 +2582,16 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2469,6 +2583,16 @@ bool __skb_flow_dissect(const struct net *net,
  	key_basic->n_proto = proto;
  	key_basic->ip_proto = ip_proto;
  
@@ -417,7 +419,7 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  	return ret;
  
  out_bad:
-@@ -2970,11 +3093,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2970,11 +3094,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  	},
  };
  
@@ -499,8 +501,8 @@ index b7d51c70545c..33dbe9ecc2e9 100644
  				 flow_dissector_sysctl_table))
  		return -ENOMEM;
 +
-+	/* Global (init_net) counters — matches the global gates; per-netns is
-+	 * a noted follow-up (see the RFC). A missing proc file is not fatal.
++	/* Global (init_net) counters — matches the global gates; per-netns
++	 * is a noted follow-up. A missing proc file is not fatal.
 +	 */
 +	proc_create_single("flow_dissector_stats", 0444, init_net.proc_net,
 +			   flow_dissector_stats_show);
