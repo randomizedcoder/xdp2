@@ -1,6 +1,6 @@
-From 7386639dddcf0a8b9fb43ba3c241c5f89519c749 Mon Sep 17 00:00:00 2001
+From 91c0c41bb4fe4c59841a4f06c4ea8c59554aeee7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Thu, 9 Jul 2026 19:13:35 -0700
+Date: Thu, 9 Jul 2026 21:33:34 -0700
 Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -162,7 +162,11 @@ path is verified against it, not vice versa. Three layers enforce that:
      instances are structurally unaffected.
   2. Every shape is a default-off static branch: a kernel with gates off
      executes the not-taken-branch slow path only.
-  3. The KUnit equivalence suite (patch 14) dissects a corpus of
+  3. The tunnel descents share their header-validation classifiers
+     between the fast and slow paths (flow_dissect_{vxlan,geneve,gtpu,
+     gue,fou}_inner_ok()), so the descent subset is defined once, not
+     mirrored by hand.
+  4. The KUnit equivalence suite (patch 14) dissects a corpus of
      eligible shapes, tunnel descents, deliberate fast-path misses,
      truncations at every byte boundary, and skb-mode entry conditions
      through both paths and memcmp()s the resulting struct flow_keys
@@ -262,10 +266,10 @@ Dave Seddon (15):
  kernel/bpf/net_namespace.c                  |   17 +-
  net/Kconfig                                 |   12 +
  net/core/Makefile                           |    1 +
- net/core/flow_dissector.c                   | 1745 ++++++++++++++++++-
- net/core/flow_dissector_test.c              | 1674 ++++++++++++++++++
+ net/core/flow_dissector.c                   | 1623 +++++++++++++++++-
+ net/core/flow_dissector_test.c              | 1674 +++++++++++++++++++
  net/ipv4/fou_core.c                         |   48 +-
- 13 files changed, 3928 insertions(+), 56 deletions(-)
+ 13 files changed, 3806 insertions(+), 56 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 

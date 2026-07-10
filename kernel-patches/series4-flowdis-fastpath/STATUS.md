@@ -1,5 +1,44 @@
 # series4-flowdis-fastpath — status
 
+## Code-elegance round (2026-07-09, fresh-eyes Fable review of Opus code)
+
+Three deep review passes (fast-path core, infra, per-patch-diff) at the
+net/core bar, converged on one structural change + modernizations:
+
+- **Shared fast/slow tunnel classifiers (the big one).** VXLAN/Geneve/GTP-U/
+  GUE/FOU header validation was duplicated verbatim between the fast path and
+  __skb_flow_dissect_udp_encap(). Extracted one `__always_inline`
+  flow_dissect_<t>_inner_ok() per tunnel, called by BOTH paths → byte-identity
+  is now structural, not maintained by hand (I'd authored the same I-flag/OAM
+  checks into both places, which was the proof). Cover letter's
+  maintenance-section gains this as layer 3.
+- **flow_dissect_fast_udp_tunnels() + tri-state enum** (FAST_TUNNEL_NONE/
+  DISSECTED/DEFER) collapses the four inline tunnel blocks in
+  flow_dissect_fast_ipv4/ipv6 into one dispatch switch, and kills the fou/gue
+  `bool + bool *descended` double-boolean (now the enum).
+- **gnu11 modernizations:** str_on_off() for the gate column; FIELD_GET/
+  GENMASK for the GTP-U flag byte (local GTP1_HDR_* masks); guard(rcu)() in
+  flow_dissect_fou_lookup(); READ_ONCE() on the cross-CPU counter sums.
+- Net −119 lines in flow_dissector.c despite adding the classifiers.
+
+Rejected (recorded as prepared review answers): full ipv4 decomposition and
+key-write micro-helpers (netdev keeps fast paths unrolled); is_encap→enum
+plumbing; sysctl .maxlen change (matches sysctl_net_core.c); u64_stats_sync
+(diagnostic counters); loop-scoped ints / min() migration (churn); splitting
+patch 13's fou _rcu prep (15-patch cap — noted in its message instead).
+
+Distribution: the classifier machinery lands in patch 10 (VXLAN, first UDP
+tunnel — message updated to say so); geneve/gtpu/fou patches each add their
+classifier + one branch in both dispatchers + gate + sysctl. Replayed via a
+strip-from-final generator (deleting later-tunnel pieces from the verified
+final file, validated by per-commit compile — which caught two incomplete
+strips: the udp_encap OR-chain guard and the fou-ops block). Verified:
+per-commit compile ×15 (every intermediate era self-consistent), KUnit 61/61
+at the RFC tip, negative control (sabotaged classifier wiring → vxlan descent
+test fails), checkpatch 0 errors / 3 benign warnings, W=1 + sparse clean.
+Deployed hp5 kernel is now tree-different but behaviourally identical
+(KUnit-proven) — no hardware re-smoke needed.
+
 ## Comment-tightening pass (2026-07-09, kernel-style audit)
 
 Full audit of every added code comment against strict kernel style
