@@ -1,4 +1,4 @@
-From d6b5568508ba301329196f91a68b2efe61313c74 Mon Sep 17 00:00:00 2001
+From 3091400cacf6816670494aae7f2827083bb4f849 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 19:30:16 -0700
 Subject: [PATCH net-next v1 09/15] net: flow_dissector: bound fast-path tunnel

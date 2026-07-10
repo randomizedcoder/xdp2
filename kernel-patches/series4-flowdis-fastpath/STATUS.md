@@ -1,5 +1,21 @@
 # series4-flowdis-fastpath — status
 
+## Phantom-history scrub (2026-07-09, after rehearsal reread)
+
+User reread caught references to internal-only iterations that were never
+posted publicly (STATUS itself records "nothing from those was ever emailed"):
+the cover's "Unlike an earlier RFC posting of this idea", the GRE patch's
+"Re-classification note" (internal Phase D/E bundle language), and patch 02's
+"Replaces the v1-netdev three-patch split" + a rename-rationale pointer to a
+cover section that no longer exists. All three rewritten/dropped
+(message-only; `git filter-branch --msg-filter` — tree hash unchanged,
+2d5a368ea7b7). RFC thread re-rebased; both patch dirs + pi5-2 copies
+regenerated; checkpatch unchanged (0 errors). The ~/nixos kernel pins still
+reference the pre-rewrite rev — **tree-identical**, so the deployed kernels
+remain valid; bump pins only with the next functional change (avoids a
+pointless 35-min rebuild). The runpod rehearsal remains valid (it validated
+mechanics: auth, threading, encoding).
+
 ## Send rehearsal DONE + staged real-send commands (2026-07-09)
 
 `git send-email` is configured and live-verified on `l` (Gmail app password

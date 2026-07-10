@@ -1,6 +1,6 @@
-From d013d01eed293b7f54e57c2408d14e686c87dd0f Mon Sep 17 00:00:00 2001
+From 818aa433d8c778dff0ec5ffee2c23e0dfe5c78b7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Tue, 7 Jul 2026 20:58:48 -0700
+Date: Thu, 9 Jul 2026 18:02:08 -0700
 Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -53,11 +53,11 @@ at all, and it is the mobile-core data path where millions of subscriber
 flows ride one tunnel between two endpoints.
 
 Patches 10-13 add opt-in inner descent, each behind its own default-off
-gate (net.flow_dissector.{vxlan,geneve,gtpu,gue,fou}_inner). Unlike an
-earlier RFC posting of this idea, the descents are now byte-identical:
-the slow path grows the same descent (__skb_flow_dissect_udp_encap()) as
-the fast path (flow_dissect_fast_udp_inner()), so the fast and slow paths
-never disagree. The only behaviour change is versus today's
+gate (net.flow_dissector.{vxlan,geneve,gtpu,gue,fou}_inner). The descents
+keep the series' byte-identical contract: the slow path grows the same
+gated descent (__skb_flow_dissect_udp_encap()) as the fast path
+(flow_dissect_fast_udp_inner()), so the fast and slow paths never
+disagree. The only behaviour change is versus today's
 non-descending default, and it happens only when an operator turns a gate
 on -- a deliberate, per-tunnel-type choice, because it changes skb->hash
 for that traffic. The KUnit suite covers the descents the same way it
