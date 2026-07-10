@@ -96,16 +96,18 @@ icache footprint) and measures each shape in isolation; "isolated A/B"
 compiles one shape's path against the unmodified dissector (the upper
 bound for that shape).
 
-Reduction in dissector CPU cost, allshapes microbench (range across the
-7 measurable uarches):
+Reduction in dissector CPU cost, allshapes microbench. Each row is the
+range across the 7 measured microarchitectures, worst to best:
 
-      eth_ip    -4.7% .. -31.6%
-      vlan     -18.1% .. -38.5%
-      qinq     -16.1% .. -39.8%
-      pppoe     -8.6% .. -28.0%
-      mpls      -6.7% .. -15.0%
-      ipip     -36.8% .. -47.0%   (largest; slow path re-parses inner IP)
-      gre       byte-identical descent family (~ipip)
+    shape     worst    best
+    ------   ------   ------
+    eth_ip    -4.7%   -31.6%
+    vlan     -18.1%   -38.5%
+    qinq     -16.1%   -39.8%
+    pppoe     -8.6%   -28.0%
+    mpls      -6.7%   -15.0%
+    ipip     -36.8%   -47.0%   largest: slow path re-parses inner IP
+    gre        (byte-identical descent family, tracks ipip)
 
 The tunnel inner descents (patches 10-13) are ~net-zero CPU; their value
 is the flow distribution above, not a cycle saving.
@@ -113,13 +115,15 @@ is the flow distribution above, not a cycle saving.
 Isolated A/B, eth + IPv4 + TCP (same source compiled two ways),
 nanoseconds per packet, lower is better:
 
-    x86 Zen 2  (Threadripper PRO 3945WX)   12.4 -> 6.6   -47%
-    x86 Skylake (Core i9-10885H)           10.6 -> 5.6   -47%
-    x86 Haswell (Celeron 2955U)            35.9 -> 18.0  -50%
-    ARM Cortex-A53                        119.0 -> 61.3  -48%
-    ARM Cortex-A72                         42.4 -> 19.1  -55%
-    ARM Cortex-A76                         19.4 -> 9.3   -52%
-    RISC-V SpacemiT X60                    98.2 -> 49.3  -50%
+    microarchitecture                      slow    fast   delta
+    ------------------------------------  ------  ------  -----
+    x86 Zen 2 (Threadripper PRO 3945WX)    12.4     6.6    -47%
+    x86 Skylake (Core i9-10885H)           10.6     5.6    -47%
+    x86 Haswell (Celeron 2955U)            35.9    18.0    -50%
+    ARM Cortex-A53                        119.0    61.3    -48%
+    ARM Cortex-A72                         42.4    19.1    -55%
+    ARM Cortex-A76                         19.4     9.3    -52%
+    RISC-V SpacemiT X60                    98.2    49.3    -50%
 
 The isolated dissect costs 47-55% less per packet, consistent across
 three ISAs and eight microarchitectures; the relative reduction is
