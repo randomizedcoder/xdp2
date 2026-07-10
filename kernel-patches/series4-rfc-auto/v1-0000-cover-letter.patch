@@ -1,6 +1,6 @@
-From 4b3b742d3537765e5e3dfcd25c666b7044c0d1b7 Mon Sep 17 00:00:00 2001
+From ab72526d4cda74a2ad81018b7ccb7c339cdea643 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Thu, 9 Jul 2026 19:13:35 -0700
+Date: Thu, 9 Jul 2026 21:33:50 -0700
 Subject: [RFC net-next v1 0/1] net: flow_dissector: adaptive auto-enable for the fast-path gates
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

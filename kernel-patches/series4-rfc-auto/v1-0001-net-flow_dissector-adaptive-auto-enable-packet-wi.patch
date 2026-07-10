@@ -1,4 +1,4 @@
-From 4b3b742d3537765e5e3dfcd25c666b7044c0d1b7 Mon Sep 17 00:00:00 2001
+From ab72526d4cda74a2ad81018b7ccb7c339cdea643 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -133,12 +133,12 @@ index d4eab4c826a0..ea7cee6f2bb2 100644
  3. /proc/sys/net/unix - Parameters for Unix domain sockets
  ----------------------------------------------------------
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 871f6ab0e8a1..4e30e0afe1e9 100644
+index c56715813e83..54275098c290 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -44,6 +44,7 @@
- #include <linux/proc_fs.h>
+@@ -46,6 +46,7 @@
  #include <linux/seq_file.h>
+ #include <linux/string_choices.h>
  #include <linux/math64.h>
 +#include <linux/workqueue.h>
  
@@ -185,7 +185,7 @@ index 871f6ab0e8a1..4e30e0afe1e9 100644
  /* @num_hdrs: protocol headers consumed so far (Ethernet = 1, each VLAN
   * tag, each outer IP header). Tunnel descents increment it and defer
   * past MAX_FLOW_DISSECT_HDRS, so both paths stop at the same depth.
-@@ -2526,6 +2561,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2404,6 +2439,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * and per-shape gating.
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
@@ -194,7 +194,7 @@ index 871f6ab0e8a1..4e30e0afe1e9 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -3578,6 +3615,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3456,6 +3493,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -208,7 +208,7 @@ index 871f6ab0e8a1..4e30e0afe1e9 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3663,6 +3707,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3541,6 +3585,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -238,7 +238,7 @@ index 871f6ab0e8a1..4e30e0afe1e9 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3735,6 +3802,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3613,6 +3680,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

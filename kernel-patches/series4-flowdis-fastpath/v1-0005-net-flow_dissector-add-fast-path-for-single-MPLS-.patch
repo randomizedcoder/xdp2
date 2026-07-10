@@ -1,4 +1,4 @@
-From 5e27aae533204ef44269de6a6ef3f987e0c73fd5 Mon Sep 17 00:00:00 2001
+From 1a127e47a133f5d218d34e82981c0f97d7d78f08 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
 Subject: [PATCH net-next v1 05/15] net: flow_dissector: add fast-path for

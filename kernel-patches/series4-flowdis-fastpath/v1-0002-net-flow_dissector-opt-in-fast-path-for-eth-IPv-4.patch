@@ -1,4 +1,4 @@
-From b92ef1bbb4c924ae58184bac913f7ce926613f37 Mon Sep 17 00:00:00 2001
+From 79c602f71ebcb0ffb9507bc48b20aeee1330a58b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
 Subject: [PATCH net-next v1 02/15] net: flow_dissector: opt-in fast-path for

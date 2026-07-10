@@ -1,6 +1,6 @@
-From 2f834e63529e9d5fb5d976d76cf5b4c20297f362 Mon Sep 17 00:00:00 2001
+From fb6e3ffc5b1ddac551aa51d3068d0947bc1fec45 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Thu, 18 Jun 2026 14:16:00 -0700
+Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 12/15] net: flow_dissector: descend into GTP-U
  inner flow
 
@@ -30,10 +30,10 @@ CPU is ~net-zero; the operator benefit is per-subscriber hash spread.
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst | 26 +++++++
+ Documentation/admin-guide/sysctl/net.rst | 26 ++++++++++
  include/net/flow_dissector.h             |  1 +
- net/core/flow_dissector.c                | 90 +++++++++++++++++++++++-
- 3 files changed, 116 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 61 +++++++++++++++++++++++-
+ 3 files changed, 87 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 3c3319bb229f..1dd895d14b12 100644
@@ -73,7 +73,7 @@ index 3c3319bb229f..1dd895d14b12 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index c7967939fee6..61efebed592b 100644
+index 778f31e6e3bc..81d970d8ca69 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
 @@ -437,6 +437,7 @@ extern struct static_key_false flow_dissector_ipip_key;
@@ -85,18 +85,10 @@ index c7967939fee6..61efebed592b 100644
  /* Per-shape counters for /proc/net/flow_dissector_stats.
   * occurrences[]: shape seen by the slow path (the eligible-fraction
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 60a871d67235..1fed8bfc83f3 100644
+index d2c396edbb12..b417463f2610 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -15,6 +15,7 @@
- #include <net/tipc.h>
- #include <net/vxlan.h>
- #include <net/geneve.h>
-+#include <net/gtp.h>
- #include <linux/igmp.h>
- #include <linux/icmp.h>
- #include <linux/sctp.h>
-@@ -63,6 +64,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
+@@ -68,6 +68,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
  EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_geneve_inner_key);
  EXPORT_SYMBOL(flow_dissector_geneve_inner_key);
@@ -105,98 +97,77 @@ index 60a871d67235..1fed8bfc83f3 100644
  
  /* Per-cpu, summed on read via /proc/net/flow_dissector_stats.
   * occurrences[]: shape handled by the slow path (with the gate off,
-@@ -1368,6 +1371,52 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
- 		}
- 	}
- 
-+	/* GTP-U inner descent: same posture as vxlan_inner. Fast subset:
-+	 * GTPv1 G-PDU (version 1, PT 1, no option flags, type 0xff) on dst
-+	 * port GTP1U_PORT -- an exactly 8-byte header carrying naked inner
-+	 * IP (no inner Ethernet); the version nibble picks v4 vs v6.
-+	 */
-+	if (static_branch_unlikely(&flow_dissector_gtpu_inner_key) &&
-+	    iph->protocol == IPPROTO_UDP &&
-+	    hlen - thoff >= (int)(sizeof(struct udphdr) +
-+				  sizeof(struct gtp1_header) +
-+				  (int)sizeof(struct iphdr))) {
-+		const __be16 *udp_ports = (const __be16 *)
-+			((const u8 *)data + thoff);
-+
-+		if (udp_ports[1] == htons(GTP1U_PORT)) {
-+			const struct gtp1_header *gtp = (const struct gtp1_header *)
-+				((const u8 *)data + thoff +
-+				 sizeof(struct udphdr));
-+			const u8 ver = gtp->flags >> 5;
-+			const u8 pt  = (gtp->flags >> 4) & 0x1;
-+			const u8 low3 = gtp->flags & GTP1_F_MASK;
-+
-+			/* GTPv1 (ver=1), PT=1 (GTP not GTP'),
-+			 * no optional fields, G-PDU.
-+			 */
-+			if (ver == 1 && pt == 1 && low3 == 0 &&
-+			    gtp->type == 0xff) {
-+				int inner_nhoff = thoff +
-+					sizeof(struct udphdr) +
-+					sizeof(struct gtp1_header);
-+				const u8 *inner = (const u8 *)data + inner_nhoff;
-+				u8 inner_ver = *inner >> 4;
-+
-+				if (inner_ver == 4 || inner_ver == 6)
-+					return flow_dissect_fast_udp_inner(skb,
-+							flow_dissector,
-+							target_container, data,
-+							inner_ver == 4 ?
-+							htons(ETH_P_IP) :
-+							htons(ETH_P_IPV6),
-+							inner_nhoff, hlen,
-+							num_hdrs);
-+				return false;
-+			}
-+		}
-+	}
-+
+@@ -267,6 +269,47 @@ flow_dissect_geneve_inner_ok(const void *data, int thoff, int hlen, u8 family,
  	return true;
  }
  
-@@ -2031,6 +2080,37 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
- 		return false;
- 	}
- 
-+	/* GTP-U: GTPv1 G-PDU, naked inner IP (no inner Ethernet). */
-+	if (static_branch_unlikely(&flow_dissector_gtpu_inner_key) &&
-+	    family == AF_INET && dport == htons(GTP1U_PORT) &&
-+	    hlen - thoff >= (int)(sizeof(struct udphdr) +
-+				  sizeof(struct gtp1_header) +
-+				  sizeof(struct iphdr))) {
-+		const struct gtp1_header *gtp = (const struct gtp1_header *)
-+			((const u8 *)data + thoff + sizeof(struct udphdr));
-+		const u8 ver = gtp->flags >> 5;
-+		const u8 pt  = (gtp->flags >> 4) & 0x1;
-+		const u8 low3 = gtp->flags & GTP1_F_MASK;
++#define GTP1_HDR_VERSION	GENMASK(7, 5)
++#define GTP1_HDR_PT		BIT(4)
++#define GTP1_MSG_GPDU		0xff
 +
-+		/* GTPv1 (ver=1), PT=1 (GTP not GTP'), no optional fields,
-+		 * G-PDU — the same subset as the fast path.
-+		 */
-+		if (ver == 1 && pt == 1 && low3 == 0 && gtp->type == 0xff) {
-+			int inner_nhoff = thoff + sizeof(struct udphdr) +
-+					  sizeof(struct gtp1_header);
-+			u8 inner_ver = *((const u8 *)data + inner_nhoff) >> 4;
++static __always_inline bool
++flow_dissect_gtpu_inner_ok(const void *data, int thoff, int hlen, u8 family,
++			   __be16 *inner_proto, int *inner_nhoff)
++{
++	const struct gtp1_header *gtp;
++	const __be16 *udp_ports;
++	int nhoff;
++	u8 ver;
 +
-+			if (inner_ver == 4 || inner_ver == 6) {
-+				*p_proto = inner_ver == 4 ? htons(ETH_P_IP)
-+							  : htons(ETH_P_IPV6);
-+				*p_nhoff = inner_nhoff;
-+				key_control->flags |= FLOW_DIS_ENCAPSULATION;
-+				return true;
-+			}
-+		}
++	if (family != AF_INET)
 +		return false;
-+	}
++	if (hlen - thoff < (int)(sizeof(struct udphdr) +
++				 sizeof(struct gtp1_header) +
++				 sizeof(struct iphdr)))
++		return false;
++	udp_ports = (const __be16 *)((const u8 *)data + thoff);
++	if (udp_ports[1] != htons(GTP1U_PORT))
++		return false;
++	gtp = (const struct gtp1_header *)
++		((const u8 *)data + thoff + sizeof(struct udphdr));
++	/* GTPv1, PT=1 (GTP, not GTP'), no optional fields, G-PDU. The
++	 * header is then exactly 8 bytes with naked inner IP behind it
++	 * (no inner Ethernet); the version nibble picks v4 vs v6.
++	 */
++	if (FIELD_GET(GTP1_HDR_VERSION, gtp->flags) != 1 ||
++	    !(gtp->flags & GTP1_HDR_PT) || (gtp->flags & GTP1_F_MASK) ||
++	    gtp->type != GTP1_MSG_GPDU)
++		return false;
++	nhoff = thoff + sizeof(struct udphdr) + sizeof(struct gtp1_header);
++	ver = *((const u8 *)data + nhoff) >> 4;
++	if (ver != 4 && ver != 6)
++		return false;
++	*inner_proto = ver == 4 ? htons(ETH_P_IP) : htons(ETH_P_IPV6);
++	*inner_nhoff = nhoff;
++	return true;
++}
 +
- 	return false;
- }
+ /* Try the UDP-tunnel descents on an outer UDP header at @thoff. A
+  * packet the classifiers accept but the inner fast path cannot handle
+  * defers, because the slow path will descend into it.
+@@ -291,6 +334,10 @@ flow_dissect_fast_udp_tunnels(const struct sk_buff *skb,
+ 	    flow_dissect_geneve_inner_ok(data, thoff, hlen, family,
+ 					 &inner_proto, &inner_nhoff))
+ 		goto descend;
++	if (static_branch_unlikely(&flow_dissector_gtpu_inner_key) &&
++	    flow_dissect_gtpu_inner_ok(data, thoff, hlen, family,
++				       &inner_proto, &inner_nhoff))
++		goto descend;
+ 	return FAST_TUNNEL_NONE;
  
-@@ -2712,7 +2792,8 @@ bool __skb_flow_dissect(const struct net *net,
+ descend:
+@@ -2043,6 +2090,10 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+ 	    flow_dissect_geneve_inner_ok(data, thoff, hlen, family,
+ 					 &inner_proto, &inner_nhoff))
+ 		goto descend;
++	if (static_branch_unlikely(&flow_dissector_gtpu_inner_key) &&
++	    flow_dissect_gtpu_inner_ok(data, thoff, hlen, family,
++				       &inner_proto, &inner_nhoff))
++		goto descend;
+ 	return false;
+ 
+ descend:
+@@ -2729,7 +2780,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
@@ -206,7 +177,7 @@ index 60a871d67235..1fed8bfc83f3 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3263,6 +3344,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3310,6 +3362,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
