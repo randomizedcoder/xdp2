@@ -1,4 +1,4 @@
-From a6ebbc6497ec9d46e3c6130448a4c76dcc922848 Mon Sep 17 00:00:00 2001
+From 65f419838445e78cbe5f4b024b5245dca19d36df Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
 Subject: [PATCH net-next v1 02/15] net: flow_dissector: opt-in fast-path for
@@ -73,11 +73,6 @@ series.
     flags other than PARSE_1ST_FRAG and STOP_AT_FLOW_LABEL. Admitting
     STOP_AT_FLOW_LABEL is what makes the fast path reachable from
     skb_get_hash() at all -- the kernel's main dissection consumer.
-
-Replaces the v1-netdev three-patch split and the v2-experiment inline
-form. See cover letter for the rename rationale
-(net.core.flow_dissector_fastpath → /proc/sys/net/flow_dissector/
-subtree).
 
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>

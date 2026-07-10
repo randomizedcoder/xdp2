@@ -1,4 +1,4 @@
-From ed5d1a7b0e8bcdbd1e7fdae5c25dbf77e98471b5 Mon Sep 17 00:00:00 2001
+From a804a8a87b287958098951731c668fe15083790f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
 Subject: [PATCH net-next v1 07/15] net: flow_dissector: add byte-identical
@@ -53,14 +53,12 @@ FLOW_DISSECTOR_KEY_GRE_KEYID.
 Documentation/admin-guide/sysctl/net.rst grows a `gre` subsection
 under /proc/sys/net/flow_dissector/.
 
-Re-classification note: an earlier RFC mis-categorized GRE inner
-descent as "behaviour change" (alongside VXLAN inner). That was
-wrong — the slow path already descends through GRE, so this fast-
-path is byte-identical, not a behaviour change. It belongs in the
-Phase D byte-identical bundle, not the Phase E RFC EXPERIMENT
-bundle that contains VXLAN inner, Geneve inner, and GTP-U inner
-(those genuinely change behaviour because slow path stops at outer
-UDP for them).
+Classification note: the slow path already descends through plain
+GRE unconditionally, so this fast path is byte-identical with
+today's behaviour — a pure CPU saving. That is unlike the UDP-tunnel
+descents later in the series (VXLAN/Geneve/GTP-U/FOU/GUE), where the
+slow path stops at the outer UDP header today and the descent itself
+is the new, gated behaviour.
 
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
