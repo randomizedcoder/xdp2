@@ -1,4 +1,4 @@
-From 44cc672350fbfd96ae5348a255ee9824d664555a Mon Sep 17 00:00:00 2001
+From 8097838e6bbac8fcef91498c982b038839a7e4ec Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
 Subject: [PATCH net-next v1 04/15] net: flow_dissector: add fast-path for
@@ -48,10 +48,10 @@ qinq and the next chapter, matching the v3-namespace layout.
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst | 18 +++++
+ Documentation/admin-guide/sysctl/net.rst | 18 ++++++
  include/net/flow_dissector.h             |  1 +
- net/core/flow_dissector.c                | 84 ++++++++++++++++++++++++
- 3 files changed, 103 insertions(+)
+ net/core/flow_dissector.c                | 76 ++++++++++++++++++++++++
+ 3 files changed, 95 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 67abfe5c8d51..b5402a9d5392 100644
@@ -83,10 +83,10 @@ index 67abfe5c8d51..b5402a9d5392 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 6b48103c36e5..c792de78a2cb 100644
+index 4f36f3889a28..df85162959cc 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -434,6 +434,7 @@ extern struct flow_dissector flow_keys_basic_dissector;
+@@ -431,6 +431,7 @@ extern struct flow_dissector flow_keys_basic_dissector;
  extern struct static_key_false flow_dissector_eth_ip_key;
  extern struct static_key_false flow_dissector_vlan_key;
  extern struct static_key_false flow_dissector_qinq_key;
@@ -95,10 +95,10 @@ index 6b48103c36e5..c792de78a2cb 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 41504c087cdf..1b39b145d582 100644
+index f614d92792cf..8c38d5a1e245 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -49,6 +49,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vlan_key);
+@@ -46,6 +46,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vlan_key);
  EXPORT_SYMBOL(flow_dissector_vlan_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
  EXPORT_SYMBOL(flow_dissector_qinq_key);
@@ -107,22 +107,14 @@ index 41504c087cdf..1b39b145d582 100644
  
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
-@@ -1350,6 +1352,75 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1332,6 +1334,67 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	}
  }
  
-+/* Strip a PPPoE session header (RFC 2516) + the 2-byte PPP protocol
-+ * field, write FLOW_DISSECTOR_KEY_PPPOE if requested, then tail-call
-+ * into the eth_ip fast-path for PPP_IP / PPP_IPV6 inner.
-+ *
-+ * Byte-identical with the slow path's `case ETH_P_PPP_SES` block for
-+ * the eligible shape; on any miss (invalid header, unsupported inner
-+ * PPP proto, malformed packet) returns false so the caller falls
-+ * through to the slow path.
-+ *
-+ * PPP_MPLS_UC / PPP_MPLS_MC defer to slow path until the matching
-+ * MPLS fast-path lands. PFC-compressed PPP proto fields (LSB of MSO
-+ * set) defer because ppp_proto_is_valid() would reject them.
++/* PPPoE session (RFC 2516) + 2-byte PPP protocol: write
++ * FLOW_DISSECTOR_KEY_PPPOE if requested, then tail-call the eth_ip
++ * fast-path for PPP_IP / PPP_IPV6. Anything else (PFC-compressed
++ * protocol, LCP, MPLS) defers.
 + */
 +static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
 +				    struct flow_dissector *flow_dissector,
@@ -183,7 +175,7 @@ index 41504c087cdf..1b39b145d582 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1397,6 +1468,12 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1379,6 +1442,12 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_ipv6(skb, flow_dissector,
  					      target_container, data,
  					      nhoff, hlen);
@@ -196,7 +188,7 @@ index 41504c087cdf..1b39b145d582 100644
  	default:
  		return false;
  	}
-@@ -2547,6 +2624,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2523,6 +2592,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_qinq_key,
  	},

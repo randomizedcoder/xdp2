@@ -1,4 +1,4 @@
-From 43c9d9f1d9300ea455ff7fa053bf8055ccbea0e0 Mon Sep 17 00:00:00 2001
+From 4b3b742d3537765e5e3dfcd25c666b7044c0d1b7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -66,8 +66,8 @@ Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  45 ++++-
- net/core/flow_dissector.c                | 239 +++++++++++++++++++++++
- 2 files changed, 280 insertions(+), 4 deletions(-)
+ net/core/flow_dissector.c                | 244 +++++++++++++++++++++++
+ 2 files changed, 285 insertions(+), 4 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index d4eab4c826a0..ea7cee6f2bb2 100644
@@ -133,7 +133,7 @@ index d4eab4c826a0..ea7cee6f2bb2 100644
  3. /proc/sys/net/unix - Parameters for Unix domain sockets
  ----------------------------------------------------------
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 3085cf6f07f8..9b2a7d27e941 100644
+index 871f6ab0e8a1..4e30e0afe1e9 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -44,6 +44,7 @@
@@ -142,23 +142,17 @@ index 3085cf6f07f8..9b2a7d27e941 100644
  #include <linux/math64.h>
 +#include <linux/workqueue.h>
  
- /* Per-shape gates for the opt-in flow_dissector fast-path. Each is a
-  * separate static_branch so operators enable only the shapes their
-@@ -169,6 +170,35 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
+ /* Per-shape fast-path gates, one static_branch per shape so operators
+  * enable only what their deployment carries. All default off.
+@@ -163,6 +164,40 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
  
-+/* Adaptive auto-enablement of the byte-identical gates.
-+ *
-+ * Decision is driven by a packet-count window, not a wall-clock tick: every
-+ * ~fd_auto_window dissects the worker re-evaluates each byte-identical shape's
-+ * windowed eligible fraction against its measured break-even and flips the gate.
-+ * Traffic-proportional (busy link adapts fast, idle link doesn't churn); one
-+ * intuitive knob (auto_window_packets). See the AUTO-DESIGN doc / cover letter.
-+ *
-+ * The hot path only samples: a per-cpu local count crosses window/nr_cpus ->
-+ * schedule_work(). The expensive part (counter summation + static_branch flips
-+ * via text_poke, which can sleep) runs in process context in the worker.
++/* Adaptive auto-enablement: every ~fd_auto_window dissects, re-evaluate
++ * each byte-identical shape's windowed eligible fraction against its
++ * break-even and flip the gate. The hot path only samples (a per-cpu
++ * count crossing window/nr_cpus schedules the worker); summation and
++ * static_branch flips, which can sleep, run in the worker.
 + */
 +static int fd_auto_on;			/* net.flow_dissector.auto */
 +static unsigned int fd_auto_window = 1000000; /* net.flow_dissector.auto_window_packets */
@@ -177,11 +171,22 @@ index 3085cf6f07f8..9b2a7d27e941 100644
 +	}
 +}
 +
- /* Forward declarations for the per-shape fast-path helpers, anchored
-  * at the top of the file. Subsequent patches in this series add new
-  * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-@@ -2671,6 +2701,8 @@ bool __skb_flow_dissect(const struct net *net,
- 	 * net.rst (/proc/sys/net/flow_dissector/).
++/* Forward declarations for the per-shape fast-path helpers, anchored
++ * at the top of the file. Subsequent patches in this series add new
++ * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
++ * the declarations here makes the patch insertion order robust against
++ * kernel-version line-number drift.
++ *
++ * @num_hdrs threading: the count of protocol headers consumed on the
++ * way in (Ethernet = 1, each VLAN tag, each outer IP header). Every
++ * tunnel descent increments it and defers to the slow path past
++ * MAX_FLOW_DISSECT_HDRS, so both paths stop at the same depth.
++
+ /* @num_hdrs: protocol headers consumed so far (Ethernet = 1, each VLAN
+  * tag, each outer IP header). Tunnel descents increment it and defer
+  * past MAX_FLOW_DISSECT_HDRS, so both paths stop at the same depth.
+@@ -2526,6 +2561,8 @@ bool __skb_flow_dissect(const struct net *net,
+ 	 * and per-shape gating.
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
 +	if (READ_ONCE(fd_auto_on))
@@ -189,7 +194,7 @@ index 3085cf6f07f8..9b2a7d27e941 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -3736,6 +3768,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3578,6 +3615,13 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -203,7 +208,7 @@ index 3085cf6f07f8..9b2a7d27e941 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3821,6 +3860,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3663,6 +3707,29 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -233,7 +238,7 @@ index 3085cf6f07f8..9b2a7d27e941 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3895,6 +3957,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3735,6 +3802,183 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

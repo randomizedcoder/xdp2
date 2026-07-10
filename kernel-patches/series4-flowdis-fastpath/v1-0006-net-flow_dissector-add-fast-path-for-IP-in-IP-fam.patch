@@ -1,4 +1,4 @@
-From 89022e7ed8ad1d7edcc8abf448098b22a7bf2cc2 Mon Sep 17 00:00:00 2001
+From c19dfcfd211e18a039eac70c50e08f690d07c1c0 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
 Subject: [PATCH net-next v1 06/15] net: flow_dissector: add fast-path for
@@ -65,8 +65,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  19 ++++
  include/net/flow_dissector.h             |   1 +
- net/core/flow_dissector.c                | 129 ++++++++++++++++++++++-
- 3 files changed, 148 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 117 ++++++++++++++++++++++-
+ 3 files changed, 136 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 47fd2eb4992b..b484e02d4a2a 100644
@@ -99,10 +99,10 @@ index 47fd2eb4992b..b484e02d4a2a 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 775fd9c119f9..f4f203efbc1f 100644
+index 8df7821ba769..d9b4b461cd05 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -436,6 +436,7 @@ extern struct static_key_false flow_dissector_vlan_key;
+@@ -433,6 +433,7 @@ extern struct static_key_false flow_dissector_vlan_key;
  extern struct static_key_false flow_dissector_qinq_key;
  extern struct static_key_false flow_dissector_pppoe_key;
  extern struct static_key_false flow_dissector_mpls_key;
@@ -111,10 +111,10 @@ index 775fd9c119f9..f4f203efbc1f 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index ab42fa05f8f6..bfe48d14ee20 100644
+index d48a5fedc437..916ec165050c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -53,6 +53,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_pppoe_key);
+@@ -50,6 +50,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_pppoe_key);
  EXPORT_SYMBOL(flow_dissector_pppoe_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_mpls_key);
  EXPORT_SYMBOL(flow_dissector_mpls_key);
@@ -123,7 +123,7 @@ index ab42fa05f8f6..bfe48d14ee20 100644
  
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
-@@ -73,6 +75,12 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -65,6 +67,12 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  				   void *target_container,
  				   const void *data,
  				   int nhoff, int hlen);
@@ -134,19 +134,17 @@ index ab42fa05f8f6..bfe48d14ee20 100644
 +					 __be16 inner_eth_proto,
 +					 int inner_nhoff, int hlen);
  
- /* Forward declaration: flow_keys_dissector_symmetric is defined later
-  * in this file (it is static, not extern'd through the header). The
-@@ -1124,8 +1132,27 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* Tentative definition: the dispatcher's eligibility check needs the
+  * file-static flow_keys_dissector_symmetric before its real definition
+@@ -1113,8 +1121,25 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		return false;
  
  	if (unlikely(iph->protocol != IPPROTO_TCP &&
 -		     iph->protocol != IPPROTO_UDP))
 +		     iph->protocol != IPPROTO_UDP)) {
-+		/* IPIP / IPV6-in-IPv4 tunnel outer: defer to the inner
-+		 * IP fast-path and stamp FLOW_DIS_ENCAPSULATION.
-+		 * Outer addrs/basic are NOT written here — the inner pass
-+		 * overwrites them, which is what the slow path also does
-+		 * (final flow_keys reflect inner 5-tuple).
++		/* IPIP / IPv6-in-IPv4 outer: defer to the inner fast-path and
++		 * stamp ENCAP. Outer addrs are not written -- the inner pass
++		 * overwrites them, as in the slow path.
 +		 */
 +		if (static_branch_unlikely(&flow_dissector_ipip_key)) {
 +			if (iph->protocol == IPPROTO_IPIP)
@@ -165,7 +163,7 @@ index ab42fa05f8f6..bfe48d14ee20 100644
  
  	thoff = nhoff + (int)sizeof(*iph);
  
-@@ -1212,6 +1239,51 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1201,6 +1226,51 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		     iph->flow_lbl[1] | iph->flow_lbl[2]))
  		return false;
  
@@ -217,23 +215,13 @@ index ab42fa05f8f6..bfe48d14ee20 100644
  	if (unlikely(iph->nexthdr != IPPROTO_TCP &&
  		     iph->nexthdr != IPPROTO_UDP))
  		return false;
-@@ -1505,6 +1577,54 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+@@ -1464,6 +1534,44 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
  	return true;
  }
  
-+/* IPIP / 4in6 / 6in4 inner: invoked by the v4 / v6 fast-path helpers
-+ * when the outer IP's protocol/nexthdr is IPPROTO_IPIP or IPPROTO_IPV6
-+ * and the ipip gate is on. Recurses into the inner IP fast-path then
-+ * stamps FLOW_DIS_ENCAPSULATION on key_control — the inner helper
-+ * unconditionally zeros key_control->flags, so the ENCAP write must
-+ * happen *after* the inner returns.
-+ *
-+ * Byte-identical with the slow path's IPPROTO_IPIP / IPPROTO_IPV6
-+ * cases in __skb_flow_dissect (which OR ENCAP into key_control->flags
-+ * and re-dispatch on the new proto, ending up with inner addrs/basic
-+ * overwriting outer's). FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP and
-+ * STOP_AT_ENCAP don't apply because the dispatcher's flag check
-+ * already rejects anything beyond F_PARSE_1ST_FRAG.
++/* IPIP / 4in6 / 6in4 inner descent: recurse into the inner IP
++ * fast-path, then stamp FLOW_DIS_ENCAPSULATION -- the inner helper
++ * zeros key_control->flags, so the ENCAP write must come after.
 + */
 +static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
 +					 struct flow_dissector *flow_dissector,
@@ -272,7 +260,7 @@ index ab42fa05f8f6..bfe48d14ee20 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -2729,6 +2849,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2682,6 +2790,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

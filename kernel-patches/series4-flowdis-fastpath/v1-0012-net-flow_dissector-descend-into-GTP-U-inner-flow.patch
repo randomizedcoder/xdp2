@@ -1,4 +1,4 @@
-From d01e31040b81f230282cc6463761ca560dc6aaea Mon Sep 17 00:00:00 2001
+From 2f834e63529e9d5fb5d976d76cf5b4c20297f362 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:16:00 -0700
 Subject: [PATCH net-next v1 12/15] net: flow_dissector: descend into GTP-U
@@ -30,10 +30,10 @@ CPU is ~net-zero; the operator benefit is per-subscriber hash spread.
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst |  26 ++++++
- include/net/flow_dissector.h             |   1 +
- net/core/flow_dissector.c                | 110 ++++++++++++++++++++++-
- 3 files changed, 136 insertions(+), 1 deletion(-)
+ Documentation/admin-guide/sysctl/net.rst | 26 +++++++
+ include/net/flow_dissector.h             |  1 +
+ net/core/flow_dissector.c                | 90 +++++++++++++++++++++++-
+ 3 files changed, 116 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 3c3319bb229f..1dd895d14b12 100644
@@ -73,19 +73,19 @@ index 3c3319bb229f..1dd895d14b12 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 1464b518679b..583c7bc45ebc 100644
+index c7967939fee6..61efebed592b 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -440,6 +440,7 @@ extern struct static_key_false flow_dissector_ipip_key;
+@@ -437,6 +437,7 @@ extern struct static_key_false flow_dissector_ipip_key;
  extern struct static_key_false flow_dissector_gre_key;
  extern struct static_key_false flow_dissector_vxlan_inner_key;
  extern struct static_key_false flow_dissector_geneve_inner_key;
 +extern struct static_key_false flow_dissector_gtpu_inner_key;
  
- /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
-  * Byte-identical shapes only — the shapes the adaptive controller may
+ /* Per-shape counters for /proc/net/flow_dissector_stats.
+  * occurrences[]: shape seen by the slow path (the eligible-fraction
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 9529f6b69a6c..4acb49100ad7 100644
+index 60a871d67235..1fed8bfc83f3 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -15,6 +15,7 @@
@@ -96,39 +96,23 @@ index 9529f6b69a6c..4acb49100ad7 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -66,6 +67,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
+@@ -63,6 +64,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
  EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_geneve_inner_key);
  EXPORT_SYMBOL(flow_dissector_geneve_inner_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_gtpu_inner_key);
 +EXPORT_SYMBOL(flow_dissector_gtpu_inner_key);
  
- /* Per-shape traffic counters (mechanism only; do not affect dissection).
-  * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1403,6 +1406,72 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* Per-cpu, summed on read via /proc/net/flow_dissector_stats.
+  * occurrences[]: shape handled by the slow path (with the gate off,
+@@ -1368,6 +1371,52 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
-+	/* GTP-U inner descent. Like vxlan_inner / geneve_inner: opt-in,
-+	 * off by default, byte-identical between fast and slow once on
-+	 * (__skb_flow_dissect_udp_encap() grows the same descent). Mobile
-+	 * core (5G UPF, 4G S-GW/PGW) deployments hash on outer UDP today;
-+	 * descending gives per-subscriber inner-flow fairness in cake / fq
-+	 * / fib_multipath / RPS.
-+	 *
-+	 * Fast subset:
-+	 *   - GTP-U over UDP dst port GTP1U_PORT (2152)
-+	 *   - GTPv1 (PT=1, version=1 in the flags byte)
-+	 *   - flags low-3 == 0 (no GTP1_F_NPDU, F_SEQ, F_EXTHDR)
-+	 *   - type == 0xff (G-PDU: subscriber user data)
-+	 *
-+	 * In that subset the GTP-U header is exactly 8 bytes
-+	 * (sizeof(struct gtp1_header)) and the inner IP starts
-+	 * immediately after — no inner Ethernet header (GTP-U carries
-+	 * naked IP, unlike VXLAN/Geneve TEB).
-+	 *
-+	 * Inner v4 vs v6 is detected from the first nibble of the
-+	 * inner packet (IP version field).
++	/* GTP-U inner descent: same posture as vxlan_inner. Fast subset:
++	 * GTPv1 G-PDU (version 1, PT 1, no option flags, type 0xff) on dst
++	 * port GTP1U_PORT -- an exactly 8-byte header carrying naked inner
++	 * IP (no inner Ethernet); the version nibble picks v4 vs v6.
 +	 */
 +	if (static_branch_unlikely(&flow_dissector_gtpu_inner_key) &&
 +	    iph->protocol == IPPROTO_UDP &&
@@ -157,10 +141,6 @@ index 9529f6b69a6c..4acb49100ad7 100644
 +				const u8 *inner = (const u8 *)data + inner_nhoff;
 +				u8 inner_ver = *inner >> 4;
 +
-+				/* GTP-U carries naked inner IP (no inner
-+				 * Ethernet); map the IP version nibble to an
-+				 * ethertype and descend, else defer.
-+				 */
 +				if (inner_ver == 4 || inner_ver == 6)
 +					return flow_dissect_fast_udp_inner(skb,
 +							flow_dissector,
@@ -178,7 +158,7 @@ index 9529f6b69a6c..4acb49100ad7 100644
  	return true;
  }
  
-@@ -2147,6 +2216,37 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2031,6 +2080,37 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -216,7 +196,7 @@ index 9529f6b69a6c..4acb49100ad7 100644
  	return false;
  }
  
-@@ -2835,7 +2935,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2712,7 +2792,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
@@ -226,7 +206,7 @@ index 9529f6b69a6c..4acb49100ad7 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3391,6 +3492,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3263,6 +3344,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

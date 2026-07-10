@@ -1,4 +1,4 @@
-From f05933dc3d6e96c15c9986465a259ee5e36d65e2 Mon Sep 17 00:00:00 2001
+From a493109d88f7b68a21e29709ff5c0f4f95600a12 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 2 Jul 2026 17:44:43 -0700
 Subject: [PATCH net-next v1 08/15] net: flow_dissector: per-shape counters +
@@ -52,25 +52,23 @@ stays a NOP.
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- include/net/flow_dissector.h |  19 +++
- net/core/flow_dissector.c    | 246 +++++++++++++++++++++++++++++++----
- 2 files changed, 243 insertions(+), 22 deletions(-)
+ include/net/flow_dissector.h |  17 +++
+ net/core/flow_dissector.c    | 232 +++++++++++++++++++++++++++++++----
+ 2 files changed, 227 insertions(+), 22 deletions(-)
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index b1334cdb668e..c55c0f83e74e 100644
+index ba7226a42d19..53b16f7306c7 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -439,6 +439,25 @@ extern struct static_key_false flow_dissector_mpls_key;
+@@ -436,6 +436,23 @@ extern struct static_key_false flow_dissector_mpls_key;
  extern struct static_key_false flow_dissector_ipip_key;
  extern struct static_key_false flow_dissector_gre_key;
  
-+/* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
-+ * Byte-identical shapes only — the shapes the adaptive controller may
-+ * auto-manage. occurrences[] counts a shape dissected by the slow path (i.e.
-+ * when its gate is off, so it is the "eligible fraction" signal for
-+ * auto-enable); fast_hits[] counts the fast body running for it. Descent
-+ * (vxlan/geneve/gtpu inner) is behaviour-changing and never auto-managed, so
-+ * it is not counted here.
++/* Per-shape counters for /proc/net/flow_dissector_stats.
++ * occurrences[]: shape seen by the slow path (the eligible-fraction
++ * signal while its gate is off); fast_hits[]: fast path ran.
++ * Byte-identical shapes only; the behaviour-changing descents are
++ * never counted or auto-managed.
 + */
 +enum flow_dissector_shape {
 +	FLOW_DISSECTOR_SHAPE_ETH_IP,
@@ -87,7 +85,7 @@ index b1334cdb668e..c55c0f83e74e 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b7d51c70545c..a8c2b8c4bbd6 100644
+index fba9ef00ccb9..34562fa010e0 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -36,6 +36,9 @@
@@ -98,17 +96,16 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
 +#include <linux/seq_file.h>
 +#include <linux/math64.h>
  
- /* Per-shape gates for the opt-in flow_dissector fast-path. Each is a
-  * separate static_branch so operators enable only the shapes their
-@@ -58,6 +61,38 @@ EXPORT_SYMBOL(flow_dissector_ipip_key);
+ /* Per-shape fast-path gates, one static_branch per shape so operators
+  * enable only what their deployment carries. All default off.
+@@ -55,6 +58,35 @@ EXPORT_SYMBOL(flow_dissector_ipip_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
  EXPORT_SYMBOL(flow_dissector_gre_key);
  
-+/* Per-shape traffic counters (mechanism only; do not affect dissection).
-+ * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-+ * counts a byte-identical shape handled by the SLOW path (so, measured while a
-+ * gate is off, it is the eligible-fraction signal for auto-enable); fast_hits[]
-+ * counts the fast body running for it; dissects is the denominator.
++/* Per-cpu, summed on read via /proc/net/flow_dissector_stats.
++ * occurrences[]: shape handled by the slow path (with the gate off,
++ * the shape's eligible-fraction signal); fast_hits[]: fast body ran;
++ * dissects: denominator.
 + */
 +struct flow_dissector_stats {
 +	u64 occurrences[FLOW_DISSECTOR_SHAPE__MAX];
@@ -128,18 +125,16 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
 +	this_cpu_inc(flow_dissector_pcpu_stats.fast_hits[shape]);
 +}
 +
-+/* Where each shape is counted, fast side: eth_ip in the dispatcher
-+ * switch (only when the IPv4/IPv6 leaf did not set ENCAP — a descent
-+ * is counted by the helper that recognised it), vlan/qinq in
-+ * flow_dissect_fast_vlan(), pppoe/mpls in their helpers, ipip/gre in
-+ * their inner-descent helpers. The slow side counts at the point the
-+ * loop recognises each shape, gate on or off.
++/* Counting map: eth_ip counts in the dispatcher (only when the leaf
++ * did not set ENCAP), vlan/qinq/pppoe/mpls in their helpers, ipip/gre
++ * in the inner-descent helpers. The slow path counts where it
++ * recognises each shape, gate on or off.
 + */
 +
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
  
-@@ -1377,6 +1412,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1357,6 +1389,7 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	__be16 saved_tpid;
  	u16 tci_prio;
  	u16 tci_id;
@@ -147,7 +142,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  
  	if (vlan_depth >= 1 &&
  	    !static_branch_unlikely(&flow_dissector_qinq_key))
-@@ -1426,22 +1462,37 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1406,22 +1439,35 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  
  	switch (inner_proto) {
  	case htons(ETH_P_IP):
@@ -181,11 +176,9 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		return false;
  	}
 +
-+	/* Count only on full success — a false return defers to the slow
-+	 * path, which counts the occurrence instead. This frame's tag
-+	 * is the outer (vlan) at depth 0, the second tag (qinq) at depth >= 1;
-+	 * a double-tagged hit counts both, mirroring the slow-path ETH_P_8021Q
-+	 * case.
++	/* Count only on full success -- a miss defers and the slow path
++	 * counts the occurrence. Depth 0 counts vlan, depth >= 1 qinq; a
++	 * double-tagged hit counts both, as the slow path does.
 +	 */
 +	if (ok)
 +		flow_dissector_count_fast(vlan_depth == 0 ?
@@ -194,8 +187,8 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
 +	return ok;
  }
  
- /* Strip a PPPoE session header (RFC 2516) + the 2-byte PPP protocol
-@@ -1470,6 +1521,7 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+ /* PPPoE session (RFC 2516) + 2-byte PPP protocol: write
+@@ -1442,6 +1488,7 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	} *hdr;
  	__be16 inner_eth_proto;
  	u16 ppp_proto;
@@ -203,7 +196,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  
  	if (unlikely(hlen - nhoff < (int)sizeof(*hdr)))
  		return false;
-@@ -1505,12 +1557,17 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1477,12 +1524,17 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	nhoff += PPPOE_SES_HLEN;
  
  	if (inner_eth_proto == htons(ETH_P_IP))
@@ -226,8 +219,8 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
 +	return ok;
  }
  
- /* Single MPLS label (BoS=1) fast-path. Byte-identical with the slow
-@@ -1592,6 +1649,7 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+ /* Single MPLS label (BoS=1): write FLOW_DISSECTOR_KEY_MPLS lse[0]
+@@ -1549,6 +1601,7 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
  		key_basic->ip_proto = 0;
  	}
  
@@ -235,7 +228,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  	return true;
  }
  
-@@ -1640,6 +1698,7 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1587,6 +1640,7 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -243,7 +236,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  	return true;
  }
  
-@@ -1727,9 +1786,29 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1651,9 +1705,27 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  							target_container);
  		key_control->flags |= FLOW_DIS_ENCAPSULATION;
  	}
@@ -251,11 +244,9 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  	return true;
  }
  
-+/* Did a fast-path leaf stamp FLOW_DIS_ENCAPSULATION? Used by the dispatcher
-+ * to count eth_ip fast_hits for plain top-level IP only — an ipip/gre/overlay
-+ * descent sets ENCAP and is counted under its own shape (or, for the
-+ * UDP-tunnel overlay shapes, not counted). Mirrors the slow-path
-+ * out: eth_ip gate.
++/* Did a fast-path leaf stamp FLOW_DIS_ENCAPSULATION? The dispatcher
++ * counts eth_ip only for plain top-level IP; descents count under
++ * their own shape (UDP-tunnel descents not at all).
 + */
 +static bool flow_dissect_fast_is_encap(struct flow_dissector *flow_dissector,
 +				       void *target_container)
@@ -273,7 +264,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1768,15 +1847,26 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1692,15 +1764,24 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	case htons(ETH_P_IP):
  		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
  			return false;
@@ -284,9 +275,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
 +					    target_container, data,
 +					    nhoff, hlen))
 +			return false;
-+		/* Plain top-level eth+IP only; a descent set ENCAP and was
-+		 * counted under its own shape (ipip/gre).
-+		 */
++		/* Plain top-level eth+IP only; descents count under their own shape. */
 +		if (!flow_dissect_fast_is_encap(flow_dissector, target_container))
 +			flow_dissector_count_fast(FLOW_DISSECTOR_SHAPE_ETH_IP);
 +		return true;
@@ -306,7 +295,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  	case htons(ETH_P_PPP_SES):
  		if (!static_branch_unlikely(&flow_dissector_pppoe_key))
  			return false;
-@@ -1830,6 +1920,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1754,6 +1835,8 @@ bool __skb_flow_dissect(const struct net *net,
  	bool mpls_el = false;
  	int mpls_lse = 0;
  	int num_hdrs = 0;
@@ -315,16 +304,16 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  	u8 ip_proto = 0;
  	bool ret;
  
-@@ -1940,6 +2032,8 @@ bool __skb_flow_dissect(const struct net *net,
- 	 * see flow_dissect_fast() and Documentation/admin-guide/sysctl/
- 	 * net.rst (/proc/sys/net/flow_dissector/).
+@@ -1862,6 +1945,8 @@ bool __skb_flow_dissect(const struct net *net,
+ 	/* Opt-in fast-path; flow_dissect_fast() does the eligibility check
+ 	 * and per-shape gating.
  	 */
 +	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
 +
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
  		return true;
-@@ -1973,6 +2067,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1895,6 +1980,8 @@ bool __skb_flow_dissect(const struct net *net,
  		key_num_of_vlans->num_of_vlans = 0;
  	}
  
@@ -333,20 +322,18 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  proto_again:
  	fdret = FLOW_DISSECT_RET_CONTINUE;
  
-@@ -1987,6 +2083,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1909,6 +1996,10 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
-+		/* Top-level eth+IPv4: candidate for the eth_ip shape counter
-+		 * (confirmed at out: once L4 is TCP/UDP and no encap).
-+		 */
++		/* Top-level eth+IPv4: eth_ip shape candidate (confirmed at out:). */
 +		if (nhoff == nhoff_init)
 +			eth_ip_top = true;
 +
  		nhoff += iph->ihl * 4;
  
  		ip_proto = iph->protocol;
-@@ -2035,6 +2137,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1957,6 +2048,9 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -356,7 +343,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		ip_proto = iph->nexthdr;
  		nhoff += sizeof(struct ipv6hdr);
  
-@@ -2108,8 +2213,12 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2030,8 +2124,12 @@ bool __skb_flow_dissect(const struct net *net,
  
  		if (dissector_vlan == FLOW_DISSECTOR_KEY_MAX) {
  			dissector_vlan = FLOW_DISSECTOR_KEY_VLAN;
@@ -369,7 +356,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		} else {
  			fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
  			break;
-@@ -2155,6 +2264,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2077,6 +2175,8 @@ bool __skb_flow_dissect(const struct net *net,
  			break;
  		}
  
@@ -378,7 +365,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		/* PFC (compressed 1-byte protocol) frames are not processed.
  		 * A compressed protocol field has the least significant bit of
  		 * the most significant octet set, which will fail the following
-@@ -2219,6 +2330,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2141,6 +2241,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	case htons(ETH_P_MPLS_UC):
  	case htons(ETH_P_MPLS_MC):
@@ -386,7 +373,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		fdret = __skb_flow_dissect_mpls(skb, flow_dissector,
  						target_container, data,
  						nhoff, hlen, mpls_lse,
-@@ -2312,6 +2424,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2234,6 +2335,7 @@ bool __skb_flow_dissect(const struct net *net,
  
  	switch (ip_proto) {
  	case IPPROTO_GRE:
@@ -394,7 +381,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2374,6 +2487,7 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2296,6 +2398,7 @@ bool __skb_flow_dissect(const struct net *net,
  		break;
  	}
  	case IPPROTO_IPIP:
@@ -402,14 +389,13 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  		if (flags & FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP) {
  			fdret = FLOW_DISSECT_RET_OUT_GOOD;
  			break;
-@@ -2469,6 +2583,16 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2391,6 +2494,15 @@ bool __skb_flow_dissect(const struct net *net,
  	key_basic->n_proto = proto;
  	key_basic->ip_proto = ip_proto;
  
-+	/* eth_ip shape (slow path): top-level eth+IP, L4 TCP/UDP, no encap —
-+	 * the exact shape flow_dissect_fast_ipv4/ipv6 handle. Counted here (the
-+	 * fast path returns earlier), so with the gate off this is the eth_ip
-+	 * eligible-fraction signal for auto-enable.
++	/* eth_ip shape: top-level eth+IP, TCP/UDP, no encap -- counted here
++	 * because the fast path returns earlier; with the gate off this is
++	 * the shape's eligible-fraction signal.
 +	 */
 +	if (ret && eth_ip_top &&
 +	    !(key_control->flags & FLOW_DIS_ENCAPSULATION) &&
@@ -419,7 +405,7 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
  	return ret;
  
  out_bad:
-@@ -2970,11 +3094,89 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2888,11 +3000,87 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  	},
  };
  
@@ -455,12 +441,10 @@ index b7d51c70545c..a8c2b8c4bbd6 100644
 +	}
 +}
 +
-+/* /proc/net/flow_dissector_stats — per-shape traffic composition for operators
-+ * and the (userspace or in-kernel) adaptive controller. occurrences[] is the
-+ * slow-path count (the eligible-fraction signal while a gate is off), fast_hits[]
-+ * confirms the fast body is engaging once enabled. eligible% = 100 * (occurrences
-+ * + fast_hits) / dissects is what the controller thresholds against the measured
-+ * per-shape break-even.
++/* /proc/net/flow_dissector_stats: per-shape occurrences (slow path),
++ * fast_hits, and eligible% = (occurrences + fast_hits) / dissects --
++ * the signal a policy layer thresholds against a per-shape
++ * break-even.
 + */
 +static int flow_dissector_stats_show(struct seq_file *seq, void *v)
 +{

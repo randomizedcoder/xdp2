@@ -1,6 +1,6 @@
-From 93d839cf9afff60c71a58808e6afaa30cb4bb73b Mon Sep 17 00:00:00 2001
+From 7386639dddcf0a8b9fb43ba3c241c5f89519c749 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Thu, 9 Jul 2026 18:29:22 -0700
+Date: Thu, 9 Jul 2026 19:13:35 -0700
 Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -258,14 +258,14 @@ Dave Seddon (15):
  Documentation/networking/flow_dissector.rst |  153 ++
  Documentation/networking/index.rst          |    1 +
  include/linux/skbuff.h                      |    1 +
- include/net/flow_dissector.h                |   69 +
+ include/net/flow_dissector.h                |   61 +
  kernel/bpf/net_namespace.c                  |   17 +-
  net/Kconfig                                 |   12 +
  net/core/Makefile                           |    1 +
- net/core/flow_dissector.c                   | 1905 ++++++++++++++++++-
- net/core/flow_dissector_test.c              | 1722 +++++++++++++++++
+ net/core/flow_dissector.c                   | 1745 ++++++++++++++++++-
+ net/core/flow_dissector_test.c              | 1674 ++++++++++++++++++
  net/ipv4/fou_core.c                         |   48 +-
- 13 files changed, 4144 insertions(+), 56 deletions(-)
+ 13 files changed, 3928 insertions(+), 56 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 
