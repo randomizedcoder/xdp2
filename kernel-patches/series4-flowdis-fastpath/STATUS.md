@@ -1,5 +1,25 @@
 # series4-flowdis-fastpath — status
 
+## Comment-tightening pass (2026-07-09, kernel-style audit)
+
+Full audit of every added code comment against strict kernel style
+("clarifying or ambiguity-resolving only"). ~216 comment lines removed
+(~384 deleted / ~168 rewritten-in) across flow_dissector.c, the header and
+the test file, via /tmp/s4msgs/tighten-comments.py (lenient block-replacer,
+run at every commit of the replay so each edit lands in its owning patch;
+era-aware for the @num_hdrs text, which only appears from the
+bound-recursion patch on). Cut: deployment narratives (k8s/mobile-core/ISP
+colour), patch-series meta-commentary ("Subsequent patches...", line-number
+refs), repeated per-tunnel opt-in/byte-identical paragraphs (stated once at
+the VXLAN block, geneve/gtpu say "same posture"), restating-the-code
+comments, and trivial test inlines. Kept (tightened): ENCAP-after-inner
+ordering, v6-residue byte-identity, non-zero-flow-label defer rationale,
+recursion budget, RFC 7348/8926 validation notes, fou-ops RCU contract,
+qinq/vlan sysctl coupling, counting map, tentative-definition note, and the
+test suite's inverted descent-equivalence scheme. Auto-RFC block also
+tightened (AUTO-DESIGN doc pointer dropped). Verified: per-commit compile
+x15, KUnit 61/61 at the final tip, checkpatch 0 errors / 3 benign warnings.
+
 ## RFC-marker scrub in code + messages (2026-07-09, second reread)
 
 Follow-up sweep for "RFC" found stale markers in the SHIPPED CODE, not just

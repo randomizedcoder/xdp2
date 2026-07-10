@@ -1,4 +1,4 @@
-From d0ffa8d8e42e282db9d20aea428d3a2f5c1be33f Mon Sep 17 00:00:00 2001
+From f0ea9139accab78c70471fd8c58a4becb358cf60 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 19:30:16 -0700
 Subject: [PATCH net-next v1 09/15] net: flow_dissector: bound fast-path tunnel
@@ -42,23 +42,22 @@ GRE chains across the cap boundary; with the bound removed it fails at
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector.c | 66 +++++++++++++++++++++++++--------------
- 1 file changed, 43 insertions(+), 23 deletions(-)
+ net/core/flow_dissector.c | 61 ++++++++++++++++++++++++---------------
+ 1 file changed, 37 insertions(+), 24 deletions(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index a8c2b8c4bbd6..8fb56c40df1f 100644
+index 34562fa010e0..5895e0b10db7 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -101,28 +101,33 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
-  * helpers (VLAN, QinQ, VXLAN inner descent) that call these — keeping
-  * the declarations here makes the patch insertion order robust against
-  * kernel-version line-number drift.
-+ *
-+ * @num_hdrs threading: the count of protocol headers consumed on the
-+ * way in (Ethernet = 1, each VLAN tag, each outer IP header). Every
-+ * tunnel descent increments it and defers to the slow path past
-+ * MAX_FLOW_DISSECT_HDRS, so both paths stop at the same depth.
-  */
+@@ -90,28 +90,31 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)
+ /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
+ #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
+ 
+-/* Fast-path helper forward declarations. */
++/* @num_hdrs: protocol headers consumed so far (Ethernet = 1, each VLAN
++ * tag, each outer IP header). Tunnel descents increment it and defer
++ * past MAX_FLOW_DISSECT_HDRS, so both paths stop at the same depth.
++ */
  static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  				   struct flow_dissector *flow_dissector,
  				   void *target_container,
@@ -85,9 +84,9 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
 -					int nhoff, int hlen);
 +					int nhoff, int hlen, int num_hdrs);
  
- /* Forward declaration: flow_keys_dissector_symmetric is defined later
-  * in this file (it is static, not extern'd through the header). The
-@@ -1153,7 +1158,7 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* Tentative definition: the dispatcher's eligibility check needs the
+  * file-static flow_keys_dissector_symmetric before its real definition
+@@ -1139,7 +1142,7 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  				   struct flow_dissector *flow_dissector,
  				   void *target_container,
  				   const void *data,
@@ -96,7 +95,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  {
  	struct flow_dissector_key_control *key_control;
  	struct flow_dissector_key_addrs *key_addrs;
-@@ -1186,18 +1191,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1170,18 +1173,18 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  				return flow_dissect_fast_ipip_inner(skb,
  						flow_dissector, target_container,
  						data, htons(ETH_P_IP),
@@ -118,7 +117,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  		return false;
  	}
  
-@@ -1255,7 +1260,7 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1239,7 +1242,7 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  				   struct flow_dissector *flow_dissector,
  				   void *target_container,
  				   const void *data,
@@ -127,7 +126,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  {
  	struct flow_dissector_key_control *key_control;
  	struct flow_dissector_key_addrs *key_addrs;
-@@ -1331,10 +1336,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1315,10 +1318,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  					data,
  					iph->nexthdr == IPPROTO_IPIP ?
  					htons(ETH_P_IP) : htons(ETH_P_IPV6),
@@ -140,7 +139,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  	}
  
  	if (unlikely(iph->nexthdr != IPPROTO_TCP &&
-@@ -1464,12 +1469,12 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1441,12 +1444,12 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	case htons(ETH_P_IP):
  		ok = flow_dissect_fast_ipv4(skb, flow_dissector,
  					    target_container, data,
@@ -155,7 +154,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  		break;
  	case htons(ETH_P_8021Q):
  	case htons(ETH_P_8021AD):
-@@ -1559,11 +1564,11 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1526,11 +1529,11 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  	if (inner_eth_proto == htons(ETH_P_IP))
  		ok = flow_dissect_fast_ipv4(skb, flow_dissector,
  					    target_container, data,
@@ -169,7 +168,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  
  	if (ok)
  		flow_dissector_count_fast(FLOW_DISSECTOR_SHAPE_PPPOE);
-@@ -1672,19 +1677,28 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1614,19 +1617,25 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  					 void *target_container,
  					 const void *data,
  					 __be16 inner_eth_proto,
@@ -179,11 +178,8 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  	struct flow_dissector_key_control *key_control;
  	bool ok;
  
-+	/* Mirror the slow path's MAX_FLOW_DISSECT_HDRS budget
-+	 * (skb_flow_dissect_allowed): a crafted deeply nested tunnel
-+	 * chain must not recurse without bound. Beyond the cap, defer
-+	 * to the slow path (which stops at the same limit) so the
-+	 * output stays identical.
++	/* Mirror the slow path's MAX_FLOW_DISSECT_HDRS budget; past the cap
++	 * defer, so both paths stop at the same depth.
 +	 */
 +	if (++num_hdrs > MAX_FLOW_DISSECT_HDRS)
 +		return false;
@@ -201,7 +197,7 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  	else
  		return false;
  
-@@ -1727,7 +1741,7 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1653,7 +1662,7 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  					struct flow_dissector *flow_dissector,
  					void *target_container,
  					const void *data,
@@ -210,20 +206,18 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  {
  	struct flow_dissector_key_control *key_control;
  	const struct gre_base_hdr *hdr;
-@@ -1735,6 +1749,12 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1661,6 +1670,10 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  	int inner_nhoff;
  	bool ok;
  
-+	/* Mirror the slow path's MAX_FLOW_DISSECT_HDRS budget; defer
-+	 * to the slow path beyond it (see flow_dissect_fast_ipip_inner).
-+	 */
++	/* Same MAX_FLOW_DISSECT_HDRS budget as flow_dissect_fast_ipip_inner(). */
 +	if (++num_hdrs > MAX_FLOW_DISSECT_HDRS)
 +		return false;
 +
  	if (unlikely(hlen - nhoff < (int)sizeof(*hdr)))
  		return false;
  	hdr = (const struct gre_base_hdr *)((const u8 *)data + nhoff);
-@@ -1765,11 +1785,11 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+@@ -1688,11 +1701,11 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
  	if (inner_proto == htons(ETH_P_IP))
  		ok = flow_dissect_fast_ipv4(skb, flow_dissector,
  					    target_container, data,
@@ -237,16 +231,16 @@ index a8c2b8c4bbd6..8fb56c40df1f 100644
  
  	if (!ok)
  		return false;
-@@ -1849,7 +1869,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1766,7 +1779,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  			return false;
  		if (!flow_dissect_fast_ipv4(skb, flow_dissector,
  					    target_container, data,
 -					    nhoff, hlen))
 +					    nhoff, hlen, 1))
  			return false;
- 		/* Plain top-level eth+IP only; a descent set ENCAP and was
- 		 * counted under its own shape (ipip/gre).
-@@ -1862,7 +1882,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+ 		/* Plain top-level eth+IP only; descents count under their own shape. */
+ 		if (!flow_dissect_fast_is_encap(flow_dissector, target_container))
+@@ -1777,7 +1790,7 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  			return false;
  		if (!flow_dissect_fast_ipv6(skb, flow_dissector,
  					    target_container, data,

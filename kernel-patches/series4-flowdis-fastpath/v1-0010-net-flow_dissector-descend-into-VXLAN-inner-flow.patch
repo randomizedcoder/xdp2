@@ -1,4 +1,4 @@
-From c9ba3d14bdf3e10f89c044d9eb85b72789bababa Mon Sep 17 00:00:00 2001
+From 70bb1ecb5be47171bd7a7e96b937c844ecc251c7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:39:50 -0700
 Subject: [PATCH net-next v1 10/15] net: flow_dissector: descend into VXLAN
@@ -65,8 +65,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  18 +++
  include/net/flow_dissector.h             |   1 +
- net/core/flow_dissector.c                | 195 ++++++++++++++++++++++-
- 3 files changed, 209 insertions(+), 5 deletions(-)
+ net/core/flow_dissector.c                | 180 ++++++++++++++++++++++-
+ 3 files changed, 194 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 576bba763f13..4e327e28085b 100644
@@ -98,19 +98,19 @@ index 576bba763f13..4e327e28085b 100644
  Default: 0
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index c55c0f83e74e..988d3fa3a7ce 100644
+index 53b16f7306c7..e8320fba5260 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -438,6 +438,7 @@ extern struct static_key_false flow_dissector_pppoe_key;
+@@ -435,6 +435,7 @@ extern struct static_key_false flow_dissector_pppoe_key;
  extern struct static_key_false flow_dissector_mpls_key;
  extern struct static_key_false flow_dissector_ipip_key;
  extern struct static_key_false flow_dissector_gre_key;
 +extern struct static_key_false flow_dissector_vxlan_inner_key;
  
- /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
-  * Byte-identical shapes only — the shapes the adaptive controller may
+ /* Per-shape counters for /proc/net/flow_dissector_stats.
+  * occurrences[]: shape seen by the slow path (the eligible-fraction
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 8fb56c40df1f..2ca722f3111d 100644
+index 5895e0b10db7..3fb8fb5d19aa 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,7 @@
@@ -121,16 +121,16 @@ index 8fb56c40df1f..2ca722f3111d 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -60,6 +61,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_ipip_key);
+@@ -57,6 +58,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_ipip_key);
  EXPORT_SYMBOL(flow_dissector_ipip_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
  EXPORT_SYMBOL(flow_dissector_gre_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
 +EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
  
- /* Per-shape traffic counters (mechanism only; do not affect dissection).
-  * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -138,6 +141,56 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
+ /* Per-cpu, summed on read via /proc/net/flow_dissector_stats.
+  * occurrences[]: shape handled by the slow path (with the gate off,
+@@ -122,6 +125,56 @@ static bool flow_dissect_fast_gre_inner(const struct sk_buff *skb,
   */
  static struct flow_dissector flow_keys_dissector_symmetric;
  
@@ -187,7 +187,7 @@ index 8fb56c40df1f..2ca722f3111d 100644
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1024,11 +1077,6 @@ __skb_flow_dissect_ipv6(const struct sk_buff *skb,
+@@ -1008,11 +1061,6 @@ __skb_flow_dissect_ipv6(const struct sk_buff *skb,
  	key_ip->ttl = iph->hop_limit;
  }
  
@@ -199,17 +199,15 @@ index 8fb56c40df1f..2ca722f3111d 100644
  static bool skb_flow_dissect_allowed(int *num_hdrs)
  {
  	++*num_hdrs;
-@@ -1247,6 +1295,57 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+@@ -1229,6 +1277,52 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		key_ports->ports = *ports;
  	}
  
-+	/* VXLAN inner descent. Opt-in and off by default: enabling it
-+	 * changes hashing for VXLAN overlays (k8s east-west traffic between
-+	 * VTEPs gets per-inner-flow fairness in cake / fq / ECMP). Once on,
-+	 * it is byte-identical with the slow path, which grows the same
-+	 * descent in __skb_flow_dissect_udp_encap(). Gated by its own
-+	 * per-shape sysctl, independent of the byte-identical knobs above.
-+	 * See the vxlan_inner paragraph in net.rst.
++	/* VXLAN inner descent. Opt-in and off by default -- descending
++	 * changes skb->hash for tunnel traffic, so enabling any *_inner
++	 * gate is a deliberate operator choice. Byte-identical with the
++	 * slow path, which grows the same gated descent
++	 * (__skb_flow_dissect_udp_encap()).
 +	 */
 +	if (static_branch_unlikely(&flow_dissector_vxlan_inner_key) &&
 +	    iph->protocol == IPPROTO_UDP &&
@@ -241,9 +239,6 @@ index 8fb56c40df1f..2ca722f3111d 100644
 +			if (vxh->vx_flags != VXLAN_HF_VNI)
 +				return false;
 +
-+			/* Descend (v4/v6 inner), or defer to the slow path
-+			 * if the inner ethertype is not fast-pathable.
-+			 */
 +			if (inner_proto == htons(ETH_P_IP) ||
 +			    inner_proto == htons(ETH_P_IPV6))
 +				return flow_dissect_fast_udp_inner(skb,
@@ -257,23 +252,16 @@ index 8fb56c40df1f..2ca722f3111d 100644
  	return true;
  }
  
-@@ -1905,6 +2004,66 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1813,6 +1907,59 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  	}
  }
  
-+/* Slow-path counterpart of the fast UDP-tunnel descents. Called from the
-+ * main __skb_flow_dissect loop after the outer UDP ports have been read,
-+ * when a descent gate is on. On a recognised tunnel it stamps
-+ * FLOW_DIS_ENCAPSULATION, rewrites *p_proto / *p_nhoff to the inner header
-+ * and returns true, so the caller re-enters the loop (goto proto_again) at
-+ * the inner flow — producing the same flow_keys as flow_dissect_fast_udp_
-+ * inner(). The loop's skb_flow_dissect_allowed() bounds the descent depth.
-+ *
-+ * Offsets and header validation mirror the fast helpers exactly; only
-+ * IPv4/IPv6 inners are descended (anything else, or a header past the
-+ * linear/frag boundary, keeps the outer keys, matching the fast path
-+ * deferring to slow). @thoff (== *p_nhoff on entry) is the outer UDP
-+ * header offset; @family the outer IP family.
++/* Slow-path counterpart of the fast UDP-tunnel descents: validates
++ * the same headers, rewrites *p_proto / *p_nhoff to the inner flow
++ * and returns true so the caller re-enters the loop (bounded by
++ * skb_flow_dissect_allowed()). Fast and slow must accept exactly the
++ * same subset -- divergence breaks byte-identity. @thoff is the outer
++ * UDP offset, @family the outer IP family.
 + */
 +static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
 +					 struct flow_dissector_key_control *key_control,
@@ -324,16 +312,13 @@ index 8fb56c40df1f..2ca722f3111d 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -2577,6 +2736,25 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2481,6 +2628,22 @@ bool __skb_flow_dissect(const struct net *net,
  		__skb_flow_dissect_ports(skb, flow_dissector, target_container,
  					 data, nhoff, ip_proto, hlen);
  
-+	/* Opt-in descent into a UDP tunnel's inner flow, gated per-shape and
-+	 * off by default. Mirrors the fast-path descents so fast == slow
-+	 * stays byte-identical; the loop's skb_flow_dissect_allowed() below
-+	 * bounds the depth. Skipped when a caller asked to stop at/before
-+	 * encapsulation (RPS/RFS/tc/ECMP want the outer tuple) or the outer
-+	 * datagram is a fragment.
++	/* Opt-in UDP-tunnel descent, mirroring the fast path so fast == slow.
++	 * Skipped for callers stopping at/before encap (they want the outer
++	 * tuple) and for fragmented outers.
 +	 */
 +	if (ip_proto == IPPROTO_UDP &&
 +	    fdret == FLOW_DISSECT_RET_CONTINUE &&
@@ -350,7 +335,7 @@ index 8fb56c40df1f..2ca722f3111d 100644
  	/* Process result of IP proto processing */
  	switch (fdret) {
  	case FLOW_DISSECT_RET_PROTO_AGAIN:
-@@ -3112,6 +3290,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3011,6 +3174,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

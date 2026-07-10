@@ -1,4 +1,4 @@
-From 02e45ef4ae29471df31ec64c47d3cb802383a6da Mon Sep 17 00:00:00 2001
+From 4fd6d413791c61eb7a54a494fba67bf1ddcb2dea Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 18 Jun 2026 14:13:33 -0700
 Subject: [PATCH net-next v1 11/15] net: flow_dissector: descend into Geneve
@@ -30,10 +30,10 @@ distribution.
 Assisted-by: Claude:claude-fable-5 sparse
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst | 26 +++++++
+ Documentation/admin-guide/sysctl/net.rst | 26 ++++++++
  include/net/flow_dissector.h             |  1 +
- net/core/flow_dissector.c                | 96 +++++++++++++++++++++++-
- 3 files changed, 122 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 84 +++++++++++++++++++++++-
+ 3 files changed, 110 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 4e327e28085b..3c3319bb229f 100644
@@ -73,19 +73,19 @@ index 4e327e28085b..3c3319bb229f 100644
  ----------------------------------------------------------
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 988d3fa3a7ce..1464b518679b 100644
+index e8320fba5260..c7967939fee6 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -439,6 +439,7 @@ extern struct static_key_false flow_dissector_mpls_key;
+@@ -436,6 +436,7 @@ extern struct static_key_false flow_dissector_mpls_key;
  extern struct static_key_false flow_dissector_ipip_key;
  extern struct static_key_false flow_dissector_gre_key;
  extern struct static_key_false flow_dissector_vxlan_inner_key;
 +extern struct static_key_false flow_dissector_geneve_inner_key;
  
- /* Per-shape traffic counters, exposed via /proc/net/flow_dissector_stats.
-  * Byte-identical shapes only — the shapes the adaptive controller may
+ /* Per-shape counters for /proc/net/flow_dissector_stats.
+  * occurrences[]: shape seen by the slow path (the eligible-fraction
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2ca722f3111d..9529f6b69a6c 100644
+index 3fb8fb5d19aa..60a871d67235 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -96,29 +96,21 @@ index 2ca722f3111d..9529f6b69a6c 100644
  #include <linux/igmp.h>
  #include <linux/icmp.h>
  #include <linux/sctp.h>
-@@ -63,6 +64,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
+@@ -60,6 +61,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_gre_key);
  EXPORT_SYMBOL(flow_dissector_gre_key);
  DEFINE_STATIC_KEY_FALSE(flow_dissector_vxlan_inner_key);
  EXPORT_SYMBOL(flow_dissector_vxlan_inner_key);
 +DEFINE_STATIC_KEY_FALSE(flow_dissector_geneve_inner_key);
 +EXPORT_SYMBOL(flow_dissector_geneve_inner_key);
  
- /* Per-shape traffic counters (mechanism only; do not affect dissection).
-  * Per-cpu, summed on read via /proc/net/flow_dissector_stats. occurrences[]
-@@ -1346,6 +1349,60 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* Per-cpu, summed on read via /proc/net/flow_dissector_stats.
+  * occurrences[]: shape handled by the slow path (with the gate off,
+@@ -1323,6 +1326,48 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		}
  	}
  
-+	/* Geneve inner descent. Opt-in and off by default (enabling it
-+	 * changes hashing for Geneve overlays: cloud east-west traffic gets
-+	 * per-inner-flow fairness in cake / fq / ECMP). Once on it is
-+	 * byte-identical with the slow path (__skb_flow_dissect_udp_encap()
-+	 * grows the same descent); same posture as vxlan_inner above.
-+	 *
-+	 * Fast subset: Geneve version=0, opt_len=0 (no TLV options),
-+	 * proto_type=ETH_P_TEB (the common transparent-Ethernet inner
-+	 * envelope used by k8s/cloud overlays). Anything else defers
-+	 * to the slow path (which also keeps the outer keys for it).
++	/* Geneve inner descent: same posture as vxlan_inner. Fast subset:
++	 * version 0, no options, ETH_P_TEB inner; anything else defers.
 +	 */
 +	if (static_branch_unlikely(&flow_dissector_geneve_inner_key) &&
 +	    iph->protocol == IPPROTO_UDP &&
@@ -147,10 +139,6 @@ index 2ca722f3111d..9529f6b69a6c 100644
 +					sizeof(struct udphdr) +
 +					sizeof(struct genevehdr) + ETH_HLEN;
 +
-+				/* Descend (v4/v6 inner), or defer to the slow
-+				 * path if the inner ethertype is not
-+				 * fast-pathable.
-+				 */
 +				if (inner_proto == htons(ETH_P_IP) ||
 +				    inner_proto == htons(ETH_P_IPV6))
 +					return flow_dissect_fast_udp_inner(skb,
@@ -166,7 +154,7 @@ index 2ca722f3111d..9529f6b69a6c 100644
  	return true;
  }
  
-@@ -2061,6 +2118,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -1957,6 +2002,35 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  		return false;
  	}
  
@@ -202,7 +190,7 @@ index 2ca722f3111d..9529f6b69a6c 100644
  	return false;
  }
  
-@@ -2748,7 +2834,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2637,7 +2711,8 @@ bool __skb_flow_dissect(const struct net *net,
  	    !(key_control->flags & FLOW_DIS_IS_FRAGMENT) &&
  	    !(flags & (FLOW_DISSECTOR_F_STOP_BEFORE_ENCAP |
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
@@ -212,7 +200,7 @@ index 2ca722f3111d..9529f6b69a6c 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3297,6 +3384,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3181,6 +3256,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
