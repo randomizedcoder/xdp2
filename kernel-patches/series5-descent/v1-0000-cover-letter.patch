@@ -1,0 +1,123 @@
+From d5c04604d5869d26ddb58268ab62c03f83147589 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 11 Jul 2026 09:21:03 -0700
+Subject: [PATCH net-next v1 0/6] net: flow_dissector: opt-in UDP-tunnel inner-flow descent
+
+G'day,
+
+For the UDP tunnels -- VXLAN, Geneve, GTP-U, and Tom Herbert's FOU/GUE
+encapsulations -- the flow dissector stops at the outer UDP header, so
+every hash-based consumer (RSS, RPS, ECMP, bonding, tc-flower, aRFS,
+cake/fq fairness) sees the *outer* tunnel identity, not the inner flow.
+All inner flows between a pair of tunnel endpoints collapse onto a
+single hash bucket. GTP-U is the sharpest case -- no outer source-port
+entropy at all, and it is the mobile-core data path where millions of
+subscriber flows ride one tunnel between two endpoints.
+
+This series adds opt-in inner descent, each tunnel behind its own
+default-off gate (net.flow_dissector.{vxlan,geneve,gtpu,gue,fou}_inner):
+the dissector parses through the tunnel header and dissects the inner
+flow, for IPv4 and IPv6 underlays alike. Enabling a gate changes
+skb->hash for that traffic -- a deliberate, per-tunnel-type operator
+choice, which is why this is a separate series from the byte-identical
+fast-path series it builds on:
+
+  https://lore.kernel.org/netdev/SERIES-A-LORE-LINK/
+
+The descent keeps that series' byte-identical contract: the slow path
+grows the same gated descent (__skb_flow_dissect_udp_encap()) as the
+fast path (flow_dissect_fast_udp_inner()), sharing one header-validation
+classifier per tunnel (flow_dissect_{vxlan,geneve,gtpu,gue,fou}_inner_ok()),
+so the fast and slow paths never disagree -- the descent subset is
+defined once, not mirrored by hand. The only behaviour change is versus
+today's non-descending default, and only when an operator turns a gate
+on. The KUnit suite dissects each tunnelled packet through the fast path
+and through the slow path -- with and without the STOP_AT_FLOW_LABEL
+flag skb_get_hash() passes -- and memcmp()s the result (patch 5).
+
+With every gate off, the added slow-path cost is one not-taken static
+branch per UDP packet: the per-tunnel gates sit behind a single summary
+key (flow_dissector_udp_inner_any_key) maintained by their sysctl
+handler, so the count of tunnel types does not grow the hot path.
+
+The descents validate the tunnel header before trusting it: VXLAN
+requires a plain RFC 7348 header (I flag set, all other flag bits zero
+-- GBP/GPE defer), Geneve requires version 0, no options and no OAM,
+GTP-U requires a v1 G-PDU with no option flags. Callers passing
+FLOW_DISSECTOR_F_STOP_{AT,BEFORE}_ENCAP (RPS/RFS, tunnel drivers) keep
+the outer tuple even with a gate on. tc-flower tunnel matching
+(FLOW_DISSECTOR_KEY_ENC_*) is unaffected -- those keys come from decap
+tunnel metadata via skb_flow_dissect_tunnel_info(), not from this
+descent. Descent recursion shares the fast-path series'
+MAX_FLOW_DISSECT_HDRS bound; a crafted overlay-in-overlay chain stops
+at the same depth on both paths (covered by a nested-VXLAN KUnit case).
+
+FOU and GUE (patch 4) are Tom Herbert's UDP encapsulations. Unlike
+VXLAN/Geneve/GTP-U they have no well-known UDP port, so a packet cannot
+be recognised from the wire alone; the dissector consults the per-netns
+FOU table, reached from the built-in dissector through a small
+registered ops hook (the fou module is tristate; registration failure
+logs a pr_warn). GUE is self-describing; direct FOU carries its inner
+protocol in that table rather than on the wire.
+
+Port recognition is by IANA destination port (4789/6081/2152) plus the
+header validation above; FOU/GUE go through the fou table instead. A
+non-tunnel UDP packet sent to a tunnel port that happens to validate is
+hashed by its would-be inner flow -- inherent to on-wire tunnel
+recognition, and one reason the gates are opt-in: an operator enables
+one for deployments where that port is the tunnel by policy.
+
+CPU for the descents is ~net-zero (the inner work cancels the outer
+fast-path saving); the value is the inner-flow hash
+distribution/identity.
+
+The descent gates are deliberately excluded from the auto-enable
+controller proposed in a separate RFC thread: enabling them changes
+hashing and must stay a deliberate operator action.
+
+Testing: in-tree KUnit descent equivalence (patch 5; both underlay
+families, out-of-subset negatives, STOP-flag contracts, nested-chain
+bound; run under KASAN+UBSAN), a CONFIG_NET_FOU {n,m,y} x
+CONFIG_FLOW_DISSECTOR_KUNIT_TEST config matrix (with fou built in, the
+real module owns the ops hook and the FOU/GUE cases skip cleanly),
+per-patch W=1, sparse and smatch clean. Supporting data lives in the
+author's XDP2 fork: https://github.com/randomizedcoder/xdp2 , under
+perf-results/ .
+
+On tooling: as with the fast-path series, developed with substantial
+LLM assistance (Claude, Anthropic), human-reviewed and human-measured;
+every patch carries an Assisted-by: trailer in the
+Documentation/process/coding-assistants.rst format.
+
+Dave Seddon (6):
+  net: flow_dissector: descend into VXLAN inner flow
+  net: flow_dissector: descend into Geneve inner flow
+  net: flow_dissector: descend into GTP-U inner flow
+  net: flow_dissector: descend into FOU/GUE inner flow
+  net: flow_dissector: add KUnit tests for the UDP-tunnel descents
+  Documentation: networking: document the UDP-tunnel inner-flow descents
+
+ Documentation/admin-guide/sysctl/net.rst    | 129 ++++
+ Documentation/networking/flow_dissector.rst |  22 +-
+ include/net/flow_dissector.h                |  28 +
+ net/core/flow_dissector.c                   | 555 ++++++++++++++-
+ net/core/flow_dissector_test.c              | 706 +++++++++++++++++++-
+ net/ipv4/fou_core.c                         |  49 +-
+ 6 files changed, 1468 insertions(+), 21 deletions(-)
+
+
+base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
+prerequisite-patch-id: 63852e4723a24257fed4e0b98c3e980b261923b6
+prerequisite-patch-id: 7ab54100a3189db837a9034534b141adbb744fac
+prerequisite-patch-id: c80c1cbdefb93f90166fb9f9703e1690df082fef
+prerequisite-patch-id: ce63f71300d49ffdbe76f1fed38b55b77a038a4a
+prerequisite-patch-id: 5c6d488d4c1ef465d2795193dbcd3a825fdc4e0d
+prerequisite-patch-id: 240732cb2248fe40e00d4658a4de1bc94976a705
+prerequisite-patch-id: 7629e6864148196d4c0bd7b8bbfb8da351f1ba79
+prerequisite-patch-id: 19fe12909a5c3876eba7cacf710d9b840dfdee66
+prerequisite-patch-id: d012c8e0a56e65befdebfc64db5ce9d32edf44cb
+prerequisite-patch-id: cb0f99437acffef5fdb6377219e20e7ecbc4dc0f
+prerequisite-patch-id: 6278823d7b64af3725f4e307eec0cb25492a8169
+-- 
+2.54.0
+
