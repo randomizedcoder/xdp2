@@ -1,6 +1,6 @@
-From 22502fb4c8c9b6e6be3e5cbf7c59c25520a74280 Mon Sep 17 00:00:00 2001
+From 1344289cdce443e5de23283429101d22b50d17ce Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 09:21:03 -0700
+Date: Sat, 11 Jul 2026 10:45:41 -0700
 Subject: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -21,6 +21,10 @@ packet shape, covering the common cases and the IP-in-IP/GRE
 encapsulations. Each shape has its own gate under
 /proc/sys/net/flow_dissector/, every gate is disabled by default, and
 when a gate is off its added cost is one not-taken branch per dissect.
+The gates are manual in this series; a follow-up RFC will propose an
+optional auto mode that flips them from the measured traffic mix (via
+the patch-8 counters), so nobody has to hand-tune seven knobs. Nothing
+here depends on it -- it is where this is heading, not a prerequisite.
 
 The series is byte-identical by contract: for any packet, the fast path
 either writes exactly the flow_keys bytes the slow path would have
@@ -166,8 +170,6 @@ the non-linear-skb fallback, a gates-off negative (the fast path must
 never run when disabled, observed via the counters), and a seeded
 fuzzer as a general guard.
 
-A separate RFC thread proposes an adaptive auto-enable controller built
-on the patch-8 counters.
 
 Patch 11 adds Documentation/networking/flow_dissector.rst -- there was no
 general flow_dissector overview in the tree. It explains what the dissector
@@ -218,7 +220,7 @@ Dave Seddon (11):
   Documentation: networking: add flow_dissector overview and fast-path
     guide
 
- Documentation/admin-guide/sysctl/net.rst    |  139 ++-
+ Documentation/admin-guide/sysctl/net.rst    |  154 ++-
  Documentation/bpf/index.rst                 |    1 +
  Documentation/bpf/prog_flow_dissector.rst   |    2 +
  Documentation/networking/flow_dissector.rst |  133 +++
@@ -230,7 +232,7 @@ Dave Seddon (11):
  net/core/Makefile                           |    1 +
  net/core/flow_dissector.c                   | 1110 ++++++++++++++++++-
  net/core/flow_dissector_test.c              | 1033 +++++++++++++++++
- 12 files changed, 2437 insertions(+), 47 deletions(-)
+ 12 files changed, 2452 insertions(+), 47 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 
