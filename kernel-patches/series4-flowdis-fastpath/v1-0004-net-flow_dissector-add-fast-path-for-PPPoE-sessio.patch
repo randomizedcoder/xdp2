@@ -1,4 +1,4 @@
-From c6770ab35e9a93837128e9a0b7b5013357e2fd13 Mon Sep 17 00:00:00 2001
+From 18c3911bca47fb6e49a762370d688ed1d7a586ac Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
 Subject: [PATCH net-next v1 04/15] net: flow_dissector: add fast-path for
@@ -45,7 +45,7 @@ Documentation/admin-guide/sysctl/net.rst grows a `pppoe` subsection
 under the existing `/proc/sys/net/flow_dissector/` chapter, between
 qinq and the next chapter, matching the v3-namespace layout.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst | 18 ++++++
@@ -54,10 +54,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 95 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 67abfe5c8d51..b5402a9d5392 100644
+index 9b10b74f7b85..108764c78de3 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -516,6 +516,24 @@ is off).
+@@ -516,6 +516,24 @@ the outer entry is off).
  
  Default: 0
  

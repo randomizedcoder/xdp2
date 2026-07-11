@@ -1,4 +1,4 @@
-From 0a3d13fbd8d7bccef05f014392c49596e256506b Mon Sep 17 00:00:00 2001
+From 89bd027206597f7b1d041b3f73123eb1660199b7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:12 -0700
 Subject: [PATCH net-next v1 10/15] net: flow_dissector: descend into VXLAN
@@ -40,6 +40,12 @@ Both paths grow the same descent so the "fast == slow" contract holds:
     it rewrites proto/nhoff to the inner header and re-enters the loop
     (goto proto_again), which is bounded by skb_flow_dissect_allowed().
 
+Two mechanical enablers ride along: MAX_FLOW_DISSECT_HDRS moves above
+the fast-path helpers so the shared flow_dissect_fast_udp_inner() tail
+can use it, and the recursion helpers' inner_eth_proto parameter is
+renamed inner_proto (the GTP-U descent later in the series passes a
+bare IP protocol, not an ethertype).
+
 Because both paths descend identically, the fast path never disagrees
 with the slow path; enabling the gate is a behaviour change only versus
 today's non-descending default, not a fast-vs-slow divergence. The
@@ -66,16 +72,16 @@ What changes is the plain 5-tuple seen by skb->hash consumers.
 CPU is ~net-zero (the inner work cancels the outer fast-path saving);
 the operator benefit is the inner-flow hash distribution.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  18 ++
  include/net/flow_dissector.h             |   7 +
- net/core/flow_dissector.c                | 284 +++++++++++++++++++++--
- 3 files changed, 289 insertions(+), 20 deletions(-)
+ net/core/flow_dissector.c                | 283 +++++++++++++++++++++--
+ 3 files changed, 289 insertions(+), 19 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 576bba763f13..4e327e28085b 100644
+index d0c8466d6634..4ee68b04c272 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -594,6 +594,24 @@ GRE-with-KEY (common in MPLS-over-GRE deployments and some cloud
@@ -129,7 +135,7 @@ index 53b16f7306c7..b10d910be33c 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2a3fc80e9e28..58a33bd48b60 100644
+index 2a3fc80e9e28..6be4503a698b 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -13,6 +13,11 @@
@@ -468,15 +474,7 @@ index 2a3fc80e9e28..58a33bd48b60 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -2446,7 +2638,6 @@ bool __skb_flow_dissect(const struct net *net,
- 		fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
- 		break;
- 
--
- 	case IPPROTO_MPLS:
- 		proto = htons(ETH_P_MPLS_UC);
- 		fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
-@@ -2482,6 +2673,22 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2482,6 +2674,22 @@ bool __skb_flow_dissect(const struct net *net,
  		__skb_flow_dissect_ports(skb, flow_dissector, target_container,
  					 data, nhoff, ip_proto, hlen);
  
@@ -499,7 +497,7 @@ index 2a3fc80e9e28..58a33bd48b60 100644
  	/* Process result of IP proto processing */
  	switch (fdret) {
  	case FLOW_DISSECT_RET_PROTO_AGAIN:
-@@ -2911,6 +3118,36 @@ EXPORT_SYMBOL(flow_keys_dissector);
+@@ -2911,6 +3119,36 @@ EXPORT_SYMBOL(flow_keys_dissector);
  struct flow_dissector flow_keys_basic_dissector __read_mostly;
  EXPORT_SYMBOL(flow_keys_basic_dissector);
  
@@ -536,7 +534,7 @@ index 2a3fc80e9e28..58a33bd48b60 100644
  static int __init init_default_flow_dissectors(void)
  {
  	skb_flow_dissector_init(&flow_keys_dissector,
-@@ -3012,6 +3249,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3012,6 +3250,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -550,7 +548,7 @@ index 2a3fc80e9e28..58a33bd48b60 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3090,8 +3334,8 @@ static int __init flow_dissector_sysctl_init(void)
+@@ -3090,8 +3335,8 @@ static int __init flow_dissector_sysctl_init(void)
  				 flow_dissector_sysctl_table))
  		return -ENOMEM;
  

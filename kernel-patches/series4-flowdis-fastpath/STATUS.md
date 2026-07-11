@@ -7,9 +7,19 @@ one-glance summary.
 
 **Artifacts (git format-patch output in this repo):**
 - Main series: **15 patches + cover** in `series4-flowdis-fastpath/v1-00*.patch`
-  — net-next branch `series4-final-v3` @ 91c0c41b (base b73bc9ca3686).
+  — net-next branch `series4-final-v4` @ 4b4a3267 (base b73bc9ca3686).
+  (v4 = v3 + cold-read polish round, 2026-07-10: trailer gains `smatch`,
+  qinq sysctl-doc wording precision, descent-term definitions in cover +
+  patch 6 message, patch 8 eth_ip counting-scope clarity, patch 10 message
+  documents the inner_proto rename + MAX_FLOW_DISSECT_HDRS move, and the
+  patch 10/14 stray whitespace hunks near IPPROTO_MPLS removed. Tree diff
+  v3→v4 is 3 reworded net.rst lines only — all KUnit/perf results carry
+  over. checkpatch --strict now 0 errors 0 checks; same 3 benign
+  warnings.)
 - RFC thread: **1 patch + cover** in `../series4-rfc-auto/v1-000*.patch`
   — branch `series4-rfc-tail-v3` @ ab72526d (applies on the main series).
+  TODO before RFC send: rebase the tail onto `series4-final-v4` (trivial —
+  v4 tree differs from v3 by 3 doc lines) and add `smatch` to its trailer.
 
 **Verification — all green:**
 - KUnit 61/61 (also under KASAN+UBSAN); negative controls proven.
@@ -380,7 +390,7 @@ negatives (VXLAN I=0 and GBP bits, Geneve OAM, GTP-U S flag) with
 assert-outer helpers.
 
 **AI attribution (user decision):** every commit carries
-`Assisted-by: Claude:claude-fable-5 sparse` per the in-tree
+`Assisted-by: Claude:claude-fable-5 sparse smatch` per the in-tree
 Documentation/process/coding-assistants.rst format (checkpatch validates it);
 the cover letter has an explicit "On tooling" section (Shutsemau-style, per
 LWN 2026-07-02). Authorship/Signed-off-by remain Dave Seddon (DCO).

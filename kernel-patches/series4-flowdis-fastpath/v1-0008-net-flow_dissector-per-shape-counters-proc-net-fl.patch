@@ -1,4 +1,4 @@
-From 27ce2bd0bd858332d6304e18252fda47aaaef2bb Mon Sep 17 00:00:00 2001
+From e9940f110ad28c7fa084ad4644802c0913ebfffd Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 2 Jul 2026 17:44:43 -0700
 Subject: [PATCH net-next v1 08/15] net: flow_dissector: per-shape counters +
@@ -27,9 +27,10 @@ Because the fast path returns before the slow-path classification, exactly
 one of occurrences/fast_hits is incremented per shaped packet depending on
 gate state, so (occurrences + fast_hits) / dissects is a gate-invariant
 eligible fraction. Placement mirrors the two paths precisely: the slow
-counts sit at each protocol's dissection point (eth_ip gated at out: on a
-top-level, non-encapsulated, TCP/UDP terminal so VLAN/IPIP/GRE are not
-miscounted); the fast counts sit at each shape's success terminal, so a
+counts sit at each protocol's dissection point -- for eth_ip that is the
+out: exit label, taken only on a top-level, non-encapsulated, TCP/UDP
+terminal, so a packet counted as VLAN/IPIP/GRE is never also counted as
+eth_ip; the fast counts sit at each shape's success terminal, so a
 fall-through to the slow path is never double-counted.
 
 Expose the summed counters read-only at /proc/net/flow_dissector_stats,
@@ -49,7 +50,7 @@ Cost is one this_cpu_inc on the already-hot classification path, summed
 only on read — within the pktgen cyc/pkt noise floor, and an off gate
 stays a NOP.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  include/net/flow_dissector.h |  17 +++

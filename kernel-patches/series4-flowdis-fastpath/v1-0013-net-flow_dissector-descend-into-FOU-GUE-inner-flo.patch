@@ -1,4 +1,4 @@
-From 225f73469c0ffd4cef8a33d3be4123570d0220af Mon Sep 17 00:00:00 2001
+From ed8958133c81249b0b288fd4739dcb8eda4b7635 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 13/15] net: flow_dissector: descend into FOU/GUE
@@ -39,7 +39,7 @@ real fou config is needed).
 Gated by flow_dissector.{gue,fou}_inner, off by default; enabling
 changes hashing and depends on the fou module being loaded.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  59 ++++++++
@@ -49,7 +49,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  4 files changed, 299 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 1dd895d14b12..d4eab4c826a0 100644
+index 2ecad4abf914..7c7d30d9b599 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -667,6 +667,65 @@ over IPv6 outer.
@@ -154,7 +154,7 @@ index 81d970d8ca69..8a5e0bd925e7 100644
  /* Per-shape counters for /proc/net/flow_dissector_stats.
   * occurrences[]: shape seen by the slow path (the eligible-fraction
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b417463f2610..301ddecc8cac 100644
+index 9fc1817ebb53..c56715813e83 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -70,6 +70,66 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_geneve_inner_key);
@@ -340,7 +340,7 @@ index b417463f2610..301ddecc8cac 100644
  	return false;
  
  descend:
-@@ -2781,7 +2936,9 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -2782,7 +2937,9 @@ bool __skb_flow_dissect(const struct net *net,
  		       FLOW_DISSECTOR_F_STOP_AT_ENCAP)) &&
  	    (static_branch_unlikely(&flow_dissector_vxlan_inner_key) ||
  	     static_branch_unlikely(&flow_dissector_geneve_inner_key) ||
@@ -351,7 +351,7 @@ index b417463f2610..301ddecc8cac 100644
  	    __skb_flow_dissect_udp_encap(skb, key_control, data, &proto, &nhoff,
  					 hlen,
  					 proto == htons(ETH_P_IP) ? AF_INET :
-@@ -3369,6 +3526,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3370,6 +3527,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

@@ -1,4 +1,4 @@
-From 91c0c41bb4fe4c59841a4f06c4ea8c59554aeee7 Mon Sep 17 00:00:00 2001
+From 4b4a32672d792170b34675b731d88d24a6c6347b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 09:32:01 -0700
 Subject: [PATCH net-next v1 15/15] Documentation: networking: add
@@ -23,7 +23,7 @@ Documentation/bpf/prog_flow_dissector.rst and cross-link it with the
 new overview (the bpf/index.rst hunk can be split out if the BPF
 maintainers prefer).
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/bpf/index.rst                 |   1 +
