@@ -1,4 +1,4 @@
-From 6c35bccbeac0754c27374974e9cd1426d765d127 Mon Sep 17 00:00:00 2001
+From 70a82222e3fd0a1eb873b6f1a083af511bfc1b5a Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
 Subject: [PATCH net-next v1 05/11] net: flow_dissector: add fast-path for
@@ -60,7 +60,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 103 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 108764c78de3..0accd55259b4 100644
+index 1096e6ddca39..1ee5419ffaeb 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -534,6 +534,25 @@ code != 0).
@@ -82,7 +82,7 @@ index 108764c78de3..0accd55259b4 100644
 +
 +Multi-label stacks (BoS=0 on the first label) defer to slow path —
 +extending to depth-2 or more is a follow-up, mirroring the
-+vlan -> qinq staging the v3-namespace series used.
++vlan -> qinq staging used earlier in this series.
 +
 +Default: 0
 +

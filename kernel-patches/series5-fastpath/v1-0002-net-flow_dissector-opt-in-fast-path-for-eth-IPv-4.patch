@@ -1,4 +1,4 @@
-From 8715da941657759f9fcd7680ff633042a116560c Mon Sep 17 00:00:00 2001
+From ccb86fdf1041fca0ed9dd5b62ca4032c5f48778c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
 Subject: [PATCH net-next v1 02/11] net: flow_dissector: opt-in fast-path for
@@ -83,7 +83,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 301 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index e586e17fc7a5..d184e279103a 100644
+index e586e17fc7a5..aac82169e019 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -460,7 +460,32 @@ historical importance.
@@ -96,8 +96,8 @@ index e586e17fc7a5..d184e279103a 100644
 +
 +The flow dissector is invoked on every packet that needs a flow hash
 +(RPS, RFS, ECMP, sch_cake, cls_flower, ...). For common shapes
-+(Eth+IPv4/IPv6+TCP/UDP, plus extensions for VLAN, QinQ and VXLAN
-+inner descent added by follow-up patches in this series), an opt-in
++(Eth+IPv4/IPv6+TCP/UDP, plus per-shape extensions for VLAN/QinQ,
++PPPoE, MPLS, IP-in-IP and GRE added by this series), an opt-in
 +fast-path bypasses the slow-path graph walk and writes
 +``struct flow_keys`` directly. Each shape is gated by its own static
 +key + sysctl so operators enable only what their deployment uses.

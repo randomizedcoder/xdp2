@@ -1,14 +1,15 @@
-From d5c04604d5869d26ddb58268ab62c03f83147589 Mon Sep 17 00:00:00 2001
+From ed6ea81e177303b740d46fffc2374e1e5a94166e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 09:21:03 -0700
+Date: Sat, 11 Jul 2026 15:24:35 -0700
 Subject: [PATCH net-next v1 0/6] net: flow_dissector: opt-in UDP-tunnel inner-flow descent
 
 G'day,
 
 For the UDP tunnels -- VXLAN, Geneve, GTP-U, and Tom Herbert's FOU/GUE
 encapsulations -- the flow dissector stops at the outer UDP header, so
-every hash-based consumer (RSS, RPS, ECMP, bonding, tc-flower, aRFS,
-cake/fq fairness) sees the *outer* tunnel identity, not the inner flow.
+every skb_get_hash() consumer (RPS/RFS/aRFS, the fq / fq_codel / cake
+fairness queues, bonding/LAG hashing) sees the *outer* tunnel identity,
+not the inner flow.
 All inner flows between a pair of tunnel endpoints collapse onto a
 single hash bucket. GTP-U is the sharpest case -- no outer source-port
 entropy at all, and it is the mobile-core data path where millions of
@@ -43,9 +44,12 @@ handler, so the count of tunnel types does not grow the hot path.
 The descents validate the tunnel header before trusting it: VXLAN
 requires a plain RFC 7348 header (I flag set, all other flag bits zero
 -- GBP/GPE defer), Geneve requires version 0, no options and no OAM,
-GTP-U requires a v1 G-PDU with no option flags. Callers passing
-FLOW_DISSECTOR_F_STOP_{AT,BEFORE}_ENCAP (RPS/RFS, tunnel drivers) keep
-the outer tuple even with a gate on. tc-flower tunnel matching
+GTP-U requires a v1 G-PDU with no option flags. Callers that pass
+FLOW_DISSECTOR_F_STOP_{AT,BEFORE}_ENCAP -- ECMP multipath hashing
+(fib_multipath dissects for itself and stops at encap by design), xfrm
+policy lookup, tc-flower's own dissects -- keep the outer tuple even
+with a gate on; the descent reaches exactly the skb_get_hash()
+consumers listed above, which pass STOP_AT_FLOW_LABEL only. tc-flower tunnel matching
 (FLOW_DISSECTOR_KEY_ENC_*) is unaffected -- those keys come from decap
 tunnel metadata via skb_flow_dissect_tunnel_info(), not from this
 descent. Descent recursion shares the fast-path series'
@@ -97,24 +101,24 @@ Dave Seddon (6):
   net: flow_dissector: add KUnit tests for the UDP-tunnel descents
   Documentation: networking: document the UDP-tunnel inner-flow descents
 
- Documentation/admin-guide/sysctl/net.rst    | 129 ++++
+ Documentation/admin-guide/sysctl/net.rst    | 117 ++++
  Documentation/networking/flow_dissector.rst |  22 +-
  include/net/flow_dissector.h                |  28 +
- net/core/flow_dissector.c                   | 555 ++++++++++++++-
+ net/core/flow_dissector.c                   | 579 +++++++++++++++-
  net/core/flow_dissector_test.c              | 706 +++++++++++++++++++-
  net/ipv4/fou_core.c                         |  49 +-
- 6 files changed, 1468 insertions(+), 21 deletions(-)
+ 6 files changed, 1480 insertions(+), 21 deletions(-)
 
 
 base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
 prerequisite-patch-id: 63852e4723a24257fed4e0b98c3e980b261923b6
-prerequisite-patch-id: 7ab54100a3189db837a9034534b141adbb744fac
+prerequisite-patch-id: a6978b71025285949bc597bb53cf1e80d51d227e
 prerequisite-patch-id: c80c1cbdefb93f90166fb9f9703e1690df082fef
 prerequisite-patch-id: ce63f71300d49ffdbe76f1fed38b55b77a038a4a
-prerequisite-patch-id: 5c6d488d4c1ef465d2795193dbcd3a825fdc4e0d
+prerequisite-patch-id: ebdb07923dc1e6c6838d686eff6fb133085f6cea
 prerequisite-patch-id: 240732cb2248fe40e00d4658a4de1bc94976a705
 prerequisite-patch-id: 7629e6864148196d4c0bd7b8bbfb8da351f1ba79
-prerequisite-patch-id: 19fe12909a5c3876eba7cacf710d9b840dfdee66
+prerequisite-patch-id: 7be2f1f17714a11aa0a759c81e890a8d90e10b46
 prerequisite-patch-id: d012c8e0a56e65befdebfc64db5ce9d32edf44cb
 prerequisite-patch-id: cb0f99437acffef5fdb6377219e20e7ecbc4dc0f
 prerequisite-patch-id: 6278823d7b64af3725f4e307eec0cb25492a8169

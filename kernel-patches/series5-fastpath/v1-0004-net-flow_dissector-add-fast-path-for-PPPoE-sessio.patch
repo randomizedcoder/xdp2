@@ -1,4 +1,4 @@
-From 9a0a1dcd91998dbf355c3a9440238cadb331fade Mon Sep 17 00:00:00 2001
+From 987a5f10c010bfd3e21b8ae92243b55cd8c87c34 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
 Subject: [PATCH net-next v1 04/11] net: flow_dissector: add fast-path for
@@ -54,7 +54,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 95 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 9b10b74f7b85..108764c78de3 100644
+index 824f4b735caa..1096e6ddca39 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -516,6 +516,24 @@ the outer entry is off).

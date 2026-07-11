@@ -1,4 +1,4 @@
-From e0ea8aeffeb8a6f331ebcae24dd4f6103f221ca7 Mon Sep 17 00:00:00 2001
+From b14f4d8a9c223b3f841c30f7abfaa00687e5e5a8 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -77,14 +77,14 @@ paths for common shapes".
 Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst |  67 +++-
+ Documentation/admin-guide/sysctl/net.rst |  76 ++++-
  include/net/flow_dissector.h             |   2 +
  net/core/flow_dissector.c                | 372 +++++++++++++++++++++++
  net/core/flow_dissector_test.c           | 101 ++++++
- 4 files changed, 539 insertions(+), 3 deletions(-)
+ 4 files changed, 544 insertions(+), 7 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 950a575bc499..82a04bb43923 100644
+index 2049a493c5c2..744715f971e5 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -597,6 +597,67 @@ additional 4-byte key field read and a write to
@@ -155,16 +155,25 @@ index 950a575bc499..82a04bb43923 100644
  The ``/proc/net/flow_dissector_stats`` observability file
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  
-@@ -608,9 +669,9 @@ the slow-path classification, exactly one of the two counters is
+@@ -608,13 +669,14 @@ the slow-path classification, exactly one of the two counters is
  incremented per shaped packet depending on gate state, so
  ``(occurrences + fast_hits) / dissects`` is a gate-invariant measure of
  how much traffic each shape's fast body would handle -- the signal an
--operator uses to decide whether a gate is worth enabling. The counters
+-operator uses to decide whether a gate is worth enabling. The slow-path
+-counts sit at protocol recognition points, a superset of fast-path
+-eligibility (a VLAN+ARP frame counts as vlan), so the eligible fraction
+-is an upper bound; the exact hit rate once a gate is on is
+-``fast_hits / (occurrences + fast_hits)``. The counters
 -are per-cpu and summed on read; the per-packet cost is one increment on
 -the already-hot classification path.
 +operator (or ``auto``) uses to decide whether a gate is worth enabling.
-+The counters are per-cpu and summed on read; the per-packet cost is one
-+increment on the already-hot classification path.
++The slow-path counts sit at protocol recognition points, a superset of
++fast-path eligibility (a VLAN+ARP frame counts as vlan), so the
++eligible fraction is an upper bound; the exact hit rate once a gate is
++on is ``fast_hits / (occurrences + fast_hits)``. The controller's
++hysteresis margins absorb this overestimate. The counters are per-cpu
++and summed on read; the per-packet cost is one increment on the
++already-hot classification path.
  
  3. /proc/sys/net/unix - Parameters for Unix domain sockets
  ----------------------------------------------------------
@@ -182,7 +191,7 @@ index b92aef8039f8..c7168fd3b632 100644
  
  /* struct flow_keys_digest:
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 7da1a87d4b6e..ad0d4d51848f 100644
+index 15fa3301517b..2bf1a9208ec8 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -40,6 +40,7 @@
@@ -250,7 +259,7 @@ index 7da1a87d4b6e..ad0d4d51848f 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -2988,6 +3032,17 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -2991,6 +3035,17 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -268,7 +277,7 @@ index 7da1a87d4b6e..ad0d4d51848f 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3038,6 +3093,40 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3041,6 +3096,40 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -309,7 +318,7 @@ index 7da1a87d4b6e..ad0d4d51848f 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3110,6 +3199,289 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3113,6 +3202,289 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

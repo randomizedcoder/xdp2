@@ -1,4 +1,4 @@
-From 64bd07e56ee4c1b265a0ba391caedd967e321c7b Mon Sep 17 00:00:00 2001
+From b49ed07ff1efbf20b1806871bff576b477ef808a Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 4/6] net: flow_dissector: descend into FOU/GUE
@@ -13,7 +13,9 @@ packet cannot be recognised from the wire alone. The dissector consults
 the per-netns FOU table, which lives in the tristate fou module: the
 built-in dissector reaches it through a registered
 struct flow_dissector_fou_ops (registered/unregistered by fou_core.c
-with a pr_warn if another owner already holds the hook,
+with a pr_warn if another owner already holds the hook; enabling
+gue_inner/fou_inner while no provider is registered fails with
+-ENODEV rather than accepting a gate that can never fire,
 which switches its fou_list to the _rcu list helpers for the lockless
 walk). The netns is derived from the skb, so no signature threading; a
 raw-buffer dissect (skb == NULL) does not descend.
@@ -43,17 +45,17 @@ changes hashing and depends on the fou module being loaded.
 Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst |  59 ++++++++
- include/net/flow_dissector.h             |  24 ++++
- net/core/flow_dissector.c                | 175 ++++++++++++++++++++++-
- net/ipv4/fou_core.c                      |  49 ++++++-
- 4 files changed, 302 insertions(+), 5 deletions(-)
+ Documentation/admin-guide/sysctl/net.rst |  44 +++++
+ include/net/flow_dissector.h             |  24 +++
+ net/core/flow_dissector.c                | 196 ++++++++++++++++++++++-
+ net/ipv4/fou_core.c                      |  49 +++++-
+ 4 files changed, 308 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 03942f159a62..b969e9ccf310 100644
+index 758e3660e614..dfc80e81db36 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -667,6 +667,65 @@ over IPv6 outer.
+@@ -670,6 +670,50 @@ and GTP-U with extension headers / N-PDU / sequence flags set.
  
  Default: 0
  
@@ -101,23 +103,8 @@ index 03942f159a62..b969e9ccf310 100644
 +
 +Default: 0
 +
-+The ``/proc/net/flow_dissector_stats`` observability file
-+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-+
-+Read-only. Reports, per byte-identical shape, the number of packets the
-+slow path handled (``occurrences``), the number the fast body handled
-+(``fast_hits``), the resulting eligible fraction, and the current gate
-+state, plus a total dissect count. Because the fast path returns before
-+the slow-path classification, exactly one of the two counters is
-+incremented per shaped packet depending on gate state, so
-+``(occurrences + fast_hits) / dissects`` is a gate-invariant measure of
-+how much traffic each shape's fast body would handle -- the signal an
-+operator uses to decide whether a gate is worth enabling. The counters
-+are per-cpu and summed on read; the per-packet cost is one increment on
-+the already-hot classification path.
-+
- 3. /proc/sys/net/unix - Parameters for Unix domain sockets
- ----------------------------------------------------------
+ The ``/proc/net/flow_dissector_stats`` observability file
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index 06b499c251da..181f55fec098 100644
@@ -157,7 +144,7 @@ index 06b499c251da..181f55fec098 100644
   * occurrences[]: shape seen by the slow path (the eligible-fraction
   * signal while its gate is off); fast_hits[]: fast path ran.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 62fbd48b406a..6b6d9367d452 100644
+index 2e0e12d3435d..1fe059b642f6 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -17,6 +17,8 @@
@@ -359,18 +346,46 @@ index 62fbd48b406a..6b6d9367d452 100644
  	return false;
  
  descend:
-@@ -3309,7 +3466,9 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
+@@ -3305,7 +3462,9 @@ static void flow_dissector_udp_inner_recompute(void)
+ {
+ 	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
+ 		   static_key_enabled(&flow_dissector_geneve_inner_key) ||
+-		   static_key_enabled(&flow_dissector_gtpu_inner_key);
++		   static_key_enabled(&flow_dissector_gtpu_inner_key) ||
++		   static_key_enabled(&flow_dissector_gue_inner_key) ||
++		   static_key_enabled(&flow_dissector_fou_inner_key);
  
- 	any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
- 	      static_key_enabled(&flow_dissector_geneve_inner_key) ||
--	      static_key_enabled(&flow_dissector_gtpu_inner_key);
-+	      static_key_enabled(&flow_dissector_gtpu_inner_key) ||
-+	      static_key_enabled(&flow_dissector_gue_inner_key) ||
-+	      static_key_enabled(&flow_dissector_fou_inner_key);
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
- 			static_branch_enable(&flow_dissector_udp_inner_any_key);
-@@ -3390,6 +3549,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3325,6 +3484,27 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
+ 	return ret;
+ }
+ 
++/* gue_inner / fou_inner cannot fire without the fou module's registered
++ * ops: refuse to enable a gate that can never match, visibly, instead
++ * of accepting the write and silently doing nothing. Disabling is
++ * always allowed (the module may have unregistered underneath an
++ * enabled gate).
++ */
++static int proc_set_fou_gate_key(const struct ctl_table *table, int write,
++				 void *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct static_key *key = table->data;
++	int ret = proc_set_udp_inner_key(table, write, buffer, lenp, ppos);
++
++	if (!ret && write && static_key_enabled(key) &&
++	    !rcu_access_pointer(flow_dissector_fou_ops)) {
++		static_key_disable(key);
++		flow_dissector_udp_inner_recompute();
++		ret = -ENODEV;
++	}
++	return ret;
++}
++
+ static struct ctl_table flow_dissector_sysctl_table[] = {
+ 	{
+ 		.procname	= "eth_ip",
+@@ -3396,6 +3576,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},
@@ -379,14 +394,14 @@ index 62fbd48b406a..6b6d9367d452 100644
 +		.data		= &flow_dissector_gue_inner_key.key,
 +		.maxlen		= sizeof(flow_dissector_gue_inner_key),
 +		.mode		= 0644,
-+		.proc_handler	= proc_set_udp_inner_key,
++		.proc_handler	= proc_set_fou_gate_key,
 +	},
 +	{
 +		.procname	= "fou_inner",
 +		.data		= &flow_dissector_fou_inner_key.key,
 +		.maxlen		= sizeof(flow_dissector_fou_inner_key),
 +		.mode		= 0644,
-+		.proc_handler	= proc_set_udp_inner_key,
++		.proc_handler	= proc_set_fou_gate_key,
 +	},
  };
  

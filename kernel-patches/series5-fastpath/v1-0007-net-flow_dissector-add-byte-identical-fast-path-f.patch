@@ -1,4 +1,4 @@
-From 8550871697df765e64e10bc1d83295256f2df4a7 Mon Sep 17 00:00:00 2001
+From dbf77554ffdb79efb1fe5f68b08701f2286d62f8 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
 Subject: [PATCH net-next v1 07/11] net: flow_dissector: add byte-identical
@@ -70,7 +70,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 121 insertions(+), 6 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 0a9dfe59133c..d0c8466d6634 100644
+index 15c8ace2c0a4..dbc819740db0 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -572,6 +572,31 @@ that the inner IP fast-path itself would defer.

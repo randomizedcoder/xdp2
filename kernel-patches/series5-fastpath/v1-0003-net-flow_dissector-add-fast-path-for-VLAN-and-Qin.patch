@@ -1,4 +1,4 @@
-From 3f85d9f4456d952ebce31d51865370e17790af82 Mon Sep 17 00:00:00 2001
+From 76198572f9fe9986ad45ad3c48ef0127821df84e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 17:52:21 -0700
 Subject: [PATCH net-next v1 03/11] net: flow_dissector: add fast-path for VLAN
@@ -59,7 +59,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 180 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index d184e279103a..9b10b74f7b85 100644
+index aac82169e019..824f4b735caa 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -485,6 +485,37 @@ when this is 0.

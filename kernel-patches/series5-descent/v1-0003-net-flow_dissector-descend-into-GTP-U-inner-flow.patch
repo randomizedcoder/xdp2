@@ -1,4 +1,4 @@
-From 90f85da6676003cba059478d949776d5e1b18224 Mon Sep 17 00:00:00 2001
+From c622f0b3e2e7dde3d9c518836a8bf40c7d0e5c8b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 3/6] net: flow_dissector: descend into GTP-U inner
@@ -37,13 +37,14 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 86 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 9ae15fc22742..03942f159a62 100644
+index 5e5a9b23ddf3..758e3660e614 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -641,6 +641,32 @@ handled).
+@@ -644,6 +644,32 @@ with options (opt_len > 0), proto_type other than ETH_P_TEB (rare
+ L3-Geneve variants).
  
  Default: 0
- 
++
 +gtpu_inner
 +~~~~~~~~~~
 +
@@ -56,8 +57,8 @@ index 9ae15fc22742..03942f159a62 100644
 +gets FLOW_DIS_ENCAPSULATION.
 +
 +**Enabling this changes hashing** for GTP-U traffic. Mobile-core
-+deployments (5G UPF, 4G S-GW/PGW) using cake / fq / fib_multipath /
-+RPS get per-subscriber-flow fairness instead of all-subscribers-to-
++deployments (5G UPF, 4G S-GW/PGW) using cake / fq / RPS / RFS get
++per-subscriber-flow fairness instead of all-subscribers-to-
 +one-NIC-queue hashing on the outer UDP. Because it changes the hash
 +it is off by default and gated independently; once on it is
 +byte-identical between the fast and slow paths (the slow path grows
@@ -65,13 +66,12 @@ index 9ae15fc22742..03942f159a62 100644
 +
 +Kept out of the descended set on both paths (outer keys retained):
 +GTPv0 (legacy), GTP' (charging, PT=0), G-PDU type other than 0xFF,
-+GTP-U with extension headers / N-PDU / sequence flags set, and GTP-U
-+over IPv6 outer.
++and GTP-U with extension headers / N-PDU / sequence flags set.
 +
 +Default: 0
 +
- 3. /proc/sys/net/unix - Parameters for Unix domain sockets
- ----------------------------------------------------------
+ The ``/proc/net/flow_dissector_stats`` observability file
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index e5bed0b4e204..06b499c251da 100644
@@ -86,7 +86,7 @@ index e5bed0b4e204..06b499c251da 100644
  
  /* Per-shape counters for /proc/net/flow_dissector_stats.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index deacee5ff3d4..62fbd48b406a 100644
+index 0047443f1c93..2e0e12d3435d 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -4,6 +4,7 @@
@@ -181,17 +181,17 @@ index deacee5ff3d4..62fbd48b406a 100644
  	return false;
  
  descend:
-@@ -3258,7 +3308,8 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
- 		return ret;
+@@ -3254,7 +3304,8 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+ static void flow_dissector_udp_inner_recompute(void)
+ {
+ 	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
+-		   static_key_enabled(&flow_dissector_geneve_inner_key);
++		   static_key_enabled(&flow_dissector_geneve_inner_key) ||
++		   static_key_enabled(&flow_dissector_gtpu_inner_key);
  
- 	any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
--	      static_key_enabled(&flow_dissector_geneve_inner_key);
-+	      static_key_enabled(&flow_dissector_geneve_inner_key) ||
-+	      static_key_enabled(&flow_dissector_gtpu_inner_key);
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
- 			static_branch_enable(&flow_dissector_udp_inner_any_key);
-@@ -3332,6 +3383,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3338,6 +3389,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},
