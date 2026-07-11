@@ -1,5 +1,9 @@
 # series4-flowdis-fastpath — status
 
+## SUPERSEDED (2026-07-11): split into ../series5-fastpath/ (11 patches) +
+## ../series5-descent/ (6 patches) after the external-LLM review triage in
+## reviews/2026-07-11-ext-llm/. See those dirs' STATUS.md. History below.
+
 ## CURRENT STATE (2026-07-10) — code-complete, fully verified, ready to send
 
 The rounds below are the chronological audit trail; this block is the

@@ -1,0 +1,66 @@
+From d5c04604d5869d26ddb58268ab62c03f83147589 Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 11 Jul 2026 09:15:55 -0700
+Subject: [PATCH net-next v1 6/6] Documentation: networking: document the
+ UDP-tunnel inner-flow descents
+
+Add the "Tunnel inner-flow descent" section to the flow dissector
+overview: why the dissector keeps the outer tuple for UDP tunnels by
+default, what the *_inner gates change (skb->hash reflects the inner
+flow), why the descents are off by default and never auto-managed,
+and the byte-identical fast==slow property that makes enabling one a
+policy choice rather than a path choice.
+
+The per-knob reference for the descent gates lives in
+Documentation/admin-guide/sysctl/net.rst, added by the per-tunnel
+patches; this overview links to it.
+
+Assisted-by: Claude:claude-fable-5 sparse smatch
+Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
+---
+ Documentation/networking/flow_dissector.rst | 22 ++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/flow_dissector.rst b/Documentation/networking/flow_dissector.rst
+index 014f6d124b4f..c9cbd87bd56f 100644
+--- a/Documentation/networking/flow_dissector.rst
++++ b/Documentation/networking/flow_dissector.rst
+@@ -103,6 +103,25 @@ single and stacked VLAN (QinQ), PPPoE sessions, a single MPLS label, the
+ IP-in-IP family, and plain GRE. The individual knobs are documented in
+ :doc:`/admin-guide/sysctl/net` under ``/proc/sys/net/flow_dissector``.
+ 
++Tunnel inner-flow descent
++=========================
++
++For UDP tunnels -- VXLAN, Geneve, GTP-U, and the FOU/GUE UDP encapsulations --
++the dissector stops at the outer UDP header by default. Every inner flow riding
++one tunnel between a pair of endpoints then collapses onto a single value of
++``skb->hash``, so hash-based consumers cannot spread or distinguish them. GTP-U
++is the sharpest case: it has no outer source-port entropy at all, and it is the
++mobile-core data path where many subscriber flows share one tunnel.
++
++The ``*_inner`` gates make the dissector descend into the inner flow and hash on
++the inner 5-tuple instead. Unlike the byte-identical shapes, **enabling a
++descent changes** ``skb->hash`` for that traffic (outer identity becomes inner
++identity), so the descents are off by default, gated separately, and are a
++deliberate operator choice rather than a transparent optimisation. Once a
++descent is enabled it is byte-identical between the fast and slow paths -- both
++descend the same way -- so the choice is only *whether* to descend, not which
++path ran.
++
+ When to enable
+ ==============
+ 
+@@ -123,7 +142,8 @@ A separate RFC proposes an optional ``auto`` mode built on these counters: the
+ kernel would sample them over a packet-count window and flip the
+ byte-identical gates itself, with hysteresis and a flip-rate cap, so the
+ operator does not have to tune each shape by hand. That controller is not part
+-of this series.
++of this series. The tunnel-descent gates would **never** be auto-managed,
++because enabling one changes hashing -- that must remain a deliberate action.
+ 
+ References
+ ==========
+-- 
+2.54.0
+
