@@ -1,4 +1,4 @@
-From 140653bdca3e14647c1256e79bea5fb3e545ac82 Mon Sep 17 00:00:00 2001
+From 9481939f06048d5a0f59ae98b9f7c910282bd9bf Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 19:30:16 -0700
 Subject: [PATCH net-next v1 09/11] net: flow_dissector: bound fast-path tunnel
@@ -46,7 +46,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  1 file changed, 37 insertions(+), 24 deletions(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 46849ae0e982..b01f0e55d1a8 100644
+index bb860a508c55..ef735fbf3b55 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -91,28 +91,31 @@ static inline void flow_dissector_count_fast(enum flow_dissector_shape shape)

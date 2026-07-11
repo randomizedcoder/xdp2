@@ -1,4 +1,4 @@
-From 4f5800b186fbb9ef758b27f03e57a64c60e4343e Mon Sep 17 00:00:00 2001
+From 50a0db7d0c24e4ef3a7c565642b1b5598e12562c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
 Subject: [PATCH net-next v1 06/11] net: flow_dissector: add fast-path for
@@ -75,10 +75,10 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 134 insertions(+), 3 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 0accd55259b4..0a9dfe59133c 100644
+index 1ee5419ffaeb..15c8ace2c0a4 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -553,6 +553,25 @@ vlan -> qinq staging the v3-namespace series used.
+@@ -553,6 +553,25 @@ vlan -> qinq staging used earlier in this series.
  
  Default: 0
  

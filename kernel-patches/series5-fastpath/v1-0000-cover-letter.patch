@@ -1,6 +1,6 @@
-From 1344289cdce443e5de23283429101d22b50d17ce Mon Sep 17 00:00:00 2001
+From de15daa6918f2e0b9759c63bca6671d2f58931d8 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 10:45:41 -0700
+Date: Sat, 11 Jul 2026 15:24:35 -0700
 Subject: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -23,7 +23,8 @@ encapsulations. Each shape has its own gate under
 when a gate is off its added cost is one not-taken branch per dissect.
 The gates are manual in this series; a follow-up RFC will propose an
 optional auto mode that flips them from the measured traffic mix (via
-the patch-8 counters), so nobody has to hand-tune seven knobs. Nothing
+the patch-8 counters), so nobody has to hand-tune seven knobs
+(eth_ip, vlan, qinq, pppoe, mpls, ipip, gre). Nothing
 here depends on it -- it is where this is heading, not a prerequisite.
 
 The series is byte-identical by contract: for any packet, the fast path
@@ -106,10 +107,13 @@ indicating the saving is fewer instructions rather than a
 microarchitectural artifact. IPv6 uses the same gate and is
 byte-identical (x86 -39%, RISC-V -25%).
 
-flow_keys -> skb->hash is the canonical flow identity consumed by ~50
-call sites: ECMP/multipath, RSS, RPS/RFS, bonding/LAG, tc-flower, aRFS.
-Everything that spreads or classifies a flow derives from it, so the
-per-dissect saving applies to all of them at once.
+flow_keys -> skb->hash via skb_get_hash() is the flow identity behind
+RPS/RFS/aRFS, the fq / fq_codel / cake fairness queues, bonding/LAG
+transmit hashing and more; those callers pass no restricting flags, so
+each of them gets the per-dissect saving at once. Dissector callers
+that pass STOP flags (ECMP multipath, xfrm policy lookup) or run their
+own dissector instances (tc-flower) deliberately stay on the slow
+path -- unchanged, not regressed.
 
 Counters (patch 8) are the one part with a cost in the all-gates-off
 default: one this_cpu_inc per dissect plus one per matched shape.
@@ -220,7 +224,7 @@ Dave Seddon (11):
   Documentation: networking: add flow_dissector overview and fast-path
     guide
 
- Documentation/admin-guide/sysctl/net.rst    |  154 ++-
+ Documentation/admin-guide/sysctl/net.rst    |  158 ++-
  Documentation/bpf/index.rst                 |    1 +
  Documentation/bpf/prog_flow_dissector.rst   |    2 +
  Documentation/networking/flow_dissector.rst |  133 +++
@@ -230,9 +234,9 @@ Dave Seddon (11):
  kernel/bpf/net_namespace.c                  |   17 +-
  net/Kconfig                                 |   12 +
  net/core/Makefile                           |    1 +
- net/core/flow_dissector.c                   | 1110 ++++++++++++++++++-
+ net/core/flow_dissector.c                   | 1113 ++++++++++++++++++-
  net/core/flow_dissector_test.c              | 1033 +++++++++++++++++
- 12 files changed, 2452 insertions(+), 47 deletions(-)
+ 12 files changed, 2459 insertions(+), 47 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 

@@ -1,4 +1,4 @@
-From 95fe1e2af17766633a8dadd5a273ef512c7e990d Mon Sep 17 00:00:00 2001
+From e2bb1704f420ca60f151e258ea59589462fe60a5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:12 -0700
 Subject: [PATCH net-next v1 2/6] net: flow_dissector: descend into Geneve
@@ -31,16 +31,16 @@ distribution.
 Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- Documentation/admin-guide/sysctl/net.rst | 26 +++++++++++
+ Documentation/admin-guide/sysctl/net.rst | 24 +++++++++++
  include/net/flow_dissector.h             |  1 +
  net/core/flow_dissector.c                | 55 +++++++++++++++++++++++-
- 3 files changed, 81 insertions(+), 1 deletion(-)
+ 3 files changed, 79 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 33d2f7df62fa..9ae15fc22742 100644
+index fa666b400a16..5e5a9b23ddf3 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
-@@ -615,6 +615,32 @@ the same descent), so the choice is only *whether* to descend, not
+@@ -620,6 +620,30 @@ the same descent), so the choice is only *whether* to descend, not
  
  Default: 0
  
@@ -58,20 +58,18 @@ index 33d2f7df62fa..9ae15fc22742 100644
 +**Enabling this changes hashing** for Geneve traffic -- direct
 +companion to ``vxlan_inner`` above. The dissector stops at the outer
 +UDP header by default; descending gives Geneve overlays per-inner-flow
-+fairness in cake / fq / fib_multipath / RPS. Because it changes the
++fairness in cake / fq / RPS / RFS. Because it changes the
 +hash it is off by default and gated independently. Once on it is
 +byte-identical between the fast and slow paths (the slow path grows
 +the same descent).
 +
 +Kept out of the descended set (both paths keep the outer keys): Geneve
 +with options (opt_len > 0), proto_type other than ETH_P_TEB (rare
-+L3-Geneve variants), and Geneve-over-IPv6 outer (only IPv4 outer is
-+handled).
++L3-Geneve variants).
 +
 +Default: 0
-+
- 3. /proc/sys/net/unix - Parameters for Unix domain sockets
- ----------------------------------------------------------
+ The ``/proc/net/flow_dissector_stats`` observability file
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index 73cc7c92b2ac..e5bed0b4e204 100644
@@ -86,7 +84,7 @@ index 73cc7c92b2ac..e5bed0b4e204 100644
  
  /* Per-shape counters for /proc/net/flow_dissector_stats.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index a5ab6b1f2dfe..deacee5ff3d4 100644
+index 219384cb9c09..0047443f1c93 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -169,17 +167,17 @@ index a5ab6b1f2dfe..deacee5ff3d4 100644
  	return false;
  
  descend:
-@@ -3212,7 +3257,8 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
- 	if (ret || !write)
- 		return ret;
+@@ -3208,7 +3253,8 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+  */
+ static void flow_dissector_udp_inner_recompute(void)
+ {
+-	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key);
++	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
++		   static_key_enabled(&flow_dissector_geneve_inner_key);
  
--	any = static_key_enabled(&flow_dissector_vxlan_inner_key);
-+	any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
-+	      static_key_enabled(&flow_dissector_geneve_inner_key);
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
- 			static_branch_enable(&flow_dissector_udp_inner_any_key);
-@@ -3279,6 +3325,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3285,6 +3331,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},
