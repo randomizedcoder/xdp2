@@ -1,5 +1,24 @@
 # series4-flowdis-fastpath — status
 
+## Post-elegance 3-ISA hardware re-validation (2026-07-10) — PASS
+
+The elegance refactor changed codegen (KUnit proves identical output), so
+re-validated on hardware. All 3 ISAs: build + boot + engagement PASS; x86 =
+no regression. See perf-results/2026-07-10-series4-elegance-hw-reval/.
+- x86 hp5 (native): fast_hits 0→1.37B; same-boot Phase G gate deltas in the
+  noise floor and scattering symmetrically vs the 2026-07-08 pre-refactor
+  run (mean shift +0.5pp, mixed sign) → codegen-neutral, no regression.
+- RISC-V bpi-f3 (cross-built): fast_hits 0→7.1M+; jump_label patching clean.
+- ARM pi5-2 (built NATIVELY on the Pi via --build-host, no qemu): 10-gate
+  6.x subset, fast_hits 0→4.8k / 369M-in-matrix.
+- ARM/RISC-V Phase G cycles/pkt are queue-bound noise (documented); their
+  value is compile+boot+engagement, x86 carries the perf conclusion.
+- Infra: host pins bumped to ab72526d; pi5-1 generator needs 6.12.87 for
+  pktgen (6.18 wedges — power-cycled mid-run); pi5-2 ARM build is now
+  native-on-Pi (config unchanged; use --build-host root@pi5-2).
+- Obsolete note removed: "deployed kernel tree-different but behaviourally
+  identical, no re-smoke needed" — we DID re-validate, and it passed.
+
 ## Code-elegance round (2026-07-09, fresh-eyes Fable review of Opus code)
 
 Three deep review passes (fast-path core, infra, per-patch-diff) at the
