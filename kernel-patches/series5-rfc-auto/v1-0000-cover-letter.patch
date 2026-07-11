@@ -1,0 +1,93 @@
+From 051a8e19455fa8289090c8e0cc290ac87752849e Mon Sep 17 00:00:00 2001
+From: Dave Seddon <dave.seddon.ca@gmail.com>
+Date: Sat, 11 Jul 2026 10:54:38 -0700
+Subject: [RFC net-next v1 0/1] net: flow_dissector: adaptive auto-enable for the fast-path gates
+
+G'day,
+
+This RFC builds on "net: flow_dissector: opt-in byte-identical fast
+paths for common shapes":
+
+  https://lore.kernel.org/netdev/SERIES-A-LORE-LINK/
+
+That series leaves the operator seven per-shape policy decisions. The
+per-shape counters it adds (/proc/net/flow_dissector_stats) contain
+exactly the signal needed to make those decisions, so the obvious
+question is whether the kernel should make them itself. This RFC is
+that experiment: a packet-window controller that manages the
+byte-identical gates automatically, making "turn on the fast path" one
+knob instead of seven. It is an RFC because auto-tuning static keys
+from a kworker is a policy mechanism netdev may simply not want --
+the fast-path series stands on its own without it.
+
+Shape: every ~auto_window_packets dissects (default 1M; the single
+tuning knob), a worker compares each shape's windowed eligible
+fraction against its measured break-even and flips the gate, with
+hysteresis (+10pp on, -5pp off), a 3-window dwell, and a >=1s global
+flip-rate cap so a crafted rare-shape burst cannot force static-key
+patch storms. Decisions use window deltas, never cumulative counters
+(a since-boot ratio asymptotically freezes). The hot path pays one
+not-taken static branch with auto off -- the same discipline as the
+gates themselves -- and one per-cpu increment with it on; the
+counter summation and the static_branch flips (text_poke, which can
+sleep) run in the worker.
+
+The per-shape policy is a pure function, unit-tested in the KUnit
+suite the fast-path series added: dwell requirement, both margin
+boundaries, dwell reset on a dip, hysteresis deadband, the
+low-break-even clamp, and dwell saturation (a rate-capped flip stays
+pending rather than wrapping away). mpls is not auto-managed (its
+break-even is 60-70%: a net loss unless mpls dominates); the
+UDP-tunnel descent gates from the companion descent series are never
+auto-managed, because enabling them changes hashing -- that must stay
+a deliberate operator action. Manual gate writes while auto is on may
+be overridden at the next window (documented); set auto=0 to pin
+gates by hand.
+
+Open questions for the list:
+
+  1. Is an in-kernel controller wanted at all, or should this stay a
+     userspace agent reading flow_dissector_stats? (Everything the
+     controller uses is already exposed read-only.)
+  2. The break-even table is measured offline (conservative in-order
+     row). Should it be a build-time table, runtime-tunable, or
+     self-measured?
+  3. Global (init_net) scope, matching the global gates. Worth making
+     per-netns before this could leave RFC?
+
+Testing: KUnit 54/54 at the RFC tip (the fast-path suite + the policy
+case); per-patch W=1, sparse and smatch clean; checkpatch --strict
+clean. Supporting data (break-even derivation, controller design
+notes) in the author's XDP2 fork:
+https://github.com/randomizedcoder/xdp2 , under perf-results/ .
+
+On tooling: as with the fast-path series, developed with substantial
+LLM assistance (Claude, Anthropic), human-reviewed and human-measured;
+the patch carries an Assisted-by: trailer in the
+Documentation/process/coding-assistants.rst format.
+
+Dave Seddon (1):
+  net: flow_dissector: adaptive auto-enable (packet-window controller)
+
+ Documentation/admin-guide/sysctl/net.rst |  47 ++++-
+ include/net/flow_dissector.h             |   2 +
+ net/core/flow_dissector.c                | 253 +++++++++++++++++++++++
+ net/core/flow_dissector_test.c           | 101 +++++++++
+ 4 files changed, 400 insertions(+), 3 deletions(-)
+
+
+base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
+prerequisite-patch-id: 63852e4723a24257fed4e0b98c3e980b261923b6
+prerequisite-patch-id: 7ab54100a3189db837a9034534b141adbb744fac
+prerequisite-patch-id: c80c1cbdefb93f90166fb9f9703e1690df082fef
+prerequisite-patch-id: ce63f71300d49ffdbe76f1fed38b55b77a038a4a
+prerequisite-patch-id: 5c6d488d4c1ef465d2795193dbcd3a825fdc4e0d
+prerequisite-patch-id: 240732cb2248fe40e00d4658a4de1bc94976a705
+prerequisite-patch-id: 7629e6864148196d4c0bd7b8bbfb8da351f1ba79
+prerequisite-patch-id: 9213f23d7423ebe06d6785926cc2459c14709ed2
+prerequisite-patch-id: d012c8e0a56e65befdebfc64db5ce9d32edf44cb
+prerequisite-patch-id: cb0f99437acffef5fdb6377219e20e7ecbc4dc0f
+prerequisite-patch-id: 6278823d7b64af3725f4e307eec0cb25492a8169
+-- 
+2.54.0
+
