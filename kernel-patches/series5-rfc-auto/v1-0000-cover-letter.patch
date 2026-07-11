@@ -1,6 +1,6 @@
-From 051a8e19455fa8289090c8e0cc290ac87752849e Mon Sep 17 00:00:00 2001
+From e0ea8aeffeb8a6f331ebcae24dd4f6103f221ca7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 10:54:38 -0700
+Date: Sat, 11 Jul 2026 12:05:47 -0700
 Subject: [RFC net-next v1 0/1] net: flow_dissector: adaptive auto-enable for the fast-path gates
 
 G'day,
@@ -23,37 +23,68 @@ the fast-path series stands on its own without it.
 Shape: every ~auto_window_packets dissects (default 1M; the single
 tuning knob), a worker compares each shape's windowed eligible
 fraction against its measured break-even and flips the gate, with
-hysteresis (+10pp on, -5pp off), a 3-window dwell, and a >=1s global
-flip-rate cap so a crafted rare-shape burst cannot force static-key
+hysteresis (+10pp on, -5pp off), a 3-window dwell, and a >=1s
+per-shape flip-rate cap so a crafted burst cannot force static-key
 patch storms. Decisions use window deltas, never cumulative counters
 (a since-boot ratio asymptotically freezes). The hot path pays one
 not-taken static branch with auto off -- the same discipline as the
-gates themselves -- and one per-cpu increment with it on; the
-counter summation and the static_branch flips (text_poke, which can
-sleep) run in the worker.
+gates themselves -- and one per-cpu increment plus a cached-threshold
+compare with it on (no division on the packet path); the counter
+summation and the static_branch flips (text_poke, which can sleep)
+run in the worker, serialised against the sysctl writers with
+cancel_work_sync(). Individual gates can be pinned by hand while auto
+runs (net.flow_dissector.auto_exclude, default mpls); shape
+management is a whitelist, so the descent gates from the companion
+series can never become auto-managed. One documented interaction: an
+attached netns BPF flow dissector zeroes the controller's input (its
+dissects are deliberately not counted), so auto will park the gates
+off -- consistent, since they are unreachable behind the program.
 
 The per-shape policy is a pure function, unit-tested in the KUnit
 suite the fast-path series added: dwell requirement, both margin
 boundaries, dwell reset on a dip, hysteresis deadband, the
 low-break-even clamp, and dwell saturation (a rate-capped flip stays
-pending rather than wrapping away). mpls is not auto-managed (its
-break-even is 60-70%: a net loss unless mpls dominates); the
-UDP-tunnel descent gates from the companion descent series are never
-auto-managed, because enabling them changes hashing -- that must stay
-a deliberate operator action. Manual gate writes while auto is on may
-be overridden at the next window (documented); set auto=0 to pin
-gates by hand.
+pending rather than wrapping away). mpls is excluded by default
+(its break-even is 60-70%: a net loss unless mpls dominates), and the
+UDP-tunnel descent gates are structurally unmanageable -- enabling
+them changes hashing and must stay a deliberate operator action.
 
-Open questions for the list:
+Open questions for the list -- the first is the make-or-break, and we
+are asking it deliberately rather than assuming the answer:
 
-  1. Is an in-kernel controller wanted at all, or should this stay a
-     userspace agent reading flow_dissector_stats? (Everything the
-     controller uses is already exposed read-only.)
+  1. Is an in-kernel controller wanted at all? Everything it reads
+     (flow_dissector_stats) and writes (the per-shape sysctls) is
+     already exposed, so userspace can do this today; the equivalent
+     agent is about a dozen lines:
+
+       #!/bin/sh
+       # flow-dissector auto-enable, userspace edition
+       while sleep 10; do
+           awk 'NR>1 { frac = $4; gate = "/proc/sys/net/flow_dissector/" $1
+                       thresh[$1] > 0 || thresh[$1] = 25
+                       print (frac > thresh[$1]) ? 1 : 0 > gate }'                /proc/net/flow_dissector_stats
+       done
+
+     (No hysteresis, dwell, or flip caps -- the in-kernel controller
+     exists because doing this well needs those, packet-proportional
+     windows rather than a timer, and no daemon dependency. Whether
+     that clears netdev's bar for in-kernel policy is exactly the
+     question.)
   2. The break-even table is measured offline (conservative in-order
-     row). Should it be a build-time table, runtime-tunable, or
-     self-measured?
-  3. Global (init_net) scope, matching the global gates. Worth making
-     per-netns before this could leave RFC?
+     row) and currently hard-coded. Runtime-tunable per shape is the
+     obvious next step; self-measurement a possible follow-up. Is a
+     hard-coded conservative table acceptable for an initial merge?
+  3. The gates are global static keys patching shared text, so the
+     controller is host-wide by construction (the per-netns escape
+     hatch is the netns BPF flow dissector, which takes precedence).
+     Should the controller sit behind a CONFIG_ option so distros can
+     opt out at build time?
+
+Known-deferred items, acknowledged rather than hidden: worker-level
+KUnit tests (the pure policy function is unit-tested; the worker
+plumbing -- rate-cap timing, dwell preservation across capped flips,
+pinned-gate non-interference -- is not yet) and the runtime-tunable
+break-even table from question 2.
 
 Testing: KUnit 54/54 at the RFC tip (the fast-path suite + the policy
 case); per-patch W=1, sparse and smatch clean; checkpatch --strict
@@ -69,11 +100,11 @@ Documentation/process/coding-assistants.rst format.
 Dave Seddon (1):
   net: flow_dissector: adaptive auto-enable (packet-window controller)
 
- Documentation/admin-guide/sysctl/net.rst |  47 ++++-
+ Documentation/admin-guide/sysctl/net.rst |  67 +++-
  include/net/flow_dissector.h             |   2 +
- net/core/flow_dissector.c                | 253 +++++++++++++++++++++++
- net/core/flow_dissector_test.c           | 101 +++++++++
- 4 files changed, 400 insertions(+), 3 deletions(-)
+ net/core/flow_dissector.c                | 372 +++++++++++++++++++++++
+ net/core/flow_dissector_test.c           | 101 ++++++
+ 4 files changed, 539 insertions(+), 3 deletions(-)
 
 
 base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
