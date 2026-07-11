@@ -1,4 +1,4 @@
-From 1a127e47a133f5d218d34e82981c0f97d7d78f08 Mon Sep 17 00:00:00 2001
+From eb2320fef71d85c80d15f106f58426d42955ccf7 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
 Subject: [PATCH net-next v1 05/15] net: flow_dissector: add fast-path for
@@ -51,7 +51,7 @@ in struct flow_keys and would break the byte-identical contract; the
 in-tree KUnit equivalence test added later in this series catches
 exactly this.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst | 19 ++++++
@@ -60,7 +60,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 103 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index b5402a9d5392..47fd2eb4992b 100644
+index 108764c78de3..0accd55259b4 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -534,6 +534,25 @@ code != 0).

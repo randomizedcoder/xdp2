@@ -1,4 +1,4 @@
-From 317f8ca7ad496eb61212b718f510ccbb48b5467e Mon Sep 17 00:00:00 2001
+From 612ccdba1267b943cdf359c1b0d259abb2c5bbfc Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:14 -0700
 Subject: [PATCH net-next v1 14/15] net: flow_dissector: add KUnit fast/slow
@@ -67,14 +67,13 @@ Run with:
       --kconfig_add CONFIG_FLOW_DISSECTOR_KUNIT_TEST=y \
       flow_dissector_fastpath
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  net/Kconfig                    |   12 +
  net/core/Makefile              |    1 +
- net/core/flow_dissector.c      |    1 +
  net/core/flow_dissector_test.c | 1674 ++++++++++++++++++++++++++++++++
- 4 files changed, 1688 insertions(+)
+ 3 files changed, 1687 insertions(+)
  create mode 100644 net/core/flow_dissector_test.c
 
 diff --git a/net/Kconfig b/net/Kconfig
@@ -110,18 +109,6 @@ index b3fdcb4e355f..b27c69580d2c 100644
  obj-$(CONFIG_NET_DEVMEM) += devmem.o
  obj-$(CONFIG_DEBUG_NET) += lock_debug.o
  obj-$(CONFIG_FAIL_SKB_REALLOC) += skb_fault_injection.o
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 301ddecc8cac..c56715813e83 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -2890,6 +2890,7 @@ bool __skb_flow_dissect(const struct net *net,
- 		fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
- 		break;
- 
-+
- 	case IPPROTO_MPLS:
- 		proto = htons(ETH_P_MPLS_UC);
- 		fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
 new file mode 100644
 index 000000000000..306478ea36e5

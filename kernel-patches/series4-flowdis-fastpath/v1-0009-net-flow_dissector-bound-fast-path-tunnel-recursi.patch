@@ -1,4 +1,4 @@
-From 3e1472b518f13f697aa5793ebea15bc59f2715d0 Mon Sep 17 00:00:00 2001
+From 9ae72a32940a23e34f394b48324ae5813511edfc Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 19:30:16 -0700
 Subject: [PATCH net-next v1 09/15] net: flow_dissector: bound fast-path tunnel
@@ -39,7 +39,7 @@ The added KUnit equivalence test's deep-nest case exercises IPIP and
 GRE chains across the cap boundary; with the bound removed it fails at
 16 levels, confirming it guards this fix.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  net/core/flow_dissector.c | 61 ++++++++++++++++++++++++---------------

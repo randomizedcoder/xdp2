@@ -1,4 +1,4 @@
-From 2209b55ce7638b935500ca72972bfe743fadc1ae Mon Sep 17 00:00:00 2001
+From 91750b2194537892107ddbbea5ae559034b3993a Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 17:52:21 -0700
 Subject: [PATCH net-next v1 03/15] net: flow_dissector: add fast-path for VLAN
@@ -35,7 +35,7 @@ ethertype.
 
   - Sibling-key handling. The two gates are coupled in their proc
     handlers: writing qinq=1 auto-enables the vlan key (QinQ extends
-    VLAN; depth-0 entry is gated by vlan), and writing vlan=0 clears
+    VLAN; depth-0 entry is gated by vlan), and turning vlan off clears
     the qinq key (depth-2 cannot fire when the outer entry is off).
     Reads always reflect the underlying key state.
 
@@ -50,7 +50,7 @@ dissector cost on the allshapes microbench (all fast paths compiled
 in, range across 7 measured microarchitectures): vlan -18.1%..-38.5%,
 qinq -16.1%..-39.8% -- see the cover letter's performance summary.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  31 +++++
@@ -59,7 +59,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 180 insertions(+)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index d184e279103a..67abfe5c8d51 100644
+index d184e279103a..9b10b74f7b85 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -485,6 +485,37 @@ when this is 0.
@@ -91,9 +91,9 @@ index d184e279103a..67abfe5c8d51 100644
 +with the slow path for the eligible shape.
 +
 +Auto-toggle: writing qinq=1 also enables vlan (QinQ extends VLAN;
-+the depth-0 entry of the helper is gated by the vlan key). Writing
-+vlan=0 also clears qinq (depth-2 cannot fire when the outer entry
-+is off).
++the depth-0 entry of the helper is gated by the vlan key). Turning
++vlan off (writing 0) also clears qinq (depth-2 cannot fire when
++the outer entry is off).
 +
 +Default: 0
 +

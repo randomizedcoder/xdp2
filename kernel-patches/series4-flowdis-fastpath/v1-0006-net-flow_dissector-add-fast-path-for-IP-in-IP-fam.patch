@@ -1,4 +1,4 @@
-From 8262f31276bcbfa00c9003a366defd98caad48a2 Mon Sep 17 00:00:00 2001
+From 382f4319be4797d461360881a5cf912ea5021b0c Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
 Subject: [PATCH net-next v1 06/15] net: flow_dissector: add fast-path for
@@ -12,7 +12,10 @@ invoked from the existing flow_dissect_fast_ipv4() and
 flow_dissect_fast_ipv6() helpers when the outer IP's protocol
 (IPv4) or nexthdr (IPv6) is IPPROTO_IPIP or IPPROTO_IPV6 and the
 ipip gate is on. Tail-calls into the matching inner IP fast-path
-then stamps FLOW_DIS_ENCAPSULATION on key_control->flags.
+then stamps FLOW_DIS_ENCAPSULATION on key_control->flags. This is
+the series' first tunnel descent: the fast path parses through the
+tunnel header and dissects the inner flow, the pattern the GRE and
+UDP-tunnel patches later in the series reuse.
 
 Byte-identical with the slow path's IPPROTO_IPIP and IPPROTO_IPV6
 switch cases in __skb_flow_dissect(): the slow path also lets the
@@ -60,7 +63,7 @@ contract — so no label residue exists. The IPv4-outer descent needs
 no mirroring: an inner IPv4 or IPv6 write always fully covers the
 outer's 8 address bytes.)
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  19 ++++
@@ -69,7 +72,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 136 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 47fd2eb4992b..b484e02d4a2a 100644
+index 0accd55259b4..0a9dfe59133c 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -553,6 +553,25 @@ vlan -> qinq staging the v3-namespace series used.

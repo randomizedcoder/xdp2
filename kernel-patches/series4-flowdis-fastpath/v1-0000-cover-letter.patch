@@ -1,6 +1,6 @@
-From 91c0c41bb4fe4c59841a4f06c4ea8c59554aeee7 Mon Sep 17 00:00:00 2001
+From 4b4a32672d792170b34675b731d88d24a6c6347b Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Thu, 9 Jul 2026 21:33:34 -0700
+Date: Fri, 10 Jul 2026 22:57:27 -0700
 Subject: [PATCH net-next v1 00/15] net: flow_dissector: opt-in byte-identical fast paths + tunnel inner descent
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -61,8 +61,9 @@ hash bucket. GTP-U is the sharpest case -- no outer source-port entropy
 at all, and it is the mobile-core data path where millions of subscriber
 flows ride one tunnel between two endpoints.
 
-Patches 10-13 add opt-in inner descent, each behind its own default-off
-gate (net.flow_dissector.{vxlan,geneve,gtpu,gue,fou}_inner). The descents
+Patches 10-13 add opt-in inner descent -- the dissector parses through
+the tunnel header and dissects the inner flow -- each behind its own
+default-off gate (net.flow_dissector.{vxlan,geneve,gtpu,gue,fou}_inner). The descents
 keep the series' byte-identical contract: the slow path grows the same
 gated descent (__skb_flow_dissect_udp_encap()) as the fast path
 (flow_dissect_fast_udp_inner()), so the fast and slow paths never

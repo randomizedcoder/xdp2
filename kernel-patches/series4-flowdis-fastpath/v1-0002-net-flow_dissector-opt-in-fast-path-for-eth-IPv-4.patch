@@ -1,4 +1,4 @@
-From 79c602f71ebcb0ffb9507bc48b20aeee1330a58b Mon Sep 17 00:00:00 2001
+From 5ab447742f166e481ff277386eeca9a721b30242 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
 Subject: [PATCH net-next v1 02/15] net: flow_dissector: opt-in fast-path for
@@ -74,7 +74,7 @@ series.
     STOP_AT_FLOW_LABEL is what makes the fast path reachable from
     skb_get_hash() at all -- the kernel's main dissection consumer.
 
-Assisted-by: Claude:claude-fable-5 sparse
+Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  27 ++-
