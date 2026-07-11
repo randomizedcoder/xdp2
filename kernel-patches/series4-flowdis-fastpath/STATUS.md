@@ -1,5 +1,43 @@
 # series4-flowdis-fastpath — status
 
+## CURRENT STATE (2026-07-10) — code-complete, fully verified, ready to send
+
+The rounds below are the chronological audit trail; this block is the
+one-glance summary.
+
+**Artifacts (git format-patch output in this repo):**
+- Main series: **15 patches + cover** in `series4-flowdis-fastpath/v1-00*.patch`
+  — net-next branch `series4-final-v3` @ 91c0c41b (base b73bc9ca3686).
+- RFC thread: **1 patch + cover** in `../series4-rfc-auto/v1-000*.patch`
+  — branch `series4-rfc-tail-v3` @ ab72526d (applies on the main series).
+
+**Verification — all green:**
+- KUnit 61/61 (also under KASAN+UBSAN); negative controls proven.
+- Per-commit compile ×15; checkpatch --strict **0 errors** (3 benign
+  warnings: ctl_table-const false positive, 2 MAINTAINERS new-file notices).
+- W=1 (gcc) + sparse + smatch clean on all touched objects.
+- Hardware: 3 ISAs build+boot+engagement (x86/RISC-V/ARM), x86 Phase G
+  **no regression** pre- and post-elegance; 2 h all-gates-on soak PASS
+  (4.18 B dissects, 0 warnings); BPF-precedence PASS.
+- **The flag bug** (STOP_AT_FLOW_LABEL) that made the fast path unreachable
+  from RPS/fq/cake is FIXED and regression-tested — see its section below.
+
+**git send-email:** configured on `l` (Gmail app password in GNOME keyring);
+full series rehearsed to dave.seddon@runpod.io 3× (all 250-accepted). The
+ready-to-fire real-send command (To: Tom Herbert first, …) is in the
+"Send rehearsal DONE + staged real-send commands" section below.
+
+**Remaining before `git send-email` (send-day only, no code left):**
+1. Eyeball the latest runpod thread (final cover + tables + XDP2 origin).
+2. Verify the 3 manually-added Cc addresses on lore.kernel.org
+   (Tom Herbert <tom@herbertland.com>, Willem de Bruijn, Stanislav Fomichev)
+   — get_maintainer can't emit them (no flow_dissector MAINTAINERS section).
+3. Confirm net-next is open: https://netdev.bots.linux.dev/net-next.html
+4. Decide rebase-onto-current-tip (base is a few days old — cheap re-verify).
+5. Send main series; then the RFC thread with the main series' lore link
+   added to its cover. Rules: ≤15 patches ✓, never repost within 24 h,
+   resend the full renumbered series only.
+
 ## Post-elegance 3-ISA hardware re-validation (2026-07-10) — PASS
 
 The elegance refactor changed codegen (KUnit proves identical output), so
