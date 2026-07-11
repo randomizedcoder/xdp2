@@ -6,12 +6,21 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
+G'day,
+
 __skb_flow_dissect() parses packet headers with a generic protocol-graph
-parser. This series adds an opt-in, static-branch-gated, straight-line
-fast path for the packet shapes that dominate real deployments. Each
-shape has its own gate under /proc/sys/net/flow_dissector/, every gate is
-disabled by default, and when a gate is off the added cost is one
-not-taken branch per dissect.
+parser. The graph walk is what makes the dissector so flexible, but most
+machines spend that flexibility on the same traffic all day long: plain
+eth + IPv4/IPv6 + TCP/UDP, perhaps with a VLAN tag or a tunnel header in
+front. The intuition behind this series is that the common shapes can be
+dissected by straight-line code instead, without giving up the graph
+walk for everything else.
+
+Concretely: the series adds an opt-in, static-branch-gated fast path per
+packet shape, covering the common cases and some typical encapsulations.
+Each shape has its own gate under /proc/sys/net/flow_dissector/, every
+gate is disabled by default, and when a gate is off the added cost is
+one not-taken branch per dissect.
 
 The series is byte-identical by contract: for any packet, the fast path
 either writes exactly the flow_keys bytes the slow path would have
