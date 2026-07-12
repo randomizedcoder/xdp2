@@ -1,0 +1,13 @@
+ksoftirqd PIDs (L2=hp3): 15,28,35,43,50,57,64,71
+
+ Performance counter stats for process id '15,28,35,43,50,57,64,71':
+
+   579,793,807,390      cycles                                                                  (90.47%)
+   657,552,054,494      instructions                                                            (90.45%)
+   114,580,113,037      branches                                                                (90.47%)
+       319,768,251      branch-misses                                                           (90.46%)
+   282,296,825,994      L1-dcache-loads                                                         (90.47%)
+     6,605,392,913      L1-dcache-load-misses                                                   (90.46%)
+
+      60.023121280 seconds time elapsed
+
