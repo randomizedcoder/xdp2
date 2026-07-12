@@ -71,3 +71,35 @@ J3. flags=0 clobber/restore refactor (r1.A-S2): KUnit equivalence guards
 J4. Port-number sysctls for the descents (r1.B-B2): follow-up; net.rst
     already states the hardcoded port and the non-standard-port gap.
 J5. GTP macros to net/gtp.h, __always_inline (B-P1/P2): keep as-is.
+
+## Deep-dive round (r3a/r3b): reasoning-trace mining + hardening
+
+Both split deep-dives initially exhausted their token budget reasoning
+without writing an answer (archived as r3{a,b}-attempt1-lengthfail).
+Their reasoning traces were mined instead; the A trace's own conclusion:
+"I didn't find a definitive correctness bug that would cause divergence
+in practice."
+
+Verified-real from the traces, all implemented:
+T1. GRE-with-IPv6-inner corpus gap: added gre_ipv6 + gre6_ipv6 cases
+    (A suite 53 -> 55).
+T2. Descent equivalence only ran flow_keys_dissector: fd_descent_check
+    now loops both eligible dissectors (helper-refactored).
+T3. Inner-IPv6 non-zero flow label under a descent was untested: new
+    vxlan corpus case pins fast-defers/slow-descends equivalence under
+    STOP_AT_FLOW_LABEL (B suite 61 -> 63; RFC 54 -> 56).
+T4. GUE descended on flagged (PRIV) headers while every other tunnel is
+    plain-header-only: tightened to flags==0 && hlen==0 for posture
+    consistency (kills the trace's C-bit offset concern class entirely;
+    the offset math was actually correct -- hlen covers the optional
+    fields -- and shared classifiers made divergence impossible anyway).
+
+Debunked from the traces: NUM_OF_VLANS init and flags=0-vs-OR (both
+require non-zeroed containers, which the documented API contract
+forbids); the "CRITICAL" FAST_TUNNEL_DEFER/ICMP divergence (the trace
+itself notes the existing KUnit case covers and passes it); fou lookup
+NULL dev/sk (handled explicitly under guard(rcu)); fdret-CONTINUE worry
+(the descent equivalence tests prove it).
+
+Validation after hardening: per-commit compile, KUnit A 55/55, B 63/63,
+RFC 56/56, checkpatch 0 errors/0 checks (3 benign warnings).

@@ -1,4 +1,4 @@
-From f75130f1fe7e310f31be5d9811ad97215348dae8 Mon Sep 17 00:00:00 2001
+From 39eeae7f0a8363de50f7f4490eae0611c1ee69a2 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:14 -0700
 Subject: [PATCH net-next v1 10/11] net: flow_dissector: add KUnit fast/slow
@@ -62,8 +62,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  net/Kconfig                    |   12 +
  net/core/Makefile              |    1 +
  net/core/flow_dissector.c      |   30 +
- net/core/flow_dissector_test.c | 1033 ++++++++++++++++++++++++++++++++
- 5 files changed, 1082 insertions(+)
+ net/core/flow_dissector_test.c | 1053 ++++++++++++++++++++++++++++++++
+ 5 files changed, 1102 insertions(+)
  create mode 100644 net/core/flow_dissector_test.c
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
@@ -159,10 +159,10 @@ index ef735fbf3b55..15fa3301517b 100644
  	skb_flow_dissector_init(&flow_keys_dissector,
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
 new file mode 100644
-index 000000000000..f8f40af3977f
+index 000000000000..e0014affda7f
 --- /dev/null
 +++ b/net/core/flow_dissector_test.c
-@@ -0,0 +1,1033 @@
+@@ -0,0 +1,1053 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * KUnit equivalence tests for the flow dissector opt-in fast paths.
@@ -473,6 +473,24 @@ index 000000000000..f8f40af3977f
 +	return n + put_ports(buf + n);
 +}
 +
++static int build_gre_ipv6(u8 *buf)
++{
++	int n = put_ipv4(buf, IPPROTO_GRE, 5, 0);
++
++	n += put_gre(buf + n, 0, htons(ETH_P_IPV6));
++	n += put_ipv6(buf + n, IPPROTO_TCP, 0);
++	return n + put_ports(buf + n);
++}
++
++static int build_gre6_ipv6(u8 *buf)
++{
++	int n = put_ipv6(buf, IPPROTO_GRE, 0);
++
++	n += put_gre(buf + n, 0, htons(ETH_P_IPV6));
++	n += put_ipv6(buf + n, IPPROTO_TCP, 0);
++	return n + put_ports(buf + n);
++}
++
 +static int build_gre6_ipv4(u8 *buf)
 +{
 +	int n = put_ipv6(buf, IPPROTO_GRE, 0);
@@ -741,6 +759,8 @@ index 000000000000..f8f40af3977f
 +	{ "6in6", build_6in6, cpu_to_be16(ETH_P_IPV6), 0 },
 +	{ "gre_ipv4", build_gre_ipv4, cpu_to_be16(ETH_P_IP), 0 },
 +	{ "gre6_ipv4", build_gre6_ipv4, cpu_to_be16(ETH_P_IPV6), 0 },
++	{ "gre_ipv6", build_gre_ipv6, cpu_to_be16(ETH_P_IP), 0 },
++	{ "gre6_ipv6", build_gre6_ipv6, cpu_to_be16(ETH_P_IPV6), 0 },
 +	/* deliberate fast-path misses: must fall back with identical
 +	 * output (and, per the zeroed containers, no partial writes)
 +	 */

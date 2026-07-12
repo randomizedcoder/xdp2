@@ -1,6 +1,6 @@
-From de15daa6918f2e0b9759c63bca6671d2f58931d8 Mon Sep 17 00:00:00 2001
+From c9908e2809c0fd6c29a0ca054e4d90c3988fe959 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 15:24:35 -0700
+Date: Sat, 11 Jul 2026 18:36:47 -0700
 Subject: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -199,7 +199,7 @@ per-shape cost of the generic loop visible -- this opt-in fast path is
 the kernel-side result of that analysis.
 
 Testing: 3 ISAs / 8 uarches (x86 Zen1/Zen2/Skylake/Haswell, ARM
-Cortex-A53/A72/A76, RISC-V X60), in-tree KUnit (patch 10: 53 tests,
+Cortex-A53/A72/A76, RISC-V X60), in-tree KUnit (patch 10: 55 tests,
 also run under KASAN+UBSAN; per-patch W=1, sparse and smatch clean;
 CONFIG_NET_FOU n/m/y config matrix for the companion series) and
 out-of-tree A/B. Supporting data (flow-distribution study,
@@ -235,8 +235,8 @@ Dave Seddon (11):
  net/Kconfig                                 |   12 +
  net/core/Makefile                           |    1 +
  net/core/flow_dissector.c                   | 1113 ++++++++++++++++++-
- net/core/flow_dissector_test.c              | 1033 +++++++++++++++++
- 12 files changed, 2459 insertions(+), 47 deletions(-)
+ net/core/flow_dissector_test.c              | 1053 ++++++++++++++++++
+ 12 files changed, 2479 insertions(+), 47 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 

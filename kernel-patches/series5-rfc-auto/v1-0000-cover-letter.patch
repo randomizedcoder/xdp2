@@ -1,6 +1,6 @@
-From b14f4d8a9c223b3f841c30f7abfaa00687e5e5a8 Mon Sep 17 00:00:00 2001
+From 4c8e094ee8879a7bed7860718694c12a8894da50 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 15:24:35 -0700
+Date: Sat, 11 Jul 2026 18:36:47 -0700
 Subject: [RFC net-next v1 0/1] net: flow_dissector: adaptive auto-enable for the fast-path gates
 
 G'day,
@@ -60,9 +60,9 @@ are asking it deliberately rather than assuming the answer:
        #!/bin/sh
        # flow-dissector auto-enable, userspace edition
        while sleep 10; do
-           awk 'NR>1 { frac = $4; gate = "/proc/sys/net/flow_dissector/" $1
-                       thresh[$1] > 0 || thresh[$1] = 25
-                       print (frac > thresh[$1]) ? 1 : 0 > gate }'                /proc/net/flow_dissector_stats
+           awk 'NR>1 { g = "/proc/sys/net/flow_dissector/" $1
+                       print ($4 > 25) ? 1 : 0 > g }' \
+               /proc/net/flow_dissector_stats
        done
 
      (No hysteresis, dwell, or flip caps -- the in-kernel controller
@@ -86,7 +86,7 @@ plumbing -- rate-cap timing, dwell preservation across capped flips,
 pinned-gate non-interference -- is not yet) and the runtime-tunable
 break-even table from question 2.
 
-Testing: KUnit 54/54 at the RFC tip (the fast-path suite + the policy
+Testing: KUnit 56/56 at the RFC tip (the fast-path suite + the policy
 case); per-patch W=1, sparse and smatch clean; checkpatch --strict
 clean. Supporting data (break-even derivation, controller design
 notes) in the author's XDP2 fork:
@@ -117,7 +117,7 @@ prerequisite-patch-id: 240732cb2248fe40e00d4658a4de1bc94976a705
 prerequisite-patch-id: 7629e6864148196d4c0bd7b8bbfb8da351f1ba79
 prerequisite-patch-id: 7be2f1f17714a11aa0a759c81e890a8d90e10b46
 prerequisite-patch-id: d012c8e0a56e65befdebfc64db5ce9d32edf44cb
-prerequisite-patch-id: cb0f99437acffef5fdb6377219e20e7ecbc4dc0f
+prerequisite-patch-id: 254e4c2eeaf04aae3c1070e37aca04de42afad66
 prerequisite-patch-id: 6278823d7b64af3725f4e307eec0cb25492a8169
 -- 
 2.54.0
