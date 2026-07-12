@@ -1,0 +1,15 @@
+=== pktgen config ===
+  interface:  geneve10
+  dst:        192.168.101.2 (mac d6:fc:f8:fd:03:81)
+  dport:      5201 (IPv4/UDP)
+  pkt_size:   64
+  threads:    2
+  rate:       0 pps (delay=0ns)
+  burst:      8
+  clone_skb:  100000
+  queue_map:  none
+  cpu_pin:    none (offset=2)
+  rand_flows: 1 (range=1024-65535)
+
+binding thread kpktgend_0 -> geneve10@0
+/tmp/xdp2-pktgen-ntuple-template.sh: line 73: echo: write error: Unknown error 524

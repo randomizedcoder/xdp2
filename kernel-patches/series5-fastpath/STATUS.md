@@ -27,6 +27,10 @@ Split rationale (external review r1): patches that change behaviour
   (allshapes has Zen 1, isolated has Haswell; union = 8)
 - partial-writes test comment replaced with the structural argument
 
+**Hardware matrix (2026-07-12): PASS on 3 ISAs** — build/boot/dmesg/
+engagement (x86 2.66B, ARM 508M, RISC-V 352M fast_hits) + x86 Phase G
+same-boot N=3 in the noise floor. perf-results/2026-07-12-series5-hw-matrix/.
+
 **Verification — all green (2026-07-11):**
 - KUnit 55/55 at series tip (UML; +gre_ipv6/gre6_ipv6 corpus); per-commit compile ×11
 - checkpatch --strict: 0 errors, 0 checks; 3 benign warnings (const-ctl_table

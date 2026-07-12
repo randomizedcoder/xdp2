@@ -1,0 +1,13 @@
+ksoftirqd PIDs (L2=pi5-2): 14,23,28,33
+
+ Performance counter stats for process id '14,23,28,33':
+
+           448,755      cycles                                                                
+           347,025      instructions                                                          
+            62,265      branches                                                              
+             2,774      branch-misses                                                         
+           104,920      L1-dcache-loads                                                       
+             4,078      L1-dcache-load-misses                                                 
+
+      60.003846931 seconds time elapsed
+
