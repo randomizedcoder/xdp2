@@ -22,7 +22,7 @@ decisions applied:
   interaction documented in cover + net.rst; deferred items
   acknowledged (worker-level KUnit, runtime-tunable pbe table)
 
-Verification: KUnit 54/54; W=1 clean; checkpatch --strict 0/0/0.
+Verification: KUnit 56/56; W=1 clean; checkpatch --strict 0/0/0.
 Posture per user decision: post the RFC as the vehicle for the policy
 question, with the sample agent as the concrete alternative.
 
@@ -50,7 +50,7 @@ series4-final-v3).
   cover rewritten for the two-series world with explicit open
   questions for the list
 
-**Verification:** KUnit 54/54 at tip; W=1 compile clean; checkpatch
+**Verification:** KUnit 56/56 at tip; W=1 compile clean; checkpatch
 --strict 0/0/0.
 
 **Next:** external-LLM review (payloads staged by the session), triage,

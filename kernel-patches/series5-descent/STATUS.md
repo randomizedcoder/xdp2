@@ -22,7 +22,7 @@ fastpath patches; fill SERIES-A-LORE-LINK before sending.
   header include lands in its own patch
 
 **Verification — all green (2026-07-11):**
-- KUnit 61/61 at tip (UML); config matrix: CONFIG_NET_FOU=n (61/61, UML),
+- KUnit 63/63 at tip (UML; dual-dissector descent checks, inner-v6-label case, GUE plain-only); config matrix: CONFIG_NET_FOU=n (61/61, UML),
   =m (61/61, x86_64), =y (58 pass + 3 skip "fou module owns the flow
   dissector ops", x86_64) × CONFIG_FLOW_DISSECTOR_KUNIT_TEST
 - per-commit compile ×6; checkpatch --strict 0 errors 0 warnings 0 checks

@@ -1,4 +1,4 @@
-From b49ed07ff1efbf20b1806871bff576b477ef808a Mon Sep 17 00:00:00 2001
+From 65bc7713c433632c727c58b61f51155945ef3f1f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 4/6] net: flow_dissector: descend into FOU/GUE
@@ -25,7 +25,11 @@ O(configured fou/gue tunnels), typically a handful -- and runs per
 outer-UDP packet only while a gate is on. Switching the table to a
 hash is a noted follow-up if large tunnel counts appear.
 
-  - GUE is self-describing: guehdr->proto_ctype gives the inner IP
+  - GUE descends only on a plain version-0 data
+header (no flags, no optional fields -- the same plain-header-only
+posture as the other tunnels; flagged GUE such as remote-checksum
+offload keeps the outer keys). GUE is self-describing:
+guehdr->proto_ctype gives the inner IP
     protocol. Only version-0 data messages with an IPIP/IPv6 inner are
     handled.
   - Direct FOU is bare -- the inner protocol is not on the wire, it is
@@ -47,9 +51,9 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  44 +++++
  include/net/flow_dissector.h             |  24 +++
- net/core/flow_dissector.c                | 196 ++++++++++++++++++++++-
+ net/core/flow_dissector.c                | 200 ++++++++++++++++++++++-
  net/ipv4/fou_core.c                      |  49 +++++-
- 4 files changed, 308 insertions(+), 5 deletions(-)
+ 4 files changed, 312 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index 758e3660e614..dfc80e81db36 100644
@@ -144,7 +148,7 @@ index 06b499c251da..181f55fec098 100644
   * occurrences[]: shape seen by the slow path (the eligible-fraction
   * signal while its gate is off); fast_hits[]: fast path ran.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2e0e12d3435d..1fe059b642f6 100644
+index 2e0e12d3435d..0f6471be94ec 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -17,6 +17,8 @@
@@ -230,7 +234,7 @@ index 2e0e12d3435d..1fe059b642f6 100644
  /* Per-cpu, summed on read via /proc/net/flow_dissector_stats.
   * occurrences[]: shape handled by the slow path (with the gate off,
   * the shape's eligible-fraction signal); fast_hits[]: fast body ran;
-@@ -307,6 +369,59 @@ flow_dissect_gtpu_inner_ok(const void *data, int thoff, int hlen,
+@@ -307,6 +369,63 @@ flow_dissect_gtpu_inner_ok(const void *data, int thoff, int hlen,
  	return true;
  }
  
@@ -245,9 +249,13 @@ index 2e0e12d3435d..1fe059b642f6 100644
 +	if (hlen - gue_off < (int)sizeof(*guehdr))
 +		return false;
 +	guehdr = (const struct guehdr *)((const u8 *)data + gue_off);
-+	/* Version-0 data message only; no control, no unknown flags. */
-+	if (guehdr->version != 0 || guehdr->control ||
-+	    (guehdr->flags & ~GUE_FLAGS_ALL))
++	/* Version-0 data message with a plain header only: no control,
++	 * no flags, no optional fields -- the same plain-header-only
++	 * posture as the other descents (flagged GUE, e.g. remote
++	 * checksum offload, keeps the outer keys).
++	 */
++	if (guehdr->version != 0 || guehdr->control || guehdr->flags ||
++	    guehdr->hlen)
 +		return false;
 +	switch (guehdr->proto_ctype) {
 +	case IPPROTO_IPIP:
@@ -290,7 +298,7 @@ index 2e0e12d3435d..1fe059b642f6 100644
  /* Try the UDP-tunnel descents on an outer UDP header at @thoff. A
   * packet the classifiers accept but the inner fast path cannot handle
   * defers, because the slow path will descend into it.
-@@ -335,6 +450,27 @@ flow_dissect_fast_udp_tunnels(const struct sk_buff *skb,
+@@ -335,6 +454,27 @@ flow_dissect_fast_udp_tunnels(const struct sk_buff *skb,
  	    flow_dissect_gtpu_inner_ok(data, thoff, hlen,
  				       &inner_proto, &inner_nhoff))
  		goto descend;
@@ -318,7 +326,7 @@ index 2e0e12d3435d..1fe059b642f6 100644
  	return FAST_TUNNEL_NONE;
  
  descend:
-@@ -2091,6 +2227,27 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2091,6 +2231,27 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  	    flow_dissect_gtpu_inner_ok(data, thoff, hlen,
  				       &inner_proto, &inner_nhoff))
  		goto descend;
@@ -346,7 +354,7 @@ index 2e0e12d3435d..1fe059b642f6 100644
  	return false;
  
  descend:
-@@ -3305,7 +3462,9 @@ static void flow_dissector_udp_inner_recompute(void)
+@@ -3305,7 +3466,9 @@ static void flow_dissector_udp_inner_recompute(void)
  {
  	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
  		   static_key_enabled(&flow_dissector_geneve_inner_key) ||
@@ -357,7 +365,7 @@ index 2e0e12d3435d..1fe059b642f6 100644
  
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
-@@ -3325,6 +3484,27 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
+@@ -3325,6 +3488,27 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -385,7 +393,7 @@ index 2e0e12d3435d..1fe059b642f6 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3396,6 +3576,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3396,6 +3580,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},

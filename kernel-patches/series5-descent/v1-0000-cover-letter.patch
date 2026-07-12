@@ -1,6 +1,6 @@
-From ed6ea81e177303b740d46fffc2374e1e5a94166e Mon Sep 17 00:00:00 2001
+From b20681f83783a4370481834a97709710bb80a422 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 15:24:35 -0700
+Date: Sat, 11 Jul 2026 18:36:47 -0700
 Subject: [PATCH net-next v1 0/6] net: flow_dissector: opt-in UDP-tunnel inner-flow descent
 
 G'day,
@@ -27,9 +27,10 @@ fast-path series it builds on:
 
 The descent keeps that series' byte-identical contract: the slow path
 grows the same gated descent (__skb_flow_dissect_udp_encap()) as the
-fast path (flow_dissect_fast_udp_inner()), sharing one header-validation
-classifier per tunnel (flow_dissect_{vxlan,geneve,gtpu,gue,fou}_inner_ok()),
-so the fast and slow paths never disagree -- the descent subset is
+fast path (flow_dissect_fast_udp_inner()), sharing one
+header-validation classifier per tunnel
+(flow_dissect_{vxlan,geneve,gtpu,gue,fou}_inner_ok()), so the fast
+and slow paths never disagree -- the descent subset is
 defined once, not mirrored by hand. The only behaviour change is versus
 today's non-descending default, and only when an operator turns a gate
 on. The KUnit suite dissects each tunnelled packet through the fast path
@@ -49,10 +50,11 @@ FLOW_DISSECTOR_F_STOP_{AT,BEFORE}_ENCAP -- ECMP multipath hashing
 (fib_multipath dissects for itself and stops at encap by design), xfrm
 policy lookup, tc-flower's own dissects -- keep the outer tuple even
 with a gate on; the descent reaches exactly the skb_get_hash()
-consumers listed above, which pass STOP_AT_FLOW_LABEL only. tc-flower tunnel matching
-(FLOW_DISSECTOR_KEY_ENC_*) is unaffected -- those keys come from decap
-tunnel metadata via skb_flow_dissect_tunnel_info(), not from this
-descent. Descent recursion shares the fast-path series'
+consumers listed above, which pass STOP_AT_FLOW_LABEL only. tc-flower
+tunnel matching (FLOW_DISSECTOR_KEY_ENC_*) is unaffected -- those
+keys come from decap tunnel metadata via
+skb_flow_dissect_tunnel_info(), not from this descent. Descent recursion
+shares the fast-path series'
 MAX_FLOW_DISSECT_HDRS bound; a crafted overlay-in-overlay chain stops
 at the same depth on both paths (covered by a nested-VXLAN KUnit case).
 
@@ -104,10 +106,10 @@ Dave Seddon (6):
  Documentation/admin-guide/sysctl/net.rst    | 117 ++++
  Documentation/networking/flow_dissector.rst |  22 +-
  include/net/flow_dissector.h                |  28 +
- net/core/flow_dissector.c                   | 579 +++++++++++++++-
- net/core/flow_dissector_test.c              | 706 +++++++++++++++++++-
+ net/core/flow_dissector.c                   | 583 +++++++++++++++-
+ net/core/flow_dissector_test.c              | 733 +++++++++++++++++++-
  net/ipv4/fou_core.c                         |  49 +-
- 6 files changed, 1480 insertions(+), 21 deletions(-)
+ 6 files changed, 1511 insertions(+), 21 deletions(-)
 
 
 base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
@@ -120,7 +122,7 @@ prerequisite-patch-id: 240732cb2248fe40e00d4658a4de1bc94976a705
 prerequisite-patch-id: 7629e6864148196d4c0bd7b8bbfb8da351f1ba79
 prerequisite-patch-id: 7be2f1f17714a11aa0a759c81e890a8d90e10b46
 prerequisite-patch-id: d012c8e0a56e65befdebfc64db5ce9d32edf44cb
-prerequisite-patch-id: cb0f99437acffef5fdb6377219e20e7ecbc4dc0f
+prerequisite-patch-id: 254e4c2eeaf04aae3c1070e37aca04de42afad66
 prerequisite-patch-id: 6278823d7b64af3725f4e307eec0cb25492a8169
 -- 
 2.54.0

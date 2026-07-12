@@ -28,7 +28,7 @@ Split rationale (external review r1): patches that change behaviour
 - partial-writes test comment replaced with the structural argument
 
 **Verification — all green (2026-07-11):**
-- KUnit 53/53 at series tip (UML); per-commit compile ×11
+- KUnit 55/55 at series tip (UML; +gre_ipv6/gre6_ipv6 corpus); per-commit compile ×11
 - checkpatch --strict: 0 errors, 0 checks; 3 benign warnings (const-ctl_table
   false positive — register_net_sysctl_sz takes non-const; 2 MAINTAINERS
   new-file notices)

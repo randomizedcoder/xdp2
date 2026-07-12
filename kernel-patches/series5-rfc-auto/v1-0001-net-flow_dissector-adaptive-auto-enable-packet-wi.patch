@@ -1,4 +1,4 @@
-From b14f4d8a9c223b3f841c30f7abfaa00687e5e5a8 Mon Sep 17 00:00:00 2001
+From 4c8e094ee8879a7bed7860718694c12a8894da50 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -609,10 +609,10 @@ index 15fa3301517b..2bf1a9208ec8 100644
  {
  	if (!register_net_sysctl(&init_net, "net/flow_dissector",
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
-index f8f40af3977f..20c9fc0ff83c 100644
+index e0014affda7f..3b5711e7452b 100644
 --- a/net/core/flow_dissector_test.c
 +++ b/net/core/flow_dissector_test.c
-@@ -1005,6 +1005,106 @@ static void fd_fast_suite_exit(struct kunit_suite *suite)
+@@ -1025,6 +1025,106 @@ static void fd_fast_suite_exit(struct kunit_suite *suite)
  	fd_all_gates_off();
  }
  
@@ -719,7 +719,7 @@ index f8f40af3977f..20c9fc0ff83c 100644
  static struct kunit_case fd_fast_test_cases[] = {
  	KUNIT_CASE_PARAM(fd_fast_equiv_test, fd_fast_gen_params),
  	KUNIT_CASE(fd_fast_truncation_test),
-@@ -1017,6 +1117,7 @@ static struct kunit_case fd_fast_test_cases[] = {
+@@ -1037,6 +1137,7 @@ static struct kunit_case fd_fast_test_cases[] = {
  	KUNIT_CASE(fd_fast_skb_shapes_test),
  	KUNIT_CASE(fd_fast_fuzz_test),
  	KUNIT_CASE(fd_fast_gates_off_test),

@@ -1,4 +1,4 @@
-From 9a2ffdc1387ae50fb5777cee2b4abd188e840fbb Mon Sep 17 00:00:00 2001
+From 9c35231dd6bcde51dd2887b9f7dfce338b10b7d2 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sat, 11 Jul 2026 09:20:50 -0700
 Subject: [PATCH net-next v1 5/6] net: flow_dissector: add KUnit tests for the
@@ -13,7 +13,12 @@ dispatcher defers with the entry gates off). Both must produce the
 same flow_keys and flow_hash_from_keys(), and every descent
 equivalence check runs both with and without
 FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL -- the flag skb_get_hash()
-passes on every dissect. Tests keep the summary descent key
+passes on every dissect -- and against both dissectors the
+eligibility gate admits (flow_keys_dissector and the symmetric
+one). An inner IPv6 flow with a non-zero flow label pins the
+interaction of the two: the fast path defers on the label, so both
+legs must take the identical slow descent. Tests keep the summary
+descent key
 (flow_dissector_udp_inner_any_key) in step with the individual gate
 they pin, mirroring what the sysctl handler does.
 
@@ -40,11 +45,11 @@ with CONFIG_NET_FOU=m or =n all cases run against the mock).
 Assisted-by: Claude:claude-fable-5 sparse smatch
 Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
- net/core/flow_dissector_test.c | 706 ++++++++++++++++++++++++++++++++-
- 1 file changed, 705 insertions(+), 1 deletion(-)
+ net/core/flow_dissector_test.c | 733 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 732 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/flow_dissector_test.c b/net/core/flow_dissector_test.c
-index f8f40af3977f..6e8619f7fd6b 100644
+index e0014affda7f..3a59af000daa 100644
 --- a/net/core/flow_dissector_test.c
 +++ b/net/core/flow_dissector_test.c
 @@ -29,14 +29,22 @@
@@ -112,7 +117,7 @@ index f8f40af3977f..6e8619f7fd6b 100644
  /* --- packet builders (network-layer payloads; __skb_flow_dissect is
   * called in raw-data mode with the L3 proto passed explicitly, so no
   * Ethernet header is included) ---
-@@ -945,6 +980,662 @@ static void fd_fast_fuzz_test(struct kunit *test)
+@@ -965,6 +1000,689 @@ static void fd_fast_fuzz_test(struct kunit *test)
  	}
  }
  
@@ -408,6 +413,21 @@ index f8f40af3977f..6e8619f7fd6b 100644
 +	return n + put_inner_ip(buf + n, inner_v6, inner_l4);
 +}
 +
++/* Inner IPv6 with a non-zero flow label: the fast path defers (its
++ * inner IPv6 helper rejects any non-zero label), so both legs descend
++ * via the slow path; equivalence must hold under STOP_AT_FLOW_LABEL
++ * in particular.
++ */
++static int build_vxlan_v6label(u8 *buf)
++{
++	int n = put_outer_ipv4_udp(buf, htons(IANA_VXLAN_UDP_PORT));
++
++	n += put_vxlanhdr(buf + n, VXLAN_HF_VNI);
++	n += put_inner_eth(buf + n, htons(ETH_P_IPV6));
++	n += put_ipv6(buf + n, IPPROTO_TCP, 0x12345);
++	return n + put_ports(buf + n);
++}
++
 +static int build_vxlan_nest(u8 *buf, int levels)
 +{
 +	int n = 0, i;
@@ -423,45 +443,51 @@ index f8f40af3977f..6e8619f7fd6b 100644
 +/* Descent gate pinned on; entry gates off (slow descends) vs on (fast
 + * descends). The two must be byte-identical.
 + */
++static void fd_descent_check_one(struct kunit *test, struct sk_buff *skb,
++				 struct flow_dissector *fd,
++				 unsigned int flags)
++{
++	struct flow_keys keys_slow, keys_fast;
++	bool ret_slow, ret_fast;
++
++	fd_fast_gates_set(false);
++	memset(&keys_slow, 0, sizeof(keys_slow));
++	ret_slow = __skb_flow_dissect(&init_net, skb, fd, &keys_slow,
++				      NULL, 0, 0, 0, flags);
++
++	fd_fast_gates_set(true);
++	memset(&keys_fast, 0, sizeof(keys_fast));
++	ret_fast = __skb_flow_dissect(&init_net, skb, fd, &keys_fast,
++				      NULL, 0, 0, 0, flags);
++	fd_fast_gates_set(false);
++
++	KUNIT_EXPECT_EQ(test, ret_slow, ret_fast);
++	KUNIT_EXPECT_MEMEQ(test, &keys_slow, &keys_fast, sizeof(keys_slow));
++	KUNIT_EXPECT_EQ(test, flow_hash_from_keys(&keys_slow),
++			flow_hash_from_keys(&keys_fast));
++}
++
 +static void fd_descent_check(struct kunit *test, struct sk_buff *skb,
 +			     struct static_key_false *descent_gate)
 +{
 +	/* skb_get_hash() passes STOP_AT_FLOW_LABEL on every dissect, so
-+	 * descent equivalence must hold under it too.
++	 * descent equivalence must hold under it too -- and for both
++	 * dissectors the fast-path eligibility gate admits.
 +	 */
 +	static const unsigned int fd_flags[] = {
 +		0,
 +		FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL,
 +	};
-+	struct flow_keys keys_slow, keys_fast;
-+	bool ret_slow, ret_fast;
-+	int i;
++	struct flow_dissector *fds[] = {
++		&flow_keys_dissector,
++		flow_keys_dissector_symmetric_kunit(),
++	};
++	int d, i;
 +
 +	fd_descent_gate_set(descent_gate, true);
-+
-+	for (i = 0; i < ARRAY_SIZE(fd_flags); i++) {
-+		fd_fast_gates_set(false);
-+		memset(&keys_slow, 0, sizeof(keys_slow));
-+		ret_slow = __skb_flow_dissect(&init_net, skb,
-+					      &flow_keys_dissector,
-+					      &keys_slow, NULL, 0, 0, 0,
-+					      fd_flags[i]);
-+
-+		fd_fast_gates_set(true);
-+		memset(&keys_fast, 0, sizeof(keys_fast));
-+		ret_fast = __skb_flow_dissect(&init_net, skb,
-+					      &flow_keys_dissector,
-+					      &keys_fast, NULL, 0, 0, 0,
-+					      fd_flags[i]);
-+		fd_fast_gates_set(false);
-+
-+		KUNIT_EXPECT_EQ(test, ret_slow, ret_fast);
-+		KUNIT_EXPECT_MEMEQ(test, &keys_slow, &keys_fast,
-+				   sizeof(keys_slow));
-+		KUNIT_EXPECT_EQ(test, flow_hash_from_keys(&keys_slow),
-+				flow_hash_from_keys(&keys_fast));
-+	}
-+
++	for (d = 0; d < ARRAY_SIZE(fds); d++)
++		for (i = 0; i < ARRAY_SIZE(fd_flags); i++)
++			fd_descent_check_one(test, skb, fds[d], fd_flags[i]);
 +	fd_descent_gate_set(descent_gate, false);
 +}
 +
@@ -588,6 +614,12 @@ index f8f40af3977f..6e8619f7fd6b 100644
 +
 +	/* inner ICMP: fast defers (inner not TCP/UDP) -> both run slow. */
 +	len = build_vxlan(buf, false, false, IPPROTO_ICMP);
++	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
++
++	/* Inner IPv6 with non-zero flow label: fast defers, both legs
++	 * take the slow descent -- must match under STOP_AT_FLOW_LABEL.
++	 */
++	len = build_vxlan_v6label(buf);
 +	fd_descent_run(test, buf, len, htons(ETH_P_IP), g);
 +
 +	/* IPv6 underlay: same descent from an IPv6 outer. */
@@ -775,7 +807,7 @@ index f8f40af3977f..6e8619f7fd6b 100644
  /* Gates off: the fast path must never run (counters are the
   * observable). Positive controls: an eligible shape must count with
   * the gates on.
-@@ -991,7 +1682,12 @@ static void fd_fast_gates_off_test(struct kunit *test)
+@@ -1011,7 +1729,12 @@ static void fd_fast_gates_off_test(struct kunit *test)
  
  static void fd_all_gates_off(void)
  {
@@ -788,7 +820,7 @@ index f8f40af3977f..6e8619f7fd6b 100644
  }
  
  static int fd_fast_suite_init(struct kunit_suite *suite)
-@@ -1016,6 +1712,14 @@ static struct kunit_case fd_fast_test_cases[] = {
+@@ -1036,6 +1759,14 @@ static struct kunit_case fd_fast_test_cases[] = {
  	KUNIT_CASE(fd_fast_skb_hwaccel_vlan_qinq_test),
  	KUNIT_CASE(fd_fast_skb_shapes_test),
  	KUNIT_CASE(fd_fast_fuzz_test),
