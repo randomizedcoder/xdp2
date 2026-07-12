@@ -21,6 +21,12 @@ fastpath patches; fill SERIES-A-LORE-LINK before sending.
 - GTP_TPDU reused from net/gtp.h (local duplicate dropped); each tunnel
   header include lands in its own patch
 
+**Hardware matrix (2026-07-12): PASS on 3 ISAs** — descent sysctls
+present/toggling everywhere, fou_inner -ENODEV proven on x86+RISC-V,
+summary key validated (x86 Phase G with descents present-but-off = noise),
+engagement x86 2.76B / ARM 676M / RISC-V 202M.
+perf-results/2026-07-12-series5-hw-matrix/.
+
 **Verification — all green (2026-07-11):**
 - KUnit 63/63 at tip (UML; dual-dissector descent checks, inner-v6-label case, GUE plain-only); config matrix: CONFIG_NET_FOU=n (61/61, UML),
   =m (61/61, x86_64), =y (58 pass + 3 skip "fou module owns the flow

@@ -1,0 +1,13 @@
+ksoftirqd PIDs (L2=bpi-f3): 15,23,28,33,38,43,48,53
+
+ Performance counter stats for process id '15,23,28,33,38,43,48,53':
+
+   125,200,753,051      cycles                                                                
+    63,921,156,709      instructions                                                          
+     6,413,264,320      branches                                                              
+        60,952,120      branch-misses                                                         
+    13,814,182,838      L1-dcache-loads                                                       
+       190,355,692      L1-dcache-load-misses                                                 
+
+      60.021694310 seconds time elapsed
+

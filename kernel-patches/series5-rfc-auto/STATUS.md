@@ -22,6 +22,14 @@ decisions applied:
   interaction documented in cover + net.rst; deferred items
   acknowledged (worker-level KUnit, runtime-tunable pbe table)
 
+Hardware matrix (2026-07-12): the controller's FIRST live runs — 
+autonomous flip on all 3 ISAs (x86 0.5s, ARM 1s, RISC-V <=10s incl.
+per-arch text_poke from the kworker), auto_exclude pin held everywhere,
+unpin re-flip 1s (x86/ARM). Two findings for the thread: controller acts
+on the upper-bound signal when no skb_get_hash consumers exist (live
+evidence for open question 2), and x86 Phase G with auto off = noise.
+perf-results/2026-07-12-series5-hw-matrix/results.md.
+
 Verification: KUnit 56/56; W=1 clean; checkpatch --strict 0/0/0.
 Posture per user decision: post the RFC as the vehicle for the policy
 question, with the sample agent as the concrete alternative.

@@ -1,0 +1,19 @@
+=== pktgen config ===
+  interface:  end0
+  dst:        10.10.42.5 (mac fe:fe:fe:e2:46:d4)
+  dport:      5201 (IPv4/UDP)
+  pkt_size:   64
+  threads:    2
+  rate:       0 pps (delay=0ns)
+  burst:      8
+  clone_skb:  100000
+  queue_map:  none
+  cpu_pin:    none (offset=2)
+  rand_flows: 1 (range=1024-65535)
+
+binding thread kpktgend_0 -> end0@0
+binding thread kpktgend_1 -> end0@1
+
+Starting pktgen... (run "/tmp/xdp2-pktgen-ntuple-template.sh stop" to halt)
+pktgen started on end0 with 2 threads.
+Monitor with: /tmp/xdp2-pktgen-ntuple-template.sh status

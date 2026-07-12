@@ -1,0 +1,1 @@
+warning: unable to download 'https://channels.nixos.org/flake-registry.json': Timeout was reached (28) Resolving timed out after 15000 milliseconds; retrying in 280 ms (attempt 1/5)
