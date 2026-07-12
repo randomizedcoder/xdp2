@@ -24,7 +24,9 @@ fastpath patches; fill SERIES-A-LORE-LINK before sending.
 **Hardware matrix (2026-07-12): PASS on 3 ISAs** — descent sysctls
 present/toggling everywhere, fou_inner -ENODEV proven on x86+RISC-V,
 summary key validated (x86 Phase G with descents present-but-off = noise),
-engagement x86 2.76B / ARM 676M / RISC-V 202M.
+engagement x86 2.76B / ARM 676M / RISC-V 202M / mlx5-25G 6.99B. First
+LIVE VXLAN descent on hardware (mlx5 hp1<->hp3, inner-flow parse on real
+traffic, 63/37->50/50 softirq balance).
 perf-results/2026-07-12-series5-hw-matrix/.
 
 **Verification — all green (2026-07-11):**

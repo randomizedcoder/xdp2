@@ -1,0 +1,17 @@
+ksoftirqd PIDs (L2=hp3): 15,28,35,43,50,57,64,71
+
+ Performance counter stats for process id '15,28,35,43,50,57,64,71':
+
+         1,628,221      cycles                                                                
+         1,172,608      instructions                                                          
+           231,879      branches                                                              
+             5,493      branch-misses                                                         
+           478,638      L1-dcache-loads                                                       
+     <not counted>      L1-dcache-load-misses                                                   (0.00%)
+
+      60.001647625 seconds time elapsed
+
+Some events weren't counted. Try disabling the NMI watchdog:
+	echo 0 > /proc/sys/kernel/nmi_watchdog
+	perf stat ...
+	echo 1 > /proc/sys/kernel/nmi_watchdog
