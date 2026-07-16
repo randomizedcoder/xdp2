@@ -1,4 +1,4 @@
-From 39eeae7f0a8363de50f7f4490eae0611c1ee69a2 Mon Sep 17 00:00:00 2001
+From a9e707dc8fcdafe6ca47b940624ca18b1eb225d9 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:14 -0700
 Subject: [PATCH net-next v1 10/11] net: flow_dissector: add KUnit fast/slow
@@ -117,10 +117,10 @@ index b3fdcb4e355f..b27c69580d2c 100644
  obj-$(CONFIG_DEBUG_NET) += lock_debug.o
  obj-$(CONFIG_FAIL_SKB_REALLOC) += skb_fault_injection.o
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index ef735fbf3b55..15fa3301517b 100644
+index 49b256ce5c1e..aaed4473c211 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -2910,6 +2910,36 @@ EXPORT_SYMBOL(flow_keys_dissector);
+@@ -2909,6 +2909,36 @@ EXPORT_SYMBOL(flow_keys_dissector);
  struct flow_dissector flow_keys_basic_dissector __read_mostly;
  EXPORT_SYMBOL(flow_keys_basic_dissector);
  

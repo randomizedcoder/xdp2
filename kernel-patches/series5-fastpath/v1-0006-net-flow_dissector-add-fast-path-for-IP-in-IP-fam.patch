@@ -1,4 +1,4 @@
-From 50a0db7d0c24e4ef3a7c565642b1b5598e12562c Mon Sep 17 00:00:00 2001
+From be2c1fde5dc4db5789f4ca8caa0e802563855e0e Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:26:01 -0700
 Subject: [PATCH net-next v1 06/11] net: flow_dissector: add fast-path for
@@ -117,7 +117,7 @@ index 8df7821ba769..d9b4b461cd05 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index d48a5fedc437..14192be85def 100644
+index 0ec1a6a1bb0e..abf4fdb0100b 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -50,6 +50,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_pppoe_key);
@@ -140,9 +140,9 @@ index d48a5fedc437..14192be85def 100644
 +					 __be16 inner_eth_proto,
 +					 int inner_nhoff, int hlen);
  
- /* Tentative definition: the dispatcher's eligibility check needs the
-  * file-static flow_keys_dissector_symmetric before its real definition
-@@ -1113,8 +1121,25 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* One of the two dissectors the fast-path eligibility check admits;
+  * defined here so flow_dissect_fast() below can reference it (its keys
+@@ -1114,8 +1122,25 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  		return false;
  
  	if (unlikely(iph->protocol != IPPROTO_TCP &&
@@ -169,7 +169,7 @@ index d48a5fedc437..14192be85def 100644
  
  	thoff = nhoff + (int)sizeof(*iph);
  
-@@ -1202,8 +1227,49 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1203,8 +1228,49 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		return false;
  
  	if (unlikely(iph->nexthdr != IPPROTO_TCP &&
@@ -221,7 +221,7 @@ index d48a5fedc437..14192be85def 100644
  
  	thoff = nhoff + (int)sizeof(*iph);
  
-@@ -1464,6 +1530,44 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
+@@ -1465,6 +1531,44 @@ static bool flow_dissect_fast_mpls(const struct sk_buff *skb,
  	return true;
  }
  
@@ -266,7 +266,7 @@ index d48a5fedc437..14192be85def 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -2682,6 +2786,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2681,6 +2785,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

@@ -1,4 +1,4 @@
-From 76198572f9fe9986ad45ad3c48ef0127821df84e Mon Sep 17 00:00:00 2001
+From 970982d6eeb5fbaead2cc977137570f067b7b1c0 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 7 Jul 2026 17:52:21 -0700
 Subject: [PATCH net-next v1 03/11] net: flow_dissector: add fast-path for VLAN
@@ -114,7 +114,7 @@ index 7d513a6cbb55..4f36f3889a28 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 8bd356ab97a7..f614d92792cf 100644
+index 88b1bd1cc4ca..826314e28db0 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -42,6 +42,10 @@
@@ -128,7 +128,7 @@ index 8bd356ab97a7..f614d92792cf 100644
  
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
-@@ -1241,6 +1245,93 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1242,6 +1246,93 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  	return true;
  }
  
@@ -222,7 +222,7 @@ index 8bd356ab97a7..f614d92792cf 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1269,6 +1360,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1270,6 +1361,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return false;
  
  	switch (proto) {
@@ -236,7 +236,7 @@ index 8bd356ab97a7..f614d92792cf 100644
  	case htons(ETH_P_IP):
  		if (!static_branch_unlikely(&flow_dissector_eth_ip_key))
  			return false;
-@@ -2368,6 +2466,41 @@ static int __init init_default_flow_dissectors(void)
+@@ -2367,6 +2465,41 @@ static int __init init_default_flow_dissectors(void)
  core_initcall(init_default_flow_dissectors);
  
  /* Per-shape fast-path sysctls under /proc/sys/net/flow_dissector/. */
@@ -278,7 +278,7 @@ index 8bd356ab97a7..f614d92792cf 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -2376,6 +2509,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2375,6 +2508,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

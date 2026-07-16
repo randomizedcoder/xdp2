@@ -1,4 +1,4 @@
-From ccb86fdf1041fca0ed9dd5b62ca4032c5f48778c Mon Sep 17 00:00:00 2001
+From e79d9bc8a91e56e655b1c6458f57a86dfa4401bc Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Mon, 15 Jun 2026 09:33:47 -0700
 Subject: [PATCH net-next v1 02/11] net: flow_dissector: opt-in fast-path for
@@ -79,8 +79,8 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
 ---
  Documentation/admin-guide/sysctl/net.rst |  27 ++-
  include/net/flow_dissector.h             |   5 +
- net/core/flow_dissector.c                | 270 +++++++++++++++++++++++
- 3 files changed, 301 insertions(+), 1 deletion(-)
+ net/core/flow_dissector.c                | 273 ++++++++++++++++++++++-
+ 3 files changed, 302 insertions(+), 3 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
 index e586e17fc7a5..aac82169e019 100644
@@ -137,7 +137,7 @@ index ced79dc8e856..7d513a6cbb55 100644
   *
   * This structure is used to hold a digest of the full flow keys. This is a
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b8c59209b460..8bd356ab97a7 100644
+index b8c59209b460..88b1bd1cc4ca 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -37,6 +37,33 @@
@@ -165,22 +165,23 @@ index b8c59209b460..8bd356ab97a7 100644
 +				   const void *data,
 +				   int nhoff, int hlen);
 +
-+/* Tentative definition: the dispatcher's eligibility check needs the
-+ * file-static flow_keys_dissector_symmetric before its real definition
-+ * below.
++/* One of the two dissectors the fast-path eligibility check admits;
++ * defined here so flow_dissect_fast() below can reference it (its keys
++ * and init live near the bottom of the file).
 + */
-+static struct flow_dissector flow_keys_dissector_symmetric;
++static struct flow_dissector flow_keys_dissector_symmetric __read_mostly;
 +
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
  {
-@@ -1043,6 +1070,222 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
+@@ -1043,6 +1070,223 @@ static bool is_pppoe_ses_hdr_valid(const struct pppoe_hdr *hdr)
  	return hdr->ver == 1 && hdr->type == 1 && hdr->code == 0;
  }
  
 +/* The IPv4 fast-path assumes a 20-byte IPv4 header (IHL == 5). The
 + * runtime IHL check below is the dynamic invariant; this static
-+ * assertion is the compile-time one in case struct iphdr ever grows.
++ * assertion is the compile-time one, in the unlikely case struct
++ * iphdr ever grows.
 + */
 +static_assert(sizeof(struct iphdr) == 20);
 +
@@ -397,7 +398,7 @@ index b8c59209b460..8bd356ab97a7 100644
  /**
   * __skb_flow_dissect - extract the flow_keys struct and return it
   * @net: associated network namespace, derived from @skb if NULL
-@@ -1183,6 +1426,13 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1183,6 +1427,13 @@ bool __skb_flow_dissect(const struct net *net,
  		rcu_read_unlock();
  	}
  
@@ -411,7 +412,16 @@ index b8c59209b460..8bd356ab97a7 100644
  	if (dissector_uses_key(flow_dissector,
  			       FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
  		struct flow_dissector_key_eth_addrs *key_eth_addrs;
-@@ -2116,3 +2366,23 @@ static int __init init_default_flow_dissectors(void)
+@@ -1879,8 +2130,6 @@ void make_flow_keys_digest(struct flow_keys_digest *digest,
+ }
+ EXPORT_SYMBOL(make_flow_keys_digest);
+ 
+-static struct flow_dissector flow_keys_dissector_symmetric __read_mostly;
+-
+ u32 __skb_get_hash_symmetric_net(const struct net *net, const struct sk_buff *skb)
+ {
+ 	struct flow_keys keys;
+@@ -2116,3 +2365,23 @@ static int __init init_default_flow_dissectors(void)
  	return 0;
  }
  core_initcall(init_default_flow_dissectors);

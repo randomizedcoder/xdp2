@@ -1,6 +1,6 @@
-From c9908e2809c0fd6c29a0ca054e4d90c3988fe959 Mon Sep 17 00:00:00 2001
+From bc5cec6b16cb4da7c49ca9cb101d58b638f0b074 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 18:36:47 -0700
+Date: Wed, 15 Jul 2026 17:25:46 -0700
 Subject: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -224,7 +224,7 @@ Dave Seddon (11):
   Documentation: networking: add flow_dissector overview and fast-path
     guide
 
- Documentation/admin-guide/sysctl/net.rst    |  158 ++-
+ Documentation/admin-guide/sysctl/net.rst    |  178 ++-
  Documentation/bpf/index.rst                 |    1 +
  Documentation/bpf/prog_flow_dissector.rst   |    2 +
  Documentation/networking/flow_dissector.rst |  133 +++
@@ -234,14 +234,14 @@ Dave Seddon (11):
  kernel/bpf/net_namespace.c                  |   17 +-
  net/Kconfig                                 |   12 +
  net/core/Makefile                           |    1 +
- net/core/flow_dissector.c                   | 1113 ++++++++++++++++++-
- net/core/flow_dissector_test.c              | 1053 ++++++++++++++++++
- 12 files changed, 2479 insertions(+), 47 deletions(-)
+ net/core/flow_dissector.c                   | 1116 ++++++++++++++++++-
+ net/core/flow_dissector_test.c              | 1053 +++++++++++++++++
+ 12 files changed, 2500 insertions(+), 49 deletions(-)
  create mode 100644 Documentation/networking/flow_dissector.rst
  create mode 100644 net/core/flow_dissector_test.c
 
 
-base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
+base-commit: f6f3b36c15ed44de1fbb44e645e4fae8c4a4453e
 -- 
 2.54.0
 

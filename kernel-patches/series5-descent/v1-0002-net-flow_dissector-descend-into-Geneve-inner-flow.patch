@@ -1,4 +1,4 @@
-From e8acbdd4692d7809b89b936c468b92d73df5e885 Mon Sep 17 00:00:00 2001
+From 86031ca9035bee787b4f7dbfbf56eb4625c5c13f Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:12 -0700
 Subject: [PATCH net-next v1 2/6] net: flow_dissector: descend into Geneve
@@ -37,7 +37,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 79 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index fa666b400a16..5e5a9b23ddf3 100644
+index 99256d97ddd9..301163507a63 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -620,6 +620,30 @@ the same descent), so the choice is only *whether* to descend, not
@@ -84,7 +84,7 @@ index 73cc7c92b2ac..e5bed0b4e204 100644
  
  /* Per-shape counters for /proc/net/flow_dissector_stats.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 219384cb9c09..0047443f1c93 100644
+index 3e0676bb95a7..84005ef4a881 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -14,6 +14,7 @@
@@ -156,7 +156,7 @@ index 219384cb9c09..0047443f1c93 100644
  	return FAST_TUNNEL_NONE;
  
  descend:
-@@ -1996,6 +2037,10 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -1997,6 +2038,10 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  	    flow_dissect_vxlan_inner_ok(data, thoff, hlen,
  					&inner_proto, &inner_nhoff))
  		goto descend;
@@ -167,7 +167,7 @@ index 219384cb9c09..0047443f1c93 100644
  	return false;
  
  descend:
-@@ -3208,7 +3253,8 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3207,7 +3252,8 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
   */
  static void flow_dissector_udp_inner_recompute(void)
  {
@@ -177,7 +177,7 @@ index 219384cb9c09..0047443f1c93 100644
  
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
-@@ -3285,6 +3331,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3284,6 +3330,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},

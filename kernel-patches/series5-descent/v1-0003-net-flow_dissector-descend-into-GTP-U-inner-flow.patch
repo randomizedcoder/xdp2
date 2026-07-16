@@ -1,4 +1,4 @@
-From f7565542fb2355073fc9160b7719d33f54c047ff Mon Sep 17 00:00:00 2001
+From bfae5d7e3f5ace05d2fa5b56b2f5de82f9056411 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 3/6] net: flow_dissector: descend into GTP-U inner
@@ -37,7 +37,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  3 files changed, 86 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 5e5a9b23ddf3..758e3660e614 100644
+index 301163507a63..926ba9c814f6 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -644,6 +644,32 @@ with options (opt_len > 0), proto_type other than ETH_P_TEB (rare
@@ -86,7 +86,7 @@ index e5bed0b4e204..06b499c251da 100644
  
  /* Per-shape counters for /proc/net/flow_dissector_stats.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 0047443f1c93..2e0e12d3435d 100644
+index 84005ef4a881..52acaedda409 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -4,6 +4,7 @@
@@ -170,7 +170,7 @@ index 0047443f1c93..2e0e12d3435d 100644
  	return FAST_TUNNEL_NONE;
  
  descend:
-@@ -2041,6 +2087,10 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2042,6 +2088,10 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  	    flow_dissect_geneve_inner_ok(data, thoff, hlen,
  					 &inner_proto, &inner_nhoff))
  		goto descend;
@@ -181,7 +181,7 @@ index 0047443f1c93..2e0e12d3435d 100644
  	return false;
  
  descend:
-@@ -3254,7 +3304,8 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -3253,7 +3303,8 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  static void flow_dissector_udp_inner_recompute(void)
  {
  	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
@@ -191,7 +191,7 @@ index 0047443f1c93..2e0e12d3435d 100644
  
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
-@@ -3338,6 +3389,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3337,6 +3388,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},
