@@ -1,4 +1,4 @@
-From 4c8e094ee8879a7bed7860718694c12a8894da50 Mon Sep 17 00:00:00 2001
+From 38ab9cb0167bd789686b92168167208a8c8c5344 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Fri, 3 Jul 2026 21:31:29 -0700
 Subject: [RFC net-next v1 1/1] net: flow_dissector: adaptive auto-enable
@@ -84,7 +84,7 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  4 files changed, 544 insertions(+), 7 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 2049a493c5c2..744715f971e5 100644
+index 3b55b2528ba2..a7eb726b2a8c 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -597,6 +597,67 @@ additional 4-byte key field read and a write to
@@ -175,8 +175,8 @@ index 2049a493c5c2..744715f971e5 100644
 +and summed on read; the per-packet cost is one increment on the
 +already-hot classification path.
  
- 3. /proc/sys/net/unix - Parameters for Unix domain sockets
- ----------------------------------------------------------
+ An example snapshot, from a host that mostly sees plain Eth + IP traffic
+ with some VLAN, before any gate has been enabled::
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
 index b92aef8039f8..c7168fd3b632 100644
 --- a/include/net/flow_dissector.h
@@ -191,7 +191,7 @@ index b92aef8039f8..c7168fd3b632 100644
  
  /* struct flow_keys_digest:
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 15fa3301517b..2bf1a9208ec8 100644
+index aaed4473c211..dbe1c2fd1e59 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -40,6 +40,7 @@
@@ -250,7 +250,7 @@ index 15fa3301517b..2bf1a9208ec8 100644
  /* @num_hdrs: protocol headers consumed so far (Ethernet = 1, each VLAN
   * tag, each outer IP header). Tunnel descents increment it and defer
   * past MAX_FLOW_DISSECT_HDRS, so both paths stop at the same depth.
-@@ -1956,6 +1998,8 @@ bool __skb_flow_dissect(const struct net *net,
+@@ -1957,6 +1999,8 @@ bool __skb_flow_dissect(const struct net *net,
  	 * and per-shape gating.
  	 */
  	this_cpu_inc(flow_dissector_pcpu_stats.dissects);
@@ -259,7 +259,7 @@ index 15fa3301517b..2bf1a9208ec8 100644
  
  	if (flow_dissect_fast(skb, flow_dissector, target_container,
  			      data, proto, nhoff, hlen, flags))
-@@ -2991,6 +3035,17 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
+@@ -2990,6 +3034,17 @@ static int proc_set_qinq_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -277,7 +277,7 @@ index 15fa3301517b..2bf1a9208ec8 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3041,6 +3096,40 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3040,6 +3095,40 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},
@@ -318,7 +318,7 @@ index 15fa3301517b..2bf1a9208ec8 100644
  };
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
-@@ -3113,6 +3202,289 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
+@@ -3112,6 +3201,289 @@ static int flow_dissector_stats_show(struct seq_file *seq, void *v)
  	return 0;
  }
  

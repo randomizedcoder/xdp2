@@ -1,4 +1,4 @@
-From dbf77554ffdb79efb1fe5f68b08701f2286d62f8 Mon Sep 17 00:00:00 2001
+From 3b95cb6e8cb1d758bf200af72307713760d46467 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Wed, 17 Jun 2026 17:34:40 -0700
 Subject: [PATCH net-next v1 07/11] net: flow_dissector: add byte-identical
@@ -118,7 +118,7 @@ index d9b4b461cd05..ba7226a42d19 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 14192be85def..70512a651cbf 100644
+index abf4fdb0100b..b79c80612dee 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -52,6 +52,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_mpls_key);
@@ -140,9 +140,9 @@ index 14192be85def..70512a651cbf 100644
 +					const void *data,
 +					int nhoff, int hlen);
  
- /* Tentative definition: the dispatcher's eligibility check needs the
-  * file-static flow_keys_dissector_symmetric before its real definition
-@@ -1138,6 +1145,11 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
+ /* One of the two dissectors the fast-path eligibility check admits;
+  * defined here so flow_dissect_fast() below can reference it (its keys
+@@ -1139,6 +1146,11 @@ static bool flow_dissect_fast_ipv4(const struct sk_buff *skb,
  						data, htons(ETH_P_IPV6),
  						nhoff + (int)sizeof(*iph), hlen);
  		}
@@ -154,7 +154,7 @@ index 14192be85def..70512a651cbf 100644
  		return false;
  	}
  
-@@ -1235,8 +1247,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1236,8 +1248,10 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  		bool ipip = static_branch_unlikely(&flow_dissector_ipip_key) &&
  			    (iph->nexthdr == IPPROTO_IPIP ||
  			     iph->nexthdr == IPPROTO_IPV6);
@@ -166,7 +166,7 @@ index 14192be85def..70512a651cbf 100644
  			return false;
  
  		/* Mirror the slow path's outer-IPv6 writes before the
-@@ -1263,11 +1277,15 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
+@@ -1264,11 +1278,15 @@ static bool flow_dissect_fast_ipv6(const struct sk_buff *skb,
  			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
  		}
  
@@ -187,7 +187,7 @@ index 14192be85def..70512a651cbf 100644
  				nhoff + (int)sizeof(*iph), hlen);
  	}
  
-@@ -1568,6 +1586,70 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
+@@ -1569,6 +1587,70 @@ static bool flow_dissect_fast_ipip_inner(const struct sk_buff *skb,
  	return true;
  }
  
@@ -258,7 +258,7 @@ index 14192be85def..70512a651cbf 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -2793,6 +2875,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2792,6 +2874,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

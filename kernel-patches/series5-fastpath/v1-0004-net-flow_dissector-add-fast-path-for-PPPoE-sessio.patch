@@ -1,4 +1,4 @@
-From 987a5f10c010bfd3e21b8ae92243b55cd8c87c34 Mon Sep 17 00:00:00 2001
+From 6036dfd550d8ed0425b2347ad547ac0eed37f863 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:14:54 -0700
 Subject: [PATCH net-next v1 04/11] net: flow_dissector: add fast-path for
@@ -95,7 +95,7 @@ index 4f36f3889a28..df85162959cc 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f614d92792cf..8c38d5a1e245 100644
+index 826314e28db0..21a3f5e0ea05 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -46,6 +46,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_vlan_key);
@@ -107,7 +107,7 @@ index f614d92792cf..8c38d5a1e245 100644
  
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
-@@ -1332,6 +1334,67 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
+@@ -1333,6 +1335,67 @@ static bool flow_dissect_fast_vlan(const struct sk_buff *skb,
  	}
  }
  
@@ -175,7 +175,7 @@ index f614d92792cf..8c38d5a1e245 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1379,6 +1442,12 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1380,6 +1443,12 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_ipv6(skb, flow_dissector,
  					      target_container, data,
  					      nhoff, hlen);
@@ -188,7 +188,7 @@ index f614d92792cf..8c38d5a1e245 100644
  	default:
  		return false;
  	}
-@@ -2523,6 +2592,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2522,6 +2591,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_qinq_key,
  	},

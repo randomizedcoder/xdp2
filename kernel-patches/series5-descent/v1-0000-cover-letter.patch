@@ -1,6 +1,6 @@
-From b20681f83783a4370481834a97709710bb80a422 Mon Sep 17 00:00:00 2001
+From fef892c914045d50947d54cdbddc7ac468b0d393 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
-Date: Sat, 11 Jul 2026 18:36:47 -0700
+Date: Wed, 15 Jul 2026 17:25:46 -0700
 Subject: [PATCH net-next v1 0/6] net: flow_dissector: opt-in UDP-tunnel inner-flow descent
 
 G'day,
@@ -108,20 +108,20 @@ Dave Seddon (6):
  include/net/flow_dissector.h                |  28 +
  net/core/flow_dissector.c                   | 583 +++++++++++++++-
  net/core/flow_dissector_test.c              | 733 +++++++++++++++++++-
- net/ipv4/fou_core.c                         |  49 +-
- 6 files changed, 1511 insertions(+), 21 deletions(-)
+ net/ipv4/fou_core.c                         |  45 +-
+ 6 files changed, 1507 insertions(+), 21 deletions(-)
 
 
-base-commit: b73bc9ca3686b78b642fb35dcc1fdf874ecb74a1
+base-commit: f6f3b36c15ed44de1fbb44e645e4fae8c4a4453e
 prerequisite-patch-id: 63852e4723a24257fed4e0b98c3e980b261923b6
-prerequisite-patch-id: a6978b71025285949bc597bb53cf1e80d51d227e
+prerequisite-patch-id: 97e50ab5551816fd70ef7a9c1b041dda8484121f
 prerequisite-patch-id: c80c1cbdefb93f90166fb9f9703e1690df082fef
 prerequisite-patch-id: ce63f71300d49ffdbe76f1fed38b55b77a038a4a
 prerequisite-patch-id: ebdb07923dc1e6c6838d686eff6fb133085f6cea
-prerequisite-patch-id: 240732cb2248fe40e00d4658a4de1bc94976a705
-prerequisite-patch-id: 7629e6864148196d4c0bd7b8bbfb8da351f1ba79
-prerequisite-patch-id: 7be2f1f17714a11aa0a759c81e890a8d90e10b46
-prerequisite-patch-id: d012c8e0a56e65befdebfc64db5ce9d32edf44cb
+prerequisite-patch-id: 41d27a72baf80c748c0b566db5ee4ae87227eaac
+prerequisite-patch-id: bfff222adba9212cfd8ccb74b6015625bbc09fde
+prerequisite-patch-id: 59f81a899347e17953e8fad6d88494b849c716ad
+prerequisite-patch-id: d974cc1ee2753585ce1c44323bce58db96205a61
 prerequisite-patch-id: 254e4c2eeaf04aae3c1070e37aca04de42afad66
 prerequisite-patch-id: 6278823d7b64af3725f4e307eec0cb25492a8169
 -- 

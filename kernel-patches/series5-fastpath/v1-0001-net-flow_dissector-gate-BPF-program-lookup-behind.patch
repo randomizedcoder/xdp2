@@ -1,4 +1,4 @@
-From 0f85270601a1708da2050100b3e858f485455c4a Mon Sep 17 00:00:00 2001
+From 90a254447313ec53419d43b5168e69c337d180db Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Sun, 5 Jul 2026 17:06:05 -0700
 Subject: [PATCH net-next v1 01/11] net: flow_dissector: gate BPF program

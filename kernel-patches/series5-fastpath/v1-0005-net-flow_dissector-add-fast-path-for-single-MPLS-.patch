@@ -1,4 +1,4 @@
-From 70a82222e3fd0a1eb873b6f1a083af511bfc1b5a Mon Sep 17 00:00:00 2001
+From 2567baa83dc855d9b8f6f64bee8a099065c68f32 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Tue, 16 Jun 2026 13:19:00 -0700
 Subject: [PATCH net-next v1 05/11] net: flow_dissector: add fast-path for
@@ -102,7 +102,7 @@ index df85162959cc..8df7821ba769 100644
  /* struct flow_keys_digest:
   *
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 8c38d5a1e245..d48a5fedc437 100644
+index 21a3f5e0ea05..0ec1a6a1bb0e 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -48,6 +48,8 @@ DEFINE_STATIC_KEY_FALSE(flow_dissector_qinq_key);
@@ -114,7 +114,7 @@ index 8c38d5a1e245..d48a5fedc437 100644
  
  /* IPv4 version/IHL byte of an option-less header: version 4, IHL 5. */
  #define FLOW_DIS_IPV4_VIHL_NOOPT	0x45
-@@ -1395,6 +1397,73 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
+@@ -1396,6 +1398,73 @@ static bool flow_dissect_fast_pppoe(const struct sk_buff *skb,
  				      nhoff, hlen);
  }
  
@@ -188,7 +188,7 @@ index 8c38d5a1e245..d48a5fedc437 100644
  /* Top-level dispatcher: eligibility check (only the two standard
   * dissectors and flag subset) + per-proto switch with per-shape
   * static_branch gating. Each case's branch is a forward not-taken JMP
-@@ -1448,6 +1517,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
+@@ -1449,6 +1518,13 @@ static bool flow_dissect_fast(const struct sk_buff *skb,
  		return flow_dissect_fast_pppoe(skb, flow_dissector,
  					       target_container, data,
  					       nhoff, hlen);
@@ -202,7 +202,7 @@ index 8c38d5a1e245..d48a5fedc437 100644
  	default:
  		return false;
  	}
-@@ -2599,6 +2675,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -2598,6 +2674,13 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_do_static_key,
  	},

@@ -1,5 +1,25 @@
 # series5-descent — status
 
+## SEND-READY (2026-07-15) — rebased onto net-next v7.2-rc2 (f6f3b36c15ed)
+
+All three series rebased from the old b73bc9ca base onto current net-next
+v7.2-rc2 (range-diff: every commit '=' unchanged; clean apply, upstream
+touched none of our files). Patch files regenerated with the correct
+base-commit. KUnit re-run on the rebased tree: A 55 / B 63 / RFC 56.
+net-next confirmed OPEN. This session's polish: humanized covers, two
+external-LLM review rounds + fixes, tentative-definition cleanup (single
+__read_mostly def), fou hook comment terse, iphdr comment reworded,
+/proc/net/flow_dissector_stats example added to the counters patch,
+BPF static-key refcount verified on hp5+hp2 (perf-results/
+2026-07-14-bpf-refcount-verify/), full 3-ISA + mlx5 hardware matrix
+(perf-results/2026-07-12-series5-hw-matrix/, 12/12).
+
+Remaining before the real send: final Cc list (get_maintainer + Tom
+Herbert + Willem de Bruijn), rehearsal send to the runpod test address,
+then send fastpath first; fill its lore link into the descent + RFC
+covers (SERIES-A-LORE-LINK) and send those.
+
+
 ## CURRENT STATE (2026-07-11) — code-complete, fully verified, send after series A
 
 **[PATCH net-next v1 00/6]** "opt-in UDP-tunnel inner-flow descent" —

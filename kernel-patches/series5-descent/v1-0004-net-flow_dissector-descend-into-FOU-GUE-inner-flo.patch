@@ -1,4 +1,4 @@
-From 65bc7713c433632c727c58b61f51155945ef3f1f Mon Sep 17 00:00:00 2001
+From 3ad3d5f67bcd9526da650f9c229dc1983ef2b2f5 Mon Sep 17 00:00:00 2001
 From: Dave Seddon <dave.seddon.ca@gmail.com>
 Date: Thu, 9 Jul 2026 21:29:13 -0700
 Subject: [PATCH net-next v1 4/6] net: flow_dissector: descend into FOU/GUE
@@ -52,11 +52,11 @@ Signed-off-by: Dave Seddon <dave.seddon.ca@gmail.com>
  Documentation/admin-guide/sysctl/net.rst |  44 +++++
  include/net/flow_dissector.h             |  24 +++
  net/core/flow_dissector.c                | 200 ++++++++++++++++++++++-
- net/ipv4/fou_core.c                      |  49 +++++-
- 4 files changed, 312 insertions(+), 5 deletions(-)
+ net/ipv4/fou_core.c                      |  45 ++++-
+ 4 files changed, 308 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/admin-guide/sysctl/net.rst b/Documentation/admin-guide/sysctl/net.rst
-index 758e3660e614..dfc80e81db36 100644
+index 926ba9c814f6..3408540e86ae 100644
 --- a/Documentation/admin-guide/sysctl/net.rst
 +++ b/Documentation/admin-guide/sysctl/net.rst
 @@ -670,6 +670,50 @@ and GTP-U with extension headers / N-PDU / sequence flags set.
@@ -148,7 +148,7 @@ index 06b499c251da..181f55fec098 100644
   * occurrences[]: shape seen by the slow path (the eligible-fraction
   * signal while its gate is off); fast_hits[]: fast path ran.
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 2e0e12d3435d..0f6471be94ec 100644
+index 52acaedda409..b1b231a8471c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -17,6 +17,8 @@
@@ -326,7 +326,7 @@ index 2e0e12d3435d..0f6471be94ec 100644
  	return FAST_TUNNEL_NONE;
  
  descend:
-@@ -2091,6 +2231,27 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
+@@ -2092,6 +2232,27 @@ static bool __skb_flow_dissect_udp_encap(const struct sk_buff *skb,
  	    flow_dissect_gtpu_inner_ok(data, thoff, hlen,
  				       &inner_proto, &inner_nhoff))
  		goto descend;
@@ -354,7 +354,7 @@ index 2e0e12d3435d..0f6471be94ec 100644
  	return false;
  
  descend:
-@@ -3305,7 +3466,9 @@ static void flow_dissector_udp_inner_recompute(void)
+@@ -3304,7 +3465,9 @@ static void flow_dissector_udp_inner_recompute(void)
  {
  	bool any = static_key_enabled(&flow_dissector_vxlan_inner_key) ||
  		   static_key_enabled(&flow_dissector_geneve_inner_key) ||
@@ -365,7 +365,7 @@ index 2e0e12d3435d..0f6471be94ec 100644
  
  	if (any != static_key_enabled(&flow_dissector_udp_inner_any_key)) {
  		if (any)
-@@ -3325,6 +3488,27 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
+@@ -3324,6 +3487,27 @@ static int proc_set_udp_inner_key(const struct ctl_table *table, int write,
  	return ret;
  }
  
@@ -393,7 +393,7 @@ index 2e0e12d3435d..0f6471be94ec 100644
  static struct ctl_table flow_dissector_sysctl_table[] = {
  	{
  		.procname	= "eth_ip",
-@@ -3396,6 +3580,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
+@@ -3395,6 +3579,20 @@ static struct ctl_table flow_dissector_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_set_udp_inner_key,
  	},
@@ -415,7 +415,7 @@ index 2e0e12d3435d..0f6471be94ec 100644
  
  static const char * const flow_dissector_shape_names[FLOW_DISSECTOR_SHAPE__MAX] = {
 diff --git a/net/ipv4/fou_core.c b/net/ipv4/fou_core.c
-index 865bd7205122..85d4058fb1d0 100644
+index 865bd7205122..6d2e289b80ad 100644
 --- a/net/ipv4/fou_core.c
 +++ b/net/ipv4/fou_core.c
 @@ -12,6 +12,7 @@
@@ -435,7 +435,7 @@ index 865bd7205122..85d4058fb1d0 100644
  	mutex_unlock(&fn->fou_lock);
  
  	return 0;
-@@ -558,11 +559,42 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou,
+@@ -558,11 +559,38 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou,
  
  static void fou_release(struct fou *fou)
  {
@@ -445,15 +445,11 @@ index 865bd7205122..85d4058fb1d0 100644
  	kfree_rcu(fou, rcu);
  }
  
-+/* Flow-dissector FOU/GUE inner-descent hook.
-+ *
-+ * FOU/GUE have no well-known UDP port, so the flow dissector cannot
-+ * identify them from the packet alone — it must map the UDP dst port to
-+ * its configured encapsulation. That config lives here, in the
-+ * (tristate) fou module, so the dissector reaches it through a
-+ * registered ops table rather than a direct symbol reference. Called
-+ * under RCU from the packet path; fou_list add/del use the _rcu variants
-+ * above and freed entries are kfree_rcu()'d.
++/* Flow-dissector FOU/GUE inner-descent hook: FOU/GUE have no well-known
++ * UDP port, so the dissector maps the dst port to the encap config kept
++ * here in the (tristate) fou module, reached through a registered ops
++ * table rather than a direct symbol. Called under RCU from the packet
++ * path.
 + */
 +static u16 fou_flow_encap_lookup(const struct net *net, u8 family,
 +				 __be16 port, u8 *protocol)
@@ -479,7 +475,7 @@ index 865bd7205122..85d4058fb1d0 100644
  static int fou_create(struct net *net, struct fou_cfg *cfg,
  		      struct socket **sockp)
  {
-@@ -1255,8 +1287,16 @@ static int __init fou_init(void)
+@@ -1255,8 +1283,16 @@ static int __init fou_init(void)
  		goto kfunc_failed;
  
  	ret = ip_tunnel_encap_add_fou_ops();
@@ -498,7 +494,7 @@ index 865bd7205122..85d4058fb1d0 100644
  
  kfunc_failed:
  	genl_unregister_family(&fou_nl_family);
-@@ -1268,6 +1308,7 @@ static int __init fou_init(void)
+@@ -1268,6 +1304,7 @@ static int __init fou_init(void)
  
  static void __exit fou_fini(void)
  {
