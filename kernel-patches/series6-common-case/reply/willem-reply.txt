@@ -1,0 +1,66 @@
+Subject: Re: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
+In-Reply-To: <willemdebruijn.kernel.c1b4383fb19c@gmail.com>
+
+Thanks Willem -- this is fair, and it pushed the design somewhere better.
+
+You're right on both counts: +2500 LoC is too much for this, and "which
+shapes deserve a fast path" is genuinely subjective -- "why GRE" is exactly
+the right question and I don't have a principled answer for it. So rather
+than defend the breadth, let me split it along the line your review draws.
+
+In-kernel, keep only the one shape that isn't a judgment call: plain
+eth + IPv4/IPv6 + TCP/UDP. It's the dominant shape on essentially every
+machine and it's what skb_get_hash() sees most (RPS/RFS, fq/fq_codel/cake,
+bonding). Reduced to that shape plus the BPF-lookup gating cleanup, the
+series is:
+
+    +377 / -50 across 5 files   (vs +2500 / -49 across 12)
+
+i.e. patch 1 (gate the netns-BPF program lookup behind a static key) and
+patch 2 (the eth+IP+TCP/UDP fast path) only. Everything subjective --
+VLAN/QinQ, PPPoE, MPLS, IP-in-IP, GRE -- plus the per-shape counters and the
+recursion bound they needed, all drop out.
+
+For those subjective shapes I took your point that the BPF dissector already
+offers a linear path -- and in fact the in-tree BPF flow dissector already
+parses VLAN/QinQ/MPLS/IP-in-IP/GRE today; the only gap was PPPoE, which I
+have a small separate patch for. [OPTIONAL, PENDING MEASUREMENT: on top of
+that I have a loadable BPF flow dissector covering the same shapes with
+fixed-offset extractors, byte-identical to the in-tree one over a per-shape
+corpus, at [X ns/pkt vs Y for the in-tree BPF dissector]; it's [N lines].
+Happy to post it separately for anyone who wants the broad coverage without
+any in-kernel maintenance surface.]
+
+On duplication/consistency: scoped to the single in-kernel shape the
+divergence surface is one small extractor pair, default-off behind a static
+key, reachable only by the two standard dissectors. It's byte-identical by
+contract (miss -> slow path). If you'd want that guaranteed in-tree rather
+than argued, I can include a small KUnit test (just this shape) that runs a
+corpus through both paths and memcmp()s the flow_keys.
+
+Would a v2 in that shape -- patch 1 + the eth+IP+TCP/UDP fast path, ~380
+lines, optionally with the scoped equivalence test -- be worth a look?
+
+Thanks again for the time.
+
+Dave
+
+
+======================================================================
+NOT SENT. Draft only. Two placeholders to fill before sending the full
+version -- [X ns/pkt vs Y] and [N lines] -- come from the BPF perf run and
+the eBPF line count (see ../README.md "Send gates").
+======================================================================
+
+
+--- LEAN VARIANT (sendable now, no measurement needed) -----------------
+Replace the bracketed BPF paragraph above with:
+
+For those subjective shapes, the in-tree BPF flow dissector already covers
+them (VLAN/QinQ/MPLS/IP-in-IP/GRE); the one gap, PPPoE, I have a small
+separate patch for.
+
+This still concedes the point, gives the reduced-series line count, and
+defers the broad coverage to the BPF dissector -- without promising a new
+program or needing any new numbers.
+------------------------------------------------------------------------

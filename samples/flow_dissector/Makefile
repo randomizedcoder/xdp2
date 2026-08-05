@@ -55,10 +55,20 @@ CFLAGS+= -std=gnu11 -g -O3 -march=native -flto -fno-plt
 LDFLAGS= -L$(LIBDIR) -Wl,-rpath,$(LIBDIR) -flto
 
 TARGETS= flow_dissector.bpf.o benchmark
-BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o benchmark_bpf \
+# Per-encapsulation loadable menu (kernel-patches/series6-common-case/
+# ebpf-menu.md). Each object = shared fast_flow_inner.h + a thin
+# per-encap _dissect shim; load the one matching your deployment.
+MENU_BPF= fast_bpf/fast_flow_eth_ip.bpf.o fast_bpf/fast_flow_vlan.bpf.o \
+	  fast_bpf/fast_flow_qinq.bpf.o fast_bpf/fast_flow_mpls.bpf.o \
+	  fast_bpf/fast_flow_ipip.bpf.o fast_bpf/fast_flow_gre.bpf.o \
+	  fast_bpf/fast_flow_pppoe.bpf.o \
+	  fast_bpf/fast_flow_vxlan.bpf.o fast_bpf/fast_flow_geneve.bpf.o \
+	  fast_bpf/fast_flow_gtpu.bpf.o
+BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o $(MENU_BPF) benchmark_bpf \
 	     fast_bpf/parity_test
 TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.mono.c parser.mono.ll \
-	  parser.o parser_xdp.o fast_bpf/fast_flow.bpf.o fast_bpf/parity_test
+	  parser.o parser_xdp.o fast_bpf/fast_flow.bpf.o $(MENU_BPF) \
+	  fast_bpf/parity_test
 
 # Header fragments included by parser.c (must trigger rebuild on change)
 PARSER_HDRS= flow_dissector_metadata.h flow_dissector_proto_defs.h \
@@ -152,6 +162,16 @@ bpf_flow.kern.o: kern_bpf/bpf_flow.c
 # xdp2-flow-ebpf fast-path dissector (see super-flow-dissector-plan.md §5).
 # Same clang invocation as bpf_flow.kern.o — stock headers, no CO-RE yet.
 fast_bpf/fast_flow.bpf.o: fast_bpf/fast_flow.bpf.c
+	NIX_HARDENING_ENABLE= $(XCC) -x c -target bpf \
+		-D__TARGET_ARCH_$(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/') \
+		-D__x86_64__ -Wno-unused-command-line-argument \
+		$(XCFLAGS) -c -o $@ $<
+
+# Per-encapsulation menu objects (kernel-patches/series6-common-case/
+# ebpf-menu.md): shared fast_flow_inner.h + a per-encap _dissect shim.
+# Same clang invocation as fast_flow.bpf.o. The pattern matches only
+# fast_flow_<encap>.bpf.o, not fast_flow.bpf.o (no underscore suffix).
+fast_bpf/fast_flow_%.bpf.o: fast_bpf/fast_flow_%.bpf.c fast_bpf/fast_flow_inner.h
 	NIX_HARDENING_ENABLE= $(XCC) -x c -target bpf \
 		-D__TARGET_ARCH_$(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/') \
 		-D__x86_64__ -Wno-unused-command-line-argument \
