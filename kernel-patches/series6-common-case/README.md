@@ -84,8 +84,10 @@ loadable menu — see [`ebpf-menu.md`](ebpf-menu.md). **Ten** objects under
 - [x] Makefile wired (`MENU_BPF` + pattern rule)
 - [x] Benchmark + parity harness built (`bench_menu.sh` + `nix/flow-menu-bench.nix`,
       flake target `flow-menu-bench`); per-shape corpus mapped (all git-tracked)
-- [ ] BPF perf numbers measured — **l2 (x86 Zen2) run pending**; hp5/hp2 down,
-      ARM/RISC-V DUTs unreachable as of 2026-08-05, so cross-ISA waits
+- [x] BPF perf numbers measured — microbench on l2 (Zen2) + hp5 (Zen1): GOLD +
+      ~2–4× faster; **pktgen soak** hp2→hp5 (`perf/2026-08-05-hp2-hp5-soak/`): our
+      object +158 cyc/pkt over the C path vs the in-tree BPF dissector's +4673
+      (~30× cheaper). ARM/RISC-V DUTs still to come for cross-ISA.
 - [ ] Per-shape Gold parity verified (in-tree oracle for eth_ip/vlan/qinq/gre/ipip;
       series2 oracle for PPPoE; C-dissector for MPLS + vxlan/geneve/gtpu)
 - [ ] Reduced v2 (patches 01–02) regenerated
