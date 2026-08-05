@@ -168,21 +168,44 @@ Known scope notes baked into the code (documented in each file):
 - `mpls`: single label (bottom-of-stack set); multi-label defers. Beyond the
   in-tree stub → C-dissector oracle.
 
-## Remaining before the testbed verification run
+## Benchmark harness (built)
 
-1. **Parity** — `parity_test`'s `diff_keys` already compares the inner 5-tuple
-   (addr_proto/ip_proto/thoff/sport/dport/addrs/flow_label), so VLAN/QinQ/GRE/IPIP
-   run against `bpf_flow.kern.o` as-is. Build a **series2-patched oracle**
-   (`bpf_flow_pppoe.kern.o`) for PPPoE. MPLS needs a **C-dissector** oracle (no BPF
-   equivalent) — likely via the userland `libflowdis` path, separate from the BPF
-   matrix.
-2. **Per-shape corpus map** — pair each object with its capture(s):
-   eth_ip→tcp_ipv4/ipv6; vlan→vlan_icmp + a vlan+tcp; qinq→QinQ.pcap;
-   mpls→proto_audit mpls.pcap; ipip→ipip.pcap + 6in4.pcap; gre→gre-sample.pcap;
-   pppoe→proto_audit pppoe.pcap.
-3. **Matrix wiring** — teach `benchmark_matrix.sh` / `nix/flow-dissector-matrix.nix`
-   (and `run-on-host`) about the 7 objects so
-   `nix run .#run-on-host -- hp5 t pi5-2 bpi-f3 -- flow-dissector-matrix-unified`
-   emits per-object ns/pkt across ISAs.
-4. **Run** the cross-ISA matrix + parity gate; fill the completeness table; drop
-   results into `perf/`.
+`samples/flow_dissector/fast_bpf/bench_menu.sh` + `nix/flow-menu-bench.nix`
+(flake target `flow-menu-bench`): builds the 10 objects + `bpf_flow.kern.o` oracle
++ `benchmark_bpf` + `parity_test`, bakes a normalised per-shape corpus, and for
+each object runs `benchmark_bpf` (ns/pkt vs the in-tree dissector) and, where an
+in-tree BPF oracle exists, `parity_test` as a Gold gate. Emits CSV.
+Run: `nix run .#run-on-host -- l2 -- flow-menu-bench` (SSH-as-root), or
+`sudo $(nix build --no-link --print-out-paths .#flow-menu-bench)/bin/xdp2-flow-menu-bench`.
+
+**Per-shape corpus** (all git-tracked; `BPF_PROG_TEST_RUN` repeats each packet, so
+templates suffice for ns/pkt):
+
+| shape | pcap | parity oracle |
+|---|---|---|
+| eth_ip | `data/pcaps/tcp_ipv4.pcap` | in-tree → **GOLD gate** |
+| vlan | `proto_audit/…/vlan.pcap` | in-tree → GOLD gate |
+| qinq | `data/pcaps/QinQ.pcap` | in-tree → GOLD gate |
+| ipip | `data/pcaps/ipip.pcap` | in-tree → GOLD gate |
+| gre | `data/pcaps/gre-sample.pcap` | in-tree → GOLD gate |
+| mpls | `proto_audit/…/mpls.pcap` | C dissector → bench only |
+| pppoe | `proto_audit/…/pppoe.pcap` | series2-patched → bench only (oracle TBD) |
+| vxlan | `data/pcaps/vxlan.pcap` | C dissector → bench only |
+| geneve | `proto_audit/…/geneve.pcap` | C dissector → bench only |
+| gtpu | `proto_audit/…/gtp_u.pcap` | C dissector → bench only |
+
+## Remaining before the full verification run
+
+1. **Host availability** — 2026-08-05: only **l2** (Zen 2, x86) is reachable
+   (root-ssh OK). hp5/hp2 (X710 pair) are down ("No route to host"); the ARM
+   (pi5-2) / RISC-V (bpi-f3) DUTs and Intel `t` were not reachable. So the first
+   real run is x86-only on l2; the cross-ISA matrix waits on the other DUTs.
+2. **Series2-patched PPPoE oracle** — build `bpf_flow_pppoe.kern.o` (apply
+   `series2-bpf-pppoe` to `kern_bpf/bpf_flow.c`) and wire it as PPPoE's parity
+   oracle so PPPoE gets a Gold gate too.
+3. **C-dissector parity for mpls + vxlan/geneve/gtpu** — these descend beyond any
+   BPF oracle; validate against the (descent-/patch-)modified C dissector via the
+   userland `libflowdis` path or a KUnit-style skb harness. Bench numbers don't
+   need it; correctness does.
+4. **Run** `flow-menu-bench` on l2 now; extend to hp5/pi5-2/bpi-f3 when up; drop
+   CSVs into `perf/` and fill the completeness table (ns/pkt + Gold per shape/ISA).

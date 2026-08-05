@@ -82,7 +82,11 @@ loadable menu — see [`ebpf-menu.md`](ebpf-menu.md). **Ten** objects under
 - [x] eBPF menu written + compiling clean (eth_ip, vlan, qinq, mpls, ipip, gre,
       pppoe, + UDP-tunnel descent: vxlan, geneve, gtpu)
 - [x] Makefile wired (`MENU_BPF` + pattern rule)
-- [ ] BPF perf numbers measured (cross-ISA testbed matrix)
-- [ ] Per-shape Gold parity verified (series2 oracle for PPPoE; C-dissector for MPLS)
+- [x] Benchmark + parity harness built (`bench_menu.sh` + `nix/flow-menu-bench.nix`,
+      flake target `flow-menu-bench`); per-shape corpus mapped (all git-tracked)
+- [ ] BPF perf numbers measured — **l2 (x86 Zen2) run pending**; hp5/hp2 down,
+      ARM/RISC-V DUTs unreachable as of 2026-08-05, so cross-ISA waits
+- [ ] Per-shape Gold parity verified (in-tree oracle for eth_ip/vlan/qinq/gre/ipip;
+      series2 oracle for PPPoE; C-dissector for MPLS + vxlan/geneve/gtpu)
 - [ ] Reduced v2 (patches 01–02) regenerated
 - [ ] Reply sent (`git send-email --in-reply-to=<willem-msg-id>`)
