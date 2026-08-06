@@ -63,7 +63,8 @@ MENU_BPF= fast_bpf/fast_flow_eth_ip.bpf.o fast_bpf/fast_flow_vlan.bpf.o \
 	  fast_bpf/fast_flow_ipip.bpf.o fast_bpf/fast_flow_gre.bpf.o \
 	  fast_bpf/fast_flow_pppoe.bpf.o \
 	  fast_bpf/fast_flow_vxlan.bpf.o fast_bpf/fast_flow_geneve.bpf.o \
-	  fast_bpf/fast_flow_gtpu.bpf.o
+	  fast_bpf/fast_flow_gtpu.bpf.o \
+	  fast_bpf/fast_flow_gue.bpf.o fast_bpf/fast_flow_fou.bpf.o
 BPF_TARGETS= bpf_flow.kern.o fast_bpf/fast_flow.bpf.o $(MENU_BPF) benchmark_bpf \
 	     fast_bpf/parity_test
 TMPFILES= parser.xdp.h parser.p.c parser.p.h parser.mono.c parser.mono.ll \

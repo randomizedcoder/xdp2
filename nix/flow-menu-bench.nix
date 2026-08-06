@@ -27,7 +27,7 @@ let
   srcRoot = ../samples/flow_dissector;
 
   shapes = [ "eth_ip" "vlan" "qinq" "mpls" "ipip" "gre" "pppoe"
-             "vxlan" "geneve" "gtpu" ];
+             "vxlan" "geneve" "gtpu" "gue" "fou" ];
   menuObjs = lib.concatMapStringsSep " "
     (s: "fast_bpf/fast_flow_${s}.bpf.o") shapes;
 
@@ -45,6 +45,8 @@ let
     cp ${../data/pcaps/vxlan.pcap}                           $out/vxlan.pcap
     cp ${../samples/proto_audit/pcap_templates/geneve.pcap}  $out/geneve.pcap
     cp ${../samples/proto_audit/pcap_templates/gtp_u.pcap}   $out/gtpu.pcap
+    cp ${../data/pcaps/gue.pcap}                             $out/gue.pcap
+    cp ${../data/pcaps/fou.pcap}                             $out/fou.pcap
   '';
 
   artifacts = pkgs.stdenv.mkDerivation {

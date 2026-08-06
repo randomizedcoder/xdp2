@@ -43,6 +43,8 @@ MENU=(
   "vxlan|vxlan.pcap|cdis"
   "geneve|geneve.pcap|cdis"
   "gtpu|gtpu.pcap|cdis"
+  "gue|gue.pcap|cdis"
+  "fou|fou.pcap|cdis"
 )
 
 nspkt() { grep -oE '[0-9]+ ns/pkt' <<<"${1:-}" | head -1 | grep -oE '[0-9]+' || true; }

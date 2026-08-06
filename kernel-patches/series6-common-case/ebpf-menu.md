@@ -31,7 +31,20 @@ deployment uses. The kernel makes no shape choice at all.
 | `fast_flow_vxlan.bpf.o` | above + VXLAN inner-flow descent | descent-patched C dissector |
 | `fast_flow_geneve.bpf.o` | above + Geneve inner-flow descent | descent-patched C dissector |
 | `fast_flow_gtpu.bpf.o` | above + GTP-U inner-flow descent | descent-patched C dissector |
-| _(FOU/GUE — deferred: no well-known port; needs config/FOU table)_ | | |
+| `fast_flow_gue.bpf.o` | above + GUE inner-flow descent (configured port) | descent-patched C dissector |
+| `fast_flow_fou.bpf.o` | above + direct-FOU inner-flow descent (configured port) | descent-patched C dissector |
+
+The full menu is **12 objects** = the 7 fast-path shapes (series5-fastpath) + the 5
+UDP-tunnel descents (series5-descent: vxlan, geneve, gtpu, gue, fou), i.e. one
+loadable eBPF object for every shape in both posted kernel series.
+
+**FOU/GUE note:** neither has a well-known UDP port — in-kernel the `fou` module's
+per-netns table maps a port to the tunnel. A standalone BPF object can't reach
+that table, so both take the UDP port as a load-time policy choice (`GUE_UDP_PORT`
+/ `FOU_UDP_PORT` `#define`). GUE is self-describing (`guehdr.proto_ctype` → inner
+proto); direct FOU is bare (inner protocol not on the wire), so `fast_flow_fou`
+handles the common IP-carrying case by inferring the inner IP version from the
+first nibble (like GTP-U).
 
 **PPPoE oracle nuance:** the in-tree BPF dissector drops PPPoE (the gap
 `../series2-bpf-pppoe/` closes), so PPPoE parity must run against the
