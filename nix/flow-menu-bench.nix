@@ -60,13 +60,23 @@ let
 
     hardeningDisable = [ "all" ];
     NIX_HARDENING_ENABLE = "";
-    NIX_ENFORCE_NO_NATIVE = "";
+    # The corpus pcaps are tiny (<=40 pkts); shrink the loader's up-front
+    # calloc(MAX_PACKETS, 64 KiB) from ~32 GiB so it fits the 8 GB ARM/RISC-V
+    # boards. Applied via the cc-wrapper to every TU (pcap_loader.h guards
+    # MAX_PACKETS with #ifndef).
+    NIX_CFLAGS_COMPILE = "-DMAX_PACKETS=4096";
+    # Do NOT set NIX_ENFORCE_NO_NATIVE="" here: that keeps -march=native,
+    # which breaks cross-compilation (host arch flags on the target) and is
+    # irrelevant to the measurement — ns/pkt comes from the kernel-reported
+    # BPF_PROG_TEST_RUN duration, not from benchmark_bpf's own codegen.
 
     buildPhase = ''
       runHook preBuild
       export PATH="${xdp2}/bin:$PATH"
 
-      make XDP2DIR=${xdp2} XDP2_SRCDIR=${xdp2} \
+      # CC=$CC so benchmark_bpf / parity_test use the (possibly cross)
+      # stdenv compiler; the BPF objects always use clang -target bpf (XCC).
+      make XDP2DIR=${xdp2} XDP2_SRCDIR=${xdp2} CC=$CC \
            benchmark_bpf fast_bpf/parity_test bpf_flow.kern.o ${menuObjs}
 
       for f in benchmark_bpf fast_bpf/parity_test bpf_flow.kern.o \

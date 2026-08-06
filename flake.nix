@@ -1658,6 +1658,21 @@
                 prebuiltSamples = prebuiltSamplesAarch64;
               };
             in {
+              # Cross-compiled per-encapsulation menu benchmark harness
+              # (built on x86_64, runs on the target). See
+              # nix/flow-menu-bench.nix and
+              # kernel-patches/series6-common-case/ebpf-menu.md.
+              flow-menu-bench-riscv64 = import ./nix/flow-menu-bench.nix {
+                pkgs = pkgsCrossRiscv;
+                xdp2 = xdp2-debug-riscv64;
+                llvmPackages = llvmConfig.llvmPackages;
+              };
+              flow-menu-bench-aarch64 = import ./nix/flow-menu-bench.nix {
+                pkgs = pkgsCrossAarch64;
+                xdp2 = xdp2-debug-aarch64;
+                llvmPackages = llvmConfig.llvmPackages;
+              };
+
               # Cross-compiled xdp2 for RISC-V
               xdp2-debug-riscv64 = xdp2-debug-riscv64;
 
