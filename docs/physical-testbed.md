@@ -75,6 +75,31 @@ the `BPF_PROG_TEST_RUN` paths in the flow-dissector matrix), the testbed
 still gives a deterministic, ungoverned, no-other-workload baseline that
 makes results comparable across runs.
 
+### Fleet at a glance
+
+Every host, with the section that details it. The three x86 back-to-back
+pairs carry the live-traffic (pktgen/AF_XDP) categories; the single hosts and
+the ARM/RISC-V boards contribute CPU/uarch data points (e.g. the
+`flow-menu-bench` `BPF_PROG_TEST_RUN` microbench and the cross-ISA
+flow_dissector coverage).
+
+| Host | CPU / uarch | ISA | NIC | Role | § |
+| --- | --- | --- | --- | --- | --- |
+| hp2 ↔ hp5 | Ryzen 5 PRO 2400G (Zen 1) | x86_64 | Intel X710 10 GbE | pair: generator ↔ DUT | 2–13 |
+| hp1 ↔ hp3 | Ryzen 5 PRO 2400G (Zen 1) | x86_64 | Mellanox CX-4 Lx 25 GbE | pair: generator ↔ DUT | 14 |
+| l ↔ l2 | Threadripper PRO 3945WX (Zen 2) | x86_64 | Mellanox CX-4 Lx 25 GbE | pair: generator ↔ DUT | 21 |
+| chromebox1 | Celeron 2955U (Haswell-ULT) | x86_64 | 1 GbE (mgmt only) | single — Intel entry uarch | 16 |
+| t | Core i9-10885H (Comet Lake) | x86_64 | WiFi only | single — Intel high-end uarch | 17 |
+| **pi4-1** | **BCM2711, Cortex-A72 (OoO)** | **aarch64** | onboard 1 GbE | single — ARM A72 uarch | **19** |
+| **pi3-1** | **BCM2837, Cortex-A53 (in-order)** | **aarch64** | 100 Mbit (USB-bridged) | single — ARM A53 uarch, 1 GiB RAM | **20** |
+| pi5-1 ↔ pi5-2 | BCM2712, Cortex-A76 (OoO) | aarch64 | onboard 1 GbE (switched) | pair / ARM A76 DUT | 18 |
+| pi5-1 → bpi-f3 | SpacemiT K1, X60 (rv64gcv) | riscv64 | onboard 1 GbE (switched) | RISC-V DUT | 22 |
+
+The ARM boards span a full dispatch ladder — **Cortex-A53 (in-order, pi3-1) →
+A72 (OoO 3-wide, pi4-1) → A76 (OoO 4-wide, pi5-1/2)** — which is why the Pi 3
+and Pi 4 stay in the fleet even without a peer link: they are the low-end ARM
+uarch data points reviewers ask about (embedded/mid-range networking gear).
+
 ---
 
 ## 2. Hardware summary
