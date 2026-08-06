@@ -20,24 +20,32 @@ x86 uarches tested (`parity_test` exit 0, `bpf_flow_keys` memcmp over the
 corpus). mpls/pppoe/vxlan/geneve/gtpu need their own oracles (series2-patched /
 descent-patched C dissector — see `ebpf-menu.md`); Gold gates for those are TODO.
 
-## Microbench — ns/pkt (lower is better)
+## Microbench — ns/pkt, fast / in-tree (lower is better)
 
-| shape | l2 fast/in-tree (Zen 2) | hp5 fast/in-tree (Zen 1) | speedup | parity |
+| shape | l2 (x86 Zen 2) | hp5 (x86 Zen 1) | pi5-2 (ARM A76) | parity |
 |---|---|---|---|---|
-| eth_ip | 22 / 64 | 23 / 82 | ~2–3× | GOLD |
-| vlan   | 16 / 60 | 21 / 77 | ~3–4× | GOLD |
-| qinq   | 16 / 58 | 18 / 79 | ~3–4× | GOLD |
-| ipip   | 23 / 70 | 25 / 87 | ~3× | GOLD |
-| gre    | 25 / 76 | 31 / 92 | ~3× | GOLD |
-| mpls   | 17 / 56 | 21 / 71 | — (in-tree stub) | c-dissector |
-| pppoe  | 16 / 54 | 18 / 70 | — (in-tree drops) | series2 |
-| vxlan  | 24 / 62 | 27 / 84 | descends³ | c-dissector |
-| geneve | 24 / 64 | 26 / 86 | descends³ | c-dissector |
-| gtpu   | 25 / 64 | 28 / 81 | descends³ | c-dissector |
+| eth_ip | 22 / 64 | 23 / 82 | 42 / 123 | GOLD |
+| vlan   | 16 / 60 | 21 / 77 | 36 / 111 | GOLD |
+| qinq   | 16 / 58 | 18 / 79 | 35 / 146 | GOLD |
+| ipip   | 23 / 70 | 25 / 87 | 49 / 163 | GOLD |
+| gre    | 25 / 76 | 31 / 92 | 64 / 197 | GOLD |
+| mpls   | 17 / 56 | 21 / 71 | 38 / 154 | c-dissector |
+| pppoe  | 16 / 54 | 18 / 70 | 36 / 136 | series2 |
+| vxlan  | 24 / 62 | 27 / 84 | 57 / 157 | c-dissector³ |
+| geneve | 24 / 64 | 26 / 86 | 59 / 137 | c-dissector³ |
+| gtpu   | 25 / 64 | 28 / 81 | 56 / 167 | c-dissector³ |
 
 ³ descends to the inner flow the in-tree dissector never reaches, still faster.
-Every menu object is ~2–4× faster than the in-tree BPF dissector; the win is
-larger on the older Zen 1 core (more graph-walk cost to skip).
+Every menu object is ~2–4× faster than the in-tree BPF dissector across **two x86
+uarches + ARM Cortex-A76**, GOLD parity on all five in-tree-oracle shapes on every
+one. The ARM/RISC-V builds are cross-compiled on `l` (flake `pkgsCross*`, no qemu).
+
+**RISC-V (bpi-f3):** cross build succeeds, but the board's kernel (7.2.0-rc1
+riscv, `CONFIG_BPF_JIT` absent) rejects *every* flow_dissector BPF program at
+verify time — including the kernel's own `bpf_flow.kern.o`, and the x86-built
+copy of our object. A DUT-kernel limitation, not our bytecode; needs a bpi-f3
+kernel rebuilt with `CONFIG_BPF_JIT=y`. See
+`perf/2026-08-05-bpi-f3-riscv/results.md`.
 
 ## Soak — cyc/pkt (hp2→hp5 X710, Zen 1, net-next 7.2.0-rc1, 3 runs)
 
@@ -68,10 +76,11 @@ Our object is nearly free over the kernel's own C dissector.
 
 ## Coverage / TODO
 
-- [x] Parity GOLD: eth_ip, vlan, qinq, ipip, gre (x86 ×2 uarch)
-- [x] Microbench ns/pkt: all 10 shapes, x86 Zen 2 + Zen 1
+- [x] Parity GOLD: eth_ip, vlan, qinq, ipip, gre — x86 Zen 2, x86 Zen 1, ARM A76
+- [x] Microbench ns/pkt: all 10 shapes on x86 Zen 2 + Zen 1 + ARM Cortex-A76
 - [x] Soak cyc/pkt: eth_ip, hp2→hp5
-- [ ] Cross-ISA microbench: ARM Cortex-A76 (pi5-2), RISC-V X60 (bpi-f3)
+- [~] Cross-ISA: ARM done; **RISC-V blocked** by bpi-f3 kernel (no CONFIG_BPF_JIT;
+      rejects all flow_dissector BPF progs incl. in-tree) — needs a kernel rebuild
 - [ ] Soak on the mlx5 pair (hp1→hp3) — second NIC/pair confirmation
 - [ ] Descent hash-distribution demo (vxlan/gtpu) via encap-pcap replay
 - [ ] Gold gates: mpls (C dissector), pppoe (series2), tunnels (descent-patched C)
