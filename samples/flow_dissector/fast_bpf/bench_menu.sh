@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 #
-# bench_menu.sh — benchmark + parity for the per-encapsulation
+# bench_menu.sh — benchmark + Gold gate for the per-encapsulation
 # xdp2-flow-ebpf menu (kernel-patches/series6-common-case/ebpf-menu.md).
 #
-# For each menu object it runs benchmark_bpf (BPF_PROG_TEST_RUN, needs
-# root / CAP_BPF) on that shape's corpus pcap to get ns/pkt, runs the
-# in-tree bpf_flow.kern.o oracle on the same pcap for comparison, and —
-# where an in-tree BPF oracle exists — runs parity_test as a Gold gate.
+# Per menu object:
+#   - benchmark_bpf (BPF_PROG_TEST_RUN, needs root/CAP_BPF) on that shape's
+#     corpus pcap -> ns/pkt, vs the in-tree bpf_flow.kern.o on the same pcap;
+#   - GOLD gate: parity_test -D dumps the extracted inner 5-tuple per hit;
+#     diff against the golden CSV (ground-truth-by-construction — the corpus
+#     pcaps are synthetic with known inner flows, so the golden IS the correct
+#     answer). GOLD = every hit matches and all packets hit; FAIL otherwise.
 #
-# Emits a CSV (shape,pcap,fast_ns,intree_ns,parity) to stdout, and a
-# human table to stderr. Exit non-zero if any Gold parity gate fails.
+# Emits CSV (shape,pcap,fast_ns,intree_ns,parity) to stdout, a table to
+# stderr. Exit non-zero if any Gold gate fails.
 #
-# Paths come from the environment (baked by nix/flow-menu-bench.nix) with
-# in-tree defaults so it also runs from a `make bpf` working tree:
-#   BENCHMARK_BPF  path to benchmark_bpf
-#   PARITY_TEST    path to parity_test
-#   OBJDIR         dir with fast_flow_<shape>.bpf.o + bpf_flow.kern.o
-#   CORPUS         dir with <shape>.pcap
-#   BPF_REPEAT     BPF_PROG_TEST_RUN repeat count (default 1000)
+# Paths from the environment (baked by nix/flow-menu-bench.nix), in-tree
+# defaults otherwise:
+#   BENCHMARK_BPF  PARITY_TEST  OBJDIR (fast_flow_<shape>.bpf.o + bpf_flow.kern.o)
+#   CORPUS (<shape>.pcap + gold/<shape>.csv)   BPF_REPEAT (default 1000)
 
 set -euo pipefail
 
@@ -28,66 +28,47 @@ OBJDIR="${OBJDIR:-$here}"
 CORPUS="${CORPUS:-$here/corpus}"
 BPF_REPEAT="${BPF_REPEAT:-1000}"
 ORACLE="$OBJDIR/bpf_flow.kern.o"
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
-# shape | corpus basename | oracle kind (intree | series2 | cdis)
-# cdis  = descent-patched/single-label C dissector: no BPF oracle, bench only.
-# series2 = needs the series2-patched bpf_flow oracle (built separately).
-MENU=(
-  "eth_ip|eth_ip.pcap|intree"
-  "vlan|vlan.pcap|intree"
-  "qinq|qinq.pcap|intree"
-  "ipip|ipip.pcap|intree"
-  "gre|gre.pcap|intree"
-  "mpls|mpls.pcap|cdis"
-  "pppoe|pppoe.pcap|series2"
-  "vxlan|vxlan.pcap|cdis"
-  "geneve|geneve.pcap|cdis"
-  "gtpu|gtpu.pcap|cdis"
-  "gue|gue.pcap|cdis"
-  "fou|fou.pcap|cdis"
-)
+SHAPES="eth_ip vlan qinq mpls ipip gre pppoe vxlan geneve gtpu gue fou"
 
 nspkt() { grep -oE '[0-9]+ ns/pkt' <<<"${1:-}" | head -1 | grep -oE '[0-9]+' || true; }
-
-bench() { # label objpath pcap -> ns/pkt (or empty)
+bench() { # label objpath pcap -> ns/pkt
   local out
   out=$("$BENCHMARK_BPF" -p -n "$BPF_REPEAT" -l "$1" -b "$2" "$3" 2>/dev/null) || return 0
   nspkt "$out"
 }
 
 echo "shape,pcap,fast_ns_pkt,intree_ns_pkt,parity"
-printf '%-8s %-14s %10s %10s  %s\n' shape pcap fast_ns intree_ns parity >&2
+printf '%-8s %-12s %8s %9s  %s\n' shape pcap fast_ns intree_ns parity >&2
 
 fail=0
-for row in "${MENU[@]}"; do
-  IFS='|' read -r shape pcap kind <<<"$row"
+for shape in $SHAPES; do
   obj="$OBJDIR/fast_flow_${shape}.bpf.o"
-  cap="$CORPUS/$pcap"
+  cap="$CORPUS/${shape}.pcap"
+  gold="$CORPUS/gold/${shape}.csv"
   if [[ ! -f "$obj" || ! -f "$cap" ]]; then
-    printf '%-8s %-14s %10s %10s  %s\n' "$shape" "$pcap" "-" "-" "MISSING(obj/pcap)" >&2
-    echo "$shape,$pcap,,,MISSING"
-    continue
+    printf '%-8s %-12s %8s %9s  %s\n' "$shape" "$shape.pcap" - - "MISSING" >&2
+    echo "$shape,$shape.pcap,,,MISSING"; continue
   fi
 
   fast_ns=$(bench "fast_$shape" "$obj" "$cap")
   intree_ns=$(bench "intree" "$ORACLE" "$cap")
 
-  parity="SKIP"
-  if [[ "$kind" == "intree" ]]; then
-    if "$PARITY_TEST" -f "$obj" -r "$ORACLE" "$cap" >/dev/null 2>&1; then
+  # GOLD gate: our extracted inner 5-tuple must equal the golden, for every packet.
+  parity="SKIP(no-gold)"
+  if [[ -f "$gold" ]]; then
+    "$PARITY_TEST" -D -f "$obj" "$cap" 2>/dev/null | sort > "$TMP/our"
+    sort "$gold" > "$TMP/gold"
+    if diff -q "$TMP/gold" "$TMP/our" >/dev/null 2>&1; then
       parity="GOLD"
     else
       parity="FAIL"; fail=1
     fi
-  elif [[ "$kind" == "series2" ]]; then
-    parity="SKIP(series2-oracle)"
-  else
-    parity="SKIP(c-dissector)"
   fi
 
-  printf '%-8s %-14s %10s %10s  %s\n' \
-    "$shape" "$pcap" "${fast_ns:-?}" "${intree_ns:-?}" "$parity" >&2
-  echo "$shape,$pcap,${fast_ns:-},${intree_ns:-},$parity"
+  printf '%-8s %-12s %8s %9s  %s\n' "$shape" "$shape.pcap" "${fast_ns:-?}" "${intree_ns:-?}" "$parity" >&2
+  echo "$shape,$shape.pcap,${fast_ns:-},${intree_ns:-},$parity"
 done
 
 exit "$fail"

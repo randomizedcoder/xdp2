@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
@@ -179,12 +180,36 @@ static int diff_keys(const struct bpf_flow_keys *fast,
 static void usage(const char *prog)
 {
 	fprintf(stderr,
-		"Usage: %s -f <fast.o> -r <oracle.o> [-v] <pcap_file>\n"
+		"Usage: %s -f <fast.o> [-r <oracle.o>] [-v] [-D] <pcap_file>\n"
 		"\n"
 		"  -f  Fast-path BPF .o (xdp2-flow-ebpf)\n"
-		"  -r  Oracle BPF .o (upstream bpf_flow.kern.o by default)\n"
-		"  -v  Verbose (print each mismatch)\n", prog);
+		"  -r  Oracle BPF .o (required unless -D)\n"
+		"  -v  Verbose (print each mismatch)\n"
+		"  -D  Dump mode: no oracle; print the extracted inner 5-tuple as\n"
+		"      CSV (pkt,src,dst,ip_proto,sport,dport) per fast-path hit, for\n"
+		"      diffing against an independently-computed golden CSV. This is\n"
+		"      the Gold gate for shapes with no in-tree BPF oracle (mpls,\n"
+		"      the UDP-tunnel descents).\n", prog);
 	exit(2);
+}
+
+/* Dump one fast-path hit's flow-identity 5-tuple as CSV. Offsets
+ * (nhoff/thoff) are deliberately excluded — they are packet-relative and
+ * differ between an encapsulated packet and its bare inner form; the flow
+ * identity is what a hash consumer sees. */
+static void print_tuple(int idx, const struct bpf_flow_keys *k)
+{
+	char s[INET6_ADDRSTRLEN] = "-", d[INET6_ADDRSTRLEN] = "-";
+
+	if (k->addr_proto == ETH_P_IP) {
+		inet_ntop(AF_INET, &k->ipv4_src, s, sizeof(s));
+		inet_ntop(AF_INET, &k->ipv4_dst, d, sizeof(d));
+	} else if (k->addr_proto == ETH_P_IPV6) {
+		inet_ntop(AF_INET6, &k->ipv6_src, s, sizeof(s));
+		inet_ntop(AF_INET6, &k->ipv6_dst, d, sizeof(d));
+	}
+	printf("%d,%s,%s,%u,%u,%u\n", idx, s, d, k->ip_proto,
+	       ntohs(k->sport), ntohs(k->dport));
 }
 
 int main(int argc, char *argv[])
@@ -192,25 +217,26 @@ int main(int argc, char *argv[])
 	const char *fast_path = NULL, *oracle_path = NULL;
 	struct bpf_ctx fast = {}, oracle = {};
 	struct stored_packet *packets;
-	int verbose = 0;
+	int verbose = 0, dump = 0;
 	int npkts, fast_hit = 0, fast_miss = 0, mismatches = 0;
 	int run_err = 0;
 	int c;
 
-	while ((c = getopt(argc, argv, "f:r:v")) != -1) {
+	while ((c = getopt(argc, argv, "f:r:vD")) != -1) {
 		switch (c) {
 		case 'f': fast_path = optarg; break;
 		case 'r': oracle_path = optarg; break;
 		case 'v': verbose = 1; break;
+		case 'D': dump = 1; break;
 		default: usage(argv[0]);
 		}
 	}
-	if (optind != argc - 1 || !fast_path || !oracle_path)
+	if (optind != argc - 1 || !fast_path || (!oracle_path && !dump))
 		usage(argv[0]);
 
 	if (load_dissector(&fast, fast_path) < 0)
 		return 2;
-	if (load_dissector(&oracle, oracle_path) < 0) {
+	if (!dump && load_dissector(&oracle, oracle_path) < 0) {
 		bpf_object__close(fast.obj);
 		return 2;
 	}
@@ -225,10 +251,17 @@ int main(int argc, char *argv[])
 	if (npkts < 0)
 		return 2;
 
-	printf("=== xdp2-flow-ebpf D4 coverage-parity test ===\n");
-	printf("Fast:   %s\n", fast_path);
-	printf("Oracle: %s\n", oracle_path);
-	printf("PCAP:   %s  (%d packets)\n\n", argv[optind], npkts);
+	if (dump) {
+		/* CSV to stdout only (header to stderr) so the output diffs
+		 * cleanly against the golden CSV. */
+		fprintf(stderr, "# dump %s : %s (%d pkts)\n",
+			fast_path, argv[optind], npkts);
+	} else {
+		printf("=== xdp2-flow-ebpf D4 coverage-parity test ===\n");
+		printf("Fast:   %s\n", fast_path);
+		printf("Oracle: %s\n", oracle_path);
+		printf("PCAP:   %s  (%d packets)\n\n", argv[optind], npkts);
+	}
 
 	for (int i = 0; i < npkts; i++) {
 		struct bpf_flow_keys fk = {}, ok_keys = {};
@@ -238,8 +271,22 @@ int main(int argc, char *argv[])
 			continue;
 
 		if (run_once(fast.prog_fd, packets[i].data, packets[i].len,
-			     &fk, &fret) < 0 ||
-		    run_once(oracle.prog_fd, packets[i].data, packets[i].len,
+			     &fk, &fret) < 0) {
+			run_err++;
+			continue;
+		}
+
+		if (dump) {
+			if (fret == BPF_OK) {
+				fast_hit++;
+				print_tuple(i + 1, &fk);
+			} else {
+				fast_miss++;
+			}
+			continue;
+		}
+
+		if (run_once(oracle.prog_fd, packets[i].data, packets[i].len,
 			     &ok_keys, &oret) < 0) {
 			run_err++;
 			continue;
@@ -267,15 +314,21 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	printf("Fast-path hits:   %d / %d\n", fast_hit, npkts);
-	printf("Fast-path misses: %d  (expected for non-IPv4-TCP or frag/options)\n",
-	       fast_miss);
-	if (run_err)
-		printf("Run errors:       %d\n", run_err);
-	printf("Mismatches:       %d\n", mismatches);
+	if (dump) {
+		fprintf(stderr, "# hits=%d miss=%d run_err=%d\n",
+			fast_hit, fast_miss, run_err);
+	} else {
+		printf("Fast-path hits:   %d / %d\n", fast_hit, npkts);
+		printf("Fast-path misses: %d  (expected for non-IPv4-TCP or frag/options)\n",
+		       fast_miss);
+		if (run_err)
+			printf("Run errors:       %d\n", run_err);
+		printf("Mismatches:       %d\n", mismatches);
+	}
 
 	bpf_object__close(fast.obj);
-	bpf_object__close(oracle.obj);
+	if (!dump)
+		bpf_object__close(oracle.obj);
 	free(packets);
 	return mismatches == 0 ? 0 : 1;
 }
