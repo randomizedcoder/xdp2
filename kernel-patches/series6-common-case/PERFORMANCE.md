@@ -22,20 +22,28 @@ descent-patched C dissector — see `ebpf-menu.md`); Gold gates for those are TO
 
 ## Microbench — ns/pkt, fast / in-tree (lower is better)
 
+The full **12-object set** — one per shape across both posted series (7 fast-path +
+5 UDP-tunnel descents) — measured on every reachable uarch:
+
 | shape | l2 (x86 Zen 2) | hp5 (x86 Zen 1) | pi5-2 (ARM A76) | parity |
 |---|---|---|---|---|
-| eth_ip | 22 / 64 | 23 / 82 | 42 / 123 | GOLD |
-| vlan   | 16 / 60 | 21 / 77 | 36 / 111 | GOLD |
-| qinq   | 16 / 58 | 18 / 79 | 35 / 146 | GOLD |
-| ipip   | 23 / 70 | 25 / 87 | 49 / 163 | GOLD |
-| gre    | 25 / 76 | 31 / 92 | 64 / 197 | GOLD |
-| mpls   | 17 / 56 | 21 / 71 | 38 / 154 | c-dissector |
-| pppoe  | 16 / 54 | 18 / 70 | 36 / 136 | series2 |
-| vxlan  | 24 / 62 | 27 / 84 | 57 / 157 | c-dissector³ |
-| geneve | 24 / 64 | 26 / 86 | 59 / 137 | c-dissector³ |
-| gtpu   | 25 / 64 | 28 / 81 | 56 / 167 | c-dissector³ |
+| eth_ip | 20 / 64 | 26 / 80 | 45 / 129 | GOLD |
+| vlan   | 17 / 63 | 21 / 88 | 34 / 134 | GOLD |
+| qinq   | 16 / 57 | 20 / 78 | 23 / 110 | GOLD |
+| ipip   | 22 / 70 | 26 / 86 | 52 / 172 | GOLD |
+| gre    | 26 / 76 | 29 / 93 | 64 / 173 | GOLD |
+| mpls   | 17 / 57 | 23 / 72 | 38 / 144 | c-dissector |
+| pppoe  | 16 / 54 | 20 / 68 | 36 / 146 | series2 |
+| vxlan  | 24 / 63 | 29 / 82 | 58 / 165 | c-dissector³ |
+| geneve | 23 / 64 | 27 / 97 | 58 / 136 | c-dissector³ |
+| gtpu   | 24 / 64 | 31 / 81 | 50 / 179 | c-dissector³ |
+| gue    | 25 / 63 | 29 / 81 | 57 / 164 | c-dissector³ |
+| fou    | 24 / 62 | 30 / 81 | 40 / 164 | c-dissector³ |
 
-³ descends to the inner flow the in-tree dissector never reaches, still faster.
+³ descends to the inner flow the in-tree dissector never reaches (vxlan/geneve/gtpu/
+gue/fou), still faster than its outer-only parse. FOU/GUE have no in-tree equivalent
+at all (the in-tree BPF dissector stops at outer UDP for both).
+
 Every menu object is ~2–4× faster than the in-tree BPF dissector across **two x86
 uarches + ARM Cortex-A76**, GOLD parity on all five in-tree-oracle shapes on every
 one. The ARM/RISC-V builds are cross-compiled on `l` (flake `pkgsCross*`, no qemu).
@@ -77,7 +85,8 @@ Our object is nearly free over the kernel's own C dissector.
 ## Coverage / TODO
 
 - [x] Parity GOLD: eth_ip, vlan, qinq, ipip, gre — x86 Zen 2, x86 Zen 1, ARM A76
-- [x] Microbench ns/pkt: all 10 shapes on x86 Zen 2 + Zen 1 + ARM Cortex-A76
+- [x] Microbench ns/pkt: all **12 shapes** (7 fast-path + 5 descents incl. FOU/GUE)
+      on x86 Zen 2 + Zen 1 + ARM Cortex-A76
 - [x] Soak cyc/pkt: eth_ip, hp2→hp5
 - [~] Cross-ISA: ARM done; **RISC-V blocked** by bpi-f3 kernel (no CONFIG_BPF_JIT;
       rejects all flow_dissector BPF progs incl. in-tree) — needs a kernel rebuild
