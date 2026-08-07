@@ -41,23 +41,30 @@ Ref: `willemdebruijn.kernel.c1b4383fb19c@gmail.com`
 
 ## Files here
 
-- `reply/willem-reply.txt` — the draft reply (full version + a lean variant).
-  **NOT SENT.**
+- `reply/willem-reply-v3.txt` — **current send-ready draft.** Measured, focused
+  concession: agrees the protocol boundary is subjective, so most of the series
+  should drop; breaks down the +2500 by patch (KUnit test is the biggest chunk);
+  proposes a reduced v2 = static-key gate + the single Eth+IPv4/IPv6+TCP/UDP fast
+  path (~+377/−50); cites the verified 47–55% isolated / 4.7–31.6% allshapes perf
+  gains; points the subjective shapes at the eBPF repo. Plain-text (no markdown
+  fences), headers included → this file IS the email git send-email consumes.
+  Rehearsed to dave.seddon@runpod.io (--suppress-cc=all). **NOT SENT to the list.**
+- `reply/willem-reply-v2.txt` — prior draft (ease-of-use framing + VXLAN always-on
+  descent + frozen-structs/low-churn maintenance data). Superseded by v3, which
+  drops the descent pitch and the struct-stability data for focus; kept for reference
+  (that material is in reserve for a reply-to-the-reply).
+- `reply/willem-reply.txt` — earliest concession-heavy draft. Superseded.
 
-## Send gates — decide to send only after both are known
+## Send gates — RESOLVED
 
-1. **BPF perf numbers** — micro-bench the loadable dissector vs the in-tree one
-   via `BPF_PROG_TEST_RUN`:
-   `nix run .#run-on-host -- hp5 -- flow-dissector-matrix-unified`
-   (baseline `perf-results/2026-05-17-hot-edge/summary.md`; existing `c-bpf-fast`
-   ~12–22 ns/pkt vs `c-bpf-flowdis` ~91–119). Fills `[X ns/pkt vs Y]`.
-2. **eBPF size** — lines the full-menu program adds. Today
-   `fast_bpf/fast_flow.bpf.c` has 7 chains; missing shapes (QinQ, VLAN-over-IPv6,
-   PPPoE, MPLS, IPIP/4in6/6in4, GRE) add ~N tail-call slots. Fills `[N lines]`.
-   If N is large, use the **lean variant** (defer to existing in-tree BPF
-   coverage) instead of promising a new program.
+The two original placeholders (`[X ns/pkt vs Y]`, `[N lines]`) are **moot in v2**:
+instead of promising a new inline BPF program with numbers, v2 cites the in-kernel
+per-patch line breakdown and points at the public
+`github.com/randomizedcoder/flow_dissector_ebpf` repo (which already carries the
+byte-identical eth+IP object and the VXLAN descent). The perf/size work is captured
+in `PERFORMANCE.md` / `ebpf-menu.md` for reference but is no longer a send gate.
 
-Then choose: full draft (with numbers) / lean variant / hold.
+Decision: **send v2** (user-gated).
 
 Build env: BPF work uses `nix develop` + `make -C samples/flow_dissector bpf` and
 the `flow-dissector-matrix*` flake outputs; extend `flake.nix` if more tools are
@@ -76,7 +83,10 @@ loadable menu — see [`ebpf-menu.md`](ebpf-menu.md). **Ten** objects under
 
 ## Status
 
-- [x] Draft reply written (full + lean variant)
+- [x] Draft reply written (full + lean variant) — superseded
+- [x] **Reply v2 written** (`reply/willem-reply-v2.txt`) — concede breadth, keep
+      eth+IP in-kernel, +2500 per-patch breakdown, end-user ease-of-use framing,
+      eBPF repo link, offer to upstream the eBPF objects as a `samples/` example
 - [x] eBPF full-menu size known — **~1080 source LoC** (10 objects + shared header),
       out-of-kernel, vs +2500 (fast-path) + +1507 (descent) in-kernel
 - [x] eBPF menu written + compiling clean (eth_ip, vlan, qinq, mpls, ipip, gre,
@@ -91,4 +101,6 @@ loadable menu — see [`ebpf-menu.md`](ebpf-menu.md). **Ten** objects under
 - [ ] Per-shape Gold parity verified (in-tree oracle for eth_ip/vlan/qinq/gre/ipip;
       series2 oracle for PPPoE; C-dissector for MPLS + vxlan/geneve/gtpu)
 - [ ] Reduced v2 (patches 01–02) regenerated
-- [ ] Reply sent (`git send-email --in-reply-to=<willem-msg-id>`)
+- [x] Reply v3 SENT 2026-08-07 — To Willem, Cc netdev@vger.kernel.org
+      (`willem-reply-v3.txt`, git send-email, In-Reply-To Willem's msg-id,
+      SMTP Result 250). Rehearsed to runpod first. Now awaiting Willem's response.
