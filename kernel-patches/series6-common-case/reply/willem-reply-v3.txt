@@ -1,0 +1,87 @@
+Subject: Re: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
+In-Reply-To: <willemdebruijn.kernel.c1b4383fb19c@gmail.com>
+
+Thanks Willem, for the quick response and the feedback.
+
+I think your point about where to draw the protocol boundary is a good one.
+
+Eth + IPv4/IPv6 + TCP/UDP is clearly the common case. Beyond that, choosing
+what belongs in-kernel becomes increasingly subjective: VLAN/QinQ, PPPoE,
+MPLS, GRE, GTP-U, etc. all have substantial deployments, but that's also an
+argument for leaving those cases to the BPF flow dissector rather than
+continuing to grow a parallel parser.
+
+On the +2500 lines, most of that isn't actually the fast-path parser:
+
+    01  +75    gate BPF lookup behind a static key
+    02  +302   Eth + IPv4/IPv6 + TCP/UDP fast path
+    03  +180   + VLAN / QinQ
+    04  +95    + PPPoE
+    05  +103   + MPLS
+    06  +134   + IP-in-IP (4in4 / 6in4 / 4in6)
+    07  +121   + GRE
+    08  +270   per-shape counters (/proc/net)
+    09  +37    bound tunnel recursion
+    10  +1102  KUnit fast/slow-path equivalence test
+    11  +137   Documentation
+        ------
+        ~+2500
+
+The KUnit test is therefore a large fraction of the diff. I don't want to
+dismiss that as "just tests" -- it is code that has to be maintained -- but
+its purpose is specifically to make maintaining two implementations safer:
+the same corpus is dissected through both paths and the resulting flow_keys
+are compared byte-for-byte.
+
+More importantly, if I take your protocol-selection concern to its logical
+conclusion, most of this series disappears.
+
+A v2 could contain only:
+
+1. the static-key optimization for the existing BPF lookup; and
+2. one fast path for Eth + IPv4/IPv6 + TCP/UDP.
+
+That is roughly:
+
+    +377 / -50 across 5 files
+
+plus whatever reduced KUnit coverage we decide is appropriate for that one
+shape.
+
+I think there is a useful distinction between that case and the less common
+protocols. A network operator or vendor with a specialized encapsulation can
+reasonably deploy a BPF flow dissector. Requiring BPF in order for ordinary
+hosts to optimize the overwhelmingly common Ethernet/IP/TCP/UDP case is a
+higher bar, especially since users of RPS/RFS, fq/fq_codel/cake and bonding
+benefit indirectly through skb_get_hash() without necessarily knowing that
+the flow dissector is involved.
+
+The performance result is also fairly consistent across architectures. In
+the isolated Eth + IPv4 + TCP benchmark the straight-line path reduced
+dissection time by 47-55% across x86, ARM and RISC-V. With all shapes
+compiled in, the Eth/IP path still improved the tested CPUs, although by a
+wider 4.7-31.6% range.
+
+I agree that duplicating parsing logic has a maintenance cost. The reason I
+think the single common shape may still be a reasonable trade is that the
+surface is small, the fast path is deliberately allowed to bail out to the
+generic dissector whenever the packet doesn't match, and equivalence with the
+generic path can be continuously tested rather than assumed.
+
+For the other protocols, I've implemented the same idea as a loadable BPF
+flow dissector:
+
+https://github.com/randomizedcoder/flow_dissector_ebpf
+
+That seems like a better home for experimenting with specialized shapes
+without growing the in-kernel parser.
+
+So rather than trying to justify seven in-kernel fast paths, I'd propose
+shrinking v2 to the static-key BPF lookup optimization plus the single
+Eth + IPv4/IPv6 + TCP/UDP fast path, with a correspondingly smaller
+equivalence test.
+
+Would that reduced series be worth posting for review?
+
+Thanks,
+Dave Seddon

@@ -20,12 +20,21 @@
 use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use xdp2_flow_loader::{Loader, LoaderConfig};
 
+/// Set by the SIGINT/SIGTERM handler so `--hold` breaks its wait loop and
+/// returns from `main`, letting `Loader::drop` detach cleanly.
+static STOP: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn on_signal(_sig: libc::c_int) {
+    STOP.store(true, Ordering::SeqCst);
+}
+
 fn usage(prog: &str) -> ! {
     eprintln!(
-        "usage: {} --bpf <fast_flow.bpf.o> [--slow-path <obj>] [--netns <path>]",
+        "usage: {} --bpf <fast_flow.bpf.o> [--slow-path <obj>] [--netns <path>] [--hold]",
         prog
     );
     std::process::exit(1);
@@ -35,6 +44,7 @@ struct Args {
     bpf_object: PathBuf,
     slow_path_object: Option<PathBuf>,
     attach_netns: Option<PathBuf>,
+    hold: bool,
 }
 
 fn parse_args() -> Args {
@@ -47,6 +57,7 @@ fn parse_args() -> Args {
     let mut bpf_object: Option<PathBuf> = None;
     let mut slow_path_object: Option<PathBuf> = None;
     let mut attach_netns: Option<PathBuf> = None;
+    let mut hold = false;
 
     let mut i = 1;
     while i < argv.len() {
@@ -63,6 +74,7 @@ fn parse_args() -> Args {
                 i += 1;
                 attach_netns = Some(PathBuf::from(argv.get(i).unwrap_or_else(|| usage(&prog))));
             }
+            "--hold" | "-H" => hold = true,
             "-h" | "--help" => usage(&prog),
             other => {
                 eprintln!("unknown argument: {}", other);
@@ -79,6 +91,7 @@ fn parse_args() -> Args {
         bpf_object,
         slow_path_object,
         attach_netns,
+        hold,
     }
 }
 
@@ -105,10 +118,25 @@ fn main() -> ExitCode {
 
     match loader.attach() {
         Ok(()) => {
-            // Drop will detach cleanly on return. A follow-up can add a
-            // signal-driven run loop so operators can keep the loader
-            // attached across the process lifetime.
-            eprintln!("attached; detaching on exit");
+            if args.hold {
+                // Keep the program attached for the process lifetime so
+                // it can be exercised by live traffic (e.g. a pktgen
+                // soak). Block until SIGINT/SIGTERM, then fall through so
+                // Loader::drop detaches cleanly.
+                let handler = on_signal as *const () as libc::sighandler_t;
+                unsafe {
+                    libc::signal(libc::SIGINT, handler);
+                    libc::signal(libc::SIGTERM, handler);
+                }
+                eprintln!("attached; holding until SIGINT/SIGTERM");
+                while !STOP.load(Ordering::SeqCst) {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
+                eprintln!("signal received; detaching");
+            } else {
+                // Drop detaches on return.
+                eprintln!("attached; detaching on exit");
+            }
             ExitCode::SUCCESS
         }
         Err(e) => {

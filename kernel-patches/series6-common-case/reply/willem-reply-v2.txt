@@ -1,0 +1,153 @@
+Subject: Re: [PATCH net-next v1 00/11] net: flow_dissector: opt-in byte-identical fast paths for common shapes
+In-Reply-To: <willemdebruijn.kernel.c1b4383fb19c@gmail.com>
+
+Thanks Willem, for the quick response and the feedback.
+
+On protocol selection: Eth + IPv4/IPv6 + TCP/UDP is clearly the most common,
+and it's the one shape I'd keep in-kernel. After that it gets much harder to
+rank. VLAN and QinQ are everywhere; GTP-U carries essentially all cellular
+traffic; there's still an enormous amount of PPPoE doing residential
+broadband termination; and GRE -- to answer your question directly -- turns
+up constantly for site-to-site tunnelling. There are a lot of real use cases
+and it's genuinely hard to know exactly where the demand is, which I think is
+the substance of your point.
+
+On the +2500: most of that isn't the dissector fast path. Broken down by
+patch:
+
+    01  +75    gate BPF lookup behind a static key
+    02  +302   Eth + IPv4/IPv6 + TCP/UDP fast path
+    03  +180   + VLAN / QinQ
+    04  +95    + PPPoE
+    05  +103   + MPLS
+    06  +134   + IP-in-IP (4in4 / 6in4 / 4in6)
+    07  +121   + GRE
+    08  +270   per-shape counters (/proc/net)
+    09  +37    bound tunnel recursion
+    10  +1102  KUnit fast/slow-path equivalence test
+    11  +137   Documentation
+        ------
+        ~+2500 total
+
+So the KUnit equivalence test is +1102 on its own, docs +137, and the
+optional per-shape counters +270. I don't want to wave the test away as "not
+real code" -- it has to be maintained like anything else -- but it isn't
+throwaway either: it runs a corpus through both the fast path and the
+existing slow path and memcmp()s the flow_keys, so it exercises the software
+dissector too, not just the new code. That's coverage the flow dissector
+didn't have before, so on balance I'd argue it lowers maintenance risk rather
+than adding to it. The part that's genuinely new parsing surface -- what your
+"duplicative of existing paths" concern is really about -- is ~+1010 across
+the seven shapes, and reduced to just the one non-subjective shape it's the
+static-key gate plus patch 2:
+
+    +377 / -50 across 5 files
+
+On the ongoing cost of that surface: it only really needs to change if the
+wire formats it parses change, and those are about as stable as anything in
+the tree. The structs the fast path reads have had fixed field offsets for
+well over a decade -- struct ethhdr hasn't changed since the 2012 UAPI split;
+struct iphdr's only touch since then was a 2022 struct_group() refactor that
+moved no field; the VLAN header layout dates to 2008; and even the most
+recent one, struct tcphdr's 2025 AE/ACE change, only repurposed reserved flag
+bits, not the source/destination ports the fast path actually reads. So this
+isn't really open-ended maintenance: the fields are frozen, and a genuinely
+new protocol would arrive as a new opt-in shape rather than as a change to
+the existing path.
+
+The dissector itself reflects that stability. net/core/flow_dissector.c has
+been around since 2011, and upstream churn on it has trended steadily down --
+from dozens of commits a year in the mid-2010s (43 in 2015) to a handful a
+year and well under a hundred net lines lately (6 commits in 2023, 4 in
+2025). It's mature code, so this adds one more opt-in path to a stable file
+rather than reopening a fast-moving one.
+
+That said, I take the point that keeping code out of the kernel is the right
+instinct, and the eBPF flow-dissector path is a good one. The one thing I'd
+add to the trade-off is the *end user* who benefits and how comfortable they
+are with eBPF. A hyperscaler or a mobile-modem vendor can readily author and
+load a flow_dissector eBPF program; a casual Linux user reaching for
+RPS/RFS, fq/fq_codel/cake or bonding on the single most common shape on the
+Internet realistically cannot.
+
+Given how common the Eth + IPv4/IPv6 + TCP/UDP shape is, it seems worth the
+~380 lines to let those users benefit from a simple sysctl, rather than every
+casual user having to author and load eBPF for it. GTP-U is interesting for a
+different reason -- it's a small addition (~+87, as an inner-flow descent) for
+a potentially large benefit given the mobile install base -- though there I'd
+agree the modem vendors are well placed to enable the eBPF hook themselves, so
+it's a weaker case for in-kernel than the casual-user shape.
+
+For anyone finding this thread later looking for a faster flow dissector:
+the same Eth + IPv4/IPv6 + TCP/UDP fast path, implemented as a loadable eBPF
+object (byte-identical to the in-tree dissector's flow keys over a per-shape
+corpus), is here:
+
+    https://github.com/randomizedcoder/flow_dissector_ebpf
+
+The repo also ships a VXLAN dissector that descends into the inner flow --
+and that one is worth raising for mainline directly, not just as an eBPF
+aside. Today's in-kernel flow_keys_dissector stops at the outer UDP of a
+VXLAN packet, so every inner flow between two VTEPs collapses onto a single
+outer 5-tuple; that one hash then drives RPS/RFS, fq/fq_codel/cake fairness
+and ECMP, which is what produces the single-queue pinning you see on
+east-west overlay traffic. The in-kernel fix is small -- when the
+outer is UDP:4789 and the header is plain RFC 7348 VXLAN, rewrite proto/nhoff
+to the inner header and re-enter the dissect loop (bounded by
+skb_flow_dissect_allowed()), roughly:
+
+    /* after the outer UDP ports, in the udp-encap step */
+    if (dport == htons(IANA_VXLAN_UDP_PORT) &&
+        vxh->vx_flags == VXLAN_HF_VNI) {        /* plain RFC 7348 only */
+            proto  = inner_eth->h_proto;
+            nhoff += sizeof(*uh) + sizeof(*vxh) + ETH_HLEN;
+            goto proto_again;                   /* bounded re-entry */
+    }
+
+I have that as a companion patch (Geneve and GTP-U fit the same shape), and
+unlike the opt-in fast paths above I don't think this one should be behind a
+knob at all. Hashing on the outer header is simply wrong, because the outer
+header isn't a faithful key for the inner flow: between a pair of VTEPs it's
+often identical across every inner flow (so they collapse onto one queue and
+nothing spreads), and where a middlebox touches it, it can differ within a
+single inner flow (so one flow is split across paths and reordered). I hit
+the second case recently -- chasing down poor throughput that turned out to
+be reordering, from an OpenStack L3 node hashing VXLAN traffic on the outer
+header without descending to the inner flow: packets of one inner flow were
+hashed inconsistently, took different paths, and arrived out of order.
+Descending to the inner 5-tuple makes the hash correct either way, regardless
+of what an encapsulator or middlebox does with the outer header, and I'd
+expect this to be common in the wild. So it's a correctness fix for
+RPS/RFS/fq/ECMP, not a policy choice, and it belongs on by default. Happy to
+post it if there's interest.
+
+So for a v2 I'd propose keeping only:
+
+  - patch 1: gate the netns-BPF lookup behind a static key   (+75 / -47)
+  - patch 2: the Eth + IPv4/IPv6 + TCP/UDP in-kernel fast path   (+302)
+  - optionally, the KUnit equivalence test scoped to just that one shape,
+    if you'd want the fast/slow equivalence guaranteed in-tree rather than
+    argued
+
+That's ~380 lines of dissector code (plus the scoped test).
+
+And the loadable eBPF version of that same Eth + IPv4/IPv6 + TCP/UDP fast
+path might make another useful samples/ example in the tree -- something
+turnkey for people to build and load.
+
+Would that split be worth a look?
+
+Thanks again,
+Dave
+
+
+======================================================================
+NOT SENT. Draft only. Supersedes willem-reply.txt (the earlier
+concession-heavy draft, kept for reference). No placeholders left to
+fill -- it cites the in-kernel line table and the public repo directly.
+
+Send (user-gated), from the git send-email config on l:
+  git send-email --in-reply-to=<willemdebruijn.kernel.c1b4383fb19c@gmail.com> \
+      willem-reply-v2.txt
+Rehearse first: --suppress-cc=all --to=<self>.
+======================================================================

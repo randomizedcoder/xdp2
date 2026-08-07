@@ -185,6 +185,15 @@
           xdp2 = xdp2-debug;
         };
 
+        # Per-encapsulation xdp2-flow-ebpf menu benchmark + Gold-parity
+        # harness (10 loadable objects + in-tree oracle). See
+        # nix/flow-menu-bench.nix and
+        # kernel-patches/series6-common-case/ebpf-menu.md.
+        flowMenuBench = import ./nix/flow-menu-bench.nix {
+          inherit pkgs llvmPackages;
+          xdp2 = xdp2-debug;
+        };
+
         # Unified xdp2-rs vs C-matrix harness — runs the 6-way C matrix
         # AND xdp2-bench (graph/mono/compiled/template) against the same
         # filtered pcap. See nix/xdp2-rs-matrix.nix and
@@ -839,6 +848,12 @@
           # ===================================================================
           flow-dissector-matrix = flowDissectorMatrix.matrix;
           flow-dissector-matrix-artifacts = flowDissectorMatrix.artifacts;
+
+          # flow-menu-bench — benchmark + Gold-parity for the 10-object
+          # per-encapsulation xdp2-flow-ebpf menu (needs root/CAP_BPF).
+          # Run:  nix run .#run-on-host -- l2 -- flow-menu-bench
+          #   or: sudo ./result/bin/xdp2-flow-menu-bench
+          flow-menu-bench = flowMenuBench;
           # Clang-stdenv build for the R-followup compiler-comparison
           # experiment. Same parser.mono.c source (xdp2-compiler is
           # gcc-built either way), but clang-21 compiles the userspace
@@ -1643,6 +1658,21 @@
                 prebuiltSamples = prebuiltSamplesAarch64;
               };
             in {
+              # Cross-compiled per-encapsulation menu benchmark harness
+              # (built on x86_64, runs on the target). See
+              # nix/flow-menu-bench.nix and
+              # kernel-patches/series6-common-case/ebpf-menu.md.
+              flow-menu-bench-riscv64 = import ./nix/flow-menu-bench.nix {
+                pkgs = pkgsCrossRiscv;
+                xdp2 = xdp2-debug-riscv64;
+                llvmPackages = llvmConfig.llvmPackages;
+              };
+              flow-menu-bench-aarch64 = import ./nix/flow-menu-bench.nix {
+                pkgs = pkgsCrossAarch64;
+                xdp2 = xdp2-debug-aarch64;
+                llvmPackages = llvmConfig.llvmPackages;
+              };
+
               # Cross-compiled xdp2 for RISC-V
               xdp2-debug-riscv64 = xdp2-debug-riscv64;
 

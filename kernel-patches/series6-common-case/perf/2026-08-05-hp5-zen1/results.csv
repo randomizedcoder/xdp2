@@ -1,0 +1,11 @@
+shape,pcap,fast_ns_pkt,intree_ns_pkt,parity
+eth_ip,eth_ip.pcap,23,82,GOLD
+vlan,vlan.pcap,21,77,GOLD
+qinq,qinq.pcap,18,79,GOLD
+ipip,ipip.pcap,25,87,GOLD
+gre,gre.pcap,31,92,GOLD
+mpls,mpls.pcap,21,71,SKIP(c-dissector)
+pppoe,pppoe.pcap,18,70,SKIP(series2-oracle)
+vxlan,vxlan.pcap,27,84,SKIP(c-dissector)
+geneve,geneve.pcap,26,86,SKIP(c-dissector)
+gtpu,gtpu.pcap,28,81,SKIP(c-dissector)

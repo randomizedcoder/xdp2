@@ -20,7 +20,13 @@
 #include "xdp2/pcap.h"
 
 #define MAXPKT 65536
+/* Overridable via -DMAX_PACKETS so memory-constrained targets (e.g. the
+ * flow-menu-bench cross builds on 8 GB ARM/RISC-V boards) can shrink the
+ * up-front calloc(MAX_PACKETS, sizeof(stored_packet)) — 500000 * 64 KiB is
+ * ~32 GiB, which only succeeds on big-RAM x86 hosts. */
+#ifndef MAX_PACKETS
 #define MAX_PACKETS 500000
+#endif
 
 /* Stored packet for repeated benchmark runs */
 struct stored_packet {

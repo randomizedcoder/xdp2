@@ -1,0 +1,13 @@
+shape,pcap,fast_ns_pkt,intree_ns_pkt,parity
+eth_ip,eth_ip.pcap,26,82,GOLD
+vlan,vlan.pcap,27,89,GOLD
+qinq,qinq.pcap,28,98,GOLD
+mpls,mpls.pcap,25,70,GOLD
+ipip,ipip.pcap,27,92,GOLD
+gre,gre.pcap,42,93,GOLD
+pppoe,pppoe.pcap,36,67,GOLD
+vxlan,vxlan.pcap,28,82,GOLD
+geneve,geneve.pcap,36,91,GOLD
+gtpu,gtpu.pcap,29,81,GOLD
+gue,gue.pcap,29,80,GOLD
+fou,fou.pcap,31,81,GOLD

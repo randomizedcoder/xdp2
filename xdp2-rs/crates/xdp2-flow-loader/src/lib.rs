@@ -327,8 +327,27 @@ impl Loader {
             });
         }
 
+        // The legacy BPF_PROG_ATTACH path for a flow dissector attaches to
+        // the caller's *current* netns and requires target_fd == 0 (a
+        // non-zero target_fd yields EINVAL). To attach to a specific netns
+        // we enter it first with setns(CLONE_NEWNET); when attach_netns is
+        // None we stay in the current netns. The process then keeps the
+        // program attached for its lifetime (see the loader's --hold mode).
+        if self.config.attach_netns.is_some() {
+            // SAFETY: fd is an open nsfs file descriptor.
+            let rc = unsafe { libc::setns(fd, libc::CLONE_NEWNET) };
+            if rc < 0 {
+                let err = io::Error::last_os_error();
+                unsafe { libc::close(fd) };
+                return Err(LoaderError::Attach {
+                    netns: netns_path,
+                    source: err,
+                });
+            }
+        }
+
         let rc =
-            unsafe { lb::bpf_prog_attach(self.entry_fd, fd, lb::BPF_FLOW_DISSECTOR_ATTACH, 0) };
+            unsafe { lb::bpf_prog_attach(self.entry_fd, 0, lb::BPF_FLOW_DISSECTOR_ATTACH, 0) };
         if rc < 0 {
             let err = io::Error::last_os_error();
             // SAFETY: fd was just opened and is owned by us.
@@ -339,6 +358,8 @@ impl Loader {
             });
         }
 
+        // Keep fd as the "attached" marker (and for Debug); detach targets
+        // the current netns with target_fd == 0 in Drop.
         self.netns_fd = Some(fd);
         Ok(())
     }
@@ -352,8 +373,10 @@ impl Drop for Loader {
         // second loader instance in the same netns.
         if let Some(fd) = self.netns_fd.take() {
             if self.entry_fd >= 0 {
+                // We attached to (and, for a specific netns, setns'd into)
+                // the current netns, so detach targets it with target_fd 0.
                 unsafe {
-                    lb::bpf_prog_detach2(self.entry_fd, fd, lb::BPF_FLOW_DISSECTOR_ATTACH);
+                    lb::bpf_prog_detach2(self.entry_fd, 0, lb::BPF_FLOW_DISSECTOR_ATTACH);
                 }
             }
             // SAFETY: fd was produced by our own open() call.
