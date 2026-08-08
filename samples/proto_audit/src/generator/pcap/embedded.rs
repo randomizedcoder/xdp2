@@ -1,6 +1,8 @@
 //! Embedded minimal protocol definitions for PCAP stack construction.
 
-use crate::ir::{Endian, FieldDef, FieldType, ProtocolDef};
+use crate::ir::{
+    ElementSize, Endian, FieldDef, FieldType, ProtocolDef, RepeatGroup, RepeatTerm,
+};
 
 /// Embedded minimal protocol definitions for stack construction.
 pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
@@ -536,14 +538,84 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_default_value("1"),
                 ]),
         ),
-        // ── MVRP (MRP-based VLAN Registration Protocol) ──
+        // ── MVRP (Multiple VLAN Registration Protocol, IEEE 802.1ak) ── 0x88F5
+        // MRPDU: ProtocolVersion(1) + Message* + EndMark(0x0000). A Message is
+        // AttributeType(1)+AttributeLength(1) + a VectorAttribute list ending in
+        // an EndMark. The representative instance carries one MVRP message (VID
+        // attribute) with a single VectorAttribute.
         "MVRP" => Some(
-            ProtocolDef::new("MVRP", 16)
-                .with_fields(vec![
-                    FieldDef::new("protocol_version", 0, 8, FieldType::Uint),
-                    FieldDef::new("message_type", 8, 8, FieldType::Uint)
-                        .with_default_value("1"),
-                ]),
+            ProtocolDef::new("MVRP", 8)
+                .with_fields(vec![FieldDef::new("protocol_version", 0, 8, FieldType::Uint)])
+                .with_repeat(RepeatGroup {
+                    name: "message".into(),
+                    start_bits: 8,
+                    element: vec![
+                        FieldDef::new("attribute_type", 0, 8, FieldType::Uint)
+                            .with_default_value("1"), // VID
+                        FieldDef::new("attribute_length", 8, 8, FieldType::Uint)
+                            .with_default_value("2"), // VID = 2 bytes
+                        // VectorHeader: 3b LeaveAllEvent | 13b NumberOfValues
+                        FieldDef::new("vector_header", 16, 16, FieldType::Uint)
+                            .with_endian(Endian::Big)
+                            .with_default_value("1"), // NumberOfValues = 1
+                        FieldDef::new("first_value", 32, 16, FieldType::Uint)
+                            .with_endian(Endian::Big)
+                            .with_default_value("100"), // starting VID
+                        FieldDef::new("vector", 48, 8, FieldType::Uint), // packed events
+                        // EndMark terminating the VectorAttribute list.
+                        FieldDef::new("attr_end_mark", 56, 16, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                    ],
+                    element_size: ElementSize::Fixed(72),
+                    terminator: RepeatTerm::EndMark {
+                        size_bits: 16,
+                        value: 0,
+                    },
+                    sample_count: 1,
+                }),
+        ),
+        // ── MRP (Media Redundancy Protocol, IEC 62439-2) ── EtherType 0x88E3
+        // tshark `pn_mrp`: MRP_Version (2B) followed by a chain of TLVs, each
+        // MRP_TLVHeader{ Type(1), Length(1) } + value, ended by MRP_End
+        // (Type=0, Length=0 == 0x0000). The representative instance carries one
+        // MRP_Test TLV whose value fields (prio, SA, port role, ring state,
+        // transition, timestamp) match pn_mrp's leaf fields.
+        "MRP" => Some(
+            ProtocolDef::new("MRP", 16)
+                .with_fields(vec![FieldDef::new("version", 0, 16, FieldType::Uint)
+                    .with_endian(Endian::Big)
+                    .with_default_value("1")])
+                .with_repeat(RepeatGroup {
+                    name: "tlv".into(),
+                    start_bits: 16,
+                    element: vec![
+                        FieldDef::new("type", 0, 8, FieldType::Uint)
+                            .with_default_value("2"), // MRP_Test
+                        FieldDef::new("length", 8, 8, FieldType::Uint)
+                            .with_default_value("18"),
+                        FieldDef::new("prio", 16, 16, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("sa", 32, 48, FieldType::MacAddr)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("port_role", 80, 16, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("ring_state", 96, 16, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("transition", 112, 16, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("timestamp", 128, 32, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                    ],
+                    element_size: ElementSize::LengthField {
+                        name: "length".into(),
+                        multiplier: 1,
+                    },
+                    terminator: RepeatTerm::EndMark {
+                        size_bits: 16,
+                        value: 0,
+                    },
+                    sample_count: 1,
+                }),
         ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
@@ -1965,14 +2037,36 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("length", 64, 32, FieldType::Uint).with_endian(Endian::Big),
                 ]),
         ),
-        // ── MMRP (Multiple MAC Registration Protocol, 802.1Q) ──
+        // ── MMRP (Multiple MAC Registration Protocol, IEEE 802.1ak) ── 0x88F6
+        // Same MRPDU framing as MVRP; the representative message carries a MAC
+        // Address attribute (6-byte value) with one VectorAttribute.
         "MMRP" => Some(
-            ProtocolDef::new("MMRP", 16)
-                .with_fields(vec![
-                    FieldDef::new("attribute_type", 0, 8, FieldType::Uint)
-                        .with_default_value("1"),
-                    FieldDef::new("attribute_length", 8, 8, FieldType::Uint),
-                ]),
+            ProtocolDef::new("MMRP", 8)
+                .with_fields(vec![FieldDef::new("protocol_version", 0, 8, FieldType::Uint)])
+                .with_repeat(RepeatGroup {
+                    name: "message".into(),
+                    start_bits: 8,
+                    element: vec![
+                        FieldDef::new("attribute_type", 0, 8, FieldType::Uint)
+                            .with_default_value("2"), // MAC Address
+                        FieldDef::new("attribute_length", 8, 8, FieldType::Uint)
+                            .with_default_value("6"), // MAC = 6 bytes
+                        FieldDef::new("vector_header", 16, 16, FieldType::Uint)
+                            .with_endian(Endian::Big)
+                            .with_default_value("1"),
+                        FieldDef::new("first_value", 32, 48, FieldType::MacAddr)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("vector", 80, 8, FieldType::Uint),
+                        FieldDef::new("attr_end_mark", 88, 16, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                    ],
+                    element_size: ElementSize::Fixed(104),
+                    terminator: RepeatTerm::EndMark {
+                        size_bits: 16,
+                        value: 0,
+                    },
+                    sample_count: 1,
+                }),
         ),
 
         // ── UpperPDU (virtual, 0 bits, root DLT=252) ──
