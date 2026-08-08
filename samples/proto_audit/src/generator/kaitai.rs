@@ -27,32 +27,94 @@ pub fn generate_kaitai_ksy(proto: &ProtocolDef) -> String {
     // seq section
     out.push_str("seq:\n");
 
-    for field in &proto.fields {
-        let field_snake = field.name.to_lowercase().replace(' ', "_").replace('-', "_");
-        out.push_str(&format!("  - id: {}\n", field_snake));
+    // Fields before the first repeat group are the fixed prefix; the repeated
+    // region (and its pre-expanded instances in `fields`) is emitted as typed,
+    // repeated sub-structures below instead of flattened instances.
+    let prefix_end = proto
+        .repeats
+        .iter()
+        .map(|r| r.start_bits)
+        .min()
+        .unwrap_or(u32::MAX);
 
-        // Determine Kaitai type
-        let ksy_type = ir_to_kaitai_type(field.size_bits, &field.field_type, &field.endian, &endian);
-        match ksy_type {
-            KaitaiType::Primitive(t) => {
-                out.push_str(&format!("    type: {}\n", t));
+    for field in proto.fields.iter().filter(|f| f.offset_bits < prefix_end) {
+        push_kaitai_field(&mut out, "  ", &field.name, field.size_bits,
+                          &field.field_type, &field.endian, &endian,
+                          &field.description);
+    }
+
+    for group in &proto.repeats {
+        let gid = kaitai_id(&group.name);
+        out.push_str(&format!("  - id: {}\n", gid));
+        out.push_str(&format!("    type: {}_element\n", gid));
+        match &group.terminator {
+            crate::ir::RepeatTerm::Count { field } => {
+                out.push_str("    repeat: expr\n");
+                out.push_str(&format!("    repeat-expr: {}\n", kaitai_id(field)));
             }
-            KaitaiType::FixedSize(sz) => {
-                out.push_str(&format!("    size: {}\n", sz));
+            crate::ir::RepeatTerm::EndMark { .. } => {
+                // Stop when a degenerate element appears (its first field, the
+                // TLV type, is 0 — e.g. the MRP/MRPDU End Mark).
+                let sentinel = group
+                    .element
+                    .first()
+                    .map(|f| kaitai_id(&f.name))
+                    .unwrap_or_else(|| "type".to_string());
+                out.push_str("    repeat: until\n");
+                out.push_str(&format!("    repeat-until: _.{} == 0\n", sentinel));
             }
-            KaitaiType::Bits(b) => {
-                out.push_str(&format!("    type: b{}\n", b));
+            crate::ir::RepeatTerm::Length { .. } | crate::ir::RepeatTerm::ToEnd => {
+                out.push_str("    repeat: eos\n");
             }
         }
+    }
 
-        if !field.description.is_empty() {
-            // Quote the description to avoid YAML parsing issues with special chars
-            let escaped = field.description.replace('\\', "\\\\").replace('"', "\\\"");
-            out.push_str(&format!("    doc: \"{}\"\n", escaped));
+    // types: section — one sub-type per repeat group element.
+    if !proto.repeats.is_empty() {
+        out.push_str("types:\n");
+        for group in &proto.repeats {
+            out.push_str(&format!("  {}_element:\n", kaitai_id(&group.name)));
+            out.push_str("    seq:\n");
+            for field in &group.element {
+                push_kaitai_field(&mut out, "      ", &field.name, field.size_bits,
+                                  &field.field_type, &field.endian, &endian,
+                                  &field.description);
+            }
         }
     }
 
     out
+}
+
+/// Sanitise a name into a valid Kaitai identifier.
+fn kaitai_id(name: &str) -> String {
+    name.to_lowercase().replace(' ', "_").replace('-', "_").replace('.', "_")
+}
+
+/// Emit one `seq` field entry at the given item indent (attributes are indented
+/// two spaces deeper).
+#[allow(clippy::too_many_arguments)]
+fn push_kaitai_field(
+    out: &mut String,
+    item_indent: &str,
+    name: &str,
+    size_bits: u32,
+    field_type: &FieldType,
+    field_endian: &Endian,
+    dominant: &Endian,
+    description: &str,
+) {
+    let attr_indent = format!("{}  ", item_indent);
+    out.push_str(&format!("{}- id: {}\n", item_indent, kaitai_id(name)));
+    match ir_to_kaitai_type(size_bits, field_type, field_endian, dominant) {
+        KaitaiType::Primitive(t) => out.push_str(&format!("{}type: {}\n", attr_indent, t)),
+        KaitaiType::FixedSize(sz) => out.push_str(&format!("{}size: {}\n", attr_indent, sz)),
+        KaitaiType::Bits(b) => out.push_str(&format!("{}type: b{}\n", attr_indent, b)),
+    }
+    if !description.is_empty() {
+        let escaped = description.replace('\\', "\\\\").replace('"', "\\\"");
+        out.push_str(&format!("{}doc: \"{}\"\n", attr_indent, escaped));
+    }
 }
 
 /// Generate a Kaitai .ksy as a new-file patch (--- /dev/null → +++ b/network/proto_audit/<name>.ksy).

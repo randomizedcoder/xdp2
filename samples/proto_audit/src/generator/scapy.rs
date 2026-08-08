@@ -26,54 +26,49 @@ pub fn generate_scapy(proto: &ProtocolDef) -> String {
     out.push_str("from scapy.layers.inet6 import *\n\n\n");
 
     // Class definition
+    // Fields before the first repeat group form the fixed prefix; each repeat
+    // group becomes a sub-Packet class + a PacketListField (instead of the
+    // flattened representative instances stored in `fields`).
+    let prefix_end = proto
+        .repeats
+        .iter()
+        .map(|r| r.start_bits)
+        .min()
+        .unwrap_or(u32::MAX);
+
+    // Emit one sub-Packet class per repeat group, before the main class.
+    for group in &proto.repeats {
+        let elem_class = format!("{}{}", class_name, canonical_to_pascal(&group.name));
+        out.push_str(&format!("class {}(Packet):\n", elem_class));
+        out.push_str(&format!("    name = \"{} {}\"\n", proto.name, group.name));
+        out.push_str("    fields_desc = [\n");
+        let mut elem_seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for field in &group.element {
+            push_scapy_field(&mut out, field, &mut elem_seen, &mappings);
+        }
+        out.push_str("    ]\n\n\n");
+    }
+
+    // Main class definition
     out.push_str(&format!("class {}(Packet):\n", class_name));
     out.push_str(&format!("    name = \"{}\"\n", proto.name));
     out.push_str("    fields_desc = [\n");
 
     let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for field in &proto.fields {
-        let raw_name = field
-            .source_names
-            .get("scapy")
-            .map(|s| s.as_str())
-            .unwrap_or(&field.name);
-        // Sanitize: strip protocol prefix (e.g. "ip.version" → "version"),
-        // replace dots/dashes/spaces with underscores for valid Python identifiers
-        let stripped = if raw_name.contains('.') {
-            raw_name.rsplit('.').next().unwrap_or(raw_name)
-        } else {
-            raw_name
-        };
-        let mut candidate = stripped
+    for field in proto.fields.iter().filter(|f| f.offset_bits < prefix_end) {
+        push_scapy_field(&mut out, field, &mut seen_names, &mappings);
+    }
+    for group in &proto.repeats {
+        let elem_class = format!("{}{}", class_name, canonical_to_pascal(&group.name));
+        let list_name = group
+            .name
             .replace('-', "_")
             .replace(' ', "_")
-            .replace('/', "_");
-
-        // Escape Python reserved words and Scapy-reserved kwargs.
-        if is_python_reserved(&candidate) {
-            candidate.push('_');
-        }
-
-        // Deduplicate within this protocol — Scapy raises on duplicate field
-        // names (e.g. ARP has two "type" fields: hwtype + ptype after stripping).
-        let mut final_name = candidate.clone();
-        let mut suffix = 2u32;
-        while seen_names.contains(&final_name) {
-            final_name = format!("{}_{}", candidate, suffix);
-            suffix += 1;
-        }
-        seen_names.insert(final_name.clone());
-        let scapy_name = final_name.as_str();
-
-        let field_class = determine_scapy_class(&field.field_type, field.size_bits,
-                                                 scapy_name, &field.endian,
-                                                 &field.flag_names, &mappings);
-
-        let field_str = format_scapy_field(&field_class, scapy_name, field.size_bits,
-                                           &field.field_type, &field.default_value,
-                                           &field.flag_names);
-
-        out.push_str(&format!("        {},\n", field_str));
+            .replace('.', "_");
+        out.push_str(&format!(
+            "        PacketListField(\"{}\", [], {}),\n",
+            list_name, elem_class
+        ));
     }
 
     out.push_str("    ]\n");
@@ -141,6 +136,50 @@ fn is_python_reserved(name: &str) -> bool {
         // Scapy-specific reserved attribute names
         | "name" | "fields_desc" | "payload" | "underlayer"
     )
+}
+
+/// Emit one `fields_desc` entry for `field`, sanitising the name (strip proto
+/// prefix, replace separators, escape reserved words) and de-duplicating within
+/// the given scope (Scapy rejects duplicate field names).
+fn push_scapy_field(
+    out: &mut String,
+    field: &crate::ir::FieldDef,
+    seen_names: &mut std::collections::HashSet<String>,
+    mappings: &type_mapping::ScapyGenMappings,
+) {
+    let raw_name = field
+        .source_names
+        .get("scapy")
+        .map(|s| s.as_str())
+        .unwrap_or(&field.name);
+    let stripped = if raw_name.contains('.') {
+        raw_name.rsplit('.').next().unwrap_or(raw_name)
+    } else {
+        raw_name
+    };
+    let mut candidate = stripped
+        .replace('-', "_")
+        .replace(' ', "_")
+        .replace('/', "_");
+    if is_python_reserved(&candidate) {
+        candidate.push('_');
+    }
+    let mut final_name = candidate.clone();
+    let mut suffix = 2u32;
+    while seen_names.contains(&final_name) {
+        final_name = format!("{}_{}", candidate, suffix);
+        suffix += 1;
+    }
+    seen_names.insert(final_name.clone());
+    let scapy_name = final_name.as_str();
+
+    let field_class = determine_scapy_class(&field.field_type, field.size_bits,
+                                            scapy_name, &field.endian,
+                                            &field.flag_names, mappings);
+    let field_str = format_scapy_field(&field_class, scapy_name, field.size_bits,
+                                       &field.field_type, &field.default_value,
+                                       &field.flag_names);
+    out.push_str(&format!("        {},\n", field_str));
 }
 
 /// Determine the Scapy field class for a given IR field.

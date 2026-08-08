@@ -138,10 +138,11 @@ pub(crate) fn cmd_generate(
         }
         "etherparse" => generator::generate_etherparse(&protocol_def),
         "scapy" => generator::generate_scapy(&protocol_def),
+        "kaitai" => generator::generate_kaitai_ksy(&protocol_def),
         "wireshark" => generator::generate_wireshark_lua_single(&protocol_def),
         "xdp2-rs" => generator::generate_xdp2_rs(&protocol_def),
         _ => anyhow::bail!(
-            "Unknown target '{}'. Valid targets: c, etherparse, scapy, pcap, wireshark, xdp2-rs",
+            "Unknown target '{}'. Valid targets: c, etherparse, scapy, kaitai, pcap, wireshark, xdp2-rs",
             target
         ),
     };
