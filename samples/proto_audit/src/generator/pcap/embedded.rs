@@ -617,6 +617,58 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     sample_count: 1,
                 }),
         ),
+        // ── DHCP (BOOTP) ── RFC 2131, UDP 67/68
+        // Fixed BOOTP header + magic cookie, then a DHCP options TLV list.
+        // Field offsets/sizes mirror tshark's dhcp.* leaf fields; the options
+        // are a repeat group ended by the End option (type 255).
+        "DHCP" => Some(
+            ProtocolDef::new("DHCP", 1920) // 240-byte fixed header (through cookie)
+                .with_fields(vec![
+                    FieldDef::new("type", 0, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("hw_type", 8, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("hw_len", 16, 8, FieldType::Uint).with_default_value("6"),
+                    FieldDef::new("hops", 24, 8, FieldType::Uint),
+                    FieldDef::new("id", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("305419896"), // 0x12345678
+                    FieldDef::new("secs", 64, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("flags", 80, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("ip_client", 96, 32, FieldType::Ipv4Addr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ip_your", 128, 32, FieldType::Ipv4Addr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ip_server", 160, 32, FieldType::Ipv4Addr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ip_relay", 192, 32, FieldType::Ipv4Addr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("mac_addr", 224, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("addr_padding", 272, 80, FieldType::Pad),
+                    FieldDef::new("sname", 352, 512, FieldType::Bytes), // server host name
+                    FieldDef::new("file", 864, 1024, FieldType::Bytes), // boot file name
+                    FieldDef::new("cookie", 1888, 32, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1669485411"), // 0x63825363
+                ])
+                .with_repeat(RepeatGroup {
+                    name: "option".into(),
+                    start_bits: 1920,
+                    element: vec![
+                        FieldDef::new("option_type", 0, 8, FieldType::Uint)
+                            .with_default_value("53"), // DHCP Message Type
+                        FieldDef::new("option_length", 8, 8, FieldType::Uint)
+                            .with_default_value("1"),
+                        FieldDef::new("option_value", 16, 8, FieldType::Bytes)
+                            .with_default_value("1"),
+                    ],
+                    element_size: ElementSize::LengthField {
+                        name: "option_length".into(),
+                        multiplier: 1,
+                    },
+                    terminator: RepeatTerm::EndMark { size_bits: 8, value: 255 },
+                    sample_count: 2,
+                }),
+        ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
             ProtocolDef::new("NC_SI", 128)
