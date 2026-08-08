@@ -202,6 +202,7 @@ pub fn extract_from_file(path: &Path, module_name: &str) -> Result<Vec<(String, 
             standards: Vec::new(),
             iana_registries: BTreeMap::new(),
             layer: None,
+            repeats: vec![],
         };
 
         results.push((canonical, proto));

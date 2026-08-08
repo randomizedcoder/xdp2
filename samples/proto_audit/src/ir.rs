@@ -263,12 +263,97 @@ impl ProtocolDef {
             standards: vec![],
             iana_registries: BTreeMap::new(),
             layer: None,
+            repeats: vec![],
         }
     }
 
     pub fn with_fields(mut self, fields: Vec<FieldDef>) -> Self {
         self.fields = fields;
         self
+    }
+
+    /// Attach a repeating group and pre-expand `fields` to a representative
+    /// number of instances so the flat consumers (comparator, serializer,
+    /// generators) see a complete, concrete header. The prefix already present
+    /// in `self.fields` is kept; the expansion is appended after it.
+    pub fn with_repeat(mut self, group: RepeatGroup) -> Self {
+        self.repeats.push(group);
+        self.fields = self.expand_repeats();
+        // The representative expansion defines the concrete header size, so
+        // grow min_header_bits to cover it (the pcap serializer only emits
+        // fields within min_header_bits). Mark the header variable-length.
+        let max_end = self
+            .fields
+            .iter()
+            .map(|f| f.offset_bits + f.size_bits)
+            .max()
+            .unwrap_or(self.min_header_bits);
+        if max_end > self.min_header_bits {
+            self.min_header_bits = max_end;
+        }
+        self.is_variable_length = true;
+        self
+    }
+
+    /// Produce the flat field list: the fixed prefix fields (those entirely
+    /// before the first repeat's `start_bits`) followed by `sample_count`
+    /// concrete copies of each repeat group's element and its terminator.
+    ///
+    /// Fixed-size elements advance by `element_size`; length-driven elements
+    /// advance by the element's declared span (the max end of its fields,
+    /// which for a representative instance equals the encoded length).
+    pub fn expand_repeats(&self) -> Vec<FieldDef> {
+        if self.repeats.is_empty() {
+            return self.fields.clone();
+        }
+        // Keep only prefix fields that end at or before the earliest repeat.
+        let first_start = self.repeats.iter().map(|r| r.start_bits).min().unwrap_or(0);
+        let mut out: Vec<FieldDef> = self
+            .fields
+            .iter()
+            .filter(|f| f.offset_bits + f.size_bits <= first_start)
+            .cloned()
+            .collect();
+
+        for group in &self.repeats {
+            let elem_span = group
+                .element
+                .iter()
+                .map(|f| f.offset_bits + f.size_bits)
+                .max()
+                .unwrap_or(0);
+            let step = match &group.element_size {
+                ElementSize::Fixed(bits) => *bits,
+                // For a representative instance the declared field span is the
+                // element length; the length field is honoured at serialize time.
+                ElementSize::LengthField { .. } => elem_span,
+            };
+            let mut cursor = group.start_bits;
+            for i in 0..group.sample_count {
+                for f in &group.element {
+                    let mut nf = f.clone();
+                    nf.offset_bits = cursor + f.offset_bits;
+                    if group.sample_count > 1 {
+                        nf.name = format!("{}_{}", f.name, i);
+                    }
+                    out.push(nf);
+                }
+                cursor += step.max(1);
+            }
+            // Append the terminator field, if any, after the last element.
+            if let RepeatTerm::EndMark { size_bits, .. } = &group.terminator {
+                out.push(
+                    FieldDef::new(
+                        format!("{}_end_mark", group.name),
+                        cursor,
+                        *size_bits,
+                        FieldType::Uint,
+                    )
+                    .with_endian(Endian::Big),
+                );
+            }
+        }
+        out
     }
 
     pub fn with_variable_length(mut self) -> Self {
@@ -369,6 +454,59 @@ pub struct ProtocolDef {
     /// Protocol layer classification
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layer: Option<ProtocolLayer>,
+
+    /// Repeating field groups (TLV chains, vector-attribute lists, options).
+    /// Additive metadata: the flat `fields` view stays authoritative and is
+    /// pre-expanded to a representative instance count via `expand_repeats`,
+    /// so comparison/serialization/most generators need no repeat awareness.
+    /// Faithful-codegen generators (kaitai, scapy) consult this to emit real
+    /// repetition constructs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repeats: Vec<RepeatGroup>,
+}
+
+/// A repeating group of fields within a protocol header (TLV chain, vector
+/// attributes, options list).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RepeatGroup {
+    /// Group name, e.g. "tlv", "message", "vector_attribute".
+    pub name: String,
+    /// Bit offset (from header start) where the repetition begins, i.e. just
+    /// after the fixed prefix fields.
+    pub start_bits: u32,
+    /// The fields of ONE element, with offsets relative to the element start.
+    pub element: Vec<FieldDef>,
+    /// How the byte size of each element is determined.
+    pub element_size: ElementSize,
+    /// How the repetition terminates.
+    pub terminator: RepeatTerm,
+    /// Representative number of instances used to pre-expand `fields` and to
+    /// generate the sample PCAP template.
+    pub sample_count: u32,
+}
+
+/// How the byte size of one repeat-group element is determined.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ElementSize {
+    /// Every element is exactly this many bits.
+    Fixed(u32),
+    /// Element size is driven by a length field within the element:
+    /// `bytes = <name>.value * multiplier` (covering the whole element).
+    LengthField { name: String, multiplier: u32 },
+}
+
+/// How a repeating group knows when to stop.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RepeatTerm {
+    /// A fixed count carried by a named prefix field.
+    Count { field: String },
+    /// Repeat until `<field>.value * multiplier` bytes have been consumed.
+    Length { field: String, multiplier: u32 },
+    /// Repeat until a sentinel of `size_bits` equal to `value` appears
+    /// (e.g. the MRP/MRPDU End Mark 0x0000).
+    EndMark { size_bits: u32, value: u64 },
+    /// Repeat to the end of the packet / parent length.
+    ToEnd,
 }
 
 /// What one source says about this protocol.
@@ -556,6 +694,42 @@ mod tests {
     fn test_ir_field_count() {
         let proto = sample_ipv4();
         assert_eq!(proto.fields.len(), 12);
+    }
+
+    #[test]
+    fn test_repeat_group_expand_and_roundtrip() {
+        // A 1-byte prefix version, then a repeated {type(8), length(8)} TLV
+        // header, 2 sample instances, terminated by a 16-bit end mark.
+        let proto = ProtocolDef::new("MRPDU_TEST", 8)
+            .with_fields(vec![FieldDef::new("version", 0, 8, FieldType::Uint)])
+            .with_repeat(RepeatGroup {
+                name: "tlv".into(),
+                start_bits: 8,
+                element: vec![
+                    FieldDef::new("type", 0, 8, FieldType::Uint),
+                    FieldDef::new("length", 8, 8, FieldType::Uint),
+                ],
+                element_size: ElementSize::Fixed(16),
+                terminator: RepeatTerm::EndMark { size_bits: 16, value: 0 },
+                sample_count: 2,
+            });
+        // prefix(1) + 2*(type,length) + end_mark
+        let names: Vec<&str> = proto.fields.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["version", "type_0", "length_0", "type_1", "length_1", "tlv_end_mark"]
+        );
+        // Offsets: version@0, elem0 @8/16, elem1 @24/32, end_mark @40.
+        let by = |n: &str| proto.fields.iter().find(|f| f.name == n).unwrap().offset_bits;
+        assert_eq!((by("type_0"), by("length_0")), (8, 16));
+        assert_eq!((by("type_1"), by("length_1")), (24, 32));
+        assert_eq!(by("tlv_end_mark"), 40);
+
+        // The repeats metadata survives a JSON round trip.
+        let json = serde_json::to_string_pretty(&proto).unwrap();
+        let parsed: ProtocolDef = serde_json::from_str(&json).unwrap();
+        assert_eq!(proto, parsed);
+        assert_eq!(parsed.repeats.len(), 1);
     }
 
     #[test]
