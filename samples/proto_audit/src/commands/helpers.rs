@@ -470,14 +470,21 @@ pub(super) fn build_rich_ir(proto: &str, paths: &SourcePaths) -> Result<ir::Prot
         }
     }
 
-    // If no extractor produced fields, check embedded_proto definitions
-    if best.as_ref().map_or(true, |b| b.fields.is_empty()) {
-        if let Some(edef) = crate::generator::pcap::embedded_proto(proto) {
-            if !edef.fields.is_empty() {
-                let mut edef = edef;
-                edef.generation_source = Some("embedded".to_string());
-                best = Some(edef);
-            }
+    // Consider the curated embedded definition as a candidate. Embedded defs
+    // are hand-written to be PCAP/tshark-correct and are what PCAP generation
+    // uses (see resolve_proto), so the IR should agree with them: prefer the
+    // embedded def whenever it is at least as detailed as anything the
+    // extractors produced (this also covers the case where no extractor
+    // produced any fields).
+    if let Some(edef) = crate::generator::pcap::embedded_proto(proto) {
+        if !edef.fields.is_empty()
+            && best
+                .as_ref()
+                .map_or(true, |b| edef.fields.len() > b.fields.len())
+        {
+            let mut edef = edef;
+            edef.generation_source = Some("embedded".to_string());
+            best = Some(edef);
         }
     }
 

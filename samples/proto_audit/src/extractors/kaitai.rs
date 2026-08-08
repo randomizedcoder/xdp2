@@ -149,6 +149,7 @@ pub fn extract_from_ksy(path: &Path) -> Result<Option<ProtocolDef>> {
         standards,
         iana_registries: BTreeMap::new(),
         layer: None,
+        repeats: vec![],
     }))
 }
 

@@ -385,6 +385,14 @@ pub fn pdml_name_alias(proto: &str) -> Option<&'static str> {
 /// Many protocols (LLDP, ENIP, etc.) wrap fields inside unnamed parent
 /// `<field>` elements (TLV containers). This function descends into those
 /// wrappers to collect all leaf fields with actual names.
+///
+/// Some dissectors instead nest a whole TLV inside a *named* header field
+/// (e.g. PROFINET MRP nests the MRP_Test value fields inside the outer
+/// `pn_mrp.type` TLV-header field). To capture those, after pushing a named
+/// field we also descend into it when it has child fields that extend beyond
+/// the field's own bytes (the TLV-container signal) — but not into plain
+/// leaf fields whose only children are bitmask sub-fields at the same
+/// position, which would add per-bit noise for every protocol.
 fn extract_fields_recursive(node: &roxmltree::Node, fields: &mut Vec<PdmlField>) {
     for field_node in node.children().filter(|n| n.has_tag_name("field")) {
         let field_name = field_node
@@ -398,20 +406,23 @@ fn extract_fields_recursive(node: &roxmltree::Node, fields: &mut Vec<PdmlField>)
             continue;
         }
 
+        let pos: u32 = field_node
+            .attribute("pos")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        let size: u32 = field_node
+            .attribute("size")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+
         fields.push(PdmlField {
             name: field_name,
             show_name: field_node
                 .attribute("showname")
                 .unwrap_or("")
                 .to_string(),
-            pos: field_node
-                .attribute("pos")
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0),
-            size: field_node
-                .attribute("size")
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0),
+            pos,
+            size,
             value: field_node
                 .attribute("value")
                 .unwrap_or("")
@@ -421,6 +432,24 @@ fn extract_fields_recursive(node: &roxmltree::Node, fields: &mut Vec<PdmlField>)
                 .unwrap_or("")
                 .to_string(),
         });
+
+        // Descend into named TLV-header containers: a named field whose child
+        // fields extend beyond its own [pos, pos+size) byte range wraps nested
+        // TLV content (type/length/value). Bitmask detail children stay within
+        // the parent's bytes and are intentionally skipped.
+        let field_end = pos + size;
+        let is_tlv_container = field_node
+            .children()
+            .filter(|n| n.has_tag_name("field"))
+            .any(|c| {
+                c.attribute("pos")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .map(|cpos| cpos >= field_end)
+                    .unwrap_or(false)
+            });
+        if is_tlv_container {
+            extract_fields_recursive(&field_node, fields);
+        }
     }
 }
 

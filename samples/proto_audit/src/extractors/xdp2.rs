@@ -207,6 +207,7 @@ pub fn to_protocol_def(xdp2_def: &Xdp2ProtoDef) -> ProtocolDef {
         standards: vec![],
         iana_registries: BTreeMap::new(),
         layer: None,
+        repeats: vec![],
     }
 }
 
