@@ -1454,6 +1454,53 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                         .with_endian(Endian::Big),
                 ]),
         ),
+        // ── LLAP (LocalTalk Link Access Protocol) ── 3-byte bridging header
+        // tshark inserts an LLAP layer between Ethernet (0x809B) and DDP.
+        // Modelled as its own layer so the AppleTalk/DDP header aligns with
+        // tshark's `ddp` PDML proto during round-trip validation.
+        "LLAP" => Some(
+            ProtocolDef::new("LLAP", 24)
+                .with_fields(vec![
+                    FieldDef::new("dst", 0, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("src", 8, 8, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("type", 16, 8, FieldType::Enum)
+                        .with_default_value("2"), // 2 = DDP
+                ]),
+        ),
+        // ── AppleTalk (long-form DDP) ── carried under LLAP (EtherType 0x809B)
+        // Datagram Delivery Protocol long header, 13 bytes = 104 bits. Field
+        // offsets/sizes mirror tshark's ddp.* leaf fields.
+        "AppleTalk" => Some(
+            ProtocolDef::new("AppleTalk", 104)
+                .with_fields(vec![
+                    // 2b unused | 4b hop count | 10b datagram length
+                    FieldDef::new("unused", 0, 2, FieldType::Pad),
+                    FieldDef::new("hop_count", 2, 4, FieldType::Uint),
+                    FieldDef::new("length", 6, 10, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("21"),
+                    FieldDef::new("checksum", 16, 16, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("dst_net", 32, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("100"),
+                    FieldDef::new("src_net", 48, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("200"),
+                    FieldDef::new("dst_node", 64, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("src_node", 72, 8, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("dst_socket", 80, 8, FieldType::Uint)
+                        .with_default_value("2"),
+                    FieldDef::new("src_socket", 88, 8, FieldType::Uint)
+                        .with_default_value("1"),
+                    FieldDef::new("ddp_type", 96, 8, FieldType::Enum)
+                        .with_default_value("2"), // 2 = NBP
+                ]),
+        ),
         // ── FCoE (Fibre Channel over Ethernet) ── FC-BB-5
         "FCoE" => Some(
             ProtocolDef::new("FCoE", 112) // 14-byte FCoE header

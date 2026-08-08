@@ -216,7 +216,10 @@ pub(super) const STACK_ROUTES: &[(&str, &str, &str, u64)] = &[
     ("IEC_GOOSE", "Ethernet", "ether_type", 0x88B8),
     ("IEC_SV", "Ethernet", "ether_type", 0x88BA),
     ("IPX", "Ethernet", "ether_type", 0x8137),
-    ("AppleTalk", "Ethernet", "ether_type", 0x809B),
+    // AppleTalk (0x809B) is dissected by tshark as Ethernet -> LLAP -> DDP,
+    // so route the DDP header (AppleTalk) under an LLAP layer.
+    ("LLAP", "Ethernet", "ether_type", 0x809B),
+    ("AppleTalk", "LLAP", "type", 2),
     ("TIPC", "Ethernet", "ether_type", 0x88CA),
     // ── L3: IPv4 (protocol dispatch) ──
     ("TCP", "IPv4", "protocol", 6),

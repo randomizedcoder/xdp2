@@ -509,7 +509,13 @@ use super::serialize::{
 
     #[test]
     fn test_build_stack_appletalk() {
-        assert_stack("AppleTalk", &["Ethernet", "AppleTalk"], 0, "ether_type", 0x809B);
+        assert_stack(
+            "AppleTalk",
+            &["Ethernet", "LLAP", "AppleTalk"],
+            0,
+            "ether_type",
+            0x809B,
+        );
     }
 
     #[test]
