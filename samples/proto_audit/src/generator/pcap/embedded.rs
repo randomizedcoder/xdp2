@@ -669,6 +669,142 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     sample_count: 2,
                 }),
         ),
+        // ── WireGuard Handshake Initiation (msg type 1, 148 bytes) ──
+        // tshark dissects the wg.* leaves of the fixture as: message_type(1B),
+        // reserved(3B), sender(4B), ephemeral(32B), encrypted_static(48B),
+        // encrypted_timestamp(28B), mac1(16B), mac2(16B).
+        "WireGuard" => Some(
+            ProtocolDef::new("WireGuard", 1184)
+                .with_fields(vec![
+                    FieldDef::new("message_type", 0, 8, FieldType::Uint)
+                        .with_default_value("1"), // Handshake Initiation
+                    FieldDef::new("reserved", 8, 24, FieldType::Pad),
+                    FieldDef::new("sender", 32, 32, FieldType::Uint)
+                        .with_endian(Endian::Little),
+                    FieldDef::new("ephemeral", 64, 256, FieldType::Bytes),
+                    FieldDef::new("encrypted_static", 320, 384, FieldType::Bytes),
+                    FieldDef::new("encrypted_timestamp", 704, 224, FieldType::Bytes),
+                    FieldDef::new("mac1", 928, 128, FieldType::Bytes),
+                    FieldDef::new("mac2", 1056, 128, FieldType::Bytes),
+                ]),
+        ),
+        // ── NTP (RFC 5905 fixed 48-byte header) ──
+        // tshark folds the first byte into ntp.flags(8b); we keep the LI/VN/mode
+        // sub-fields (covered by that byte) and match the four 64-bit timestamps
+        // at 128/192/256/320 — the previous extractor IR had a phantom 32-bit
+        // ref_id at 128 that shifted every timestamp +32 bits.
+        "NTP" => Some(
+            ProtocolDef::new("NTP", 384)
+                .with_fields(vec![
+                    FieldDef::new("leap", 0, 2, FieldType::Uint),
+                    FieldDef::new("version", 2, 3, FieldType::Uint).with_default_value("4"),
+                    FieldDef::new("mode", 5, 3, FieldType::Uint).with_default_value("3"),
+                    FieldDef::new("stratum", 8, 8, FieldType::Uint),
+                    FieldDef::new("poll", 16, 8, FieldType::Uint),
+                    FieldDef::new("precision", 24, 8, FieldType::Uint),
+                    FieldDef::new("root_delay", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("root_dispersion", 64, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("ref_id", 96, 32, FieldType::Uint).with_endian(Endian::Big),
+                    // Each NTP timestamp is seconds(32) + fraction(32); tshark folds
+                    // them into a single 64-bit field, which these halves nest under.
+                    FieldDef::new("ref_ts_sec", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("ref_ts_frac", 160, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("orig_ts_sec", 192, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("orig_ts_frac", 224, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("recv_ts_sec", 256, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("recv_ts_frac", 288, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("xmit_ts_sec", 320, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("xmit_ts_frac", 352, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── NSH (Network Service Header, RFC 8300, MD-Type 1 = 24 bytes) ──
+        // tshark folds ver/oam/ttl/length into nsh.version(16b); SPI is 24 bits +
+        // SI 8 bits (the extractor IR wrongly had spi=32b overlapping si), and the
+        // MD-Type 1 mandatory context is four 32-bit words.
+        "NSH" => Some(
+            ProtocolDef::new("NSH", 192)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 2, FieldType::Uint),
+                    FieldDef::new("oam", 2, 1, FieldType::Uint),
+                    FieldDef::new("unused", 3, 1, FieldType::Uint),
+                    FieldDef::new("ttl", 4, 6, FieldType::Uint).with_default_value("63"),
+                    FieldDef::new("length", 10, 6, FieldType::Uint).with_default_value("6"),
+                    FieldDef::new("md_type", 16, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("next_proto", 24, 8, FieldType::Uint).with_default_value("3"),
+                    FieldDef::new("spi", 32, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("si", 56, 8, FieldType::Uint),
+                    FieldDef::new("context_1", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("context_2", 96, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("context_3", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("context_4", 160, 32, FieldType::Uint).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── IPv6 Destination Options (RFC 8200, minimal 8-byte header) ──
+        // next_header(8) + hdr_ext_len(8) + one option TLV (type(8)+length(8)+data).
+        "IPv6_DestOpts" => Some(
+            ProtocolDef::new("IPv6_DestOpts", 64)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("nh", 0, 8, FieldType::Uint).with_default_value("59"),
+                    FieldDef::new("len", 8, 8, FieldType::Uint),
+                    FieldDef::new("opt_type", 16, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("opt_length", 24, 8, FieldType::Uint).with_default_value("4"),
+                    FieldDef::new("opt_data", 32, 32, FieldType::Bytes),
+                ]),
+        ),
+        // ── GLBP (Gateway Load Balancing Protocol, Cisco) ──
+        // The owner-id is a 6-byte MAC; the extractor IR had it as 8 bytes.
+        "GLBP" => Some(
+            ProtocolDef::new("GLBP", 96)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("unknown1", 8, 8, FieldType::Uint),
+                    FieldDef::new("group", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("unknown2", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("ownerid", 48, 48, FieldType::MacAddr).with_endian(Endian::Big),
+                ]),
+        ),
+        // ── RADIUS (RFC 2865): 20-byte header + attribute (AVP) TLV list ──
+        "RADIUS" => Some(
+            ProtocolDef::new("RADIUS", 160)
+                .with_fields(vec![
+                    FieldDef::new("code", 0, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("id", 8, 8, FieldType::Uint),
+                    FieldDef::new("len", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("authenticator", 32, 128, FieldType::Bytes),
+                ])
+                .with_repeat(RepeatGroup {
+                    name: "avp".into(),
+                    start_bits: 160,
+                    element: vec![
+                        FieldDef::new("avp_type", 0, 8, FieldType::Uint).with_default_value("1"),
+                        FieldDef::new("avp_length", 8, 8, FieldType::Uint)
+                            .with_default_value("6"),
+                        FieldDef::new("avp_value", 16, 32, FieldType::Bytes),
+                    ],
+                    element_size: ElementSize::LengthField {
+                        name: "avp_length".into(),
+                        multiplier: 1,
+                    },
+                    terminator: RepeatTerm::ToEnd,
+                    sample_count: 2,
+                }),
+        ),
+        // ── TFTP (RFC 1350) read/write request: opcode + filename + mode strings ──
+        // Field spans mirror tshark's dissection of the request fixture.
+        "TFTP" => Some(
+            ProtocolDef::new("TFTP", 136)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("opcode", 0, 16, FieldType::Uint)
+                        .with_endian(Endian::Big)
+                        .with_default_value("1"), // Read Request
+                    FieldDef::new("source_file", 16, 72, FieldType::Bytes),
+                    FieldDef::new("mode", 88, 48, FieldType::Bytes),
+                ]),
+        ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
             ProtocolDef::new("NC_SI", 128)
