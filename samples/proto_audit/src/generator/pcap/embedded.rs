@@ -805,6 +805,103 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("mode", 88, 48, FieldType::Bytes),
                 ]),
         ),
+        // ── Diameter (RFC 6733): 20-byte header + AVP TLV list ──
+        // The extractor IR had a 32-bit length (should be 24) which shifted
+        // every subsequent field; model the real header + two AVPs.
+        "Diameter" => Some(
+            ProtocolDef::new("Diameter", 160)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("length", 8, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("flags", 32, 8, FieldType::Uint),
+                    FieldDef::new("cmd_code", 40, 24, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("app_id", 64, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("hop_by_hop", 96, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("end_to_end", 128, 32, FieldType::Uint).with_endian(Endian::Big),
+                ])
+                .with_repeat(RepeatGroup {
+                    name: "avp".into(),
+                    start_bits: 160,
+                    element: vec![
+                        FieldDef::new("avp_code", 0, 32, FieldType::Uint).with_endian(Endian::Big),
+                        FieldDef::new("avp_flags", 32, 8, FieldType::Uint),
+                        FieldDef::new("avp_length", 40, 24, FieldType::Uint)
+                            .with_endian(Endian::Big),
+                        FieldDef::new("avp_data", 64, 96, FieldType::Bytes),
+                    ],
+                    element_size: ElementSize::Fixed(160),
+                    terminator: RepeatTerm::ToEnd,
+                    sample_count: 2,
+                }),
+        ),
+        // ── iSCSI Basic Header Segment (48 bytes, Login Request layout) ──
+        // The extractor IR was misaligned from DataSegmentLength onward
+        // (32-bit DSL instead of 24, 64-bit ISID instead of 48).
+        "iSCSI" => Some(
+            ProtocolDef::new("iSCSI", 384)
+                .with_fields(vec![
+                    FieldDef::new("opcode", 0, 8, FieldType::Uint),
+                    FieldDef::new("flags", 8, 8, FieldType::Uint),
+                    FieldDef::new("version_max", 16, 8, FieldType::Uint),
+                    FieldDef::new("version_min", 24, 8, FieldType::Uint),
+                    FieldDef::new("total_ahs_length", 32, 8, FieldType::Uint),
+                    FieldDef::new("data_segment_length", 40, 24, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("isid", 64, 48, FieldType::Bytes),
+                    FieldDef::new("tsih", 112, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("initiator_task_tag", 128, 32, FieldType::Uint)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("cid", 160, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("reserved1", 176, 16, FieldType::Pad),
+                    FieldDef::new("cmd_sn", 192, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("exp_stat_sn", 224, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("reserved2", 256, 128, FieldType::Pad),
+                ]),
+        ),
+        // ── MQTT CONNECT (fixed header + variable header + client-id) ──
+        // The extractor IR stopped at the fixed header; tshark dissects the
+        // whole CONNECT, so model the variable header through the client id.
+        "MQTT" => Some(
+            ProtocolDef::new("MQTT", 200)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("type", 0, 4, FieldType::Uint).with_default_value("1"), // CONNECT
+                    FieldDef::new("dup", 4, 1, FieldType::Uint),
+                    FieldDef::new("qos", 5, 2, FieldType::Uint),
+                    FieldDef::new("retain", 7, 1, FieldType::Uint),
+                    FieldDef::new("len", 8, 8, FieldType::Uint),
+                    FieldDef::new("proto_len", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("proto_name", 32, 32, FieldType::Bytes),
+                    FieldDef::new("version", 64, 8, FieldType::Uint).with_default_value("4"),
+                    FieldDef::new("conn_flags", 72, 8, FieldType::Uint),
+                    FieldDef::new("keep_alive", 80, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("client_id_len", 96, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("client_id", 112, 88, FieldType::Bytes),
+                ]),
+        ),
+        // ── MACsec (IEEE 802.1AE SecTAG + secure data + ICV) ──
+        // The extractor IR modelled the SCI as one 16-bit field and omitted the
+        // trailing ICV; tshark sees a 48-bit system id + 16-bit port id and a
+        // 16-byte ICV. TCI/AN sub-fields nest under tshark's macsec.TCI byte.
+        "MACsec" => Some(
+            ProtocolDef::new("MACsec", 400)
+                .with_fields(vec![
+                    FieldDef::new("version", 0, 1, FieldType::Uint),
+                    FieldDef::new("end_station", 1, 1, FieldType::Uint),
+                    FieldDef::new("sci_present", 2, 1, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("scb", 3, 1, FieldType::Uint),
+                    FieldDef::new("encryption", 4, 1, FieldType::Uint),
+                    FieldDef::new("changed_text", 5, 1, FieldType::Uint),
+                    FieldDef::new("association_number", 6, 2, FieldType::Uint),
+                    FieldDef::new("short_length", 8, 8, FieldType::Uint),
+                    FieldDef::new("packet_number", 16, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("sci_system_id", 48, 48, FieldType::MacAddr)
+                        .with_endian(Endian::Big),
+                    FieldDef::new("sci_port_id", 96, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("secure_data", 112, 160, FieldType::Bytes),
+                    FieldDef::new("icv", 272, 128, FieldType::Bytes),
+                ]),
+        ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
             ProtocolDef::new("NC_SI", 128)
