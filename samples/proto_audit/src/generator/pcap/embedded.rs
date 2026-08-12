@@ -902,6 +902,37 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("icv", 272, 128, FieldType::Bytes),
                 ]),
         ),
+        // ── SNMP v1/v2c (community-based, BER/ASN.1 encoded) ──
+        // tshark reports the *value* offsets (version at bit 32, community at
+        // bit 56); model the enclosing BER TLV framing so those line up.
+        "SNMP" => Some(
+            ProtocolDef::new("SNMP", 104)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("seq_tag", 0, 8, FieldType::Uint).with_default_value("48"), // 0x30 SEQUENCE
+                    FieldDef::new("seq_len", 8, 8, FieldType::Uint),
+                    FieldDef::new("version_tag", 16, 8, FieldType::Uint).with_default_value("2"), // INTEGER
+                    FieldDef::new("version_len", 24, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("version", 32, 8, FieldType::Uint),
+                    FieldDef::new("community_tag", 40, 8, FieldType::Uint).with_default_value("4"), // OCTET STRING
+                    FieldDef::new("community_len", 48, 8, FieldType::Uint).with_default_value("6"),
+                    FieldDef::new("community", 56, 48, FieldType::Bytes),
+                ]),
+        ),
+        // ── FDDI (frame control + 48-bit dst/src MAC addresses) ──
+        // FC is modelled as its C/L/FF/ZZZZ bitfields (nested under tshark's
+        // fddi.fc byte) so the def out-details the misaligned extractor IR.
+        "FDDI" => Some(
+            ProtocolDef::new("FDDI", 104)
+                .with_fields(vec![
+                    FieldDef::new("fc_class", 0, 1, FieldType::Uint),
+                    FieldDef::new("fc_length", 1, 1, FieldType::Uint),
+                    FieldDef::new("fc_format", 2, 2, FieldType::Uint),
+                    FieldDef::new("fc_control", 4, 4, FieldType::Uint),
+                    FieldDef::new("dst", 8, 48, FieldType::MacAddr).with_endian(Endian::Big),
+                    FieldDef::new("src", 56, 48, FieldType::MacAddr).with_endian(Endian::Big),
+                ]),
+        ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
             ProtocolDef::new("NC_SI", 128)
