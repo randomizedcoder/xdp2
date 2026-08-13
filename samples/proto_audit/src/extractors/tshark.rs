@@ -194,9 +194,12 @@ pub fn decode_as_hints(proto: &str) -> Vec<&'static str> {
         "gRPC" => vec!["tcp.port==50051,http2"],
         "gNMI" => vec!["tcp.port==9339,http2"],
         "gNOI" => vec!["tcp.port==9340,http2"],
-        "H323" => vec!["tcp.port==1720,q931"],
+        // Q.931 / H.225 and S7 both ride TPKT (RFC 1006) directly on TCP; the
+        // "q931"/"cotp" dissectors are not valid decode-as targets for tcp.port
+        // (a bad hint hard-errors the whole validate), so route via tpkt.
+        "H323" => vec!["tcp.port==1720,tpkt"],
         "IEC_104" => vec!["tcp.port==2404,iec60870_104"],
-        "S7COMM" => vec!["tcp.port==102,cotp"],
+        "S7COMM" => vec!["tcp.port==102,tpkt"],
         "RTP_H264" | "RTP_H265" | "RTP_MPEG" | "RTP_OPUS" => vec!["udp.port==5004,rtp"],
         "RTCP_SR" | "RTCP_RR" => vec!["udp.port==5005,rtcp"],
         "Diameter_S6a" => vec!["tcp.port==3868,diameter"],
