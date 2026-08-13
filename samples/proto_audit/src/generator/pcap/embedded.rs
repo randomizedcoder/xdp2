@@ -933,6 +933,22 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("src", 56, 48, FieldType::MacAddr).with_endian(Endian::Big),
                 ]),
         ),
+        // ── S7COMM (Siemens S7, over TPKT/COTP) — 10-byte header + parameters ──
+        // tshark reports s7comm.header(80b) + s7comm.param; the six header
+        // sub-fields nest under the header container.
+        "S7COMM" => Some(
+            ProtocolDef::new("S7COMM", 80)
+                .with_variable_length()
+                .with_fields(vec![
+                    FieldDef::new("protocol_id", 0, 8, FieldType::Uint).with_default_value("50"), // 0x32
+                    FieldDef::new("rosctr", 8, 8, FieldType::Uint).with_default_value("1"),
+                    FieldDef::new("redundancy_id", 16, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("pdu_ref", 32, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("param_length", 48, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("data_length", 64, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("param", 80, 144, FieldType::Bytes),
+                ]),
+        ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
             ProtocolDef::new("NC_SI", 128)
