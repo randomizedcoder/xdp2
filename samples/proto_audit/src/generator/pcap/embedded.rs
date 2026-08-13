@@ -949,6 +949,29 @@ pub fn embedded_proto(name: &str) -> Option<ProtocolDef> {
                     FieldDef::new("param", 80, 144, FieldType::Bytes),
                 ]),
         ),
+        // ── ERSPAN Type III (12-byte header, RFC/Cisco) ──
+        // The extractor IR started at the timestamp (offset 0) and was missing
+        // the first 4 bytes; model the full header so ver/vlan cover tshark's
+        // erspan.version(16b) field.
+        "ERSPAN_V3" => Some(
+            ProtocolDef::new("ERSPAN_V3", 96)
+                .with_fields(vec![
+                    FieldDef::new("ver", 0, 4, FieldType::Uint).with_default_value("2"),
+                    FieldDef::new("vlan", 4, 12, FieldType::Uint),
+                    FieldDef::new("cos", 16, 3, FieldType::Uint),
+                    FieldDef::new("bso", 19, 2, FieldType::Uint),
+                    FieldDef::new("t", 21, 1, FieldType::Uint),
+                    FieldDef::new("session_id", 22, 10, FieldType::Uint),
+                    FieldDef::new("timestamp", 32, 32, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("sgt", 64, 16, FieldType::Uint).with_endian(Endian::Big),
+                    FieldDef::new("p", 80, 1, FieldType::Uint),
+                    FieldDef::new("ft", 81, 5, FieldType::Uint),
+                    FieldDef::new("hwid", 86, 6, FieldType::Uint),
+                    FieldDef::new("d", 92, 1, FieldType::Uint),
+                    FieldDef::new("gra", 93, 2, FieldType::Uint),
+                    FieldDef::new("o", 95, 1, FieldType::Uint),
+                ]),
+        ),
         // ── NC-SI (Network Controller Sideband Interface) ──
         "NC_SI" => Some(
             ProtocolDef::new("NC_SI", 128)
