@@ -551,7 +551,14 @@ pub fn protocol_table() -> Vec<ProtocolNames> {
         // ── Netlink inet_diag Attributes (xtcp2 source) ──
         PN::new("NL_Diag_TCPInfo", 248)
             .kernel("tcp_info", "linux/tcp.h")
-            .xtcp2("TCPInfo6_10_3")
+            // The unversioned alias, NOT a concrete TCPInfoX_Y_Z. xtcp2 spells
+            // it `type TCPInfo TCPInfo7_0_3` and bumps that line as the kernel
+            // struct grows; resolve_alias() in extractors/xtcp2.rs exists to
+            // follow it. Naming a concrete struct here skips that step, so the
+            // audit silently pins to whichever kernel version was current when
+            // this line was written. It had pinned 6.10, hiding the 11-field
+            // Accurate ECN trailer 7.0 appended (248 -> 280 bytes) as "missing".
+            .xtcp2("TCPInfo")
             .variable(),
         PN::new("NL_Diag_BBRInfo", 20)
             .kernel("tcp_bbr_info", "linux/inet_diag.h")
